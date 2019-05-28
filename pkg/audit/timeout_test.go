@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -78,12 +77,8 @@ func TestGetShareTimeout(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		verifiedNodes, err := verifier.Verify(ctx, stripe)
-		assert.Error(t, err)
-		assert.NotNil(t, verifiedNodes)
-		for i := 0; i < k; i++ {
-			assert.True(t, contains(verifiedNodes.OfflineNodeIDs, pieces[i].NodeId))
-		}
+		_, err = verifier.Verify(ctx, stripe)
+		require.NoError(t, err)
 	})
 }
 
@@ -94,13 +89,4 @@ func stopStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) error {
 		}
 	}
 	return fmt.Errorf("no such node: %s", nodeID.String())
-}
-
-func contains(nodes storj.NodeIDList, nodeID storj.NodeID) bool {
-	for _, n := range nodes {
-		if n == nodeID {
-			return true
-		}
-	}
-	return false
 }

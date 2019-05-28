@@ -99,14 +99,14 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.EqualValues(t, 0, pending.ReverifyCount)
+		require.Equal(t, uint32(0), pending.ReverifyCount)
 
 		// expect reverify count to be 1 after second IncrementPending call
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
 		pending, err = planet.Satellites[0].DB.Containment().Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, pending.ReverifyCount)
+		require.Equal(t, uint32(1), pending.ReverifyCount)
 	})
 }
 
