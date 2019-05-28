@@ -15,11 +15,10 @@ var OffersErr = errs.Class("offers error")
 
 // Offers holds information about offer
 type Offers interface {
-	ListAllOffers(ctx context.Context) ([]Offer, error)
-	GetNoExpiredOffer(ctx context.Context, offerStatus OfferStatus, offerType OfferType) (*Offer, error)
+	ListAll(ctx context.Context) ([]Offer, error)
+	GetCurrent(ctx context.Context) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
-	Update(ctx context.Context, offer *Offer) error
-	Delete(ctx context.Context, id int) error
+	Update(ctx context.Context, id int, offer *UpdateOffer) error
 }
 
 // NewOffer holds information that's needed for creating a new offer
@@ -27,55 +26,55 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	CreditInCents int
+	AwardCreditInCents   int
+	InviteeCreditInCents int
 
 	RedeemableCap int
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
-	Type                      OfferType
+
+	ExpiresAt time.Time
+
+	Status OfferStatus
+}
+
+// UpdateOffer holds fields that can be updated
+type UpdateOffer struct {
+	Status      OfferStatus
+	NumRedeemed int
+	ExpiresAt   time.Time
 }
 
 // OfferStatus indicates the status of an offer
 type OfferStatus int
 
 const (
-	// NoStatus is a default offer status when no status is assigned during creation
-	NoStatus OfferStatus = 0
-	// OnGoing is a offer status when an offer is currently in use
-	OnGoing OfferStatus = 1
-	// Expired is a offer status when an offer passes it's duration setting
-	Expired OfferStatus = 2
-)
-
-// OfferType indicates the type of an offer
-type OfferType int
-
-const (
-	// FreeTier is a type of offers that's used for free credit program
-	FreeTier OfferType = 1
-	// Referral is a type of offers that's used for referral program
-	Referral OfferType = 2
+	// Done is a default offer status when an offer is not being used currently
+	Done OfferStatus = 0
+	// Default is a offer status when an offer is used as a default offer
+	Default OfferStatus = 1
+	// Active is a offer status when an offer is currently being used
+	Active OfferStatus = 2
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
 type Offer struct {
-	ID int
-
+	ID          int
 	Name        string
 	Description string
 
-	CreditInCents int
-
-	RedeemableCap int
-	NumRedeemed   int
+	AwardCreditInCents   int
+	InviteeCreditInCents int
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
 
-	ExpiresAt *time.Time
+	RedeemableCap int
+	NumRedeemed   int
+
+	ExpiresAt time.Time
 	CreatedAt time.Time
 
 	Status OfferStatus
-	Type   OfferType
 }
