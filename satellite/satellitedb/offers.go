@@ -28,20 +28,28 @@ func (offers *offers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 }
 
 // GetCurrent returns an offer that has not expired based on offer status
-func (offers *offers) GetCurrent(ctx context.Context) (*marketing.Offer, error) {
-	statement := offers.db.Rebind(
-		`WITH o AS (
-			SELECT * FROM offers WHERE offers.status=? AND offers.expires_at>NOW()
-		  )
-		  SELECT * FROM o
-		  UNION ALL
-		  SELECT * FROM offers
-		  WHERE offers.status=?
-		  AND NOT EXISTS (
-			SELECT * FROM o
-		  ) order by offers.created_at desc;`)
+func (offers *offers) GetCurrent(ctx context.Context, isDefault bool) (*marketing.Offer, error) {
+	var statement string
+	if isDefault {
+		statement = `
+			SELECT * FROM offers
+			WHERE offers.status=? AND offers.expires_at>NOW()
+			order by offers.created_at desc;`
+	} else {
+		statement = `
+			WITH o AS (
+				SELECT * FROM offers WHERE offers.status=? AND offers.expires_at>NOW()
+			  )
+			  SELECT * FROM o
+			  UNION ALL
+			  SELECT * FROM offers
+			  WHERE offers.status=?
+			  AND NOT EXISTS (
+				SELECT * FROM o
+			  ) order by offers.created_at desc;`
+	}
 
-	rows, err := offers.db.DB.QueryContext(ctx, statement, marketing.Active, marketing.Default)
+	rows, err := offers.db.DB.QueryContext(ctx, offers.db.Rebind(statement), marketing.Active, marketing.Default)
 	if err == sql.ErrNoRows {
 		return nil, marketing.OffersErr.New("no current offer")
 	}
