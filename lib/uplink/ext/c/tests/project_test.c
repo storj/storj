@@ -7,6 +7,31 @@
 #include "unity.h"
 #include "../../uplink-cgo.h"
 
+void create_test_bucket(ProjectRef_t ref_project, char *bucket_name, Bucket_t *bucket, BucketConfig_t *cfg, char **err)
+{
+    *bucket = CreateBucket(ref_project, bucket_name, cfg, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    TEST_ASSERT_NOT_NULL(bucket.encryption_parameters);
+    TEST_ASSERT_EQUAL(enc_param.cipher_suite, bucket.encryption_parameters->cipher_suite);
+    TEST_ASSERT_EQUAL(enc_param.block_size, bucket.encryption_parameters->block_size);
+
+    TEST_ASSERT_NOT_NULL(bucket.redundancy_scheme);
+    TEST_ASSERT_EQUAL(scheme.algorithm, bucket.redundancy_scheme->algorithm);
+    TEST_ASSERT_EQUAL(scheme.share_size, bucket.redundancy_scheme->share_size);
+    TEST_ASSERT_EQUAL(scheme.required_shares, bucket.redundancy_scheme->required_shares);
+    TEST_ASSERT_EQUAL(scheme.repair_shares, bucket.redundancy_scheme->repair_shares);
+    TEST_ASSERT_EQUAL(scheme.optimal_shares, bucket.redundancy_scheme->optimal_shares);
+    TEST_ASSERT_EQUAL(scheme.total_shares, bucket.redundancy_scheme->total_shares);
+
+    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket.name);
+    TEST_ASSERT_NOT_EQUAL(0, bucket.created);
+    // TODO: what is expected here (bucket.path_cipher is 1 when bucket_cfg.path_cipher is 0 and vice-versa)?
+//    TEST_ASSERT_EQUAL(bucket_cfg.path_cipher, bucket.path_cipher);
+    // TODO: what is expected here (bucket.segment_size is 67108864)?
+//    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
+}
+
 UplinkRef_t NewTestUplink(char **);
 
 ProjectRef_t OpenTestProject(char **err)
@@ -63,27 +88,8 @@ void TestCreateBucket(void)
 
     char *bucket_name = getenv("CREATE_BUCKET_NAME");
 
-    Bucket_t bucket = CreateBucket(ref_project, bucket_name, bucket_cfg, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
-    TEST_ASSERT_NOT_NULL(bucket.encryption_parameters);
-    TEST_ASSERT_EQUAL(enc_param.cipher_suite, bucket.encryption_parameters->cipher_suite);
-    TEST_ASSERT_EQUAL(enc_param.block_size, bucket.encryption_parameters->block_size);
-
-    TEST_ASSERT_NOT_NULL(bucket.redundancy_scheme);
-    TEST_ASSERT_EQUAL(scheme.algorithm, bucket.redundancy_scheme->algorithm);
-    TEST_ASSERT_EQUAL(scheme.share_size, bucket.redundancy_scheme->share_size);
-    TEST_ASSERT_EQUAL(scheme.required_shares, bucket.redundancy_scheme->required_shares);
-    TEST_ASSERT_EQUAL(scheme.repair_shares, bucket.redundancy_scheme->repair_shares);
-    TEST_ASSERT_EQUAL(scheme.optimal_shares, bucket.redundancy_scheme->optimal_shares);
-    TEST_ASSERT_EQUAL(scheme.total_shares, bucket.redundancy_scheme->total_shares);
-
-    TEST_ASSERT_EQUAL_STRING(bucket_name, bucket.name);
-    TEST_ASSERT_NOT_EQUAL(0, bucket.created);
-    // TODO: what is expected here (bucket.path_cipher is 1 when bucket_cfg.path_cipher is 0 and vice-versa)?
-//    TEST_ASSERT_EQUAL(bucket_cfg.path_cipher, bucket.path_cipher);
-    // TODO: what is expected here (bucket.segment_size is 67108864)?
-//    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
+    Bucket_t *bucket = malloc(sizeof(Bucket_t));
+    create_test_bucket(ref_project, bucket_name, bucket, &bucket_cfg, err);
 }
 
 void TestDeleteBucket(void)
@@ -127,6 +133,17 @@ void TestListBuckets(void)
     char *delete_bucket_name = getenv("DELETE_BUCKET_NAME");
     TEST_ASSERT_EQUAL_STRING(delete_bucket_name, bucket.name);
     TEST_ASSERT_NOT_EQUAL(0, bucket.created);
+}
+
+void TestGetBucketInfo(void)
+{
+    char *_err = "";
+    char **err = &_err;
+
+    ProjectRef_t ref_project = OpenTestProject(err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    char *bucket_name = getenv("INFO_BUCKET_NAME");
 }
 
 int main(int argc, char *argv[])

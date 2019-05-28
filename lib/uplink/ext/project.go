@@ -97,6 +97,20 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 	}
 }
 
+//export CloseProject
+func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
+	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	if !ok {
+		*cErr = C.CString("invalid project")
+		return
+	}
+
+	if err := project.Close(); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
+
 func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
 	encParamsPtr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
 	encParams := (*C.EncryptionParameters_t)(unsafe.Pointer(encParamsPtr))
@@ -123,19 +137,5 @@ func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
 		created:               C.int64_t(bucket.Created.Unix()),
 		path_cipher:           C.uint8_t(bucket.PathCipher),
 		segment_size:          C.int64_t(bucket.SegmentsSize),
-	}
-}
-
-//export CloseProject
-func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
-	if !ok {
-		*cErr = C.CString("invalid project")
-		return
-	}
-
-	if err := project.Close(); err != nil {
-		*cErr = C.CString(err.Error())
-		return
 	}
 }
