@@ -526,6 +526,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
 		var pmService payments.Service
 		if consoleConfig.StripeKey != "" {
 			pmService = payments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)

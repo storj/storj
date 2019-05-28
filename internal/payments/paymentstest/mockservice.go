@@ -22,6 +22,9 @@ func (mock *MockService) CreateCustomer(ctx context.Context, params payments.Cre
 		ID:    params.Email,
 		Email: params.Email,
 		Name:  params.Name,
+		DefaultSource: &stripe.PaymentSource{
+			ID: "pm_id",
+		},
 	}
 
 	if params.Description != "" {
@@ -45,7 +48,12 @@ func (mock *MockService) GetInvoice(ctx context.Context, invoiceID string) (*str
 
 // GetCustomer mock implementation of payments.Service GetCustomer
 func (mock *MockService) GetCustomer(ctx context.Context, customerID string) (*stripe.Customer, error) {
-	return &stripe.Customer{ID: customerID}, nil
+	return &stripe.Customer{
+		ID: customerID,
+		DefaultSource: &stripe.PaymentSource{
+			ID: "pm_id",
+		},
+	}, nil
 }
 
 // GetCustomerDefaultPaymentMethod mock implementation of payments.Service GetCustomerDefaultPaymentMethod
