@@ -2,12 +2,13 @@ package main_test
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"storj.io/storj/lib/uplink"
 	"testing"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/lib/uplink"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCProjectTests(t *testing.T) {
