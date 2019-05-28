@@ -23,6 +23,9 @@ var ErrEmptyNode = errs.New("empty node ID")
 // ErrNodeNotFound is returned if a node does not exist in database
 var ErrNodeNotFound = errs.Class("node not found")
 
+// ErrNodeOffline is returned if a nodes is offline
+var ErrNodeOffline = errs.Class("node is offline")
+
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("bucket not found")
 
