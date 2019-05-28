@@ -83,7 +83,7 @@ void TestProject(void)
     ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    char *bucket_names[] = {"TestBucket1","TestBucket2"};
+    char *bucket_names[] = {"TestBucket1","TestBucket2","TestBucket3","TestBucket4"};
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // Create buckets
@@ -111,8 +111,10 @@ void TestProject(void)
 
     // Delete Buckets
     for (int i=0; i < num_of_buckets; i++) {
-        DeleteBucket(ref_project, bucket_names[i], err);
-        TEST_ASSERT_EQUAL_STRING("", *err);
+        if (i%2 == 0) {
+            DeleteBucket(ref_project, bucket_names[i], err);
+            TEST_ASSERT_EQUAL_STRING("", *err);
+        }
     }
 
     // Close Project
