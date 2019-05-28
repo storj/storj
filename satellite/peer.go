@@ -512,10 +512,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		if consoleConfig.AuthTokenSecret == "" {
+			return nil, errs.New("Auth token secret required")
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			// TODO(yar): use satellite key
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
+			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			consoleConfig.PasswordCost,
 		)
