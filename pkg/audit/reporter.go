@@ -12,6 +12,9 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// TODO(kaloyan): Make this configurable
+const maxReverifyCount = 3
+
 type reporter interface {
 	RecordAudits(ctx context.Context, req *Report) (failed *Report, err error)
 }
@@ -38,6 +41,10 @@ func NewReporter(overlay *overlay.Cache, containment Containment, maxRetries int
 
 // RecordAudits saves audit details to overlay
 func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+	if req == nil {
+		return nil, nil
+	}
+
 	successes := req.Successes
 	fails := req.Fails
 	offlines := req.Offlines
@@ -106,6 +113,13 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 			failed = append(failed, nodeID)
 			errlist.Add(err)
 		}
+
+		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
+		_, err = reporter.containment.Delete(ctx, nodeID)
+		if err != nil {
+			failed = append(failed, nodeID)
+			errlist.Add(err)
+		}
 	}
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), errlist.Err())
@@ -142,6 +156,13 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 			failed = append(failed, nodeID)
 			errlist.Add(err)
 		}
+
+		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
+		_, err = reporter.containment.Delete(ctx, nodeID)
+		if err != nil {
+			failed = append(failed, nodeID)
+			errlist.Add(err)
+		}
 	}
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), errlist.Err())
@@ -153,10 +174,30 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
 	var errlist errs.Group
 	for _, pendingAudit := range pendingAudits {
-		err := reporter.containment.IncrementPending(ctx, pendingAudit)
-		if err != nil {
-			failed = append(failed, pendingAudit)
-			errlist.Add(err)
+		if pendingAudit.ReverifyCount < maxReverifyCount {
+			err := reporter.containment.IncrementPending(ctx, pendingAudit)
+			if err != nil {
+				failed = append(failed, pendingAudit)
+				errlist.Add(err)
+			}
+		} else {
+			// record failure -- max reverify count reached
+			_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       pendingAudit.NodeID,
+				IsUp:         true,
+				AuditSuccess: false,
+			})
+			if err != nil {
+				failed = append(failed, pendingAudit)
+				errlist.Add(err)
+			}
+
+			// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
+			_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
+			if err != nil {
+				failed = append(failed, pendingAudit)
+				errlist.Add(err)
+			}
 		}
 	}
 	if len(failed) > 0 {
