@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ueo pipefail
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
