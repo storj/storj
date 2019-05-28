@@ -582,13 +582,13 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 		}
 	}
 
-	for _, configuration := range confs {
-		conf := configuration
-		confname := fmt.Sprintf("r%dt%d/", conf.required, conf.total)
+	for _, conf := range confs {
+		configuration := conf
+		confname := fmt.Sprintf("r%dt%d/", configuration.required, configuration.total)
 		for _, expDataSize := range dataSizes {
-			dataSize := (expDataSize / conf.required) * conf.required
+			dataSize := (expDataSize / configuration.required) * configuration.required
 			testname := bytesToStr(dataSize)
-			forwardErrorCode, _ := infectious.NewFEC(conf.required, conf.total)
+			forwardErrorCode, _ := infectious.NewFEC(configuration.required, configuration.total)
 			erasureScheme := NewRSScheme(forwardErrorCode, 8*1024)
 
 			b.Run("Encode/"+confname+testname, func(b *testing.B) {
@@ -616,16 +616,16 @@ func BenchmarkReedSolomonErasureScheme(b *testing.B) {
 
 			b.Run("Decode/"+confname+testname, func(b *testing.B) {
 				b.SetBytes(int64(dataSize))
-				shareMap := make(map[int][]byte, conf.total*2)
+				shareMap := make(map[int][]byte, configuration.total*2)
 				for i := 0; i < b.N; i++ {
 					rand.Shuffle(len(shares), func(i, k int) {
 						shares[i], shares[k] = shares[k], shares[i]
 					})
 
-					offset := i % (conf.total / 4)
-					n := conf.required + 1 + offset
-					if n > conf.total {
-						n = conf.total
+					offset := i % (configuration.total / 4)
+					n := configuration.required + 1 + offset
+					if n > configuration.total {
+						n = configuration.total
 					}
 
 					for k := range shareMap {

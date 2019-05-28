@@ -50,8 +50,7 @@ func RevokeLeaf(caKey crypto.PrivateKey, chain []*x509.Certificate) ([]*x509.Cer
 	var revocationExt *pkix.Extension
 	for _, ext := range revokingCert.Extensions {
 		if extensions.RevocationExtID.Equal(ext.Id) {
-			extension := ext
-			revocationExt = &extension
+			revocationExt = &ext // nolint: scopelint
 			break
 		}
 	}

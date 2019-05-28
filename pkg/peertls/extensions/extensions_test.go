@@ -28,7 +28,9 @@ func TestHandlers_Register(t *testing.T) {
 		chains   [][][]*x509.Certificate
 	)
 
-	for i := 0; i < 5; i++ {
+	for idx := 0; idx < 5; idx++ {
+		i := idx
+
 		ids = append(ids, &extensions.ExtensionID{2, 999, 999, i})
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
@@ -37,23 +39,22 @@ func TestHandlers_Register(t *testing.T) {
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 
-		index := i
 		testHandler := extensions.NewHandlerFactory(
-			ids[index],
+			ids[i],
 			func(opt *extensions.Options) extensions.HandlerFunc {
-				assert.Equal(t, opts[index], opt)
+				assert.Equal(t, opts[i], opt)
 				assert.NotNil(t, opt)
 
 				return func(ext pkix.Extension, chain [][]*x509.Certificate) error {
 					assert.NotNil(t, ext)
-					assert.Equal(t, exts[index], ext)
+					assert.Equal(t, exts[i], ext)
 
 					assert.NotNil(t, ext.Id)
-					assert.Equal(t, *ids[index], ext.Id)
+					assert.Equal(t, *ids[i], ext.Id)
 
 					assert.NotNil(t, chain)
-					assert.Equal(t, chains[index], chain)
-					return errs.New(strconv.Itoa(index))
+					assert.Equal(t, chains[i], chain)
+					return errs.New(strconv.Itoa(i))
 				}
 			},
 		)
@@ -80,7 +81,9 @@ func TestHandlers_WithOptions(t *testing.T) {
 		chains   [][][]*x509.Certificate
 	)
 
-	for i := 0; i < 5; i++ {
+	for idx := 0; idx < 5; idx++ {
+		i := idx
+
 		ids = append(ids, &extensions.ExtensionID{2, 999, 999, i})
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
@@ -89,23 +92,22 @@ func TestHandlers_WithOptions(t *testing.T) {
 		require.NoError(t, err)
 		chains = append(chains, identity.ToChains(chain))
 
-		index := i
 		testHandler := extensions.NewHandlerFactory(
-			ids[index],
+			ids[i],
 			func(opt *extensions.Options) extensions.HandlerFunc {
-				assert.Equal(t, opts[index], opt)
+				assert.Equal(t, opts[i], opt)
 				assert.NotNil(t, opt)
 
 				return func(ext pkix.Extension, chain [][]*x509.Certificate) error {
 					assert.NotNil(t, ext)
-					assert.Equal(t, exts[index], ext)
+					assert.Equal(t, exts[i], ext)
 
 					assert.NotNil(t, ext.Id)
-					assert.Equal(t, *ids[index], ext.Id)
+					assert.Equal(t, *ids[i], ext.Id)
 
 					assert.NotNil(t, chain)
-					assert.Equal(t, chains[index], chain)
-					return errs.New(strconv.Itoa(index))
+					assert.Equal(t, chains[i], chain)
+					return errs.New(strconv.Itoa(i))
 				}
 			},
 		)

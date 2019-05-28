@@ -49,9 +49,8 @@ func (msg *Message) Bytes() (data []byte, err error) {
 	fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
 	fmt.Fprintf(&body, "Subject: %v\r\n", mime.QEncoding.Encode("utf-8", msg.Subject))
 	fmt.Fprintf(&body, "From: %s\r\n", &msg.From)
-	for _, msgTo := range msg.To {
-		to := msgTo
-		fmt.Fprintf(&body, "To: %s\r\n", &to)
+	for _, to := range msg.To {
+		fmt.Fprintf(&body, "To: %s\r\n", &to) // nolint:scopelint
 	}
 	for _, recipient := range msg.ReceiptTo {
 		fmt.Fprintf(&body, "Disposition-Notification-To: <%v>\r\n", mime.QEncoding.Encode("utf-8", recipient))

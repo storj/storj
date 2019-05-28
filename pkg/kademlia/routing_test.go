@@ -166,16 +166,16 @@ func TestConnectionSuccess(t *testing.T) {
 			address: address2,
 		},
 	}
-	for _, testCase := range cases {
-		c := testCase
-		t.Run(c.testID, func(t *testing.T) {
-			err := rt.ConnectionSuccess(c.node)
+	for _, c := range cases {
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			err := rt.ConnectionSuccess(testCase.node)
 			assert.NoError(t, err)
-			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
+			v, err := rt.nodeBucketDB.Get(testCase.id.Bytes())
 			assert.NoError(t, err)
 			n, err := unmarshalNodes([]storage.Value{v})
 			assert.NoError(t, err)
-			assert.Equal(t, c.address.Address, n[0].Address.Address)
+			assert.Equal(t, testCase.address.Address, n[0].Address.Address)
 		})
 	}
 }

@@ -975,10 +975,9 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		return result, errs.New(internalErrMsg)
 	}
 
-	for _, projectMembership := range memberships {
-		membership := projectMembership
+	for _, membership := range memberships {
 		if membership.ProjectID == projectID {
-			result.membership = &membership
+			result.membership = &membership // nolint: scopelint
 			result.project = project
 			return
 		}

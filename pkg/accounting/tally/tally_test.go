@@ -35,8 +35,8 @@ func TestDeleteTalliesBefore(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		tt := test
+	for _, tt := range tests {
+		test := tt
 		testplanet.Run(t, testplanet.Config{
 			SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -47,12 +47,12 @@ func TestDeleteTalliesBefore(t *testing.T) {
 			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeData)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, tt.eraseBefore)
+			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore)
 			require.NoError(t, err)
 
 			raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 			require.NoError(t, err)
-			assert.Len(t, raws, tt.expectedRaws)
+			assert.Len(t, raws, test.expectedRaws)
 		})
 	}
 }

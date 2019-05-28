@@ -48,12 +48,12 @@ func TestProjectUsageStorage(t *testing.T) {
 
 		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
-		for _, testCase := range cases {
-			tt := testCase
-			t.Run(tt.name, func(t *testing.T) {
+		for _, ttc := range cases {
+			testCase := ttc
+			t.Run(testCase.name, func(t *testing.T) {
 
 				// Setup: create BucketStorageTally records to test exceeding storage project limit
-				if tt.expectedResource == "storage" {
+				if testCase.expectedResource == "storage" {
 					now := time.Now()
 					err := setUpStorageTallies(ctx, projectID, acctDB, 25, now)
 					require.NoError(t, err)
@@ -61,7 +61,7 @@ func TestProjectUsageStorage(t *testing.T) {
 
 				actualExceeded, _, err := projectUsage.ExceedsStorageUsage(ctx, projectID)
 				require.NoError(t, err)
-				require.Equal(t, tt.expectedExceeded, actualExceeded)
+				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Setup: create some bytes for the uplink to upload
 				expectedData := make([]byte, 50*memory.KiB)
@@ -70,8 +70,8 @@ func TestProjectUsageStorage(t *testing.T) {
 
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
-				if tt.expectedResource == "storage" {
-					assert.EqualError(t, actualErr, tt.expectedErrMsg)
+				if testCase.expectedResource == "storage" {
+					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
 				} else {
 					require.NoError(t, actualErr)
 				}
@@ -92,7 +92,8 @@ func TestProjectUsageBandwidth(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
+		testCase := tt
+		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -109,7 +110,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
-				if tt.expectedResource == "bandwidth" {
+				if testCase.expectedResource == "bandwidth" {
 					now := time.Now().UTC()
 					err := setUpBucketBandwidthAllocations(ctx, projectID, orderDB, now)
 					require.NoError(t, err)
@@ -126,12 +127,12 @@ func TestProjectUsageBandwidth(t *testing.T) {
 
 				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, projectID, bucketID)
 				require.NoError(t, err)
-				require.Equal(t, tt.expectedExceeded, actualExceeded)
+				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
 				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], bucketName, filePath)
-				if tt.expectedResource == "bandwidth" {
-					assert.EqualError(t, actualErr, tt.expectedErrMsg)
+				if testCase.expectedResource == "bandwidth" {
+					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
 				} else {
 					require.NoError(t, actualErr)
 				}

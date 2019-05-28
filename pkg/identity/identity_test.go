@@ -209,8 +209,8 @@ func TestVersionedNodeIDFromKey(t *testing.T) {
 	pubKey, ok := chain[peertls.LeafIndex].PublicKey.(crypto.PublicKey)
 	require.True(t, ok)
 
-	for _, idVersion := range storj.IDVersions {
-		version := idVersion
+	for _, v := range storj.IDVersions {
+		version := v
 		t.Run(fmt.Sprintf("IdentityV%d", version.Number), func(t *testing.T) {
 			id, err := identity.NodeIDFromKey(pubKey, version)
 			require.NoError(t, err)

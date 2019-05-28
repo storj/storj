@@ -21,9 +21,9 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
 
-	for i := range items {
-		index := i
-		item := items[index]
+	for idx := range items {
+		i := idx
+		item := items[i]
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
 			// Put
@@ -48,7 +48,7 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 			}
 
 			if !bytes.Equal([]byte(values[0]), []byte(item.Value)) {
-				t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[index])
+				t.Fatalf("invalid GetAll %q = %v: got %v", item.Key, item.Value, values[i])
 			}
 
 			// Update value
