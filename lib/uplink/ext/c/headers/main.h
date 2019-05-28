@@ -14,6 +14,8 @@ typedef GoUintptr UplinkConfigRef_t;
 typedef GoUintptr ProjectRef_t;
 typedef GoUintptr BucketRef_t;
 typedef GoUintptr BucketConfigRef_t;
+typedef GoUintptr MapRef_t;
+typedef GoUintptr ReaderRef_t;
 
 typedef struct Bytes {
     uint8_t *bytes;
@@ -72,3 +74,9 @@ typedef struct BucketList {
 typedef struct EncryptionAccess {
     Bytes_t *Key;
 } EncryptionAccess_t;
+
+typedef struct UploadOptions {
+    char *content_type;
+    MapRef_t metadata;
+    int64_t expires;
+} UploadOptions_t;

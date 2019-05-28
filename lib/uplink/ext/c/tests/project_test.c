@@ -79,7 +79,7 @@ void TestProject(void)
     char *_err = "";
     char **err = &_err;
 
-    // Create Project
+    // Open Project
     ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
