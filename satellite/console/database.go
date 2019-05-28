@@ -31,7 +31,7 @@ type DB interface {
 	UserPaymentInfos() UserPaymentInfos
 	// ProjectPaymentInfos is a getter for ProjectPaymentInfos
 	ProjectPaymentInfos() ProjectPaymentInfos
-	// ProjectInvoiceStamps is a getter for ProjectPaymentInfos
+	// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps
 	ProjectInvoiceStamps() ProjectInvoiceStamps
 
 	// BeginTransaction is a method for opening transaction

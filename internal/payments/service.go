@@ -175,7 +175,7 @@ func (s *StripeService) CreateProjectInvoice(ctx context.Context, params CreateP
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
 		Customer:    stripe.String(params.CustomerID),
 		Description: stripe.String("ObjectsCount"),
-		Quantity:    stripe.Int64(int64(params.Egress)),
+		Quantity:    stripe.Int64(int64(params.ObjectCount)),
 		UnitAmount:  stripe.Int64(100),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 	})
