@@ -265,7 +265,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	//Resolve IP Address to ensure it is set
 	value.LastIp, err = getIP(value.Address.Address)
 	if err != nil {
-		return err
+		return OverlayError.Wrap(err)
 	}
 	return cache.db.UpdateAddress(ctx, &value)
 }
