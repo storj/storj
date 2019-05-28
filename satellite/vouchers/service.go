@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 )
@@ -40,5 +41,22 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 
 // Request receives a voucher request and returns a voucher and an error
 func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (*pb.Voucher, error) {
-	return &pb.Voucher{}, errs.New("Voucher service not implemented")
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return &pb.Voucher{}, err
+	}
+
+	reputable, err := service.cache.VetNode(ctx, peer.ID)
+	if err != nil {
+		return &pb.Voucher{}, err
+	}
+	if !reputable {
+		return &pb.Voucher{}, errs.New("Node not reputable")
+	}
+
+	service.log.Info("Node reputation", zap.Bool("reputable", reputable))
+
+	// TODO fill out and sign voucher
+
+	return &pb.Voucher{}, err
 }

@@ -699,6 +699,13 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// VetNode returns whether or not the node reaches reputable thresholds
+func (m *lockedOverlayCache) VetNode(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.VetNode(ctx, id, criteria)
+}
+
 // SelectNewStorageNodes looks up nodes based on new node criteria
 func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
