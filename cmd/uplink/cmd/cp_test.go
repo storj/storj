@@ -15,10 +15,6 @@ import (
 	"storj.io/storj/internal/s3client"
 )
 
-const (
-	bucket = "testbucket"
-)
-
 var benchmarkCases = []struct {
 	name       string
 	objectsize memory.Size
@@ -48,7 +44,7 @@ func createObjects() map[string][]byte {
 }
 
 // uplinkSetup setups an uplink to use for testing uploads/downloads
-func uplinkSetup() s3client.Client {
+func uplinkSetup(bucket string) s3client.Client {
 	conf, err := setupConfig()
 	if err != nil {
 		log.Fatalf("failed to setup s3client config: %+v\n", err)
@@ -72,7 +68,7 @@ func setupConfig() (s3client.Config, error) {
 	var conf s3client.Config
 	conf.EncryptionKey = uplinkEncryptionKey
 	conf.Satellite = getEnvOrDefault("SATELLITE_0_ADDR", defaultSatelliteAddr)
-	conf.APIKey = getEnvOrDefault(os.Getenv("GATEWAY_0_API_KEY"), os.Getenv("apiKey"))
+	conf.APIKey = getEnvOrDefault("GATEWAY_0_API_KEY", os.Getenv("apiKey"))
 	if conf.APIKey == "" {
 		return conf, errors.New("no api key provided. Expecting an env var $GATEWAY_0_API_KEY or $apiKey")
 	}
@@ -86,13 +82,72 @@ func getEnvOrDefault(key, fallback string) string {
 	return fallback
 }
 
-func BenchmarkUpload(b *testing.B) {
-	var client = uplinkSetup()
+func BenchmarkUpload_Uplink(b *testing.B) {
+	bucket := "testbucket"
+	client := uplinkSetup(bucket)
 
 	// uploadedObjects is used to store the names of all objects that are uploaded
 	// so that we can make sure to delete them all during cleanup
 	var uploadedObjects = map[string][]string{}
 
+	uploadedObjects = benchmarkUpload(b, client, bucket, uploadedObjects)
+
+	teardown(client, bucket, uploadedObjects)
+}
+
+func teardown(client s3client.Client, bucket string, uploadedObjects map[string][]string) {
+	for _, bm := range benchmarkCases {
+		for _, objectPath := range uploadedObjects[bm.name] {
+			err := client.Delete(bucket, objectPath)
+			if err != nil {
+				log.Printf("failed to delete object %q: %+v\n", objectPath, err)
+			}
+		}
+	}
+
+	err := client.RemoveBucket(bucket)
+	if err != nil {
+		log.Fatalf("failed to remove bucket %q: %+v\n", bucket, err)
+	}
+}
+
+func BenchmarkDownload_Uplink(b *testing.B) {
+	bucket := "testbucket"
+	client := uplinkSetup(bucket)
+
+	// upload some test objects so that there is something to download
+	uploadTestObjects(client, bucket)
+
+	benchmarkDownload(b, bucket, client)
+
+	teardownTestObjects(client, bucket)
+}
+
+func uploadTestObjects(client s3client.Client, bucket string) {
+	for name, data := range testObjects {
+		objectName := "folder/data_" + name
+		err := client.Upload(bucket, objectName, data)
+		if err != nil {
+			log.Fatalf("failed to upload object %q: %+v\n", objectName, err)
+		}
+	}
+}
+
+func teardownTestObjects(client s3client.Client, bucket string) {
+	for name := range testObjects {
+		objectName := "folder/data_" + name
+		err := client.Delete(bucket, objectName)
+		if err != nil {
+			log.Fatalf("failed to delete object %q: %+v\n", objectName, err)
+		}
+	}
+	err := client.RemoveBucket(bucket)
+	if err != nil {
+		log.Fatalf("failed to remove bucket %q: %+v\n", bucket, err)
+	}
+}
+
+func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, uploadedObjects map[string][]string) map[string][]string {
 	for _, bm := range benchmarkCases {
 		benchmark := bm
 		b.Run(benchmark.name, func(b *testing.B) {
@@ -115,71 +170,84 @@ func BenchmarkUpload(b *testing.B) {
 			}
 		})
 	}
-
-	teardown(client, uploadedObjects)
+	return uploadedObjects
 }
 
-func teardown(client s3client.Client, uploadedObjects map[string][]string) {
+func benchmarkDownload(b *testing.B, bucket string, client s3client.Client) {
 	for _, bm := range benchmarkCases {
-		for _, objectPath := range uploadedObjects[bm.name] {
-			err := client.Delete(bucket, objectPath)
-			if err != nil {
-				log.Printf("failed to delete object %q: %+v\n", objectPath, err)
-			}
-		}
-	}
-
-	err := client.RemoveBucket(bucket)
-	if err != nil {
-		log.Fatalf("failed to remove bucket %q: %+v\n", bucket, err)
-	}
-}
-
-func BenchmarkDownload(b *testing.B) {
-	var client = uplinkSetup()
-
-	// upload some test objects so that there is something to download
-	uploadTestObjects(client)
-
-	for _, bm := range benchmarkCases {
-		bookmark := bm
-		b.Run(bookmark.name, func(b *testing.B) {
-			buf := make([]byte, bookmark.objectsize)
-			b.SetBytes(bookmark.objectsize.Int64())
+		benchmark := bm
+		b.Run(benchmark.name, func(b *testing.B) {
+			buf := make([]byte, benchmark.objectsize)
+			b.SetBytes(benchmark.objectsize.Int64())
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				objectName := "folder/data_" + bookmark.name
-				_, err := client.Download(bucket, objectName, buf)
+				objectName := "folder/data_" + benchmark.name
+				out, err := client.Download(bucket, objectName, buf)
 				if err != nil {
 					log.Fatalf("failed to download object %q: %+v\n", objectName, err)
+				}
+				expectedBytes := benchmark.objectsize.Int()
+				actualBytes := len(out)
+				if actualBytes != expectedBytes {
+					log.Fatalf("err downloading object %q: Expected %d bytes, but got actual bytes: %d\n",
+						objectName, expectedBytes, actualBytes,
+					)
 				}
 			}
 		})
 	}
-
-	teardownTestObjects(client)
 }
 
-func uploadTestObjects(client s3client.Client) {
-	for name, data := range testObjects {
-		objectName := "folder/data_" + name
-		err := client.Upload(bucket, objectName, data)
-		if err != nil {
-			log.Fatalf("failed to upload object %q: %+v\n", objectName, err)
-		}
-	}
-}
-
-func teardownTestObjects(client s3client.Client) {
-	for name := range testObjects {
-		objectName := "folder/data_" + name
-		err := client.Delete(bucket, objectName)
-		if err != nil {
-			log.Fatalf("failed to delete object %q: %+v\n", objectName, err)
-		}
-	}
-	err := client.RemoveBucket(bucket)
+func s3ClientSetup(bucket string) s3client.Client {
+	conf, err := s3ClientConfigSetup()
 	if err != nil {
-		log.Fatalf("failed to remove bucket %q: %+v\n", bucket, err)
+		log.Fatalf("failed to setup s3client config: %+v\n", err)
 	}
+	client, err := s3client.NewAWSCLI(conf)
+	if err != nil {
+		log.Fatalf("failed to create s3client NewUplink: %+v\n", err)
+	}
+	const region = "us-east-1"
+	err = client.MakeBucket(bucket, region)
+	if err != nil {
+		log.Fatalf("failed to create bucket with s3client %q: %+v\n", bucket, err)
+	}
+	return client
+}
+
+func s3ClientConfigSetup() (s3client.Config, error) {
+	const s3gateway = "https://s3.amazonaws.com/"
+	var conf s3client.Config
+	conf.S3Gateway = s3gateway
+	conf.AccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
+	conf.SecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
+	if conf.AccessKey == "" || conf.SecretKey == "" {
+		return conf, errors.New("expecting environment variables $AWS_ACCESS_KEY_ID and $AWS_SECRET_ACCESS_KEY to be set")
+	}
+	return conf, nil
+}
+
+func BenchmarkUpload_S3(b *testing.B) {
+	bucket := "testbucket3bgdp2xbkkflxc2tallstvh6pb824r"
+	var client = s3ClientSetup(bucket)
+
+	// uploadedObjects is used to store the names of all objects that are uploaded
+	// so that we can make sure to delete them all during cleanup
+	var uploadedObjects = map[string][]string{}
+
+	uploadedObjects = benchmarkUpload(b, client, bucket, uploadedObjects)
+
+	teardown(client, bucket, uploadedObjects)
+}
+
+func BenchmarkDownload_S3(b *testing.B) {
+	bucket := "testbucket3bgdp2xbkkflxc2tallstvh6pb826a"
+	var client = s3ClientSetup(bucket)
+
+	// upload some test objects so that there is something to download
+	uploadTestObjects(client, bucket)
+
+	benchmarkDownload(b, bucket, client)
+
+	teardownTestObjects(client, bucket)
 }
