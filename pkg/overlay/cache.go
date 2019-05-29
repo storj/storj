@@ -270,6 +270,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
+	cache.log.Info("IP resolved", zap.String("Address", value.Address.Address), zap.String("IP", value.LastIp))
 	return cache.db.UpdateAddress(ctx, &value)
 }
 
