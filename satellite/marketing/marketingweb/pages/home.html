@@ -1,0 +1,17 @@
+{{define "main"}}
+<form action="/" method="POST">
+    <input name="Name">
+    <input name="Description">
+    <input name="AwardCreditInCents">
+    <input name="InviteeCreditInCents">
+    <input name="AwardCreditDurationDays">
+    <input name="InviteeCreditDurationDays">
+    <input name="RedeemableCap">
+    <input name="ExpiresAt">
+    <input name="Status">
+    <input type="submit" value="Submit">
+</form>
+{{ range . }} 
+    <p>{{.Name}}</p>
+{{end}}
+{{end}}
