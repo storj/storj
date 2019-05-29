@@ -14,11 +14,11 @@ import (
 	"storj.io/storj/satellite/marketing"
 )
 
-func TestCreateAndListAllOffers(t *testing.T) {
+func TestCRUDOfferSuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		newOffer := &marketing.NewOffer{
+		n := &marketing.NewOffer{
 			Name:                      "test",
 			Description:               "test offer",
 			AwardCreditInCents:        100,
@@ -29,11 +29,20 @@ func TestCreateAndListAllOffers(t *testing.T) {
 			Status:                    marketing.Active,
 			ExpiresAt:                 time.Now().Add(time.Hour * 1),
 		}
-		createdOffer, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, newOffer)
+		new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, n)
 		require.NoError(t, err)
-		require.Equal(t, newOffer, createdOffer)
-		output, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
-		require.Contains(t, output, newOffer)
+
+		all, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
+		require.NoError(t, err)
+		require.Contains(t, all, *new)
+
+		update := &marketing.UpdateOffer{
+			ID:          new.ID,
+			Status:      marketing.Done,
+			NumRedeemed: new.NumRedeemed,
+			ExpiresAt:   time.Now(),
+		}
+		err = planet.Satellites[0].DB.Marketing().Offers().Update(ctx, update)
 		require.NoError(t, err)
 	})
 }
