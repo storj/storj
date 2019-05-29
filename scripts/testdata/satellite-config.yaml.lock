@@ -16,6 +16,9 @@
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
 
+# secret used to sign auth tokens
+# console.auth-token-secret: ""
+
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
