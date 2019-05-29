@@ -726,6 +726,17 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD disqualified boolean NOT NULL DEFAULT false;`,
 				},
 			},
+			{
+				Description: "Add invitee_credit_in_gb and award_credit_in_gb columns, delete type and credit_in_cents columns",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP COLUMN type`,
+					`ALTER TABLE offers DROP COLUMN credit_in_cents`,
+					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0`,
+					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0`,
+					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }
