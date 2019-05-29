@@ -32,8 +32,11 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 )
 
-// DefaultCfgFilename is the default filename used for storing a configuration.
-const DefaultCfgFilename = "config.yaml"
+const (
+	// DefaultCfgFilename is the default filename used for storing a configuration.
+	DefaultCfgFilename       = "config.yaml"
+	DefaultSecureCfgFilename = ".secure-config.yaml"
+)
 
 var (
 	mon = monkit.Package()
@@ -199,16 +202,29 @@ func cleanup(cmd *cobra.Command) {
 		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
 		vip.AutomaticEnv()
 
-		cfgFlag := cmd.Flags().Lookup("config-dir")
-		if cfgFlag != nil && cfgFlag.Value.String() != "" {
-			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
-			if cmd.Annotations["type"] != "setup" || fileExists(path) {
-				vip.SetConfigFile(path)
-				err = vip.ReadInConfig()
-				if err != nil {
-					return err
-				}
+		var configFilesUsed []string
+		mergeConfig := func(flagName, fileName string, required bool) error {
+			flag := cmd.Flags().Lookup(flagName)
+			if flag == nil || flag.Value.String() == "" {
+				return nil
 			}
+			path := filepath.Join(os.ExpandEnv(flag.Value.String()), fileName)
+			if !required && !fileExists(path) {
+				return nil
+			}
+			vip.SetConfigFile(path)
+			configFilesUsed = append(configFilesUsed, path)
+			return vip.MergeInConfig()
+		}
+
+		// The default config file is required if the command is not a setup command.
+		configRequired := cmd.Annotations["type"] != "setup"
+		if err := mergeConfig("config-dir", DefaultCfgFilename, configRequired); err != nil {
+			return err
+		}
+		// The secure config file is never required.
+		if err := mergeConfig("config-dir", DefaultSecureCfgFilename, false); err != nil {
+			return err
 		}
 
 		configMtx.Lock()
@@ -256,26 +272,26 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
+		// Set up logging.
 		logger, err := newLogger()
 		if err != nil {
 			return err
 		}
-
-		if vip.ConfigFileUsed() != "" {
-			path, err := filepath.Abs(vip.ConfigFileUsed())
-			if err != nil {
-				path = vip.ConfigFileUsed()
-				logger.Debug("unable to resolve path", zap.Error(err))
-			}
-
-			logger.Sugar().Info("Configuration loaded from: ", path)
-		}
-
 		defer func() { _ = logger.Sync() }()
 		defer zap.ReplaceGlobals(logger)()
 		defer zap.RedirectStdLog(logger)()
 
-		// okay now that logging is working, inform about the broken keys
+		// Log about which configuration files we used.
+		for _, path := range configFilesUsed {
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				absPath = path
+				logger.Debug("unable to resolve path", zap.Error(err))
+			}
+			logger.Sugar().Info("Configuration loaded from: ", absPath)
+		}
+
+		// Log about the configuration values that had problems.
 		if cmd.Annotations["type"] != "helper" {
 			for key := range missingKeys {
 				logger.Sugar().Infof("Invalid configuration file key: %s", key)
