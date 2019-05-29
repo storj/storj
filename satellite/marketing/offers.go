@@ -18,7 +18,7 @@ type Offers interface {
 	ListAll(ctx context.Context) ([]Offer, error)
 	GetCurrent(ctx context.Context, isDefault bool) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
-	Update(ctx context.Context, id int, offer *UpdateOffer) error
+	Update(ctx context.Context, offer *UpdateOffer) error
 }
 
 // NewOffer holds information that's needed for creating a new offer
@@ -39,8 +39,9 @@ type NewOffer struct {
 	Status OfferStatus
 }
 
-// UpdateOffer holds fields that can be updated
+// UpdateOffer holds fields needed for update an offer
 type UpdateOffer struct {
+	ID          int
 	Status      OfferStatus
 	NumRedeemed int
 	ExpiresAt   time.Time
