@@ -70,7 +70,12 @@ func TestUseOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 
 		access, err := useOrLoadEncryptionAccess(string(rawKey), "")
 		require.NoError(t, err)
-		require.Equal(t, rawKey[:storj.KeySize], access.Key[:])
+
+		if len(rawKey) > storj.KeySize {
+			require.Equal(t, rawKey[:storj.KeySize], access.Key[:])
+		} else {
+			require.Equal(t, rawKey, access.Key[:len(rawKey)])
+		}
 	})
 
 	t.Run("error", func(t *testing.T) {

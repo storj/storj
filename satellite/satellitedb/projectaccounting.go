@@ -11,6 +11,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -113,4 +114,13 @@ func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uui
 		return 0, 0, nil
 	}
 	return inlineSum.Int64, remoteSum.Int64, err
+}
+
+// GetProjectUsageLimits returns project usage limit
+func (db *ProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+	project, err := db.db.Get_Project_By_Id(ctx, dbx.Project_Id(projectID[:]))
+	if err != nil {
+		return 0, err
+	}
+	return memory.Size(project.UsageLimit), nil
 }
