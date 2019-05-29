@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -29,6 +30,11 @@ type Service struct {
 	expiration time.Duration
 }
 
+// Error the default vouchers errs class
+var (
+	Error = errs.Class("vouchers error")
+)
+
 // NewService creates a new service for issuing signed vouchers
 func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, expiration time.Duration) *Service {
 	return &Service{
@@ -43,20 +49,31 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (*pb.Voucher, error) {
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return &pb.Voucher{}, err
+		return &pb.Voucher{}, Error.Wrap(err)
 	}
 
 	reputable, err := service.cache.VetNode(ctx, peer.ID)
 	if err != nil {
-		return &pb.Voucher{}, err
+		return &pb.Voucher{}, Error.Wrap(err)
 	}
+
+	service.log.Debug("Node reputation", zap.Bool("reputable", reputable))
+
 	if !reputable {
-		return &pb.Voucher{}, errs.New("Node not reputable")
+		return &pb.Voucher{}, Error.New("Request rejected. Node not reputable")
 	}
 
-	service.log.Info("Node reputation", zap.Bool("reputable", reputable))
+	expirationTime := time.Now().UTC().Add(service.expiration)
+	expiration, err := ptypes.TimestampProto(expirationTime)
+	if err != nil {
+		return &pb.Voucher{}, Error.Wrap(err)
+	}
 
-	// TODO fill out and sign voucher
+	unsigned := &pb.Voucher{
+		SatelliteId:   service.satellite.ID(),
+		StorageNodeId: peer.ID,
+		Expiration:    expiration,
+	}
 
-	return &pb.Voucher{}, err
+	return signing.SignVoucher(service.satellite, unsigned)
 }
