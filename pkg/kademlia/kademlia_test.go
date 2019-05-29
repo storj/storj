@@ -274,12 +274,13 @@ func TestFindNear(t *testing.T) {
 		{testID: "three", target: nodeIDA.Id, limit: 4, expected: nodes, restrictions: []pb.Restriction{}},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
 
-			ns, err := k.FindNear(ctx, c.target, c.limit)
+			ns, err := k.FindNear(ctx, testCase.target, testCase.limit)
 			require.NoError(t, err)
-			assert.Equal(t, len(c.expected), len(ns))
-			for _, e := range c.expected {
+			assert.Equal(t, len(testCase.expected), len(ns))
+			for _, e := range testCase.expected {
 				found := false
 				for _, n := range ns {
 					if e.Id == n.Id {

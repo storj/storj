@@ -977,7 +977,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 
 	for _, membership := range memberships {
 		if membership.ProjectID == projectID {
-			result.membership = &membership
+			result.membership = &membership // nolint: scopelint
 			result.project = project
 			return
 		}
