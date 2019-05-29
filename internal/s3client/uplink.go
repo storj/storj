@@ -5,11 +5,14 @@ package s3client
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/internal/fpath"
 )
 
 // UplinkError is class for minio errors
@@ -24,13 +27,29 @@ type Uplink struct {
 func NewUplink(conf Config) (Client, error) {
 	client := &Uplink{conf}
 
-	cmd := client.cmd("setup",
-		"--overwrite",
-		"--api-key", client.conf.APIKey,
-		"--enc-key", client.conf.EncryptionKey,
-		"--satellite-addr", client.conf.Satellite)
+	if client.conf.ConfigDir != "" {
+		fmt.Printf("Using existing uplink config at %s\n", client.conf.ConfigDir)
+		return client, nil
+	}
 
-	_, err := cmd.Output()
+	client.conf.ConfigDir = fpath.ApplicationDir("storj", "s3-client", "uplink")
+
+	// remove existing s3client uplink config so that
+	// we can create a new one with up-to-date settings
+	err := os.RemoveAll(client.conf.ConfigDir)
+	if err != nil {
+		return nil, UplinkError.Wrap(fullExitError(err))
+	}
+
+	cmd := client.cmd("--config-dir", client.conf.ConfigDir,
+		"setup",
+		"--non-interactive", "true",
+		"--api-key", client.conf.APIKey,
+		"--enc.encryption-key", client.conf.EncryptionKey,
+		"--satellite-addr", client.conf.Satellite,
+	)
+
+	_, err = cmd.Output()
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
@@ -41,6 +60,8 @@ func NewUplink(conf Config) (Client, error) {
 func (client *Uplink) cmd(subargs ...string) *exec.Cmd {
 	args := []string{}
 
+	configArgs := []string{"--config-dir", client.conf.ConfigDir}
+	args = append(args, configArgs...)
 	args = append(args, subargs...)
 
 	cmd := exec.Command("uplink", args...)
@@ -94,17 +115,11 @@ func (client *Uplink) Upload(bucket, objectName string, data []byte) error {
 // Download downloads object data
 func (client *Uplink) Download(bucket, objectName string, buffer []byte) ([]byte, error) {
 	cmd := client.cmd("cat", "s3://"+bucket+"/"+objectName)
-
-	buf := &bufferWriter{buffer[:0]}
-	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
-
-	return buf.data, nil
+	return out, nil
 }
 
 // Delete deletes object

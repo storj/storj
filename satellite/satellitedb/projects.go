@@ -58,7 +58,9 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createdProject, err := projects.db.Create_Project(ctx,
 		dbx.Project_Id(projectID[:]),
 		dbx.Project_Name(project.Name),
-		dbx.Project_Description(project.Description))
+		dbx.Project_Description(project.Description),
+		dbx.Project_UsageLimit(0),
+	)
 
 	if err != nil {
 		return nil, err
@@ -78,6 +80,7 @@ func (projects *projects) Delete(ctx context.Context, id uuid.UUID) error {
 func (projects *projects) Update(ctx context.Context, project *console.Project) error {
 	updateFields := dbx.Project_Update_Fields{
 		Description: dbx.Project_Description(project.Description),
+		UsageLimit:  dbx.Project_UsageLimit(project.UsageLimit),
 	}
 
 	_, err := projects.db.Update_Project_By_Id(ctx,
