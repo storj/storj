@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -43,13 +44,13 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
-	identity *identity.FullIdentity) (service *Service, err error) {
+	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
+		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
+		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
@@ -92,16 +93,46 @@ func (service *Service) process(ctx context.Context) error {
 		}
 	}
 
-	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
+	var errlist errs.Group
+
+	report, err := service.Verifier.Reverify(ctx, stripe)
 	if err != nil {
-		return err
+		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+	_, err = service.Reporter.RecordAudits(ctx, report)
 	if err != nil {
-		return err
+		errlist.Add(err)
 	}
 
-	return nil
+	// skip all reverified nodes in the next Verify step
+	skip := make(map[storj.NodeID]bool)
+	if report != nil {
+		for _, nodeID := range report.Successes {
+			skip[nodeID] = true
+		}
+		for _, nodeID := range report.Offlines {
+			skip[nodeID] = true
+		}
+		for _, nodeID := range report.Fails {
+			skip[nodeID] = true
+		}
+		for _, pending := range report.PendingAudits {
+			skip[pending.NodeID] = true
+		}
+	}
+
+	report, err = service.Verifier.Verify(ctx, stripe, skip)
+	if err != nil {
+		errlist.Add(err)
+	}
+
+	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
+	_, err = service.Reporter.RecordAudits(ctx, report)
+	if err != nil {
+		errlist.Add(err)
+	}
+
+	return errlist.Err()
 }

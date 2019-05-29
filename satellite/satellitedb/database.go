@@ -148,6 +148,6 @@ func (db *DB) Orders() orders.DB {
 }
 
 // Containment returns database for storing pending audit info
-func (db *DB) Containment() audit.DB {
+func (db *DB) Containment() audit.Containment {
 	return &containment{db: db.db}
 }
