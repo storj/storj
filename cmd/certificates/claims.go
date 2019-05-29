@@ -59,10 +59,6 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 
 	var toPrint []interface{}
 	for _, auth := range auths {
-		if auth.Claim == nil {
-			continue
-		}
-
 		if claimsExportCfg.Raw {
 			toPrint = append(toPrint, auth)
 		} else {

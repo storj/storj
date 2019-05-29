@@ -13,7 +13,9 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -146,10 +148,10 @@ type lockedAPIKeys struct {
 }
 
 // Create creates and stores new APIKeyInfo
-func (m *lockedAPIKeys) Create(ctx context.Context, key console.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (m *lockedAPIKeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, key, info)
+	return m.db.Create(ctx, head, info)
 }
 
 // Delete deletes APIKeyInfo from store
@@ -166,11 +168,11 @@ func (m *lockedAPIKeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyI
 	return m.db.Get(ctx, id)
 }
 
-// GetByKey retrieves APIKeyInfo for given key
-func (m *lockedAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
+// GetByHead retrieves APIKeyInfo for given key head
+func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByKey(ctx, key)
+	return m.db.GetByHead(ctx, head)
 }
 
 // GetByProjectID retrieves list of APIKeys for given projectID
@@ -481,6 +483,37 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 	return m.db.Update(ctx, user)
 }
 
+// Containment returns database for containment
+func (m *locked) Containment() audit.Containment {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedContainment{m.Locker, m.db.Containment()}
+}
+
+// lockedContainment implements locking wrapper for audit.Containment
+type lockedContainment struct {
+	sync.Locker
+	db audit.Containment
+}
+
+func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, nodeID)
+}
+
+func (m *lockedContainment) Get(ctx context.Context, nodeID storj.NodeID) (*audit.PendingAudit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, nodeID)
+}
+
+func (m *lockedContainment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IncrementPending(ctx, pendingAudit)
+}
+
 // CreateSchema sets the schema
 func (m *locked) CreateSchema(schema string) error {
 	m.Lock()
@@ -734,6 +767,13 @@ func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+}
+
+// GetProjectUsageLimits
+func (m *lockedProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProjectUsageLimits(ctx, projectID)
 }
 
 // GetStorageTotals returns the current inline and remote storage usage for a projectID

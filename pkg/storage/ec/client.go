@@ -166,7 +166,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}()
 
 	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
+		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", atomic.LoadInt32(&successfulCount), rs.RepairThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
@@ -240,6 +240,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
+		atomic.AddInt32(&successfulCount, 1)
 	}
 
 	// Ensure timer is stopped in the case the success threshold is not reached
@@ -260,8 +261,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
-	if successfulCount == 0 {
-		return nil, nil, Error.New("repair to all nodes failed")
+	if atomic.LoadInt32(&successfulCount) == 0 {
+		return nil, nil, Error.New("repair %v to all nodes failed", path)
 	}
 
 	zap.S().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))

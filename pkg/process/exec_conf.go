@@ -30,6 +30,9 @@ import (
 	"storj.io/storj/internal/version"
 )
 
+// DefaultCfgFilename is the default filename used for storing a configuration.
+const DefaultCfgFilename = "config.yaml"
+
 var (
 	mon = monkit.Package()
 
@@ -182,7 +185,7 @@ func cleanup(cmd *cobra.Command) {
 
 		cfgFlag := cmd.Flags().Lookup("config-dir")
 		if cfgFlag != nil && cfgFlag.Value.String() != "" {
-			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), "config.yaml")
+			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
 			if cmd.Annotations["type"] != "setup" || fileExists(path) {
 				vip.SetConfigFile(path)
 				err = vip.ReadInConfig()
