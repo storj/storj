@@ -5,6 +5,7 @@ package marketing
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -65,6 +66,10 @@ func (s *Service) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) 
 // InsertNewOffer inserts a new offer into the db
 func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if offer.Status == Default {
+		offer.ExpiresAt = time.Now().AddDate(100, 0, 0)
+	}
 
 	o, err = s.db.Offers().Create(ctx, offer)
 	if err != nil {
