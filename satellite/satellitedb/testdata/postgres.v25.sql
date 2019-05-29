@@ -271,4 +271,4 @@ INSERT INTO "api_keys" ("id", "project_id", "head", "name", "secret", "created_a
 
 -- NEW DATA --
 
-INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "award_credit_duration_days", "invitee_credit_duration_days", "redeemable_cap", "expires_at", "created_at", "num_redeemed", "status") VALUES (2, 'testOffer', 'Test offer 1', 100, 50, 14, 14, 50, '2019-03-14 08:28:24.636949+00', '2019-02-14 08:28:24.636949+00', 0, 1);
+INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "award_credit_duration_days", "invitee_credit_duration_days", "redeemable_cap", "expires_at", "created_at", "num_redeemed", "status") VALUES (1, 'testOffer', 'Test offer 1', 100, 50, 14, 14, 50, '2019-03-14 08:28:24.636949+00', '2019-02-14 08:28:24.636949+00', 0, 1);
