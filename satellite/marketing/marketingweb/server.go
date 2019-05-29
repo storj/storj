@@ -108,6 +108,8 @@ func (s *Server) createHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var o marketing.NewOffer
+
+	// TODO: create custom converter for expires_at: https://stackoverflow.com/questions/49285635/golang-gorilla-parse-date-with-specific-format-from-form
 	err := decoder.Decode(&o, req.PostForm)
 	if err != nil {
 		s.log.Error("createdHandler error", zap.Error(err))

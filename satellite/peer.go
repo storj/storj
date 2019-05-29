@@ -563,7 +563,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		
 		peer.Marketing.Service, err = marketing.NewService(
 			peer.Log.Named("marketing:service"),
 			peer.DB.Marketing(),
@@ -571,7 +570,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
-		}	
+		}
 
 		peer.Marketing.Endpoint = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
