@@ -576,8 +576,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 		config := storagenode.Config{
 			Server: server.Config{
-				Address:        "127.0.0.1:0",
-				PrivateAddress: "127.0.0.1:0",
+				Address:        fmt.Sprintf("127.0.0.%d:0", i+1),
+				PrivateAddress: fmt.Sprintf("127.0.0.%d:0", i+1),
 
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
