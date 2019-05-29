@@ -128,7 +128,6 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		return Meta{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
 	}
 
-	// r := bytes.NewReader(nil)
 	userMeta := map[string]string{
 		"path-enc-type":     strconv.Itoa(int(pathCipher)),
 		"default-seg-size":  strconv.FormatInt(inMeta.SegmentsSize, 10),
@@ -141,12 +140,12 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-optim":  strconv.Itoa(int(inMeta.RedundancyScheme.OptimalShares)),
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
-	var exp time.Time
-	//--- UPDATE
+
 	// m, err := b.store.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	m, err := b.Get(ctx, bucketName)
 	if err == nil {
 		//bucket exists, add meta to existing entry
+		
 	}
 
 
