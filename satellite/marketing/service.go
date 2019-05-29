@@ -63,8 +63,8 @@ func (s *Service) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) 
 	return offer, nil
 }
 
-// InsertNewOffer inserts a new offer into the db
-func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer, err error) {
+// CreateOffer inserts a new offer into the db
+func (s *Service) CreateOffer(ctx context.Context, offer *NewOffer) (o *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if offer.Status == Default {
@@ -80,10 +80,10 @@ func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer
 }
 
 // UpdateOffer modifies an existing offer in the db when the offer status is set to NoStatus
-func (s *Service) UpdateOffer(ctx context.Context, id int, o *UpdateOffer) (err error) {
+func (s *Service) UpdateOffer(ctx context.Context, o *UpdateOffer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = s.db.Offers().Update(ctx, id, o)
+	err = s.db.Offers().Update(ctx, o)
 	if err != nil {
 		return Error.Wrap(err)
 	}

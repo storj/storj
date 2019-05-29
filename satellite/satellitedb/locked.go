@@ -620,10 +620,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Update(ctx context.Context, id int, offer *marketing.UpdateOffer) error {
+func (m *lockedOffers) Update(ctx context.Context, offer *marketing.UpdateOffer) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Update(ctx, id, offer)
+	return m.db.Update(ctx, offer)
 }
 
 // Orders returns database for orders
