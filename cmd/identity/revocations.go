@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -33,7 +34,7 @@ var (
 func init() {
 	rootCmd.AddCommand(revocationsCmd)
 
-	cfgstruct.Bind(revocationsCmd.Flags(), &revCfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(revocationsCmd, &revCfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRevocations(cmd *cobra.Command, args []string) error {

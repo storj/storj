@@ -33,7 +33,7 @@ func main() {
 		RunE:  Main,
 	}
 	defaults := cfgstruct.DefaultsFlag(cmd)
-	cfgstruct.Bind(cmd.Flags(), &Config, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(cmd, &Config, defaults, cfgstruct.ConfDir(defaultConfDir))
 	cmd.Flags().String("config", filepath.Join(defaultConfDir, "config.yaml"), "path to configuration")
 	process.Exec(cmd)
 }
