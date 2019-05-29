@@ -53,30 +53,27 @@ type Containment interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log                     *zap.Logger
-	metainfo                *Service
-	orders                  *orders.Service
-	cache                   *overlay.Cache
-	projectUsage            *accounting.ProjectUsage
-	containment             Containment
-	apiKeys                 APIKeys
-	storagenodeAccountingDB accounting.StoragenodeAccounting
+	log          *zap.Logger
+	metainfo     *Service
+	orders       *orders.Service
+	cache        *overlay.Cache
+	projectUsage *accounting.ProjectUsage
+	containment  Containment
+	apiKeys      APIKeys
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
-	apiKeys APIKeys, sdb accounting.StoragenodeAccounting,
-	projectUsage *accounting.ProjectUsage) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:                     log,
-		metainfo:                metainfo,
-		orders:                  orders,
-		cache:                   cache,
-		containment:             containment,
-		apiKeys:                 apiKeys,
-		storagenodeAccountingDB: sdb,
-		projectUsage:            projectUsage,
+		log:          log,
+		metainfo:     metainfo,
+		orders:       orders,
+		cache:        cache,
+		containment:  containment,
+		apiKeys:      apiKeys,
+		projectUsage: projectUsage,
 	}
 }
 
