@@ -9,3 +9,10 @@ void TestOpenBucket(void)
 {
     TEST_ASSERT_EQUAL_STRING("", "");
 }
+
+int main(int argc, char *argv[])
+{
+    UNITY_BEGIN();
+    RUN_TEST(TestOpenBucket);
+    return UNITY_END();
+}
