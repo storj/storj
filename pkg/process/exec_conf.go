@@ -44,7 +44,13 @@ var (
 
 	configMtx sync.Mutex
 	configs   = map[*cobra.Command][]interface{}{}
+	vipers    = map[*cobra.Command]*viperState{}
 )
+
+type viperState struct {
+	vip     *viper.Viper
+	configs []string
+}
 
 // Bind sets flags on a command that match the configuration struct
 // 'config'. It ensures that the config has all of the values loaded into it
@@ -96,6 +102,54 @@ func Ctx(cmd *cobra.Command) context.Context {
 	return ctx
 }
 
+// getViperState creates and caches or returns the cached viper as well as the
+// set of configuration files loaded into it.
+func getViperState(cmd *cobra.Command) (*viper.Viper, []string, error) {
+	configMtx.Lock()
+	defer configMtx.Unlock()
+
+	if state, ok := vipers[cmd]; ok {
+		return state.vip, state.configs, nil
+	}
+
+	vip := viper.New()
+	err := vip.BindPFlags(cmd.Flags())
+	if err != nil {
+		return nil, nil, err
+	}
+	vip.SetEnvPrefix("storj")
+	vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	vip.AutomaticEnv()
+
+	var configFiles []string
+	mergeConfig := func(flagName, fileName string, required bool) error {
+		flag := cmd.Flags().Lookup(flagName)
+		if flag == nil || flag.Value.String() == "" {
+			return nil
+		}
+		path := filepath.Join(os.ExpandEnv(flag.Value.String()), fileName)
+		if !required && !fileExists(path) {
+			return nil
+		}
+		vip.SetConfigFile(path)
+		configFiles = append(configFiles, path)
+		return vip.MergeInConfig()
+	}
+
+	// The default config file is required if the command is not a setup command.
+	configRequired := cmd.Annotations["type"] != "setup"
+	if err := mergeConfig("config-dir", DefaultCfgFilename, configRequired); err != nil {
+		return nil, nil, err
+	}
+	// The secure config file is never required.
+	if err := mergeConfig("config-dir", DefaultSecureCfgFilename, false); err != nil {
+		return nil, nil, err
+	}
+
+	vipers[cmd] = &viperState{vip: vip, configs: configFiles}
+	return vip, configFiles, nil
+}
+
 var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
 
 func cleanup(cmd *cobra.Command) {
@@ -114,40 +168,13 @@ func cleanup(cmd *cobra.Command) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
 
-		vip := viper.New()
-		err = vip.BindPFlags(cmd.Flags())
+		// Load/cache the viper state for the command
+		vip, configFiles, err := getViperState(cmd)
 		if err != nil {
 			return err
 		}
-		vip.SetEnvPrefix("storj")
-		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-		vip.AutomaticEnv()
 
-		var configFilesUsed []string
-		mergeConfig := func(flagName, fileName string, required bool) error {
-			flag := cmd.Flags().Lookup(flagName)
-			if flag == nil || flag.Value.String() == "" {
-				return nil
-			}
-			path := filepath.Join(os.ExpandEnv(flag.Value.String()), fileName)
-			if !required && !fileExists(path) {
-				return nil
-			}
-			vip.SetConfigFile(path)
-			configFilesUsed = append(configFilesUsed, path)
-			return vip.MergeInConfig()
-		}
-
-		// The default config file is required if the command is not a setup command.
-		configRequired := cmd.Annotations["type"] != "setup"
-		if err := mergeConfig("config-dir", DefaultCfgFilename, configRequired); err != nil {
-			return err
-		}
-		// The secure config file is never required.
-		if err := mergeConfig("config-dir", DefaultSecureCfgFilename, false); err != nil {
-			return err
-		}
-
+		// Load the viper into the configs bound to the command.
 		configMtx.Lock()
 		configValues := configs[cmd]
 		configMtx.Unlock()
@@ -169,8 +196,8 @@ func cleanup(cmd *cobra.Command) {
 			delete(allSettings, "satellite-addr")
 		}
 
+		// Decode and all of the resulting keys into our sets
 		for _, config := range configValues {
-			// Decode and all of the resulting keys into our sets
 			res := structs.Decode(allSettings, config)
 			for key := range res.Used {
 				usedKeys[key] = struct{}{}
@@ -203,7 +230,7 @@ func cleanup(cmd *cobra.Command) {
 		defer zap.RedirectStdLog(logger)()
 
 		// Log about which configuration files we used.
-		for _, path := range configFilesUsed {
+		for _, path := range configFiles {
 			absPath, err := filepath.Abs(path)
 			if err != nil {
 				absPath = path
@@ -222,11 +249,13 @@ func cleanup(cmd *cobra.Command) {
 			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
 		}
 
+		// Init debugging.
 		err = initDebug(logger, monkit.Default)
 		if err != nil {
 			logger.Error("failed to start debug endpoints", zap.Error(err))
 		}
 
+		// Set up the work closure.
 		var workErr error
 		work := func(ctx context.Context) {
 			contextMtx.Lock()
@@ -241,6 +270,7 @@ func cleanup(cmd *cobra.Command) {
 			workErr = internalRun(cmd, args)
 		}
 
+		// Dispatch to work, rendering an svg if required.
 		if *traceOut != "" {
 			fh, err := os.Create(*traceOut)
 			if err != nil {
@@ -255,6 +285,7 @@ func cleanup(cmd *cobra.Command) {
 			work(ctx)
 		}
 
+		// Log/return any errors from the work
 		err = workErr
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
