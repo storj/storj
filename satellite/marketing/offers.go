@@ -39,7 +39,7 @@ type NewOffer struct {
 	Status OfferStatus
 }
 
-// UpdateOffer holds fields that can be updated
+// UpdateOffer holds fields needed for update an offer
 type UpdateOffer struct {
 	ID          int
 	Status      OfferStatus

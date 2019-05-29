@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -33,23 +34,23 @@ func (offers *offers) GetCurrent(ctx context.Context, isDefault bool) (*marketin
 	if isDefault {
 		statement = `
 			SELECT * FROM offers
-			WHERE offers.status=? AND offers.expires_at>NOW()
-			order by offers.created_at desc;`
+			WHERE status=? AND expires_at>?
+			order by created_at desc;`
 	} else {
 		statement = `
 			WITH o AS (
-				SELECT * FROM offers WHERE offers.status=? AND offers.expires_at>NOW()
+				SELECT * FROM offers WHERE status=? AND expires_at>?
 			  )
 			  SELECT * FROM o
 			  UNION ALL
 			  SELECT * FROM offers
-			  WHERE offers.status=?
+			  WHERE status=?
 			  AND NOT EXISTS (
 				SELECT * FROM o
-			  ) order by offers.created_at desc;`
+			  ) order by reated_at desc;`
 	}
 
-	rows, err := offers.db.DB.QueryContext(ctx, offers.db.Rebind(statement), marketing.Active, marketing.Default)
+	rows, err := offers.db.DB.QueryContext(ctx, offers.db.Rebind(statement), marketing.Active, time.Now(), marketing.Default)
 	if err == sql.ErrNoRows {
 		return nil, marketing.OffersErr.New("no current offer")
 	}
@@ -73,10 +74,11 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 	}
 
 	statement := offers.db.Rebind(`
-		UPDATE offers SET offers.status=?, offers.expires_at=NOW()
-		WHERE offers.status=? AND expires_at>NOW();
+		UPDATE offers SET status=?, expires_at=?
+		WHERE status=? AND expires_at>?;
 	`)
-	_, err = tx.Tx.ExecContext(ctx, statement, marketing.Done, o.Status)
+	currentTime := time.Now()
+	_, err = tx.Tx.ExecContext(ctx, statement, marketing.Done, currentTime, o.Status, currentTime)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
