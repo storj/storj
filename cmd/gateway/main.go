@@ -117,7 +117,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return setupCfg.interactive(cmd, setupDir, overrides)
 	}
 
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfigWithAllDefaults(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -284,7 +284,7 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 	overrides["api-key"] = apiKey
 	overrides["enc.key"] = encKey
 
-	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	err = process.SaveConfigWithAllDefaults(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {
 		return nil
 	}

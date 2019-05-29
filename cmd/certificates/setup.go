@@ -69,5 +69,5 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		"identity.cert-path": config.Identity.CertPath,
 		"identity.key-path":  config.Identity.KeyPath,
 	}
-	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfigWithAllDefaults(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
 }

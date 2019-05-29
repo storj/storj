@@ -4,38 +4,41 @@
 package process
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"sort"
-	"strings"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 // SaveConfig will save only the user-specific flags with default values to
 // outfile with specific values specified in 'overrides' overridden.
-func SaveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
-	return saveConfig(flagset, outfile, overrides, false)
+func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interface{}) error {
+	return saveConfig(cmd, outfile, overrides, false)
 }
 
 // SaveConfigWithAllDefaults will save all flags with default values to outfile
 // with specific values specified in 'overrides' overridden.
-func SaveConfigWithAllDefaults(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}) error {
-	return saveConfig(flagset, outfile, overrides, true)
+func SaveConfigWithAllDefaults(cmd *cobra.Command, outfile string, overrides map[string]interface{}) error {
+	return saveConfig(cmd, outfile, overrides, true)
 }
 
-func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
+func saveConfig(cmd *cobra.Command, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
 	// we previously used Viper here, but switched to a custom serializer to allow comments
-	//todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
+	// todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
+	flagset := cmd.Flags()
 	flagset.AddFlagSet(pflag.CommandLine)
-	//sort keys
+
+	// sort keys
 	var keys []string
 	flagset.VisitAll(func(f *pflag.Flag) { keys = append(keys, f.Name) })
 	sort.Strings(keys)
-	//serialize
-	var sb strings.Builder
-	w := &sb
+
+	// serialize
+	w := new(bytes.Buffer)
 	for _, k := range keys {
 		f := flagset.Lookup(k)
 		if readBoolAnnotation(f, "setup") {
@@ -56,28 +59,28 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 		if overriddenValue != nil {
 			value = fmt.Sprintf("%v", overriddenValue)
 		}
-		//print usage info
+		// print usage info
 		if f.Usage != "" {
 			fmt.Fprintf(w, "# %s\n", f.Usage)
 		}
-		//print commented key (beginning of value assignement line)
+		// print commented key (beginning of value assignement line)
 		if readBoolAnnotation(f, "user") || f.Changed || overrideExist {
 			fmt.Fprintf(w, "%s: ", k)
 		} else {
 			fmt.Fprintf(w, "# %s: ", k)
 		}
-		//print value (remainder of value assignement line)
+		// print value (remainder of value assignement line)
 		switch f.Value.Type() {
 		case "string":
 			// save ourselves 250+ lines of code and just double quote strings
 			fmt.Fprintf(w, "%q\n\n", value)
 		default:
-			//assume that everything else doesn't have fancy control characters
+			// assume that everything else doesn't have fancy control characters
 			fmt.Fprintf(w, "%s\n\n", value)
 		}
 	}
 
-	err := ioutil.WriteFile(outfile, []byte(sb.String()), os.FileMode(0644))
+	err := ioutil.WriteFile(outfile, w.Bytes(), os.FileMode(0644))
 	if err != nil {
 		return err
 	}
