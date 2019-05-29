@@ -87,7 +87,10 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.New("piece %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
 
-	healthyRatioBeforeRepair := float64(numHealthy) / float64(pointer.Remote.Redundancy.Total)
+	healthyRatioBeforeRepair := 0.0
+	if pointer.Remote.Redundancy.Total != 0 {
+		healthyRatioBeforeRepair = float64(numHealthy) / float64(pointer.Remote.Redundancy.Total)
+	}
 	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair)
 
 	lostPiecesSet := sliceToSet(missingPieces)
@@ -162,15 +165,20 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// Update the remote pieces in the pointer
 	pointer.GetRemote().RemotePieces = healthyPieces
 
-	if int32(len(healthyPieces)) <= pointer.Remote.Redundancy.RepairThreshold {
+	length := int32(len(healthyPieces))
+	switch {
+	case length <= pointer.Remote.Redundancy.RepairThreshold:
 		mon.Meter("repair_failed").Mark(1)
-	} else if int32(len(healthyPieces)) < pointer.Remote.Redundancy.SuccessThreshold {
+	case length < pointer.Remote.Redundancy.SuccessThreshold:
 		mon.Meter("repair_partial").Mark(1)
-	} else {
+	default:
 		mon.Meter("repair_success").Mark(1)
 	}
 
-	healthyRatioAfterRepair := float64(len(healthyPieces)) / float64(pointer.Remote.Redundancy.Total)
+	healthyRatioAfterRepair := 0.0
+	if pointer.Remote.Redundancy.Total != 0 {
+		healthyRatioAfterRepair = float64(len(healthyPieces)) / float64(pointer.Remote.Redundancy.Total)
+	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
 	// Update the segment pointer in the metainfo

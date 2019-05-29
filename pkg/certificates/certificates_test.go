@@ -102,10 +102,11 @@ func TestAuthorizationDB_Create(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		testCase := c
 		t.Run(c.testID, func(t *testing.T) {
-			emailKey := storage.Key(c.email)
+			emailKey := storage.Key(testCase.email)
 
-			if c.startCount == 0 {
+			if testCase.startCount == 0 {
 				_, err = authDB.DB.Get(emailKey)
 				assert.Error(t, err)
 			} else {
@@ -116,20 +117,20 @@ func TestAuthorizationDB_Create(t *testing.T) {
 				var existingAuths Authorizations
 				err = existingAuths.Unmarshal(v)
 				require.NoError(t, err)
-				require.Len(t, existingAuths, c.startCount)
+				require.Len(t, existingAuths, testCase.startCount)
 			}
 
-			expectedAuths, err := authDB.Create(c.email, c.incCount)
-			if c.errClass != nil {
-				assert.True(t, c.errClass.Has(err))
+			expectedAuths, err := authDB.Create(testCase.email, testCase.incCount)
+			if testCase.errClass != nil {
+				assert.True(t, testCase.errClass.Has(err))
 			}
-			if c.err != nil {
-				assert.Equal(t, c.err, err)
+			if testCase.err != nil {
+				assert.Equal(t, testCase.err, err)
 			}
-			if c.errClass == nil && c.err == nil {
+			if testCase.errClass == nil && testCase.err == nil {
 				assert.NoError(t, err)
 			}
-			assert.Len(t, expectedAuths, c.newCount)
+			assert.Len(t, expectedAuths, testCase.newCount)
 
 			v, err := authDB.DB.Get(emailKey)
 			assert.NoError(t, err)
@@ -138,7 +139,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			var actualAuths Authorizations
 			err = actualAuths.Unmarshal(v)
 			assert.NoError(t, err)
-			assert.Len(t, actualAuths, c.endCount)
+			assert.Len(t, actualAuths, testCase.endCount)
 		})
 	}
 }
@@ -182,12 +183,13 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			auths, err := authDB.Get(c.email)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			auths, err := authDB.Get(testCase.email)
 			require.NoError(t, err)
-			if c.result != nil {
+			if testCase.result != nil {
 				assert.NotEmpty(t, auths)
-				assert.Len(t, auths, len(c.result))
+				assert.Len(t, auths, len(testCase.result))
 			} else {
 				assert.Empty(t, auths)
 			}
@@ -505,14 +507,15 @@ func TestParseToken_Valid(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
 			b58Data := base58.CheckEncode(data[:], tokenVersion)
-			tokenString := c.userID + tokenDelimiter + b58Data
+			tokenString := testCase.userID + tokenDelimiter + b58Data
 			token, err := ParseToken(tokenString)
 			require.NoError(t, err)
 			require.NotNil(t, token)
 
-			assert.Equal(t, c.userID, token.UserID)
+			assert.Equal(t, testCase.userID, token.UserID)
 			assert.Equal(t, data[:], token.Data[:])
 		})
 	}
@@ -549,8 +552,9 @@ func TestParseToken_Invalid(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			token, err := ParseToken(c.tokenString)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			token, err := ParseToken(testCase.tokenString)
 			assert.Nil(t, token)
 			assert.True(t, ErrInvalidToken.Has(err))
 		})

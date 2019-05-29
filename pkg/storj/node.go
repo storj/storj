@@ -92,7 +92,7 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 	}
 
 	var id NodeID
-	copy(id[:], b[:])
+	copy(id[:], b)
 	return id, nil
 }
 
