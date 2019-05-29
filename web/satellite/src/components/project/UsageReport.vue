@@ -162,8 +162,8 @@ import { toUnixTimestamp } from '@/utils/time';
                 },
                 onReportClick: function (): void {
                     const projectID = this.$store.getters.selectedProject.id;
-                   	const startDate = this.$store.state.usageModule.startDate;
-					const endDate = this.$store.state.usageModule.endDate;
+                    const startDate = this.$store.state.usageModule.startDate;
+                    const endDate = this.$store.state.usageModule.endDate;
 
                     let url = new URL(location.origin);
                     url.pathname = 'usage-report';
