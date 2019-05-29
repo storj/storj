@@ -105,7 +105,7 @@ require (
 	github.com/zeebo/errs v1.1.1
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
-	github.com/zeebo/structs v0.0.0-20190528235653-b65903867163
+	github.com/zeebo/structs v1.0.1
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
