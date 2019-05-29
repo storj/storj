@@ -5,7 +5,6 @@ package audit
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 
