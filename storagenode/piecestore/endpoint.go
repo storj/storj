@@ -125,6 +125,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+	startTime := time.Now()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -156,6 +157,12 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if err != nil {
 			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
+			endTime := time.Now()
+			dt := endTime.Sub(startTime)
+			uploadRate := float64(limit.Limit) / dt.Seconds()
+			mon.IntVal("upload_size_bytes").Observe(limit.Limit)
+			mon.IntVal("upload_duration_ns").Observe(dt.Nanoseconds())
+			mon.FloatVal("upload_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
@@ -292,6 +299,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+	startTime := time.Now()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -324,6 +332,12 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		if err != nil {
 			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
+			endTime := time.Now()
+			dt := endTime.Sub(startTime)
+			downloadRate := float64(limit.Limit) / dt.Seconds()
+			mon.IntVal("download_size_bytes").Observe(limit.Limit)
+			mon.IntVal("download_duration_ns").Observe(dt.Nanoseconds())
+			mon.FloatVal("download_rate_bytes_per_sec").Observe(downloadRate)
 			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
