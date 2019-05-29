@@ -28,6 +28,7 @@ type Config struct {
 	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
 	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MaxReverifyCount  int 			`help:"limit above which we consider an audit is failed" default:"3"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -49,8 +50,8 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB),
+		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
+		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
