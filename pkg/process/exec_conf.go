@@ -222,6 +222,16 @@ func cleanup(cmd *cobra.Command) {
 			allSettings = vip.AllSettings()
 		)
 
+		// Hacky hack: these two keys are noprefix which breaks all scoping
+		if val, ok := allSettings["api-key"]; ok {
+			allSettings["client.api-key"] = val
+			delete(allSettings, "api-key")
+		}
+		if val, ok := allSettings["satellite-addr"]; ok {
+			allSettings["client.satellite-addr"] = val
+			delete(allSettings, "satellite-addr")
+		}
+
 		for _, config := range configValues {
 			// Decode and all of the resulting keys into our sets
 			res := structs.Decode(allSettings, config)
