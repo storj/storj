@@ -196,18 +196,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[serverPrivateAddress.Name] = defaultPrivateServerAddr
 	}
 
-	configFile := filepath.Join(setupDir, "config.yaml")
 	if setupCfg.SaveAllDefaults {
-		err = process.SaveConfigWithAllDefaults(cmd, configFile, overrides)
+		err = process.SaveConfigWithAllDefaults(cmd, setupDir, overrides)
 	} else {
-		err = process.SaveConfig(cmd, configFile, overrides)
+		err = process.SaveConfig(cmd, setupDir, overrides)
 	}
 	if err != nil {
 		return err
 	}
 
 	if setupCfg.EditConf {
-		return fpath.EditFile(configFile)
+		return fpath.EditFile(filepath.Join(setupDir, process.DefaultCfgFilename))
 	}
 
 	return err
@@ -219,7 +218,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 	//run setup if we can't access the config file
-	conf := filepath.Join(setupDir, "config.yaml")
+	conf := filepath.Join(setupDir, process.DefaultCfgFilename)
 	if _, err := os.Stat(conf); err != nil {
 		return cmdSetup(cmd, args)
 	}

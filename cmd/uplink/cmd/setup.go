@@ -79,8 +79,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		override := map[string]interface{}{
 			"enc.key-filepath": usedEncryptionKeyFilepath,
 		}
-		return process.SaveConfigWithAllDefaults(
-			cmd, filepath.Join(setupDir, process.DefaultCfgFilename), override)
+		return process.SaveConfigWithAllDefaults(cmd, setupDir, override)
 	}
 
 	_, err = fmt.Print(`
@@ -186,8 +185,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		"enc.key-filepath": usedEncryptionKeyFilepath,
 	}
 
-	err = process.SaveConfigWithAllDefaults(
-		cmd, filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	err = process.SaveConfigWithAllDefaults(cmd, setupDir, override)
 	if err != nil {
 		return nil
 	}

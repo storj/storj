@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -15,22 +16,23 @@ import (
 )
 
 // SaveConfig will save only the user-specific flags with default values to
-// outfile with specific values specified in 'overrides' overridden.
-func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interface{}) error {
-	return saveConfig(cmd, outfile, overrides, false)
+// config files in the directory with specific values specified in 'overrides' overridden.
+func SaveConfig(cmd *cobra.Command, directory string, overrides map[string]interface{}) error {
+	return saveConfig(cmd, directory, overrides, false)
 }
 
-// SaveConfigWithAllDefaults will save all flags with default values to outfile
-// with specific values specified in 'overrides' overridden.
-func SaveConfigWithAllDefaults(cmd *cobra.Command, outfile string, overrides map[string]interface{}) error {
-	return saveConfig(cmd, outfile, overrides, true)
+// SaveConfigWithAllDefaults will save all flags with default values to config
+// files in the directory with specific values specified in 'overrides' overridden.
+func SaveConfigWithAllDefaults(cmd *cobra.Command, directory string, overrides map[string]interface{}) error {
+	return saveConfig(cmd, directory, overrides, true)
 }
 
-func saveConfig(cmd *cobra.Command, outfile string, overrides map[string]interface{}, saveAllDefaults bool) error {
+func saveConfig(cmd *cobra.Command, directory string, overrides map[string]interface{}, saveAllDefaults bool) error {
 	// we previously used Viper here, but switched to a custom serializer to allow comments
 	// todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
 	flagset := cmd.Flags()
 	flagset.AddFlagSet(pflag.CommandLine)
+	outfile := filepath.Join(directory, DefaultCfgFilename)
 
 	// sort keys
 	var keys []string
