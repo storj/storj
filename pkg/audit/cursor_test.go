@@ -80,7 +80,7 @@ func TestAuditSegment(t *testing.T) {
 				skip := false
 				for i, up := range uniquePathCounted {
 					if reflect.DeepEqual(pc.path, up.path) {
-						up.count = up.count + 1
+						up.count++
 						uniquePathCounted[i] = up
 						skip = true
 						break

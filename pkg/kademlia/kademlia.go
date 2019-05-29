@@ -163,7 +163,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) error {
 	for i := 0; waitInterval < k.bootstrapBackoffMax; i++ {
 		if i > 0 {
 			time.Sleep(waitInterval)
-			waitInterval = waitInterval * 2
+			waitInterval *= 2
 		}
 
 		var foundOnlineBootstrap bool
@@ -264,17 +264,17 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoRespons
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
-func (k *Kademlia) FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error) {
+func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (pb.Node, error) {
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	return k.lookup(ctx, ID, false)
+	return k.lookup(ctx, nodeID, false)
 }
 
 //lookup initiates a kadmelia node lookup
-func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool) (pb.Node, error) {
+func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap bool) (pb.Node, error) {
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
@@ -288,19 +288,19 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 		}
 	} else {
 		var err error
-		nodes, err = k.routingTable.FindNear(ID, kb)
+		nodes, err = k.routingTable.FindNear(nodeID, kb)
 		if err != nil {
 			return pb.Node{}, err
 		}
 	}
-	lookup := newPeerDiscovery(k.log, k.routingTable.Local().Node, nodes, k.dialer, ID, discoveryOptions{
+	lookup := newPeerDiscovery(k.log, k.routingTable.Local().Node, nodes, k.dialer, nodeID, discoveryOptions{
 		concurrency: k.alpha, retries: defaultRetries, bootstrap: isBootstrap, bootstrapNodes: k.bootstrapNodes,
 	})
 	target, err := lookup.Run(ctx)
 	if err != nil {
 		return pb.Node{}, err
 	}
-	bucket, err := k.routingTable.getKBucketID(ID)
+	bucket, err := k.routingTable.getKBucketID(nodeID)
 	if err != nil {
 		k.log.Warn("Error getting getKBucketID in kad lookup")
 	} else {
