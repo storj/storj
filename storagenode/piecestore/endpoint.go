@@ -153,16 +153,23 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return err // TODO: report grpc status unauthorized or bad request
 	}
 
+	var pieceWriter *pieces.Writer
 	defer func() {
+		endTime := time.Now()
+		dt := endTime.Sub(startTime)
+		uploadSize := pieceWriter.Size()
+		uploadRate := float64(uploadSize) / dt.Seconds()
+		uploadDuration := dt.Nanoseconds()
+
 		if err != nil {
+			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
-			endTime := time.Now()
-			dt := endTime.Sub(startTime)
-			uploadRate := float64(limit.Limit) / dt.Seconds()
-			mon.IntVal("upload_size_bytes").Observe(limit.Limit)
-			mon.IntVal("upload_duration_ns").Observe(dt.Nanoseconds())
-			mon.FloatVal("upload_rate_bytes_per_sec").Observe(uploadRate)
+			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
@@ -172,7 +179,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return Error.Wrap(err)
 	}
 
-	pieceWriter, err := endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
+	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
@@ -328,16 +335,22 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
+	var pieceReader *pieces.Reader
 	defer func() {
+		endTime := time.Now()
+		dt := endTime.Sub(startTime)
+		downloadSize := pieceReader.Size()
+		downloadRate := float64(downloadSize) / dt.Seconds()
+		downloadDuration := dt.Nanoseconds()
 		if err != nil {
+			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
 			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
-			endTime := time.Now()
-			dt := endTime.Sub(startTime)
-			downloadRate := float64(limit.Limit) / dt.Seconds()
-			mon.IntVal("download_size_bytes").Observe(limit.Limit)
-			mon.IntVal("download_duration_ns").Observe(dt.Nanoseconds())
-			mon.FloatVal("download_rate_bytes_per_sec").Observe(downloadRate)
+			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
 			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
@@ -347,7 +360,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err)
 	}
 
-	pieceReader, err := endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
+	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
