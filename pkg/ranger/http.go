@@ -20,8 +20,8 @@ type httpRanger struct {
 }
 
 // HTTPRanger turns an HTTP URL into a Ranger
-func HTTPRanger(URL string) (Ranger, error) {
-	resp, err := http.Head(URL)
+func HTTPRanger(url string) (Ranger, error) {
+	resp, err := http.Head(url)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func HTTPRanger(URL string) (Ranger, error) {
 		return nil, err
 	}
 	return &httpRanger{
-		URL:  URL,
+		URL:  url,
 		size: int64(size),
 	}, nil
 }
@@ -50,9 +50,9 @@ func HTTPRanger(URL string) (Ranger, error) {
 // HTTPRangerSize creates an HTTPRanger with known size.
 // Use it if you know the content size. This will safe the extra HEAD request
 // for retrieving the content size.
-func HTTPRangerSize(URL string, size int64) Ranger {
+func HTTPRangerSize(url string, size int64) Ranger {
 	return &httpRanger{
-		URL:  URL,
+		URL:  url,
 		size: size,
 	}
 }
