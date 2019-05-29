@@ -124,7 +124,7 @@ func TestKademliaFindNear(t *testing.T) {
 		sort.Ints(counts)
 		require.Equal(t, counts[0], len(results))
 		for i, result := range results {
-			require.Equal(t, (*result).Id.String(), expectedIDs[i].String(), fmt.Sprintf("item %d", i))
+			require.Equal(t, result.Id.String(), expectedIDs[i].String(), fmt.Sprintf("item %d", i))
 		}
 	}
 	for _, testNodeCount := range []int{0, 1, 10, 100} {
