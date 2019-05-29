@@ -2,7 +2,9 @@ package vpath
 
 import "github.com/zeebo/errs"
 
-// The searcher ...
+// The searcher allows one to find the matching most encrypted key and path for
+// some unencrypted path. It also reports a mapping of encrypted to unencrypted paths
+// at the searched for unencrypted path.
 //
 // For example, if the searcher contains the mappings
 //
@@ -23,6 +25,9 @@ type Searcher struct {
 	root *node
 }
 
+// node is a node in the searcher graph. It may contain an encryption key and encrypted path,
+// a list of children nodes, and data to ensure a bijection between encrypted and unencrypted
+// path entries.
 type node struct {
 	children    map[string]*node  // unenc => node
 	revealed    map[string]string // enc => unenc
@@ -30,17 +35,20 @@ type node struct {
 	base        *Base
 }
 
+// Base represents a key with which to derive further keys at some encrypted path.
 type Base struct {
 	Encrypted string
 	Key       []byte
 }
 
+// NewSearcher constructs a Searcher.
 func NewSearcher() *Searcher {
 	return &Searcher{
 		root: newNode(),
 	}
 }
 
+// newNode constructs a node.
 func newNode() *node {
 	return &node{
 		children:    make(map[string]*node),
@@ -49,6 +57,7 @@ func newNode() *node {
 	}
 }
 
+// Add creates a mapping from the unencrypted path to the encrypted path and key.
 func (s *Searcher) Add(unencrypted, encrypted string, key []byte) error {
 	return s.root.add(newPathWalker(unencrypted), newPathWalker(encrypted), &Base{
 		Encrypted: encrypted,
@@ -56,16 +65,19 @@ func (s *Searcher) Add(unencrypted, encrypted string, key []byte) error {
 	})
 }
 
+// add places the paths and base into the node tree structure.
 func (n *node) add(unenc, enc pathWalker, base *Base) error {
 	if unenc.Empty() != enc.Empty() {
 		return errs.New("encrypted and unencrypted paths had different number of components")
 	}
 
+	// If we're done walking the paths, this node must have the provided base.
 	if unenc.Empty() {
 		n.base = base
 		return nil
 	}
 
+	// Walk to the next parts and ensure they're consistent with previous additions.
 	unencPart, encPart := unenc.Next(), enc.Next()
 	if revealedPart, ok := n.revealed[encPart]; ok && revealedPart != unencPart {
 		return errs.New("conflicting encrypted parts for unencrypted path")
@@ -74,6 +86,7 @@ func (n *node) add(unenc, enc pathWalker, base *Base) error {
 		return errs.New("conflicting encrypted parts for unencrypted path")
 	}
 
+	// Look up the child in the tree, allocating if necessary.
 	child, ok := n.children[unencPart]
 	if !ok {
 		child = newNode()
@@ -82,30 +95,41 @@ func (n *node) add(unenc, enc pathWalker, base *Base) error {
 		n.invRevealed[unencPart] = encPart
 	}
 
+	// Recurse to the next node in the tree.
 	return child.add(unenc, enc, base)
 }
 
+// Lookup finds the matching most unencrypted path added to the Searcher, reports how much
+// of the path matched, any known unencrypted paths at the requested path, and if a key
+// and encrypted path exists for the unencrypted path.
 func (s *Searcher) Lookup(unencrypted string) (
 	revealed map[string]string, consumed string, base *Base) {
 
 	return s.root.lookup(newPathWalker(unencrypted), "", nil)
 }
 
+// lookup searches for the path in the node tree structure.
 func (n *node) lookup(path pathWalker, bestConsumed string, bestBase *Base) (
 	map[string]string, string, *Base) {
 
+	// Keep track of the best match so far.
 	if n.base != nil || bestBase == nil {
 		bestConsumed, bestBase = path.Consumed(), n.base
 	}
 
+	// If we're done walking the path, then return our best match along with the
+	// revealed paths at this node.
 	if path.Empty() {
 		return n.revealed, bestConsumed, bestBase
 	}
 
+	// Walk to the next node in the tree. If there is no node, then report our best
+	// match.
 	child, ok := n.children[path.Next()]
 	if !ok {
 		return nil, bestConsumed, bestBase
 	}
 
+	// Recurse to the next node in the tree.
 	return child.lookup(path, bestConsumed, bestBase)
 }
