@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -416,6 +415,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
+	usage_limit bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -470,11 +470,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key bytea NOT NULL,
+	head bytea NOT NULL,
 	name text NOT NULL,
+	secret bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -700,6 +701,7 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
+	usage_limit INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -754,11 +756,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key BLOB NOT NULL,
+	head BLOB NOT NULL,
 	name TEXT NOT NULL,
+	secret BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -3077,6 +3080,7 @@ type Project struct {
 	Id          []byte
 	Name        string
 	Description string
+	UsageLimit  int64
 	CreatedAt   time.Time
 }
 
@@ -3084,6 +3088,7 @@ func (Project) _Table() string { return "projects" }
 
 type Project_Update_Fields struct {
 	Description Project_Description_Field
+	UsageLimit  Project_UsageLimit_Field
 }
 
 type Project_Id_Field struct {
@@ -3142,6 +3147,25 @@ func (f Project_Description_Field) value() interface{} {
 }
 
 func (Project_Description_Field) _Column() string { return "description" }
+
+type Project_UsageLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Project_UsageLimit(v int64) Project_UsageLimit_Field {
+	return Project_UsageLimit_Field{_set: true, _value: v}
+}
+
+func (f Project_UsageLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
 
 type Project_CreatedAt_Field struct {
 	_set   bool
@@ -3818,8 +3842,9 @@ func (User_CreatedAt_Field) _Column() string { return "created_at" }
 type ApiKey struct {
 	Id        []byte
 	ProjectId []byte
-	Key       []byte
+	Head      []byte
 	Name      string
+	Secret    []byte
 	CreatedAt time.Time
 }
 
@@ -3867,24 +3892,24 @@ func (f ApiKey_ProjectId_Field) value() interface{} {
 
 func (ApiKey_ProjectId_Field) _Column() string { return "project_id" }
 
-type ApiKey_Key_Field struct {
+type ApiKey_Head_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func ApiKey_Key(v []byte) ApiKey_Key_Field {
-	return ApiKey_Key_Field{_set: true, _value: v}
+func ApiKey_Head(v []byte) ApiKey_Head_Field {
+	return ApiKey_Head_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Key_Field) value() interface{} {
+func (f ApiKey_Head_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (ApiKey_Key_Field) _Column() string { return "key" }
+func (ApiKey_Head_Field) _Column() string { return "head" }
 
 type ApiKey_Name_Field struct {
 	_set   bool
@@ -3904,6 +3929,25 @@ func (f ApiKey_Name_Field) value() interface{} {
 }
 
 func (ApiKey_Name_Field) _Column() string { return "name" }
+
+type ApiKey_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_Secret(v []byte) ApiKey_Secret_Field {
+	return ApiKey_Secret_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Secret_Field) _Column() string { return "secret" }
 
 type ApiKey_CreatedAt_Field struct {
 	_set   bool
@@ -4477,22 +4521,24 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
-	project_description Project_Description_Field) (
+	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field) (
 	project *Project, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := project_usage_limit.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4527,24 +4573,26 @@ func (obj *postgresImpl) Create_ProjectMember(ctx context.Context,
 func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_key ApiKey_Key_Field,
-	api_key_name ApiKey_Name_Field) (
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field) (
 	api_key *ApiKey, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := api_key_id.value()
 	__project_id_val := api_key_project_id.value()
-	__key_val := api_key_key.value()
+	__head_val := api_key_head.value()
 	__name_val := api_key_name.value()
+	__secret_val := api_key_secret.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5117,7 +5165,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 func (obj *postgresImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -5133,7 +5181,7 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5150,7 +5198,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -5159,7 +5207,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5171,7 +5219,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -5187,7 +5235,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5273,7 +5321,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -5282,7 +5330,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5290,20 +5338,20 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_ApiKey_By_Key(ctx context.Context,
-	api_key_key ApiKey_Key_Field) (
+func (obj *postgresImpl) Get_ApiKey_By_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.key = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
 
 	var __values []interface{}
-	__values = append(__values, api_key_key.value())
+	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5315,7 +5363,7 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 	api_key_project_id ApiKey_ProjectId_Field) (
 	rows []*ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
 
 	var __values []interface{}
 	__values = append(__values, api_key_project_id.value())
@@ -5331,7 +5379,7 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 	for __rows.Next() {
 		api_key := &ApiKey{}
-		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -6294,7 +6342,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -6303,6 +6351,11 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -6318,7 +6371,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -6334,7 +6387,7 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	api_key *ApiKey, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ? RETURNING api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ? RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -6358,7 +6411,7 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -7365,21 +7418,23 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
-	project_description Project_Description_Field) (
+	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field) (
 	project *Project, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := project_usage_limit.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, created_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, created_at ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __name_val, __description_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7421,23 +7476,25 @@ func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
 func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_key ApiKey_Key_Field,
-	api_key_name ApiKey_Name_Field) (
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field) (
 	api_key *ApiKey, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := api_key_id.value()
 	__project_id_val := api_key_project_id.value()
-	__key_val := api_key_key.value()
+	__head_val := api_key_head.value()
 	__name_val := api_key_name.value()
+	__secret_val := api_key_secret.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8041,7 +8098,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -8057,7 +8114,7 @@ func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8074,7 +8131,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -8083,7 +8140,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8095,7 +8152,7 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -8111,7 +8168,7 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8197,7 +8254,7 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -8206,7 +8263,7 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8214,20 +8271,20 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_ApiKey_By_Key(ctx context.Context,
-	api_key_key ApiKey_Key_Field) (
+func (obj *sqlite3Impl) Get_ApiKey_By_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.key = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
 
 	var __values []interface{}
-	__values = append(__values, api_key_key.value())
+	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8239,7 +8296,7 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 	api_key_project_id ApiKey_ProjectId_Field) (
 	rows []*ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
 
 	var __values []interface{}
 	__values = append(__values, api_key_project_id.value())
@@ -8255,7 +8312,7 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 
 	for __rows.Next() {
 		api_key := &ApiKey{}
-		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -9279,6 +9336,11 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
 	}
 
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -9297,12 +9359,12 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -9347,12 +9409,12 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10030,13 +10092,13 @@ func (obj *sqlite3Impl) getLastProject(ctx context.Context,
 	pk int64) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10066,13 +10128,13 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 	pk int64) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10669,14 +10731,15 @@ func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
 func (rx *Rx) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_key ApiKey_Key_Field,
-	api_key_name ApiKey_Name_Field) (
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field) (
 	api_key *ApiKey, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_key, api_key_name)
+	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_head, api_key_name, api_key_secret)
 
 }
 
@@ -10819,13 +10882,14 @@ func (rx *Rx) Create_PendingAudits(ctx context.Context,
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
-	project_description Project_Description_Field) (
+	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field) (
 	project *Project, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_name, project_description)
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit)
 
 }
 
@@ -11126,6 +11190,16 @@ func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
 	return tx.Get_AccountingRollup_By_Id(ctx, accounting_rollup_id)
 }
 
+func (rx *Rx) Get_ApiKey_By_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Head(ctx, api_key_head)
+}
+
 func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	api_key *ApiKey, err error) {
@@ -11134,16 +11208,6 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
-}
-
-func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
-	api_key_key ApiKey_Key_Field) (
-	api_key *ApiKey, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
 }
 
 func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
@@ -11529,8 +11593,9 @@ type Methods interface {
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		api_key_project_id ApiKey_ProjectId_Field,
-		api_key_key ApiKey_Key_Field,
-		api_key_name ApiKey_Name_Field) (
+		api_key_head ApiKey_Head_Field,
+		api_key_name ApiKey_Name_Field,
+		api_key_secret ApiKey_Secret_Field) (
 		api_key *ApiKey, err error)
 
 	Create_BucketStorageTally(ctx context.Context,
@@ -11623,7 +11688,8 @@ type Methods interface {
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
-		project_description Project_Description_Field) (
+		project_description Project_Description_Field,
+		project_usage_limit Project_UsageLimit_Field) (
 		project *Project, err error)
 
 	Create_ProjectMember(ctx context.Context,
@@ -11753,12 +11819,12 @@ type Methods interface {
 		accounting_rollup_id AccountingRollup_Id_Field) (
 		accounting_rollup *AccountingRollup, err error)
 
-	Get_ApiKey_By_Id(ctx context.Context,
-		api_key_id ApiKey_Id_Field) (
+	Get_ApiKey_By_Head(ctx context.Context,
+		api_key_head ApiKey_Head_Field) (
 		api_key *ApiKey, err error)
 
-	Get_ApiKey_By_Key(ctx context.Context,
-		api_key_key ApiKey_Key_Field) (
+	Get_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field) (
 		api_key *ApiKey, err error)
 
 	Get_BucketUsage_By_Id(ctx context.Context,

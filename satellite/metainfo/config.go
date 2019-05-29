@@ -33,13 +33,16 @@ func NewStore(logger *zap.Logger, dbURLString string) (db storage.KeyValueStore,
 	if err != nil {
 		return nil, err
 	}
-	if driver == "bolt" {
+
+	switch driver {
+	case "bolt":
 		db, err = boltdb.New(source, BoltPointerBucket)
-	} else if driver == "postgresql" || driver == "postgres" {
+	case "postgresql", "postgres":
 		db, err = postgreskv.New(source)
-	} else {
+	default:
 		err = Error.New("unsupported db scheme: %s", driver)
 	}
+
 	logger.Debug("Connected to:", zap.String("db source", source))
 	return db, err
 }

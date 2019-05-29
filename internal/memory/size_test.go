@@ -43,7 +43,7 @@ func TestBase2Size(t *testing.T) {
 		{500, "500 B"},
 		{5, "5 B"},
 		{1, "1 B"},
-		{0, "0"},
+		{0, "0 B"},
 	}
 
 	for i, test := range tests {
@@ -81,7 +81,7 @@ func TestBase10Size(t *testing.T) {
 		{500, "500 B"},
 		{5, "5 B"},
 		{1, "1 B"},
-		{0, "0"},
+		{0, "0 B"},
 	}
 
 	for i, test := range tests {

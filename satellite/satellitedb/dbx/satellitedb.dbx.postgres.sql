@@ -143,6 +143,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
+	usage_limit bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -197,11 +198,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key bytea NOT NULL,
+	head bytea NOT NULL,
 	name text NOT NULL,
+	secret bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (

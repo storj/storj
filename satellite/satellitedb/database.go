@@ -74,8 +74,7 @@ func (db *DB) Close() error {
 
 // CreateSchema creates a schema if it doesn't exist.
 func (db *DB) CreateSchema(schema string) error {
-	switch db.driver {
-	case "postgres":
+	if db.driver == "postgres" {
 		return pgutil.CreateSchema(db.db, schema)
 	}
 	return nil
@@ -87,8 +86,7 @@ func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
-	switch db.driver {
-	case "postgres":
+	if db.driver == "postgres" {
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
@@ -148,6 +146,6 @@ func (db *DB) Orders() orders.DB {
 }
 
 // Containment returns database for storing pending audit info
-func (db *DB) Containment() audit.DB {
+func (db *DB) Containment() audit.Containment {
 	return &containment{db: db.db}
 }

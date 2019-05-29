@@ -79,7 +79,7 @@ func TransformReaderSize(r io.ReadCloser, t Transformer,
 }
 
 func (t *transformedReader) Read(p []byte) (n int, err error) {
-	if len(t.outbuf) <= 0 {
+	if len(t.outbuf) == 0 {
 		// If there's no more buffered data left, let's fill the buffer with
 		// the next block
 		b, err := io.ReadFull(t.r, t.inbuf)
