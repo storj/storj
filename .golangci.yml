@@ -23,6 +23,7 @@ linters:
     - goimports   # fix import order
     - misspell    # check spelling
     - unconvert   # remove unnecessary conversions
+    - scopelint   # checks for unpinned variables
     - gocritic    # checks for style, performance issues, and common programming errors
     #TODO#- maligned    # check for better memory usage
     #TODO#- prealloc    # easy optimizations

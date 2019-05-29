@@ -283,8 +283,8 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 	kb := k.routingTable.K()
 	var nodes []*pb.Node
 	if isBootstrap {
-		for _, v := range k.bootstrapNodes {
-			nodes = append(nodes, &v)
+		for _, bn := range k.bootstrapNodes {
+			nodes = append(nodes, &bn) // nolint: scopelint
 		}
 	} else {
 		var err error

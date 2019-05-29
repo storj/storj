@@ -127,10 +127,12 @@ func TestKademliaFindNear(t *testing.T) {
 			require.Equal(t, result.Id.String(), expectedIDs[i].String(), fmt.Sprintf("item %d", i))
 		}
 	}
-	for _, testNodeCount := range []int{0, 1, 10, 100} {
+	for _, nodeodeCount := range []int{0, 1, 10, 100} {
+		testNodeCount := nodeodeCount
 		for _, limit := range []int{0, 1, 10, 100} {
-			t.Run(fmt.Sprintf("test %d %d", testNodeCount, limit),
-				func(t *testing.T) { testFunc(t, testNodeCount, limit) })
+			l := limit
+			t.Run(fmt.Sprintf("test %d %d", testNodeCount, l),
+				func(t *testing.T) { testFunc(t, testNodeCount, l) })
 		}
 	}
 }
@@ -165,14 +167,15 @@ func TestConnectionSuccess(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			err := rt.ConnectionSuccess(c.node)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			err := rt.ConnectionSuccess(testCase.node)
 			assert.NoError(t, err)
-			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
+			v, err := rt.nodeBucketDB.Get(testCase.id.Bytes())
 			assert.NoError(t, err)
 			n, err := unmarshalNodes([]storage.Value{v})
 			assert.NoError(t, err)
-			assert.Equal(t, c.address.Address, n[0].Address.Address)
+			assert.Equal(t, testCase.address.Address, n[0].Address.Address)
 		})
 	}
 }
