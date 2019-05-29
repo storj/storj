@@ -32,7 +32,6 @@ func saveConfig(cmd *cobra.Command, directory string, overrides map[string]inter
 	// todo:  switch back to Viper once go-yaml v3 is released and its supports writing comments?
 	flagset := cmd.Flags()
 	flagset.AddFlagSet(pflag.CommandLine)
-	outfile := filepath.Join(directory, DefaultCfgFilename)
 
 	// sort keys
 	var keys []string
@@ -40,7 +39,7 @@ func saveConfig(cmd *cobra.Command, directory string, overrides map[string]inter
 	sort.Strings(keys)
 
 	// serialize
-	w := new(bytes.Buffer)
+	configs, secureConfigs := new(bytes.Buffer), new(bytes.Buffer)
 	for _, k := range keys {
 		f := flagset.Lookup(k)
 		if readBoolAnnotation(f, "setup") {
@@ -57,36 +56,52 @@ func saveConfig(cmd *cobra.Command, directory string, overrides map[string]inter
 			continue
 		}
 
+		writer := configs
+		if readBoolAnnotation(f, "secure") {
+			writer = secureConfigs
+		}
+
 		value := f.Value.String()
 		if overriddenValue != nil {
 			value = fmt.Sprintf("%v", overriddenValue)
 		}
 		// print usage info
 		if f.Usage != "" {
-			fmt.Fprintf(w, "# %s\n", f.Usage)
+			fmt.Fprintf(writer, "# %s\n", f.Usage)
 		}
 		// print commented key (beginning of value assignement line)
 		if readBoolAnnotation(f, "user") || f.Changed || overrideExist {
-			fmt.Fprintf(w, "%s: ", k)
+			fmt.Fprintf(writer, "%s: ", k)
 		} else {
-			fmt.Fprintf(w, "# %s: ", k)
+			fmt.Fprintf(writer, "# %s: ", k)
 		}
 		// print value (remainder of value assignement line)
 		switch f.Value.Type() {
 		case "string":
 			// save ourselves 250+ lines of code and just double quote strings
-			fmt.Fprintf(w, "%q\n\n", value)
+			fmt.Fprintf(writer, "%q\n\n", value)
 		default:
 			// assume that everything else doesn't have fancy control characters
-			fmt.Fprintf(w, "%s\n\n", value)
+			fmt.Fprintf(writer, "%s\n\n", value)
 		}
 	}
 
-	err := ioutil.WriteFile(outfile, w.Bytes(), os.FileMode(0644))
+	configsFile := filepath.Join(directory, DefaultCfgFilename)
+	err := ioutil.WriteFile(configsFile, configs.Bytes(), os.FileMode(0644))
 	if err != nil {
 		return err
 	}
-	fmt.Println("Your configuration is saved to:", outfile)
+	fmt.Println("Your configuration is saved to:", configsFile)
+
+	if len(secureConfigs.Bytes()) > 0 {
+		secureConfigsFile := filepath.Join(directory, DefaultSecureCfgFilename)
+		err := ioutil.WriteFile(secureConfigsFile, secureConfigs.Bytes(), os.FileMode(0600))
+		if err != nil {
+			return err
+		}
+		fmt.Println("Your secure configuration is saved to:", secureConfigsFile)
+	}
+
 	return nil
 }
 
