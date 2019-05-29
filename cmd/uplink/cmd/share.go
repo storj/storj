@@ -46,19 +46,20 @@ func init() {
 const shareISO8601 = "2006-01-02T15:04:05-0700"
 
 func parseHumanDate(date string, now time.Time) (*time.Time, error) {
-	if date == "" {
+	switch {
+	case date == "":
 		return nil, nil
-	} else if date == "now" {
+	case date == "now":
 		return &now, nil
-	} else if date[0] == '+' {
+	case date[0] == '+':
 		d, err := time.ParseDuration(date[1:])
 		t := now.Add(d)
 		return &t, errs.Wrap(err)
-	} else if date[0] == '-' {
+	case date[0] == '-':
 		d, err := time.ParseDuration(date[1:])
 		t := now.Add(-d)
 		return &t, errs.Wrap(err)
-	} else {
+	default:
 		t, err := time.Parse(shareISO8601, date)
 		return &t, errs.Wrap(err)
 	}
