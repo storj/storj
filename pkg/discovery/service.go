@@ -121,7 +121,7 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 	if more == false {
 		discovery.refreshOffset = 0
 	} else {
-		discovery.refreshOffset = discovery.refreshOffset + int64(len(list))
+		discovery.refreshOffset += int64(len(list))
 	}
 
 	for _, node := range list {
