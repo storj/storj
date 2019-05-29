@@ -157,7 +157,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer func() {
 		endTime := time.Now()
 		dt := endTime.Sub(startTime)
-		uploadSize := pieceWriter.Size()
+		uploadSize := int64(0)
+		if pieceWriter != nil {
+			uploadSize = pieceWriter.Size()
+		}
 		uploadRate := float64(uploadSize) / dt.Seconds()
 		uploadDuration := dt.Nanoseconds()
 
@@ -339,7 +342,10 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	defer func() {
 		endTime := time.Now()
 		dt := endTime.Sub(startTime)
-		downloadSize := pieceReader.Size()
+		downloadSize := int64(0)
+		if pieceReader != nil {
+			downloadSize = pieceReader.Size()
+		}
 		downloadRate := float64(downloadSize) / dt.Seconds()
 		downloadDuration := dt.Nanoseconds()
 		if err != nil {
