@@ -26,8 +26,8 @@ func TestCRUDOfferSuccess(t *testing.T) {
 			AwardCreditDurationDays:   60,
 			InviteeCreditDurationDays: 30,
 			RedeemableCap:             50,
-			Status:                    marketing.Active,
 			ExpiresAt:                 time.Now().Add(time.Hour * 1),
+			Status:                    marketing.Active,
 		}
 		new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, n)
 		require.NoError(t, err)
@@ -35,6 +35,11 @@ func TestCRUDOfferSuccess(t *testing.T) {
 		all, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
 		require.NoError(t, err)
 		require.Contains(t, all, *new)
+
+		isDefault := new.Status == marketing.Default
+		c, err := planet.Satellites[0].DB.Marketing().Offers().GetCurrent(ctx, isDefault)
+		require.NoError(t, err)
+		require.Equal(t, new, c)
 
 		update := &marketing.UpdateOffer{
 			ID:          new.ID,
