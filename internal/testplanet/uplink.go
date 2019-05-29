@@ -204,10 +204,7 @@ func (uplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satel
 func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
 	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
-		config.RS.MinThreshold = redundancy.MinThreshold
-		config.RS.RepairThreshold = redundancy.RepairThreshold
-		config.RS.SuccessThreshold = redundancy.SuccessThreshold
-		config.RS.MaxThreshold = redundancy.MaxThreshold
+		config.RS = *redundancy
 	}
 
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
