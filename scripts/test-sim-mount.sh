@@ -25,10 +25,10 @@ random_bytes_file () {
 
 random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
 
-uplink --config-dir "$GATEWAY_0_DIR" mb "sj://$BUCKET/" 
+uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-mount" mb "sj://$BUCKET/" 
 
 # run in background
-storj-mount run --config-dir "$GATEWAY_0_DIR" --log.level=info "sj://$BUCKET" $MOUNT_DIR &
+storj-mount run --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-mount" --log.level=info "sj://$BUCKET" $MOUNT_DIR &
 
 MOUNT_PID=$!
 

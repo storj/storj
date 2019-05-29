@@ -96,8 +96,10 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified. Use format sj://bucket/")
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	if err != nil {
+		return err
+	}
 
 	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
 	if err != nil {
@@ -423,22 +425,14 @@ func (f *storjFile) getReader(off int64) (io.ReadCloser, error) {
 	return f.reader, nil
 }
 
-func (f *storjFile) getWriter(off int64) (io.Writer, error) {
+func (f *storjFile) getWriter(off int64) (_ io.Writer, err error) {
 	if off == 0 {
 		f.size = 0
 		f.closeWriter()
 
-		pipeReader, pipeWriter := io.Pipe()
-		go func() {
-			defer pipeReader.Close()
-			err := f.bucket.UploadObject(f.ctx, f.name, pipeReader, &libuplink.UploadOptions{})
-			if err != nil {
-				zap.S().Errorf("error during upload: %v", err)
-			}
-		}()
-		f.writer = pipeWriter
+		f.writer, err = f.bucket.NewWriter(f.ctx, f.name, &libuplink.UploadOptions{})
 	}
-	return f.writer, nil
+	return f.writer, err
 }
 
 func (f *storjFile) Flush() fuse.Status {
@@ -528,21 +522,24 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
 
-	uplink, err := libuplink.NewUplink(ctx, cfg)
+	uplk, err := libuplink.NewUplink(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	opts := &libuplink.ProjectOptions{}
 
-	encKey := new(storj.Key)
-	copy(encKey[:], c.Enc.Key)
+	encKey, err := uplink.UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	if err != nil {
+		return nil, err
+	}
+
 	opts.Volatile.EncryptionKey = encKey
 
-	project, err := uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
+	project, err := uplk.OpenProject(ctx, satelliteAddr, apiKey, opts)
 
 	if err != nil {
-		if err := uplink.Close(); err != nil {
+		if err := uplk.Close(); err != nil {
 			fmt.Printf("error closing uplink: %+v\n", err)
 		}
 	}
@@ -558,4 +555,35 @@ func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket)
 	if err := project.Close(); err != nil {
 		fmt.Printf("error closing project: %+v\n", err)
 	}
+}
+
+// loadEncryptionAccess loads the encryption key stored in the file pointed by
+// filepath and creates an EncryptionAccess with it.
+func loadEncryptionAccess(filepath string) (libuplink.EncryptionAccess, error) {
+	key, err := uplink.LoadEncryptionKey(filepath)
+	if err != nil {
+		return libuplink.EncryptionAccess{}, err
+	}
+
+	return libuplink.EncryptionAccess{
+		Key: *key,
+	}, nil
+}
+
+// useOrLoadEncryptionAccess creates an encryption key from humanReadableKey
+// when it isn't empty otherwise try to load the key from the file pointed by
+// filepath and creates an EnryptionAccess with it.
+func useOrLoadEncryptionAccess(humanReadableKey string, filepath string) (libuplink.EncryptionAccess, error) {
+	if humanReadableKey != "" {
+		key, err := storj.NewKey([]byte(humanReadableKey))
+		if err != nil {
+			return libuplink.EncryptionAccess{}, err
+		}
+
+		return libuplink.EncryptionAccess{
+			Key: *key,
+		}, nil
+	}
+
+	return loadEncryptionAccess(filepath)
 }
