@@ -51,7 +51,7 @@ func PieceIDFromBytes(b []byte) (PieceID, error) {
 	}
 
 	var id PieceID
-	copy(id[:], b[:])
+	copy(id[:], b)
 	return id, nil
 }
 

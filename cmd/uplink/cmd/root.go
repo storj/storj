@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -50,7 +51,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultConfDir = confDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
 
 	return cmd
 }
