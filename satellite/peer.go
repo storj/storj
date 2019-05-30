@@ -18,6 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
+	"storj.io/storj/internal/payments"
+	"storj.io/storj/internal/payments/paymentstest"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
@@ -551,10 +553,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = payments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = &paymentstest.MockService{}
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 
