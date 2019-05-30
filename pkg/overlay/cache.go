@@ -265,6 +265,9 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
+	if value.Address == nil {
+		return errors.New("node has no address")
+	}
 	//Resolve IP Address to ensure it is set
 	value.LastIp, err = getIP(value.Address.Address)
 	if err != nil {
