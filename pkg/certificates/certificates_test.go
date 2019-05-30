@@ -605,7 +605,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, serverOpts)
 
-				service, err := server.New(serverOpts, sc.Address, sc.PrivateAddress, nil, nil, config)
+				service, err := server.New(serverOpts, sc.Address, sc.PrivateAddress, nil, config)
 				require.NoError(t, err)
 				require.NotNil(t, service)
 

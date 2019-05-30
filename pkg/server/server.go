@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -44,16 +43,10 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // a UnaryServerInterceptor, and a set of services.
-func New(opts *tlsopts.Options, publicAddr, privateAddr string, unaryInterceptor grpc.UnaryServerInterceptor, streamInterceptor grpc.StreamServerInterceptor, services ...Service) (*Server, error) {
-	if unaryInterceptor == nil {
-		unaryInterceptor = logOnErrorUnaryInterceptor
-	} else {
-		unaryInterceptor = grpc_middleware.ChainUnaryServer(unaryInterceptor, logOnErrorUnaryInterceptor)
-	}
-	if streamInterceptor == nil {
-		streamInterceptor = logOnErrorStreamInterceptor
-	} else {
-		streamInterceptor = grpc_middleware.ChainStreamServer(streamInterceptor, logOnErrorStreamInterceptor)
+func New(opts *tlsopts.Options, publicAddr, privateAddr string, interceptor grpc.UnaryServerInterceptor, services ...Service) (*Server, error) {
+	unaryInterceptor := logOnErrorUnaryInterceptor
+	if interceptor != nil {
+		unaryInterceptor = CombineInterceptors(unaryInterceptor, interceptor)
 	}
 
 	publicListener, err := net.Listen("tcp", publicAddr)
@@ -63,7 +56,7 @@ func New(opts *tlsopts.Options, publicAddr, privateAddr string, unaryInterceptor
 	public := public{
 		listener: publicListener,
 		grpc: grpc.NewServer(
-			grpc.StreamInterceptor(streamInterceptor),
+			grpc.StreamInterceptor(logOnErrorStreamInterceptor),
 			grpc.UnaryInterceptor(unaryInterceptor),
 			opts.ServerOption(),
 		),

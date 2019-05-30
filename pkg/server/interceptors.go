@@ -5,16 +5,17 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 
-	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
-	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"storj.io/storj/pkg/identity"
 	"storj.io/storj/storage"
 )
 
@@ -46,27 +47,68 @@ func logOnErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc
 	return resp, err
 }
 
-// the always-yes logging decider function (because grpc_zap requires a decider function)
-func yesLogIt(ctx context.Context, fullMethodName string, servingObject interface{}) bool {
-	return true
+// CombineInterceptors combines two UnaryServerInterceptors so they act as one
+// (because grpc only allows you to pass one in).
+func CombineInterceptors(a, b grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		return a(ctx, req, info, func(actx context.Context, areq interface{}) (interface{}, error) {
+			return b(actx, areq, info, func(bctx context.Context, breq interface{}) (interface{}, error) {
+				return handler(bctx, breq)
+			})
+		})
+	}
 }
 
-// WithUnaryLoggingInterceptor combines interceptors for logging all GRPC unary calls with the
-// given other unary interceptors.
-func WithUnaryLoggingInterceptor(log *zap.Logger, otherInterceptors ...grpc.UnaryServerInterceptor) grpc.UnaryServerInterceptor {
-	interceptors := append([]grpc.UnaryServerInterceptor{
-		grpc_ctxtags.UnaryServerInterceptor(),
-		grpc_zap.PayloadUnaryServerInterceptor(log, yesLogIt),
-	}, otherInterceptors...)
-	return grpc_middleware.ChainUnaryServer(interceptors...)
+type nodeRequestLog struct {
+	GRPCService string      `json:"grpc_service"`
+	GRPCMethod  string      `json:"grpc_method"`
+	PeerAddress string      `json:"peer_address"`
+	PeerNodeID  string      `json:"peer_node_id"`
+	Msg         interface{} `json:"msg"`
 }
 
-// WithStreamLoggingInterceptor combines interceptors for logging all GRPC streaming calls with the
-// given other stream interceptors.
-func WithStreamLoggingInterceptor(log *zap.Logger, otherInterceptors ...grpc.StreamServerInterceptor) grpc.StreamServerInterceptor {
-	interceptors := append([]grpc.StreamServerInterceptor{
-		grpc_ctxtags.StreamServerInterceptor(),
-		grpc_zap.PayloadStreamServerInterceptor(log, yesLogIt),
-	}, otherInterceptors...)
-	return grpc_middleware.ChainStreamServer(interceptors...)
+func prepareRequestLog(ctx context.Context, req, server interface{}, methodName string) ([]byte, error) {
+	reqLog := nodeRequestLog{
+		GRPCService: fmt.Sprintf("%T", server),
+		GRPCMethod:  methodName,
+		PeerAddress: "<no peer???>",
+		Msg:         req,
+	}
+	if peer, ok := peer.FromContext(ctx); ok {
+		reqLog.PeerAddress = peer.Addr.String()
+		if peerIdentity, err := identity.PeerIdentityFromPeer(peer); err == nil {
+			reqLog.PeerNodeID = peerIdentity.ID.String()
+		} else {
+			reqLog.PeerNodeID = fmt.Sprintf("<no peer id: %v>", err)
+		}
+	}
+	return json.Marshal(reqLog)
+}
+
+// UnaryMessageLoggingInterceptor creates a UnaryServerInterceptor which
+// logs the full contents of incoming unary requests.
+func UnaryMessageLoggingInterceptor(log *zap.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		if jsonReq, err := prepareRequestLog(ctx, req, info.Server, info.FullMethod); err == nil {
+			log.Info(string(jsonReq))
+		} else {
+			log.Sugar().Errorf("Failed to marshal %q request to JSON: %v", info.FullMethod, err)
+		}
+		return handler(ctx, req)
+	}
+}
+
+// StreamMessageLoggingInterceptor creates a StreamServerInterceptor which
+// logs the full contents of incoming streaming requests.
+func StreamMessageLoggingInterceptor(log *zap.Logger) grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		// Are we even using any of these yet? I'm only guessing at how best to pass in things
+		// so that they make sense.
+		if jsonReq, err := prepareRequestLog(ss.Context(), srv, nil, info.FullMethod); err == nil {
+			log.Info(string(jsonReq))
+		} else {
+			log.Sugar().Errorf("Failed to marshal %q request to JSON: %v", info.FullMethod, err)
+		}
+		return handler(srv, ss)
+	}
 }

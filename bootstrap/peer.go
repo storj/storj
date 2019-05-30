@@ -111,7 +111,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil, nil)
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, nil)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

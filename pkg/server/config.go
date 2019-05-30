@@ -32,7 +32,7 @@ func (sc Config) Run(ctx context.Context, identity *identity.FullIdentity, inter
 	}
 	defer func() { err = errs.Combine(err, opts.RevDB.Close()) }()
 
-	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, nil, services...)
+	server, err := New(opts, sc.Address, sc.PrivateAddress, interceptor, services...)
 	if err != nil {
 		return err
 	}
