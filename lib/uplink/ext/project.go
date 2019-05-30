@@ -52,7 +52,7 @@ func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAcce
 	}
 
 	var access uplink.EncryptionAccess
-	bytes := C.GoBytes(unsafe.Pointer(cAccess.Key.bytes), cAccess.Key.length)
+	bytes := C.GoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)
 	copy(access.Key[:], bytes)
 
 	bucket, err := project.OpenBucket(ctx, C.GoString(name), &access)

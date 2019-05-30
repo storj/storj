@@ -31,7 +31,6 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 6 "bucket.go"
 
- #include <stdlib.h>
  #ifndef STORJ_HEADERS
    #define STORJ_HEADERS
    #include "c/headers/main.h"

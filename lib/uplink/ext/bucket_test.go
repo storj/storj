@@ -54,6 +54,8 @@ func TestCBucketTests(t *testing.T) {
 		bucket, err := project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: key})
 		require.NoError(t, err)
 
+		// TODO: remove this, it's only here for debuggig the libuplink decryption issue
+		// (see https://storjlabs.atlassian.net/browse/V3-1714)
 		err = bucket.UploadObject(ctx, "TestObject", bytes.NewBuffer([]byte("test data 456")), nil)
 		require.NoError(t, err)
 
@@ -71,23 +73,4 @@ func TestCBucketTests(t *testing.T) {
 		})
 		// TODO: add more assertions
 	}
-}
-
-func TestCBucketTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	project := newProject(t, planet)
-	apikeyStr := newAPIKey(t, ctx, planet, project.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
-	envVars := []string{
-		"SATELLITE_ADDR=" + satelliteAddr,
-		"APIKEY=" + apikeyStr,
-	}
-
-	runCTest(t, ctx, "bucket_test.c", envVars...)
 }
