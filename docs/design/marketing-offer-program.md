@@ -75,7 +75,8 @@ The credit is automatically applied to the account and will have a max limit tha
     expires_at - timestamp
     award_credit_duration_days - int
     invitee_credit_duration_days - int
-    status - enum[ACTIVE, DEFAULT, DONE]
+    // ACTIVE=1, DEFAULT=2, DONE=0
+    status - int
     PRIMARY KEY (id)
 ```
 
@@ -86,7 +87,8 @@ The credit is automatically applied to the account and will have a max limit tha
     offer_id - int
     credits_earned_in_cents - int
     credits_used_in_cents - int
-    credit_type - enum[AWARD, INVITEE, NO_TYPE]
+    // AWARD=1, INVITEE=2, NO_TYPE=0
+    credit_type - int
     expires_at - timestamp
     created_at - timestamp
     referred_by - bytea (nullable)
