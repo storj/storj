@@ -48,6 +48,7 @@ func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlob
 	srcGlobs = append([]string{
 		libuplink,
 		filepath.Join(cLibDir, "tests", "unity.c"),
+		filepath.Join(cLibDir, "tests", "helpers.c"),
 		filepath.Join(cSrcDir, "*.c"),
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)

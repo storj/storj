@@ -31,6 +31,7 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 6 "bucket.go"
 
+ #include <stdlib.h>
  #ifndef STORJ_HEADERS
    #define STORJ_HEADERS
    #include "c/headers/main.h"
@@ -123,9 +124,17 @@ extern APIKeyRef_t ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKeyRef_t p0);
 
-extern void UploadObject(BucketRef_t p0, char* p1, ReaderRef_t p2, UploadOptions_t* p3, char** p4);
+extern void UploadObject(BucketRef_t p0, char* p1, BufferRef_t p2, UploadOptions_t* p3, char** p4);
+
+extern void CloseBucket(BucketRef_t p0, char** p1);
 
 extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
+
+extern BufferRef_t NewBuffer();
+
+extern void WriteBuffer(BufferRef_t p0, uint8_t* p1, size_t p2, char** p3);
+
+extern void ReadBuffer(BufferRef_t p0, uint8_t** p1, size_t* p2, char** p3);
 
 extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t p2, char** p3);
 

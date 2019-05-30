@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 
 typedef __SIZE_TYPE__ GoUintptr;
 typedef int64_t Size;
@@ -15,7 +16,7 @@ typedef GoUintptr ProjectRef_t;
 typedef GoUintptr BucketRef_t;
 typedef GoUintptr BucketConfigRef_t;
 typedef GoUintptr MapRef_t;
-typedef GoUintptr ReaderRef_t;
+typedef GoUintptr BufferRef_t;
 
 typedef struct Bytes {
     uint8_t *bytes;
@@ -72,11 +73,11 @@ typedef struct BucketList {
 } BucketList_t;
 
 typedef struct EncryptionAccess {
-    Bytes_t *Key;
+    Bytes_t *key;
 } EncryptionAccess_t;
 
 typedef struct UploadOptions {
     char *content_type;
     MapRef_t metadata;
-    int64_t expires;
+    time_t expires;
 } UploadOptions_t;

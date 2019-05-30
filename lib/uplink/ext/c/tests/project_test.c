@@ -6,6 +6,7 @@
 #include <string.h>
 #include "unity.h"
 #include "../../uplink-cgo.h"
+#include "helpers.h"
 
 UplinkRef_t NewTestUplink(char **);
 
@@ -52,17 +53,13 @@ void create_test_bucket(ProjectRef_t ref_project, char *bucket_name, Bucket_t *b
 //    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
 }
 
-ProjectRef_t OpenTestProject(char **err)
+void TestCloseProject(void)
 {
-    char *satellite_addr = getenv("SATELLITE_ADDR");
-    APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    char *_err = "";
+    char **err = &_err;
 
-    UplinkRef_t ref_uplink = NewUplinkInsecure(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
+    //TODO: Fill in
 
-    return OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
 }
 
 void TestProject(void)
@@ -108,12 +105,14 @@ void TestProject(void)
         // in a way that doesn't involve a refactor that offends alex's delicate sensibilities.
     }
 
+    // Open bucket
+    // TODO: remove duplication
     uint8_t *enc_key = "bryanssecretkey";
     Bytes_t key;
     key.bytes = enc_key;
     key.length = strlen((const char *)enc_key);
     EncryptionAccess_t access;
-    access.Key = &key;
+    access.key = &key;
 
     BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], &access, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
