@@ -161,7 +161,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if pieceWriter != nil {
 			uploadSize = pieceWriter.Size()
 		}
-		uploadRate := float64(uploadSize) / dt.Seconds()
+		uploadRate := float64(0)
+		if dt.Seconds() > 0 {
+			uploadRate = float64(uploadSize) / dt.Seconds()
+		}
 		uploadDuration := dt.Nanoseconds()
 
 		if err != nil {
@@ -346,7 +349,10 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		if pieceReader != nil {
 			downloadSize = pieceReader.Size()
 		}
-		downloadRate := float64(downloadSize) / dt.Seconds()
+		downloadRate := float64(0)
+		if dt.Seconds() > 0 {
+			downloadRate = float64(downloadSize) / dt.Seconds()
+		}
 		downloadDuration := dt.Nanoseconds()
 		if err != nil {
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
