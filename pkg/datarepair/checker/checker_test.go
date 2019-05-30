@@ -149,7 +149,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = metainfo.Put("fake-piece-id", pointer)
 		require.NoError(t, err)
 
-		// this deletes the previously entered irreparable pointer from irrdb
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 

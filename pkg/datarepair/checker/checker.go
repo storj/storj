@@ -142,11 +142,10 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
-					checker.logger.Error("error unmarshalling pointer: ", zap.Error(err))
-					return err
+					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				err = checker.checkSegmentStatus(ctx, pointer, item.Key.String(), &monStats)
+				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &monStats)
 				if err != nil {
 					return err
 				}
@@ -171,7 +170,7 @@ func contains(a []string, x string) bool {
 	return false
 }
 
-func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
+func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
 	remote := pointer.GetRemote()
 	if remote == nil {
 		return nil
@@ -185,8 +184,7 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 
 	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
-		checker.logger.Error("error getting missing pieces: ", zap.Error(err))
-		return err
+		return Error.New("error getting missing pieces %s", err)
 	}
 
 	monStats.remoteSegmentsChecked++
@@ -210,15 +208,13 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 			LostPieces: missingPieces,
 		})
 		if err != nil {
-			return err
+			return Error.New("error adding injured segment to queue %s", err)
 		}
 
-		// if same segment previously was irreparable
-		if _, err = checker.irrdb.Get(ctx, []byte(path)); err == nil {
-			err = checker.irrdb.Delete(ctx, []byte(path))
-			if err != nil {
-				checker.logger.Error("irrepairable segment delete failed", zap.Error(err))
-			}
+		// delete always returns nil when something was deleted and also when element didn't exists
+		err = checker.irrdb.Delete(ctx, []byte(path))
+		if err != nil {
+			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
 	} else if numHealthy < redundancy.MinReq {
 		// check to make sure there are at least *4* path elements. the first three
@@ -245,8 +241,7 @@ func (checker *Checker) checkSegmentStatus(ctx context.Context, pointer *pb.Poin
 		// add the entry if new or update attempt count if already exists
 		err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
 		if err != nil {
-			checker.logger.Error("error handling irreparable segment to queue: ", zap.Error(err))
-			return err
+			return Error.New("error handling irreparable segment to queue %s", err)
 		}
 	}
 	return nil
@@ -263,7 +258,7 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	for {
 		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
 		if err != nil {
-			return err
+			return Error.New("error reading segment from the queue %s", err)
 		}
 
 		// zero segments returned with nil err
@@ -271,7 +266,7 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		err = checker.checkSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &monStats)
+		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &monStats)
 		if err != nil {
 			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 		}
