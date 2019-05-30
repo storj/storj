@@ -6,16 +6,11 @@ package uplink
 import (
 	"context"
 
-	"github.com/vivint/infectious"
-
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storage/buckets"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -130,8 +125,8 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	}, nil
 }
 
-// ProjectOptions allows configuration of various project options during opening	
-type ProjectOptions struct {}
+// ProjectOptions allows configuration of various project options during opening
+type ProjectOptions struct{}
 
 // OpenProject returns a Project handle with the given APIKey
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
@@ -141,12 +136,12 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &Project{
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      metainfo,
-		project:       kvmetainfo.NewProject(buckets.NewStore(metainfo)),
+		project:       kvmetainfo.NewProject(buckets.NewStore(metainfo), memory.KiB.Int32(), 64*memory.MiB.Int64()),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
 	}, nil
 }
