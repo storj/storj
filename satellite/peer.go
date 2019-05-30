@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -113,6 +114,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Vouchers vouchers.Config
 
 	Version version.Config
 }
@@ -189,6 +192,10 @@ type Peer struct {
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	Vouchers struct {
+		Service *vouchers.Service
 	}
 
 	Console struct {
@@ -311,6 +318,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Setting up discovery")
 		config := config.Discovery
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
+	}
+
+	{ // setup vouchers
+		log.Debug("Setting up vouchers")
+		config := config.Vouchers
+		if config.Expiration < 0 {
+			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
+		}
+		expirationHours := config.Expiration * 24
+		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
+		if err != nil {
+			return nil, err
+		}
+		peer.Vouchers.Service = vouchers.NewService(
+			peer.Log.Named("vouchers"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			duration,
+		)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
 	}
 
 	{ // setup live accounting

@@ -35,3 +35,12 @@ func EncodePieceHash(hash *pb.PieceHash) ([]byte, error) {
 	hash.Signature = signature
 	return out, err
 }
+
+// EncodeVoucher encodes voucher into bytes for signing.
+func EncodeVoucher(voucher *pb.Voucher) ([]byte, error) {
+	signature := voucher.SatelliteSignature
+	voucher.SatelliteSignature = nil
+	out, err := proto.Marshal(voucher)
+	voucher.SatelliteSignature = signature
+	return out, err
+}

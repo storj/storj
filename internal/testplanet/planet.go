@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/orders"
@@ -503,6 +504,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address:         "127.0.0.1:0",
 				PasswordCost:    console.TestPasswordCost,
 				AuthTokenSecret: "my-suppa-secret-key",
+			},
+			Vouchers: vouchers.Config{
+				Expiration: 30,
 			},
 			Version: planet.NewVersionConfig(),
 		}
