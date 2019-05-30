@@ -473,7 +473,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			BwAgreement: bwagreement.Config{},
 			Checker: checker.Config{
-				Interval: 30 * time.Second,
+				Interval:            30 * time.Second,
+				IrreparableInterval: 15 * time.Second,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:    10,
@@ -626,6 +627,14 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
+		}
+
+		newIPCount := planet.config.Reconfigure.NewIPCount
+		if newIPCount > 0 {
+			if i >= count-newIPCount {
+				config.Server.Address = fmt.Sprintf("127.0.0.%d:0", i+1)
+				config.Server.PrivateAddress = fmt.Sprintf("127.0.0.%d:0", i+1)
+			}
 		}
 
 		verInfo := planet.NewVersionInfo()

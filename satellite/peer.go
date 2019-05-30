@@ -417,7 +417,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval)
+			config.Checker.Interval,
+			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),

@@ -38,6 +38,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid1ID := storj.NodeID{}
 	valid2ID := storj.NodeID{}
 	missingID := storj.NodeID{}
+	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 
 	_, _ = rand.Read(valid1ID[:])
 	_, _ = rand.Read(valid2ID[:])
@@ -46,12 +47,12 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{OnlineWindow: time.Hour})
 
 	{ // Put
-		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
+		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID})
+		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
 		if err != nil {
 			t.Fatal(err)
 		}
