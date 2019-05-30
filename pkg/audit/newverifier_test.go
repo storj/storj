@@ -235,7 +235,6 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		for _, share := range shares {
 			assert.True(t, transport.Error.Has(share.Error))
 			assert.Equal(t, context.DeadlineExceeded, errs.Unwrap(share.Error))
-			assert.Equal(t, codes.Unknown, status.Code(errs.Unwrap(share.Error)))
 		}
 	})
 }
@@ -306,7 +305,6 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		for _, share := range shares {
 			assert.Equal(t, codes.DeadlineExceeded, status.Code(errs.Unwrap(share.Error)))
 			assert.False(t, transport.Error.Has(share.Error))
-			assert.NotEqual(t, context.DeadlineExceeded, errs.Unwrap(share.Error))
 		}
 	})
 }
