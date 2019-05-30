@@ -21,7 +21,8 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
 
-	for i := range items {
+	for idx := range items {
+		i := idx
 		item := items[i]
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
