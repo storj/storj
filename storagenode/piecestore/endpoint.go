@@ -6,12 +6,15 @@ package piecestore
 import (
 	"context"
 	"io"
+	"os"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
@@ -335,7 +338,13 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	pieceReader, err := endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+		if os.IsNotExist(err) {
+			return status.Error(codes.NotFound, err.Error())
+		}
+		if os.IsPermission(err) {
+			return status.Error(codes.PermissionDenied, err.Error())
+		}
+		return status.Error(codes.Internal, err.Error())
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works

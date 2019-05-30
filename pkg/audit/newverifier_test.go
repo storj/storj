@@ -174,8 +174,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.Error(t, share.Error)
-			assert.False(t, transport.Error.Has(share.Error))
+			assert.Equal(t, codes.NotFound, status.Code(errs.Unwrap(share.Error)))
 		}
 	})
 }

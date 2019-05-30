@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -96,6 +97,9 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 		Key:       pieceID.Bytes(),
 	})
 	if err != nil {
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			return nil, err
+		}
 		return nil, Error.Wrap(err)
 	}
 
