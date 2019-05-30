@@ -29,28 +29,25 @@ func (offers *offers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 }
 
 // GetCurrent returns an offer that has not expired based on offer status
-func (offers *offers) GetCurrent(ctx context.Context, isDefault bool) (*marketing.Offer, error) {
+func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.OfferStatus) (*marketing.Offer, error) {
 	var statement string
-	if isDefault {
-		statement = `
-			SELECT * FROM offers
-			WHERE status=? AND expires_at>?
-			order by created_at desc;`
-	} else {
-		statement = `
-			WITH o AS (
-				SELECT * FROM offers WHERE status=? AND expires_at>?
-			  )
-			  SELECT * FROM o
-			  UNION ALL
-			  SELECT * FROM offers
-			  WHERE status=?
-			  AND NOT EXISTS (
-				SELECT * FROM o
-			  ) order by reated_at desc;`
-	}
+	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status"
+	statement = `
+		WITH o AS (
+			SELECT ` + columns + ` FROM offers WHERE status=? AND expires_at>?
+		)
+		SELECT ` + columns + ` FROM o
+		UNION ALL
+		SELECT ` + columns + ` FROM offers
+		WHERE status=?
+		AND NOT EXISTS (
+			SELECT id FROM o
+		) order by created_at desc;`
 
-	rows, err := offers.db.DB.QueryContext(ctx, offers.db.Rebind(statement), marketing.Active, time.Now(), marketing.Default)
+	rows := offers.db.DB.QueryRowContext(ctx, offers.db.Rebind(statement), offerStatus, time.Now(), marketing.Default)
+
+	o := marketing.Offer{}
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCreditInCents, &o.InviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status)
 	if err == sql.ErrNoRows {
 		return nil, marketing.OffersErr.New("no current offer")
 	}
@@ -58,11 +55,6 @@ func (offers *offers) GetCurrent(ctx context.Context, isDefault bool) (*marketin
 		return nil, marketing.OffersErr.Wrap(err)
 	}
 
-	o := marketing.Offer{}
-	err = rows.Scan(&o)
-	if err != nil {
-		return nil, errs.Combine(marketing.OffersErr.Wrap(err), rows.Close())
-	}
 	return &o, nil
 }
 

@@ -14,35 +14,55 @@ import (
 	"storj.io/storj/satellite/marketing"
 )
 
-func TestCRUDOfferSuccess(t *testing.T) {
+func TestOfferCycleSuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		n := &marketing.NewOffer{
-			Name:                      "test",
-			Description:               "test offer",
-			AwardCreditInCents:        100,
-			InviteeCreditInCents:      50,
-			AwardCreditDurationDays:   60,
-			InviteeCreditDurationDays: 30,
-			RedeemableCap:             50,
-			Status:                    marketing.Active,
-			ExpiresAt:                 time.Now().Add(time.Hour * 1),
+		offers := []marketing.NewOffer{
+			{
+				Name:                      "test",
+				Description:               "test offer",
+				AwardCreditInCents:        100,
+				InviteeCreditInCents:      50,
+				AwardCreditDurationDays:   60,
+				InviteeCreditDurationDays: 30,
+				RedeemableCap:             50,
+				ExpiresAt:                 time.Now().Add(time.Hour * 1),
+				Status:                    marketing.Active,
+			},
+			{
+				Name:                      "test",
+				Description:               "test offer",
+				AwardCreditInCents:        100,
+				InviteeCreditInCents:      50,
+				AwardCreditDurationDays:   60,
+				InviteeCreditDurationDays: 30,
+				RedeemableCap:             50,
+				ExpiresAt:                 time.Now().Add(time.Hour * 1),
+				Status:                    marketing.Default,
+			},
 		}
-		new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, n)
-		require.NoError(t, err)
 
-		all, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
-		require.NoError(t, err)
-		require.Contains(t, all, *new)
+		for _, o := range offers {
+			new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, &o)
+			require.NoError(t, err)
 
-		update := &marketing.UpdateOffer{
-			ID:          new.ID,
-			Status:      marketing.Done,
-			NumRedeemed: new.NumRedeemed,
-			ExpiresAt:   time.Now(),
+			all, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
+			require.NoError(t, err)
+			require.Contains(t, all, *new)
+
+			c, err := planet.Satellites[0].DB.Marketing().Offers().GetCurrent(ctx, new.Status)
+			require.NoError(t, err)
+			require.Equal(t, new, c)
+
+			update := &marketing.UpdateOffer{
+				ID:          new.ID,
+				Status:      marketing.Done,
+				NumRedeemed: new.NumRedeemed,
+				ExpiresAt:   time.Now(),
+			}
+			err = planet.Satellites[0].DB.Marketing().Offers().Update(ctx, update)
+			require.NoError(t, err)
 		}
-		err = planet.Satellites[0].DB.Marketing().Offers().Update(ctx, update)
-		require.NoError(t, err)
 	})
 }
