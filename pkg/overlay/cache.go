@@ -96,12 +96,13 @@ type UpdateRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node
 type NodeDossier struct {
 	pb.Node
-	Type       pb.NodeType
-	Operator   pb.NodeOperator
-	Capacity   pb.NodeCapacity
-	Reputation NodeStats
-	Version    pb.NodeVersion
-	Contained  bool
+	Type         pb.NodeType
+	Operator     pb.NodeOperator
+	Capacity     pb.NodeCapacity
+	Reputation   NodeStats
+	Version      pb.NodeVersion
+	Contained    bool
+	Disqualified bool
 }
 
 // NodeStats contains statistics about a node.

@@ -769,7 +769,7 @@ func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context
 	return m.db.GetAllocatedBandwidthTotal(ctx, bucketID, from)
 }
 
-// GetProjectUsageLimits
+// GetProjectUsageLimits returns project usage limit
 func (m *lockedProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
 	m.Lock()
 	defer m.Unlock()
