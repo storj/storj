@@ -22,8 +22,9 @@ import (
 
 // BindOpt is an option for the Bind method
 type BindOpt struct {
-	isDev *bool
-	varfn func(vars map[string]confVar)
+	isDev   *bool
+	isSetup *bool
+	varfn   func(vars map[string]confVar)
 }
 
 // ConfDir sets variables for default options called $CONFDIR and $CONFNAME.
@@ -31,18 +32,6 @@ func ConfDir(path string) BindOpt {
 	val := filepath.Clean(os.ExpandEnv(path))
 	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["CONFDIR"] = confVar{val: val, nested: false}
-		vars["CONFNAME"] = confVar{val: val, nested: false}
-	}}
-}
-
-// ConfDirNested sets variables for default options called $CONFDIR and $CONFNAME.
-// ConfDirNested also appends the parent struct field name to the paths before
-// descending into substructs.
-func ConfDirNested(confdir string) BindOpt {
-	val := filepath.Clean(os.ExpandEnv(confdir))
-	return BindOpt{varfn: func(vars map[string]confVar) {
-		vars["CONFDIR"] = confVar{val: val, nested: true}
-		vars["CONFNAME"] = confVar{val: val, nested: true}
 	}}
 }
 
@@ -52,6 +41,13 @@ func IdentityDir(path string) BindOpt {
 	return BindOpt{varfn: func(vars map[string]confVar) {
 		vars["IDENTITYDIR"] = confVar{val: val, nested: false}
 	}}
+}
+
+// SetupMode issues the bind in a mode where it does not ignore fields with the
+// `setup:"true"` tag.
+func SetupMode() BindOpt {
+	setup := true
+	return BindOpt{isSetup: &setup}
 }
 
 // UseDevDefaults forces the bind call to use development defaults unless
@@ -79,24 +75,18 @@ type confVar struct {
 
 // Bind sets flags on a FlagSet that match the configuration struct
 // 'config'. This works by traversing the config struct using the 'reflect'
-// package. Will ignore fields with `setup:"true"` tag.
-func Bind(flags FlagSet, config interface{}, opts ...BindOpt) {
-	bind(flags, config, false, opts...)
-}
-
-// BindSetup sets flags on a FlagSet that match the configuration struct
-// 'config'. This works by traversing the config struct using the 'reflect'
 // package.
-func BindSetup(flags FlagSet, config interface{}, opts ...BindOpt) {
-	bind(flags, config, true, opts...)
+func Bind(flags FlagSet, config interface{}, opts ...BindOpt) {
+	bind(flags, config, opts...)
 }
 
-func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt) {
+func bind(flags FlagSet, config interface{}, opts ...BindOpt) {
 	ptrtype := reflect.TypeOf(config)
 	if ptrtype.Kind() != reflect.Ptr {
 		panic(fmt.Sprintf("invalid config type: %#v. Expecting pointer to struct.", config))
 	}
 	isDev := !version.Build.Release
+	setupCommand := false
 	vars := map[string]confVar{}
 	for _, opt := range opts {
 		if opt.varfn != nil {
@@ -104,6 +94,9 @@ func bind(flags FlagSet, config interface{}, setupCommand bool, opts ...BindOpt)
 		}
 		if opt.isDev != nil {
 			isDev = *opt.isDev
+		}
+		if opt.isSetup != nil {
+			setupCommand = *opt.isSetup
 		}
 	}
 
@@ -117,7 +110,7 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 	typ := val.Type()
 	resolvedVars := make(map[string]string, len(vars))
 	{
-		structpath := strings.Replace(prefix, ".", "/", -1)
+		structpath := strings.Replace(prefix, ".", string(filepath.Separator), -1)
 		for k, v := range vars {
 			if !v.nested {
 				resolvedVars[k] = v.val

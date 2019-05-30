@@ -134,7 +134,7 @@ func ParseMacaroon(data []byte) (*Macaroon, error) {
 		return nil, errors.New("signature has unexpected length")
 	}
 	mac.tail = make([]byte, 32)
-	copy(mac.tail[:], sig.data)
+	copy(mac.tail, sig.data)
 	//return data, nil
 	// Parse Identity
 	// Parse caveats
