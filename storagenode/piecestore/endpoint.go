@@ -125,7 +125,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
-	startTime := time.Now()
+	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -155,7 +155,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 	var pieceWriter *pieces.Writer
 	defer func() {
-		endTime := time.Now()
+		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
 		uploadSize := int64(0)
 		if pieceWriter != nil {
@@ -312,7 +312,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
-	startTime := time.Now()
+	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -343,7 +343,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	var pieceReader *pieces.Reader
 	defer func() {
-		endTime := time.Now()
+		endTime := time.Now().UTC()
 		dt := endTime.Sub(startTime)
 		downloadSize := int64(0)
 		if pieceReader != nil {
