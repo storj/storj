@@ -625,6 +625,14 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			planet.config.Reconfigure.StorageNode(i, &config)
 		}
 
+		newIPCount := planet.config.Reconfigure.NewIPCount
+		if newIPCount > 0 {
+			if i >= count-newIPCount {
+				config.Server.Address = fmt.Sprintf("127.0.0.%d:0", i+1)
+				config.Server.PrivateAddress = fmt.Sprintf("127.0.0.%d:0", i+1)
+			}
+		}
+
 		verInfo := planet.NewVersionInfo()
 
 		peer, err := storagenode.New(log, identity, db, config, verInfo)
