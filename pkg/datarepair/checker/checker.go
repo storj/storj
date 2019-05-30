@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -80,62 +79,20 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(checker.InjuredSegmentCron(ctx))
+		return checker.Loop.Run(ctx, checker.IdentifyInjuredSegments)
 	})
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(checker.IrreparableSegmentCron(ctx))
+		return checker.IrreparableLoop.Run(ctx, checker.IrreparableProcess)
 	})
 
 	return group.Wait()
-	// c := make(chan error)
-
-	// go func() {
-	// 	c <- checker.Loop.Run(ctx, func(ctx context.Context) error {
-	// 		err := checker.IdentifyInjuredSegments(ctx)
-	// 		if err != nil {
-	// 			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
-	// 		}
-	// 		return nil
-	// 	})
-	// }()
-
-	// go func() {
-	// 	c <- checker.IrreparableLoop.Run(ctx, func(ctx context.Context) error {
-	// 		err := checker.IrreparableProcess(ctx)
-	// 		if err != nil {
-	// 			checker.logger.Error("error with irreparable segments identification", zap.Error(err))
-	// 		}
-	// 		return nil
-	// 	})
-	// }()
-
-	// for err := range c {
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// return nil
 }
 
 // Close halts the Checker loop
 func (checker *Checker) Close() error {
 	checker.Loop.Close()
 	return nil
-}
-
-// InjuredSegmentCron runs checker's Identify InjuredSegment service
-func (checker *Checker) InjuredSegmentCron(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	checker.logger.Info("checker's IdentifyInjuredSegments cron is starting up")
-
-	return checker.Loop.Run(ctx, func(ctx context.Context) error {
-		err := checker.IdentifyInjuredSegments(ctx)
-		if err != nil {
-			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
-		}
-		return nil
-	})
 }
 
 // IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay cache
@@ -272,20 +229,6 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		}
 	}
 	return nil
-}
-
-// IrreparableSegmentCron runs checker's Irreparable process service
-func (checker *Checker) IrreparableSegmentCron(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	checker.logger.Info("checker's Irreparable process cron is starting up")
-
-	return checker.IrreparableLoop.Run(ctx, func(ctx context.Context) error {
-		err := checker.IrreparableProcess(ctx)
-		if err != nil {
-			checker.logger.Error("error with irreparable segments identification", zap.Error(err))
-		}
-		return nil
-	})
 }
 
 // IrreparableProcess picks items from irrepairabledb and spawns a repair worker
