@@ -106,9 +106,9 @@ The credit is automatically applied to the account and will have a max limit tha
 **satellite/marketing/service.go**
 ```golang
 func (m *marketing) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) (*Offer, error) {
-  offer, err := m.db.Marketing().Offers().Get_Offer_By_Status(ctx, offerStatus)
+  offer, err := m.db.Marketing().Offers().GetOfferByStatus(ctx, offerStatus)
   if err == sql.ErrNoRows && offerStatus == Active {
-    offer, err = m.db.Marketing().Offers().Get_Offer_By_Status(ctx, Default)
+    offer, err = m.db.Marketing().Offers().GetOfferByStatus(ctx, Default)
     if err != nil {
       return nil, Error.Wrap(err)
     }
@@ -125,7 +125,7 @@ func (m *marketing) StopOffer(ctx context.Context, offerId Offer.ID) error {
     Status: Done,
     ExpiresAt: time.Now(),
   }
-  err := m.db.Marketing().Offers().Update_Offer_By_ID(ctx, offerId, o)
+  err := m.db.Marketing().Offers().UpdateOfferByID(ctx, offerId, o)
   if err != nil {
     return Error.Wrap(err)
   }
@@ -138,7 +138,7 @@ func (m *marketing) Create(ctx context.Context, offer Offer) error {
     offer.ExpiresAt = time.Now().AddDate(100, 0, 0)
   }
 
-  err := m.db.Marketing().Offers().Create_Offer(ctx, offer)
+  err := m.db.Marketing().Offers().CreateOffer(ctx, offer)
   if err != nil {
     return Error.Wrap(err)
   }
