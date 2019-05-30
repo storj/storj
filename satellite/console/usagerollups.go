@@ -35,7 +35,7 @@ type BucketUsage struct {
 
 	Storage     float64
 	Egress      float64
-	ObjectCount float64
+	ObjectCount uint64
 
 	Since  time.Time
 	Before time.Time
