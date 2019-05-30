@@ -56,9 +56,9 @@ const (
 
 // Service is handling accounts related logic
 type Service struct {
-	log *zap.Logger
-
 	Signer
+
+	log           *zap.Logger
 	store         DB
 	stripeService payments.Service
 
