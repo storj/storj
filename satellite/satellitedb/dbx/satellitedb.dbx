@@ -647,8 +647,8 @@ model offer (
 	field id	serial 
 	field name text ( updatable )
 	field description text ( updatable )
-	
-	field award_credit_in_cents int ( updatable ) 
+
+	field award_credit_in_cents int ( updatable )
 	field invitee_credit_in_cents int ( updatable )
 
 	field award_credit_duration_days int ( updatable )
@@ -680,3 +680,26 @@ update offer (
 )
 
 create offer ( )
+
+
+//--- user credit table ---//
+
+model user_credit (
+	key		user_id
+
+	field	user_id user.id	cascade
+	field	offer_id offer.id	cascade
+	field	referred_by user.id	cascade
+	field	credits_earned	int
+	field	credits_used	int
+	field	credits_type	text
+	field	expires_at		timestamp	(autoinsert)
+	field	created_at		timestamp	(autoinsert)
+)
+
+read all ( select user_credit )
+
+read one (
+	select user_credit
+	where	user_credit.offer_id = ?
+)
