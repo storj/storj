@@ -18,7 +18,7 @@ func TestOfferCycleSuccess(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		offers := []marketing.NewOffer{
+		offers := []*marketing.NewOffer{
 			{
 				Name:                      "test",
 				Description:               "test offer",
@@ -44,7 +44,7 @@ func TestOfferCycleSuccess(t *testing.T) {
 		}
 
 		for _, o := range offers {
-			new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, &o)
+			new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, o)
 			require.NoError(t, err)
 
 			all, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
