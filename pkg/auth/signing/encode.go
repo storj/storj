@@ -40,6 +40,7 @@ func EncodePieceHash(hash *pb.PieceHash) ([]byte, error) {
 func EncodeVoucher(voucher *pb.Voucher) ([]byte, error) {
 	signature := voucher.SatelliteSignature
 	voucher.SatelliteSignature = nil
-	defer func() { voucher.SatelliteSignature = signature }()
-	return proto.Marshal(voucher)
+	out, err := proto.Marshal(voucher)
+	voucher.SatelliteSignature = signature
+	return out, err
 }
