@@ -500,6 +500,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
+			dbx.Node_Disqualified(false),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -779,7 +780,8 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			Timestamp:  pbts,
 			Release:    info.Release,
 		},
-		Contained: info.Contained,
+		Contained:    info.Contained,
+		Disqualified: info.Disqualified,
 	}
 
 	return node, nil
