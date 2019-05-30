@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -141,62 +143,60 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 
-	// m, err := b.store.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	m, err := b.Get(ctx, bucketName)
 	if err == nil {
-		//bucket exists, add meta to existing entry
-		
+		// TODO
+		//bucket exists, add meta to existing entry?
 	}
 
+	// TODO: check if parameters are correct
 
-	//*** - prefix the bucket path with `l/` before storing in pointerdb
-	// lastSegmentPath := storj.JoinPaths("l", encPath)
-
-	//***- populate and marshal a pb.StreamInfo protobuf
-
-	// streamInfo, err := proto.Marshal(&pb.StreamInfo{
-	// 	NumberOfSegments: currentSegment + 1,
-	// 	SegmentsSize:     s.segmentSize,
-	// 	LastSegmentSize:  sizeReader.Size(),
-	// 	Metadata:         metadata,
-	// })
-
-	// *** - populate and marshal a pb.StreamMeta protobuf (the marshaled pb.StreamInfo goes in encrypted_stream_info)
-	// streamMeta := pb.StreamMeta{
-	// 	EncryptedStreamInfo: encryptedStreamInfo,
-	// 	EncryptionType:      int32(s.cipher),
-	// 	EncryptionBlockSize: int32(s.encBlockSize),
-	// }
-
-	// ***- populate and marshal a pb.Pointer protobuf
-	// pointer = &pb.Pointer{
-	// 	Type:           pb.Pointer_INLINE,
-	// 	InlineSegment:  peekReader.thresholdBuf,
-	// 	SegmentSize:    int64(len(peekReader.thresholdBuf)),
-	// 	ExpirationDate: exp,
-	// 	Metadata:       metadata,
-	// }
-
-	// ***- call metainfoClient.CommitSegment()
-
-	// ***- fill in a new storj.Bucket instance (the Created member should come from the CreationDate attribute in the protobuf resulting from that CommitSegment() call; all the other fields should be handy)
-	// type Bucket struct {
-	// 	Name                 string
-	// 	Created              time.Time
-	// 	PathCipher           Cipher
-	// 	SegmentsSize         int64
-	// 	RedundancyScheme     RedundancyScheme
-	// 	EncryptionParameters EncryptionParameters
-	// }
-
-	//---
+	metadata, err := proto.Marshal(&pb.SerializableMeta{UserDefined: userMeta})
 	if err != nil {
 		return Meta{}, err
 	}
-	// we could use convertMeta() here, but that's a lot of int-parsing
-	// just to get back to what should be the same contents we already
-	// have. the only change ought to be the modified time.
-	inMeta.Created = m.Modified
+
+	streamInfo, err := proto.Marshal(&pb.StreamInfo{
+		NumberOfSegments: 1,
+		SegmentsSize:     inMeta.SegmentsSize,
+		LastSegmentSize:  0, //?
+		Metadata:         metadata,
+	})
+	if err != nil {
+		return Meta{}, err
+	}
+
+	streamMeta, err := proto.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: streamInfo,
+		EncryptionType:      int32(pathCipher),
+		EncryptionBlockSize: int32(inMeta.EncryptionScheme.BlockSize),
+	})
+
+	var exp timestamp.Timestamp
+	pointer := &pb.Pointer{
+		Type:           pb.Pointer_INLINE,
+		InlineSegment:  []byte{}, //?
+		SegmentSize:    inMeta.SegmentsSize,
+		ExpirationDate: &exp,
+		Metadata:       streamMeta,
+	}
+	path := storj.JoinPaths("l", bucketName)
+	p, err := b.metainfo.CommitSegment(ctx, bucketName, path, 0, pointer, nil)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	bt := storj.Bucket{ // what do i do with this?
+		Name:                 bucketName,
+		Created:              time.Now(), //p.CreationDate?
+		PathCipher:           pathCipher,
+		SegmentsSize:         inMeta.SegmentsSize,
+		RedundancyScheme:     inMeta.RedundancyScheme,
+		EncryptionParameters: storj.EncryptionParameters{}, //inMeta.EncryptionScheme?
+	}
+
+	// inMeta.Created = m.Modified
+	//what do we return??
 	return inMeta, nil
 }
 
