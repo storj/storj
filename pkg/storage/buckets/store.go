@@ -5,6 +5,7 @@ package buckets
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -74,13 +75,13 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ obje
 		}
 		return nil, err
 	}
-	//--- UPDATE
+
 	prefixed := prefixedObjStore{
-		store:  objects.NewStore(b.stream, m.PathEncryptionType),
+		store:  objects.NewStore(nil, m.PathEncryptionType),
 		prefix: bucket,
 	}
 	return &prefixed, nil
-	//---
+
 }
 
 // Get calls objects store Get
@@ -143,10 +144,11 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 
-	m, err := b.Get(ctx, bucketName)
+	m, err := b.Get(ctx, bucketName) //what do I do with this?
 	if err == nil {
 		// TODO
-		//bucket exists, add meta to existing entry?
+		fmt.Print(m)
+		// bucket exists, add meta to existing entry?
 	}
 
 	// TODO: check if parameters are correct
@@ -181,7 +183,8 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		Metadata:       streamMeta,
 	}
 	path := storj.JoinPaths("l", bucketName)
-	p, err := b.metainfo.CommitSegment(ctx, bucketName, path, 0, pointer, nil)
+	p, err := b.metainfo.CommitSegment(ctx, bucketName, path, 0, pointer, nil) // what do i do with this?
+	fmt.Print(p)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -194,7 +197,7 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		RedundancyScheme:     inMeta.RedundancyScheme,
 		EncryptionParameters: storj.EncryptionParameters{}, //inMeta.EncryptionScheme?
 	}
-
+	fmt.Print(bt)
 	// inMeta.Created = m.Modified
 	//what do we return??
 	return inMeta, nil
@@ -264,7 +267,9 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 		object := objects.ConvertMeta(streams.ConvertMeta(objItem.Meta, streamInfo, pb.StreamMeta{}))
 
 		m, err := convertMeta(object)
-
+		if err != nil {
+			return nil, false, err
+		}
 		items = append(items, ListItem{
 			Bucket: objItem.Path,
 			Meta:   m,
