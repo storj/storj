@@ -65,15 +65,6 @@ ProjectRef_t OpenTestProject(char **err)
     return OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
 }
 
-void TestCloseProject(void)
-{
-    char *_err = "";
-    char **err = &_err;
-
-    //TODO: Fill in
-
-}
-
 void TestProject(void)
 {
     char *_err = "";

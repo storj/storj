@@ -111,7 +111,7 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 		cBucket := (*C.Bucket_t)(unsafe.Pointer(uintptr(int(cBucketsPtr) + (i * bucketSize))))
 		*cBucket = bucketToCBucket(&bucket)
 	}
-
+	
 	return C.BucketList_t{
 		more:   C.bool(bucketList.More),
 		items:  (*C.Bucket_t)(unsafe.Pointer(cBucketsPtr)),
