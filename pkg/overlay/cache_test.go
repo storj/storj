@@ -11,9 +11,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -172,5 +174,38 @@ func TestRandomizedSelection(t *testing.T) {
 				t.Logf("%3d = %4d", count, amount)
 			}
 		}
+	})
+}
+
+func TestVetNode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.AuditCount = 1
+				config.Overlay.Node.AuditSuccessRatio = 1
+				config.Overlay.Node.UptimeCount = 1
+				config.Overlay.Node.UptimeRatio = 1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var err error
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+
+		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       planet.StorageNodes[0].ID(),
+			IsUp:         true,
+			AuditSuccess: true,
+		})
+		assert.NoError(t, err)
+
+		reputable, err := service.VetNode(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+		assert.True(t, reputable)
+
+		reputable, err = service.VetNode(ctx, planet.StorageNodes[1].ID())
+		require.NoError(t, err)
+		assert.False(t, reputable)
 	})
 }
