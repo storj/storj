@@ -105,16 +105,11 @@ void TestProject(void)
         // in a way that doesn't involve a refactor that offends alex's delicate sensibilities.
     }
 
-    // Open bucket
-    // TODO: remove duplication
-    uint8_t *enc_key = "bryanssecretkey";
-    Bytes_t key;
-    key.bytes = enc_key;
-    key.length = strlen((const char *)enc_key);
-    EncryptionAccess_t access;
-    access.key = &key;
+    uint8_t *enc_key = "abcdefghijklmnopqrstuvwxyzABCDEF";
+    EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
 
-    BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], &access, err);
+    // Open bucket
+    BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], access, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: exercise functions that operate on an open bucket to add assertions
@@ -130,6 +125,8 @@ void TestProject(void)
     // Close Project
     CloseProject(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+
+    freeEncryptionAccess(access);
 }
 
 int main(int argc, char *argv[])

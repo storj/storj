@@ -19,17 +19,10 @@ void TestBucket(void)
     ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    // TODO: remove duplication
-//    uint8_t *enc_key = "bryanssecretkey";
-//    EncryptionAccess_t access = NewEncryptionAccess(enc_key);
     uint8_t *enc_key = "abcdefghijklmnopqrstuvwxyzABCDEF";
-    Bytes_t key;
-    key.bytes = enc_key;
-    key.length = strlen((const char *)enc_key);
-    EncryptionAccess_t access;
-    access.key = &key;
+    EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
 
-    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, &access, err);
+    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, access, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     char *object_path = "TestObject";
@@ -44,6 +37,8 @@ void TestBucket(void)
 
     UploadObject(ref_bucket, object_path, ref_data, &opts, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+
+    freeEncryptionAccess(access);
 }
 
 int main(int argc, char *argv[])

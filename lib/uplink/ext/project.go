@@ -11,6 +11,7 @@ package main
 import "C"
 import (
 	"context"
+	"fmt"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 	"unsafe"
@@ -50,6 +51,8 @@ func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAcce
 		*cErr = C.CString("invalid project")
 		return bucketRef
 	}
+
+	fmt.Println(cAccess)
 
 	var access uplink.EncryptionAccess
 	bytes := C.GoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)

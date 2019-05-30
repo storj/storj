@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "unity.h"
 #include "../../uplink-cgo.h"
+#include <inttypes.h>
 
 ProjectRef_t OpenTestProject(char **err)
 {
@@ -19,15 +20,26 @@ ProjectRef_t OpenTestProject(char **err)
     return OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
 }
 
-// TODO: fix this
-//NewEncryptionAccess(uint8_t *key, EncryptionAccess_t *access)
-//{
-//    Bytes_t key_bytes;
-//    key_bytes.bytes = key;
-//    // NB: only works with null terminated arrays
-//    key_bytes.length = strlen((const char *)key);
-//    EncryptionAccess_t _access = {&key_bytes};
-//    *access = _access;
-////    access->key = &key_bytes;
-//    printf("key_bytes.bytes %p\n", key_bytes.bytes);
-//}
+EncryptionAccess_t * NewEncryptionAccess(uint8_t *key, int key_len)
+{
+    EncryptionAccess_t *access = malloc(sizeof(EncryptionAccess_t));
+    access->key = malloc(sizeof(Bytes_t));
+    access->key->length = key_len;
+    access->key->bytes = calloc(key_len, sizeof(uint8_t));
+
+    memcpy(access->key->bytes, key, key_len);
+
+    return access;
+}
+
+void freeEncryptionAccess(EncryptionAccess_t *access) {
+    if (access != NULL) {
+        if (access->key != NULL) {
+            if (access->key->bytes != NULL) {
+                free(access->key->bytes);
+            }
+            free(access->key);
+        }
+        free(access);
+    }
+}
