@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink"
@@ -208,7 +209,14 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			BytesPerSecond: 1 * memory.KiB,
 		}
 
-		slowClient := network.NewClient(planet.Satellites[0].Transport)
+		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{})
+		require.NoError(t, err)
+
+		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
+
+		slowClient := network.NewClient(newTransport)
 		require.NotNil(t, slowClient)
 
 		// This config value will create a very short timeframe allowed for receiving
