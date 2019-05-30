@@ -211,7 +211,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	encKey, err := uplink.UseOrLoadEncryptionKey(flags.Enc.EncryptionKey, flags.Enc.KeyFilepath)
+	encKey, err := storj.NewKey([]byte(flags.Enc.EncryptionKey))
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	encKey, err := uplink.UseOrLoadEncryptionKey(flags.Enc.EncryptionKey, flags.Enc.KeyFilepath)
+	encKey, err := storj.NewKey([]byte(flags.Enc.EncryptionKey))
 	if err != nil {
 		return nil, err
 	}

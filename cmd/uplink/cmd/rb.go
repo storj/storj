@@ -41,7 +41,7 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := newEncryptionAccess(cfg.Enc.EncryptionKey)
 	if err != nil {
 		return err
 	}

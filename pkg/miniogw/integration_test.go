@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
@@ -90,13 +89,7 @@ func TestUploadDownload(t *testing.T) {
 	passphrase := make([]byte, rand.Intn(100)+1)
 	_, err = rand.Read(passphrase)
 	require.NoError(t, err)
-
-	encryptionKey, err := storj.NewKey(passphrase)
-	require.NoError(t, err)
-	filename := ctx.File("encryption.key")
-	err = ioutil.WriteFile(filename, encryptionKey[:], os.FileMode(0400))
-	require.NoError(t, err)
-	uplinkCfg.Enc.KeyFilepath = filename
+	uplinkCfg.Enc.EncryptionKey = string(passphrase)
 
 	// redundancy
 	uplinkCfg.RS.MinThreshold = 7
@@ -129,7 +122,7 @@ func TestUploadDownload(t *testing.T) {
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
 		APIKey:        uplinkCfg.Client.APIKey,
-		EncryptionKey: string(encryptionKey[:]),
+		EncryptionKey: string(passphrase),
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -207,17 +200,9 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	var encKey *storj.Key
-	{
-		rawKey, err := ioutil.ReadFile(uplinkCfg.Enc.KeyFilepath)
-		if err != nil {
-			return err
-		}
-
-		encKey, err = storj.NewKey(rawKey)
-		if err != nil {
-			return err
-		}
+	encKey, err := storj.NewKey([]byte(uplinkCfg.Enc.EncryptionKey))
+	if err != nil {
+		return err
 	}
 
 	var projectOptions libuplink.ProjectOptions

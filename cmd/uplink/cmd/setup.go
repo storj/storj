@@ -67,19 +67,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// override is required because the default value of Enc.KeyFilepath is ""
-	// and setting the value directly in setupCfg.Enc.KeyFiletpathon will set the
-	// value in the config file but commented out.
-	usedEncryptionKeyFilepath := setupCfg.Enc.KeyFilepath
-	if usedEncryptionKeyFilepath == "" {
-		usedEncryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
-	}
-
 	if setupCfg.NonInteractive {
-		override := map[string]interface{}{
-			"enc.key-filepath": usedEncryptionKeyFilepath,
-		}
-		return process.SaveConfigWithAllDefaults(cmd, setupDir, override)
+		return process.SaveConfigWithAllDefaults(cmd, setupDir, nil)
 	}
 
 	_, err = fmt.Print(`
@@ -174,15 +163,10 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		return errs.New("encryption keys don't match")
 	}
 
-	err = saveEncryptionKey(humanReadableKey, usedEncryptionKeyFilepath)
-	if err != nil {
-		return err
-	}
-
 	var override = map[string]interface{}{
-		"api-key":          apiKey,
-		"satellite-addr":   satelliteAddress,
-		"enc.key-filepath": usedEncryptionKeyFilepath,
+		"api-key":            apiKey,
+		"satellite-addr":     satelliteAddress,
+		"enc.encryption-key": string(humanReadableKey),
 	}
 
 	err = process.SaveConfigWithAllDefaults(cmd, setupDir, override)
@@ -193,8 +177,6 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 	// if there is an error with this we cannot do that much and the setup process
 	// has ended OK, so we ignore it.
 	_, _ = fmt.Printf(`
-Your encryption key is saved to: %s
-
 Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
@@ -202,7 +184,7 @@ Some things to try next:
 * Run 'uplink --help' to see the operations that can be performed
 
 * See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
-	`, usedEncryptionKeyFilepath)
+`)
 
 	return nil
 }
