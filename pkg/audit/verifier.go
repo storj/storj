@@ -126,6 +126,37 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes, containedNodes)
 
+	totalInPointer := len(stripe.Segment.GetRemote().GetRemotePieces())
+	totalAudited := len(successNodes) + len(failedNodes) + len(offlineNodes)
+	numOffline := len(offlineNodes)
+	numSuccessful := len(successNodes)
+	numFailed := len(failedNodes)
+	auditedPercentage := float64(totalAudited) / float64(totalInPointer)
+	offlinePercentage := float64(0)
+	successfulPercentage := float64(0)
+	failedPercentage := float64(0)
+	if totalAudited > 0 {
+		offlinePercentage = float64(numOffline) / float64(totalAudited)
+		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
+		failedPercentage = float64(numFailed) / float64(totalAudited)
+	}
+
+	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
+	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
+	mon.Meter("audit_offline_nodes_global").Mark(numOffline)
+	mon.Meter("audit_total_nodes_global").Mark(totalAudited)
+	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer)
+
+	mon.IntVal("audit_success_nodes").Observe(int64(len(successNodes)))
+	mon.IntVal("audit_fail_nodes").Observe(int64(len(failedNodes)))
+	mon.IntVal("audit_offline_nodes").Observe(int64(len(offlineNodes)))
+	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))
+	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))
+	mon.FloatVal("audited_percentage").Observe(auditedPercentage)
+	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)
+	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage)
+	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)
+
 	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
 	if err != nil {
 		return &Report{
