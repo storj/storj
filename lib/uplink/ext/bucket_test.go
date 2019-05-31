@@ -4,8 +4,6 @@
 package main_test
 
 import (
-	"bytes"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"storj.io/storj/pkg/storj"
 	"testing"
@@ -50,14 +48,9 @@ func TestCBucketTests(t *testing.T) {
 
 		key := storj.Key{}
 		copy(key[:], []byte("abcdefghijklmnopqrstuvwxyzABCDEF"))
-		fmt.Printf("go key %+v\n", key)
-		bucket, err := project.OpenBucket(ctx, bucketName, &uplink.EncryptionAccess{Key: key})
+		bucket, err := project.OpenBucket(ctx, bucketName, nil)
 		require.NoError(t, err)
 
-		// TODO: remove this, it's only here for debuggig the libuplink decryption issue
-		// (see https://storjlabs.atlassian.net/browse/V3-1714)
-		err = bucket.UploadObject(ctx, "TestObject", bytes.NewBuffer([]byte("test data 456")), nil)
-		require.NoError(t, err)
 
 		runCTest(t, ctx, "bucket_test.c", envVars...)
 

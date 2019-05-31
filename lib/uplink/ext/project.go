@@ -54,11 +54,14 @@ func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAcce
 
 	fmt.Println(cAccess)
 
-	var access uplink.EncryptionAccess
-	bytes := C.GoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)
-	copy(access.Key[:], bytes)
+	var access *uplink.EncryptionAccess
+	if unsafe.Pointer(cAccess) != nil {
+		bytes := C.GoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)
+		access = &uplink.EncryptionAccess{}
+		copy(access.Key[:], bytes)
+	}
 
-	bucket, err := project.OpenBucket(ctx, C.GoString(name), &access)
+	bucket, err := project.OpenBucket(ctx, C.GoString(name), access)
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return bucketRef
