@@ -76,14 +76,47 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if setupCfg.NonInteractive {
-		override := map[string]interface{}{
-			"enc.key-filepath": usedEncryptionKeyFilepath,
-		}
-		return process.SaveConfigWithAllDefaults(
-			cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+		return cmdSetupNonInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
 	}
 
-	_, err = fmt.Print(`
+	return cmdSetupInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
+}
+
+// cmdSetupNonInteractive sets up uplink non-interactively.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+	if setupCfg.Enc.EncryptionKey != "" {
+		err := saveEncryptionKey([]byte(setupCfg.Enc.EncryptionKey), encryptionKeyFilepath)
+		if err != nil {
+			return err
+		}
+	}
+
+	override := map[string]interface{}{
+		"enc.key-filepath": encryptionKeyFilepath,
+	}
+
+	err := process.SaveConfigWithAllDefaults(
+		cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	if err != nil {
+		return err
+	}
+
+	if setupCfg.Enc.EncryptionKey != "" {
+		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
+	}
+
+	return nil
+}
+
+// cmdSetupInteractive sets up uplink interactive.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+	_, err := fmt.Print(`
 Pick satellite to use:
 	[1] mars.tardigrade.io
 	[2] jupiter.tardigrade.io
@@ -175,7 +208,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		return errs.New("encryption keys don't match")
 	}
 
-	err = saveEncryptionKey(humanReadableKey, usedEncryptionKeyFilepath)
+	err = saveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
 	if err != nil {
 		return err
 	}
@@ -183,7 +216,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 	var override = map[string]interface{}{
 		"api-key":          apiKey,
 		"satellite-addr":   satelliteAddress,
-		"enc.key-filepath": usedEncryptionKeyFilepath,
+		"enc.key-filepath": encryptionKeyFilepath,
 	}
 
 	err = process.SaveConfigWithAllDefaults(
@@ -204,7 +237,7 @@ Some things to try next:
 * Run 'uplink --help' to see the operations that can be performed
 
 * See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
-	`, usedEncryptionKeyFilepath)
+	`, encryptionKeyFilepath)
 
 	return nil
 }
