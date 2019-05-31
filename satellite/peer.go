@@ -18,8 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/payments"
-	"storj.io/storj/internal/payments/paymentstest"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
@@ -53,6 +51,9 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/internalservice"
+	"storj.io/storj/satellite/payments/stripeservice"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -556,9 +557,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		// TODO: change mock implementation to using mock stripe backend
 		var pmService payments.Service
 		if consoleConfig.StripeKey != "" {
-			pmService = payments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+			pmService = stripeservice.New(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
 		} else {
-			pmService = &paymentstest.MockService{}
+			pmService = internalservice.New(nil)
 		}
 
 		peer.Console.Service, err = console.NewService(

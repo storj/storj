@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/payments/paymentstest"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/internalservice"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -35,7 +35,7 @@ func TestGraphqlQuery(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
-			&paymentstest.MockService{},
+			internalservice.New(nil),
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)

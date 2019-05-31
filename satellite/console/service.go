@@ -14,10 +14,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/payments"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/payments"
 )
 
 var (
@@ -58,15 +58,15 @@ const (
 type Service struct {
 	Signer
 
-	log           *zap.Logger
-	store         DB
-	stripeService payments.Service
+	log   *zap.Logger
+	pm    payments.Service
+	store DB
 
 	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, stripeService payments.Service, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, pm payments.Service, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -81,11 +81,11 @@ func NewService(log *zap.Logger, signer Signer, store DB, stripeService payments
 	}
 
 	return &Service{
-		log:           log,
-		Signer:        signer,
-		store:         store,
-		stripeService: stripeService,
-		passwordCost:  passwordCost,
+		log:          log,
+		Signer:       signer,
+		store:        store,
+		pm:           pm,
+		passwordCost: passwordCost,
 	}, nil
 }
 
