@@ -27,6 +27,9 @@ import (
 	"storj.io/storj/uplink"
 )
 
+// TestDownloadSharesHappyPath checks that the Share.Error field of all shares
+// returned by the DownloadShares method contain no error if all shares were
+// downloaded successfully.
 func TestDownloadSharesHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -74,6 +77,15 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 	})
 }
 
+// TestDownloadSharesOfflineNode checks that the Share.Error field of the
+// shares returned by the DownloadShares method for offline nodes contain an
+// error that:
+//   - has the transport.Error class
+//   - is not a context.DeadlineExceeded error
+//   - is not an RPC error
+//
+// If this test fails, this most probably means we made a backward-incompatible
+// change that affects the audit service.
 func TestDownloadSharesOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -132,6 +144,12 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 	})
 }
 
+// TestDownloadSharesMissingPiece checks that the Share.Error field of the
+// shares returned by the DownloadShares method for nodes that don't have the
+// audited piece contain an RPC error with code NotFound.
+//
+// If this test fails, this most probably means we made a backward-incompatible
+// change that affects the audit service.
 func TestDownloadSharesMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -183,6 +201,15 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 	})
 }
 
+// TestDownloadSharesDialTimeout checks that the Share.Error field of the
+// shares returned by the DownloadShares method for nodes that time out on
+// dialing contain an error that:
+//   - has the transport.Error class
+//   - is a context.DeadlineExceeded error
+//   - is not an RPC error
+//
+// If this test fails, this most probably means we made a backward-incompatible
+// change that affects the audit service.
 func TestDownloadSharesDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -251,6 +278,14 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 	})
 }
 
+// TestDownloadSharesDownloadTimeout checks that the Share.Error field of the
+// shares returned by the DownloadShares method for nodes that are successfully
+// dialed, but time out during the download of the share contain an error that:
+//   - is an RPC error with code DeadlineExceeded
+//   - does not have the transport.Error class
+//
+// If this test fails, this most probably means we made a backward-incompatible
+// change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
