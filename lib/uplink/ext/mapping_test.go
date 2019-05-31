@@ -3,19 +3,14 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdbool.h>
-// #include "c/headers/main.h"
-import "C"
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"storj.io/storj/lib/uplink/ext/testing"
+	"testing"
 )
 
 func TestMapping_Add(t *testing.T) {
 	{
-		t.Info("string")
 		testMap := newMapping()
 
 		str := "testing 123"
@@ -27,7 +22,6 @@ func TestMapping_Add(t *testing.T) {
 	}
 
 	{
-		t.Info("pointer")
 		testMap := newMapping()
 
 		str := "testing 123"
@@ -41,7 +35,6 @@ func TestMapping_Add(t *testing.T) {
 
 func TestMapping_Get(t *testing.T) {
 	{
-		t.Info("string")
 		testMap := newMapping()
 
 		str := "testing 123"
@@ -53,7 +46,6 @@ func TestMapping_Get(t *testing.T) {
 	}
 
 	{
-		t.Info("pointer")
 		testMap := newMapping()
 
 		str := "testing 123"

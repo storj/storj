@@ -4,3 +4,6 @@
 //go:generate go build -o uplink-cgo.so -buildmode=c-shared .
 
 package main
+
+func main() {
+}

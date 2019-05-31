@@ -1,26 +1,32 @@
-// Copyright (C) 2019 Storj Labs, Inc.
-// See LICENSE for copying information.
+package main
 
-package main_test
-
+// #cgo CFLAGS: -g -Wall
+// #include <stdlib.h>
+// #ifndef STORJ_HEADERS
+//   #define STORJ_HEADERS
+//   #include "c/headers/main.h"
+// #endif
+import "C"
 import (
+	"testing"
 	"context"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
-	"testing"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-
-	"storj.io/storj/internal/testcontext"
+	"runtime"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/lib/uplink"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/lib/uplink"
+	"storj.io/storj/internal/testcontext"
+	"unsafe"
 )
+
+type Cchar = *C.char
+type CBucketConfig = C.BucketConfig_t
 
 var (
 	cLibDir,
@@ -40,9 +46,6 @@ func init() {
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
 
-func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars ...string) {
-	runCTests(t, ctx, envVars, filepath.Join(cLibDir, "tests", filename))
-}
 
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
 	srcGlobs = append([]string{
@@ -78,6 +81,10 @@ func copyFile(src, dest string) error {
 		return err
 	}
 	return nil
+}
+
+func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars ...string) {
+	runCTests(t, ctx, envVars, filepath.Join(cLibDir, "tests", filename))
 }
 
 func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet {
@@ -133,4 +140,12 @@ func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet
 	)
 	require.NoError(t, err)
 	return APIKey.String()
+}
+
+func stringToCCharPtr(str string) *C.char {
+	return (*C.char)(unsafe.Pointer(C.CString(str)))
+}
+
+func cCharToGoString(cchar *C.char) string {
+	return C.GoString(cchar)
 }

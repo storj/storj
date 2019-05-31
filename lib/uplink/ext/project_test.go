@@ -1,16 +1,14 @@
-package main_test
+package main
 
 import (
-	"fmt"
+
 	"testing"
-
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/lib/uplink"
-
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"storj.io/storj/internal/testcontext"
 )
 
+
+// TODO: Call these from bash
 func TestCProjectTests(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -27,25 +25,77 @@ func TestCProjectTests(t *testing.T) {
 		"APIKEY=" + apikey,
 	}
 
-	{
-		runCTest(t, ctx, "project_test.c", envVars...)
+	runCTest(t, ctx, "project_test.c", envVars...)
+}
 
-		goUplink, err := uplink.NewUplink(ctx, testConfig)
-		require.NoError(t, err)
+func TestCreateBucket(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-		apikey, err := uplink.ParseAPIKey(apikey)
-		require.NoError(t, err)
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
 
-		project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
-		require.NoError(t, err)
+	project := newProject(t, planet)
+	apikey := newAPIKey(t, ctx, planet, project.ID)
+	satelliteAddr := planet.Satellites[0].Addr()
 
-		buckets, err := project.ListBuckets(ctx, nil)
-		require.NoError(t, err)
+	var cErr Cchar
 
-		assert.Len(t, buckets.Items, 2)
-		for i, bucket := range buckets.Items {
-			num := (i + 1) * 2
-			assert.Equal(t, fmt.Sprintf("TestBucket%d", num), bucket.Name)
-		}
-	}
+	cUplinkRef := NewUplinkInsecure(&cErr)
+	require.Empty(t, cCharToGoString(cErr))
+
+	defer CloseUplink(cUplinkRef, &cErr)
+	require.Empty(t, cCharToGoString(cErr))
+
+	cAPIKeyRef := ParseAPIKey(stringToCCharPtr(apikey), &cErr)
+	require.Empty(t, cCharToGoString(cErr))
+
+
+	cProjectRef := OpenProject(cUplinkRef, stringToCCharPtr(satelliteAddr), cAPIKeyRef, &cErr)
+	require.Empty(t, cCharToGoString(cErr))
+
+	cBucketCfg := CBucketConfig{}
+
+	_ = CreateBucket(cProjectRef, stringToCCharPtr("TestBucket"), cBucketCfg, &cErr)
+	require.Empty(t, cCharToGoString(cErr))
+}
+
+func TestOpenBucket(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+}
+
+func TestDeleteBucket(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+}
+
+func TestListBuckets(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+}
+
+func TestGetBucketInfo(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+}
+
+func TestCloseProject(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
 }
