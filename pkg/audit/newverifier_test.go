@@ -5,6 +5,7 @@ package audit_test
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -376,4 +377,20 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.Len(t, verifiedNodes.Successes, 4)
 		require.Len(t, verifiedNodes.Fails, 0)
 	})
+}
+
+func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) error {
+	for _, node := range planet.StorageNodes {
+		if node.ID() == nodeID {
+			err := planet.StopPeer(node)
+			if err != nil {
+				return err
+			}
+
+			// mark stopped node as offline in overlay cache
+			_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, nodeID, false)
+			return err
+		}
+	}
+	return fmt.Errorf("no such node: %s", nodeID.String())
 }
