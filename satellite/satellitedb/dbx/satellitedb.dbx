@@ -147,6 +147,7 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
+	field disqualified bool ( updatable )
 )
 
 create node ( )
