@@ -165,11 +165,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// Update the remote pieces in the pointer
 	pointer.GetRemote().RemotePieces = healthyPieces
 
-	if int32(len(healthyPieces)) <= pointer.Remote.Redundancy.RepairThreshold {
+	length := int32(len(healthyPieces))
+	switch {
+	case length <= pointer.Remote.Redundancy.RepairThreshold:
 		mon.Meter("repair_failed").Mark(1)
-	} else if int32(len(healthyPieces)) < pointer.Remote.Redundancy.SuccessThreshold {
+	case length < pointer.Remote.Redundancy.SuccessThreshold:
 		mon.Meter("repair_partial").Mark(1)
-	} else {
+	default:
 		mon.Meter("repair_success").Mark(1)
 	}
 
