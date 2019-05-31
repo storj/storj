@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 func TestLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
@@ -101,7 +102,7 @@ func TestSaveLoadEncryptionKey(t *testing.T) {
 	defer ctx.Cleanup()
 
 	filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
-	err := saveEncryptionKey(inputKey, filename)
+	err := uplink.SaveEncryptionKey(inputKey, filename)
 	require.NoError(t, err)
 
 	access, err := useOrLoadEncryptionAccess("", filename)

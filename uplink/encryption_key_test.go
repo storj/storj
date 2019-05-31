@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package cmd
+package uplink_test
 
 import (
 	"io/ioutil"
@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 func TestSaveEncryptionKey(t *testing.T) {
@@ -31,7 +32,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 
 		inputKey := generateInputKey()
 		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
-		err := saveEncryptionKey(inputKey, filename)
+		err := uplink.SaveEncryptionKey(inputKey, filename)
 		require.NoError(t, err)
 
 		savedKey, err := ioutil.ReadFile(filename)
@@ -46,14 +47,14 @@ func TestSaveEncryptionKey(t *testing.T) {
 
 		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
 
-		err := saveEncryptionKey("", filename)
+		err := uplink.SaveEncryptionKey("", filename)
 		require.Error(t, err)
 	})
 
 	t.Run("error: empty filepath", func(t *testing.T) {
 		inputKey := generateInputKey()
 
-		err := saveEncryptionKey(inputKey, "")
+		err := uplink.SaveEncryptionKey(inputKey, "")
 		require.Error(t, err)
 	})
 
@@ -66,7 +67,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 
 		inputKey := generateInputKey()
 		filename := filepath.Join(dir, "enc.key")
-		err := saveEncryptionKey(inputKey, filename)
+		err := uplink.SaveEncryptionKey(inputKey, filename)
 		require.Errorf(t, err, "directory path doesn't exist")
 	})
 
@@ -78,7 +79,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 		filename := ctx.File("encryption.key")
 		require.NoError(t, ioutil.WriteFile(filename, nil, os.FileMode(0600)))
 
-		err := saveEncryptionKey(inputKey, filename)
+		err := uplink.SaveEncryptionKey(inputKey, filename)
 		require.Errorf(t, err, "file key already exists")
 	})
 }
