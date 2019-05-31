@@ -170,7 +170,7 @@ kademlia.operator.wallet: ""
 # metrics.app: "satellite"
 
 # application suffix
-# metrics.app-suffix: "-dev"
+# metrics.app-suffix: "-release"
 
 # how frequently to send up telemetry
 # metrics.interval: 1m0s

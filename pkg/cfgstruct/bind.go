@@ -294,25 +294,31 @@ func SetupFlag(log *zap.Logger, cmd *cobra.Command, dest *string, name, value, u
 	}
 }
 
+// DefaultsType returns the type of defaults (release/dev) this binary should use
+func DefaultsType() string {
+	// define a flag so that the flag parsing system will be happy.
+	defaults := strings.ToLower(FindDefaultsParam())
+	if defaults != "" {
+		return defaults
+	}
+	if version.Build.Release {
+		return "release"
+	}
+	return "dev"
+}
+
 // DefaultsFlag sets up the defaults=dev/release flag options, which is needed
 // before `flag.Parse` has been called
 func DefaultsFlag(cmd *cobra.Command) BindOpt {
 	// define a flag so that the flag parsing system will be happy.
-	defaults := "dev"
-	if version.Build.Release {
-		defaults = "release"
-	}
+	defaults := DefaultsType()
+
 	// we're actually going to ignore this flag entirely and parse the commandline
 	// arguments early instead
 	_ = cmd.PersistentFlags().String("defaults", defaults,
 		"determines which set of configuration defaults to use. can either be 'dev' or 'release'")
 
-	foundDefaults := strings.ToLower(FindDefaultsParam())
-	if foundDefaults == "" {
-		foundDefaults = defaults
-	}
-
-	switch foundDefaults {
+	switch defaults {
 	case "dev":
 		return UseDevDefaults()
 	case "release":
