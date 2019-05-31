@@ -4,6 +4,9 @@
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 
+# limit above which we consider an audit is failed
+# audit.max-reverify-count: 3
+
 # the minimum acceptable bytes that storage nodes can transfer per second to the satellite
 # audit.min-bytes-per-second: 128 B
 
