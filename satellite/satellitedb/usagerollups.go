@@ -303,8 +303,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 			return nil, err
 		}
 
-		var inline, remote int64
-		var objectCount uint64
+		var inline, remote, objectCount int64
 		err = storageRow.Scan(&inline, &remote, &objectCount)
 		if err != nil {
 			if err != sql.ErrNoRows {
