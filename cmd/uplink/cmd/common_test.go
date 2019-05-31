@@ -89,11 +89,12 @@ func TestUseOrLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 }
 
 func TestSaveLoadEncryptionKey(t *testing.T) {
-	var inputKey []byte
+	var inputKey string
 	{
-		inputKey = make([]byte, rand.Intn(storj.KeySize)*3+1)
-		_, err := rand.Read(inputKey)
+		randKey := make([]byte, rand.Intn(storj.KeySize)*3+1)
+		_, err := rand.Read(randKey)
 		require.NoError(t, err)
+		inputKey = string(randKey)
 	}
 
 	ctx := testcontext.New(t)
@@ -107,8 +108,8 @@ func TestSaveLoadEncryptionKey(t *testing.T) {
 	require.NoError(t, err)
 
 	if len(inputKey) > storj.KeySize {
-		require.Equal(t, inputKey[:storj.KeySize], access.Key[:])
+		require.Equal(t, []byte(inputKey[:storj.KeySize]), access.Key)
 	} else {
-		require.Equal(t, inputKey, access.Key[:len(inputKey)])
+		require.Equal(t, []byte(inputKey), access.Key[:len(inputKey)])
 	}
 }

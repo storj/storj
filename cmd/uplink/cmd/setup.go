@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
@@ -88,7 +86,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 // or to a default path whose directory tree exists.
 func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
 	if setupCfg.Enc.EncryptionKey != "" {
-		err := saveEncryptionKey([]byte(setupCfg.Enc.EncryptionKey), encryptionKeyFilepath)
+		err := saveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return err
 		}
@@ -173,39 +171,9 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 		return errs.New("API key cannot be empty")
 	}
 
-	_, err = fmt.Print("Enter your encryption key: ")
+	humanReadableKey, err := cfgstruct.PromptForEncryptionKey()
 	if err != nil {
 		return err
-	}
-	humanReadableKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-
-	_, err = fmt.Println()
-	if err != nil {
-		return err
-	}
-
-	if len(humanReadableKey) == 0 {
-		return errs.New("Encryption key cannot be empty")
-	}
-
-	_, err = fmt.Print("Enter your encryption key again: ")
-	if err != nil {
-		return err
-	}
-	repeatedHumanReadableKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Println()
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(humanReadableKey, repeatedHumanReadableKey) {
-		return errs.New("encryption keys don't match")
 	}
 
 	err = saveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
@@ -302,7 +270,7 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 // saveEncryptionKey generates a Storj key from the inputKey and save it into a
 // new file created in filepath.
-func saveEncryptionKey(inputKey []byte, filepath string) error {
+func saveEncryptionKey(inputKey string, filepath string) error {
 	switch {
 	case len(inputKey) == 0:
 		return Error.New("inputKey is empty")
@@ -327,6 +295,6 @@ func saveEncryptionKey(inputKey []byte, filepath string) error {
 		err = Error.Wrap(errs.Combine(err, file.Close()))
 	}()
 
-	_, err = file.Write(inputKey)
+	_, err = file.Write([]byte(inputKey))
 	return err
 }

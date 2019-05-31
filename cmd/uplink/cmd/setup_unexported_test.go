@@ -17,12 +17,12 @@ import (
 )
 
 func TestSaveEncryptionKey(t *testing.T) {
-	generateInputKey := func() []byte {
+	generateInputKey := func() string {
 		inputKey := make([]byte, rand.Intn(storj.KeySize*3)+1)
 		_, err := rand.Read(inputKey)
 		require.NoError(t, err)
 
-		return inputKey
+		return string(inputKey)
 	}
 
 	t.Run("ok", func(t *testing.T) {
@@ -37,7 +37,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 		savedKey, err := ioutil.ReadFile(filename)
 		require.NoError(t, err)
 
-		assert.Equal(t, inputKey, savedKey)
+		assert.Equal(t, inputKey, string(savedKey))
 	})
 
 	t.Run("error: empty input key", func(t *testing.T) {
@@ -46,10 +46,7 @@ func TestSaveEncryptionKey(t *testing.T) {
 
 		filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
 
-		err := saveEncryptionKey(nil, filename)
-		require.Error(t, err)
-
-		err = saveEncryptionKey([]byte{}, filename)
+		err := saveEncryptionKey("", filename)
 		require.Error(t, err)
 	})
 
