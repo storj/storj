@@ -54,6 +54,7 @@ type Checker struct {
 	logger          *zap.Logger
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
+	monStats        durabilityStats
 }
 
 // NewChecker creates a new instance of checker
@@ -68,6 +69,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		logger:          logger,
 		Loop:            *sync2.NewCycle(repairInterval),
 		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
+		monStats:        durabilityStats{},
 	}
 	return checker
 }
@@ -99,8 +101,6 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var monStats durabilityStats
-
 	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -113,11 +113,14 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				// if we have finished iterating, send and reset durability stats
 				if checker.lastChecked == "" {
 					// send durability stats
-					mon.IntVal("remote_files_checked").Observe(monStats.remoteFilesChecked)
-					mon.IntVal("remote_segments_checked").Observe(monStats.remoteSegmentsChecked)
-					mon.IntVal("remote_segments_needing_repair").Observe(monStats.remoteSegmentsNeedingRepair)
-					mon.IntVal("remote_segments_lost").Observe(monStats.remoteSegmentsLost)
-					mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
+					mon.IntVal("remote_files_checked").Observe(checker.monStats.remoteFilesChecked)
+					mon.IntVal("remote_segments_checked").Observe(checker.monStats.remoteSegmentsChecked)
+					mon.IntVal("remote_segments_needing_repair").Observe(checker.monStats.remoteSegmentsNeedingRepair)
+					mon.IntVal("remote_segments_lost").Observe(checker.monStats.remoteSegmentsLost)
+					mon.IntVal("remote_files_lost").Observe(int64(len(checker.monStats.remoteSegmentInfo)))
+
+					// reset durability stats for next iteration
+					checker.monStats = durabilityStats{}
 				}
 			}()
 
@@ -129,7 +132,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &monStats)
+				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
 					return err
 				}
@@ -237,7 +240,6 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 
 	limit := 1
 	var offset int64
-	var monStats durabilityStats
 
 	for {
 		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
@@ -250,18 +252,12 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &monStats)
+		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
 		if err != nil {
 			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 		}
 		offset++
 	}
-	// send durability stats
-	mon.IntVal("remote_files_checked").Observe(monStats.remoteFilesChecked)
-	mon.IntVal("remote_segments_checked").Observe(monStats.remoteSegmentsChecked)
-	mon.IntVal("remote_segments_needing_repair").Observe(monStats.remoteSegmentsNeedingRepair)
-	mon.IntVal("remote_segments_lost").Observe(monStats.remoteSegmentsLost)
-	mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
 
 	return nil
 }
