@@ -61,7 +61,7 @@ func TestReverifySuccess(t *testing.T) {
 		orders := planet.Satellites[0].Orders.Service
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		reporter := audit.NewReporter(overlay, containment, 1)
+		reporter := audit.NewReporter(overlay, containment, 1, 3)
 		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
@@ -147,7 +147,7 @@ func TestReverifyFail(t *testing.T) {
 		orders := planet.Satellites[0].Orders.Service
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		reporter := audit.NewReporter(overlay, containment, 1)
+		reporter := audit.NewReporter(overlay, containment, 1, 3)
 		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
 		require.NotNil(t, verifier)
 
