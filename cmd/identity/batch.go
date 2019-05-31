@@ -52,7 +52,7 @@ var (
 func init() {
 	defaults = cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(keyGenerateCmd)
-	cfgstruct.Bind(keyGenerateCmd.Flags(), &keyCfg, defaults)
+	process.Bind(keyGenerateCmd, &keyCfg, defaults)
 }
 
 func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {

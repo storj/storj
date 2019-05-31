@@ -149,23 +149,24 @@ func teardownTestObjects(client s3client.Client, bucket string) {
 
 func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, uploadedObjects map[string][]string) map[string][]string {
 	for _, bm := range benchmarkCases {
-		b.Run(bm.name, func(b *testing.B) {
-			b.SetBytes(bm.objectsize.Int64())
+		benchmark := bm
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.SetBytes(benchmark.objectsize.Int64())
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				// make some random bytes so the objectPath is unique
 				randomBytes := make([]byte, 16)
 				rand.Read(randomBytes)
 				uniquePathPart := hex.EncodeToString(randomBytes)
-				objectPath := "folder/data" + uniquePathPart + "_" + bm.name
-				err := client.Upload(bucket, objectPath, testObjects[bm.name])
+				objectPath := "folder/data" + uniquePathPart + "_" + benchmark.name
+				err := client.Upload(bucket, objectPath, testObjects[benchmark.name])
 				if err != nil {
 					log.Fatalf("failed to upload object %q: %+v\n", objectPath, err)
 				}
-				if uploadedObjects[bm.name] == nil {
-					uploadedObjects[bm.name] = []string{}
+				if uploadedObjects[benchmark.name] == nil {
+					uploadedObjects[benchmark.name] = []string{}
 				}
-				uploadedObjects[bm.name] = append(uploadedObjects[bm.name], objectPath)
+				uploadedObjects[benchmark.name] = append(uploadedObjects[benchmark.name], objectPath)
 			}
 		})
 	}
@@ -174,17 +175,18 @@ func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, upload
 
 func benchmarkDownload(b *testing.B, bucket string, client s3client.Client) {
 	for _, bm := range benchmarkCases {
-		b.Run(bm.name, func(b *testing.B) {
-			buf := make([]byte, bm.objectsize)
-			b.SetBytes(bm.objectsize.Int64())
+		benchmark := bm
+		b.Run(benchmark.name, func(b *testing.B) {
+			buf := make([]byte, benchmark.objectsize)
+			b.SetBytes(benchmark.objectsize.Int64())
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				objectName := "folder/data_" + bm.name
+				objectName := "folder/data_" + benchmark.name
 				out, err := client.Download(bucket, objectName, buf)
 				if err != nil {
 					log.Fatalf("failed to download object %q: %+v\n", objectName, err)
 				}
-				expectedBytes := bm.objectsize.Int()
+				expectedBytes := benchmark.objectsize.Int()
 				actualBytes := len(out)
 				if actualBytes != expectedBytes {
 					log.Fatalf("err downloading object %q: Expected %d bytes, but got actual bytes: %d\n",

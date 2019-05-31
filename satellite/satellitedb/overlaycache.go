@@ -339,6 +339,29 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
+// VetNode returns whether or not the node reaches reputable thresholds
+func (cache *overlaycache) VetNode(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
+	FROM nodes
+	WHERE id = ? 
+		AND type = ?
+		AND total_audit_count >= ?
+		AND audit_success_ratio >= ?
+		AND total_uptime_count >= ?
+		AND uptime_ratio >= ?
+		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.AuditSuccessRatio,
+		criteria.UptimeCount, criteria.UptimeSuccessRatio)
+	var bytes *[]byte
+	err := row.Scan(&bytes)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	if len(nodeIds) == 0 {
@@ -477,6 +500,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
+			dbx.Node_Disqualified(false),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -756,7 +780,8 @@ func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
 			Timestamp:  pbts,
 			Release:    info.Release,
 		},
-		Contained: info.Contained,
+		Contained:    info.Contained,
+		Disqualified: info.Disqualified,
 	}
 
 	return node, nil
