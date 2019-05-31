@@ -50,20 +50,42 @@ type Containment interface {
 	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
 }
 
+type createRequests struct {
+	sync.RWMutex
+
+	// orders limit serial number used because with CreateSegment we don't have path yet
+	requests map[storj.SerialNumber]*pb.SegmentWriteRequest
+}
+
+func (cr *createRequests) Add(serialNumber storj.SerialNumber, req *pb.SegmentWriteRequest) {
+	cr.Lock()
+	cr.requests[serialNumber] = req
+	cr.Unlock()
+}
+
+func (cr *createRequests) Request(serialNumber storj.SerialNumber) (*pb.SegmentWriteRequest, bool) {
+	cr.RLock()
+	request, found := cr.requests[serialNumber]
+	cr.RUnlock()
+	return request, found
+}
+
+func (cr *createRequests) Delete(serialNumber storj.SerialNumber) {
+	cr.Lock()
+	delete(cr.requests, serialNumber)
+	cr.Unlock()
+}
+
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log          *zap.Logger
-	metainfo     *Service
-	orders       *orders.Service
-	cache        *overlay.Cache
-	projectUsage *accounting.ProjectUsage
-	containment  Containment
-	apiKeys      APIKeys
-
-	// TODO easiest approach but still thinking about alternatives
-	mu sync.Mutex
-	// order limit serial number used because with CreateSegment we don't have path yet
-	segmentRequests map[storj.SerialNumber]*pb.SegmentWriteRequest
+	log            *zap.Logger
+	metainfo       *Service
+	orders         *orders.Service
+	cache          *overlay.Cache
+	projectUsage   *accounting.ProjectUsage
+	containment    Containment
+	apiKeys        APIKeys
+	createRequests *createRequests
 }
 
 // NewEndpoint creates new metainfo endpoint instance
@@ -71,14 +93,14 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:             log,
-		metainfo:        metainfo,
-		orders:          orders,
-		cache:           cache,
-		containment:     containment,
-		apiKeys:         apiKeys,
-		projectUsage:    projectUsage,
-		segmentRequests: make(map[storj.SerialNumber]*pb.SegmentWriteRequest),
+		log:            log,
+		metainfo:       metainfo,
+		orders:         orders,
+		cache:          cache,
+		containment:    containment,
+		apiKeys:        apiKeys,
+		projectUsage:   projectUsage,
+		createRequests: &createRequests{requests: make(map[storj.SerialNumber]*pb.SegmentWriteRequest)},
 	}
 }
 
@@ -180,9 +202,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 
 	if len(addressedLimits) > 0 {
-		endpoint.mu.Lock()
-		endpoint.segmentRequests[addressedLimits[0].Limit.SerialNumber] = req
-		endpoint.mu.Unlock()
+		endpoint.createRequests.Add(addressedLimits[0].Limit.SerialNumber, req)
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
@@ -260,9 +280,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if len(req.OriginalLimits) > 0 {
-		endpoint.mu.Lock()
-		delete(endpoint.segmentRequests, req.OriginalLimits[0].SerialNumber)
-		endpoint.mu.Unlock()
+		endpoint.createRequests.Delete(req.OriginalLimits[0].SerialNumber)
 	}
 
 	return &pb.SegmentCommitResponse{Pointer: pointer}, nil

@@ -105,9 +105,7 @@ func (endpoint *Endpoint) validateCommitSegment(req *pb.SegmentCommitRequest) er
 	}
 
 	if len(req.OriginalLimits) > 0 {
-		endpoint.mu.Lock()
-		createRequest, found := endpoint.segmentRequests[req.OriginalLimits[0].SerialNumber]
-		endpoint.mu.Unlock()
+		createRequest, found := endpoint.createRequests.Request(req.OriginalLimits[0].SerialNumber)
 
 		switch {
 		case !found:
