@@ -1,10 +1,8 @@
 package main
 
 import (
-
-	"testing"
-	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/testcontext"
+	"testing"
 )
 
 
@@ -28,37 +26,37 @@ func TestCProjectTests(t *testing.T) {
 	runCTest(t, ctx, "project_test.c", envVars...)
 }
 
-func TestCreateBucket(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	project := newProject(t, planet)
-	apikey := newAPIKey(t, ctx, planet, project.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
-	var cErr Cchar
-
-	cUplinkRef := NewUplinkInsecure(&cErr)
-	require.Empty(t, cCharToGoString(cErr))
-
-	defer CloseUplink(cUplinkRef, &cErr)
-	require.Empty(t, cCharToGoString(cErr))
-
-	cAPIKeyRef := ParseAPIKey(stringToCCharPtr(apikey), &cErr)
-	require.Empty(t, cCharToGoString(cErr))
-
-
-	cProjectRef := OpenProject(cUplinkRef, stringToCCharPtr(satelliteAddr), cAPIKeyRef, &cErr)
-	require.Empty(t, cCharToGoString(cErr))
-
-	cBucketCfg := CBucketConfig{}
-
-	_ = CreateBucket(cProjectRef, stringToCCharPtr("TestBucket"), cBucketCfg, &cErr)
-	require.Empty(t, cCharToGoString(cErr))
-}
+//func TestCreateBucket(t *testing.T) {
+//	ctx := testcontext.New(t)
+//	defer ctx.Cleanup()
+//
+//	planet := startTestPlanet(t, ctx)
+//	defer ctx.Check(planet.Shutdown)
+//
+//	project := newProject(t, planet)
+//	apikey := newAPIKey(t, ctx, planet, project.ID)
+//	satelliteAddr := planet.Satellites[0].Addr()
+//
+//	var cErr Cchar
+//
+//	cUplinkRef := NewUplinkInsecure(&cErr)
+//	require.Empty(t, cCharToGoString(cErr))
+//
+//	defer CloseUplink(cUplinkRef, &cErr)
+//	require.Empty(t, cCharToGoString(cErr))
+//
+//	cAPIKeyRef := ParseAPIKey(stringToCCharPtr(apikey), &cErr)
+//	require.Empty(t, cCharToGoString(cErr))
+//
+//
+//	cProjectRef := OpenProject(cUplinkRef, stringToCCharPtr(satelliteAddr), cAPIKeyRef, &cErr)
+//	require.Empty(t, cCharToGoString(cErr))
+//
+//	cBucketCfg := CBucketConfig{}
+//
+//	_ = CreateBucket(cProjectRef, stringToCCharPtr("TestBucket"), cBucketCfg, &cErr)
+//	require.Empty(t, cCharToGoString(cErr))
+//}
 
 func TestOpenBucket(t *testing.T) {
 	ctx := testcontext.New(t)
