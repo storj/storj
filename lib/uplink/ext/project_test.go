@@ -6,7 +6,7 @@ import (
 )
 
 
-// TODO: Call these from bash
+// TODO: Start up test planet and call these from bash instead
 func TestCProjectTests(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

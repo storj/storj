@@ -6,6 +6,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 )
 
+// TODO: Start up test planet and call these from bash instead
 func TestCUplinkTests(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

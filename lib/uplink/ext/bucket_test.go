@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
+// TODO: Start up test planet and call these from bash instead
 func TestCBucketTests(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
