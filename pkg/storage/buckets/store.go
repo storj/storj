@@ -160,7 +160,7 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 
 	streamInfo, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 1,
-		SegmentsSize:     inMeta.SegmentsSize,
+		SegmentsSize:     inMeta.SegmentsSize, //0 see if this is used anywhere for buckets?
 		LastSegmentSize:  0, //?
 		Metadata:         metadata,
 	})
@@ -170,15 +170,15 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 
 	streamMeta, err := proto.Marshal(&pb.StreamMeta{
 		EncryptedStreamInfo: streamInfo,
-		EncryptionType:      int32(pathCipher),
-		EncryptionBlockSize: int32(inMeta.EncryptionScheme.BlockSize),
+		EncryptionType:      int32(storj.Unencrypted),
+		EncryptionBlockSize: 0,
 	})
 
 	var exp timestamp.Timestamp
 	pointer := &pb.Pointer{
 		Type:           pb.Pointer_INLINE,
-		InlineSegment:  []byte{}, //?
-		SegmentSize:    inMeta.SegmentsSize,
+		InlineSegment:  nil, //?
+		SegmentSize:    inMeta.SegmentsSize, //used anywhere? 0?
 		ExpirationDate: &exp,
 		Metadata:       streamMeta,
 	}
@@ -191,16 +191,15 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 
 	bt := storj.Bucket{ // what do i do with this?
 		Name:                 bucketName,
-		Created:              time.Now(), //p.CreationDate?
+		Created:              p.CreationDate, //p.CreationDate?
 		PathCipher:           pathCipher,
 		SegmentsSize:         inMeta.SegmentsSize,
 		RedundancyScheme:     inMeta.RedundancyScheme,
-		EncryptionParameters: storj.EncryptionParameters{}, //inMeta.EncryptionScheme?
-	}
-	fmt.Print(bt)
+		EncryptionParameters: storj.EncryptionParameters{CipherSuite: storj.EncNull}, 
+
 	// inMeta.Created = m.Modified
 	//what do we return??
-	return inMeta, nil
+	// return inMeta, nil
 }
 
 // Delete calls objects store Delete
