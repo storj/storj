@@ -43,7 +43,7 @@ func (store *Store) Close() error { return nil }
 func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
 	file, err := store.dir.Open(ref)
 	if err != nil {
-		if os.IsNotExist(err) || os.IsPermission(err) {
+		if os.IsNotExist(err) {
 			return nil, err
 		}
 		return nil, Error.Wrap(err)

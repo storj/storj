@@ -149,7 +149,7 @@ func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
 	}
 	file, err := openFileReadOnly(path, blobPermission)
 	if err != nil {
-		if os.IsNotExist(err) || os.IsPermission(err) {
+		if os.IsNotExist(err) {
 			return nil, err
 		}
 		return nil, Error.New("unable to open %q: %v", path, err)

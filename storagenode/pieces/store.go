@@ -97,7 +97,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 		Key:       pieceID.Bytes(),
 	})
 	if err != nil {
-		if os.IsNotExist(err) || os.IsPermission(err) {
+		if os.IsNotExist(err) {
 			return nil, err
 		}
 		return nil, Error.Wrap(err)

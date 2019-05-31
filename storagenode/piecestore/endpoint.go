@@ -341,9 +341,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		if os.IsNotExist(err) {
 			return status.Error(codes.NotFound, err.Error())
 		}
-		if os.IsPermission(err) {
-			return status.Error(codes.PermissionDenied, err.Error())
-		}
 		return status.Error(codes.Internal, err.Error())
 	}
 	defer func() {
