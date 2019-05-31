@@ -110,7 +110,7 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 	return nil
 }
 
-// cmdSetupInteractive sets up uplink interactive.
+// cmdSetupInteractive sets up uplink interactively.
 //
 // encryptionKeyFilepath should be set to the filepath indicated by the user or
 // or to a default path whose directory tree exists.

@@ -132,28 +132,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	return setupCfg.interactive(cmd, setupDir, encryptionKeyFilepath, overrides)
 }
 
-func (flags GatewayFlags) nonInteractive(
-	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
-) error {
-	if setupCfg.Enc.EncryptionKey != "" {
-		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	err := process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if setupCfg.Enc.EncryptionKey != "" {
-		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
-	}
-
-	return nil
-}
-
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	address := runCfg.Server.Address
 	host, port, err := net.SplitHostPort(address)
@@ -282,7 +260,6 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	//encKey, err := uplink.UseOrLoadEncryptionKey(flags.Enc.EncryptionKey, flags.Enc.KeyFilepath)
 	encKey, err := uplink.LoadEncryptionKey(flags.Enc.KeyFilepath)
 	if err != nil {
 		return nil, err
@@ -301,8 +278,8 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 
 // interactive creates the configuration of the gateway interactively.
 //
-// encryptionKeyFilepath must be pointing to an file which doesn't exist but
-// whose directory tree exists.
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
 func (flags GatewayFlags) interactive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
@@ -351,6 +328,32 @@ Some things to try next:
 
 	return nil
 
+}
+
+// nonInteractive creates the configuration of the gateway non-interactively.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func (flags GatewayFlags) nonInteractive(
+	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
+) error {
+	if setupCfg.Enc.EncryptionKey != "" {
+		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
+	err := process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if setupCfg.Enc.EncryptionKey != "" {
+		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
+	}
+
+	return nil
 }
 
 func main() {

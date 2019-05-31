@@ -121,7 +121,6 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	//key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
 	key, err := LoadEncryptionKey(c.Enc.KeyFilepath)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
