@@ -90,7 +90,7 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 
 	opts := &libuplink.ProjectOptions{}
 
-	encKey, err := uplink.UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	encKey, err := uplink.LoadEncryptionKey(c.Enc.KeyFilepath)
 	if err != nil {
 		return nil, err
 	}

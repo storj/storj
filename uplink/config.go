@@ -121,7 +121,8 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	//key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	key, err := LoadEncryptionKey(c.Enc.KeyFilepath)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
@@ -170,20 +171,4 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 	}
 
 	return storj.NewKey(rawKey)
-}
-
-// UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
-// it isn't empty otherwise try to load the key from the file pointed by
-// filepath calling LoadEncryptionKey function.
-func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
-	if humanReadableKey != "" {
-		key, err := storj.NewKey([]byte(humanReadableKey))
-		if err != nil {
-			return nil, err
-		}
-
-		return key, nil
-	}
-
-	return LoadEncryptionKey(filepath)
 }
