@@ -40,7 +40,7 @@ void TestBuffer(void)
     BufferRef_t ref_buf = NewBuffer();
 
     char *write_data = "test data 123";
-    WriteBuffer(ref_buf, (uint8_t *)write_data, sizeof(write_data), err);
+    WriteBuffer(ref_buf, (uint8_t *)write_data, strlen(write_data), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     size_t data_size;
@@ -48,7 +48,7 @@ void TestBuffer(void)
     ReadBuffer(ref_buf, &read_data, &data_size, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, data_size);
-    TEST_ASSERT_EQUAL(0, strcmp((char *)write_data, (char *)read_data));
+    TEST_ASSERT_EQUAL(0, strcmp(write_data, (char *)read_data));
 }
 
 int main(int argc, char *argv[])
@@ -56,6 +56,6 @@ int main(int argc, char *argv[])
     UNITY_BEGIN();
     RUN_TEST(TestAPIKey);
     RUN_TEST(TestGetIDVersion);
-//    RUN_TEST(TestBuffer);
+    RUN_TEST(TestBuffer);
     return UNITY_END();
 }

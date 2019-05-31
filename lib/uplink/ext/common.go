@@ -12,7 +12,6 @@ package main
 import "C"
 import (
 	"bytes"
-	"io/ioutil"
 	"storj.io/storj/pkg/storj"
 	"unsafe"
 )
@@ -40,12 +39,12 @@ func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 
 //export NewBuffer
 func NewBuffer() (cBuffer C.BufferRef_t) {
-	return C.BufferRef_t(structRefMap.Add(bytes.NewBuffer([]byte{})))
+	return C.BufferRef_t(structRefMap.Add(new(bytes.Buffer)))
 }
 
 //export WriteBuffer
 func WriteBuffer(cBuffer C.BufferRef_t, cData *C.uint8_t, cSize C.size_t, cErr **C.char) {
-	buf, ok := structRefMap.Get(token(cBuffer)).(bytes.Buffer)
+	buf, ok := structRefMap.Get(token(cBuffer)).(*bytes.Buffer)
 	if !ok {
 		*cErr = C.CString("invalid buffer")
 		return
@@ -60,7 +59,7 @@ func WriteBuffer(cBuffer C.BufferRef_t, cData *C.uint8_t, cSize C.size_t, cErr *
 
 //export ReadBuffer
 func ReadBuffer(cBuffer C.BufferRef_t, cDataPtr **C.uint8_t, cSizePtr *C.size_t, cErr **C.char) {
-	buf, ok := structRefMap.Get(token(cBuffer)).(bytes.Buffer)
+	buf, ok := structRefMap.Get(token(cBuffer)).(*bytes.Buffer)
 	if !ok {
 		*cErr = C.CString("invalid buffer")
 		return
@@ -69,11 +68,6 @@ func ReadBuffer(cBuffer C.BufferRef_t, cDataPtr **C.uint8_t, cSizePtr *C.size_t,
 	bufLen := buf.Len()
 	*cSizePtr = C.size_t(bufLen)
 
-	data, err := ioutil.ReadAll(&buf)
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-
+	data := buf.Bytes()
 	*cDataPtr = (*C.uint8_t)(unsafe.Pointer(&data[0]))
 }
