@@ -347,7 +347,7 @@ func TestDoubleCommitSegment(t *testing.T) {
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 
-		pointer, limits := testCreateSegment(t, ctx, metainfo)
+		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
 		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
@@ -425,7 +425,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, test := range tests {
-			pointer, limits := testCreateSegment(t, ctx, metainfo)
+			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
 			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
@@ -435,7 +435,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 	})
 }
 
-func testCreateSegment(t *testing.T, ctx context.Context, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
