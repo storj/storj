@@ -132,9 +132,14 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	numSuccessful := len(successNodes)
 	numFailed := len(failedNodes)
 	auditedPercentage := float64(totalAudited) / float64(totalInPointer)
-	offlinePercentage := float64(numOffline) / float64(totalAudited)
-	successfulPercentage := float64(numSuccessful) / float64(totalAudited)
-	failedPercentage := float64(numFailed) / float64(totalAudited)
+	offlinePercentage := float64(0)
+	successfulPercentage := float64(0)
+	failedPercentage := float64(0)
+	if totalAudited > 0 {
+		offlinePercentage = float64(numOffline) / float64(totalAudited)
+		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
+		failedPercentage = float64(numFailed) / float64(totalAudited)
+	}
 
 	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
 	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
