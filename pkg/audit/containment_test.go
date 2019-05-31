@@ -6,6 +6,7 @@ package audit_test
 import (
 	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -62,7 +63,7 @@ func TestReverifySuccess(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
 		reporter := audit.NewReporter(overlay, containment, 1)
-		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
 		require.NotNil(t, verifier)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -148,7 +149,7 @@ func TestReverifyFail(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
 		reporter := audit.NewReporter(overlay, containment, 1)
-		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
 		require.NotNil(t, verifier)
 
 		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {

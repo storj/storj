@@ -42,27 +42,29 @@ type Share struct {
 
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
-	log               *zap.Logger
-	orders            *orders.Service
-	auditor           *identity.PeerIdentity
-	transport         transport.Client
-	overlay           *overlay.Cache
-	containment       Containment
-	reporter          reporter
-	minBytesPerSecond memory.Size
+	log                *zap.Logger
+	orders             *orders.Service
+	auditor            *identity.PeerIdentity
+	transport          transport.Client
+	overlay            *overlay.Cache
+	containment        Containment
+	reporter           reporter
+	minBytesPerSecond  memory.Size
+	minDownloadTimeout time.Duration
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, reporter reporter, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+func NewVerifier(log *zap.Logger, reporter reporter, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
-		log:               log,
-		reporter:          reporter,
-		orders:            orders,
-		auditor:           id.PeerIdentity(),
-		transport:         transport,
-		overlay:           overlay,
-		containment:       containment,
-		minBytesPerSecond: minBytesPerSecond,
+		log:                log,
+		reporter:           reporter,
+		orders:             orders,
+		auditor:            id.PeerIdentity(),
+		transport:          transport,
+		overlay:            overlay,
+		containment:        containment,
+		minBytesPerSecond:  minBytesPerSecond,
+		minDownloadTimeout: minDownloadTimeout,
 	}
 }
 
@@ -268,8 +270,8 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	timedCtx := ctx
 	if verifier.minBytesPerSecond > 0 {
 		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / verifier.minBytesPerSecond.Int64())
-		if maxTransferTime < (5 * time.Second) {
-			maxTransferTime = 5 * time.Second
+		if maxTransferTime < verifier.minDownloadTimeout {
+			maxTransferTime = verifier.minDownloadTimeout
 		}
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)

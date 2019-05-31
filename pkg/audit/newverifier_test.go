@@ -57,7 +57,8 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
-			128*memory.B)
+			128*memory.B,
+			5*time.Second)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
@@ -103,7 +104,8 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
-			128*memory.B)
+			128*memory.B,
+			5*time.Second)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
@@ -164,7 +166,8 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
-			128*memory.B)
+			128*memory.B,
+			5*time.Second)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
@@ -230,7 +233,8 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
-			minBytesPerSecond)
+			minBytesPerSecond,
+			5*time.Second)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
@@ -282,7 +286,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		stripe.Index = 0
 
 		network := &transport.SimulatedNetwork{
-			BytesPerSecond: 1 * memory.KiB,
+			BytesPerSecond: 64 * memory.KiB,
 		}
 
 		slowClient := network.NewClient(planet.Satellites[0].Transport)
@@ -291,7 +295,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
-		minBytesPerSecond := 110 * memory.KB
+		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
 			audit.NewReporter(planet.Satellites[0].Overlay.Service, planet.Satellites[0].DB.Containment(), 1),
@@ -300,7 +304,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
-			minBytesPerSecond)
+			minBytesPerSecond,
+			100*time.Millisecond)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
@@ -350,7 +355,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		minBytesPerSecond := 128 * memory.B
 
 		reporter := audit.NewReporter(overlay, containment, 1)
-		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond)
+		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it

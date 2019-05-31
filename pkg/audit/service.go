@@ -25,9 +25,10 @@ var Error = errs.Class("audit error")
 
 // Config contains configurable values for audit service
 type Config struct {
-	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
-	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval           time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5s"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -49,7 +50,7 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
+		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB), transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
 		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB),
 
 		Loop: *sync2.NewCycle(config.Interval),
