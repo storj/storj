@@ -15,8 +15,8 @@ import (
 
 func setenv(key, value string) func() {
 	old := os.Getenv(key)
-	os.Setenv(key, value)
-	return func() { os.Setenv(key, old) }
+	_ = os.Setenv(key, value)
+	return func() { _ = os.Setenv(key, old) }
 }
 
 func TestExec_PropagatesSettings(t *testing.T) {
