@@ -18,10 +18,10 @@ type reporter interface {
 
 // Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
-	overlay     		*overlay.Cache
-	containment 		Containment
-	maxRetries  		int
-	maxReverifyCount	int32
+	overlay          *overlay.Cache
+	containment      Containment
+	maxRetries       int
+	maxReverifyCount int32
 }
 
 // Report contains audit result lists for nodes that succeeded, failed, were offline, or have pending audits
