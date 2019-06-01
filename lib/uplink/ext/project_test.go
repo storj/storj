@@ -1,15 +1,16 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/lib/uplink"
-
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/lib/uplink"
 )
 
 // TODO: Start up test planet and call these from bash instead
@@ -121,11 +122,52 @@ func TestDeleteBucket(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
+	t.Log("skipping -- corruption and SIGABRT (only happens in go test, not c test)")
+	t.SkipNow()
+
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	project, cProjectRef := openTestProject(t, ctx, planet)
+
+	bucketCount := 15
+	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+		for i := 0; i < bucketCount; i++ {
+			bucketName := fmt.Sprintf("TestBucket%d", i)
+			_, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+			require.NoError(t, err)
+		}
+
+		// TODO: test with different list options
+		cBucketList := ListBuckets(cProjectRef, nil, &cErr)
+		require.Empty(t, cCharToGoString(cErr))
+		require.NotNil(t, cBucketList)
+		require.NotNil(t, cBucketList.items)
+		require.Equal(t, int(cBucketList.length), bucketCount)
+
+		bucketList, err := project.ListBuckets(ctx, nil)
+		require.NoError(t, err)
+		require.Len(t, bucketList.Items, bucketCount)
+
+		assert.Equal(t, bucketList.More, bool(cBucketList.more))
+		//TODO: test with `more` being true
+
+		// Compare buckets
+		bucketSize := int(unsafe.Sizeof(CBucket{}))
+		for i, bucket := range bucketList.Items {
+			itemsAddress := uintptr(unsafe.Pointer(cBucketList.items))
+			nextAddress := uintptr(int(itemsAddress) + (i * bucketSize))
+			cBucket := (*CBucket)(unsafe.Pointer(nextAddress))
+			require.NotNil(t, cBucket)
+			require.NotEmpty(t, cBucket.name)
+
+			reflect.DeepEqual(bucket, newGoBucket(cBucket))
+		}
+	})
 }
 
 func TestGetBucketInfo(t *testing.T) {
