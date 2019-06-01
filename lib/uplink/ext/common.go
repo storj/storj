@@ -68,12 +68,6 @@ func ReadBuffer(cBuffer C.BufferRef_t, cData *C.Bytes_t, cErr **C.char) {
 	bufLen := buf.Len()
 	cData.length = C.int32_t(bufLen)
 
-	//cDataPtr := unsafe.Pointer(cData)
-	//cBytesPtr := unsafe.Pointer(cData.bytes)
-	//if cDataPtr == nil || cBytesPtr == nil {
-	//	*cErr = C.CString("null Bytes_t pointer")
-	//	return
-	//}
 	ptr := CMalloc(uintptr(bufLen))
 	mem := unsafe.Pointer(ptr)
 	data := buf.Bytes()
