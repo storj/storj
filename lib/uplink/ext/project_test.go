@@ -105,6 +105,19 @@ func TestDeleteBucket(t *testing.T) {
 
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	bucketName := "TestBucket"
+	project, cProjectRef := openTestProject(t, ctx, planet)
+
+	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+		bucket, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+		require.NoError(t, err)
+		require.NotNil(t, bucket)
+
+		DeleteBucket(cProjectRef, stringToCCharPtr(bucketName), &cErr)
+		require.Empty(t, cCharToGoString(cErr))
+	})
 }
 
 func TestListBuckets(t *testing.T) {
