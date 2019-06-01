@@ -1,14 +1,15 @@
 package main
 
 import (
+	"storj.io/storj/lib/uplink"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/lib/uplink"
 )
-
 
 // TODO: Start up test planet and call these from bash instead
 func TestCProjectTests(t *testing.T) {
@@ -37,32 +38,28 @@ func TestCreateBucket(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	consoleProject := newProject(t, planet)
-	consoleAPIKey := newAPIKey(t, ctx, planet, consoleProject.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
 	var cErr Cchar
+	bucketName := "TestBucket"
+	_, cProjectRef := openTestProject(t, ctx, planet)
 
-	goUplink := newUplinkInsecure(t, ctx)
-	defer ctx.Check(goUplink.Close)
-
-	apikey, err := uplink.ParseAPIKey(consoleAPIKey)
-	require.NoError(t, err)
-	require.NotEmpty(t, apikey)
-
-	// TODO: test options
-	project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
-	require.NoError(t, err)
-	require.NotNil(t, project)
-
-	cProjectRef := CProjectRef(structRefMap.Add(project))
-
-	{
-		t.Log("nil config")
-		_ = CreateBucket(cProjectRef, stringToCCharPtr("TestBucket"), nil, &cErr)
+	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+		cBucketConfig := NewCBucketConfig(&bucketCfg)
+		cBucket := CreateBucket(cProjectRef, stringToCCharPtr(bucketName), &cBucketConfig, &cErr)
 		require.Empty(t, cCharToGoString(cErr))
-	}
-	// TODO: test more config values
+		require.NotNil(t, cBucket)
+
+		assert.Equal(t, bucketName, cCharToGoString(cBucket.name))
+		assert.Condition(t, func() bool {
+			createdTime := time.Unix(int64(cBucket.created), 0)
+			return time.Now().Sub(createdTime).Seconds() < 3
+		})
+
+		assert.NotNil(t, cBucket.encryption_parameters)
+		// TODO: encryption_parameters assertions
+
+		assert.NotNil(t, cBucket.redundancy_scheme)
+		// TODO: redundancy_scheme assertions
+	})
 }
 
 func TestOpenBucket(t *testing.T) {
@@ -71,6 +68,20 @@ func TestOpenBucket(t *testing.T) {
 
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	bucketName := "TestBucket"
+	project, cProjectRef := openTestProject(t, ctx, planet)
+
+	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+		bucket, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+		require.NoError(t, err)
+		require.NotNil(t, bucket)
+
+		cBucketRef := OpenBucket(cProjectRef, stringToCCharPtr(bucketName), nil, &cErr)
+		require.Empty(t, cCharToGoString(cErr))
+		require.NotEmpty(t, cBucketRef)
+	})
 }
 
 func TestDeleteBucket(t *testing.T) {

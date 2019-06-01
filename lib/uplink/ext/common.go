@@ -12,8 +12,10 @@ package main
 import "C"
 import (
 	"bytes"
-	"storj.io/storj/pkg/storj"
 	"unsafe"
+
+	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
 )
 
 var structRefMap = newMapping()
@@ -76,4 +78,52 @@ func ReadBuffer(cBuffer C.BufferRef_t, cData *C.Bytes_t, cErr **C.char) {
 		*(*uint8)(unsafe.Pointer(nextAddress)) = data[i]
 	}
 	cData.bytes = (*C.uint8_t)(mem)
+}
+
+func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
+	encParamsPtr := NewCEncryptionParamsPtr(&bucket.EncryptionParameters)
+	redundancySchemePtr := NewCRedundancySchemePtr(&bucket.RedundancyScheme)
+
+	return C.Bucket_t{
+		encryption_parameters: encParamsPtr,
+		redundancy_scheme:     redundancySchemePtr,
+		name:                  C.CString(bucket.Name),
+		// TODO: use `UnixNano()`?
+		created:      C.int64_t(bucket.Created.Unix()),
+		path_cipher:  C.uint8_t(bucket.PathCipher),
+		segment_size: C.int64_t(bucket.SegmentsSize),
+	}
+}
+
+func NewCBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
+	return C.BucketConfig_t{
+		encryption_parameters: NewCEncryptionParamsPtr(&bucketCfg.EncryptionParameters),
+		path_cipher:           CUint8(bucketCfg.PathCipher),
+	}
+}
+
+// NB: caller is responsible for freeing memory at `ptr`
+func NewCEncryptionParamsPtr(goParams *storj.EncryptionParameters) *C.EncryptionParameters_t {
+	ptr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
+	cParams := (*C.EncryptionParameters_t)(unsafe.Pointer(ptr))
+	*cParams = C.EncryptionParameters_t{
+		cipher_suite: C.uint8_t(goParams.CipherSuite),
+		block_size:   C.int32_t(goParams.BlockSize),
+	}
+	return cParams
+}
+
+// NB: caller is responsible for freeing memory at `ptr`
+func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) *C.RedundancyScheme_t {
+	ptr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
+	cScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(ptr))
+	*cScheme = C.RedundancyScheme_t{
+		algorithm:       C.uint8_t(goScheme.Algorithm),
+		share_size:      C.int32_t(goScheme.ShareSize),
+		required_shares: C.int16_t(goScheme.RequiredShares),
+		repair_shares:   C.int16_t(goScheme.RepairShares),
+		optimal_shares:  C.int16_t(goScheme.OptimalShares),
+		total_shares:    C.int16_t(goScheme.TotalShares),
+	}
+	return cScheme
 }

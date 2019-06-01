@@ -8,21 +8,25 @@ package main
 // #endif
 import "C"
 import (
-	"testing"
 	"context"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"runtime"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/satellite/console"
-	"storj.io/storj/lib/uplink"
-	"storj.io/storj/internal/testcontext"
+	"testing"
 	"unsafe"
+
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 )
 
 type Cchar = *C.char
@@ -34,10 +38,13 @@ type CAPIKeyRef = C.APIKeyRef_t
 type CUplinkRef = C.UplinkRef_t
 type CProjectRef = C.ProjectRef_t
 type CBufferRef = C.BufferRef_t
+type CBucketConfig  C.BucketConfig_t
 
 var (
 	cLibDir, cSrcDir, cTestsDir, libuplink string
+
 	testConfig = new(uplink.Config)
+	ciphers    = []storj.CipherSuite{storj.EncNull, storj.EncAESGCM, storj.EncSecretBox}
 )
 
 func init() {
@@ -50,7 +57,6 @@ func init() {
 
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
-
 
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
 	srcGlobs = append([]string{
@@ -158,10 +164,47 @@ func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *uplink.Uplink {
 	return goUplink
 }
 
+func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) (*uplink.Project, C.ProjectRef_t) {
+	consoleProject := newProject(t, planet)
+	consoleAPIKey := newAPIKey(t, ctx, planet, consoleProject.ID)
+	satelliteAddr := planet.Satellites[0].Addr()
+
+	goUplink := newUplinkInsecure(t, ctx)
+	defer ctx.Check(goUplink.Close)
+
+	apikey, err := uplink.ParseAPIKey(consoleAPIKey)
+	require.NoError(t, err)
+	require.NotEmpty(t, apikey)
+
+	project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
+	require.NoError(t, err)
+	require.NotNil(t, project)
+
+	return project, CProjectRef(structRefMap.Add(project))
+}
+
 func stringToCCharPtr(str string) *C.char {
 	return (*C.char)(unsafe.Pointer(C.CString(str)))
 }
 
 func cCharToGoString(cchar *C.char) string {
 	return C.GoString(cchar)
+}
+
+func testEachBucketConfig(t *testing.T, f func(uplink.BucketConfig)) {
+	for _, suite1 := range ciphers {
+		for _, suite2 := range ciphers {
+			t.Log(fmt.Sprintf(
+				"path cipher: %v; enc params cipher suite: %v",
+				suite1, suite2,
+			))
+			bucketCfg := uplink.BucketConfig{
+				PathCipher: suite1,
+				EncryptionParameters: storj.EncryptionParameters{
+					CipherSuite: suite2,
+				},
+			}
+			f(bucketCfg)
+		}
+	}
 }
