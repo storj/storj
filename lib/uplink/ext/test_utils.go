@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -29,16 +30,21 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
+// C types
 type Cchar = *C.char
 type CUint = C.uint
 type CBytes = C.Bytes_t
 type CUint8 = C.uint8_t
 type CInt32 = C.int32_t
+
+// Ref types
 type CAPIKeyRef = C.APIKeyRef_t
 type CUplinkRef = C.UplinkRef_t
 type CProjectRef = C.ProjectRef_t
 type CBufferRef = C.BufferRef_t
-type CBucketConfig  C.BucketConfig_t
+
+// Struct types
+type CBucket = C.Bucket_t
 
 var (
 	cLibDir, cSrcDir, cTestsDir, libuplink string
@@ -206,5 +212,26 @@ func testEachBucketConfig(t *testing.T, f func(uplink.BucketConfig)) {
 			}
 			f(bucketCfg)
 		}
+	}
+}
+
+func newGoBucket(cBucket *CBucket) storj.Bucket {
+	return storj.Bucket{
+		EncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(cBucket.encryption_parameters.cipher_suite),
+			BlockSize: int32(cBucket.encryption_parameters.block_size),
+		},
+		RedundancyScheme: storj.RedundancyScheme{
+			Algorithm: storj.RedundancyAlgorithm(cBucket.redundancy_scheme.algorithm),
+			ShareSize: int32(cBucket.redundancy_scheme.share_size),
+			RequiredShares: int16(cBucket.redundancy_scheme.required_shares),
+			RepairShares: int16(cBucket.redundancy_scheme.repair_shares),
+			OptimalShares: int16(cBucket.redundancy_scheme.optimal_shares),
+			TotalShares: int16(cBucket.redundancy_scheme.total_shares),
+		},
+		Name: C.GoString(cBucket.name),
+		Created: time.Unix(int64(cBucket.created), 0),
+		PathCipher: storj.Cipher(cBucket.path_cipher),
+		SegmentsSize: int64(cBucket.segment_size),
 	}
 }
