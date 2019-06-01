@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"github.com/stretchr/testify/require"
+	"storj.io/storj/lib/uplink"
 	"testing"
 
 	"storj.io/storj/internal/testcontext"
@@ -24,4 +27,19 @@ func TestCUplinkTests(t *testing.T) {
 	}
 
 	runCTest(t, ctx, "uplink_test.c", envVars...)
+}
+
+func TestCloseUplink(t *testing.T) {
+	ctx := context.Background()
+	var cErr Cchar
+
+	// TODO: test other config values?
+	goUplink, err := uplink.NewUplink(ctx, nil)
+	require.NoError(t, err)
+	require.NotNil(t, goUplink)
+
+	cUplinkRef := CUplinkRef(structRefMap.Add(goUplink))
+
+	CloseUplink(cUplinkRef, &cErr)
+	require.Empty(t, cCharToGoString(cErr))
 }
