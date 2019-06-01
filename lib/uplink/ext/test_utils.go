@@ -27,9 +27,13 @@ import (
 
 type Cchar = *C.char
 type CUint = C.uint
+type CBytes = C.Bytes_t
+type CUint8 = C.uint8_t
+type CInt32 = C.int32_t
 type CAPIKeyRef = C.APIKeyRef_t
 type CUplinkRef = C.UplinkRef_t
 type CProjectRef = C.ProjectRef_t
+type CBufferRef = C.BufferRef_t
 
 var (
 	cLibDir,
