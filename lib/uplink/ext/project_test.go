@@ -41,12 +41,7 @@ func TestCreateBucket(t *testing.T) {
 
 	var cErr Cchar
 
-	cUplinkRef := NewUplinkInsecure(&cErr)
-	require.Empty(t, cCharToGoString(cErr))
-
-	goUplink, ok := structRefMap.Get(token(cUplinkRef)).(*uplink.Uplink)
-	require.True(t, ok)
-	require.NotNil(t, goUplink)
+	goUplink := newUplinkInsecure(t, ctx)
 	defer ctx.Check(goUplink.Close)
 
 	apikey, err := uplink.ParseAPIKey(consoleAPIKey)

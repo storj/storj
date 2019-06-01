@@ -29,6 +29,22 @@ func TestCUplinkTests(t *testing.T) {
 	runCTest(t, ctx, "uplink_test.c", envVars...)
 }
 
+func TestNewUplink(t *testing.T) {
+	var cErr Cchar
+
+	cUplinkRef := NewUplink(&cErr)
+	require.Empty(t, cCharToGoString(cErr))
+	require.NotEmpty(t, cUplinkRef)
+}
+
+func TestNewUplinkInsecure(t *testing.T) {
+	var cErr Cchar
+
+	cUplinkRef := NewUplinkInsecure(&cErr)
+	require.Empty(t, cCharToGoString(cErr))
+	require.NotEmpty(t, cUplinkRef)
+}
+
 func TestOpenProject(t *testing.T) {
 	ctx := testcontext.New(t)
 	planet := startTestPlanet(t, ctx)
