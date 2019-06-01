@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/lib/uplink"
 	"testing"
@@ -29,8 +29,30 @@ func TestCUplinkTests(t *testing.T) {
 	runCTest(t, ctx, "uplink_test.c", envVars...)
 }
 
+func TestOpenProject(t *testing.T) {
+	ctx := testcontext.New(t)
+	planet := startTestPlanet(t, ctx)
+
+	var cErr Cchar
+	satelliteAddr := planet.Satellites[0].Addr()
+	apikeyStr := "testapikey123"
+
+	goUplink := newUplinkInsecure(t, ctx)
+
+	apikey, err := uplink.ParseAPIKey(apikeyStr)
+	require.NoError(t, err)
+	require.NotEmpty(t, apikey)
+
+	cUplinkRef := CUplinkRef(structRefMap.Add(goUplink))
+	cAPIKeyRef := CAPIKeyRef(structRefMap.Add(apikey))
+
+	cProjectRef := OpenProject(cUplinkRef, stringToCCharPtr(satelliteAddr), cAPIKeyRef, &cErr)
+	assert.Empty(t, cCharToGoString(cErr))
+	assert.NotEmpty(t, cProjectRef)
+}
+
 func TestCloseUplink(t *testing.T) {
-	ctx := context.Background()
+	ctx := testcontext.New(t)
 	var cErr Cchar
 
 	// TODO: test other config values?

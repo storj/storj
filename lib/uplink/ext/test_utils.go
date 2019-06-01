@@ -145,6 +145,17 @@ func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet
 	return APIKey.String()
 }
 
+func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *uplink.Uplink {
+	cfg := uplink.Config{}
+	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
+
+	goUplink, err := uplink.NewUplink(ctx, &cfg)
+	require.NoError(t, err)
+	require.NotEmpty(t, goUplink)
+
+	return goUplink
+}
+
 func stringToCCharPtr(str string) *C.char {
 	return (*C.char)(unsafe.Pointer(C.CString(str)))
 }
