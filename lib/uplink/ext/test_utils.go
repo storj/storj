@@ -27,6 +27,7 @@ import (
 
 type Cchar = *C.char
 type CBucketConfig = C.BucketConfig_t
+type CAPIKeyRef = C.APIKeyRef_t
 
 var (
 	cLibDir,
