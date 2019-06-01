@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/schema"
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -43,6 +44,15 @@ type Server struct {
 	service  *marketing.Service
 }
 
+func addPages(assets []string) ([]string){
+	d := dir + "pages/"
+	pages  := []string{d+"base.html",d+"index.html",d+"banner.html"}
+	for _, page := range assets {
+		pages = append(pages,page)
+	}
+	return pages
+}
+
 // NewServer creates new instance of marketingweb server
 func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) *Server {
 	server := Server{
@@ -53,9 +63,9 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	}
 
 	logger.Sugar().Debugf("Starting marketingweb UI...", server.listener.Addr().String())
-
-	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	mux := mux.NewRouter()
+	s := http.StripPrefix("/static/", http.FileServer(http.Dir(dir+"/static/")))
+	mux.PathPrefix("/static/").Handler(s)
 	mux.Handle("/", http.HandlerFunc(server.appHandler))
 
 	server.server = http.Server{
@@ -96,8 +106,11 @@ func (s *Server) getHandler(w http.ResponseWriter, req *http.Request) {
 		s.serveError(w, req)
 		return
 	}
-
-	home := template.Must(template.New("landingPage").ParseFiles(dir+"pages/base.html", dir+"pages/index.html", dir+"pages/home.html"))
+	fmt.Println(offers)
+	d := dir+"pages/"
+	pages :=  []string{d+"home.html",d+"refOffers.html",d+"freeOffers.html",d+"roModal.html",d+"foModal.html"}
+	files := addPages(pages)
+	home := template.Must(template.New("landingPage").ParseFiles(files...))
 	home.ExecuteTemplate(w, "base", offers)
 }
 

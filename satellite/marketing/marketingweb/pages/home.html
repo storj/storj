@@ -1,17 +1,16 @@
 {{define "main"}}
-<form action="/" method="POST">
-    <input name="Name">
-    <input name="Description">
-    <input name="AwardCreditInCents">
-    <input name="InviteeCreditInCents">
-    <input name="AwardCreditDurationDays">
-    <input name="InviteeCreditDurationDays">
-    <input name="RedeemableCap">
-    <input name="ExpiresAt">
-    <input name="Status">
-    <input type="submit" value="Submit">
-</form>
-{{ range . }} 
-    <p>{{.Name}}</p>
-{{end}}
+<div class="container">
+    <div class="row mt-4 mb-4">
+        <h3 class="m-4 text-dark">Referral Credit Offers</h3>
+        <button type="button" class="btn btn-outline-dark m-4" data-toggle="modal" data-target="#roModal">+ Create Referral Credit</button>
+    </div>
+    {{template "refOffers" .}}
+    {{template "roModal" .}}
+    <div class="row mt-4 mb-4">
+        <h3 class="m-4 text-dark">Free Credit Offers</h3>
+        <button type="button" class="btn btn-outline-dark m-4" data-toggle="modal" data-target="#foModal">+ Create Free Credit</button>
+    </div>
+    {{template "freeOffers" .}}
+    {{template "foModal" .}}
+</div>
 {{end}}

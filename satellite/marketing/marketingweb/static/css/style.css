@@ -6,4 +6,36 @@ html{
 body{
     height:100%;
     width:100%;
+    background-color: #DDDDDD;
+}
+
+.home-link:hover,.home-link p:hover{
+    text-decoration: none;
+}
+
+.banner{
+    height: 80px;
+    overflow: hidden;
+}
+
+.banner-txt{
+    font-family: 'Inter';
+    font-size: 18px;
+    color:white;
+}
+
+.offer-label{
+font-family: 'Inter';
+font-size: 11px;
+line-height: 49px;
+letter-spacing: -0.100741px;
+color: #656565;
+}
+
+.toggler{
+    margin-top: -15px;
+}
+
+.toggler:hover{
+    cursor:pointer;
 }
