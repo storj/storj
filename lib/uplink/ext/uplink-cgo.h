@@ -137,7 +137,7 @@ extern void WriteBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
 extern void ReadBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
-extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t p2, char** p3);
+extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t* p2, char** p3);
 
 extern BucketRef_t OpenBucket(ProjectRef_t p0, char* p1, EncryptionAccess_t* p2, char** p3);
 

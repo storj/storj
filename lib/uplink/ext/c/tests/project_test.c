@@ -30,7 +30,7 @@ void create_test_bucket(ProjectRef_t ref_project, char *bucket_name, Bucket_t *b
     bucket_cfg.path_cipher = 0;
     bucket_cfg.encryption_parameters = &enc_param;
 
-    *bucket = CreateBucket(ref_project, bucket_name, bucket_cfg, err);
+    *bucket = CreateBucket(ref_project, bucket_name, &bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     TEST_ASSERT_NOT_NULL(bucket->encryption_parameters);

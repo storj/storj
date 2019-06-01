@@ -18,7 +18,7 @@ import (
 )
 
 //export CreateBucket
-func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConfig_t, cErr **C.char) (cBucket C.Bucket_t) {
+func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketConfig_t, cErr **C.char) (cBucket C.Bucket_t) {
 	ctx := context.Background()
 	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
 	if !ok {
@@ -26,15 +26,18 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		return cBucket
 	}
 
-	bucketCfg := uplink.BucketConfig{
-		PathCipher: storj.CipherSuite(cBucketCfg.path_cipher),
-		EncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(cBucketCfg.encryption_parameters.cipher_suite),
-			BlockSize:   int32(cBucketCfg.encryption_parameters.block_size),
-		},
+	var bucketCfg *uplink.BucketConfig
+	if unsafe.Pointer(cBucketCfg) != nil {
+		bucketCfg = &uplink.BucketConfig{
+			PathCipher: storj.CipherSuite(cBucketCfg.path_cipher),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(cBucketCfg.encryption_parameters.cipher_suite),
+				BlockSize:   int32(cBucketCfg.encryption_parameters.block_size),
+			},
+		}
 	}
 
-	bucket, err := project.CreateBucket(ctx, C.GoString(name), &bucketCfg)
+	bucket, err := project.CreateBucket(ctx, C.GoString(name), bucketCfg)
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return cBucket
@@ -175,9 +178,9 @@ func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
 		redundancy_scheme:     redundancySchemePtr,
 		name:                  C.CString(bucket.Name),
 		// TODO: use `UnixNano()`?
-		created:               C.int64_t(bucket.Created.Unix()),
-		path_cipher:           C.uint8_t(bucket.PathCipher),
-		segment_size:          C.int64_t(bucket.SegmentsSize),
+		created:      C.int64_t(bucket.Created.Unix()),
+		path_cipher:  C.uint8_t(bucket.PathCipher),
+		segment_size: C.int64_t(bucket.SegmentsSize),
 	}
 }
 
