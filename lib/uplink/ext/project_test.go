@@ -53,9 +53,12 @@ func TestCreateBucket(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, apikey)
 
-	cAPIKeyRef := CAPIKeyRef(structRefMap.Add(apikey))
-	cProjectRef := OpenProject(cUplinkRef, stringToCCharPtr(satelliteAddr), cAPIKeyRef, &cErr)
-	require.Empty(t, cCharToGoString(cErr))
+	// TODO: test options
+	project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
+	require.NoError(t, err)
+	require.NotNil(t, project)
+
+	cProjectRef := CProjectRef(structRefMap.Add(project))
 
 	{
 		t.Log("nil config")
