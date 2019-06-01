@@ -43,3 +43,12 @@ void freeEncryptionAccess(EncryptionAccess_t *access) {
         free(access);
     }
 }
+
+Bytes_t *BytesFromString(char *str_data)
+{
+    size_t length = strlen(str_data);
+    Bytes_t *data = malloc(length);
+    data->bytes = (uint8_t *)str_data;
+    data->length = strlen(str_data);
+    return data;
+}

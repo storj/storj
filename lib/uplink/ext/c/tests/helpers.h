@@ -5,3 +5,5 @@ EncryptionAccess_t * NewEncryptionAccess(uint8_t *key, int key_len);
 void freeEncryptionAccess(EncryptionAccess_t *access);
 
 ProjectRef_t OpenTestProject(char **err);
+
+Bytes_t *BytesFromString(char *str_data);

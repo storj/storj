@@ -23,42 +23,41 @@ func TestCBucketTests(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	project := newProject(t, planet)
-	apikey := newAPIKey(t, ctx, planet, project.ID)
+	consoleProject := newProject(t, planet)
+	consoleApikey := newAPIKey(t, ctx, planet, consoleProject.ID)
 	satelliteAddr := planet.Satellites[0].Addr()
 	bucketName := "TestBucket"
 
 	envVars := []string{
 		"SATELLITE_ADDR=" + satelliteAddr,
-		"APIKEY=" + apikey,
+		"APIKEY=" + consoleApikey,
 		"BUCKET_NAME=" + bucketName,
 	}
 
+	goUplink, err := uplink.NewUplink(ctx, testConfig)
+	require.NoError(t, err)
+
+	apikey, err := uplink.ParseAPIKey(consoleApikey)
+	require.NoError(t, err)
+
+	project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
+	require.NoError(t, err)
+
+	_, err = project.CreateBucket(ctx, bucketName, nil)
+	require.NoError(t, err)
+
+	key := storj.Key{}
+	copy(key[:], []byte("abcdefghijklmnopqrstuvwxyzABCDEF"))
+	bucket, err := project.OpenBucket(ctx, bucketName, nil)
+	require.NoError(t, err)
+
 	{
-		goUplink, err := uplink.NewUplink(ctx, testConfig)
-		require.NoError(t, err)
-
-		apikey, err := uplink.ParseAPIKey(apikey)
-		require.NoError(t, err)
-
-		project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
-		require.NoError(t, err)
-
-		_, err = project.CreateBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-
-		key := storj.Key{}
-		copy(key[:], []byte("abcdefghijklmnopqrstuvwxyzABCDEF"))
-		bucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-
-
 		runCTest(t, ctx, "bucket_test.c", envVars...)
 
 		objectList, err := bucket.ListObjects(ctx, nil)
 		require.NoError(t, err)
 
-		require.Len(t, objectList.Items, 1)
+		require.Len(t, objectList.Items, 4)
 		object, err := bucket.OpenObject(ctx, objectList.Items[0].Path)
 		require.NoError(t, err)
 

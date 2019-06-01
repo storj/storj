@@ -72,6 +72,27 @@ typedef struct BucketList {
     int32_t length;
 } BucketList_t;
 
+typedef struct Object {
+    uint32_t version;
+    Bucket_t bucket;
+    char *path;
+    bool is_prefix;
+    MapRef_t metadata;
+    char *content_type;
+    time_t created;
+    time_t modified;
+    time_t expires;
+} Object_t;
+
+typedef struct ObjectList {
+    char *bucket;
+    char *prefix;
+    bool more;
+    // TODO: use Slice_t{void *items; length int32_t;?
+    Object_t *items;
+    int32_t length;
+} ObjectList_t;
+
 typedef struct EncryptionAccess {
     Bytes_t *key;
 } EncryptionAccess_t;
@@ -81,3 +102,12 @@ typedef struct UploadOptions {
     MapRef_t metadata;
     time_t expires;
 } UploadOptions_t;
+
+typedef struct ListOptions {
+    char *prefix;
+    char *cursor;
+    char delimiter;
+    bool recursive;
+    int8_t direction;
+    int64_t limit;
+} ListOptions_t;

@@ -39,16 +39,19 @@ void TestBuffer(void)
 
     BufferRef_t ref_buf = NewBuffer();
 
-    char *write_data = "test data 123";
-    WriteBuffer(ref_buf, (uint8_t *)write_data, strlen(write_data), err);
+    Bytes_t write_data = {
+        "test write data 123"
+    };
+    write_data.length = strlen((char *)write_data.bytes);
+    WriteBuffer(ref_buf, &write_data, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     size_t data_size;
-    uint8_t *read_data;
-    ReadBuffer(ref_buf, &read_data, &data_size, err);
+    Bytes_t *read_data = malloc(sizeof(Bytes_t));
+    ReadBuffer(ref_buf, read_data, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, data_size);
-    TEST_ASSERT_EQUAL(0, strcmp(write_data, (char *)read_data));
+    TEST_ASSERT_EQUAL(0, strcmp((char *)write_data.bytes, (char *)read_data->bytes));
 }
 
 int main(int argc, char *argv[])

@@ -9,6 +9,23 @@
 #include "../../uplink-cgo.h"
 #include "helpers.h"
 
+void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, Bytes_t *data, char **err)
+{
+    BufferRef_t ref_data = NewBuffer();
+    WriteBuffer(ref_data, data, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    free(data);
+
+    UploadOptions_t opts = {
+        "text/plain",
+        0,
+        time(NULL),
+    };
+
+    UploadObject(ref_bucket, path, ref_data, &opts, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+}
+
 void TestBucket(void)
 {
     char *_err = "";
@@ -23,19 +40,26 @@ void TestBucket(void)
     BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    char *object_path = "TestObject";
-    uint8_t *data = "test data 123";
-    BufferRef_t ref_data = NewBuffer(data);
+
+    char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
+    int num_of_objects = sizeof(object_paths) / sizeof(object_paths[0]);
+
+    // Create objects
+    char *str_data = "testing data 123";
+    for (int i=0; i < num_of_objects; i++) {
+        Object_t *object = malloc(sizeof(Object_t));
+        Bytes_t *data = BytesFromString(str_data);
+
+        create_test_object(ref_bucket, object_paths[i], object, data, err);
+        free(object);
+    }
+
+    // List objects
+    // TODO: test list options
+    ObjectList_t objects_list = ListObjects(ref_bucket, NULL, err);
+    // TODO: add assertions
+
     // TODO: add assertions for metadata
-    UploadOptions_t opts = {
-        "text/plain",
-        NULL,
-        time(NULL),
-    };
-
-    UploadObject(ref_bucket, object_path, ref_data, &opts, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
 }
 
 int main(int argc, char *argv[])

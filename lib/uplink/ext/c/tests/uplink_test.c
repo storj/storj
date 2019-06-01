@@ -18,7 +18,7 @@ void TestUplink(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
 
-    // New insecure uplink
+    // New insecure uplink (test network requires this)
     UplinkRef_t ref_test_uplink = NewUplinkInsecure(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, ref_test_uplink);

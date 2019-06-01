@@ -78,7 +78,6 @@ void TestProject(void)
     for (int i=0; i < num_of_buckets; i++) {
         Bucket_t *bucket = malloc(sizeof(Bucket_t));
         create_test_bucket(ref_project, bucket_names[i], bucket, err);
-        TEST_ASSERT_EQUAL_STRING("", *err);
         free(bucket);
     }
 

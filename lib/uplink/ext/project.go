@@ -40,7 +40,7 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg C.BucketConf
 		return cBucket
 	}
 
-	return bucketToCBucket(&bucket)
+	return NewCBucket(&bucket)
 }
 
 //export OpenBucket
@@ -111,11 +111,13 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 	bucketListLen := len(bucketList.Items)
 
 	bucketSize := int(unsafe.Sizeof(C.Bucket_t{}))
+	// TODO: use `calloc` instead?
 	cBucketsPtr := CMalloc(uintptr((bucketListLen - 1) * bucketSize))
 
 	for i, bucket := range bucketList.Items {
+		// TODO: try (C.Bucket_t
 		cBucket := (*C.Bucket_t)(unsafe.Pointer(uintptr(int(cBucketsPtr) + (i * bucketSize))))
-		*cBucket = bucketToCBucket(&bucket)
+		*cBucket = NewCBucket(&bucket)
 	}
 	
 	return C.BucketList_t{
@@ -142,10 +144,10 @@ func GetBucketInfo(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) (
 	}
 
 	return C.BucketInfo_t{
-		bucket: bucketToCBucket(&bucket),
+		bucket: NewCBucket(&bucket),
 		config: C.BucketConfig_t{
 			path_cipher:           C.uint8_t(cfg.PathCipher),
-			encryption_parameters: encParamsToCEncParams(cfg.EncryptionParameters),
+			encryption_parameters: NewCEncryptionParams(&cfg.EncryptionParameters),
 		},
 	}
 }
@@ -164,36 +166,41 @@ func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
 	}
 }
 
-func bucketToCBucket(bucket *storj.Bucket) C.Bucket_t {
-	encParamsPtr := encParamsToCEncParams(bucket.EncryptionParameters)
-
-	redundancySchemePtr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
-	redundancyScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(redundancySchemePtr))
-	*redundancyScheme = C.RedundancyScheme_t{
-		algorithm:       C.uint8_t(bucket.RedundancyScheme.Algorithm),
-		share_size:      C.int32_t(bucket.RedundancyScheme.ShareSize),
-		required_shares: C.int16_t(bucket.RedundancyScheme.RequiredShares),
-		repair_shares:   C.int16_t(bucket.RedundancyScheme.RepairShares),
-		optimal_shares:  C.int16_t(bucket.RedundancyScheme.OptimalShares),
-		total_shares:    C.int16_t(bucket.RedundancyScheme.TotalShares),
-	}
+func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
+	encParamsPtr := NewCEncryptionParams(&bucket.EncryptionParameters)
+	redundancySchemePtr := NewCRedundancyScheme(&bucket.RedundancyScheme)
 
 	return C.Bucket_t{
 		encryption_parameters: encParamsPtr,
-		redundancy_scheme:     redundancyScheme,
+		redundancy_scheme:     redundancySchemePtr,
 		name:                  C.CString(bucket.Name),
+		// TODO: use `UnixNano()`?
 		created:               C.int64_t(bucket.Created.Unix()),
 		path_cipher:           C.uint8_t(bucket.PathCipher),
 		segment_size:          C.int64_t(bucket.SegmentsSize),
 	}
 }
 
-func encParamsToCEncParams(params storj.EncryptionParameters) *C.EncryptionParameters_t {
+func NewCEncryptionParams(params *storj.EncryptionParameters) *C.EncryptionParameters_t {
 	ptr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
-	cParams := (*C.EncryptionParameters_t)(unsafe.Pointer(ptr))
-	*cParams = C.EncryptionParameters_t{
+	encryptionParams := (*C.EncryptionParameters_t)(unsafe.Pointer(ptr))
+	*encryptionParams = C.EncryptionParameters_t{
 		cipher_suite: C.uint8_t(params.CipherSuite),
 		block_size:   C.int32_t(params.BlockSize),
 	}
-	return cParams
+	return encryptionParams
+}
+
+func NewCRedundancyScheme(scheme *storj.RedundancyScheme) *C.RedundancyScheme_t {
+	redundancySchemePtr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
+	redundancyScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(redundancySchemePtr))
+	*redundancyScheme = C.RedundancyScheme_t{
+		algorithm:       C.uint8_t(scheme.Algorithm),
+		share_size:      C.int32_t(scheme.ShareSize),
+		required_shares: C.int16_t(scheme.RequiredShares),
+		repair_shares:   C.int16_t(scheme.RepairShares),
+		optimal_shares:  C.int16_t(scheme.OptimalShares),
+		total_shares:    C.int16_t(scheme.TotalShares),
+	}
+	return redundancyScheme
 }

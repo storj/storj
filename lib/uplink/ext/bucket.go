@@ -12,7 +12,9 @@ import "C"
 import (
 	"bytes"
 	"context"
+	"storj.io/storj/pkg/storj"
 	"time"
+	"unsafe"
 
 	"storj.io/storj/lib/uplink"
 )
@@ -57,6 +59,53 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cO
 	}
 }
 
+//export ListObjects
+func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.char) (cObjList C.ObjectList_t) {
+	ctx := context.Background()
+
+	bucket, ok := structRefMap.Get(token(bucketRef)).(*uplink.Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return cObjList
+	}
+
+	var opts *uplink.ListOptions
+	if unsafe.Pointer(cListOpts) != nil {
+		opts = &uplink.ListOptions{
+			Prefix: C.GoString(cListOpts.cursor),
+			Cursor: C.GoString(cListOpts.cursor),
+			Delimiter: rune(cListOpts.delimiter),
+			Recursive: bool(cListOpts.recursive),
+			Direction: storj.ListDirection(cListOpts.direction),
+			Limit: int(cListOpts.limit),
+		}
+	}
+
+	objectList, err := bucket.ListObjects(ctx, opts)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cObjList
+	}
+	objListLen := len(objectList.Items)
+
+	objectSize := int(unsafe.Sizeof(C.Object_t{}))
+	// TODO: use `calloc` instead?
+	cObjectsPtr := CMalloc(uintptr((objListLen - 1) * objectSize))
+
+	for i, object := range objectList.Items {
+		cObject := (*C.Object_t)(unsafe.Pointer(uintptr(int(cObjectsPtr) + (i * objectSize))))
+		*cObject = objectToCObject(&object)
+	}
+
+	return C.ObjectList_t{
+		bucket: C.CString(objectList.Bucket),
+		prefix: C.CString(objectList.Prefix),
+		more: C.bool(objectList.More),
+		items:  (*C.Object_t)(unsafe.Pointer(cObjectsPtr)),
+		length: C.int32_t(objListLen),
+	}
+}
+
 //export CloseBucket
 func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 	bucket, ok := structRefMap.Get(token(bucketRef)).(*uplink.Bucket)
@@ -71,4 +120,19 @@ func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 		return
 	}
 
+}
+
+func objectToCObject(object *storj.Object) C.Object_t {
+	return C.Object_t {
+		version:      C.uint32_t(object.Version),
+		bucket:       NewCBucket(&object.Bucket),
+		path:         C.CString(object.Path),
+		is_prefix:    C.bool(object.IsPrefix),
+		metadata:     C.MapRef_t(structRefMap.Add(object.Metadata)),
+		content_type: C.CString(object.ContentType),
+		// TODO: use `UnixNano()`?
+		created: C.time_t(object.Created.Unix()),
+		modified: C.time_t(object.Modified.Unix()),
+		expires: C.time_t(object.Expires.Unix()),
+	}
 }

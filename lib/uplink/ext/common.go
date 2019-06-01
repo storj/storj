@@ -43,14 +43,14 @@ func NewBuffer() (cBuffer C.BufferRef_t) {
 }
 
 //export WriteBuffer
-func WriteBuffer(cBuffer C.BufferRef_t, cData *C.uint8_t, cSize C.size_t, cErr **C.char) {
+func WriteBuffer(cBuffer C.BufferRef_t, cData *C.Bytes_t, cErr **C.char) {
 	buf, ok := structRefMap.Get(token(cBuffer)).(*bytes.Buffer)
 	if !ok {
 		*cErr = C.CString("invalid buffer")
 		return
 	}
 
-	data := C.GoBytes(unsafe.Pointer(cData), C.int(cSize))
+	data := C.GoBytes(unsafe.Pointer(cData.bytes), C.int(cData.length))
 	if _, err := buf.Write(data); err != nil {
 		*cErr = C.CString(err.Error())
 		return
@@ -58,7 +58,7 @@ func WriteBuffer(cBuffer C.BufferRef_t, cData *C.uint8_t, cSize C.size_t, cErr *
 }
 
 //export ReadBuffer
-func ReadBuffer(cBuffer C.BufferRef_t, cDataPtr **C.uint8_t, cSizePtr *C.size_t, cErr **C.char) {
+func ReadBuffer(cBuffer C.BufferRef_t, cData *C.Bytes_t, cErr **C.char) {
 	buf, ok := structRefMap.Get(token(cBuffer)).(*bytes.Buffer)
 	if !ok {
 		*cErr = C.CString("invalid buffer")
@@ -66,8 +66,20 @@ func ReadBuffer(cBuffer C.BufferRef_t, cDataPtr **C.uint8_t, cSizePtr *C.size_t,
 	}
 
 	bufLen := buf.Len()
-	*cSizePtr = C.size_t(bufLen)
+	cData.length = C.int32_t(bufLen)
 
+	//cDataPtr := unsafe.Pointer(cData)
+	//cBytesPtr := unsafe.Pointer(cData.bytes)
+	//if cDataPtr == nil || cBytesPtr == nil {
+	//	*cErr = C.CString("null Bytes_t pointer")
+	//	return
+	//}
+	ptr := CMalloc(uintptr(bufLen))
+	mem := unsafe.Pointer(ptr)
 	data := buf.Bytes()
-	*cDataPtr = (*C.uint8_t)(unsafe.Pointer(&data[0]))
+	for i := 0; i < bufLen; i++ {
+		nextAddress := uintptr(int(ptr) + i)
+		*(*uint8)(unsafe.Pointer(nextAddress)) = data[i]
+	}
+	cData.bytes = (*C.uint8_t)(mem)
 }
