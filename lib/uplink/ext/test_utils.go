@@ -36,10 +36,7 @@ type CProjectRef = C.ProjectRef_t
 type CBufferRef = C.BufferRef_t
 
 var (
-	cLibDir,
-	cSrcDir,
-	libuplink string
-
+	cLibDir, cSrcDir, cTestsDir, libuplink string
 	testConfig = new(uplink.Config)
 )
 
@@ -48,6 +45,7 @@ func init() {
 	_, thisFile, _, _ := runtime.Caller(0)
 	cLibDir = filepath.Join(filepath.Dir(thisFile), "c")
 	cSrcDir = filepath.Join(cLibDir, "src")
+	cTestsDir = filepath.Join(cLibDir, "tests")
 	libuplink = filepath.Join(cLibDir, "..", "uplink-cgo.so")
 
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
@@ -57,8 +55,8 @@ func init() {
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
 	srcGlobs = append([]string{
 		libuplink,
-		filepath.Join(cLibDir, "tests", "unity.c"),
-		filepath.Join(cLibDir, "tests", "helpers.c"),
+		filepath.Join(cTestsDir, "unity.c"),
+		filepath.Join(cTestsDir, "helpers.c"),
 		filepath.Join(cSrcDir, "*.c"),
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)
