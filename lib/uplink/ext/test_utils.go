@@ -26,7 +26,7 @@ import (
 )
 
 type Cchar = *C.char
-type CBucketConfig = C.BucketConfig_t
+type CUint = C.uint
 type CAPIKeyRef = C.APIKeyRef_t
 type CUplinkRef = C.UplinkRef_t
 type CProjectRef = C.ProjectRef_t
