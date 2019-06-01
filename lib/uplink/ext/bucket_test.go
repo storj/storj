@@ -4,15 +4,15 @@
 package main
 
 import (
-	"github.com/stretchr/testify/assert"
-	"storj.io/storj/pkg/storj"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
 )
 
 // TODO: Start up test planet and call these from bash instead
