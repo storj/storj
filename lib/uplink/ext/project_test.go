@@ -49,8 +49,8 @@ func TestCreateBucket(t *testing.T) {
 	bucketName := "TestBucket"
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
-	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
-		cBucketConfig := NewCBucketConfig(&bucketCfg)
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		cBucketConfig := NewCBucketConfig(bucketCfg)
 		cBucket := CreateBucket(cProjectRef, stringToCCharPtr(bucketName), &cBucketConfig, &cErr)
 		require.Empty(t, cCharToGoString(cErr))
 		require.NotNil(t, cBucket)
@@ -80,8 +80,8 @@ func TestOpenBucket(t *testing.T) {
 	bucketName := "TestBucket"
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
-	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
-		bucket, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 		require.NoError(t, err)
 		require.NotNil(t, bucket)
 
@@ -112,8 +112,8 @@ func TestDeleteBucket(t *testing.T) {
 	bucketName := "TestBucket"
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
-	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
-		bucket, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 		require.NoError(t, err)
 		require.NotNil(t, bucket)
 
@@ -136,10 +136,10 @@ func TestListBuckets(t *testing.T) {
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
 	bucketCount := 15
-	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
 		for i := 0; i < bucketCount; i++ {
 			bucketName := fmt.Sprintf("TestBucket%d", i)
-			_, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+			_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 			require.NoError(t, err)
 		}
 
@@ -182,10 +182,10 @@ func TestGetBucketInfo(t *testing.T) {
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
 	bucketCount := 15
-	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
 		for i := 0; i < bucketCount; i++ {
 			bucketName := fmt.Sprintf("TestBucket%d", i)
-			_, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+			_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 			require.NoError(t, err)
 
 			bucket, bucketConfig, err := project.GetBucketInfo(ctx, bucketName)

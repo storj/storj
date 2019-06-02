@@ -50,7 +50,7 @@ void create_test_bucket(ProjectRef_t ref_project, char *bucket_name, Bucket_t *b
     // TODO: what is expected here (bucket.path_cipher is 1 when bucket_cfg.path_cipher is 0 and vice-versa)?
 //    TEST_ASSERT_EQUAL(bucket_cfg.path_cipher, bucket.path_cipher);
     // TODO: what is expected here (bucket.segment_size is 67108864)?
-//    TEST_ASSERT_EQUAL(1024, bucket.segment_size);
+    TEST_ASSERT_EQUAL(67108864, bucket->segment_size);
 }
 
 void TestCloseProject(void)
@@ -99,9 +99,6 @@ void TestProject(void)
         TEST_ASSERT_EQUAL_STRING("", *err);
         TEST_ASSERT_EQUAL_STRING(bucket->name, bucket_info.bucket.name);
         TEST_ASSERT_NOT_EQUAL(0, bucket_info.bucket.created);
-
-        // TODO: add assertions for the rest of bucket_info's nested fields (here and in go)
-        // in a way that doesn't involve a refactor that offends alex's delicate sensibilities.
     }
 
     uint8_t *enc_key = "abcdefghijklmnopqrstuvwxyzABCDEF";
@@ -124,8 +121,6 @@ void TestProject(void)
     // Close Project
     CloseProject(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-
-    freeEncryptionAccess(access);
 }
 
 int main(int argc, char *argv[])

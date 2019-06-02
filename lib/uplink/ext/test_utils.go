@@ -197,7 +197,7 @@ func cCharToGoString(cchar *C.char) string {
 	return C.GoString(cchar)
 }
 
-func testEachBucketConfig(t *testing.T, f func(uplink.BucketConfig)) {
+func testEachBucketConfig(t *testing.T, f func(*uplink.BucketConfig)) {
 	for _, suite1 := range ciphers {
 		for _, suite2 := range ciphers {
 			t.Log(fmt.Sprintf(
@@ -210,7 +210,7 @@ func testEachBucketConfig(t *testing.T, f func(uplink.BucketConfig)) {
 					CipherSuite: suite2,
 				},
 			}
-			f(bucketCfg)
+			f(&bucketCfg)
 		}
 	}
 }

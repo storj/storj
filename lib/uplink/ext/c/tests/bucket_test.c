@@ -30,19 +30,22 @@ void TestBucket(void)
 {
     char *_err = "";
     char **err = &_err;
-    char *bucket_name = getenv("BUCKET_NAME");
+    char *bucket_name = "TestBucket";
 
     // Open Project
     ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+    // TODO: test with different bucket configs
+    CreateBucket(ref_project, bucket_name, nil, &err);
+    TEST_ASSERT_EQUAL_STRING("", err);
 
     BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
 
     char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
-    int num_of_objects = sizeof(object_paths) / sizeof(object_paths[0]);
+    int num_of_objects = 4;
 
     // Create objects
     char *str_data = "testing data 123";
@@ -51,12 +54,14 @@ void TestBucket(void)
         Bytes_t *data = BytesFromString(str_data);
 
         create_test_object(ref_bucket, object_paths[i], object, data, err);
+        TEST_ASSERT_EQUAL_STRING("", err);
         free(object);
     }
 
     // List objects
     // TODO: test list options
     ObjectList_t objects_list = ListObjects(ref_bucket, NULL, err);
+    TEST_ASSERT_EQUAL_STRING("", err);
     // TODO: add assertions
 
     // TODO: add assertions for metadata

@@ -32,7 +32,7 @@ EncryptionAccess_t * NewEncryptionAccess(uint8_t *key, int key_len)
     return access;
 }
 
-void freeEncryptionAccess(EncryptionAccess_t *access) {
+void FreeEncryptionAccess(EncryptionAccess_t *access) {
     if (access != NULL) {
         if (access->key != NULL) {
             if (access->key->bytes != NULL) {
