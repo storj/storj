@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 	"unsafe"
 
 	"github.com/stretchr/testify/assert"
@@ -176,6 +177,34 @@ func TestGetBucketInfo(t *testing.T) {
 
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	project, cProjectRef := openTestProject(t, ctx, planet)
+
+	bucketCount := 15
+	testEachBucketConfig(t, func(bucketCfg uplink.BucketConfig) {
+		for i := 0; i < bucketCount; i++ {
+			bucketName := fmt.Sprintf("TestBucket%d", i)
+			_, err := project.CreateBucket(ctx, bucketName, &bucketCfg)
+			require.NoError(t, err)
+
+			bucket, bucketConfig, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			require.NotEmpty(t, bucket)
+			require.NotEmpty(t, bucketConfig)
+
+			// TODO (workaround): should we use nano precision in c bucket?
+			bucket.Created = time.Unix(bucket.Created.Unix(), 0).UTC()
+			// TODO: c structs ignore `Volatile` fields; set to zero value for comparison
+			bucketConfig.Volatile = uplink.BucketConfig{}.Volatile
+
+			cBucketInfo := GetBucketInfo(cProjectRef, stringToCCharPtr(bucketName), &cErr)
+			cConfig, cBucket := cBucketInfo.config, cBucketInfo.bucket
+
+			assert.True(t, reflect.DeepEqual(bucket, newGoBucket(&cBucket)))
+			assert.True(t, reflect.DeepEqual(*bucketConfig, newGoBucketConfig(&cConfig)))
+		}
+	})
 }
 
 func TestCloseProject(t *testing.T) {

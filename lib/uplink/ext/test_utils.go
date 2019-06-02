@@ -218,30 +218,45 @@ func testEachBucketConfig(t *testing.T, f func(uplink.BucketConfig)) {
 func newGoBucket(cBucket *CBucket) storj.Bucket {
 	params := storj.EncryptionParameters{}
 	if unsafe.Pointer(cBucket.encryption_parameters) != nil {
-		params = storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(cBucket.encryption_parameters.cipher_suite),
-			BlockSize:   int32(cBucket.encryption_parameters.block_size),
-		}
+		params = newGoEncryptionParams(cBucket.encryption_parameters)
 	}
 
 	scheme := storj.RedundancyScheme{}
 	if unsafe.Pointer(cBucket.redundancy_scheme) != nil {
-		scheme = storj.RedundancyScheme{
-			Algorithm:      storj.RedundancyAlgorithm(cBucket.redundancy_scheme.algorithm),
-			ShareSize:      int32(cBucket.redundancy_scheme.share_size),
-			RequiredShares: int16(cBucket.redundancy_scheme.required_shares),
-			RepairShares:   int16(cBucket.redundancy_scheme.repair_shares),
-			OptimalShares:  int16(cBucket.redundancy_scheme.optimal_shares),
-			TotalShares:    int16(cBucket.redundancy_scheme.total_shares),
-		}
+		scheme = newGoRedundancyScheme(cBucket.redundancy_scheme)
 	}
 
 	return storj.Bucket{
 		EncryptionParameters: params,
 		RedundancyScheme:     scheme,
 		Name:                 C.GoString(cBucket.name),
-		Created:              time.Unix(int64(cBucket.created), 0),
+		Created:              time.Unix(int64(cBucket.created), 0).UTC(),
 		PathCipher:           storj.Cipher(cBucket.path_cipher),
 		SegmentsSize:         int64(cBucket.segment_size),
+	}
+}
+
+func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) uplink.BucketConfig {
+	return uplink.BucketConfig{
+		EncryptionParameters: newGoEncryptionParams(cBucketConfig.encryption_parameters),
+		PathCipher: storj.CipherSuite(cBucketConfig.path_cipher),
+	}
+}
+
+func newGoEncryptionParams(cParams *C.EncryptionParameters_t) storj.EncryptionParameters {
+	return storj.EncryptionParameters{
+		CipherSuite: storj.CipherSuite(cParams.cipher_suite),
+		BlockSize:   int32(cParams.block_size),
+	}
+}
+
+func newGoRedundancyScheme(cScheme *C.RedundancyScheme_t) storj.RedundancyScheme {
+	return storj.RedundancyScheme{
+		Algorithm:      storj.RedundancyAlgorithm(cScheme.algorithm),
+		ShareSize:      int32(cScheme.share_size),
+		RequiredShares: int16(cScheme.required_shares),
+		RepairShares:   int16(cScheme.repair_shares),
+		OptimalShares:  int16(cScheme.optimal_shares),
+		TotalShares:    int16(cScheme.total_shares),
 	}
 }
