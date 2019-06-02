@@ -213,4 +213,10 @@ func TestCloseProject(t *testing.T) {
 
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	_, cProjectRef := openTestProject(t, ctx, planet)
+
+	CloseProject(cProjectRef, &cErr)
+	require.Empty(t, cCharToGoString(cErr))
 }
