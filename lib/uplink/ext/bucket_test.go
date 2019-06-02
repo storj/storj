@@ -4,6 +4,7 @@
 package main
 
 import (
+	"storj.io/storj/pkg/storj"
 	"testing"
 
 	"storj.io/storj/internal/testcontext"
@@ -29,6 +30,37 @@ func TestCBucketTests(t *testing.T) {
 	runCTest(t, ctx, "bucket_test.c", envVars...)
 }
 
+type TestObject struct {
+	storj.Object
+}
+
+func (obj *TestObject) Upload(cErr *Cchar) {
+
+}
+
+//var testObjects = NewTestObjects(15)
+//
+//func NewTestObjects(count int) (objects []TestObject) {
+//	randPath := make([]byte, 15)
+//	rand.Read(randPath)
+//
+//	obj := storj.Object{
+//		//Version:,
+//		//Bucket:,
+//		Path: string(randPath),
+//		//IsPrefix:,
+//		//Metadata:,
+//		//ContentType:,
+//		//Expires:,
+//	}
+//
+//	for i := 0; i < count; i++ {
+//		objects = append(objects, TestObject{obj})
+//	}
+//
+//	return objects
+//}
+//
 //func TestUploadObject(t *testing.T) {
 //	ctx := testcontext.New(t)
 //	defer ctx.Cleanup()
@@ -37,9 +69,15 @@ func TestCBucketTests(t *testing.T) {
 //	defer ctx.Check(planet.Shutdown)
 //
 //	var cErr Cchar
+//	bucketName := "TestBucket"
 //	project, cProjectRef := openTestProject(t, ctx, planet)
 //
 //	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-//		project.CreateBucket(ctx, bucketName, bucketCfg)
+//		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+//
+//		for i, object := range testObjects {
+//			object.Upload(&cErr)
+//			assert.NotEmpty(t, cCharToGoString(cErr))
+//		}
 //	})
 //}
