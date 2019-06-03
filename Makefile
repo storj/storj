@@ -90,10 +90,10 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
-.PHONY: test-satellite-config-change
-test-satellite-config-change: ## Test if the satellite config file has changed (jenkins)
+.PHONY: test-satellite-config-lock
+test-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
-	@cd scripts; ./check-satellite-config-change.sh
+	@cd scripts; ./check-satellite-config-lock.sh
 
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
