@@ -13,7 +13,7 @@ Nodes can be disqualified due to audit failures, failures to return data during 
 
 ## Background
 
-The whitepaper section 4.13 talks about containment mode as follows:
+The whitepaper section 4.13 talks about disqualification mode as follows:
 
 > The filtering system is the third subsystem; it blocks bad storage nodes from participating. In addition to simply not having done a suficient proof of work, certain actions a storage node can take are disqualifying events. The reputation system will be used to filter these nodes out from future uploads, regardless of where the node is in the vetting process. Actions that are disqualifying include: failing too many audits; failing to return data, with reasonable speed; and failing too many uptime checks.
 > If a storage node is disqualified, that node will no longer be selected for future data storage and the data that node stores will be moved to new storage nodes. Likewise, if a client attempts to download a piece from a storage node that the node should have stored and the node fails to return it, the node will be disqualified. Importantly, storagenodes will be allowed to reject and fail _put_ operations without penalty, as nodes will be allowed to choose which Satellite operators to work with and which data to store.
