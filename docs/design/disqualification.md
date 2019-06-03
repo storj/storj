@@ -20,7 +20,7 @@ The whitepaper section 4.13 talks about disqualification mode as follows:
 
 'Failing to return data' is clarified to mean during an audit or a repair. Failure to return data to uplinks is specifically excluded, as this would imply a robust system of trust that does not currently exist.
 
-'Regardless of... the vetting process' is highlighted to show that both vetted and new nodes may be disqualified.
+'Regardless of... the vetting process' is highlighted to show that both vetted and new nodes may be disqualified.  We explicitly do not want to give new nodes a window where we enforce rules less rigorously.  The data science team's initial whitepapers assumed that repuation should be earned over time.  If this assumption is kept, we will need to develop a sliding-scale algorithm to determine the disqualification cutoff for nodes gaining repuation.  A simpler solution may be to set the initial repuation value (via α0, β0) to above the disqualification cutoff.
 
 > After a storage node is disqualified, the node must go back through the entire vetting process again. If the node decides to start over with a brand-new identity, the node must restart the vetting process from the beginning (in addition to generating a new nodeID via the proof of work system). This strongly disincentivizes storage nodes from being cavalier with their reputation.
 
@@ -30,7 +30,7 @@ Further, the node will be demonetized.
 
 A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  It may remain in Kademlia and potentially found during Overlay Cache Discover, as the kademlia network supports multiple satellites.
 
-One option that may be allowed for disqualified storage nodes is a Graceful Exit.  [Storage Node Payment and Incentives for V3](https://docs.google.com/document/d/1-Pxzk-ad-0QtF6nnTwfgzk8e_-XbBNSDxuRvnbd0QL8/edit#heading=h.rz1ehm5mbeuz) describes this feature:
+One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  [Storage Node Payment and Incentives for V3](https://docs.google.com/document/d/1-Pxzk-ad-0QtF6nnTwfgzk8e_-XbBNSDxuRvnbd0QL8/edit#heading=h.rz1ehm5mbeuz) describes this feature:
 
 > When a node operator wants to leave the network, if they just shut down the node, the unavailability of the data on the network can contribute to repair costs.  If instead, the node triggers a function to call a Satellite, request new storage nodes to store the pieces stored on the node being shut down, then directly upload those pieces to the new nodes, file repair would be avoided.
 
@@ -42,7 +42,7 @@ Disqualified nodes may be used during download of typical downloads from uplinks
 
 Disqualified nodes may not be used for upload, therefore they should not be returned from node selection proceses of any sort.  There is no reason to update the statistics of disqualified nodes.
 
-The list of disqualified nodes should change infrequently, but could grow large over time.
+The list of disqualified nodes should change infrequently, but could grow large over time.  If in the long run, the list of disqualified nodes becomes very large, it may benefit us to move it to its own data store rather than using a disqualified flag.
 
 ### Handling Disqualified Nodes
 
@@ -59,7 +59,7 @@ CREATE TABLE nodes (
 
 Existing SQL queries employing logic such as `WHERE audit_success_ratio >= $2 AND uptime_ratio >= $3` would change to `WHERE disqualified = FALSE`.
 
-Existing calls to the DBX `UpdateNodeInfo()` method must set `disqualified` if appropriate.  This may be best accomplished by a database trigger or stored procedure.
+Existing calls to the DBX `UpdateNodeInfo()` method must set `disqualified` if appropriate.  Care should be employed to not overburden the data structures used to store node info.  In the case of Postgres, these tables may be updated and return their values in a single SQL statement.
 
 ### Determining Disqualification
 
@@ -77,5 +77,6 @@ Although disqualification is largely an atomic operation that would be handled w
 - Update calls to UpdateNodeInfo()
 - Refactor tests dependent on offline / unreliable nodes to use disqualification
 - Create new disqualification tests as needed
+- Update tally to demonitize disqualified nodes
 
 ## Closed Issues
