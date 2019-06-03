@@ -8,8 +8,8 @@ Nodes can be disqualified due to audit failures, failures to return data during 
 
 ## Main Objectives
 
-1. To not send new data to nodes which are not behaving as desired.
-2. Efficiently identify and ignore these 'bad' nodes during various node selection and statistics processes.
+1. To stop using and fuly demonetize nodes which are not behaving as desired.
+2. Efficiently identify and ignore these 'bad' nodes.
 
 ## Background
 
