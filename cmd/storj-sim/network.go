@@ -269,7 +269,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
-				"--referral.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
+				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
