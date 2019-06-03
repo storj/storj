@@ -10,6 +10,7 @@ import (
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -33,6 +34,7 @@ type DB struct {
 	log    *zap.Logger
 	db     *dbx.DB
 	driver string
+	source string
 }
 
 // New creates instance of database (supports: postgres, sqlite3)
@@ -49,8 +51,11 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 		return nil, Error.New("failed opening database %q, %q: %v",
 			driver, source, err)
 	}
+	log.Debug("Connected to:", zap.String("db source", source))
 
-	core := &DB{log: log, db: db, driver: driver}
+	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+
+	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
 		return newLocked(core), nil
 	}
@@ -69,8 +74,7 @@ func (db *DB) Close() error {
 
 // CreateSchema creates a schema if it doesn't exist.
 func (db *DB) CreateSchema(schema string) error {
-	switch db.driver {
-	case "postgres":
+	if db.driver == "postgres" {
 		return pgutil.CreateSchema(db.db, schema)
 	}
 	return nil
@@ -82,8 +86,7 @@ func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
-	switch db.driver {
-	case "postgres":
+	if db.driver == "postgres" {
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
@@ -114,9 +117,14 @@ func (db *DB) RepairQueue() queue.RepairQueue {
 	return &repairQueue{db: db.db}
 }
 
-// Accounting returns database for tracking bandwidth agreements over time
-func (db *DB) Accounting() accounting.DB {
-	return &accountingDB{db: db.db}
+// StoragenodeAccounting returns database for tracking storagenode usage
+func (db *DB) StoragenodeAccounting() accounting.StoragenodeAccounting {
+	return &StoragenodeAccounting{db: db.db}
+}
+
+// ProjectAccounting returns database for tracking project data use
+func (db *DB) ProjectAccounting() accounting.ProjectAccounting {
+	return &ProjectAccounting{db: db.db}
 }
 
 // Irreparable returns database for storing segments that failed repair
@@ -135,4 +143,9 @@ func (db *DB) Console() console.DB {
 // Orders returns database for storing orders
 func (db *DB) Orders() orders.DB {
 	return &ordersDB{db: db.db}
+}
+
+// Containment returns database for storing pending audit info
+func (db *DB) Containment() audit.Containment {
+	return &containment{db: db.db}
 }

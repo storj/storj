@@ -68,7 +68,7 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureSche
 }
 
 func (dr *decodedReader) Read(p []byte) (n int, err error) {
-	if len(dr.outbuf) <= 0 {
+	if len(dr.outbuf) == 0 {
 		// if the output buffer is empty, let's fill it again
 		// if we've already had an error, fail
 		if dr.err != nil {
@@ -115,7 +115,7 @@ func (dr *decodedReader) Close() error {
 		dr.closeErr = errs.Combine(allErrors...)
 	})
 	// TODO this is workaround, we need reorganize to return multiple errors or divide into fatal, non fatal
-	if errorThreshold <= 0 {
+	if errorThreshold < 0 {
 		return dr.closeErr
 	}
 	if dr.closeErr != nil {
@@ -148,11 +148,9 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger
 	for _, rr := range rrs {
 		if size == -1 {
 			size = rr.Size()
-		} else {
-			if size != rr.Size() {
-				return nil, Error.New(
-					"decode failure: range reader sizes don't all match")
-			}
+		} else if size != rr.Size() {
+			return nil, Error.New(
+				"decode failure: range reader sizes don't all match")
 		}
 	}
 	if size == -1 {

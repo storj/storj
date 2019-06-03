@@ -10,6 +10,7 @@ import (
 
 	"github.com/graphql-go/graphql"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
@@ -19,6 +20,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -33,35 +35,28 @@ func TestGraphqlQuery(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			localpayments.NewService(nil),
 			console.TestPasswordCost,
 		)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		mailService, err := mailservice.New(log, &discardSender{}, "testdata")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
+		defer ctx.Check(mailService.Close)
 
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
 
 		creator := consoleql.TypeCreator{}
-		if err = creator.Create(log, service, mailService); err != nil {
-			t.Fatal(err)
-		}
+		err = creator.Create(log, service, mailService)
+		require.NoError(t, err)
 
 		schema, err := graphql.NewSchema(graphql.SchemaConfig{
 			Query:    creator.RootQuery(),
 			Mutation: creator.RootMutation(),
 		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		createUser := console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -73,14 +68,10 @@ func TestGraphqlQuery(t *testing.T) {
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 2)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken, err := service.GenerateActivationToken(
@@ -88,25 +79,17 @@ func TestGraphqlQuery(t *testing.T) {
 				rootUser.ID,
 				"mtest@email.com",
 			)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			err = service.ActivateAccount(ctx, activationToken)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			rootUser.Email = "mtest@email.com"
 		})
 
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)
 
@@ -121,10 +104,7 @@ func TestGraphqlQuery(t *testing.T) {
 			for _, err := range result.Errors {
 				assert.NoError(t, err)
 			}
-
-			if result.HasErrors() {
-				t.Fatal()
-			}
+			require.False(t, result.HasErrors())
 
 			return result.Data
 		}
@@ -172,10 +152,7 @@ func TestGraphqlQuery(t *testing.T) {
 		createdProject, err := service.CreateProject(authCtx, console.ProjectInfo{
 			Name: "TestProject",
 		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		// "query {project(id:\"%s\"){id,name,members(offset:0, limit:50){user{fullName,shortName,email}},apiKeys{name,id,createdAt,projectID}}}"
 		t.Run("Project query base info", func(t *testing.T) {
@@ -201,9 +178,7 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 
 		regTokenUser1, err := service.CreateRegToken(ctx, 2)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -213,10 +188,7 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 			Password: "123a123",
 		}, regTokenUser1.Secret)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken1, err := service.GenerateActivationToken(
@@ -224,21 +196,15 @@ func TestGraphqlQuery(t *testing.T) {
 				user1.ID,
 				"muu1@email.com",
 			)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			err = service.ActivateAccount(ctx, activationToken1)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			user1.Email = "muu1@email.com"
 
 		})
 
 		regTokenUser2, err := service.CreateRegToken(ctx, 2)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
@@ -248,10 +214,7 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 			Password: "123a123",
 		}, regTokenUser2.Secret)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
 			activationToken2, err := service.GenerateActivationToken(
@@ -259,13 +222,9 @@ func TestGraphqlQuery(t *testing.T) {
 				user2.ID,
 				"muu2@email.com",
 			)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			err = service.ActivateAccount(ctx, activationToken2)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			user2.Email = "muu2@email.com"
 		})
 
@@ -273,9 +232,7 @@ func TestGraphqlQuery(t *testing.T) {
 			user1.Email,
 			user2.Email,
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		assert.Equal(t, 2, len(users))
 
 		t.Run("Project query team members", func(t *testing.T) {
@@ -330,14 +287,10 @@ func TestGraphqlQuery(t *testing.T) {
 		})
 
 		keyInfo1, _, err := service.CreateAPIKey(authCtx, createdProject.ID, "key1")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		keyInfo2, _, err := service.CreateAPIKey(authCtx, createdProject.ID, "key2")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		t.Run("Project query api keys", func(t *testing.T) {
 			query := fmt.Sprintf(
@@ -388,10 +341,7 @@ func TestGraphqlQuery(t *testing.T) {
 			Name:        "Project2",
 			Description: "Test desc",
 		})
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		t.Run("MyProjects query", func(t *testing.T) {
 			query := "query {myProjects{id,name,description,createdAt}}"
@@ -450,9 +400,7 @@ func TestGraphqlQuery(t *testing.T) {
 			user := queryToken[consoleql.UserType].(map[string]interface{})
 
 			tauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, rootUser.ID, tauth.User.ID)
 			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
@@ -469,9 +417,7 @@ func TestGraphqlQuery(t *testing.T) {
 
 		t.Run("PasswordReset query", func(t *testing.T) {
 			regToken, err := service.CreateRegToken(ctx, 2)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			user, err := service.CreateUser(authCtx, console.CreateUser{
 				UserInfo: console.UserInfo{
 					FullName:  "Example User",
@@ -481,9 +427,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Password: "123a123",
 			}, regToken.Secret)
 
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			t.Run("Activation", func(t *testing.T) {
 				activationToken, err := service.GenerateActivationToken(
@@ -491,18 +435,16 @@ func TestGraphqlQuery(t *testing.T) {
 					user.ID,
 					"user@example.com",
 				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, err)
+
 				err = service.ActivateAccount(ctx, activationToken)
-				if err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, err)
 				user.Email = "user@example.com"
 
 			})
 
-			rootObject[consoleql.PasswordRecoveryPath] = "?activationToken="
+			rootObject[consoleql.PasswordRecoveryPath] = "?token="
+			rootObject[consoleql.CancelPasswordRecoveryPath] = "?token="
 			query := fmt.Sprintf("query {forgotPassword(email: \"%s\")}", user.Email)
 
 			result := testQuery(t, query)
@@ -510,6 +452,30 @@ func TestGraphqlQuery(t *testing.T) {
 			data := result.(map[string]interface{})
 
 			ok := data[consoleql.ForgotPasswordQuery].(bool)
+			assert.True(t, ok)
+		})
+
+		t.Run("Resend activation email query", func(t *testing.T) {
+			regToken, err := service.CreateRegToken(ctx, 2)
+			require.NoError(t, err)
+			user, err := service.CreateUser(authCtx, console.CreateUser{
+				UserInfo: console.UserInfo{
+					FullName:  "Example User",
+					ShortName: "Example",
+					Email:     "user1@example.com",
+				},
+				Password: "123a123",
+			}, regToken.Secret)
+
+			require.NoError(t, err)
+
+			query := fmt.Sprintf("query {resendAccountActivationEmail(id: \"%s\")}", user.ID)
+
+			result := testQuery(t, query)
+			assert.NotNil(t, result)
+			data := result.(map[string]interface{})
+
+			ok := data[consoleql.ResendAccountActivationEmailQuery].(bool)
 			assert.True(t, ok)
 		})
 	})

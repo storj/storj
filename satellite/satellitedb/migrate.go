@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
@@ -23,6 +24,16 @@ var ErrMigrate = errs.Class("migrate")
 func (db *DB) CreateTables() error {
 	switch db.driver {
 	case "postgres":
+		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
+		if err != nil {
+			return errs.New("error parsing schema: %+v", err)
+		}
+		if schema != "" {
+			err = db.CreateSchema(schema)
+			if err != nil {
+				return errs.New("error creating schema: %+v", err)
+			}
+		}
 		migration := db.PostgresMigration()
 		return migration.Run(db.log.Named("migrate"), db.db)
 	default:
@@ -608,6 +619,111 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{`
 					UPDATE nodes SET audit_success_ratio = 1 WHERE total_audit_count = 0;
 					UPDATE nodes SET uptime_ratio = 1 WHERE total_uptime_count = 0;`,
+				},
+			},
+			{
+				Description: "Drops storagenode_storage_tally table, Renames accounting_raws to storagenode_storage_tally, and Drops data_type and created_at columns",
+				Version:     18,
+				Action: migrate.SQL{
+					`DROP TABLE storagenode_storage_tallies CASCADE`,
+					`ALTER TABLE accounting_raws RENAME TO storagenode_storage_tallies`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN data_type`,
+					`ALTER TABLE storagenode_storage_tallies DROP COLUMN created_at`,
+				},
+			},
+			{
+				Description: "Added new table to store reset password tokens",
+				Version:     19,
+				Action: migrate.SQL{`
+					CREATE TABLE reset_password_tokens (
+						secret bytea NOT NULL,
+						owner_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( secret ),
+						UNIQUE ( owner_id )
+					);`,
+				},
+			},
+			{
+				Description: "Adds pending_audits table, adds 'contained' column to nodes table",
+				Version:     20,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD contained boolean;
+					UPDATE nodes SET contained = false;
+					ALTER TABLE nodes ALTER COLUMN contained SET NOT NULL;`,
+
+					`CREATE TABLE pending_audits (
+						node_id bytea NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
+			{
+				Description: "Add last_ip column and index",
+				Version:     21,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD last_ip TEXT;
+					UPDATE nodes SET last_ip = '';
+					ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;
+					CREATE INDEX IF NOT EXISTS node_last_ip ON nodes (last_ip)`,
+				},
+			},
+			{
+				Description: "Create new tables for free credits program",
+				Version:     22,
+				Action: migrate.SQL{`
+					CREATE TABLE offers (
+						id serial NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						credit_in_cents integer NOT NULL,
+						award_credit_duration_days integer NOT NULL,
+						invitee_credit_duration_days integer NOT NULL,
+						redeemable_cap integer NOT NULL,
+						num_redeemed integer NOT NULL,
+						expires_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						status integer NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
+				Version:     23,
+				Action: migrate.SQL{
+					`DROP TABLE api_keys CASCADE`,
+					`CREATE TABLE api_keys (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						head bytea NOT NULL,
+						name text NOT NULL,
+						secret bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( head ),
+						UNIQUE ( name, project_id )
+					);`,
+				},
+			},
+			{
+				Description: "Add usage_limit column to projects table",
+				Version:     24,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD usage_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add disqualified column to nodes table",
+				Version:     25,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD disqualified boolean NOT NULL DEFAULT false;`,
 				},
 			},
 		},

@@ -5,7 +5,7 @@
     <div class="api-keys-header-container">
         <div class="api-keys-header-container__item">
             <div id="addApiKeyPopupButton">
-                <Button label="New API Key" width="240px" height="54px" :onPress="togglePopup" />
+                <Button label="New API Key" width="170px" height="56px" :onPress="togglePopup" />
             </div>
             <SearchArea />
         </div>
@@ -41,7 +41,6 @@ export default class HeaderArea extends Vue {
 
 <style scoped lang="scss">
     .api-keys-header-container {
-
         margin-bottom: 4px;
 
         &__item {

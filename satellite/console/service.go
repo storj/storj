@@ -12,10 +12,12 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/payments"
 )
 
 var (
@@ -44,7 +46,7 @@ const (
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
-	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered. 
+	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
 	// TODO: remove after vanguard release
@@ -56,34 +58,33 @@ const (
 type Service struct {
 	Signer
 
-	store DB
 	log   *zap.Logger
+	pm    payments.Service
+	store DB
 
 	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, pm payments.Service, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
-
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
-
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
-
 	if passwordCost == 0 {
 		passwordCost = bcrypt.DefaultCost
 	}
 
 	return &Service{
+		log:          log,
 		Signer:       signer,
 		store:        store,
-		log:          log,
+		pm:           pm,
 		passwordCost: passwordCost,
 	}, nil
 }
@@ -118,19 +119,35 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, errs.New(internalErrMsg)
 	}
 
-	u, err = s.store.Users().Insert(ctx, &User{
-		Email:        user.Email,
-		FullName:     user.FullName,
-		ShortName:    user.ShortName,
-		PasswordHash: hash,
-	})
+	// store data
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
-	err = s.store.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+	err = withTx(tx, func(tx DBTx) error {
+		u, err = tx.Users().Insert(ctx,
+			&User{
+				Email:        user.Email,
+				FullName:     user.FullName,
+				ShortName:    user.ShortName,
+				PasswordHash: hash,
+			},
+		)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
 	return u, nil
@@ -151,16 +168,23 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token
-func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
+func (s *Service) GeneratePasswordRecoveryToken(ctx context.Context, id uuid.UUID) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	claims := &consoleauth.Claims{
-		ID:         id,
-		Email:      email,
-		Expiration: time.Now().Add(time.Hour),
+	resetPasswordToken, err := s.store.ResetPasswordTokens().GetByOwnerID(ctx, id)
+	if err == nil {
+		err := s.store.ResetPasswordTokens().Delete(ctx, resetPasswordToken.Secret)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	return s.createToken(claims)
+	resetPasswordToken, err = s.store.ResetPasswordTokens().Create(ctx, id)
+	if err != nil {
+		return "", err
+	}
+
+	return resetPasswordToken.Secret.String(), nil
 }
 
 // ActivateAccount - is a method for activating user account after registration
@@ -211,17 +235,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	token, err := consoleauth.FromBase64URLString(resetPasswordToken)
+	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
+	if err != nil {
+		return
+	}
+	token, err := s.store.ResetPasswordTokens().GetBySecret(ctx, secret)
 	if err != nil {
 		return
 	}
 
-	claims, err := s.authenticate(token)
-	if err != nil {
-		return
-	}
-
-	user, err := s.store.Users().Get(ctx, claims.ID)
+	user, err := s.store.Users().Get(ctx, *token.OwnerID)
 	if err != nil {
 		return
 	}
@@ -230,7 +253,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return err
 	}
 
-	if time.Since(claims.Expiration) > 0 {
+	if time.Since(token.CreatedAt) > tokenExpirationTime {
 		return errs.New(passwordRecoveryTokenIsExpiredErrMsg)
 	}
 
@@ -240,7 +263,25 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	user.PasswordHash = hash
-	return s.store.Users().Update(ctx, user)
+
+	err = s.store.Users().Update(ctx, user)
+	if err != nil {
+		return err
+	}
+
+	return s.store.ResetPasswordTokens().Delete(ctx, token.Secret)
+}
+
+// RevokeResetPasswordToken - is a method to revoke reset password token
+func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordToken string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
+	if err != nil {
+		return
+	}
+
+	return s.store.ResetPasswordTokens().Delete(ctx, secret)
 }
 
 // Token authenticates User by credentials and returns auth token
@@ -275,10 +316,6 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 // GetUser returns User by id
 func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = GetAuth(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	user, err := s.store.Users().Get(ctx, id)
 	if err != nil {
@@ -420,39 +457,35 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
-	project := &Project{
-		Description: projectInfo.Description,
-		Name:        projectInfo.Name,
-	}
-
-	transaction, err := s.store.BeginTx(ctx)
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
 
-	defer func() {
+	err = withTx(tx, func(tx DBTx) (err error) {
+		p, err = tx.Projects().Insert(ctx,
+			&Project{
+				Description: projectInfo.Description,
+				Name:        projectInfo.Name,
+			},
+		)
 		if err != nil {
-			err = errs.Combine(err, transaction.Rollback())
-			return
+			return errs.New(internalErrMsg)
 		}
 
-		err = transaction.Commit()
+		_, err = tx.ProjectMembers().Insert(ctx, auth.User.ID, p.ID)
 		if err != nil {
-			err = errs.New(internalErrMsg)
+			return errs.New(internalErrMsg)
 		}
-	}()
 
-	prj, err := transaction.Projects().Insert(ctx, project)
+		return nil
+	})
+
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
-	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
-
-	return prj, nil
+	return p, nil
 }
 
 // DeleteProject is a method for deleting project by id
@@ -637,7 +670,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 }
 
 // CreateAPIKey creates new api key
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *APIKey, error) {
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *macaroon.APIKey, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -651,14 +684,20 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	key, err := CreateAPIKey()
+	secret, err := macaroon.NewSecret()
+	if err != nil {
+		return nil, nil, errs.New(internalErrMsg)
+	}
+
+	key, err := macaroon.NewAPIKey(secret)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	info, err := s.store.APIKeys().Create(ctx, *key, APIKeyInfo{
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
 		Name:      name,
 		ProjectID: projectID,
+		Secret:    secret,
 	})
 	if err != nil {
 		return nil, nil, errs.New(internalErrMsg)
@@ -784,6 +823,24 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 	}
 
 	return projectUsage, nil
+}
+
+// GetBucketTotals retrieves paged bucket total usages since project creation
+func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	isMember, err := s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.store.UsageRollups().GetBucketTotals(ctx, projectID, cursor, isMember.project.CreatedAt, before)
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
@@ -932,11 +989,26 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 
 	for _, membership := range memberships {
 		if membership.ProjectID == projectID {
-			result.membership = &membership
+			result.membership = &membership // nolint: scopelint
 			result.project = project
 			return
 		}
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+// withTx is a helper function for executing db operations
+// in transaction scope
+func withTx(tx DBTx, cb func(tx DBTx) error) (err error) {
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

@@ -1,0 +1,18 @@
+{{define "head"}}
+    <title>Referral Admin Portal</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css">
+{{end}}
+
+{{define "body"}}
+{{template "banner" .}}
+    <div class="container">
+        <div class="row justify-content-md-center">
+            <div class="col-12">
+                <div class="text-center">
+                    {{block "main" .}}{{end}}
+                </div>
+            </div>
+        </div>
+    </div>
+{{end}}

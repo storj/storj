@@ -233,10 +233,8 @@ func (peer *Peer) Close() error {
 
 	if peer.Web.Endpoint != nil {
 		errlist.Add(peer.Web.Endpoint.Close())
-	} else {
-		if peer.Web.Listener != nil {
-			errlist.Add(peer.Web.Listener.Close())
-		}
+	} else if peer.Web.Listener != nil {
+		errlist.Add(peer.Web.Listener.Close())
 	}
 
 	// close services in reverse initialization order

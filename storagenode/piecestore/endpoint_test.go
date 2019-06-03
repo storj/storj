@@ -126,7 +126,7 @@ func TestUpload(t *testing.T) {
 		},
 	} {
 		data := make([]byte, tt.contentLength.Int64())
-		_, _ = rand.Read(data[:])
+		_, _ = rand.Read(data)
 
 		expectedHash := pkcrypto.SHA256Hash(data)
 

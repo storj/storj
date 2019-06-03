@@ -74,8 +74,8 @@ func init() {
 
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -141,13 +141,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	proj, err := runCfg.openProject(ctx)
-	if err != nil {
-		return fmt.Errorf("Failed to contact Satellite.\n"+
-			"Perhaps your configuration is invalid?\n%s", err)
-	}
-
-	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	err = checkCfg(ctx)
 	if err != nil {
 		return fmt.Errorf("Failed to contact Satellite.\n"+
 			"Perhaps your configuration is invalid?\n%s", err)
@@ -163,6 +157,17 @@ func generateKey() (key string, err error) {
 		return "", err
 	}
 	return base58.Encode(buf[:]), nil
+}
+
+func checkCfg(ctx context.Context) (err error) {
+	proj, err := runCfg.openProject(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, proj.Close()) }()
+
+	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	return err
 }
 
 // Run starts a Minio Gateway given proper config
@@ -206,8 +211,10 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	encKey := new(storj.Key)
-	copy(encKey[:], flags.Enc.Key)
+	encKey, err := uplink.UseOrLoadEncryptionKey(flags.Enc.EncryptionKey, flags.Enc.KeyFilepath)
+	if err != nil {
+		return nil, err
+	}
 
 	project, err := flags.openProject(ctx)
 	if err != nil {
@@ -236,23 +243,25 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
-	uplink, err := libuplink.NewUplink(ctx, &cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
 
-	encKey := new(storj.Key)
-	copy(encKey[:], flags.Enc.Key)
+	encKey, err := uplink.UseOrLoadEncryptionKey(flags.Enc.EncryptionKey, flags.Enc.KeyFilepath)
+	if err != nil {
+		return nil, err
+	}
 
 	var opts libuplink.ProjectOptions
 	opts.Volatile.EncryptionKey = encKey
 
-	return uplink.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
+	uplk, err := libuplink.NewUplink(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return uplk.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
 }
 
 func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {

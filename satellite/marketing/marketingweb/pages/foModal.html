@@ -1,0 +1,58 @@
+{{define "foModal"}}
+<div class="modal fade" id="foModal" tabindex="-1" role="dialog" aria-labelledby="foModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="foModalLabel">Create Free Credit</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="offer-name">Offer Name</label>
+                            <input type="text" class="form-control" id="offer-name" placeholder="May Referral">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="description">Description</label>
+                            <input type="text" class="form-control" id="description" placeholder="Our test with $50 for May">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="expiration">Credit Exp Date</label>
+                            <input type="date" class="form-control" id="expiration" placeholder="06/01/19">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="give-credit">Give Credit</label>
+                            <input type="number" id="give-credit" value="$50">                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="give-credit-exp">Give Credit Exp.</label>
+                            <input type="date" class="form-control" id="give-credit-exp">
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="redeemable-capacity">Redeemable Capacity</label>
+                            <input type="text" class="form-control" id="redeemable-capacity">
+                        </div>
+                    </div>
+                    <div class="m-1 text-left">
+                        <div class="form-group mt-2 mb-2">
+                            Set Status - Note: Setting status to "Turn on once created" will replace the current offer immediately.
+                        </div>
+                        <div class="form-group mt-2 mb-2">
+                            <input type="radio" name="yes_no" value="on" class="m-1">Turn on once created.
+                        </div>
+                        <div class="form-group mt-2 mb-2">
+                            <input type="radio" name="yes_no" value="off" class="m-1">leave it off for now.
+                        </div>
+                        <button type="submit" class="btn btn-secondary">Create Offer</button>
+                        <a class="ml-3" href="/">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

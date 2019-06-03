@@ -37,7 +37,7 @@ func TestPieces(t *testing.T) {
 	pieceID := storj.NewPieceID()
 
 	source := make([]byte, 8000)
-	_, _ = rand.Read(source[:])
+	_, _ = rand.Read(source)
 
 	{ // write data
 		writer, err := store.Writer(ctx, satelliteID, pieceID)

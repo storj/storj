@@ -6,6 +6,7 @@ package overlay
 import (
 	"context"
 	"errors"
+	"net"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -21,6 +22,9 @@ var ErrEmptyNode = errs.New("empty node ID")
 
 // ErrNodeNotFound is returned if a node does not exist in database
 var ErrNodeNotFound = errs.Class("node not found")
+
+// ErrNodeOffline is returned if a nodes is offline
+var ErrNodeOffline = errs.Class("node is offline")
 
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("bucket not found")
@@ -44,7 +48,8 @@ type DB interface {
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-
+	// IsVetted returns whether or not the node reaches reputable thresholds
+	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// Update updates node address
@@ -75,9 +80,11 @@ type NodeCriteria struct {
 	AuditSuccessRatio  float64
 	UptimeCount        int64
 	UptimeSuccessRatio float64
-	Excluded           []storj.NodeID
+	ExcludedNodes      []storj.NodeID
+	ExcludedIPs        []string
 	MinimumVersion     string // semver or empty
 	OnlineWindow       time.Duration
+	DistinctIP         bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -90,11 +97,13 @@ type UpdateRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node
 type NodeDossier struct {
 	pb.Node
-	Type       pb.NodeType
-	Operator   pb.NodeOperator
-	Capacity   pb.NodeCapacity
-	Reputation NodeStats
-	Version    pb.NodeVersion
+	Type         pb.NodeType
+	Operator     pb.NodeOperator
+	Capacity     pb.NodeCapacity
+	Reputation   NodeStats
+	Version      pb.NodeVersion
+	Contained    bool
+	Disqualified bool
 }
 
 // NodeStats contains statistics about a node.
@@ -172,7 +181,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		reputableNodeCount = req.RequestedCount
 	}
 
-	excluded := req.ExcludedNodes
+	excludedNodes := req.ExcludedNodes
 
 	newNodeCount := 0
 	if preferences.NewNodePercentage > 0 {
@@ -186,18 +195,23 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 			FreeDisk:          req.FreeDisk,
 			AuditCount:        preferences.AuditCount,
 			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			Excluded:          excluded,
+			ExcludedNodes:     excludedNodes,
 			MinimumVersion:    preferences.MinimumVersion,
 			OnlineWindow:      preferences.OnlineWindow,
+			DistinctIP:        preferences.DistinctIP,
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// add selected new nodes to the excluded list for reputable node selection
+	var excludedIPs []string
+	// add selected new nodes and their IPs to the excluded lists for reputable node selection
 	for _, newNode := range newNodes {
-		excluded = append(excluded, newNode.Id)
+		excludedNodes = append(excludedNodes, newNode.Id)
+		if preferences.DistinctIP {
+			excludedIPs = append(excludedIPs, newNode.LastIp)
+		}
 	}
 
 	criteria := NodeCriteria{
@@ -207,9 +221,11 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 		AuditSuccessRatio:  preferences.AuditSuccessRatio,
 		UptimeCount:        preferences.UptimeCount,
 		UptimeSuccessRatio: preferences.UptimeRatio,
-		Excluded:           excluded,
+		ExcludedNodes:      excludedNodes,
+		ExcludedIPs:        excludedIPs,
 		MinimumVersion:     preferences.MinimumVersion,
 		OnlineWindow:       preferences.OnlineWindow,
+		DistinctIP:         preferences.DistinctIP,
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
@@ -226,8 +242,7 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
-// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
-// Note that KnownUnreliableOrOffline will not return node ids which are not in the database at all
+// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
@@ -252,6 +267,14 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
+	if value.Address == nil {
+		return errors.New("node has no address")
+	}
+	//Resolve IP Address to ensure it is set
+	value.LastIp, err = getIP(value.Address.Address)
+	if err != nil {
+		return OverlayError.Wrap(err)
+	}
 	return cache.db.UpdateAddress(ctx, &value)
 }
 
@@ -259,6 +282,22 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
+}
+
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	criteria := &NodeCriteria{
+		AuditCount:         cache.preferences.AuditCount,
+		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		UptimeCount:        cache.preferences.UptimeCount,
+		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+	}
+	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
+	if err != nil {
+		return false, err
+	}
+	return reputable, nil
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -306,4 +345,37 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	if err != nil {
 		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}
+}
+
+// GetMissingPieces returns the list of offline nodes
+func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	var nodeIDs storj.NodeIDList
+	for _, p := range pieces {
+		nodeIDs = append(nodeIDs, p.NodeId)
+	}
+	badNodeIDs, err := cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.New("error getting nodes %s", err)
+	}
+
+	for _, p := range pieces {
+		for _, nodeID := range badNodeIDs {
+			if nodeID == p.NodeId {
+				missingPieces = append(missingPieces, p.GetPieceNum())
+			}
+		}
+	}
+	return missingPieces, nil
+}
+
+func getIP(target string) (string, error) {
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ipAddr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return "", err
+	}
+	return ipAddr.String(), nil
 }

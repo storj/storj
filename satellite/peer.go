@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/post/oauth2"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
@@ -50,7 +51,12 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/referral/offersweb"
+	"storj.io/storj/satellite/marketing"
+	"storj.io/storj/satellite/marketing/marketingweb"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -73,8 +79,10 @@ type DB interface {
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
-	// Accounting returns database for storing information about data use
-	Accounting() accounting.DB
+	// StoragenodeAccounting returns database for storing information about storagenode use
+	StoragenodeAccounting() accounting.StoragenodeAccounting
+	// ProjectAccounting returns database for storing information about project data use
+	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
 	// Irreparable returns database for failed repairs
@@ -83,6 +91,8 @@ type DB interface {
 	Console() console.DB
 	// Orders returns database for orders
 	Orders() orders.DB
+	// Containment returns database for containment
+	Containment() audit.Containment
 }
 
 // Config is the global config satellite
@@ -103,14 +113,17 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
-	Tally  tally.Config
-	Rollup rollup.Config
+	Tally          tally.Config
+	Rollup         rollup.Config
+	LiveAccounting live.Config
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
 
-	Referral offersweb.Config
-	Version  version.Config
+	Marketing marketingweb.Config
+	Vouchers vouchers.Config
+
+	Version version.Config
 }
 
 // Peer is the satellite
@@ -174,12 +187,21 @@ type Peer struct {
 	}
 
 	Accounting struct {
-		Tally  *tally.Service
-		Rollup *rollup.Service
+		Tally        *tally.Service
+		Rollup       *rollup.Service
+		ProjectUsage *accounting.ProjectUsage
+	}
+
+	LiveAccounting struct {
+		Service live.Service
 	}
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	Vouchers struct {
+		Service *vouchers.Service
 	}
 
 	Console struct {
@@ -188,9 +210,10 @@ type Peer struct {
 		Endpoint *consoleweb.Server
 	}
 
-	Referral struct {
+	Marketing struct {
 		Listener net.Listener
-		Endpoint *offersweb.Server
+		Service  *marketing.Service
+		Endpoint *marketingweb.Server
 	}
 }
 
@@ -309,6 +332,45 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup vouchers
+		log.Debug("Setting up vouchers")
+		config := config.Vouchers
+		if config.Expiration < 0 {
+			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
+		}
+		expirationHours := config.Expiration * 24
+		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
+		if err != nil {
+			return nil, err
+		}
+		peer.Vouchers.Service = vouchers.NewService(
+			peer.Log.Named("vouchers"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			duration,
+		)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+	}
+
+	{ // setup live accounting
+		log.Debug("Setting up live accounting")
+		config := config.LiveAccounting
+		liveAccountingService, err := live.New(peer.Log.Named("live-accounting"), config)
+		if err != nil {
+			return nil, err
+		}
+		peer.LiveAccounting.Service = liveAccountingService
+	}
+
+	{ // setup accounting project usage
+		log.Debug("Setting up accounting project usage")
+		peer.Accounting.ProjectUsage = accounting.NewProjectUsage(
+			peer.DB.ProjectAccounting(),
+			peer.LiveAccounting.Service,
+			config.Rollup.MaxAlphaUsage,
+		)
+	}
+
 	{ // setup orders
 		log.Debug("Setting up orders")
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
@@ -331,7 +393,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup metainfo
 		log.Debug("Setting up metainfo")
-		db, err := metainfo.NewStore(config.Metainfo.DatabaseURL)
+		db, err := metainfo.NewStore(peer.Log.Named("metainfo:store"), config.Metainfo.DatabaseURL)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -344,9 +406,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
+			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
-			peer.DB.Accounting(),
-			config.Rollup.MaxAlphaUsage,
+			peer.Accounting.ProjectUsage,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -367,7 +429,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval)
+			config.Checker.Interval,
+			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
@@ -394,6 +457,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Orders.Service,
 			peer.Transport,
 			peer.Overlay.Service,
+			peer.DB.Containment(),
 			peer.Identity,
 		)
 		if err != nil {
@@ -403,8 +467,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup accounting
 		log.Debug("Setting up accounting")
-		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.Accounting(), peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.Accounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Service, peer.Metainfo.Service, peer.Overlay.Service, 0, config.Tally.Interval)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
 	}
 
 	{ // setup inspector
@@ -495,11 +559,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		if consoleConfig.AuthTokenSecret == "" {
+			return nil, errs.New("Auth token secret required")
+		}
+
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = localpayments.NewService(nil)
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
-			// TODO(yar): use satellite key
-			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
+			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 
@@ -516,19 +592,29 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 	}
 
-	{ // setup referral offers
-		log.Debug("Setting up offers")
-		referralConfig := config.Referral
+	{ // setup marketing portal
+		log.Debug("Setting up marketing server")
+		marketingConfig := config.Marketing
 
-		peer.Referral.Listener, err = net.Listen("tcp", referralConfig.Address)
+		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Referral.Endpoint = offersweb.NewServer(
-			peer.Log.Named("referral:endpoint"),
-			referralConfig,
-			peer.Referral.Listener,
+		peer.Marketing.Service, err = marketing.NewService(
+			peer.Log.Named("marketing:service"),
+			peer.DB.Marketing(),
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			marketingConfig,
+			peer.Marketing.Service,
+			peer.Marketing.Listener,
 		)
 	}
 
@@ -578,7 +664,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Referral.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
@@ -597,17 +683,19 @@ func (peer *Peer) Close() error {
 
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
-	} else {
-		if peer.Console.Listener != nil {
-			errlist.Add(peer.Console.Listener.Close())
-		}
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
 	}
 
-	if peer.Referral.Endpoint != nil {
-		errlist.Add(peer.Referral.Endpoint.Close())
+	if peer.Mail.Service != nil {
+		errlist.Add(peer.Mail.Service.Close())
+	}
+
+	if peer.Marketing.Endpoint != nil {
+		errlist.Add(peer.Marketing.Endpoint.Close())
 	} else {
-		if peer.Referral.Listener != nil {
-			errlist.Add(peer.Referral.Listener.Close())
+		if peer.Marketing.Listener != nil {
+			errlist.Add(peer.Marketing.Listener.Close())
 		}
 	}
 

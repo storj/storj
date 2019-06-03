@@ -6,46 +6,21 @@
 		<th class="sort-header-container__item">
 			<div class="row">
 				<p>Bucket Name</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span class="selected" v-html="arrowDown"></span>
-				</div>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Creation Date</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
 				<p>Storage Used</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
 				<p>Egress Used</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
 				<p>Objects Stored</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
 			</div>
 		</th>
 	</tr>
@@ -53,15 +28,9 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-    @Component({
-        data: function() {
-            return {
-                arrowUp: EMPTY_STATE_IMAGES.ARROW_UP,
-                arrowDown: EMPTY_STATE_IMAGES.ARROW_DOWN,
-            };
-        }
-    })
+
+    @Component({})
+
     export default class SortBucketsHeader extends Vue {
     }
 </script>

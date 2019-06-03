@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
 )
@@ -189,7 +190,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	versioncontrol.Arguments = withCommon(versioncontrol.Directory, Arguments{
 		"setup": {
 			"--address", versioncontrol.Address,
-			"--debug.addr", net.JoinHostPort("127.0.0.1", port(versioncontrolPeer, 0, debugHTTP)),
+			"--debug.addr", net.JoinHostPort(host, port(versioncontrolPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -226,7 +227,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 
-			"--debug.addr", net.JoinHostPort("127.0.0.1", port(bootstrapPeer, 0, debugHTTP)),
+			"--debug.addr", net.JoinHostPort(host, port(bootstrapPeer, 0, debugHTTP)),
 		},
 		"run": {},
 	})
@@ -282,10 +283,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort("127.0.0.1", port(satellitePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
+
+		if flags.Postgres != "" {
+			process.Arguments["setup"] = append(process.Arguments["setup"],
+				"--database", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d", i)),
+				"--metainfo.database-url", pgutil.ConnstrWithSchema(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i)),
+			)
+		}
 
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
@@ -315,8 +323,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--satellite-addr", satellite.Address,
 
-				"--enc.key=TestEncryptionKey",
-
 				"--rs.min-threshold", strconv.Itoa(1 * flags.StorageNodeCount / 5),
 				"--rs.repair-threshold", strconv.Itoa(2 * flags.StorageNodeCount / 5),
 				"--rs.success-threshold", strconv.Itoa(3 * flags.StorageNodeCount / 5),
@@ -327,7 +333,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
-			"run": {},
+			"run": {
+				"--enc.encryption-key=TestEncryptionKey",
+			},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
@@ -423,7 +431,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--storage.satellite-id-restriction=false",
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
-				"--debug.addr", net.JoinHostPort("127.0.0.1", port(storagenodePeer, i, debugHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
 			},
 			"run": {},
 		})
@@ -465,6 +473,11 @@ func identitySetup(network *Processes) (*Processes, error) {
 	processes := NewProcesses(network.Directory)
 
 	for _, process := range network.List {
+		if process.Info.Executable == "gateway" {
+			// gateways don't need an identity
+			continue
+		}
+
 		identity := processes.New(Info{
 			Name:       "identity/" + process.Info.Name,
 			Executable: "identity",

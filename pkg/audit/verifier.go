@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/orders"
@@ -27,6 +28,9 @@ import (
 
 var (
 	mon = monkit.Package()
+
+	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit
+	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
 )
 
 // Share represents required information about an audited share
@@ -38,63 +42,60 @@ type Share struct {
 
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
-	orders  *orders.Service
-	auditor *identity.PeerIdentity
-
-	downloader downloader
-}
-
-type downloader interface {
-	DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error)
-}
-
-// defaultDownloader downloads shares from networked storage nodes
-type defaultDownloader struct {
-	log       *zap.Logger
-	transport transport.Client
-	overlay   *overlay.Cache
-	reporter
-
-	minBytesPerSecond memory.Size
-}
-
-// newDefaultDownloader creates a defaultDownloader
-func newDefaultDownloader(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, id *identity.FullIdentity, minBytesPerSecond memory.Size) *defaultDownloader {
-	return &defaultDownloader{log: log, transport: transport, overlay: overlay, minBytesPerSecond: minBytesPerSecond}
+	log                *zap.Logger
+	orders             *orders.Service
+	auditor            *identity.PeerIdentity
+	transport          transport.Client
+	overlay            *overlay.Cache
+	containment        Containment
+	minBytesPerSecond  memory.Size
+	minDownloadTimeout time.Duration
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
-	return &Verifier{downloader: newDefaultDownloader(log, transport, overlay, id, minBytesPerSecond), orders: orders, auditor: id.PeerIdentity()}
+func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+	return &Verifier{
+		log:                log,
+		orders:             orders,
+		auditor:            id.PeerIdentity(),
+		transport:          transport,
+		overlay:            overlay,
+		containment:        containment,
+		minBytesPerSecond:  minBytesPerSecond,
+		minDownloadTimeout: minDownloadTimeout,
+	}
 }
 
 // Verify downloads shares then verifies the data correctness at the given stripe
-func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedNodes *RecordAuditsInfo, err error) {
+func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[storj.NodeID]bool) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	bucketID := createBucketID(stripe.SegmentPath)
 
-	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer)
+	// TODO(kaloyan): CreateAuditOrderLimits checks overlay cache if nodes are online and won't return
+	// order limits for offline node. So we miss to record them as offline during the audit
+	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer, skip)
 	if err != nil {
 		return nil, err
 	}
 
-	shares, nodes, err := verifier.downloader.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
+	shares, nodes, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
 	}
 
 	var offlineNodes storj.NodeIDList
 	var failedNodes storj.NodeIDList
+	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
 	for pieceNum, share := range shares {
-		if shares[pieceNum].Error != nil {
-			if shares[pieceNum].Error == context.DeadlineExceeded ||
-				!transport.Error.Has(shares[pieceNum].Error) {
-				failedNodes = append(failedNodes, nodes[pieceNum])
+		if share.Error != nil {
+			// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
+			if share.Error == context.DeadlineExceeded || !transport.Error.Has(share.Error) || ContainError.Has(share.Error) {
+				containedNodes[pieceNum] = nodes[pieceNum]
 			} else {
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
 			}
@@ -107,33 +108,74 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe) (verifiedN
 	total := int(pointer.Remote.Redundancy.GetTotal())
 
 	if len(sharesToAudit) < required {
-		return &RecordAuditsInfo{
-			SuccessNodeIDs: nil,
-			FailNodeIDs:    failedNodes,
-			OfflineNodeIDs: offlineNodes,
-		}, nil
+		return &Report{
+			Offlines: offlineNodes,
+		}, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
 	}
 
-	pieceNums, err := auditShares(ctx, required, total, sharesToAudit)
+	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
-		return nil, err
+		return &Report{
+			Offlines: offlineNodes,
+		}, err
 	}
 
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, nodes[pieceNum])
 	}
 
-	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes)
+	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes, containedNodes)
 
-	return &RecordAuditsInfo{
-		SuccessNodeIDs: successNodes,
-		FailNodeIDs:    failedNodes,
-		OfflineNodeIDs: offlineNodes,
+	totalInPointer := len(stripe.Segment.GetRemote().GetRemotePieces())
+	totalAudited := len(successNodes) + len(failedNodes) + len(offlineNodes)
+	numOffline := len(offlineNodes)
+	numSuccessful := len(successNodes)
+	numFailed := len(failedNodes)
+	auditedPercentage := float64(totalAudited) / float64(totalInPointer)
+	offlinePercentage := float64(0)
+	successfulPercentage := float64(0)
+	failedPercentage := float64(0)
+	if totalAudited > 0 {
+		offlinePercentage = float64(numOffline) / float64(totalAudited)
+		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
+		failedPercentage = float64(numFailed) / float64(totalAudited)
+	}
+
+	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
+	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
+	mon.Meter("audit_offline_nodes_global").Mark(numOffline)
+	mon.Meter("audit_total_nodes_global").Mark(totalAudited)
+	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer)
+
+	mon.IntVal("audit_success_nodes").Observe(int64(len(successNodes)))
+	mon.IntVal("audit_fail_nodes").Observe(int64(len(failedNodes)))
+	mon.IntVal("audit_offline_nodes").Observe(int64(len(offlineNodes)))
+	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))
+	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))
+	mon.FloatVal("audited_percentage").Observe(auditedPercentage)
+	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)
+	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage)
+	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)
+
+	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
+	if err != nil {
+		return &Report{
+			Successes: successNodes,
+			Fails:     failedNodes,
+			Offlines:  offlineNodes,
+		}, err
+	}
+
+	return &Report{
+		Successes:     successNodes,
+		Fails:         failedNodes,
+		Offlines:      offlineNodes,
+		PendingAudits: pendingAudits,
 	}, nil
 }
 
-// Download Shares downloads shares from the nodes where remote pieces are located
-func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
+// DownloadShares downloads shares from the nodes where remote pieces are located
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -144,7 +186,8 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.Add
 			continue
 		}
 
-		share, err := d.getShare(ctx, limit, stripeIndex, shareSize, i)
+		// TODO(kaloyan): execute in goroutine for better performance
+		share, err := verifier.GetShare(ctx, limit, stripeIndex, shareSize, i)
 		if err != nil {
 			share = Share{
 				Error:    err,
@@ -160,18 +203,104 @@ func (d *defaultDownloader) DownloadShares(ctx context.Context, limits []*pb.Add
 	return shares, nodes, nil
 }
 
-// getShare use piece store client to download shares from nodes
-func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
+// Reverify reverifies the contained nodes in the stripe
+func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report *Report, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// result status enum
+	const (
+		skipped = iota
+		success
+		offline
+		failed
+		contained
+		erred
+	)
+
+	type result struct {
+		nodeID       storj.NodeID
+		status       int
+		pendingAudit *PendingAudit
+		err          error
+	}
+
+	pieces := stripe.Segment.GetRemote().GetRemotePieces()
+	ch := make(chan result, len(pieces))
+
+	for _, piece := range pieces {
+		pending, err := verifier.containment.Get(ctx, piece.NodeId)
+		if err != nil {
+			if ErrContainedNotFound.Has(err) {
+				ch <- result{nodeID: piece.NodeId, status: skipped}
+				continue
+			}
+			ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+			continue
+		}
+
+		go func(pending *PendingAudit, piece *pb.RemotePiece) {
+			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, pending.PieceID, pending.ShareSize)
+			if err != nil {
+				if overlay.ErrNodeOffline.Has(err) {
+					ch <- result{nodeID: piece.NodeId, status: offline}
+					return
+				}
+				ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+				return
+			}
+
+			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
+			if err != nil {
+				// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
+				if err == context.DeadlineExceeded || !transport.Error.Has(err) {
+					ch <- result{nodeID: piece.NodeId, status: contained}
+				} else {
+					ch <- result{nodeID: piece.NodeId, status: offline}
+				}
+				return
+			}
+
+			downloadedHash := pkcrypto.SHA256Hash(share.Data)
+			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
+				ch <- result{nodeID: piece.NodeId, status: success}
+			} else {
+				ch <- result{nodeID: piece.NodeId, status: failed}
+			}
+		}(pending, piece)
+	}
+
+	report = &Report{}
+	for range pieces {
+		result := <-ch
+		switch result.status {
+		case success:
+			report.Successes = append(report.Successes, result.nodeID)
+		case offline:
+			report.Offlines = append(report.Offlines, result.nodeID)
+		case failed:
+			report.Fails = append(report.Fails, result.nodeID)
+		case contained:
+			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
+		case erred:
+			err = errs.Combine(err, result.err)
+		}
+	}
+
+	return report, err
+}
+
+// GetShare use piece store client to download shares from nodes
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
 
 	// determines number of seconds allotted for receiving data from a storage node
 	timedCtx := ctx
-	if d.minBytesPerSecond > 0 {
-		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / d.minBytesPerSecond.Int64())
-		if maxTransferTime < (5 * time.Second) {
-			maxTransferTime = 5 * time.Second
+	if verifier.minBytesPerSecond > 0 {
+		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / verifier.minBytesPerSecond.Int64())
+		if maxTransferTime < verifier.minDownloadTimeout {
+			maxTransferTime = verifier.minDownloadTimeout
 		}
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
@@ -180,7 +309,7 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 
-	conn, err := d.transport.DialNode(timedCtx, &pb.Node{
+	conn, err := verifier.transport.DialNode(timedCtx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
 	})
@@ -188,15 +317,15 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 		return Share{}, err
 	}
 	ps := piecestore.NewClient(
-		d.log.Named(storageNodeID.String()),
-		signing.SignerFromFullIdentity(d.transport.Identity()),
+		verifier.log.Named(storageNodeID.String()),
+		signing.SignerFromFullIdentity(verifier.transport.Identity()),
 		conn,
 		piecestore.DefaultConfig,
 	)
 	defer func() {
 		err := ps.Close()
 		if err != nil {
-			d.log.Error("audit verifier failed to close conn to node: %+v", zap.Error(err))
+			verifier.log.Error("audit verifier failed to close conn to node: %+v", zap.Error(err))
 		}
 	}()
 
@@ -222,22 +351,23 @@ func (d *defaultDownloader) getShare(ctx context.Context, limit *pb.AddressedOrd
 }
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
-// haven't been altered. auditShares returns a slice containing the piece numbers of altered shares.
-func auditShares(ctx context.Context, required, total int, originals map[int]Share) (pieceNums []int, err error) {
+// haven't been altered. auditShares returns a slice containing the piece numbers of altered shares,
+// and a slice of the corrected shares.
+func auditShares(ctx context.Context, required, total int, originals map[int]Share) (pieceNums []int, corrected []infectious.Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 	f, err := infectious.NewFEC(required, total)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	copies, err := makeCopies(ctx, originals)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = f.Correct(copies)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for _, share := range copies {
@@ -245,7 +375,7 @@ func auditShares(ctx context.Context, required, total int, originals map[int]Sha
 			pieceNums = append(pieceNums, share.Number)
 		}
 	}
-	return pieceNums, nil
+	return pieceNums, copies, nil
 }
 
 // makeCopies takes in a map of audit Shares and deep copies their data to a slice of infectious Shares
@@ -260,14 +390,17 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 	return copies, nil
 }
 
-// getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+// getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
+func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
 	}
 	for _, offline := range offlineNodes {
 		fails[offline] = true
+	}
+	for _, contained := range containedNodes {
+		fails[contained] = true
 	}
 
 	for _, node := range nodes {
@@ -286,4 +419,54 @@ func createBucketID(path storj.Path) []byte {
 	}
 	// project_id/bucket_name
 	return []byte(storj.JoinPaths(comps[0], comps[2]))
+}
+
+func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) ([]*PendingAudit, error) {
+	if len(containedNodes) > 0 {
+		return nil, nil
+	}
+
+	redundancy := stripe.Segment.GetRemote().GetRedundancy()
+	required := int(redundancy.GetMinReq())
+	total := int(redundancy.GetTotal())
+	shareSize := redundancy.GetErasureShareSize()
+
+	fec, err := infectious.NewFEC(required, total)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	stripeData, err := rebuildStripe(fec, correctedShares, int(shareSize))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var pendingAudits []*PendingAudit
+	for pieceNum, nodeID := range containedNodes {
+		share := make([]byte, shareSize)
+		err = fec.EncodeSingle(stripeData, share, pieceNum)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		pendingAudits = append(pendingAudits, &PendingAudit{
+			NodeID:            nodeID,
+			PieceID:           stripe.Segment.GetRemote().RootPieceId,
+			StripeIndex:       stripe.Index,
+			ShareSize:         shareSize,
+			ExpectedShareHash: pkcrypto.SHA256Hash(share),
+		})
+	}
+
+	return pendingAudits, nil
+}
+
+func rebuildStripe(fec *infectious.FEC, corrected []infectious.Share, shareSize int) ([]byte, error) {
+	stripe := make([]byte, fec.Required()*shareSize)
+	err := fec.Rebuild(corrected, func(share infectious.Share) {
+		copy(stripe[share.Number*shareSize:], share.Data)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return stripe, nil
 }

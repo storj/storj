@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/postgreskv/schema"
 )
@@ -31,7 +32,10 @@ func New(dbURL string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = schema.PrepareDB(pgConn)
+
+	pgConn.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+
+	err = schema.PrepareDB(pgConn, dbURL)
 	if err != nil {
 		return nil, err
 	}
