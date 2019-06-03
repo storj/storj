@@ -152,7 +152,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return err
 		}
 
-		_, err = s.store.UserPaymentInfos().Create(ctx, UserPaymentInfo{
+		_, err = tx.UserPaymentInfos().Create(ctx, UserPaymentInfo{
 			UserID:     u.ID,
 			CustomerID: cus.ID,
 		})
@@ -502,7 +502,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			return errs.New(internalErrMsg)
 		}
 
-		_, err = s.store.ProjectPaymentInfos().Create(ctx, ProjectPaymentInfo{
+		_, err = tx.ProjectPaymentInfos().Create(ctx, ProjectPaymentInfo{
 			ProjectID:       p.ID,
 			PayerID:         pmInfo.UserID,
 			PaymentMethodID: defaultPayment.ID,
