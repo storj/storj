@@ -2,16 +2,16 @@ GO_VERSION ?= 1.12.5
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
-ifeq (${BRANCH},master)
+BRANCH_NAME ?= $(shell git rev-parse --abbrev-ref HEAD | sed "s!/!-!g")
+ifeq (${BRANCH_NAME},master)
 TAG    := $(shell git rev-parse --short HEAD)-go${GO_VERSION}
 TRACKED_BRANCH := true
 LATEST_TAG := latest
 else
-TAG    := $(shell git rev-parse --short HEAD)-${BRANCH}-go${GO_VERSION}
-ifneq (,$(findstring release-,$(BRANCH)))
+TAG    := $(shell git rev-parse --short HEAD)-${BRANCH_NAME}-go${GO_VERSION}
+ifneq (,$(findstring release-,$(BRANCH_NAME)))
 TRACKED_BRANCH := true
-LATEST_TAG := ${BRANCH}-latest
+LATEST_TAG := ${BRANCH_NAME}-latest
 endif
 endif
 CUSTOMTAG ?=
@@ -120,9 +120,16 @@ test-all-in-one: ## Test docker images locally
 ##@ Build
 
 .PHONY: images
-images: satellite-image storagenode-image uplink-image gateway-image versioncontrol-image ## Build gateway, satellite, storagenode, uplink and versioncontrol Docker images
+images: bootstrap-image gateway-image satellite-image storagenode-image uplink-image versioncontrol-image ## Build bootstrap, gateway, satellite, storagenode, uplink, and versioncontrol Docker images
 	echo Built version: ${TAG}
 
+.PHONY: bootstrap-image
+bootstrap-image: bootstrap_linux_arm bootstrap_linux_amd64 ## Build bootstrap Docker image
+	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-amd64 \
+		-f cmd/bootstrap/Dockerfile .
+	${DOCKER_BUILD} --pull=true -t storjlabs/bootstrap:${TAG}${CUSTOMTAG}-arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		-f cmd/bootstrap/Dockerfile .
 .PHONY: gateway-image
 gateway-image: gateway_linux_arm gateway_linux_amd64 ## Build gateway Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/gateway:${TAG}${CUSTOMTAG}-amd64 \
@@ -182,6 +189,10 @@ binary:
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
 
+.PHONY: bootstrap_%
+bootstrap_%:
+	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=bootstrap $(MAKE) binary
+	$(MAKE) binary-check COMPONENT=bootstrap GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: gateway_%
 gateway_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=gateway $(MAKE) binary
@@ -213,11 +224,11 @@ inspector_%:
 versioncontrol_%:
 	GOOS=$(word 2, $(subst _, ,$@)) GOARCH=$(word 3, $(subst _, ,$@)) COMPONENT=versioncontrol $(MAKE) binary
 
-COMPONENTLIST := gateway satellite storagenode uplink identity certificates inspector versioncontrol
+COMPONENTLIST := bootstrap certificates gateway identity inspector satellite storagenode uplink versioncontrol
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build gateway, satellite, storagenode, uplink, identity, and certificates binaries (jenkins)
+binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
 
 ##@ Deploy
 
@@ -232,7 +243,7 @@ deploy: ## Update Kubernetes deployments in staging (jenkins)
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
 	# satellite
-	for c in satellite storagenode uplink gateway versioncontrol; do \
+	for c in bootstrap gateway satellite storagenode uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
@@ -259,10 +270,12 @@ binaries-clean: ## Remove all local release binaries (jenkins)
 
 .PHONY: clean-images
 clean-images:
+	-docker rmi storjlabs/bootstrap:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/gateway:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
+	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
 
 .PHONY: test-docker-clean
 test-docker-clean: ## Clean up Docker environment used in test-docker target

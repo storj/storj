@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storage/streams"
@@ -82,7 +83,10 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 		consoleDB := satellite.DB.Console()
 
 		projectName := fmt.Sprintf("%s_%d", name, j)
-		key := console.APIKeyFromBytes([]byte(projectName))
+		key, err := macaroon.NewAPIKey([]byte("testSecret"))
+		if err != nil {
+			return nil, err
+		}
 
 		project, err := consoleDB.Projects().Insert(
 			context.Background(),
@@ -96,17 +100,18 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 
 		_, err = consoleDB.APIKeys().Create(
 			context.Background(),
-			*key,
+			key.Head(),
 			console.APIKeyInfo{
 				Name:      "root",
 				ProjectID: project.ID,
+				Secret:    []byte("testSecret"),
 			},
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		apiKeys[satellite.ID()] = key.String()
+		apiKeys[satellite.ID()] = key.Serialize()
 	}
 
 	uplink.APIKey = apiKeys
@@ -199,10 +204,21 @@ func (uplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satel
 func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
 	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
-		config.RS.MinThreshold = redundancy.MinThreshold
-		config.RS.RepairThreshold = redundancy.RepairThreshold
-		config.RS.SuccessThreshold = redundancy.SuccessThreshold
-		config.RS.MaxThreshold = redundancy.MaxThreshold
+		if redundancy.MinThreshold > 0 {
+			config.RS.MinThreshold = redundancy.MinThreshold
+		}
+		if redundancy.RepairThreshold > 0 {
+			config.RS.RepairThreshold = redundancy.RepairThreshold
+		}
+		if redundancy.SuccessThreshold > 0 {
+			config.RS.SuccessThreshold = redundancy.SuccessThreshold
+		}
+		if redundancy.MaxThreshold > 0 {
+			config.RS.MaxThreshold = redundancy.MaxThreshold
+		}
+		if redundancy.ErasureShareSize > 0 {
+			config.RS.ErasureShareSize = redundancy.ErasureShareSize
+		}
 	}
 
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)

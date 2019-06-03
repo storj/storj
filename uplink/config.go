@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 	"errors"
+	"io/ioutil"
 	"time"
 
 	"github.com/vivint/infectious"
@@ -41,10 +42,11 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	Key       string      `help:"root key for encrypting the data"`
-	BlockSize memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
-	DataType  int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType  int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncryptionKey string      `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
+	KeyFilepath   string      `help:"the path to the file which contains the root key for encrypting the data"`
+	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
+	DataType      int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType      int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -119,8 +121,10 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key := new(storj.Key)
-	copy(key[:], c.Enc.Key)
+	key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
 
 	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
 	if err != nil {
@@ -149,4 +153,37 @@ func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 		Cipher:    storj.Cipher(c.Enc.DataType),
 		BlockSize: int32(c.Enc.BlockSize),
 	}
+}
+
+// LoadEncryptionKey loads the encryption key stored in the file pointed by
+// filepath.
+//
+// An error is file is not found or there is an I/O error.
+func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
+	if filepath == "" {
+		return &storj.Key{}, nil
+	}
+
+	rawKey, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+
+	return storj.NewKey(rawKey)
+}
+
+// UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
+// it isn't empty otherwise try to load the key from the file pointed by
+// filepath calling LoadEncryptionKey function.
+func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
+	if humanReadableKey != "" {
+		key, err := storj.NewKey([]byte(humanReadableKey))
+		if err != nil {
+			return nil, err
+		}
+
+		return key, nil
+	}
+
+	return LoadEncryptionKey(filepath)
 }

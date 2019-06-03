@@ -62,7 +62,7 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
-func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, addressedOrderLimits []*pb.AddressedOrderLimit) error {
+func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, addressedOrderLimits ...*pb.AddressedOrderLimit) error {
 	if len(addressedOrderLimits) == 0 {
 		return nil
 	}
@@ -171,7 +171,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -228,7 +228,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
@@ -312,7 +312,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of pointer.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, err error) {
 	rootPieceID := pointer.GetRemote().RootPieceId
 	redundancy := pointer.GetRemote().GetRedundancy()
 	shareSize := redundancy.GetErasureShareSize()
@@ -335,6 +335,10 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	var limitsCount int32
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		if skip[piece.NodeId] {
+			continue
+		}
+
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
 			service.log.Error("error getting node from the overlay cache", zap.Error(err))
@@ -384,11 +388,69 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	return limits, nil
+}
+
+// CreateAuditOrderLimit creates an order limit for auditing a single the piece from a pointer.
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, nodeID storj.NodeID, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
+	// convert orderExpiration from duration to timestamp
+	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
+	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	serialNumber, err := service.createSerial(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := service.cache.Get(ctx, nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if node != nil {
+		node.Type.DPanicOnInvalid("order service audit order limits")
+	}
+
+	if !service.cache.IsOnline(node) {
+		return nil, overlay.ErrNodeOffline.New(nodeID.String())
+	}
+
+	orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		SerialNumber:    serialNumber,
+		SatelliteId:     service.satellite.ID(),
+		UplinkId:        auditor.ID,
+		StorageNodeId:   nodeID,
+		PieceId:         rootPieceID.Derive(nodeID),
+		Action:          pb.PieceAction_GET_AUDIT,
+		Limit:           int64(shareSize),
+		OrderExpiration: orderExpiration,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	limit = &pb.AddressedOrderLimit{
+		Limit:              orderLimit,
+		StorageNodeAddress: node.Address,
+	}
+
+	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if err := service.updateBandwidth(ctx, bucketID, limit); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return limit, nil
 }
 
 // CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
@@ -467,7 +529,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -535,7 +597,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits); err != nil {
+	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 

@@ -19,13 +19,14 @@ import (
 //
 // Start or Run (only of of them, not both) must be only called once.
 type Cycle struct {
+	stopsent int32
+	runexec  int32
+
 	interval time.Duration
 
 	ticker  *time.Ticker
 	control chan interface{}
 
-	stopsent int64
-	runexec  int64
 	stopping chan struct{}
 	stopped  chan struct{}
 
@@ -62,7 +63,7 @@ func (cycle *Cycle) initialize() {
 
 // Start runs the specified function with an errgroup.
 func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ctx context.Context) error) {
-	atomic.CompareAndSwapInt64(&cycle.runexec, 0, 1)
+	atomic.CompareAndSwapInt32(&cycle.runexec, 0, 1)
 	group.Go(func() error {
 		return cycle.Run(ctx, fn)
 	})
@@ -75,7 +76,7 @@ func (cycle *Cycle) Start(ctx context.Context, group *errgroup.Group, fn func(ct
 //
 // Run PANICS if it's called after Stop has been called.
 func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error) error {
-	atomic.CompareAndSwapInt64(&cycle.runexec, 0, 1)
+	atomic.CompareAndSwapInt32(&cycle.runexec, 0, 1)
 	cycle.initialize()
 	defer close(cycle.stopped)
 
@@ -143,7 +144,7 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 func (cycle *Cycle) Close() {
 	cycle.Stop()
 
-	if atomic.LoadInt64(&cycle.runexec) == 1 {
+	if atomic.LoadInt32(&cycle.runexec) == 1 {
 		<-cycle.stopped
 	}
 
@@ -162,7 +163,7 @@ func (cycle *Cycle) sendControl(message interface{}) {
 // Stop stops the cycle permanently
 func (cycle *Cycle) Stop() {
 	cycle.initialize()
-	if atomic.CompareAndSwapInt64(&cycle.stopsent, 0, 1) {
+	if atomic.CompareAndSwapInt32(&cycle.stopsent, 0, 1) {
 		close(cycle.stopping)
 	}
 }

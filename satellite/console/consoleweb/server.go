@@ -47,7 +47,8 @@ type Config struct {
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
-	AuthToken string `help:"auth token needed for access to registration token creation endpoint" default:""`
+	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
+	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	PasswordCost int `internal:"true" help:"password hashing cost (0=automatic)" default:"0"`
 }
@@ -80,7 +81,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	if server.config.ExternalAddress != "" {
 		if !strings.HasSuffix(server.config.ExternalAddress, "/") {
-			server.config.ExternalAddress = server.config.ExternalAddress + "/"
+			server.config.ExternalAddress += "/"
 		}
 	} else {
 		server.config.ExternalAddress = "http://" + server.listener.Addr().String() + "/"

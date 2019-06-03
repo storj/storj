@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
+	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -50,7 +51,7 @@ func addCmd(cmd *cobra.Command, root *cobra.Command) *cobra.Command {
 		defaultConfDir = confDirParam
 	}
 
-	cfgstruct.Bind(cmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
+	process.Bind(cmd, &cfg, defaults, cfgstruct.ConfDir(defaultConfDir))
 
 	return cmd
 }
@@ -82,21 +83,24 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
 
-	uplink, err := c.NewUplink(ctx, cfg)
+	uplk, err := c.NewUplink(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	opts := &libuplink.ProjectOptions{}
 
-	encKey := new(storj.Key)
-	copy(encKey[:], c.Enc.Key)
+	encKey, err := uplink.UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	if err != nil {
+		return nil, err
+	}
+
 	opts.Volatile.EncryptionKey = encKey
 
-	project, err := uplink.OpenProject(ctx, satelliteAddr, apiKey, opts)
+	project, err := uplk.OpenProject(ctx, satelliteAddr, apiKey, opts)
 
 	if err != nil {
-		if err := uplink.Close(); err != nil {
+		if err := uplk.Close(); err != nil {
 			fmt.Printf("error closing uplink: %+v\n", err)
 		}
 	}

@@ -4,6 +4,7 @@
 package overlay_test
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
@@ -213,6 +214,94 @@ func TestNodeSelection(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.ExpectedCount, len(response))
+		}
+	})
+}
+
+func TestDistinctIPs(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("Test does not work with macOS")
+	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewIPCount: 3,
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+		tests := []struct {
+			nodeCount      int
+			duplicateCount int
+			requestCount   int
+			preferences    overlay.NodeSelectionConfig
+			shouldFailWith *errs.Class
+		}{
+			{ // test only distinct IPs with half new nodes
+				requestCount: 4,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        1,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+			},
+			{ // test not enough distinct IPs
+				requestCount: 7,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        true,
+				},
+				shouldFailWith: &overlay.ErrNotEnoughNodes,
+			},
+			{ // test distinct flag false allows duplicates
+				duplicateCount: 10,
+				requestCount:   5,
+				preferences: overlay.NodeSelectionConfig{
+					AuditCount:        0,
+					NewNodePercentage: 0.5,
+					OnlineWindow:      time.Hour,
+					DistinctIP:        false,
+				},
+			},
+		}
+
+		// This sets a reputable audit count for nodes[8] and nodes[9].
+		for i := 9; i > 7; i-- {
+			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       planet.StorageNodes[i].ID(),
+				IsUp:         true,
+				AuditSuccess: true,
+			})
+			assert.NoError(t, err)
+		}
+
+		for _, tt := range tests {
+			response, err := service.FindStorageNodesWithPreferences(ctx, overlay.FindStorageNodesRequest{
+				FreeBandwidth:  0,
+				FreeDisk:       0,
+				RequestedCount: tt.requestCount,
+			}, &tt.preferences)
+			if tt.shouldFailWith != nil {
+				assert.Error(t, err)
+				assert.True(t, tt.shouldFailWith.Has(err))
+				continue
+			} else {
+				require.NoError(t, err)
+			}
+
+			// assert all IPs are unique
+			if tt.preferences.DistinctIP {
+				ips := make(map[string]bool)
+				for _, n := range response {
+					assert.False(t, ips[n.LastIp])
+					ips[n.LastIp] = true
+				}
+			}
+
+			assert.Equal(t, tt.requestCount, len(response))
 		}
 	})
 }

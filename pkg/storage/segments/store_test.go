@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/meta"
@@ -43,32 +44,33 @@ func TestSegmentStoreMeta(t *testing.T) {
 		{"l/not_exists_path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
 		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {
+		test := tt
 		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
 			runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-				expectedSize := int64(len(tt.data))
-				reader := bytes.NewReader(tt.data)
+				expectedSize := int64(len(test.data))
+				reader := bytes.NewReader(test.data)
 
 				beforeModified := time.Now()
-				if tt.err == "" {
-					meta, err := segmentStore.Put(ctx, reader, tt.expiration, func() (storj.Path, []byte, error) {
-						return tt.path, tt.metadata, nil
+				if test.err == "" {
+					meta, err := segmentStore.Put(ctx, reader, test.expiration, func() (storj.Path, []byte, error) {
+						return test.path, test.metadata, nil
 					})
 					require.NoError(t, err)
 					assert.Equal(t, expectedSize, meta.Size)
-					assert.Equal(t, tt.metadata, meta.Data)
-					assert.Equal(t, tt.expiration, meta.Expiration)
+					assert.Equal(t, test.metadata, meta.Data)
+					assert.Equal(t, test.expiration, meta.Expiration)
 					assert.True(t, meta.Modified.After(beforeModified))
 				}
 
-				meta, err := segmentStore.Meta(ctx, tt.path)
-				if tt.err == "" {
+				meta, err := segmentStore.Meta(ctx, test.path)
+				if test.err == "" {
 					require.NoError(t, err)
 					assert.Equal(t, expectedSize, meta.Size)
-					assert.Equal(t, tt.metadata, meta.Data)
-					assert.Equal(t, tt.expiration, meta.Expiration)
+					assert.Equal(t, test.metadata, meta.Data)
+					assert.Equal(t, test.expiration, meta.Expiration)
 					assert.True(t, meta.Modified.After(beforeModified))
 				} else {
-					require.Contains(t, err.Error(), tt.err)
+					require.Contains(t, err.Error(), test.err)
 				}
 			})
 		})
@@ -86,24 +88,25 @@ func TestSegmentStorePutGet(t *testing.T) {
 		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
 		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
+		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			metadata, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
-				return tt.path, tt.metadata, nil
+			metadata, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
+				return test.path, test.metadata, nil
 			})
-			require.NoError(t, err, tt.name)
-			require.Equal(t, tt.metadata, metadata.Data)
+			require.NoError(t, err, test.name)
+			require.Equal(t, test.metadata, metadata.Data)
 
-			rr, metadata, err := segmentStore.Get(ctx, tt.path)
-			require.NoError(t, err, tt.name)
-			require.Equal(t, tt.metadata, metadata.Data)
+			rr, metadata, err := segmentStore.Get(ctx, test.path)
+			require.NoError(t, err, test.name)
+			require.Equal(t, test.metadata, metadata.Data)
 
 			reader, err := rr.Range(ctx, 0, rr.Size())
-			require.NoError(t, err, tt.name)
+			require.NoError(t, err, test.name)
 			content, err := ioutil.ReadAll(reader)
-			require.NoError(t, err, tt.name)
-			require.Equal(t, tt.content, content)
+			require.NoError(t, err, test.name)
+			require.Equal(t, test.content, content)
 
-			require.NoError(t, reader.Close(), tt.name)
+			require.NoError(t, reader.Close(), test.name)
 		})
 	}
 }
@@ -119,26 +122,27 @@ func TestSegmentStoreDelete(t *testing.T) {
 		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
 		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
+		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			_, err := segmentStore.Put(ctx, bytes.NewReader(tt.content), tt.expiration, func() (storj.Path, []byte, error) {
-				return tt.path, tt.metadata, nil
+			_, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
+				return test.path, test.metadata, nil
 			})
-			require.NoError(t, err, tt.name)
+			require.NoError(t, err, test.name)
 
-			_, _, err = segmentStore.Get(ctx, tt.path)
-			require.NoError(t, err, tt.name)
+			_, _, err = segmentStore.Get(ctx, test.path)
+			require.NoError(t, err, test.name)
 
 			// delete existing
-			err = segmentStore.Delete(ctx, tt.path)
-			require.NoError(t, err, tt.name)
+			err = segmentStore.Delete(ctx, test.path)
+			require.NoError(t, err, test.name)
 
-			_, _, err = segmentStore.Get(ctx, tt.path)
-			require.Error(t, err, tt.name)
+			_, _, err = segmentStore.Get(ctx, test.path)
+			require.Error(t, err, test.name)
 			require.True(t, storage.ErrKeyNotFound.Has(err))
 
 			// delete non existing
-			err = segmentStore.Delete(ctx, tt.path)
-			require.Error(t, err, tt.name)
+			err = segmentStore.Delete(ctx, test.path)
+			require.Error(t, err, test.name)
 			require.True(t, storage.ErrKeyNotFound.Has(err))
 		})
 	}
@@ -158,7 +162,8 @@ func TestSegmentStoreList(t *testing.T) {
 			{"l/BBBB/bfile2", []byte("content")},
 			{"l/BBBB/bfolder/file1", []byte("content")},
 		}
-		for _, segment := range segments {
+		for _, seg := range segments {
+			segment := seg
 			_, err := segmentStore.Put(ctx, bytes.NewReader(segment.content), expiration, func() (storj.Path, []byte, error) {
 				return segment.path, []byte{}, nil
 			})
@@ -246,17 +251,20 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		})
 		require.NoError(t, err)
 
-		apiKey := console.APIKey{}
+		apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
+		require.NoError(t, err)
+
 		apiKeyInfo := console.APIKeyInfo{
 			ProjectID: project.ID,
 			Name:      "testKey",
+			Secret:    []byte("testSecret"),
 		}
 
 		// add api key to db
-		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+		_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
 		require.NoError(t, err)
 
-		TestAPIKey := apiKey.String()
+		TestAPIKey := apiKey.Serialize()
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 		require.NoError(t, err)

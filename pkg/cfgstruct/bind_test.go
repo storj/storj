@@ -5,7 +5,6 @@ package cfgstruct
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -92,23 +91,6 @@ func TestConfDir(t *testing.T) {
 	assertEqual(f.Lookup("string").DefValue, "-confpath+")
 	assertEqual(f.Lookup("my-struct1.string").DefValue, "1confpath2")
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath3")
-}
-
-func TestNesting(t *testing.T) {
-	f := pflag.NewFlagSet("test", pflag.PanicOnError)
-	var c struct {
-		String    string `default:"-$CONFDIR+"`
-		MyStruct1 struct {
-			String    string `default:"1${CONFDIR}2"`
-			MyStruct2 struct {
-				String string `default:"2${CONFDIR}3"`
-			}
-		}
-	}
-	Bind(f, &c, UseReleaseDefaults(), ConfDirNested("confpath"))
-	assertEqual(f.Lookup("string").DefValue, "-confpath+")
-	assertEqual(f.Lookup("my-struct1.string").DefValue, filepath.FromSlash("1confpath/my-struct12"))
-	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, filepath.FromSlash("2confpath/my-struct1/my-struct23"))
 }
 
 func TestBindDevDefaults(t *testing.T) {

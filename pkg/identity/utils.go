@@ -83,12 +83,12 @@ func statTLSFiles(certPath, keyPath string) (status TLSFilesStatus, err error) {
 			return NoCertNoKey, err
 		}
 	}
-
-	if hasCert && hasKey {
+	switch {
+	case hasCert && hasKey:
 		return CertKey, nil
-	} else if hasCert {
+	case hasCert:
 		return CertNoKey, nil
-	} else if hasKey {
+	case hasKey:
 		return NoCertKey, nil
 	}
 

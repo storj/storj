@@ -88,6 +88,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	address TEXT NOT NULL,
+	last_ip TEXT NOT NULL,
 	protocol INTEGER NOT NULL,
 	type INTEGER NOT NULL,
 	email TEXT NOT NULL,
@@ -112,6 +113,22 @@ CREATE TABLE nodes (
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
+	disqualified INTEGER NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE offers (
+	id INTEGER NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT NOT NULL,
+	type INTEGER NOT NULL,
+	credit_in_cents INTEGER NOT NULL,
+	award_credit_duration_days INTEGER NOT NULL,
+	invitee_credit_duration_days INTEGER NOT NULL,
+	redeemable_cap INTEGER NOT NULL,
+	num_redeemed INTEGER NOT NULL,
+	expires_at TIMESTAMP,
+	created_at TIMESTAMP NOT NULL,
+	status INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (
@@ -127,6 +144,7 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
+	usage_limit INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -181,11 +199,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key BLOB NOT NULL,
+	head BLOB NOT NULL,
 	name TEXT NOT NULL,
+	secret BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -201,6 +220,7 @@ CREATE TABLE used_serials (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX node_last_ip ON nodes ( last_ip );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

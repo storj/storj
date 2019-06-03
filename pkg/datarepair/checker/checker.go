@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
@@ -30,31 +31,45 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval time.Duration `help:"how frequently checker should audit segments" default:"30s"`
+	Interval            time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"15s" devDefault:"0h0m5s"`
+}
+
+// durabilityStats remote segment information
+type durabilityStats struct {
+	remoteFilesChecked          int64
+	remoteSegmentsChecked       int64
+	remoteSegmentsNeedingRepair int64
+	remoteSegmentsLost          int64
+	remoteSegmentInfo           []string
 }
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	metainfo    *metainfo.Service
-	lastChecked string
-	repairQueue queue.RepairQueue
-	overlay     *overlay.Cache
-	irrdb       irreparable.DB
-	logger      *zap.Logger
-	Loop        sync2.Cycle
+	metainfo        *metainfo.Service
+	lastChecked     string
+	repairQueue     queue.RepairQueue
+	overlay         *overlay.Cache
+	irrdb           irreparable.DB
+	logger          *zap.Logger
+	Loop            sync2.Cycle
+	IrreparableLoop sync2.Cycle
+	monStats        durabilityStats
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, interval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		metainfo:    metainfo,
-		lastChecked: "",
-		repairQueue: repairQueue,
-		overlay:     overlay,
-		irrdb:       irrdb,
-		logger:      logger,
-		Loop:        *sync2.NewCycle(interval),
+		metainfo:        metainfo,
+		lastChecked:     "",
+		repairQueue:     repairQueue,
+		overlay:         overlay,
+		irrdb:           irrdb,
+		logger:          logger,
+		Loop:            *sync2.NewCycle(repairInterval),
+		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
+		monStats:        durabilityStats{},
 	}
 	return checker
 }
@@ -63,13 +78,17 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return checker.Loop.Run(ctx, func(ctx context.Context) error {
-		err := checker.IdentifyInjuredSegments(ctx)
-		if err != nil {
-			checker.logger.Error("error with injured segments identification: ", zap.Error(err))
-		}
-		return nil
+	group, ctx := errgroup.WithContext(ctx)
+
+	group.Go(func() error {
+		return checker.Loop.Run(ctx, checker.IdentifyInjuredSegments)
 	})
+
+	group.Go(func() error {
+		return checker.IrreparableLoop.Run(ctx, checker.IrreparableProcess)
+	})
+
+	return group.Wait()
 }
 
 // Close halts the Checker loop
@@ -82,11 +101,6 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var remoteSegmentsChecked int64
-	var remoteSegmentsNeedingRepair int64
-	var remoteSegmentsLost int64
-	var remoteSegmentInfo []string
-
 	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
 		func(it storage.Iterator) error {
 			var item storage.ListItem
@@ -96,9 +110,17 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				it.Next(&nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
-				// if keys are equal, start from the beginning in the next call
-				if nextItem.Key.String() == item.Key.String() {
-					checker.lastChecked = ""
+				// if we have finished iterating, send and reset durability stats
+				if checker.lastChecked == "" {
+					// send durability stats
+					mon.IntVal("remote_files_checked").Observe(checker.monStats.remoteFilesChecked)
+					mon.IntVal("remote_segments_checked").Observe(checker.monStats.remoteSegmentsChecked)
+					mon.IntVal("remote_segments_needing_repair").Observe(checker.monStats.remoteSegmentsNeedingRepair)
+					mon.IntVal("remote_segments_lost").Observe(checker.monStats.remoteSegmentsLost)
+					mon.IntVal("remote_files_lost").Observe(int64(len(checker.monStats.remoteSegmentInfo)))
+
+					// reset durability stats for next iteration
+					checker.monStats = durabilityStats{}
 				}
 			}()
 
@@ -110,64 +132,9 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				remote := pointer.GetRemote()
-				if remote == nil {
-					continue
-				}
-
-				pieces := remote.GetRemotePieces()
-				if pieces == nil {
-					checker.logger.Debug("no pieces on remote segment")
-					continue
-				}
-
-				missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
+				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
-					return Error.New("error getting missing pieces %s", err)
-				}
-
-				remoteSegmentsChecked++
-				numHealthy := len(pieces) - len(missingPieces)
-				if (int32(numHealthy) >= pointer.Remote.Redundancy.MinReq) && (int32(numHealthy) <= pointer.Remote.Redundancy.RepairThreshold) {
-					remoteSegmentsNeedingRepair++
-					err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-						Path:       string(item.Key),
-						LostPieces: missingPieces,
-					})
-					if err != nil {
-						return Error.New("error adding injured segment to queue %s", err)
-					}
-				} else if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-					pathElements := storj.SplitPath(storj.Path(item.Key))
-					// check to make sure there are at least *4* path elements. the first three
-					// are project, segment, and bucket name, but we want to make sure we're talking
-					// about an actual object, and that there's an object name specified
-					if len(pathElements) >= 4 {
-						project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
-						lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
-						if contains(remoteSegmentInfo, lostSegInfo) == false {
-							remoteSegmentInfo = append(remoteSegmentInfo, lostSegInfo)
-						}
-					}
-
-					// TODO: irreparable segment should be using storj.NodeID or something, since at the point of repair
-					//       it may have been already repaired once.
-
-					remoteSegmentsLost++
-					// make an entry in to the irreparable table
-					segmentInfo := &pb.IrreparableSegment{
-						Path:               item.Key,
-						SegmentDetail:      pointer,
-						LostPieces:         int32(len(missingPieces)),
-						LastRepairAttempt:  time.Now().Unix(),
-						RepairAttemptCount: int64(1),
-					}
-
-					// add the entry if new or update attempt count if already exists
-					err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
-					if err != nil {
-						return Error.New("error handling irreparable segment to queue %s", err)
-					}
+					return err
 				}
 			}
 			return nil
@@ -176,10 +143,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	if err != nil {
 		return err
 	}
-	mon.IntVal("remote_segments_checked").Observe(remoteSegmentsChecked)
-	mon.IntVal("remote_segments_needing_repair").Observe(remoteSegmentsNeedingRepair)
-	mon.IntVal("remote_segments_lost").Observe(remoteSegmentsLost)
-	mon.IntVal("remote_files_lost").Observe(int64(len(remoteSegmentInfo)))
 
 	return nil
 }
@@ -192,4 +155,109 @@ func contains(a []string, x string) bool {
 		}
 	}
 	return false
+}
+
+func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
+	remote := pointer.GetRemote()
+	if remote == nil {
+		return nil
+	}
+
+	pieces := remote.GetRemotePieces()
+	if pieces == nil {
+		checker.logger.Debug("no pieces on remote segment")
+		return nil
+	}
+
+	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
+	if err != nil {
+		return Error.New("error getting missing pieces %s", err)
+	}
+
+	monStats.remoteSegmentsChecked++
+	pathElements := storj.SplitPath(path)
+	if len(pathElements) >= 2 && pathElements[1] == "l" {
+		monStats.remoteFilesChecked++
+	}
+
+	numHealthy := int32(len(pieces) - len(missingPieces))
+	redundancy := pointer.Remote.Redundancy
+	// we repair when the number of healthy files is less than or equal to the repair threshold
+	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.RepairThreshold != redundancy.SuccessThreshold {
+		if len(missingPieces) == 0 {
+			checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
+			return nil
+		}
+		monStats.remoteSegmentsNeedingRepair++
+		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
+			Path:       path,
+			LostPieces: missingPieces,
+		})
+		if err != nil {
+			return Error.New("error adding injured segment to queue %s", err)
+		}
+
+		// delete always returns nil when something was deleted and also when element didn't exists
+		err = checker.irrdb.Delete(ctx, []byte(path))
+		if err != nil {
+			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
+		}
+	} else if numHealthy < redundancy.MinReq {
+		// check to make sure there are at least *4* path elements. the first three
+		// are project, segment, and bucket name, but we want to make sure we're talking
+		// about an actual object, and that there's an object name specified
+		if len(pathElements) >= 4 {
+			project, bucketName, segmentpath := pathElements[0], pathElements[2], pathElements[3]
+			lostSegInfo := storj.JoinPaths(project, bucketName, segmentpath)
+			if contains(monStats.remoteSegmentInfo, lostSegInfo) == false {
+				monStats.remoteSegmentInfo = append(monStats.remoteSegmentInfo, lostSegInfo)
+			}
+		}
+
+		monStats.remoteSegmentsLost++
+		// make an entry in to the irreparable table
+		segmentInfo := &pb.IrreparableSegment{
+			Path:               []byte(path),
+			SegmentDetail:      pointer,
+			LostPieces:         int32(len(missingPieces)),
+			LastRepairAttempt:  time.Now().Unix(),
+			RepairAttemptCount: int64(1),
+		}
+
+		// add the entry if new or update attempt count if already exists
+		err := checker.irrdb.IncrementRepairAttempts(ctx, segmentInfo)
+		if err != nil {
+			return Error.New("error handling irreparable segment to queue %s", err)
+		}
+	}
+	return nil
+}
+
+// IrreparableProcess picks items from irrepairabledb and spawns a repair worker
+func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	limit := 1
+	var offset int64
+
+	for {
+		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
+		if err != nil {
+			return Error.New("error reading segment from the queue %s", err)
+		}
+
+		// zero segments returned with nil err
+		if len(seg) == 0 {
+			break
+		}
+
+		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
+		if err != nil {
+			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
+		}
+		offset++
+	}
+
+	return nil
 }

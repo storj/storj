@@ -116,6 +116,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) process(ctx context.Context) error {
 	for {
 		seg, err := service.queue.Select(ctx)
+		zap.L().Info("Dequeued segment from repair queue", zap.String("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -124,10 +125,12 @@ func (service *Service) process(ctx context.Context) error {
 		}
 
 		service.Limiter.Go(ctx, func() {
+			zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
 			err := service.repairer.Repair(ctx, seg.GetPath())
 			if err != nil {
 				zap.L().Error("repair failed", zap.Error(err))
 			}
+			zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
 			err = service.queue.Delete(ctx, seg)
 			if err != nil {
 				zap.L().Error("repair delete failed", zap.Error(err))

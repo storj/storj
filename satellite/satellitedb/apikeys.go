@@ -55,9 +55,9 @@ func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyInfo
 	return fromDBXAPIKey(dbKey)
 }
 
-// GetByKey implements satellite.APIKeys
-func (keys *apikeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
-	dbKey, err := keys.db.Get_ApiKey_By_Key(ctx, dbx.ApiKey_Key(key[:]))
+// GetByHead implements satellite.APIKeys
+func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
+	dbKey, err := keys.db.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (keys *apikeys) GetByKey(ctx context.Context, key console.APIKey) (*console
 }
 
 // Create implements satellite.APIKeys
-func (keys *apikeys) Create(ctx context.Context, key console.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	id, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -76,8 +76,9 @@ func (keys *apikeys) Create(ctx context.Context, key console.APIKey, info consol
 		ctx,
 		dbx.ApiKey_Id(id[:]),
 		dbx.ApiKey_ProjectId(info.ProjectID[:]),
-		dbx.ApiKey_Key(key[:]),
+		dbx.ApiKey_Head(head),
 		dbx.ApiKey_Name(info.Name),
+		dbx.ApiKey_Secret(info.Secret),
 	)
 
 	if err != nil {
@@ -123,5 +124,6 @@ func fromDBXAPIKey(key *dbx.ApiKey) (*console.APIKeyInfo, error) {
 		ProjectID: projectID,
 		Name:      key.Name,
 		CreatedAt: key.CreatedAt,
+		Secret:    key.Secret,
 	}, nil
 }

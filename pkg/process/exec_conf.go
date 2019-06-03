@@ -22,20 +22,39 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
+	"github.com/zeebo/structs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 	"gopkg.in/spacemonkeygo/monkit.v2/collect"
 	"gopkg.in/spacemonkeygo/monkit.v2/present"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/cfgstruct"
 )
+
+// DefaultCfgFilename is the default filename used for storing a configuration.
+const DefaultCfgFilename = "config.yaml"
 
 var (
 	mon = monkit.Package()
 
 	contextMtx sync.Mutex
 	contexts   = map[*cobra.Command]context.Context{}
+
+	configMtx sync.Mutex
+	configs   = map[*cobra.Command][]interface{}{}
 )
+
+// Bind sets flags on a command that match the configuration struct
+// 'config'. It ensures that the config has all of the values loaded into it
+// when the command runs.
+func Bind(cmd *cobra.Command, config interface{}, opts ...cfgstruct.BindOpt) {
+	configMtx.Lock()
+	defer configMtx.Unlock()
+
+	cfgstruct.Bind(cmd.Flags(), config, opts...)
+	configs[cmd] = append(configs[cmd], config)
+}
 
 // Exec runs a Cobra command. If a "config" flag is defined it will be parsed
 // and loaded using viper.
@@ -182,7 +201,7 @@ func cleanup(cmd *cobra.Command) {
 
 		cfgFlag := cmd.Flags().Lookup("config-dir")
 		if cfgFlag != nil && cfgFlag.Value.String() != "" {
-			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), "config.yaml")
+			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
 			if cmd.Annotations["type"] != "setup" || fileExists(path) {
 				vip.SetConfigFile(path)
 				err = vip.ReadInConfig()
@@ -192,31 +211,62 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
-		// go back and propagate changed config values to appropriate flags
-		var brokenKeys []string
-		var brokenVals []string
-		for _, key := range vip.AllKeys() {
-			if cmd.Flags().Lookup(key) == nil {
-				// flag couldn't be found
-				brokenKeys = append(brokenKeys, key)
-			} else {
-				flag := cmd.Flag(key)
-				// It's very hard to support string arrays from pflag
-				// because there's no way to unset some value. For now
-				// skip them. They can't be set from viper.
-				if flag.Value.Type() != "stringArray" {
-					oldChanged := flag.Changed
+		configMtx.Lock()
+		configValues := configs[cmd]
+		configMtx.Unlock()
 
-					err := cmd.Flags().Set(key, vip.GetString(key))
-					if err != nil {
-						// flag couldn't be set
-						brokenVals = append(brokenVals, key)
-					}
+		var (
+			brokenKeys  = map[string]struct{}{}
+			missingKeys = map[string]struct{}{}
+			usedKeys    = map[string]struct{}{}
+			allSettings = vip.AllSettings()
+		)
 
-					// revert Changed value
-					flag.Changed = oldChanged
-				}
+		// Hacky hack: these two keys are noprefix which breaks all scoping
+		if val, ok := allSettings["api-key"]; ok {
+			allSettings["client.api-key"] = val
+			delete(allSettings, "api-key")
+		}
+		if val, ok := allSettings["satellite-addr"]; ok {
+			allSettings["client.satellite-addr"] = val
+			delete(allSettings, "satellite-addr")
+		}
+
+		for _, config := range configValues {
+			// Decode and all of the resulting keys into our sets
+			res := structs.Decode(allSettings, config)
+			for key := range res.Used {
+				usedKeys[key] = struct{}{}
 			}
+			for key := range res.Missing {
+				missingKeys[key] = struct{}{}
+			}
+			for key := range res.Broken {
+				brokenKeys[key] = struct{}{}
+			}
+		}
+
+		for key := range missingKeys {
+			// A key is only missing if it was missing from every single config struct, so
+			// remove all of the used keys from it.
+			if _, ok := usedKeys[key]; ok {
+				delete(missingKeys, key)
+				continue
+			}
+
+			// Attempt to set through the flags any keys that were missing from all of the
+			// config structs.
+			flag := cmd.Flags().Lookup(key)
+			if flag == nil {
+				continue
+			}
+
+			changed := flag.Changed
+			if err := flag.Value.Set(vip.GetString(key)); err != nil {
+				brokenKeys[key] = struct{}{}
+			}
+			flag.Changed = changed
+			delete(missingKeys, key)
 		}
 
 		logger, err := newLogger()
@@ -240,11 +290,11 @@ func cleanup(cmd *cobra.Command) {
 
 		// okay now that logging is working, inform about the broken keys
 		if cmd.Annotations["type"] != "helper" {
-			for _, key := range brokenKeys {
+			for key := range missingKeys {
 				logger.Sugar().Infof("Invalid configuration file key: %s", key)
 			}
 		}
-		for _, key := range brokenVals {
+		for key := range brokenKeys {
 			logger.Sugar().Infof("Invalid configuration file value for key: %s", key)
 		}
 
