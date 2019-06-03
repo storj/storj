@@ -5,20 +5,17 @@
 	<tr class="sort-header-container">
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Invoice</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span class="selected" v-html="arrowDown"></span>
-				</div>
+				<p>ID</p>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Billing Period</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
+				<p>Date</p>
+			</div>
+		</th>
+		<th class="sort-header-container__item">
+			<div class="row">
+				<p>Project Name</p>
 			</div>
 		</th>
 		<th class="sort-header-container__item">
@@ -28,16 +25,16 @@
 		</th>
 		<th class="sort-header-container__item">
 			<div class="row">
-				<p>Status</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
 				<p>Amount</p>
 				<div class="sort-header-container__item__arrows">
 					<span v-html="arrowUp"></span>
 					<span v-html="arrowDown"></span>
 				</div>
+			</div>
+		</th>
+		<th class="sort-header-container__item no-padding">
+			<div class="row center">
+				<p>Receipt</p>
 			</div>
 		</th>
 	</tr>
@@ -54,7 +51,7 @@
             };
         }
     })
-    export default class SortProjectBillingHeader extends Vue {
+    export default class SortAccountBillingHeader extends Vue {
     }
 </script>
 
@@ -101,6 +98,12 @@
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+	}
+	.no-padding {
+		padding: 0;
+	}
+	.center {
+		justify-content: center;
 	}
 	@media screen and (max-width: 1600px) {
 		.sort-header-container {
