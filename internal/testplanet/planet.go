@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/orders"
@@ -472,7 +473,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			BwAgreement: bwagreement.Config{},
 			Checker: checker.Config{
-				Interval: 30 * time.Second,
+				Interval:            30 * time.Second,
+				IrreparableInterval: 15 * time.Second,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:    10,
@@ -499,8 +501,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
-				Address:      "127.0.0.1:0",
-				PasswordCost: console.TestPasswordCost,
+				Address:         "127.0.0.1:0",
+				PasswordCost:    console.TestPasswordCost,
+				AuthTokenSecret: "my-suppa-secret-key",
+			},
+			Vouchers: vouchers.Config{
+				Expiration: 30,
 			},
 			Version: planet.NewVersionConfig(),
 		}
@@ -621,6 +627,14 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
+		}
+
+		newIPCount := planet.config.Reconfigure.NewIPCount
+		if newIPCount > 0 {
+			if i >= count-newIPCount {
+				config.Server.Address = fmt.Sprintf("127.0.0.%d:0", i+1)
+				config.Server.PrivateAddress = fmt.Sprintf("127.0.0.%d:0", i+1)
+			}
 		}
 
 		verInfo := planet.NewVersionInfo()

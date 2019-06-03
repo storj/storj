@@ -203,23 +203,24 @@ func TestAddNode(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			ok, err := rt.addNode(c.node)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			ok, err := rt.addNode(testCase.node)
 			require.NoError(t, err)
-			require.Equal(t, c.added, ok)
+			require.Equal(t, testCase.added, ok)
 			kadKeys, err := rt.kadBucketDB.List(nil, 0)
 			require.NoError(t, err)
 			for i, v := range kadKeys {
-				require.True(t, bytes.Equal(c.kadIDs[i], v[:2]))
+				require.True(t, bytes.Equal(testCase.kadIDs[i], v[:2]))
 				ids, err := rt.getNodeIDsWithinKBucket(keyToBucketID(v))
 				require.NoError(t, err)
-				require.True(t, len(ids) == len(c.nodeIDs[i]))
+				require.True(t, len(ids) == len(testCase.nodeIDs[i]))
 				for j, id := range ids {
-					require.True(t, bytes.Equal(teststorj.NodeIDFromString(c.nodeIDs[i][j]).Bytes(), id.Bytes()))
+					require.True(t, bytes.Equal(teststorj.NodeIDFromString(testCase.nodeIDs[i][j]).Bytes(), id.Bytes()))
 				}
 			}
 
-			if c.testID == "8O" {
+			if testCase.testID == "8O" {
 				nodeID80 := teststorj.NodeIDFromString("8O")
 				n := rt.replacementCache[keyToBucketID(nodeID80.Bytes())]
 				require.Equal(t, nodeID80.Bytes(), n[0].Id.Bytes())
@@ -348,11 +349,12 @@ func TestWouldBeInNearestK(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			result, err := rt.wouldBeInNearestK(c.nodeID)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			result, err := rt.wouldBeInNearestK(testCase.nodeID)
 			assert.NoError(t, err)
-			assert.Equal(t, c.closest, result)
-			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID.Bytes(), []byte("")))
+			assert.Equal(t, testCase.closest, result)
+			assert.NoError(t, rt.nodeBucketDB.Put(testCase.nodeID.Bytes(), []byte("")))
 		})
 	}
 }
@@ -437,10 +439,11 @@ func TestGetNodeIDsWithinKBucket(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			n, err := rt.getNodeIDsWithinKBucket(c.kadID)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			n, err := rt.getNodeIDsWithinKBucket(testCase.kadID)
 			assert.NoError(t, err)
-			for i, id := range c.expected {
+			for i, id := range testCase.expected {
 				assert.True(t, id.Equal(n[i].Bytes()))
 			}
 		})
@@ -556,10 +559,11 @@ func TestGetKBucketRange(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			ep, err := rt.getKBucketRange(keyToBucketID(c.id.Bytes()))
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			ep, err := rt.getKBucketRange(keyToBucketID(testCase.id.Bytes()))
 			assert.NoError(t, err)
-			for i, k := range c.expected {
+			for i, k := range testCase.expected {
 				assert.True(t, k.Equal(ep[i][:]))
 			}
 		})
@@ -624,11 +628,12 @@ func TestDetermineLeafDepth(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			c.addNode()
-			d, err := rt.determineLeafDepth(c.id)
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			testCase.addNode()
+			d, err := rt.determineLeafDepth(testCase.id)
 			assert.NoError(t, err)
-			assert.Equal(t, c.depth, d)
+			assert.Equal(t, testCase.depth, d)
 		})
 	}
 }
@@ -676,9 +681,10 @@ func TestSplitBucket(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		t.Run(c.testID, func(t *testing.T) {
-			newID := rt.splitBucket(keyToBucketID(c.idA), c.depth)
-			assert.Equal(t, c.idB, newID[:2])
+		testCase := c
+		t.Run(testCase.testID, func(t *testing.T) {
+			newID := rt.splitBucket(keyToBucketID(testCase.idA), testCase.depth)
+			assert.Equal(t, testCase.idB, newID[:2])
 		})
 	}
 }

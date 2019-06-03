@@ -13,6 +13,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
@@ -699,6 +700,13 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// VetNode returns whether or not the node reaches reputable thresholds
+func (m *lockedOverlayCache) VetNode(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.VetNode(ctx, id, criteria)
+}
+
 // SelectNewStorageNodes looks up nodes based on new node criteria
 func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
@@ -766,6 +774,13 @@ func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+}
+
+// GetProjectUsageLimits returns project usage limit
+func (m *lockedProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProjectUsageLimits(ctx, projectID)
 }
 
 // GetStorageTotals returns the current inline and remote storage usage for a projectID

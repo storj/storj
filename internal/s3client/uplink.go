@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -28,37 +27,31 @@ type Uplink struct {
 func NewUplink(conf Config) (Client, error) {
 	client := &Uplink{conf}
 
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	setupDir, err := filepath.Abs(defaultConfDir)
+	if client.conf.ConfigDir != "" {
+		fmt.Printf("Using existing uplink config at %s\n", client.conf.ConfigDir)
+		return client, nil
+	}
+
+	client.conf.ConfigDir = fpath.ApplicationDir("storj", "s3-client", "uplink")
+
+	// remove existing s3client uplink config so that
+	// we can create a new one with up-to-date settings
+	err := os.RemoveAll(client.conf.ConfigDir)
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
-	validForSetup, _ := fpath.IsValidSetupDir(setupDir)
 
-	// uplink configuration doesn't exists
-	if validForSetup {
-		fmt.Printf(`No existing uplink configuration located at (%v)...
-		Creating uplink configuration with the following settings:
-	"--non-interactive: true",
-	"--api-key: %s",
-	"--enc.key: %s",
-	"--satellite-addr: %s
-	`,
-			setupDir, client.conf.APIKey, client.conf.EncryptionKey, client.conf.Satellite,
-		)
-		cmd := client.cmd("setup",
-			"--non-interactive", "true",
-			"--api-key", client.conf.APIKey,
-			"--enc.key", client.conf.EncryptionKey,
-			"--satellite-addr", client.conf.Satellite)
+	cmd := client.cmd("--config-dir", client.conf.ConfigDir,
+		"setup",
+		"--non-interactive", "true",
+		"--api-key", client.conf.APIKey,
+		"--enc.encryption-key", client.conf.EncryptionKey,
+		"--satellite-addr", client.conf.Satellite,
+	)
 
-		_, err := cmd.Output()
-		if err != nil {
-			return nil, UplinkError.Wrap(fullExitError(err))
-		}
-	} else {
-		// if uplink config file already exists, use the current config
-		fmt.Printf("Using existing uplink configuration from (%v). To pass in new settings, delete existing configs first\n", setupDir)
+	_, err = cmd.Output()
+	if err != nil {
+		return nil, UplinkError.Wrap(fullExitError(err))
 	}
 
 	return client, nil
@@ -67,6 +60,8 @@ func NewUplink(conf Config) (Client, error) {
 func (client *Uplink) cmd(subargs ...string) *exec.Cmd {
 	args := []string{}
 
+	configArgs := []string{"--config-dir", client.conf.ConfigDir}
+	args = append(args, configArgs...)
 	args = append(args, subargs...)
 
 	cmd := exec.Command("uplink", args...)
@@ -120,17 +115,11 @@ func (client *Uplink) Upload(bucket, objectName string, data []byte) error {
 // Download downloads object data
 func (client *Uplink) Download(bucket, objectName string, buffer []byte) ([]byte, error) {
 	cmd := client.cmd("cat", "s3://"+bucket+"/"+objectName)
-
-	buf := &bufferWriter{buffer[:0]}
-	cmd.Stdout = buf
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
+	out, err := cmd.Output()
 	if err != nil {
 		return nil, UplinkError.Wrap(fullExitError(err))
 	}
-
-	return buf.data, nil
+	return out, nil
 }
 
 // Delete deletes object

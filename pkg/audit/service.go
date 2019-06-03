@@ -29,6 +29,7 @@ type Config struct {
 	Interval           time.Duration `help:"how frequently segments are audited" default:"30s"`
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5s"`
+	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -46,12 +47,15 @@ type Service struct {
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
 	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
+
+	reporter := NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount))
+
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB), transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
-		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB),
+		Verifier: NewVerifier(log.Named("audit:verifier"), reporter, transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
+		Reporter: reporter,
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil

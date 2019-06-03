@@ -45,8 +45,8 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(listCmd)
-	cfgstruct.Bind(addCmd.Flags(), &cacheCfg, defaults)
-	cfgstruct.Bind(listCmd.Flags(), &cacheCfg, defaults)
+	process.Bind(addCmd, &cacheCfg, defaults)
+	process.Bind(listCmd, &cacheCfg, defaults)
 }
 
 func cmdList(cmd *cobra.Command, args []string) (err error) {

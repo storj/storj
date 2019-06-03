@@ -4,17 +4,26 @@
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 
+# limit above which we consider an audit is failed
+# audit.max-reverify-count: 3
+
 # the minimum acceptable bytes that storage nodes can transfer per second to the satellite
 # audit.min-bytes-per-second: 128 B
 
 # how frequently checker should audit segments
 # checker.interval: 30s
 
+# how frequently irrepairable checker should check for lost pieces
+# checker.irreparable-interval: 15s
+
 # server address of the graphql api gateway and frontend app
 # console.address: "127.0.0.1:8081"
 
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
+
+# secret used to sign auth tokens
+# console.auth-token-secret: ""
 
 # external endpoint of the satellite if hosted
 # console.external-address: ""
@@ -158,7 +167,7 @@ kademlia.operator.wallet: ""
 # metrics.app: "satellite"
 
 # application suffix
-# metrics.app-suffix: "-dev"
+# metrics.app-suffix: "-release"
 
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
@@ -246,4 +255,7 @@ server.private-address: "127.0.0.1:7778"
 
 # server address to check its version against
 # version.server-address: "https://version.alpha.storj.io"
+
+# number of days before a voucher expires
+# vouchers.expiration: 30
 

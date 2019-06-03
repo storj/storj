@@ -712,6 +712,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Add usage_limit column to projects table",
+				Version:     24,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD usage_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add disqualified column to nodes table",
+				Version:     25,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD disqualified boolean NOT NULL DEFAULT false;`,
+				},
+			},
 		},
 	}
 }
