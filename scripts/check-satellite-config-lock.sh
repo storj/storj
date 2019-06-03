@@ -12,7 +12,9 @@ cleanup(){
 }
 trap cleanup EXIT
 
-satellite --config-dir "$TMPDIR" --defaults release setup > /dev/null
+pushd "$TMPDIR"
+satellite --config-dir "./testdata" --defaults release setup > /dev/null
+popd
 
 diff "./testdata/satellite-config.yaml.lock" "$TMPDIR/config.yaml"
 if [[ $? != 0 ]]; then
