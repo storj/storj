@@ -14,11 +14,12 @@ import (
 	"storj.io/storj/satellite/marketing"
 )
 
-func TestOfferCycleSuccess(t *testing.T) {
+func TestOffer_Database(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		offers := []*marketing.NewOffer{
+		// Happy path
+		validOffers := []marketing.NewOffer{
 			{
 				Name:                      "test",
 				Description:               "test offer",
@@ -27,7 +28,7 @@ func TestOfferCycleSuccess(t *testing.T) {
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
-				ExpiresAt:                 time.Now().Add(time.Hour * 1),
+				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
 				Status:                    marketing.Active,
 			},
 			{
@@ -38,13 +39,13 @@ func TestOfferCycleSuccess(t *testing.T) {
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
-				ExpiresAt:                 time.Now().Add(time.Hour * 1),
+				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
 				Status:                    marketing.Default,
 			},
 		}
 
-		for _, o := range offers {
-			new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, o)
+		for i := range validOffers {
+			new, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, &validOffers[i])
 			require.NoError(t, err)
 
 			all, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
@@ -63,6 +64,37 @@ func TestOfferCycleSuccess(t *testing.T) {
 			}
 			err = planet.Satellites[0].DB.Marketing().Offers().Update(ctx, update)
 			require.NoError(t, err)
+		}
+
+		// create with expired offer
+		expiredOffers := []marketing.NewOffer{
+			{
+				Name:                      "test",
+				Description:               "test offer",
+				AwardCreditInCents:        100,
+				InviteeCreditInCents:      50,
+				AwardCreditDurationDays:   60,
+				InviteeCreditDurationDays: 30,
+				RedeemableCap:             50,
+				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
+				Status:                    marketing.Active,
+			},
+			{
+				Name:                      "test",
+				Description:               "test offer",
+				AwardCreditInCents:        100,
+				InviteeCreditInCents:      50,
+				AwardCreditDurationDays:   60,
+				InviteeCreditDurationDays: 30,
+				RedeemableCap:             50,
+				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
+				Status:                    marketing.Default,
+			},
+		}
+
+		for i := range expiredOffers {
+			_, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, &expiredOffers[i])
+			require.Error(t, err)
 		}
 	})
 }

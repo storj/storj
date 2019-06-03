@@ -25,7 +25,7 @@ func (offers *offers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 		return nil, marketing.OffersErr.Wrap(err)
 	}
 
-	return offersFromDbx(offersDbx)
+	return offersFromDBX(offersDbx)
 }
 
 // GetCurrent returns an offer that has not expired based on offer status
@@ -34,7 +34,7 @@ func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.Offe
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status"
 	statement = `
 		WITH o AS (
-			SELECT ` + columns + ` FROM offers WHERE status=? AND expires_at>?
+			SELECT ` + columns + ` FROM offers WHERE status=? AND expires_at>? AND num_redeemed < redeemable_cap
 		)
 		SELECT ` + columns + ` FROM o
 		UNION ALL
@@ -60,6 +60,11 @@ func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.Offe
 
 // Create inserts a new offer into the db
 func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marketing.Offer, error) {
+	currentTime := time.Now()
+	if o.ExpiresAt.Before(currentTime) {
+		return nil, marketing.OffersErr.New("expiration time: %v can't be before: %v", o.ExpiresAt, currentTime)
+	}
+
 	tx, err := offers.db.Open(ctx)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(err)
@@ -69,7 +74,6 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 		UPDATE offers SET status=?, expires_at=?
 		WHERE status=? AND expires_at>?;
 	`)
-	currentTime := time.Now()
 	_, err = tx.Tx.ExecContext(ctx, statement, marketing.Done, currentTime, o.Status, currentTime)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
@@ -116,21 +120,21 @@ func (offers *offers) Update(ctx context.Context, o *marketing.UpdateOffer) erro
 	return nil
 }
 
-func offersFromDbx(offersDbx []*dbx.Offer) ([]marketing.Offer, error) {
+func offersFromDBX(offersDbx []*dbx.Offer) ([]marketing.Offer, error) {
 	var offers []marketing.Offer
-	var errors []error
+	var errList errs.Group
 
 	for _, offerDbx := range offersDbx {
 
 		offer, err := convertDBOffer(offerDbx)
 		if err != nil {
-			errors = append(errors, err)
+			errList.Add(err)
 			continue
 		}
 		offers = append(offers, *offer)
 	}
 
-	return offers, errs.Combine(errors...)
+	return offers, errList.Err()
 }
 
 func convertDBOffer(offerDbx *dbx.Offer) (*marketing.Offer, error) {

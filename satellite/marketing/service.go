@@ -46,7 +46,7 @@ func (s *Service) ListAllOffers(ctx context.Context) (offers []Offer, err error)
 		return offers, Error.Wrap(err)
 	}
 
-	return
+	return offers, nil
 }
 
 // GetCurrentOffer returns current active offer
@@ -66,7 +66,8 @@ func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer
 	defer mon.Task()(&ctx)(&err)
 
 	if offer.Status == Default {
-		offer.ExpiresAt = time.Now().AddDate(100, 0, 0)
+		offer.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
+		offer.RedeemableCap = 1
 	}
 
 	o, err = s.db.Offers().Create(ctx, offer)
@@ -81,6 +82,9 @@ func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer
 func (s *Service) UpdateOffer(ctx context.Context, o *UpdateOffer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if o.Status == Default {
+		o.NumRedeemed = 0
+	}
 	err = s.db.Offers().Update(ctx, o)
 	if err != nil {
 		return Error.Wrap(err)
