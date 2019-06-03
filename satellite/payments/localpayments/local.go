@@ -41,7 +41,7 @@ var defaultPaymentMethod = payments.PaymentMethod{
 		Name:     "Storj Labs",
 		ExpMonth: 12,
 		ExpYear:  2024,
-		LastFour: "",
+		LastFour: "3567",
 	},
 	CreatedAt: creationDate,
 }
