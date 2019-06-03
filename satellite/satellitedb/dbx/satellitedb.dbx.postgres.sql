@@ -129,6 +129,7 @@ CREATE TABLE offers (
 	expires_at timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	status integer NOT NULL,
+	type integer NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (

@@ -593,8 +593,10 @@ model offer (
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: Done=0, Default=1, Active=2.
+	// status has three possible value: NoStatus=0, Default=1, Active=2.
 	field status int ( updatable )
+	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	field type int ( updatable )
 )
 
 read one (
@@ -602,7 +604,9 @@ read one (
     where offer.id = ?
 )
 
-read all ( select offer )
+read all (
+	select offer
+)
 
 update offer (
 	where offer.id = ?

@@ -129,6 +129,7 @@ CREATE TABLE offers (
 	expires_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,
+	type INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (

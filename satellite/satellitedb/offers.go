@@ -29,25 +29,25 @@ func (offers *offers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 }
 
 // GetCurrent returns an offer that has not expired based on offer status
-func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.OfferStatus) (*marketing.Offer, error) {
+func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
 	var statement string
-	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status"
+	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type"
 	statement = `
 		WITH o AS (
-			SELECT ` + columns + ` FROM offers WHERE status=? AND expires_at>? AND num_redeemed < redeemable_cap
+			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>? AND num_redeemed < redeemable_cap
 		)
 		SELECT ` + columns + ` FROM o
 		UNION ALL
 		SELECT ` + columns + ` FROM offers
-		WHERE status=?
+		WHERE type=? AND status=?
 		AND NOT EXISTS (
 			SELECT id FROM o
 		) order by created_at desc;`
 
-	rows := offers.db.DB.QueryRowContext(ctx, offers.db.Rebind(statement), offerStatus, time.Now(), marketing.Default)
+	rows := offers.db.DB.QueryRowContext(ctx, offers.db.Rebind(statement), offerStatus, offerType, time.Now().UTC(), offerType, marketing.Default)
 
 	o := marketing.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCreditInCents, &o.InviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status)
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCreditInCents, &o.InviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
 		return nil, marketing.OffersErr.New("no current offer")
 	}
@@ -72,9 +72,9 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 
 	statement := offers.db.Rebind(`
 		UPDATE offers SET status=?, expires_at=?
-		WHERE status=? AND expires_at>?;
+		WHERE status=? AND type=? AND expires_at>?;
 	`)
-	_, err = tx.Tx.ExecContext(ctx, statement, marketing.Done, currentTime, o.Status, currentTime)
+	_, err = tx.Tx.ExecContext(ctx, statement, marketing.Done, currentTime, o.Status, o.Type, currentTime)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -89,6 +89,7 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 		dbx.Offer_RedeemableCap(o.RedeemableCap),
 		dbx.Offer_ExpiresAt(o.ExpiresAt),
 		dbx.Offer_Status(int(o.Status)),
+		dbx.Offer_Type(int(o.Type)),
 	)
 	if err != nil {
 		return nil, marketing.OffersErr.Wrap(errs.Combine(err, tx.Rollback()))
@@ -155,6 +156,7 @@ func convertDBOffer(offerDbx *dbx.Offer) (*marketing.Offer, error) {
 		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
 		CreatedAt:                 offerDbx.CreatedAt,
 		Status:                    marketing.OfferStatus(offerDbx.Status),
+		Type:                      marketing.OfferType(offerDbx.Type),
 	}
 
 	return &o, nil
