@@ -1,36 +1,34 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package offersweb
+package marketingweb
 
 import (
-	"html/template"
 	"context"
+	"html/template"
 	"net"
-	"fmt"
 	"net/http"
-	"strings"
 	"runtime"
+	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"github.com/gorilla/mux"
-	"storj.io/storj/satellite/marketing"
 )
 
 // Error is satellite referral error type
 var (
-	Error = errs.Class("satellite referral error")
+	Error       = errs.Class("satellite referral error")
 	_, fp, _, _ = runtime.Caller(0)
-	dir = strings.Split(fp,"server.go")[0]
+	dir         = strings.Split(fp, "server.go")[0]
 )
 
-func addPages(assets []string) ([]string){
+func addPages(assets []string) []string {
 	d := dir + "pages/"
-	pages  := []string{d+"base.html",d+"index.html",d+"banner.html"}
+	pages := []string{d + "base.html", d + "index.html", d + "banner.html"}
 	for _, page := range assets {
-		pages = append(pages,page)
+		pages = append(pages, page)
 	}
 	return pages
 }
@@ -48,16 +46,14 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
-	service  *marketing.Service
 }
 
 // NewServer creates new instance of offersweb server
-func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
-		service:  service,
 	}
 
 	logger.Sugar().Debugf("Starting marketingweb UI...", server.listener.Addr().String())
@@ -87,22 +83,22 @@ func (s *Server) localAccessHandler(next http.HandlerFunc) http.Handler {
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
-		s.serveError(w,req)
+		s.serveError(w, req)
 		return
 	}
-	d := dir+"pages/"
-	pages :=  []string{d+"home.html",d+"refOffers.html",d+"freeOffers.html",d+"roModal.html",d+"foModal.html"}
+	d := dir + "pages/"
+	pages := []string{d + "home.html", d + "refOffers.html", d + "freeOffers.html", d + "roModal.html", d + "foModal.html"}
 	files := addPages(pages)
 	home := template.Must(template.New("landingPage").ParseFiles(files...))
 	home.ExecuteTemplate(w, "base", nil)
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	d:=dir+"pages/"
-	pages := []string{d+"/404.html"}
+	d := dir + "pages/"
+	pages := []string{d + "/404.html"}
 	files := addPages(pages)
 	unavailable := template.Must(template.New("404").ParseFiles(files...))
-	unavailable.ExecuteTemplate(w,"base",nil)
+	unavailable.ExecuteTemplate(w, "base", nil)
 }
 
 // Run starts the server that host admin web app and api endpoint

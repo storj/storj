@@ -49,10 +49,9 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
-	"storj.io/storj/satellite/marketing"
-	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
@@ -121,7 +120,7 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Vouchers vouchers.Config
+	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -212,7 +211,6 @@ type Peer struct {
 
 	Marketing struct {
 		Listener net.Listener
-		Service  *marketing.Service
 		Endpoint *marketingweb.Server
 	}
 }
@@ -601,11 +599,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Marketing.Service, err = marketing.NewService(
-			peer.Log.Named("marketing:service"),
-			peer.DB.Marketing(),
-		)
-
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -613,7 +606,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Marketing.Endpoint = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
-			peer.Marketing.Service,
 			peer.Marketing.Listener,
 		)
 	}
