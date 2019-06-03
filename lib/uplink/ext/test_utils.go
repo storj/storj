@@ -41,10 +41,12 @@ type CInt32 = C.int32_t
 type CAPIKeyRef = C.APIKeyRef_t
 type CUplinkRef = C.UplinkRef_t
 type CProjectRef = C.ProjectRef_t
+type CBucketRef = C.BucketRef_t
 type CBufferRef = C.BufferRef_t
 
 // Struct types
 type CBucket = C.Bucket_t
+type CUploadOptions = C.UploadOptions_t
 
 var (
 	cLibDir, cSrcDir, cTestsDir, libuplink string
@@ -258,5 +260,14 @@ func newGoRedundancyScheme(cScheme *C.RedundancyScheme_t) storj.RedundancyScheme
 		RepairShares:   int16(cScheme.repair_shares),
 		OptimalShares:  int16(cScheme.optimal_shares),
 		TotalShares:    int16(cScheme.total_shares),
+	}
+}
+
+func newCUploadOpts(opts *uplink.UploadOptions) *CUploadOptions {
+	metadataRef := C.MapRef_t(structRefMap.Add(opts.Metadata))
+	return &CUploadOptions{
+		content_type: C.CString(opts.ContentType),
+		metadata: metadataRef,
+		expires: C.time_t(opts.Expires.Unix()),
 	}
 }

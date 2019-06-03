@@ -29,6 +29,7 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cO
 		return
 	}
 
+	// TODO: should `unsafe.Pointer(cOpts) == nil` be an error?
 	var metadata map[string]string
 	if uintptr(cOpts.metadata) != 0 {
 		metadata, ok = structRefMap.Get(token(cOpts.metadata)).(map[string]string)
@@ -94,7 +95,7 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 
 	for i, object := range objectList.Items {
 		cObject := (*C.Object_t)(unsafe.Pointer(uintptr(int(cObjectsPtr) + (i * objectSize))))
-		*cObject = objectToCObject(&object)
+		*cObject = NewCObject(&object)
 	}
 
 	return C.ObjectList_t{
@@ -122,7 +123,7 @@ func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 
 }
 
-func objectToCObject(object *storj.Object) C.Object_t {
+func NewCObject(object *storj.Object) C.Object_t {
 	return C.Object_t {
 		version:      C.uint32_t(object.Version),
 		bucket:       NewCBucket(&object.Bucket),
