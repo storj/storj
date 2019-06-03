@@ -51,6 +51,9 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripepayments"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -555,10 +558,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = localpayments.NewService(nil)
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 

@@ -34,6 +34,9 @@
 # path to static resources
 # console.static-dir: ""
 
+# stripe api key
+# console.stripe-key: ""
+
 # satellite database connection string
 # database: "postgres://"
 
