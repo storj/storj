@@ -46,6 +46,7 @@ type CBufferRef = C.BufferRef_t
 
 // Struct types
 type CBucket = C.Bucket_t
+type CObject = C.Object_t
 type CUploadOptions = C.UploadOptions_t
 
 var (
@@ -241,7 +242,7 @@ func newGoBucket(cBucket *CBucket) storj.Bucket {
 func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) uplink.BucketConfig {
 	return uplink.BucketConfig{
 		EncryptionParameters: newGoEncryptionParams(cBucketConfig.encryption_parameters),
-		PathCipher: storj.CipherSuite(cBucketConfig.path_cipher),
+		PathCipher:           storj.CipherSuite(cBucketConfig.path_cipher),
 	}
 }
 
@@ -263,11 +264,34 @@ func newGoRedundancyScheme(cScheme *C.RedundancyScheme_t) storj.RedundancyScheme
 	}
 }
 
-func newCUploadOpts(opts *uplink.UploadOptions) *CUploadOptions {
+func newGoObject(t *testing.T, cObj *C.Object_t) *storj.Object {
+	var metadata map[string]string
+	if uintptr(cObj.metadata) != 0 {
+		var ok bool
+		metadata, ok = structRefMap.Get(token(cObj.metadata)).(map[string]string)
+		require.True(t, ok)
+		require.NotEmpty(t, metadata)
+	}
+	cBucket := cObj.bucket
+
+	return &storj.Object{
+		Version:     uint32(cObj.version),
+		Bucket:      newGoBucket(&cBucket),
+		Path:        C.GoString(cObj.path),
+		IsPrefix:    bool(cObj.is_prefix),
+		Metadata:    metadata,
+		ContentType: C.GoString(cObj.content_type),
+		Created:     time.Unix(int64(cObj.created), 0),
+		Modified:    time.Unix(int64(cObj.modified), 0),
+		Expires:     time.Unix(int64(cObj.expires), 0),
+	}
+}
+
+func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
 	metadataRef := C.MapRef_t(structRefMap.Add(opts.Metadata))
-	return &CUploadOptions{
+	return &C.UploadOptions_t{
 		content_type: C.CString(opts.ContentType),
-		metadata: metadataRef,
-		expires: C.time_t(opts.Expires.Unix()),
+		metadata:     metadataRef,
+		expires:      C.time_t(opts.Expires.Unix()),
 	}
 }

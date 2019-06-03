@@ -6,8 +6,10 @@ package main
 import (
 	"bytes"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,28 +58,28 @@ func TestUploadObject(t *testing.T) {
 
 	testObjects := newTestObjects(15)
 	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 		require.NoError(t, err)
 
 		// TODO: test with EncryptionAccess
 		// TODO: test with different content types
-		bucket, err := project.OpenBucket(ctx, bucketName, nil)
+		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
 		require.NoError(t, err)
-		require.NotNil(t, bucket)
+		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(bucket))
+		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
 		for _, testObj := range testObjects {
 			testObj.cUpload(t, cBucketRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			objectList, err := bucket.ListObjects(ctx, nil)
+			objectList, err := openBucket.ListObjects(ctx, nil)
 			require.NoError(t, err)
 			require.NotEmpty(t, objectList)
 			require.Len(t, objectList.Items, 1)
 
 			object := objectList.Items[0]
 
-			assert.Equal(t, object.Bucket.Name, bucketName)
+			assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
 			assert.Equal(t, object.Path, testObj.Path)
 			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
 			assert.Equal(t, object.Created, object.Modified)
@@ -88,7 +90,7 @@ func TestUploadObject(t *testing.T) {
 			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
 			// TODO: assert version
 
-			err = bucket.DeleteObject(ctx, object.Path)
+			err = openBucket.DeleteObject(ctx, object.Path)
 			require.NoError(t, err)
 		}
 	})
@@ -107,27 +109,34 @@ func TestListObjects(t *testing.T) {
 
 	testObjects := newTestObjects(15)
 	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 		require.NoError(t, err)
 
 		// TODO: test with EncryptionAccess
 		// TODO: test with different content types
-		bucket, err := project.OpenBucket(ctx, bucketName, nil)
+		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
 		require.NoError(t, err)
-		require.NotNil(t, bucket)
+		require.NotNil(t, openBucket)
+
+		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
 
 		for _, testObj := range testObjects {
-			testObj.goUpload(t, ctx, bucket)
+			testObj.goUpload(t, ctx, openBucket)
 			require.Empty(t, cCharToGoString(cErr))
 
-			objectList, err := bucket.ListObjects(ctx, nil)
-			require.NoError(t, err)
-			require.NotEmpty(t, objectList)
-			require.Len(t, objectList.Items, 1)
+			// TODO: test with different list options
+			cObjectList := ListObjects(cBucketRef, nil, &cErr)
+			require.Empty(t, cCharToGoString(cErr))
 
-			object := objectList.Items[0]
+			assert.Equal(t, 1, int(cObjectList.length))
+			assert.Equal(t, bucket.Name,  cCharToGoString(cObjectList.bucket))
 
-			assert.Equal(t, object.Bucket.Name, bucketName)
+			object := newGoObject(t, (*CObject)(unsafe.Pointer(cObjectList.items)))
+
+			// NB (workaround): should we use nano precision in c bucket?
+			bucket.Created = time.Unix(bucket.Created.Unix(), 0).UTC()
+			assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
+
 			assert.Equal(t, object.Path, testObj.Path)
 			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
 			assert.Equal(t, object.Created, object.Modified)
@@ -138,7 +147,7 @@ func TestListObjects(t *testing.T) {
 			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
 			// TODO: assert version
 
-			err = bucket.DeleteObject(ctx, object.Path)
+			err = openBucket.DeleteObject(ctx, object.Path)
 			require.NoError(t, err)
 		}
 	})
