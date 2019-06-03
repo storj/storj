@@ -48,8 +48,8 @@ type DB interface {
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-	// VetNode returns whether or not the node reaches reputable thresholds
-	VetNode(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
+	// IsVetted returns whether or not the node reaches reputable thresholds
+	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// Update updates node address
@@ -284,8 +284,8 @@ func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *No
 	return cache.db.CreateStats(ctx, nodeID, initial)
 }
 
-// VetNode returns whether or not the node reaches reputable thresholds
-func (cache *Cache) VetNode(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
@@ -293,7 +293,7 @@ func (cache *Cache) VetNode(ctx context.Context, nodeID storj.NodeID) (reputable
 		UptimeCount:        cache.preferences.UptimeCount,
 		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-	reputable, err = cache.db.VetNode(ctx, nodeID, criteria)
+	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
 		return false, err
 	}
