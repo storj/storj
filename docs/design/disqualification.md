@@ -61,6 +61,10 @@ Existing SQL queries employing logic such as `WHERE audit_success_ratio >= $2 AN
 
 Existing calls to the DBX `UpdateNodeInfo()` method must set `disqualified` if appropriate.  This may be best accomplished by a database trigger or stored procedure.
 
+### Determining Disqualification
+
+A node is disqualified when its reputation falls below a fixed value.  We are currently envision two disinct reputation check values, one for uptime and another for audit.  These values will represent an idea value minus some some standard-deviation.  The current system for calculation repuations is based on four values: α0, β0, λ, and v.  Because changing these values will change the expected standard deviation of measurements, the reputation cutoff values will vary as these parameters vary.  At this phase, it is exected that these cutoffs are all configured based on numbers from the data science team.
+
 ## Rationale
 
 Although disqualification is largely an atomic operation that would be handled well by an external hash, the inherent tie-ins with node selection make the above solution the most straightforward.  If we were to refactor node selection in the future, I would likely leave disqualified nodes out of the stats database, leaving them only in the overlay cache.
