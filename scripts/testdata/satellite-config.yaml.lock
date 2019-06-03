@@ -10,6 +10,9 @@
 # the minimum acceptable bytes that storage nodes can transfer per second to the satellite
 # audit.min-bytes-per-second: 128 B
 
+# the minimum duration for downloading a share from storage nodes before timing out
+# audit.min-download-timeout: 5s
+
 # how frequently checker should audit segments
 # checker.interval: 30s
 
