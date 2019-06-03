@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package internalservice
+package localpayments
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 // storjCreationDate is a Storj creation date. TODO: correct values
 var storjCreationDate = time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
 
-// defaultPaymentMethod represents one and only payment method for internal payments,
+// defaultPaymentMethod represents one and only payment method for local payments,
 // which attached to all customers by default
 var defaultPaymentMethod = payments.PaymentMethod{
 	ID:         []byte("0"),
@@ -32,7 +32,8 @@ var defaultPaymentMethod = payments.PaymentMethod{
 	CreatedAt: storjCreationDate,
 }
 
-// StorjCustomer is a predefined customer which is
+// StorjCustomer is a predefined customer
+// which is linked with every user by default
 var storjCustomer = payments.Customer{
 	ID:        []byte("0"),
 	Name:      "Storj",
@@ -40,7 +41,7 @@ var storjCustomer = payments.Customer{
 	CreatedAt: storjCreationDate,
 }
 
-// internalPaymentsErr is a wrapper for internal payments service errors
+// internalPaymentsErr is a wrapper for local payments service errors
 var internalPaymentsErr = errs.Class("internal payments error")
 
 // DB is internal payment methods storage
@@ -53,8 +54,8 @@ type service struct {
 	db DB
 }
 
-// New create new instance of internal payments service
-func New(db DB) payments.Service {
+// NewService create new instance of local payments service
+func NewService(db DB) payments.Service {
 	return &service{db: db}
 }
 

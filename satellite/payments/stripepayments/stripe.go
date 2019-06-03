@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package stripeservice
+package stripepayments
 
 import (
 	"context"
@@ -26,8 +26,8 @@ type service struct {
 	client *client.API
 }
 
-// New creates new instance of StripeService initialized with API key
-func New(log *zap.Logger, apiKey string) payments.Service {
+// NewService creates new instance of StripeService initialized with API key
+func NewService(log *zap.Logger, apiKey string) payments.Service {
 	stripe.DefaultLeveledLogger = log.Sugar()
 
 	sc := new(client.API)

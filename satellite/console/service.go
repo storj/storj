@@ -125,13 +125,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
-	// clean up user on error
-	defer func() {
-		if err != nil {
-			u = nil
-		}
-	}()
-
 	err = withTx(tx, func(tx DBTx) error {
 		u, err = tx.Users().Insert(ctx,
 			&User{
@@ -153,7 +146,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil
 	})
 
-	return u, err
+	if err != nil {
+		return nil, err
+	}
+
+	return u, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -465,13 +462,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, errs.New(internalErrMsg)
 	}
 
-	// clean up project on error
-	defer func() {
-		if err != nil {
-			p = nil
-		}
-	}()
-
 	err = withTx(tx, func(tx DBTx) (err error) {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
@@ -491,7 +481,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil
 	})
 
-	return p, err
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
 
 // DeleteProject is a method for deleting project by id
