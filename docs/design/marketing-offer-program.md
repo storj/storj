@@ -67,33 +67,31 @@ The credit is automatically applied to the account and will have a max limit tha
     id - int
     name -  text
     description - text  
-    award_credit_in_cents - int
-    invitee_credit_in_cents - int
-    redeemable_cap - int
-    num_redeemed - int
+    credits - integer
+    redeemable_cap - integer
+    num_redeemed - integer
     created_at - timestamp
     expires_at - timestamp
     award_credit_duration_days - int
     invitee_credit_duration_days - int
-    status - enum[ACTIVE, DONE, DEFAULT]
+    type - enum[FREE_TIER, REFERRAL]
+    status - enum[ON_GOING, DEFAULT, EXPIRED, NO_STATUS]
     PRIMARY KEY (id)
 ```
 
 **user_credit table**
 ```sql
-    id - int
     user_id - bytea
     offer_id - int
-    credits_earned_cents - int
-    credits_used_cents - int
+    credits_earned - int
+    credits_used - int
     credit_type - enum[AWARD, INVITEE, NO_TYPE]
     expires_at - timestamp
     created_at - timestamp
     referred_by - bytea (nullable)
     FOREIGN KEY (offer_id)
     FOREIGN KEY (referred_by)
-    FOREIGN KEY (user_id)
-    PRIMARY KEY (id)
+    PRIMARY KEY (user_id)
 ```
 
 **user table**
