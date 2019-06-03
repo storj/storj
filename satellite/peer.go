@@ -49,7 +49,6 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -85,8 +84,6 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	// Marketing returns database for marketing admin GUI
-	Marketing() marketing.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -204,7 +201,6 @@ type Peer struct {
 
 	Marketing struct {
 		Listener net.Listener
-		Service  *marketing.Service
 		Endpoint *marketingweb.Server
 	}
 }
@@ -563,11 +559,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Marketing.Service, err = marketing.NewService(
-			peer.Log.Named("marketing:service"),
-			peer.DB.Marketing(),
-		)
-
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -575,7 +566,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Marketing.Endpoint = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
-			peer.Marketing.Service,
 			peer.Marketing.Listener,
 		)
 	}

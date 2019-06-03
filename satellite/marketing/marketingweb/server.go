@@ -5,7 +5,6 @@ package marketingweb
 
 import (
 	"context"
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"storj.io/storj/satellite/marketing"
 )
 
 var (
@@ -41,7 +39,6 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
-	service  *marketing.Service
 }
 
 func addPages(assets []string) ([]string){
@@ -54,12 +51,11 @@ func addPages(assets []string) ([]string){
 }
 
 // NewServer creates new instance of marketingweb server
-func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
-		service:  service,
 	}
 
 	logger.Sugar().Debugf("Starting marketingweb UI...", server.listener.Addr().String())
@@ -82,95 +78,16 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	switch req.Method {
-	case http.MethodGet:
-		// Serve the resource.
-		s.getHandler(w, req)
-	case http.MethodPost:
-		// Create a new record.
-		s.createHandler(w, req)
-	case http.MethodPut:
-		// Update an existing record.
-		s.updateHandler(w, req)
-	default:
-		// Give an error message.
-		s.serveError(w, req)
-	}
-}
-
-func (s *Server) getHandler(w http.ResponseWriter, req *http.Request) {
-	offers, err := s.service.ListAllOffers(context.Background())
-	if err != nil {
-		s.log.Error("app handler error", zap.Error(err))
-
-		s.serveError(w, req)
-		return
-	}
-	fmt.Println(offers)
 	d := dir+"pages/"
 	pages :=  []string{d+"home.html",d+"refOffers.html",d+"freeOffers.html",d+"roModal.html",d+"foModal.html"}
 	files := addPages(pages)
 	home := template.Must(template.New("landingPage").ParseFiles(files...))
-	home.ExecuteTemplate(w, "base", offers)
-}
-
-func (s *Server) createHandler(w http.ResponseWriter, req *http.Request) {
-	if err := req.ParseForm(); err != nil {
-		fmt.Fprintf(w, "ParseForm() err: %v", err)
-		return
-	}
-
-	var o marketing.NewOffer
-
-	// TODO: create custom converter for expires_at: https://stackoverflow.com/questions/49285635/golang-gorilla-parse-date-with-specific-format-from-form
-	err := decoder.Decode(&o, req.PostForm)
-	if err != nil {
-		s.log.Error("createdHandler error", zap.Error(err))
-
-		s.serveError(w, req)
-		return
-	}
-
-	n, err := s.service.CreateOffer(context.Background(), &o)
-	if err != nil {
-		s.log.Error("createdHandler error", zap.Error(err))
-
-		s.serveError(w, req)
-		return
-	}
-
-	// TODO: return the new offer and display it on the page
-	fmt.Println(n)
-}
-
-func (s *Server) updateHandler(w http.ResponseWriter, req *http.Request) {
-	if err := req.ParseForm(); err != nil {
-		fmt.Fprintf(w, "ParseForm() err: %v", err)
-		return
-	}
-
-	var o marketing.UpdateOffer
-	err := decoder.Decode(&o, req.PostForm)
-	if err != nil {
-		s.log.Error("createdHandler error", zap.Error(err))
-
-		s.serveError(w, req)
-		return
-	}
-
-	err = s.service.UpdateOffer(context.Background(), &o)
-	if err != nil {
-		s.log.Error("createdHandler error", zap.Error(err))
-
-		s.serveError(w, req)
-		return
-	}
-
-	// TODO: update success response
+	home.ExecuteTemplate(w, "base", nil)
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	unavailable := template.Must(template.New("404").ParseFiles(dir+"pages/base.html", dir+"pages/index.html", dir+"pages/404.html"))
+	d := dir+"pages/"
+	unavailable := template.Must(template.New("404").ParseFiles(d + "404.html"))
 	unavailable.ExecuteTemplate(w, "base", nil)
 }
 
