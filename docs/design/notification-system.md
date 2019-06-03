@@ -58,7 +58,7 @@ With the Notification System the SA is able to send an email to the SN advertise
 The existing Service (mailservice) will be extended with templates for all possible notifications we want to send.
 
 ### New Service
-A new service called notifications is added which relies on an existing configured mailservice.
+A new service called Notificationservice is added which relies on an existing configured mailservice.
 It's API/function calls can be used throughout the satellites code base to add the corresponding hooks, where ever necessary.
 
 ```
