@@ -5,6 +5,7 @@ package overlay_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -88,14 +89,15 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			uptimeSuccessCount int64
 			uptimeCount        int64
 			uptimeRatio        float64
+			disqualified       bool
 		}{
-			{storj.NodeID{1}, 20, 20, 1.0, 20, 20, 1.0}, // good ratios => good
-			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1},   // bad audit success, good uptime => bad
-			{storj.NodeID{3}, 20, 20, 1.0, 5, 20, 0.25}, // good audit success, bad uptime => bad
-			{storj.NodeID{4}, 0, 0, 0.0, 20, 20, 1.0},   // "bad" audit success, no audits => now considered bad
-			{storj.NodeID{5}, 20, 20, 1.0, 0, 0, 0.25},  // "bad" uptime success, no checks => now considered bad
-			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01},     // bad audit success exactly one audit => bad
-			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0},  // impossible math, but good ratios => good
+			{storj.NodeID{1}, 20, 20, 1.0, 20, 20, 1.0, false}, // good ratios => good
+			{storj.NodeID{2}, 5, 20, 0.25, 20, 20, 1, true},    // bad audit success, good uptime, disqualified => bad
+			{storj.NodeID{3}, 20, 20, 1.0, 5, 20, 0.25, true},  // good audit success, bad uptime, disqualified => bad
+			{storj.NodeID{4}, 0, 0, 0.0, 20, 20, 1.0, true},    // "bad" audit success, no audits => now considered bad
+			{storj.NodeID{5}, 20, 20, 1.0, 0, 0, 0.25, true},   // "bad" uptime success, no checks => now considered bad
+			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01, true},      // bad audit success exactly one audit => bad
+			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0, true},   // impossible math, but good ratios => good
 		} {
 			nodeStats := &overlay.NodeStats{
 				AuditSuccessRatio:  tt.auditSuccessRatio,
@@ -108,6 +110,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})
 			require.NoError(t, err)
+
+			_, err = cache.UpdateNodeInfo(ctx, tt.nodeID, &pb.InfoResponse{})
 
 			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
 			require.NoError(t, err)
@@ -126,6 +130,10 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 		require.NoError(t, err)
+
+		for _, id := range invalid {
+			fmt.Println(id)
+		}
 
 		assert.Contains(t, invalid, storj.NodeID{2})
 		assert.Contains(t, invalid, storj.NodeID{3})

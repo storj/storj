@@ -39,14 +39,14 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE type = ? AND disqualified = ?
+		WHERE type = ? AND NOT disqualified
 			AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count >= ?
 			AND total_uptime_count >= ?
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 13),
-		nodeType, false, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
@@ -91,13 +91,13 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE type = ? AND disqualified = ?
+		WHERE type = ? AND NOT disqualified
 			AND free_bandwidth >= ? AND free_disk >= ?
 		  AND total_audit_count < ?
 		  AND last_contact_success > ?
 		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, false, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, time.Now().Add(-criteria.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -344,10 +344,10 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 	FROM nodes
 	WHERE id = ? 
 		AND type = ?
-		AND disqualified = ?
+		AND NOT disqualified
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
-		`), id, pb.NodeType_STORAGE, false, criteria.AuditCount, criteria.UptimeCount)
+		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.UptimeCount)
 	var bytes *[]byte
 	err := row.Scan(&bytes)
 	if err != nil {
@@ -373,12 +373,12 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		for i := range nodeIds {
 			args = append(args, nodeIds[i].Bytes())
 		}
-		args = append(args, false, time.Now().Add(-criteria.OnlineWindow))
+		args = append(args, time.Now().Add(-criteria.OnlineWindow))
 
 		rows, err = cache.db.Query(cache.db.Rebind(`
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-			AND disqualified = ?
+			AND NOT disqualified
 			AND last_contact_success > ? AND last_contact_success > last_contact_failure
 		`), args...)
 
@@ -386,9 +386,9 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		rows, err = cache.db.Query(`
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
-				AND disqualified = $2
-				AND last_contact_success > $3 AND last_contact_success > last_contact_failure
-			`, postgresNodeIDList(nodeIds), false, time.Now().Add(-criteria.OnlineWindow),
+				AND NOT disqualified
+				AND last_contact_success > $4 AND last_contact_success > last_contact_failure
+			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
 	default:
 		return nil, Error.New("Unsupported database %t", t)
