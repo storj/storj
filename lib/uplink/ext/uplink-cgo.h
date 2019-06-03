@@ -48,6 +48,15 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 
 #line 1 "cgo-generated-wrapper"
 
+#line 6 "object.go"
+
+ #ifndef STORJ_HEADERS
+   #define STORJ_HEADERS
+   #include "c/headers/main.h"
+ #endif
+
+#line 1 "cgo-generated-wrapper"
+
 #line 6 "project.go"
 
  #ifndef STORJ_HEADERS
@@ -138,6 +147,10 @@ extern BufferRef_t NewBuffer();
 extern void WriteBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
 extern void ReadBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
+
+extern void CloseObject(ObjectRef_t p0, char** p1);
+
+extern void DownloadRange(ObjectRef_t p0, int64_t p1, int64_t p2, char* p3, char** p4);
 
 extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t* p2, char** p3);
 
