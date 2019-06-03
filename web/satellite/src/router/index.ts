@@ -9,14 +9,17 @@ import Register from '@/views/register/Register.vue';
 import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
 import Dashboard from '@/views/Dashboard.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
+import Profile from '@/components/account/Profile.vue';
+import AccountBillingHistory from '@/components/account/billing/BillingArea.vue';
+import AccountPaymentMethods from '@/components/account/AccountPaymentMethods.vue';
 import ProjectOverviewArea from '@/components/project/ProjectOverviewArea.vue';
 import TeamArea from '@/components/team/TeamArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import UsageReport from '@/components/project/UsageReport.vue';
 import ProjectDetails from '@/components/project/ProjectDetails.vue';
-import BillingHistory from '@/components/project/billing/BillingArea.vue';
-import PaymentMethods from '@/components/project/PaymentMethods.vue';
+import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
+import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
 import { getToken } from '@/utils/tokenManager';
 import store from '@/store';
@@ -51,7 +54,24 @@ let router = new Router({
                 {
                     path: ROUTES.ACCOUNT_SETTINGS.path,
                     name: ROUTES.ACCOUNT_SETTINGS.name,
-                    component: AccountArea
+                    component: AccountArea,
+                    children: [
+                        {
+                            path: ROUTES.PROFILE.path,
+                            name: ROUTES.PROFILE.name,
+                            component: Profile,
+                        },
+                        {
+                            path: ROUTES.PAYMENT_METHODS.path,
+                            name: ROUTES.PAYMENT_METHODS.name,
+                            component: AccountPaymentMethods,
+                        },
+                        {
+                            path: ROUTES.BILLING_HISTORY.path,
+                            name: ROUTES.BILLING_HISTORY.name,
+                            component: AccountBillingHistory,
+                        },
+                    ]
                 },
                 {
                     path: ROUTES.PROJECT_OVERVIEW.path,
@@ -64,11 +84,6 @@ let router = new Router({
                             component: UsageReport,
                         },
                         {
-                            path: '',
-                            name: ROUTES.PROJECT_DETAILS.name,
-                            component: ProjectDetails
-                        },
-                        {
                             path: ROUTES.PROJECT_DETAILS.path,
                             name: ROUTES.PROJECT_DETAILS.name,
                             component: ProjectDetails
@@ -76,12 +91,12 @@ let router = new Router({
                         {
                             path: ROUTES.BILLING_HISTORY.path,
                             name: ROUTES.BILLING_HISTORY.name,
-                            component: BillingHistory
+                            component: ProjectBillingHistory
                         },
                         {
                             path: ROUTES.PAYMENT_METHODS.path,
                             name: ROUTES.PAYMENT_METHODS.name,
-                            component: PaymentMethods
+                            component: ProjectPaymentMethods
                         },
                     ]
                 },

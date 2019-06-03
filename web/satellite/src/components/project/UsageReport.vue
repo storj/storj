@@ -75,8 +75,6 @@ import { toUnixTimestamp } from '@/utils/time';
             components: {
                 Datepicker,
             },
-            beforeMount: function() {
-            },
             beforeRouteLeave: function(to, from, next) {
             	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
 
