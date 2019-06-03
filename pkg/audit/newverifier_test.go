@@ -55,7 +55,6 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
-			audit.NewReporter(planet.Satellites[0].Overlay.Service, planet.Satellites[0].DB.Containment(), 1, 3),
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -111,7 +110,6 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
-			audit.NewReporter(planet.Satellites[0].Overlay.Service, planet.Satellites[0].DB.Containment(), 1, 3),
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -179,7 +177,6 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		stripe.Segment.GetRemote().RootPieceId = storj.NewPieceID()
 
 		verifier := audit.NewVerifier(zap.L(),
-			audit.NewReporter(planet.Satellites[0].Overlay.Service, planet.Satellites[0].DB.Containment(), 1, 3),
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -255,7 +252,6 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		minBytesPerSecond := 110 * memory.KB
 
 		verifier := audit.NewVerifier(zap.L(),
-			audit.NewReporter(planet.Satellites[0].Overlay.Service, planet.Satellites[0].DB.Containment(), 1, 3),
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -334,7 +330,6 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
-			audit.NewReporter(planet.Satellites[0].Overlay.Service, planet.Satellites[0].DB.Containment(), 1, 3),
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -390,8 +385,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
 
-		reporter := audit.NewReporter(overlay, containment, 1, 3)
-		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
+		verifier := audit.NewVerifier(zap.L(), transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
 		require.NotNil(t, verifier)
 
 		// stop some storage nodes to ensure audit can deal with it

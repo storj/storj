@@ -62,8 +62,7 @@ func TestReverifySuccess(t *testing.T) {
 		orders := planet.Satellites[0].Orders.Service
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		reporter := audit.NewReporter(overlay, containment, 1, 3)
-		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
+		verifier := audit.NewVerifier(zap.L(), transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
 		require.NotNil(t, verifier)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -148,8 +147,7 @@ func TestReverifyFail(t *testing.T) {
 		orders := planet.Satellites[0].Orders.Service
 		containment := planet.Satellites[0].DB.Containment()
 		minBytesPerSecond := 128 * memory.B
-		reporter := audit.NewReporter(overlay, containment, 1, 3)
-		verifier := audit.NewVerifier(zap.L(), reporter, transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
+		verifier := audit.NewVerifier(zap.L(), transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
 		require.NotNil(t, verifier)
 
 		for _, piece := range stripe.Segment.GetRemote().GetRemotePieces() {
