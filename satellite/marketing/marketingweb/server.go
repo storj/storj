@@ -5,17 +5,24 @@ package marketingweb
 
 import (
 	"context"
+	"html/template"
 	"net"
 	"net/http"
+	"runtime"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"github.com/gorilla/mux"
 )
 
 // Error is satellite marketing error type
-var Error = errs.Class("satellite marketing error")
-
+var (
+	Error = errs.Class("satellite marketing error")
+	_, fp, _, _ = runtime.Caller(0)
+	dir         = strings.Split(fp, "server.go")[0]
+)
 // Config contains configuration for marketing offersweb server
 type Config struct {
 	Address string `help:"server address of the frontend app" default:"0.0.0.0:8090"`
@@ -30,6 +37,16 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 }
+// The three pages contained in addPages are pages all templates require
+// This exists in order to limit handler verbosity
+func addPages(assets []string) ([]string){
+	d := dir + "pages/"
+	pages  := []string{d+"base.html",d+"index.html",d+"banner.html"}
+	for _, page := range assets {
+		pages = append(pages,page)
+	}
+	return pages
+}
 
 // NewServer creates new instance of offersweb server
 func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server {
@@ -40,9 +57,9 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 	}
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", server.listener.Addr().String())
-
-	mux := http.NewServeMux()
-
+	mux := mux.NewRouter()
+	s := http.StripPrefix("/static/",http.FileServer(http.Dir(dir+"/static/")))
+	mux.PathPrefix("/static/").Handler(s)
 	mux.Handle("/", http.HandlerFunc(server.appHandler))
 
 	server.server = http.Server{
@@ -54,11 +71,22 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	//TODO: handle request
+	if req.URL.Path != "/" {
+		s.serveError(w, req)
+		return
+	}
+
+	d := dir+"pages/"
+	pages :=  []string{d+"home.html",d+"refOffers.html",d+"freeOffers.html",d+"roModal.html",d+"foModal.html"}
+	files := addPages(pages)
+	home := template.Must(template.New("landingPage").ParseFiles(files...))
+	home.ExecuteTemplate(w, "base", nil)
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	//TODO: serve a 404 page
+	d := dir+"pages/"
+	unavailable := template.Must(template.New("404").ParseFiles(d + "404.html"))
+	unavailable.ExecuteTemplate(w, "base", nil)
 }
 
 // Run starts the server that host admin web app and api endpoint
