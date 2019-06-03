@@ -18,7 +18,7 @@ The whitepaper section 4.13 talks about disqualification mode as follows:
 > The filtering system is the third subsystem; it blocks bad storage nodes from participating. In addition to simply not having done a suficient proof of work, certain actions a storage node can take are disqualifying events. The reputation system will be used to filter these nodes out from future uploads, regardless of where the node is in the vetting process. Actions that are disqualifying include: failing too many audits; failing to return data, with reasonable speed; and failing too many uptime checks.
 > If a storage node is disqualified, that node will no longer be selected for future data storage and the data that node stores will be moved to new storage nodes. Likewise, if a client attempts to download a piece from a storage node that the node should have stored and the node fails to return it, the node will be disqualified. Importantly, storagenodes will be allowed to reject and fail _put_ operations without penalty, as nodes will be allowed to choose which Satellite operators to work with and which data to store.
 
-'Failing to return data' is clarified to mean during an audit or a repair. Failure to return data to uplinks is specifically excluded, as this would imply a robust system of trust that does not currently exist.
+'Failing to return data' is clarified to mean during an audit or a repair. Failure to return data to uplinks is specifically excluded, as this would imply a robust system of trust that does not currently exist. "Filter these nodes out from future uploads" has been clarified to mean that we want to stop any transactions with these nodes:  upload and downloading including repair and graceful exist.  In effect, the satellite should do no business with a disqualified node.
 
 'Regardless of... the vetting process' is highlighted to show that both vetted and new nodes may be disqualified.  We explicitly do not want to give new nodes a window where we enforce rules less rigorously.  The data science team's initial whitepapers assumed that repuation should be earned over time.  If this assumption is kept, we will need to develop a sliding-scale algorithm to determine the disqualification cutoff for nodes gaining repuation.  A simpler solution may be to set the initial repuation value (via α0, β0) to above the disqualification cutoff.
 
@@ -28,7 +28,7 @@ Further, the node will be demonetized.
 
 > Provided the storage node hasn’t been disqualified, the storage node will be paid by the Satellite for the data it has stored over the course ofthe month, per the Satellite’s records.
 
-A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  It may remain in Kademlia and potentially found during Overlay Cache Discover, as the kademlia network supports multiple satellites.
+A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia and potentially found during Overlay Cache Discover, as the kademlia network supports multiple satellites.
 
 One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  [Storage Node Payment and Incentives for V3](https://docs.google.com/document/d/1-Pxzk-ad-0QtF6nnTwfgzk8e_-XbBNSDxuRvnbd0QL8/edit#heading=h.rz1ehm5mbeuz) describes this feature:
 
@@ -77,6 +77,7 @@ Although disqualification is largely an atomic operation that would be handled w
 - Update calls to UpdateNodeInfo()
 - Refactor tests dependent on offline / unreliable nodes to use disqualification
 - Create new disqualification tests as needed
+- Send errors to disqualified nodes telling them they're disqualified
 - Update tally to demonitize disqualified nodes
 
 ## Closed Issues
