@@ -111,7 +111,8 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})
 			require.NoError(t, err)
 
-			_, err = cache.UpdateNodeInfo(ctx, tt.nodeID, &pb.InfoResponse{})
+			// todo(nat): update disqualified status
+			// _, err = cache.UpdateNodeInfo(ctx, tt.nodeID, &pb.InfoResponse{})
 
 			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
 			require.NoError(t, err)
