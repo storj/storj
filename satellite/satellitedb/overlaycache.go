@@ -564,7 +564,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
 	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
@@ -627,7 +627,7 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
 	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
@@ -719,7 +719,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
 	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.New("unable to get node by ID: %s", nodeID.String()))
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
 	}
 
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
