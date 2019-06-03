@@ -73,7 +73,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
-		createRequests: &createRequests{requests: make(map[storj.SerialNumber]*createRequest)},
+		createRequests: newCreateRequests(),
 	}
 }
 
