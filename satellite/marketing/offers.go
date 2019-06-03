@@ -16,7 +16,7 @@ var OffersErr = errs.Class("offers error")
 // Offers holds information about offer
 type Offers interface {
 	ListAll(ctx context.Context) ([]Offer, error)
-	GetCurrent(ctx context.Context, offerStatus OfferStatus) (*Offer, error)
+	GetCurrent(ctx context.Context, offerStatus OfferStatus, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Update(ctx context.Context, offer *UpdateOffer) error
 }
@@ -37,6 +37,7 @@ type NewOffer struct {
 	ExpiresAt time.Time
 
 	Status OfferStatus
+	Type   OfferType
 }
 
 // UpdateOffer holds fields needed for update an offer
@@ -46,6 +47,16 @@ type UpdateOffer struct {
 	NumRedeemed int
 	ExpiresAt   time.Time
 }
+
+// OfferType indicates the type of an offer
+type OfferType int
+
+const (
+	// FreeCredit is a type of offers used for Free Credit Program
+	FreeCredit OfferType = 0
+	// Referral is a type of offers used for Referral Program
+	Referral OfferType = 1
+)
 
 // OfferStatus indicates the status of an offer
 type OfferStatus int
@@ -78,4 +89,5 @@ type Offer struct {
 	CreatedAt time.Time
 
 	Status OfferStatus
+	Type   OfferType
 }

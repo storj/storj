@@ -22,7 +22,7 @@ func TestOffer_Database(t *testing.T) {
 		validOffers := []marketing.NewOffer{
 			{
 				Name:                      "test",
-				Description:               "test offer",
+				Description:               "test offer 1",
 				AwardCreditInCents:        100,
 				InviteeCreditInCents:      50,
 				AwardCreditDurationDays:   60,
@@ -30,10 +30,11 @@ func TestOffer_Database(t *testing.T) {
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
 				Status:                    marketing.Active,
+				Type:                      marketing.Referral,
 			},
 			{
 				Name:                      "test",
-				Description:               "test offer",
+				Description:               "test offer 2",
 				AwardCreditInCents:        100,
 				InviteeCreditInCents:      50,
 				AwardCreditDurationDays:   60,
@@ -41,6 +42,7 @@ func TestOffer_Database(t *testing.T) {
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
 				Status:                    marketing.Default,
+				Type:                      marketing.FreeCredit,
 			},
 		}
 
@@ -52,7 +54,7 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, all, *new)
 
-			c, err := planet.Satellites[0].DB.Marketing().Offers().GetCurrent(ctx, new.Status)
+			c, err := planet.Satellites[0].DB.Marketing().Offers().GetCurrent(ctx, new.Status, new.Type)
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
@@ -78,6 +80,7 @@ func TestOffer_Database(t *testing.T) {
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
 				Status:                    marketing.Active,
+				Type:                      marketing.FreeCredit,
 			},
 			{
 				Name:                      "test",
@@ -89,6 +92,7 @@ func TestOffer_Database(t *testing.T) {
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
 				Status:                    marketing.Default,
+				Type:                      marketing.Referral,
 			},
 		}
 

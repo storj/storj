@@ -53,7 +53,7 @@ func (s *Service) ListAllOffers(ctx context.Context) (offers []Offer, err error)
 func (s *Service) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) (offer *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	offer, err = s.db.Offers().GetCurrent(ctx, offer.Status)
+	offer, err = s.db.Offers().GetCurrent(ctx, offer.Status, offer.Type)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
