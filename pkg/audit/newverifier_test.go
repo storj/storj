@@ -132,9 +132,9 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 
 		for i, share := range shares {
 			if nodes[i] == stoppedNodeID {
-				assert.True(t, transport.Error.Has(share.Error), "unexpected error:", share.Error.Error())
-				assert.NotEqual(t, context.DeadlineExceeded, errs.Unwrap(share.Error), "unexpected error:", share.Error.Error())
-				assert.Equal(t, codes.Unknown, status.Code(errs.Unwrap(share.Error)), "unexpected error:", share.Error.Error())
+				assert.True(t, transport.Error.Has(share.Error), "unexpected error:", share.Error)
+				assert.NotEqual(t, context.DeadlineExceeded, errs.Unwrap(share.Error), "unexpected error:", share.Error)
+				assert.Equal(t, codes.Unknown, status.Code(errs.Unwrap(share.Error)), "unexpected error:", share.Error)
 			} else {
 				assert.NoError(t, share.Error)
 			}
@@ -193,7 +193,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.Equal(t, codes.NotFound, status.Code(errs.Unwrap(share.Error)), "unexpected error:", share.Error.Error())
+			assert.Equal(t, codes.NotFound, status.Code(errs.Unwrap(share.Error)), "unexpected error:", share.Error)
 		}
 	})
 }
@@ -268,8 +268,8 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, transport.Error.Has(share.Error), "unexpected error:", share.Error.Error())
-			assert.Equal(t, context.DeadlineExceeded, errs.Unwrap(share.Error), "unexpected error:", share.Error.Error())
+			assert.True(t, transport.Error.Has(share.Error), "unexpected error:", share.Error)
+			assert.Equal(t, context.DeadlineExceeded, errs.Unwrap(share.Error), "unexpected error:", share.Error)
 		}
 	})
 }
@@ -346,8 +346,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.Equal(t, codes.DeadlineExceeded, status.Code(errs.Unwrap(share.Error)), "unexpected error:", share.Error.Error())
-			assert.False(t, transport.Error.Has(share.Error), "unexpected error:", share.Error.Error())
+			assert.Equal(t, codes.DeadlineExceeded, status.Code(errs.Unwrap(share.Error)), "unexpected error:", share.Error)
+			assert.False(t, transport.Error.Has(share.Error), "unexpected error:", share.Error)
 		}
 	})
 }
