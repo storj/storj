@@ -44,7 +44,7 @@ type RSConfig struct {
 type EncryptionConfig struct {
 	EncryptionKey string      `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
 	KeyFilepath   string      `help:"the path to the file which contains the root key for encrypting the data"`
-	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
+	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks, must be a multiple of stripe size (i.e. RS.ErasureShareSize * RS.MinThreshold)" releaseDefault:"29KiB" devDefault:"4KiB"`
 	DataType      int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
 	PathType      int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
