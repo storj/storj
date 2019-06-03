@@ -14,7 +14,7 @@ trap cleanup EXIT
 
 satellite --config-dir "$TMPDIR" --defaults release setup > /dev/null
 
-diff "$TMPDIR/satellite-config.yaml.lock" "./testdata/config.yaml"
+diff "./testdata/satellite-config.yaml.lock" "$TMPDIR/config.yaml"
 if [[ $? != 0 ]]; then
     echo
     echo "NOTIFY the Devops and PM when this test fails so they can plan for changing it in the release process before fixing it to merge your PR."

@@ -90,11 +90,6 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
-.PHONY: test-satellite-config-lock
-test-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
-	@echo "Running ${@}"
-	@cd scripts; ./check-satellite-config-lock.sh
-
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
@@ -104,6 +99,11 @@ test-certificate-signing: ## Test certificate signing service and storagenode se
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
+
+.PHONY: check-satellite-config-lock
+check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
+	@echo "Running ${@}"
+	@cd scripts; ./check-satellite-config-lock.sh
 
 .PHONY: all-in-one
 all-in-one: ## Deploy docker images with one storagenode locally
