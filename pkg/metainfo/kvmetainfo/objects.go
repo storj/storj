@@ -117,7 +117,11 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	if info.RedundancyScheme.IsZero() {
 		info.RedundancyScheme = DefaultRS
 
-		if info.EncryptionScheme.BlockSize%int32(DefaultRS.RequiredShares)*DefaultRS.ShareSize != 0 {
+		// BlockSize should be an integer multiple of stripe size.
+		// If the provided EncryptionScheme.BlockSize isn't a multiple of the
+		// DefaultRS stripeSize, then overwrite the EncryptionScheme with the DefaultES values.
+		stripeSize := int32(DefaultRS.RequiredShares) * DefaultRS.ShareSize
+		if info.EncryptionScheme.BlockSize%stripeSize != 0 {
 			fmt.Printf(`encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d).
 			Overwriting Blocksize with kvmetainfo.DefaultES.BlockSize (%d)`,
 				info.EncryptionScheme.BlockSize, DefaultRS.RequiredShares,

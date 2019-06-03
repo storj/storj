@@ -36,8 +36,7 @@ func TestCreateObject(t *testing.T) {
 
 	stripeSize := int32(customRS.RequiredShares) * customRS.ShareSize
 	customES := storj.EncryptionScheme{
-		Cipher: storj.Unencrypted,
-		// BlockSize must be a multiple of stripe size
+		Cipher:    storj.Unencrypted,
 		BlockSize: stripeSize,
 	}
 

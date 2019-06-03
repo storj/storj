@@ -91,6 +91,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	if err != nil {
 		return err
 	}
+
 	defer closeProjectAndBucket(project, bucket)
 
 	reader := io.Reader(file)
@@ -102,11 +103,13 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	opts := &libuplink.UploadOptions{}
-	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+
 	if *expires != "" {
 		opts.Expires = expiration.UTC()
 	}
+
+	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
 
 	if err := bucket.UploadObject(ctx, dst.Path(), reader, opts); err != nil {
 		return err
@@ -140,6 +143,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	if err != nil {
 		return err
 	}
+
 	defer closeProjectAndBucket(project, bucket)
 
 	object, err := bucket.OpenObject(ctx, src.Path())
@@ -217,6 +221,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	if err != nil {
 		return err
 	}
+
 	defer closeProjectAndBucket(project, bucket)
 
 	object, err := bucket.OpenObject(ctx, src.Path())
@@ -252,7 +257,6 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	}
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
 	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
-
 	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
 	if err != nil {
 		return err

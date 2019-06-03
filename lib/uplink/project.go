@@ -116,8 +116,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 }
 
 // validateBlockSize confirms the encryption block size aligns with stripe size.
-// Stripes get encrypted therefore we want the stripe boundaries to match up
-// with the encryption block size boundaries, meaning block size should be a multiple of stripe size.
+// Stripes contain encrypted data therefore we want the stripe boundaries to match
+// with the encryption block size boundaries. We also want stripes to be small for
+// audits, but encryption can be a bit larger. All told, block size should be an integer
+// multiple of stripe size.
 func validateBlockSize(cfg BucketConfig) error {
 	shareSize := cfg.Volatile.RedundancyScheme.ShareSize
 	requiredShares := int32(cfg.Volatile.RedundancyScheme.RequiredShares)
@@ -128,7 +130,8 @@ func validateBlockSize(cfg BucketConfig) error {
 
 	if blockSize%stripeSize != 0 {
 		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
-			shareSize, requiredShares, blockSize)
+			shareSize, requiredShares, blockSize,
+		)
 	}
 	return nil
 }
