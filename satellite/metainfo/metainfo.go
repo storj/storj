@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -50,32 +49,6 @@ type Containment interface {
 	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
 }
 
-type createRequests struct {
-	sync.RWMutex
-
-	// orders limit serial number used because with CreateSegment we don't have path yet
-	requests map[storj.SerialNumber]*pb.SegmentWriteRequest
-}
-
-func (cr *createRequests) Add(serialNumber storj.SerialNumber, req *pb.SegmentWriteRequest) {
-	cr.Lock()
-	cr.requests[serialNumber] = req
-	cr.Unlock()
-}
-
-func (cr *createRequests) Request(serialNumber storj.SerialNumber) (*pb.SegmentWriteRequest, bool) {
-	cr.RLock()
-	request, found := cr.requests[serialNumber]
-	cr.RUnlock()
-	return request, found
-}
-
-func (cr *createRequests) Delete(serialNumber storj.SerialNumber) {
-	cr.Lock()
-	delete(cr.requests, serialNumber)
-	cr.Unlock()
-}
-
 // Endpoint metainfo endpoint
 type Endpoint struct {
 	log            *zap.Logger
@@ -100,7 +73,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
-		createRequests: &createRequests{requests: make(map[storj.SerialNumber]*pb.SegmentWriteRequest)},
+		createRequests: &createRequests{requests: make(map[storj.SerialNumber]*createRequest)},
 	}
 }
 
@@ -202,7 +175,10 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 
 	if len(addressedLimits) > 0 {
-		endpoint.createRequests.Add(addressedLimits[0].Limit.SerialNumber, req)
+		endpoint.createRequests.Put(addressedLimits[0].Limit.SerialNumber, &createRequest{
+			Expiration: req.Expiration,
+			Redundancy: req.Redundancy,
+		})
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
@@ -280,7 +256,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if len(req.OriginalLimits) > 0 {
-		endpoint.createRequests.Delete(req.OriginalLimits[0].SerialNumber)
+		endpoint.createRequests.Remove(req.OriginalLimits[0].SerialNumber)
 	}
 
 	return &pb.SegmentCommitResponse{Pointer: pointer}, nil

@@ -354,7 +354,7 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "no create request for remote segment")
+		require.Contains(t, err.Error(), "missing create request or request expired")
 	})
 }
 

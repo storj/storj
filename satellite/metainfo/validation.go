@@ -6,8 +6,11 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"sync"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -16,8 +19,52 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
+
+const requestTTL = time.Hour * 4
+
+type createRequest struct {
+	Expiration *timestamp.Timestamp
+	Redundancy *pb.RedundancyScheme
+
+	ttl time.Time
+}
+
+type createRequests struct {
+	sync.Mutex
+
+	// TODO still thinking how efficien remove expired entries
+	// orders limit serial number used because with CreateSegment we don't have path yet
+	requests map[storj.SerialNumber]*createRequest
+}
+
+func (cr *createRequests) Put(serialNumber storj.SerialNumber, createRequest *createRequest) {
+	createRequest.ttl = time.Now().Add(requestTTL)
+	cr.Lock()
+	cr.requests[serialNumber] = createRequest
+	cr.Unlock()
+}
+
+func (cr *createRequests) Load(serialNumber storj.SerialNumber) (*createRequest, bool) {
+	cr.Lock()
+	request, found := cr.requests[serialNumber]
+	if request != nil && request.ttl.Before(time.Now()) {
+		delete(cr.requests, serialNumber)
+		request = nil
+		found = false
+	}
+	cr.Unlock()
+
+	return request, found
+}
+
+func (cr *createRequests) Remove(serialNumber storj.SerialNumber) {
+	cr.Lock()
+	delete(cr.requests, serialNumber)
+	cr.Unlock()
+}
 
 func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (*console.APIKeyInfo, error) {
 	keyData, ok := auth.GetAPIKey(ctx)
@@ -105,11 +152,11 @@ func (endpoint *Endpoint) validateCommitSegment(req *pb.SegmentCommitRequest) er
 	}
 
 	if len(req.OriginalLimits) > 0 {
-		createRequest, found := endpoint.createRequests.Request(req.OriginalLimits[0].SerialNumber)
+		createRequest, found := endpoint.createRequests.Load(req.OriginalLimits[0].SerialNumber)
 
 		switch {
 		case !found:
-			return Error.New("no create request for remote segment")
+			return Error.New("missing create request or request expired")
 		case !proto.Equal(createRequest.Expiration, req.Pointer.ExpirationDate):
 			return Error.New("pointer expiration date does not match requested one")
 		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
