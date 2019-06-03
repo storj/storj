@@ -155,6 +155,7 @@ func TestNodeID_UnmarshalJSON(t *testing.T) {
 	assert.Equal(t, nodeID.String(), "12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
 
 	assert.Error(t, nodeID.UnmarshalJSON([]byte(`""12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7""`)))
+	assert.Error(t, nodeID.UnmarshalJSON([]byte(`{}`)))
 }
 
 func TestNewVersionedID(t *testing.T) {

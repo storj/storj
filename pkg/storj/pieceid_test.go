@@ -77,4 +77,5 @@ func TestPieceID_UnmarshalJSON(t *testing.T) {
 	assert.Equal(t, pieceid.String(), originalPieceID.String())
 
 	assert.Error(t, pieceid.UnmarshalJSON([]byte(`""`+originalPieceID.String()+`""`)))
+	assert.Error(t, pieceid.UnmarshalJSON([]byte(`{}`)))
 }

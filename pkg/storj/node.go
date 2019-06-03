@@ -7,8 +7,8 @@ import (
 	"crypto/sha256"
 	"crypto/x509/pkix"
 	"database/sql/driver"
+	"encoding/json"
 	"math/bits"
-	"strconv"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -220,7 +220,8 @@ func (id *NodeID) Scan(src interface{}) (err error) {
 
 // UnmarshalJSON deserializes a json string (as bytes) to a node ID
 func (id *NodeID) UnmarshalJSON(data []byte) error {
-	unquoted, err := strconv.Unquote(string(data))
+	var unquoted string
+	err := json.Unmarshal(data, &unquoted)
 	if err != nil {
 		return err
 	}

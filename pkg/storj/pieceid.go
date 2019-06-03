@@ -9,7 +9,7 @@ import (
 	"crypto/sha512"
 	"database/sql/driver"
 	"encoding/base32"
-	"strconv"
+	"encoding/json"
 
 	"github.com/zeebo/errs"
 )
@@ -106,7 +106,8 @@ func (id PieceID) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON deserializes a json string (as bytes) to a piece ID
 func (id *PieceID) UnmarshalJSON(data []byte) error {
-	unquoted, err := strconv.Unquote(string(data))
+	var unquoted string
+	err := json.Unmarshal(data, &unquoted)
 	if err != nil {
 		return err
 	}
