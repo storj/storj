@@ -115,21 +115,6 @@ CREATE TABLE nodes (
 	contained INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE offers (
-	id INTEGER NOT NULL,
-	name TEXT NOT NULL,
-	description TEXT NOT NULL,
-	award_credit_in_cents INTEGER NOT NULL,
-	invitee_credit_in_cents INTEGER NOT NULL,
-	award_credit_duration_days INTEGER NOT NULL,
-	invitee_credit_duration_days INTEGER NOT NULL,
-	redeemable_cap INTEGER NOT NULL,
-	num_redeemed INTEGER NOT NULL,
-	expires_at TIMESTAMP NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	status INTEGER NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE pending_audits (
 	node_id BLOB NOT NULL,
 	piece_id BLOB NOT NULL,

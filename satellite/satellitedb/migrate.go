@@ -674,27 +674,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Create new tables for free credits program",
-				Version:     22,
-				Action: migrate.SQL{`
-					CREATE TABLE offers (
-						id serial NOT NULL,
-						name text NOT NULL,
-						description text NOT NULL,
-						type integer NOT NULL,
-						credit_in_cents integer NOT NULL,
-						award_credit_duration_days integer NOT NULL,
-						invitee_credit_duration_days integer NOT NULL,
-						redeemable_cap integer NOT NULL,
-						num_redeemed integer NOT NULL,
-						expires_at timestamp with time zone,
-						created_at timestamp with time zone NOT NULL,
-						status integer NOT NULL,
-						PRIMARY KEY ( id )
-					);`,
-				},
-			},
-			{
 				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
 				Version:     23,
 				Action: migrate.SQL{
@@ -717,18 +696,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     24,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD usage_limit bigint NOT NULL DEFAULT 0;`,
-				},
-			},
-			{
-				Description: "Add invitee_credit_in_gb and award_credit_in_gb columns, delete type and credit_in_cents columns",
-				Version:     25,
-				Action: migrate.SQL{
-					`DELETE FROM offers WHERE id = 1;`,
-					`ALTER TABLE offers DROP COLUMN type;`,
-					`ALTER TABLE offers DROP COLUMN credit_in_cents;`,
-					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
-					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
-					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
 				},
 			},
 		},

@@ -113,21 +113,7 @@ CREATE TABLE nodes (
 	contained boolean NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE offers (
-	id serial NOT NULL,
-	name text NOT NULL,
-	description text NOT NULL,
-	award_credit_in_cents integer NOT NULL,
-	invitee_credit_in_cents integer NOT NULL,
-	award_credit_duration_days integer NOT NULL,
-	invitee_credit_duration_days integer NOT NULL,
-	redeemable_cap integer NOT NULL,
-	num_redeemed integer NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	status integer NOT NULL,
-	PRIMARY KEY ( id )
-);
+
 CREATE TABLE pending_audits (
 	node_id bytea NOT NULL,
 	piece_id bytea NOT NULL,
@@ -269,6 +255,3 @@ INSERT INTO "pending_audits" ("node_id", "piece_id", "stripe_index", "share_size
 
 INSERT INTO "api_keys" ("id", "project_id", "head", "name", "secret", "created_at") VALUES (E'\\334/\\302;\\225\\355O\\323\\276f\\247\\354/6\\241\\033'::bytea, E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\111\\142\\147\\304\\132\\375\\070\\163\\270\\160\\251\\370\\126\\063\\351\\037\\257\\071\\143\\375\\351\\320\\253\\232\\220\\260\\075\\173\\306\\307\\115\\136'::bytea, 'key 2', E'\\254\\011\\315\\333\\273\\365\\001\\071\\024\\154\\253\\332\\301\\216\\361\\074\\221\\367\\251\\231\\274\\333\\300\\367\\001\\272\\327\\111\\315\\123\\042\\016'::bytea, '2019-02-14 08:28:24.267934+00');
 
--- NEW DATA --
-
-INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "award_credit_duration_days", "invitee_credit_duration_days", "redeemable_cap", "expires_at", "created_at", "num_redeemed", "status") VALUES (1, 'testOffer', 'Test offer 1', 100, 50, 14, 14, 50, '2019-03-14 08:28:24.636949+00', '2019-02-14 08:28:24.636949+00', 0, 1);
