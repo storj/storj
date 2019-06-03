@@ -94,6 +94,31 @@ func TestUploadObject(t *testing.T) {
 	})
 }
 
+func TestCloseBucket(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	bucketName := "TestBucket"
+	project, _ := openTestProject(t, ctx, planet)
+
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+		require.NoError(t, err)
+
+		bucket, err := project.OpenBucket(ctx, bucketName, nil)
+		require.NoError(t, err)
+		require.NotNil(t, bucket)
+
+		cBucketRef := CBucketRef(structRefMap.Add(bucket))
+		CloseBucket(cBucketRef, &cErr)
+		require.Empty(t, cCharToGoString(cErr))
+	})
+}
+
 func (obj *TestObject) Upload(t *testing.T, cBucketRef CProjectRef, cErr *Cchar) {
 	dataRef := NewBuffer()
 	buf, ok := structRefMap.Get(token(dataRef)).(*bytes.Buffer)
