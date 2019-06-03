@@ -67,7 +67,57 @@ func TestUploadObject(t *testing.T) {
 
 		cBucketRef := CBucketRef(structRefMap.Add(bucket))
 		for _, testObj := range testObjects {
-			testObj.Upload(t, cBucketRef, &cErr)
+			testObj.cUpload(t, cBucketRef, &cErr)
+			require.Empty(t, cCharToGoString(cErr))
+
+			objectList, err := bucket.ListObjects(ctx, nil)
+			require.NoError(t, err)
+			require.NotEmpty(t, objectList)
+			require.Len(t, objectList.Items, 1)
+
+			object := objectList.Items[0]
+
+			assert.Equal(t, object.Bucket.Name, bucketName)
+			assert.Equal(t, object.Path, testObj.Path)
+			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
+			assert.Equal(t, object.Created, object.Modified)
+			assert.Equal(t, object.Expires.Unix(), testObj.UploadOpts.Expires.Unix())
+			assert.Equal(t, object.ContentType, testObj.UploadOpts.ContentType)
+			assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
+			// TODO: test with `IsPrefix` == true
+			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
+			// TODO: assert version
+
+			err = bucket.DeleteObject(ctx, object.Path)
+			require.NoError(t, err)
+		}
+	})
+}
+
+func TestListObjects(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	bucketName := "TestBucket"
+	project, _ := openTestProject(t, ctx, planet)
+
+	testObjects := newTestObjects(15)
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+		require.NoError(t, err)
+
+		// TODO: test with EncryptionAccess
+		// TODO: test with different content types
+		bucket, err := project.OpenBucket(ctx, bucketName, nil)
+		require.NoError(t, err)
+		require.NotNil(t, bucket)
+
+		for _, testObj := range testObjects {
+			testObj.goUpload(t, ctx, bucket)
 			require.Empty(t, cCharToGoString(cErr))
 
 			objectList, err := bucket.ListObjects(ctx, nil)
@@ -119,7 +169,7 @@ func TestCloseBucket(t *testing.T) {
 	})
 }
 
-func (obj *TestObject) Upload(t *testing.T, cBucketRef CProjectRef, cErr *Cchar) {
+func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *Cchar) {
 	dataRef := NewBuffer()
 	buf, ok := structRefMap.Get(token(dataRef)).(*bytes.Buffer)
 	require.True(t, ok)
@@ -131,6 +181,12 @@ func (obj *TestObject) Upload(t *testing.T, cBucketRef CProjectRef, cErr *Cchar)
 	cOpts := newCUploadOpts(&obj.UploadOpts)
 	UploadObject(cBucketRef, stringToCCharPtr(obj.Path), dataRef, cOpts, cErr)
 	require.Empty(t, cCharToGoString(*cErr))
+}
+
+func (obj *TestObject) goUpload(t *testing.T, ctx *testcontext.Context, bucket *uplink.Bucket) {
+	data := bytes.NewBuffer([]byte("test data for path " + obj.Path))
+	err := bucket.UploadObject(ctx, obj.Path, data, &obj.UploadOpts)
+	require.NoError(t, err)
 }
 
 func newTestObjects(count int) (objects []TestObject) {

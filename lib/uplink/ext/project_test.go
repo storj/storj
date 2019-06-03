@@ -123,9 +123,6 @@ func TestDeleteBucket(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	t.Log("skipping -- corruption and SIGABRT (only happens in go test, not c test)")
-	t.SkipNow()
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 

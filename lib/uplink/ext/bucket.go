@@ -91,7 +91,7 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 
 	objectSize := int(unsafe.Sizeof(C.Object_t{}))
 	// TODO: use `calloc` instead?
-	cObjectsPtr := CMalloc(uintptr((objListLen - 1) * objectSize))
+	cObjectsPtr := CMalloc(uintptr(objListLen * objectSize))
 
 	for i, object := range objectList.Items {
 		cObject := (*C.Object_t)(unsafe.Pointer(uintptr(int(cObjectsPtr) + (i * objectSize))))

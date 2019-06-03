@@ -113,7 +113,7 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 
 	bucketSize := int(unsafe.Sizeof(C.Bucket_t{}))
 	// TODO: use `calloc` instead?
-	cBucketsPtr := CMalloc(uintptr((bucketListLen) * bucketSize))
+	cBucketsPtr := CMalloc(uintptr(bucketListLen * bucketSize))
 
 	for i, bucket := range bucketList.Items {
 		nextAddress := uintptr(int(cBucketsPtr) + (i * bucketSize))
