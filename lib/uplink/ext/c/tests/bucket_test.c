@@ -19,6 +19,8 @@ void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, By
     UploadOptions_t opts = {
         "text/plain",
         0,
+        // TODO: Set expiration and assert on it
+
         time(NULL),
     };
 
@@ -65,6 +67,8 @@ void TestBucket(void)
     // TODO: add assertions
 
     // TODO: add assertions for metadata
+
+    // TODO: Open Object
 }
 
 int main(int argc, char *argv[])

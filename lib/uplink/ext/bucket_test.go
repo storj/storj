@@ -45,6 +45,41 @@ func TestCBucketTests(t *testing.T) {
 	runCTest(t, ctx, "bucket_test.c", envVars...)
 }
 
+func TestOpenObject(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	bucketName := "TestBucket"
+	project, _ := openTestProject(t, ctx, planet)
+
+	testObjects := newTestObjects(15)
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+		require.NoError(t, err)
+
+		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
+		require.NoError(t, err)
+		require.NotNil(t, openBucket)
+
+		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		for _, testObj := range testObjects {
+			testObj.goUpload(t, ctx, openBucket)
+
+			require.Empty(t, cCharToGoString(cErr))
+
+			path := stringToCCharPtr(string(testObj.Path))
+			OpenObject(cBucketRef, path, &cErr)
+			require.Empty(t, cCharToGoString(cErr))
+			// TODO: Test only checks for no error right now
+		}
+	})
+
+}
+
 func TestUploadObject(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -199,8 +234,9 @@ func (obj *TestObject) goUpload(t *testing.T, ctx *testcontext.Context, bucket *
 }
 
 func newTestObjects(count int) (objects []TestObject) {
+	rand.Seed(time.Now().UnixNano())
 	randPath := make([]byte, 15)
-	rand.Read(randPath)
+	copy(randPath[:], randSeq(15))
 
 	obj := storj.Object{
 		// TODO: test `Version`?
@@ -230,4 +266,14 @@ func newTestObjects(count int) (objects []TestObject) {
 	}
 
 	return objects
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

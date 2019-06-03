@@ -123,6 +123,8 @@ extern APIKeyRef_t ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKeyRef_t p0);
 
+extern ObjectRef_t OpenObject(BucketRef_t p0, char* p1, char** p2);
+
 extern void UploadObject(BucketRef_t p0, char* p1, BufferRef_t p2, UploadOptions_t* p3, char** p4);
 
 extern ObjectList_t ListObjects(BucketRef_t p0, ListOptions_t* p1, char** p2);

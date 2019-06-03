@@ -17,6 +17,7 @@ typedef GoUintptr BucketRef_t;
 typedef GoUintptr BucketConfigRef_t;
 typedef GoUintptr MapRef_t;
 typedef GoUintptr BufferRef_t;
+typedef GoUintptr ObjectRef_t;
 
 typedef struct Bytes {
     uint8_t *bytes;

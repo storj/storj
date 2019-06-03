@@ -43,6 +43,7 @@ type CUplinkRef = C.UplinkRef_t
 type CProjectRef = C.ProjectRef_t
 type CBucketRef = C.BucketRef_t
 type CBufferRef = C.BufferRef_t
+type CObjectRef = C.ObjectRef_t
 
 // Struct types
 type CBucket = C.Bucket_t

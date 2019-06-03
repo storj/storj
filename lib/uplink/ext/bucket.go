@@ -12,12 +12,35 @@ import "C"
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"storj.io/storj/pkg/storj"
 	"time"
 	"unsafe"
 
 	"storj.io/storj/lib/uplink"
 )
+
+//export OpenObject
+func OpenObject(cBucket C.BucketRef_t, cpath *C.char, cErr **C.char) (objectRef C.ObjectRef_t) {
+	ctx := context.Background()
+
+	bucket, ok := structRefMap.Get(token(cBucket)).(*uplink.Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return objectRef
+	}
+
+	var path storj.Path = storj.JoinPaths(C.GoString(cpath))
+	fmt.Println(path)
+
+	object, err := bucket.OpenObject(ctx, path)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return objectRef
+	}
+
+	return C.ObjectRef_t(structRefMap.Add(object))
+}
 
 //export UploadObject
 func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cOpts *C.UploadOptions_t, cErr **C.char) {

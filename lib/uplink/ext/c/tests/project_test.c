@@ -8,8 +8,6 @@
 #include "../../uplink-cgo.h"
 #include "helpers.h"
 
-UplinkRef_t NewTestUplink(char **);
-
 void TestProject(void)
 {
     char *_err = "";
