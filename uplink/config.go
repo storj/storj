@@ -32,7 +32,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"1KiB"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
@@ -147,12 +147,22 @@ func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 	}
 }
 
+// GetPathCipherSuite returns the cipher suite used for path encryption for buckets
+func (c Config) GetPathCipherSuite() storj.CipherSuite {
+	return storj.Cipher(c.Enc.PathType).ToCipherSuite()
+}
+
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(c.Enc.DataType),
 		BlockSize: int32(c.Enc.BlockSize),
 	}
+}
+
+// GetSegmentSize returns the segment size set in uplink config
+func (c Config) GetSegmentSize() memory.Size {
+	return c.Client.SegmentSize
 }
 
 // LoadEncryptionKey loads the encryption key stored in the file pointed by

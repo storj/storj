@@ -739,13 +739,14 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
+	stripeSize := rs.ErasureShareSize() * rs.RequiredCount()
 	gateway := NewStorjGateway(
 		proj,
 		encKey,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
-			BlockSize:   1 * memory.KiB.Int32(),
+			BlockSize:   2 * int32(stripeSize),
 		},
 		storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,

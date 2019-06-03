@@ -6,6 +6,7 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -40,9 +41,10 @@ var DefaultRS = storj.RedundancyScheme{
 }
 
 // DefaultES default values for EncryptionScheme
+// BlockSize should default to the size of one stripe
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
-	BlockSize: 1 * memory.KiB.Int32(),
+	BlockSize: DefaultRS.ShareSize * int32(DefaultRS.RequiredShares),
 }
 
 // GetObject returns information about an object
@@ -105,14 +107,23 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.RedundancyScheme.IsZero() {
-		info.RedundancyScheme = DefaultRS
-	}
-
 	if info.EncryptionScheme.IsZero() {
 		info.EncryptionScheme = storj.EncryptionScheme{
 			Cipher:    DefaultES.Cipher,
-			BlockSize: info.RedundancyScheme.ShareSize,
+			BlockSize: DefaultES.BlockSize,
+		}
+	}
+
+	if info.RedundancyScheme.IsZero() {
+		info.RedundancyScheme = DefaultRS
+
+		if info.EncryptionScheme.BlockSize%int32(DefaultRS.RequiredShares)*DefaultRS.ShareSize != 0 {
+			fmt.Printf(`encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d).
+			Overwriting Blocksize with kvmetainfo.DefaultES.BlockSize (%d)`,
+				info.EncryptionScheme.BlockSize, DefaultRS.RequiredShares,
+				DefaultRS.ShareSize, DefaultES.BlockSize,
+			)
+			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
 		}
 	}
 

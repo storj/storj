@@ -5,6 +5,7 @@ package uplink
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/vivint/infectious"
 
@@ -93,23 +94,43 @@ func (cfg *BucketConfig) setDefaults() {
 }
 
 // CreateBucket creates a new bucket if authorized.
-func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConfig) (b storj.Bucket, err error) {
+func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConfig) (bucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &BucketConfig{}
 	}
 	cfg = cfg.clone()
 	cfg.setDefaults()
-	if cfg.Volatile.RedundancyScheme.ShareSize*int32(cfg.Volatile.RedundancyScheme.RequiredShares)%cfg.EncryptionParameters.BlockSize != 0 {
-		return b, Error.New("EncryptionParameters.BlockSize must be a multiple of RS ShareSize * RS RequiredShares")
+
+	if err := validateBlockSize(*cfg); err != nil {
+		return bucket, err
 	}
-	b = storj.Bucket{
+
+	bucket = storj.Bucket{
 		PathCipher:           cfg.PathCipher.ToCipher(),
 		EncryptionParameters: cfg.EncryptionParameters,
 		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
 		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
-	return p.project.CreateBucket(ctx, name, &b)
+	return p.project.CreateBucket(ctx, name, &bucket)
+}
+
+// validateBlockSize confirms the encryption block size aligns with stripe size.
+// Stripes get encrypted therefore we want the stripe boundaries to match up
+// with the encryption block size boundaries, meaning block size should be a multiple of stripe size.
+func validateBlockSize(cfg BucketConfig) error {
+	shareSize := cfg.Volatile.RedundancyScheme.ShareSize
+	requiredShares := int32(cfg.Volatile.RedundancyScheme.RequiredShares)
+	blockSize := cfg.EncryptionParameters.BlockSize
+
+	// number of bytes needed to recreate a stripe
+	stripeSize := shareSize * requiredShares
+
+	if blockSize%stripeSize != 0 {
+		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
+			shareSize, requiredShares, blockSize)
+	}
+	return nil
 }
 
 // DeleteBucket deletes a bucket if authorized. If the bucket contains any
