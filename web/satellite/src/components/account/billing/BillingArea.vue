@@ -4,9 +4,6 @@
 <template>
 	<div>
 		<div v-if="billing > 0" class="billing-overflow">
-			<div class="billing-header">
-				<p>Billing</p>
-			</div>
 			<div class="billing-container">
 				<table class="billing-container__table">
 					<SortingHeader />
@@ -21,9 +18,9 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import BillingItem from '@/components/project/billing/BillingItem.vue';
-    import PaginationArea from '@/components/project/billing/PaginationArea.vue';
-    import SortingHeader from '@/components/project/billing/SortingHeader.vue';
+    import BillingItem from '@/components/account/billing/BillingItem.vue';
+    import PaginationArea from '@/components/account/billing/PaginationArea.vue';
+    import SortingHeader from '@/components/account/billing/SortingHeader.vue';
 
     @Component({
         data: function () {
@@ -42,23 +39,9 @@
 </script>
 
 <style scoped lang="scss">
-	.billing-header {
-		display: flex;
-		align-items: center;
-		justify-content: flex-start;
-
-		p {
-			font-family: 'font_bold';
-			font-size: 24px;
-			line-height: 29px;
-			color: #384B65;
-			margin-right: 50px;
-			margin-block-start: 0.5em;
-			margin-block-end: 0.5em;
-		}
-	}
-
 	.billing-container {
+		margin-top: 83px;
+
 		&__table {
 			margin-top: 20px;
 			width: 100%;
@@ -76,16 +59,38 @@
 		}
 	}
 
-	@media screen and (max-height: 880px) {
+	@media screen and (max-height: 860px) {
 		.billing-overflow {
 			overflow-y: scroll;
-			height: 600px;
+			height: 700px;
 		}
 	}
 
-	@media screen and (max-height: 700px) {
+	@media screen and (max-height: 835px) {
 		.billing-overflow {
-			height: 570px;
+			overflow-y: scroll;
+			height: 660px;
+		}
+	}
+
+	@media screen and (max-height: 815px) {
+		.billing-overflow {
+			overflow-y: scroll;
+			height: 660px;
+		}
+	}
+
+	@media screen and (max-height: 795px) {
+		.billing-overflow {
+			overflow-y: scroll;
+			height: 640px;
+		}
+	}
+
+	@media screen and (max-height: 780px) {
+		.billing-overflow {
+			overflow-y: scroll;
+			height: 620px;
 		}
 	}
 </style>
