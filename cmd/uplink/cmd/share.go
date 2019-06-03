@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/process"
@@ -41,7 +40,7 @@ func init() {
 		RunE:  shareMain,
 	}, RootCmd)
 
-	cfgstruct.Bind(shareCmd.Flags(), &shareCfg)
+	process.Bind(shareCmd, &shareCfg)
 }
 
 const shareISO8601 = "2006-01-02T15:04:05-0700"

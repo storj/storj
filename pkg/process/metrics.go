@@ -16,6 +16,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2/environment"
 
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/telemetry"
 )
@@ -24,7 +25,7 @@ var (
 	metricInterval  = flag.Duration("metrics.interval", telemetry.DefaultInterval, "how frequently to send up telemetry")
 	metricCollector = flag.String("metrics.addr", "collectora.storj.io:9000", "address to send telemetry to")
 	metricApp       = flag.String("metrics.app", filepath.Base(os.Args[0]), "application name for telemetry identification")
-	metricAppSuffix = flag.String("metrics.app-suffix", "-dev", "application suffix")
+	metricAppSuffix = flag.String("metrics.app-suffix", "-"+cfgstruct.DefaultsType(), "application suffix")
 )
 
 // InitMetrics initializes telemetry reporting. Makes a telemetry.Client and calls

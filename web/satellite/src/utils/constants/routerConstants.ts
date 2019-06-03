@@ -19,8 +19,8 @@ const ROUTES = {
         name: 'Dashboard'
     },
     ACCOUNT_SETTINGS: {
-        path: '/account-settings',
-        name: 'AccountSettings'
+        path: '/account',
+        name: 'Account'
     },
     PROJECT_OVERVIEW: {
         path: '/project-overview',
@@ -48,12 +48,16 @@ const ROUTES = {
     },
     PAYMENT_METHODS: {
         path: 'payment-methods',
-        name: 'PaymentMethods'
+        name: 'ProjectPaymentMethods.vue'
     },
     BUCKETS: {
         path: '/buckets',
         name: 'Buckets'
     },
+    PROFILE: {
+        path: 'profile',
+        name: 'Profile'
+    }
 };
 
 export default ROUTES;

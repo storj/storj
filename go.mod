@@ -97,14 +97,16 @@ require (
 	github.com/spf13/viper v1.2.1
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/stretchr/testify v1.3.0
+	github.com/stripe/stripe-go v60.17.0+incompatible
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
-	github.com/zeebo/errs v1.1.0
+	github.com/zeebo/errs v1.1.1
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
+	github.com/zeebo/structs v1.0.1
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect

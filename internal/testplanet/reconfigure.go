@@ -21,6 +21,7 @@ type Reconfigure struct {
 
 	NewStorageNodeDB func(index int) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
+	NewIPCount       int
 }
 
 // DisablePeerCAWhitelist returns a `Reconfigure` that sets `UsePeerCAWhitelist` for
