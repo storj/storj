@@ -28,7 +28,7 @@ Further, the node will be demonetized.
 
 > Provided the storage node hasn’t been disqualified, the storage node will be paid by the Satellite for the data it has stored over the course ofthe month, per the Satellite’s records.
 
-A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia and potentially found during Overlay Cache Discover, as the kademlia network supports multiple satellites.
+A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia as the kademlia network supports multiple satellites.  It will also be found in Node DB / overlay cache, as nodes are not currently ever removed from that database.  Filtering of Node DB records will be required for most operations.
 
 One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  [Storage Node Payment and Incentives for V3](https://docs.google.com/document/d/1-Pxzk-ad-0QtF6nnTwfgzk8e_-XbBNSDxuRvnbd0QL8/edit#heading=h.rz1ehm5mbeuz) describes this feature:
 
