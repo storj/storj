@@ -387,7 +387,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
 				AND NOT disqualified
-				AND last_contact_success > $4 AND last_contact_success > last_contact_failure
+				AND last_contact_success > $2 AND last_contact_success > last_contact_failure
 			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
 	default:
