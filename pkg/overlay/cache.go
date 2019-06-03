@@ -6,6 +6,7 @@ package overlay
 import (
 	"context"
 	"errors"
+	"net"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -47,7 +48,8 @@ type DB interface {
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-
+	// VetNode returns whether or not the node reaches reputable thresholds
+	VetNode(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// Update updates node address
@@ -95,12 +97,13 @@ type UpdateRequest struct {
 // NodeDossier is the complete info that the satellite tracks for a storage node
 type NodeDossier struct {
 	pb.Node
-	Type       pb.NodeType
-	Operator   pb.NodeOperator
-	Capacity   pb.NodeCapacity
-	Reputation NodeStats
-	Version    pb.NodeVersion
-	Contained  bool
+	Type         pb.NodeType
+	Operator     pb.NodeOperator
+	Capacity     pb.NodeCapacity
+	Reputation   NodeStats
+	Version      pb.NodeVersion
+	Contained    bool
+	Disqualified bool
 }
 
 // NodeStats contains statistics about a node.
@@ -264,6 +267,14 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if nodeID != value.Id {
 		return errors.New("invalid request")
 	}
+	if value.Address == nil {
+		return errors.New("node has no address")
+	}
+	//Resolve IP Address to ensure it is set
+	value.LastIp, err = getIP(value.Address.Address)
+	if err != nil {
+		return OverlayError.Wrap(err)
+	}
 	return cache.db.UpdateAddress(ctx, &value)
 }
 
@@ -271,6 +282,22 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
+}
+
+// VetNode returns whether or not the node reaches reputable thresholds
+func (cache *Cache) VetNode(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	criteria := &NodeCriteria{
+		AuditCount:         cache.preferences.AuditCount,
+		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
+		UptimeCount:        cache.preferences.UptimeCount,
+		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+	}
+	reputable, err = cache.db.VetNode(ctx, nodeID, criteria)
+	if err != nil {
+		return false, err
+	}
+	return reputable, nil
 }
 
 // UpdateStats all parts of single storagenode's stats.
@@ -339,4 +366,16 @@ func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePie
 		}
 	}
 	return missingPieces, nil
+}
+
+func getIP(target string) (string, error) {
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		return "", err
+	}
+	ipAddr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return "", err
+	}
+	return ipAddr.String(), nil
 }

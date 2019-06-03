@@ -41,12 +41,12 @@ func (store *Store) Close() error { return nil }
 
 // Open loads blob with the specified hash
 func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
-	file, openErr := store.dir.Open(ref)
-	if openErr != nil {
-		if os.IsNotExist(openErr) {
-			return nil, openErr
+	file, err := store.dir.Open(ref)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, err
 		}
-		return nil, Error.Wrap(openErr)
+		return nil, Error.Wrap(err)
 	}
 	return newBlobReader(file), nil
 }

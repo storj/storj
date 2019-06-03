@@ -6,12 +6,15 @@ package piecestore
 import (
 	"context"
 	"io"
+	"os"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
@@ -125,6 +128,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -152,10 +156,29 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return err // TODO: report grpc status unauthorized or bad request
 	}
 
+	var pieceWriter *pieces.Writer
 	defer func() {
+		endTime := time.Now().UTC()
+		dt := endTime.Sub(startTime)
+		uploadSize := int64(0)
+		if pieceWriter != nil {
+			uploadSize = pieceWriter.Size()
+		}
+		uploadRate := float64(0)
+		if dt.Seconds() > 0 {
+			uploadRate = float64(uploadSize) / dt.Seconds()
+		}
+		uploadDuration := dt.Nanoseconds()
+
 		if err != nil {
+			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
+			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
@@ -165,7 +188,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return Error.Wrap(err)
 	}
 
-	pieceWriter, err := endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
+	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
@@ -292,6 +315,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -320,10 +344,28 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
+	var pieceReader *pieces.Reader
 	defer func() {
+		endTime := time.Now().UTC()
+		dt := endTime.Sub(startTime)
+		downloadSize := int64(0)
+		if pieceReader != nil {
+			downloadSize = pieceReader.Size()
+		}
+		downloadRate := float64(0)
+		if dt.Seconds() > 0 {
+			downloadRate = float64(downloadSize) / dt.Seconds()
+		}
+		downloadDuration := dt.Nanoseconds()
 		if err != nil {
+			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
 			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
+			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
 			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
 		}
 	}()
@@ -333,9 +375,12 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err)
 	}
 
-	pieceReader, err := endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
+	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+		if os.IsNotExist(err) {
+			return status.Error(codes.NotFound, err.Error())
+		}
+		return status.Error(codes.Internal, err.Error())
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
