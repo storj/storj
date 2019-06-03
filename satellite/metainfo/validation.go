@@ -25,6 +25,12 @@ import (
 
 const requestTTL = time.Hour * 4
 
+// TTLItem keeps association between serial number and ttl
+type TTLItem struct {
+	serialNumber storj.SerialNumber
+	ttl          time.Time
+}
+
 type createRequest struct {
 	Expiration *timestamp.Timestamp
 	Redundancy *pb.RedundancyScheme
@@ -33,37 +39,78 @@ type createRequest struct {
 }
 
 type createRequests struct {
-	sync.Mutex
-
-	// TODO still thinking how efficien remove expired entries
+	mu sync.RWMutex
 	// orders limit serial number used because with CreateSegment we don't have path yet
 	requests map[storj.SerialNumber]*createRequest
+
+	ttlMu    sync.Mutex
+	ttlItems []*TTLItem
+}
+
+func newCreateRequests() *createRequests {
+	return &createRequests{
+		requests: make(map[storj.SerialNumber]*createRequest),
+		ttlItems: make([]*TTLItem, 0),
+	}
 }
 
 func (cr *createRequests) Put(serialNumber storj.SerialNumber, createRequest *createRequest) {
-	createRequest.ttl = time.Now().Add(requestTTL)
-	cr.Lock()
+	ttl := time.Now().Add(requestTTL)
+
+	go func() {
+		cr.ttlMu.Lock()
+		cr.ttlItems = append(cr.ttlItems, &TTLItem{
+			serialNumber: serialNumber,
+			ttl:          ttl,
+		})
+		cr.ttlMu.Unlock()
+	}()
+
+	createRequest.ttl = ttl
+	cr.mu.Lock()
 	cr.requests[serialNumber] = createRequest
-	cr.Unlock()
+	cr.mu.Unlock()
+
+	go cr.cleanup()
 }
 
 func (cr *createRequests) Load(serialNumber storj.SerialNumber) (*createRequest, bool) {
-	cr.Lock()
+	cr.mu.RLock()
 	request, found := cr.requests[serialNumber]
 	if request != nil && request.ttl.Before(time.Now()) {
-		delete(cr.requests, serialNumber)
 		request = nil
 		found = false
 	}
-	cr.Unlock()
+	cr.mu.RUnlock()
 
 	return request, found
 }
 
 func (cr *createRequests) Remove(serialNumber storj.SerialNumber) {
-	cr.Lock()
+	cr.mu.Lock()
 	delete(cr.requests, serialNumber)
-	cr.Unlock()
+	cr.mu.Unlock()
+}
+
+func (cr *createRequests) cleanup() {
+	cr.ttlMu.Lock()
+	now := time.Now()
+	remove := make([]storj.SerialNumber, 0)
+	newStart := 0
+	for i, item := range cr.ttlItems {
+		if item.ttl.Before(now) {
+			remove = append(remove, item.serialNumber)
+			newStart = i + 1
+		} else {
+			break
+		}
+	}
+	cr.ttlItems = cr.ttlItems[newStart:]
+	cr.ttlMu.Unlock()
+
+	for _, serialNumber := range remove {
+		cr.Remove(serialNumber)
+	}
 }
 
 func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (*console.APIKeyInfo, error) {
