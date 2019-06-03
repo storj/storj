@@ -45,6 +45,7 @@ type Config struct {
 	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
+	StripeKey       string `help:"stripe api key" default:""`
 
 	// TODO: remove after Vanguard release
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
