@@ -216,7 +216,7 @@ model user_payment_info (
     unique customer_id
 
     field user_id       user.id   cascade
-    field customer_id   text
+    field customer_id   blob
 
     field created_at    timestamp ( autoinsert )
 )
@@ -264,7 +264,7 @@ model project_payment_info (
 
     field project_id        project.id                   cascade
     field payer_id          user_payment_info.user_id    cascade
-    field payment_method_id text
+    field payment_method_id blob
 
     field created_at        timestamp  ( autoinsert )
 )
@@ -285,7 +285,7 @@ model project_invoice_stamp (
     unique invoice_id
 
     field  project_id project.id  cascade
-    field  invoice_id text
+    field  invoice_id blob
 
     field  start_date timestamp
     field  end_date   timestamp

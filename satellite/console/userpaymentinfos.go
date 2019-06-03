@@ -19,7 +19,7 @@ type UserPaymentInfos interface {
 // UserPaymentInfo represents user payment information
 type UserPaymentInfo struct {
 	UserID     uuid.UUID
-	CustomerID string
+	CustomerID []byte
 
 	CreatedAt time.Time
 }

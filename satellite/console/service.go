@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"fmt"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -143,7 +144,20 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
-		return nil
+		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+			Email: email,
+			Name:  user.FullName,
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = s.store.UserPaymentInfos().Create(ctx, UserPaymentInfo{
+			UserID:     u.ID,
+			CustomerID: cus.ID,
+		})
+
+		return err
 	})
 
 	if err != nil {
@@ -457,6 +471,16 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
+	pmInfo, err := s.store.UserPaymentInfos().Get(ctx, auth.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	defaultPayment, err := s.pm.GetCustomerDefaultPaymentMethod(ctx, pmInfo.CustomerID)
+	if err != nil {
+		return nil, err
+	}
+
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
@@ -478,7 +502,13 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			return errs.New(internalErrMsg)
 		}
 
-		return nil
+		_, err = s.store.ProjectPaymentInfos().Create(ctx, ProjectPaymentInfo{
+			ProjectID:       p.ID,
+			PayerID:         pmInfo.UserID,
+			PaymentMethodID: defaultPayment.ID,
+		})
+
+		return err
 	})
 
 	if err != nil {
@@ -599,6 +629,11 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
+	projPaymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
@@ -609,6 +644,12 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		if err != nil {
 			userErr.Add(err)
 			continue
+		}
+
+		// abort if one of the members payment info
+		// attached to this project
+		if projPaymentInfo.PayerID == user.ID {
+			return errs.New("member with atached payment can't be deleted")
 		}
 
 		userIDs = append(userIDs, user.ID)
@@ -854,6 +895,100 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 	}
 
 	return s.store.UsageRollups().GetBucketUsageRollups(ctx, projectID, since, before)
+}
+
+// CreateMonthlyProjectInvoices creates invoices for all created projects on monthly basis.
+// Edge Dates are derived from the date parameter taking UTC year and month, then adding first
+// and last date of the month accordingly
+func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO: do we need auth here?
+	//auth, err := GetAuth(ctx)
+	//if err != nil {
+	//	return err
+	//}
+
+	utc := date.UTC()
+	startDate := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, -1, time.UTC)
+
+	// disallow invoice generation for future periods
+	if endDate.After(time.Now()) {
+		return errs.New("can't create invoices for future periods")
+	}
+
+	projects, err := s.store.Projects().GetAll(ctx)
+	if err != nil {
+		return
+	}
+
+	var invoiceError errs.Group
+	for _, proj := range projects {
+		// skip projects that were created after endDate
+		if proj.CreatedAt.After(endDate) {
+			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, created after start of the period", proj.ID))
+			continue
+		}
+
+		// check if there is entry in the db for selected project and date
+		// range, if so skip project as invoice has already been created
+		// this way we can run this function for the second time to generate
+		// invoices only for project that failed before
+		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
+		if err == nil {
+			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp allready exists", proj.ID))
+			continue
+		}
+
+		paymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, proj.ID)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		payerInfo, err := s.store.UserPaymentInfos().Get(ctx, paymentInfo.PayerID)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		totals, err := s.store.UsageRollups().GetProjectTotal(ctx, proj.ID, startDate, endDate)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		inv, err := s.pm.CreateProjectInvoice(ctx,
+			payments.CreateProjectInvoiceParams{
+				ProjectName:     proj.Name,
+				CustomerID:      payerInfo.CustomerID,
+				PaymentMethodID: paymentInfo.PaymentMethodID,
+				Storage:         totals.Storage,
+				Egress:          totals.Egress,
+				ObjectCount:     totals.ObjectCount,
+				StartDate:       startDate,
+				EndDate:         endDate,
+			},
+		)
+		if err != nil {
+			invoiceError.Add(err)
+			continue
+		}
+
+		_, err = s.store.ProjectInvoiceStamps().Create(ctx,
+			ProjectInvoiceStamp{
+				ProjectID: proj.ID,
+				InvoiceID: inv.ID,
+				StartDate: startDate,
+				EndDate:   endDate,
+				CreatedAt: inv.CreatedAt,
+			},
+		)
+		invoiceError.Add(err)
+	}
+
+	return invoiceError.Err()
 }
 
 // Authorize validates token from context and returns authorized Authorization

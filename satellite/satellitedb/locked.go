@@ -226,6 +226,37 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
+// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
+func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
+}
+
+// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
+type lockedProjectInvoiceStamps struct {
+	sync.Locker
+	db console.ProjectInvoiceStamps
+}
+
+func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, stamp)
+}
+
+func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAll(ctx, projectID)
+}
+
+func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
+}
+
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -265,6 +296,37 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Insert(ctx, memberID, projectID)
+}
+
+// ProjectPaymentInfos is a getter for ProjectPaymentInfos repository
+func (m *lockedConsole) ProjectPaymentInfos() console.ProjectPaymentInfos {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectPaymentInfos{m.Locker, m.db.ProjectPaymentInfos()}
+}
+
+// lockedProjectPaymentInfos implements locking wrapper for console.ProjectPaymentInfos
+type lockedProjectPaymentInfos struct {
+	sync.Locker
+	db console.ProjectPaymentInfos
+}
+
+func (m *lockedProjectPaymentInfos) Create(ctx context.Context, info console.ProjectPaymentInfo) (*console.ProjectPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedProjectPaymentInfos) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByPayerID(ctx, payerID)
+}
+
+func (m *lockedProjectPaymentInfos) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectID(ctx, projectID)
 }
 
 // Projects is a getter for Projects repository
@@ -433,6 +495,31 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
+}
+
+// UserPaymentInfos is a getter for UserPaymentInfos repository
+func (m *lockedConsole) UserPaymentInfos() console.UserPaymentInfos {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserPaymentInfos{m.Locker, m.db.UserPaymentInfos()}
+}
+
+// lockedUserPaymentInfos implements locking wrapper for console.UserPaymentInfos
+type lockedUserPaymentInfos struct {
+	sync.Locker
+	db console.UserPaymentInfos
+}
+
+func (m *lockedUserPaymentInfos) Create(ctx context.Context, info console.UserPaymentInfo) (*console.UserPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedUserPaymentInfos) Get(ctx context.Context, userID uuid.UUID) (*console.UserPaymentInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, userID)
 }
 
 // Users is a getter for Users repository
@@ -686,6 +773,13 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IsVetted(ctx, id, criteria)
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
@@ -698,13 +792,6 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.IsVetted(ctx, id, criteria)
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria

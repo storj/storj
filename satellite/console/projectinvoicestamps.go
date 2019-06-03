@@ -20,7 +20,7 @@ type ProjectInvoiceStamps interface {
 // ProjectInvoiceStamp declare invoice to project mappings
 type ProjectInvoiceStamp struct {
 	ProjectID uuid.UUID
-	InvoiceID string
+	InvoiceID []byte
 
 	StartDate time.Time
 	EndDate   time.Time
