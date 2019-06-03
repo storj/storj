@@ -12,16 +12,16 @@ import (
 type Project struct {
 	buckets            buckets.Store
 	encryptedBlockSize int32
-	redundancy         eestream.RedundancyStrategy
-	segmentsSize       int64
+	// redundancy         eestream.RedundancyStrategy
+	segmentsSize int64
 }
 
 // NewProject constructs a *Project
-func NewProject(buckets buckets.Store, encryptedBlockSize int32, segmentsSize int64) *Project {
+func NewProject(buckets buckets.Store, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
 	return &Project{
 		buckets:            buckets,
 		encryptedBlockSize: encryptedBlockSize,
-		redundancy:         redundancy, //where do i get this info?
+		redundancy:         redundancy,
 		segmentsSize:       segmentsSize,
 	}
 }
