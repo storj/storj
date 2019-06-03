@@ -52,7 +52,7 @@ func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (*p
 		return &pb.Voucher{}, Error.Wrap(err)
 	}
 
-	reputable, err := service.cache.VetNode(ctx, peer.ID)
+	reputable, err := service.cache.IsVetted(ctx, peer.ID)
 	if err != nil {
 		return &pb.Voucher{}, Error.Wrap(err)
 	}

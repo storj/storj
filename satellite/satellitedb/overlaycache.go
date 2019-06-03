@@ -339,8 +339,8 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 	return convertDBNode(node)
 }
 
-// VetNode returns whether or not the node reaches reputable thresholds
-func (cache *overlaycache) VetNode(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
 	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
 	FROM nodes
 	WHERE id = ? 
