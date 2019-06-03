@@ -46,12 +46,11 @@ void TestBuffer(void)
     WriteBuffer(ref_buf, &write_data, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    size_t data_size;
     Bytes_t *read_data = malloc(sizeof(Bytes_t));
     ReadBuffer(ref_buf, read_data, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_NOT_EQUAL(0, data_size);
-    TEST_ASSERT_EQUAL(0, strcmp((char *)write_data.bytes, (char *)read_data->bytes));
+    TEST_ASSERT_EQUAL(write_data.length, read_data->length);
+    TEST_ASSERT_EQUAL(0, memcmp(write_data.bytes, read_data->bytes, write_data.length));
 }
 
 int main(int argc, char *argv[])
