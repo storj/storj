@@ -741,14 +741,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     27,
 				Action: migrate.SQL{
 					`CREATE TABLE IF NOT EXISTS value_attribution (
-						node_id bytea NOT NULL,
+						bucket_id bytea NOT NULL,
 						user_id bytea NOT NULL,
 						partner_id bytea NOT NULL,
 						at_rest_data bigint NOT NULL,
 						egress_data bigint NOT NULL,
 						ingress_data bigint NOT NULL,
 						last_updated timestamp NOT NULL,
-						PRIMARY KEY ( node_id )
+						PRIMARY KEY ( bucket_id )
 					)`,
 				},
 			},
