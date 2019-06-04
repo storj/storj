@@ -55,6 +55,7 @@ typedef struct Bucket {
 
 typedef struct BucketConfig {
     EncryptionParameters_t *encryption_parameters;
+    RedundancyScheme_t *redundancy_scheme;
     uint8_t path_cipher;
 } BucketConfig_t;
 

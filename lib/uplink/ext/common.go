@@ -98,6 +98,7 @@ func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
 func NewCBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
 	return C.BucketConfig_t{
 		encryption_parameters: NewCEncryptionParamsPtr(&bucketCfg.EncryptionParameters),
+		redundancy_scheme: NewCRedundancySchemePtr(&bucketCfg.Volatile.RedundancyScheme),
 		path_cipher:           CUint8(bucketCfg.PathCipher),
 	}
 }

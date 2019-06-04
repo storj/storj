@@ -35,6 +35,14 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketCon
 				BlockSize:   int32(cBucketCfg.encryption_parameters.block_size),
 			},
 		}
+		bucketCfg.Volatile.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm: storj.RedundancyAlgorithm(cBucketCfg.redundancy_scheme.algorithm),
+			ShareSize: int32(cBucketCfg.redundancy_scheme.share_size),
+			RequiredShares: int16(cBucketCfg.redundancy_scheme.required_shares),
+			RepairShares: int16(cBucketCfg.redundancy_scheme.repair_shares),
+			OptimalShares: int16(cBucketCfg.redundancy_scheme.optimal_shares),
+			TotalShares: int16(cBucketCfg.redundancy_scheme.total_shares),
+		}
 	}
 
 	bucket, err := project.CreateBucket(ctx, C.GoString(name), bucketCfg)

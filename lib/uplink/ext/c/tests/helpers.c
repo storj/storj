@@ -32,15 +32,15 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
     RedundancyScheme_t scheme;
     scheme.algorithm = 1;
     scheme.share_size = 1024;
-    // TODO: we probably want to use dev defaults instead
-    scheme.required_shares = 29;
-    scheme.repair_shares = 35;
-    scheme.optimal_shares = 80;
-    scheme.total_shares = 95;
+    scheme.required_shares = 4;
+    scheme.repair_shares = 6;
+    scheme.optimal_shares = 8;
+    scheme.total_shares = 10;
 
     BucketConfig_t bucket_cfg;
     bucket_cfg.path_cipher = 0;
     bucket_cfg.encryption_parameters = &enc_param;
+    bucket_cfg.redundancy_scheme = &scheme;
 
     *bucket = CreateBucket(ref_project, bucket_name, &bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
