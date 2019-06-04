@@ -4,12 +4,13 @@
 model value_attribution (
 	key bucket_id
 
-	field user_id             blob
-	field partner_id            blob
-	field at_rest_data        int64
-	field egress_data          int64
-	field ingress_data          int64
-	field last_updated utimestamp
+	field bucket_id		blob
+	field user_id		blob
+	field partner_id	blob
+	field at_rest_data	int64
+	field egress_data	int64
+	field ingress_data  int64
+	field last_updated 	utimestamp
 )
 
 //--- containment ---//
