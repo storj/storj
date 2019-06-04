@@ -225,7 +225,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
 	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-	uptime_success_count, disqualified
+	uptime_success_count, disqualified,
 	FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count, disqualified
 		Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
