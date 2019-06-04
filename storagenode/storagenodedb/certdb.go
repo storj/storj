@@ -8,10 +8,16 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storagenode/trust"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 type certdb struct {
