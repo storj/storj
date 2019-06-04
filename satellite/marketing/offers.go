@@ -53,9 +53,9 @@ type OfferType int
 
 const (
 	// FreeCredit is a type of offers used for Free Credit Program
-	FreeCredit OfferType = 0
+	FreeCredit = OfferType(iota)
 	// Referral is a type of offers used for Referral Program
-	Referral OfferType = 1
+	Referral
 )
 
 // OfferStatus indicates the status of an offer
@@ -63,11 +63,11 @@ type OfferStatus int
 
 const (
 	// Done is a default offer status when an offer is not being used currently
-	Done OfferStatus = 0
+	Done = OfferStatus(iota)
 	// Default is a offer status when an offer is used as a default offer
-	Default OfferStatus = 1
+	Default
 	// Active is a offer status when an offer is currently being used
-	Active OfferStatus = 2
+	Active
 )
 
 // Offer contains info needed for giving users free credits through different offer programs

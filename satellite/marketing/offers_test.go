@@ -97,8 +97,9 @@ func TestOffer_Database(t *testing.T) {
 		}
 
 		for i := range expiredOffers {
-			_, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, &expiredOffers[i])
+			output, err := planet.Satellites[0].DB.Marketing().Offers().Create(ctx, &expiredOffers[i])
 			require.Error(t, err)
+			require.Nil(t, output)
 		}
 	})
 }

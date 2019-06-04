@@ -79,13 +79,13 @@ func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer
 }
 
 // UpdateOffer modifies an existing offer in the db when the offer status is set to NoStatus
-func (s *Service) UpdateOffer(ctx context.Context, o *UpdateOffer) (err error) {
+func (s *Service) UpdateOffer(ctx context.Context, offer *UpdateOffer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if o.Status == Default {
-		o.NumRedeemed = 0
+	if offer.Status == Default {
+		offer.NumRedeemed = 0
 	}
-	err = s.db.Offers().Update(ctx, o)
+	err = s.db.Offers().Update(ctx, offer)
 	if err != nil {
 		return Error.Wrap(err)
 	}

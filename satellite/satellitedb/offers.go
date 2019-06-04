@@ -70,6 +70,7 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 		return nil, marketing.OffersErr.Wrap(err)
 	}
 
+	// If there's an existing current offer, update its status to Dne and set its expires_at to be NOW()
 	statement := offers.db.Rebind(`
 		UPDATE offers SET status=?, expires_at=?
 		WHERE status=? AND type=? AND expires_at>?;
