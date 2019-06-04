@@ -20,6 +20,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
@@ -37,8 +38,12 @@ const (
 	applicationGraphql = "application/graphql"
 )
 
-// Error is satellite console error type
-var Error = errs.Class("satellite console error")
+var (
+	// Error is satellite console error type
+	Error = errs.Class("satellite console error")
+
+	mon = monkit.Package()
+)
 
 // Config contains configuration for console web server
 type Config struct {
@@ -116,7 +121,9 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 
 // bucketUsageReportHandler generate bucket usage report page for project
 func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
 	var err error
+	defer mon.Task()(&ctx)(&err)
 
 	var projectID *uuid.UUID
 	var since, before time.Time
@@ -130,7 +137,7 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	auth, err := s.service.Authorize(auth.WithAPIKey(req.Context(), []byte(tokenCookie.Value)))
+	auth, err := s.service.Authorize(auth.WithAPIKey(ctx, []byte(tokenCookie.Value)))
 	if err != nil {
 		s.log.Error("bucket usage report error", zap.Error(err))
 
@@ -170,7 +177,7 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 		zap.String("since", since.String()),
 		zap.String("before", before.String()))
 
-	ctx := console.WithAuth(context.Background(), auth)
+	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
 	if err != nil {
 		return
@@ -186,6 +193,8 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 
 // accountActivationHandler is web app http handler function
 func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
 	var response struct {
@@ -215,7 +224,7 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 		return
 	}
 
-	token, err := s.service.CreateRegToken(context.Background(), projectsLimit)
+	token, err := s.service.CreateRegToken(ctx, projectsLimit)
 	if err != nil {
 		response.Error = err.Error()
 		return
@@ -226,9 +235,11 @@ func (s *Server) createRegistrationTokenHandler(w http.ResponseWriter, req *http
 
 // accountActivationHandler is web app http handler function
 func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
 	activationToken := req.URL.Query().Get("token")
 
-	err := s.service.ActivateAccount(context.Background(), activationToken)
+	err := s.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
 		s.log.Error("activation: failed to activate account",
 			zap.String("token", activationToken),
@@ -242,6 +253,8 @@ func (s *Server) accountActivationHandler(w http.ResponseWriter, req *http.Reque
 }
 
 func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
 	recoveryToken := req.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
 		s.serveError(w, req)
@@ -262,7 +275,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 			return
 		}
 
-		err = s.service.ResetPassword(context.Background(), recoveryToken, password)
+		err = s.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
 			s.serveError(w, req)
 		}
@@ -281,13 +294,15 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 }
 
 func (s *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
 	recoveryToken := req.URL.Query().Get("token")
 	if len(recoveryToken) == 0 {
 		http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 	}
 
 	// No need to check error as we anyway redirect user to support page
-	_ = s.service.RevokeResetPasswordToken(context.Background(), recoveryToken)
+	_ = s.service.RevokeResetPasswordToken(ctx, recoveryToken)
 
 	http.Redirect(w, req, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
@@ -298,6 +313,8 @@ func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
 
 // grapqlHandler is graphql endpoint http handler function
 func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
 	w.Header().Set(contentType, applicationJSON)
 
 	token := getToken(req)
@@ -307,7 +324,7 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ctx := auth.WithAPIKey(context.Background(), []byte(token))
+	ctx = auth.WithAPIKey(ctx, []byte(token))
 	auth, err := s.service.Authorize(ctx)
 	if err != nil {
 		ctx = console.WithAuthFailure(ctx, err)
@@ -343,8 +360,8 @@ func (s *Server) grapqlHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // Run starts the server that host webapp and api endpoint
-func (s *Server) Run(ctx context.Context) error {
-	var err error
+func (s *Server) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	s.schema, err = consoleql.CreateSchema(s.log, s.service, s.mailService)
 	if err != nil {

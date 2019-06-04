@@ -118,7 +118,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := metainfo.CreatePath(*projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	path, err := metainfo.CreatePath(ctx, *projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

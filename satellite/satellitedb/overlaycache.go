@@ -36,6 +36,8 @@ type overlaycache struct {
 }
 
 func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
@@ -90,6 +92,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 }
 
 func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) (nodes []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
@@ -139,6 +143,8 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 }
 
 func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj.NodeID, count int, safeQuery string, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if count == 0 {
 		return nil, nil
 	}
@@ -179,7 +185,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 			return nil, err
 		}
 
-		dossier, err := convertDBNode(dbNode)
+		dossier, err := convertDBNode(ctx, dbNode)
 		if err != nil {
 			return nil, err
 		}
@@ -190,6 +196,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 }
 
 func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	switch t := cache.db.DB.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		return cache.sqliteQueryNodesDistinct(ctx, excludedNodes, excludedIPs, count, safeQuery, distinctIP, args...)
@@ -201,6 +209,8 @@ func (cache *overlaycache) queryNodesDistinct(ctx context.Context, excludedNodes
 }
 
 func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if count == 0 {
 		return nil, nil
 	}
@@ -252,7 +262,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 			return nil, err
 		}
 
-		dossier, err := convertDBNode(dbNode)
+		dossier, err := convertDBNode(ctx, dbNode)
 		if err != nil {
 			return nil, err
 		}
@@ -263,6 +273,8 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 }
 
 func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, excludedNodes []storj.NodeID, excludedIPs []string, count int, safeQuery string, distinctIP bool, args ...interface{}) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if count == 0 {
 		return nil, nil
 	}
@@ -312,7 +324,7 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 		if err != nil {
 			return nil, err
 		}
-		dossier, err := convertDBNode(dbNode)
+		dossier, err := convertDBNode(ctx, dbNode)
 		if err != nil {
 			return nil, err
 		}
@@ -323,7 +335,9 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 }
 
 // Get looks up the node by nodeID
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.NodeDossier, error) {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay.NodeDossier, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if id.IsZero() {
 		return nil, overlay.ErrEmptyNode
 	}
@@ -336,11 +350,13 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (*overlay.N
 		return nil, err
 	}
 
-	return convertDBNode(node)
+	return convertDBNode(ctx, node)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
@@ -401,7 +417,9 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 }
 
 // Paginate will run through
-func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
+func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) (_ []*overlay.NodeDossier, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cursor := storj.NodeID{}
 
 	// more represents end of table. If there are more rows in the database, more will be true.
@@ -422,7 +440,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 
 	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
-		infos[i], err = convertDBNode(dbxInfo)
+		infos[i], err = convertDBNode(ctx, dbxInfo)
 		if err != nil {
 			return nil, false, err
 		}
@@ -432,6 +450,8 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 
 // Update updates node address
 func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if info == nil || info.Id.IsZero() {
 		return overlay.ErrEmptyNode
 	}
@@ -511,12 +531,12 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	}
 
 	if startingStats != nil {
-		auditSuccessRatio, err := checkRatioVars(startingStats.AuditSuccessCount, startingStats.AuditCount)
+		auditSuccessRatio, err := checkRatioVars(ctx, startingStats.AuditSuccessCount, startingStats.AuditCount)
 		if err != nil {
 			return nil, errAuditSuccess.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 
-		uptimeRatio, err := checkRatioVars(startingStats.UptimeSuccessCount, startingStats.UptimeCount)
+		uptimeRatio, err := checkRatioVars(ctx, startingStats.UptimeSuccessCount, startingStats.UptimeCount)
 		if err != nil {
 			return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -649,7 +669,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 		return nil, Error.Wrap(err)
 	}
 
-	return convertDBNode(updatedDBNode)
+	return convertDBNode(ctx, updatedDBNode)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
@@ -701,7 +721,8 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
-func convertDBNode(info *dbx.Node) (*overlay.NodeDossier, error) {
+func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if info == nil {
 		return nil, Error.New("missing info")
 	}
@@ -786,7 +807,8 @@ func updateRatioVars(newStatus bool, successCount, totalCount int64) (int64, int
 	return successCount, totalCount, newRatio
 }
 
-func checkRatioVars(successCount, totalCount int64) (ratio float64, err error) {
+func checkRatioVars(ctx context.Context, successCount, totalCount int64) (ratio float64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if successCount < 0 {
 		return 0, errs.New("success count less than 0")
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -148,7 +148,7 @@ func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, ema
 		Expiration: time.Now().Add(time.Hour * 24),
 	}
 
-	return s.createToken(claims)
+	return s.createToken(ctx, claims)
 }
 
 // GeneratePasswordRecoveryToken - is a method for generating password recovery token
@@ -180,7 +180,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return errs.New(internalErrMsg)
 	}
 
-	claims, err := s.authenticate(token)
+	claims, err := s.authenticate(ctx, token)
 	if err != nil {
 		return
 	}
@@ -289,7 +289,7 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 		Expiration: time.Now().Add(tokenExpirationTime),
 	}
 
-	token, err = s.createToken(&claims)
+	token, err = s.createToken(ctx, &claims)
 	if err != nil {
 		return "", err
 	}
@@ -658,8 +658,7 @@ func (s *Service) GetProjectMembers(ctx context.Context, projectID uuid.UUID, pa
 }
 
 // CreateAPIKey creates new api key
-func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (*APIKeyInfo, *macaroon.APIKey, error) {
-	var err error
+func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name string) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -695,8 +694,7 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 }
 
 // GetAPIKeyInfo retrieves api key by id
-func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (*APIKeyInfo, error) {
-	var err error
+func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -791,8 +789,7 @@ func (s *Service) GetAPIKeysInfoByProjectID(ctx context.Context, projectID uuid.
 }
 
 // GetProjectUsage retrieves project usage for a given period
-func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error) {
-	var err error
+func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ *ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -814,8 +811,7 @@ func (s *Service) GetProjectUsage(ctx context.Context, projectID uuid.UUID, sinc
 }
 
 // GetBucketTotals retrieves paged bucket total usages since project creation
-func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (*BucketUsagePage, error) {
-	var err error
+func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, before time.Time) (_ *BucketUsagePage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -832,8 +828,7 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
-func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error) {
-	var err error
+func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []BucketUsageRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := GetAuth(ctx)
@@ -862,7 +857,7 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
-	claims, err := s.authenticate(token)
+	claims, err := s.authenticate(ctx, token)
 	if err != nil {
 		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
@@ -879,8 +874,8 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 }
 
 // checkProjectLimit is used to check if user is able to create a new project
-// TODO: remove after vanguard release
-func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error {
+func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	registrationToken, err := s.store.RegistrationTokens().GetByOwnerID(ctx, userID)
 	if err != nil {
 		return err
@@ -898,13 +893,15 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) error
 }
 
 // CreateRegToken creates new registration token. Needed for testing
-// TODO: remove after vanguard release
-func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (*RegistrationToken, error) {
+func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (_ *RegistrationToken, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return s.store.RegistrationTokens().Create(ctx, projLimit)
 }
 
 // createToken creates string representation
-func (s *Service) createToken(claims *consoleauth.Claims) (string, error) {
+func (s *Service) createToken(ctx context.Context, claims *consoleauth.Claims) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	json, err := claims.JSON()
 	if err != nil {
 		return "", errs.New(internalErrMsg)
@@ -920,10 +917,11 @@ func (s *Service) createToken(claims *consoleauth.Claims) (string, error) {
 }
 
 // authenticate validates token signature and returns authenticated *satelliteauth.Authorization
-func (s *Service) authenticate(token consoleauth.Token) (*consoleauth.Claims, error) {
+func (s *Service) authenticate(ctx context.Context, token consoleauth.Token) (_ *consoleauth.Claims, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := token.Signature
 
-	err := signToken(&token, s.Signer)
+	err = signToken(&token, s.Signer)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
@@ -941,7 +939,8 @@ func (s *Service) authenticate(token consoleauth.Token) (*consoleauth.Claims, er
 }
 
 // authorize checks claims and returns authorized User
-func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (*User, error) {
+func (s *Service) authorize(ctx context.Context, claims *consoleauth.Claims) (_ *User, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !claims.Expiration.IsZero() && claims.Expiration.Before(time.Now()) {
 		return nil, errs.New("token is outdated")
 	}
@@ -965,6 +964,7 @@ var ErrNoMembership = errs.Class("no membership error")
 
 // isProjectMember checks if the user is a member of given project
 func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, projectID uuid.UUID) (result isProjectMember, err error) {
+	defer mon.Task()(&ctx)(&err)
 	project, err := s.store.Projects().Get(ctx, projectID)
 	if err != nil {
 		return result, errs.New(internalErrMsg)
