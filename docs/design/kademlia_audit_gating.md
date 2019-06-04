@@ -70,12 +70,16 @@ To help prevent Sybill Attacks where bad Nodes fill the routing tables and push 
 ## Implementation
 
 1. Implement [Satellite Signatures for Node Verification](https://storjlabs.atlassian.net/browse/V3-1726)
+    * [part II](https://storjlabs.atlassian.net/browse/V3-1868)
+    * [part III](https://storjlabs.atlassian.net/browse/V3-1833)
 
-2. Deploy step 1 to production
+2. Make [Trusted Satellites List](https://storjlabs.atlassian.net/browse/V3-1727)
+    * DONE: using satellite whitelist for now.
 
-3. Make [Trusted Satellites List](https://storjlabs.atlassian.net/browse/V3-1727)
+3. Deploy steps 1 and 2 to production
 
 4. Create [Routing Table Antechamber](https://storjlabs.atlassian.net/browse/V3-1728)
+    * [data structure](https://storjlabs.atlassian.net/browse/V3-1834)
 
 5. [Update FindNear](https://storjlabs.atlassian.net/browse/V3-1729)
 
