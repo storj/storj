@@ -8,14 +8,19 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
 
-// Error is the default filestore error class
-var Error = errs.Class("filestore error")
-
-var _ storage.Blobs = (*Store)(nil)
+var (
+	// Error is the default filestore error class
+	Error = errs.Class("filestore error")
+	
+	_ storage.Blobs = (*Store)(nil)
+	
+	mon = monkit.Package()
+)
 
 // Store implements a blob store
 type Store struct {
