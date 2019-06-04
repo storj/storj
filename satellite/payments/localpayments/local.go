@@ -9,12 +9,17 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 )
 
-// storjCreationDate is a Storj creation date. TODO: correct values
-var storjCreationDate = time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
+var (
+	// storjCreationDate is a Storj creation date. TODO: correct values
+	storjCreationDate = time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	mon = monkit.Package()
+)
 
 // defaultPaymentMethod represents one and only payment method for local payments,
 // which attached to all customers by default
@@ -60,10 +65,12 @@ func NewService(db DB) payments.Service {
 }
 
 // CreateCustomer creates new payments.Customer with random id to satisfy unique db constraint
-func (*service) CreateCustomer(ctx context.Context, params payments.CreateCustomerParams) (*payments.Customer, error) {
+func (*service) CreateCustomer(ctx context.Context, params payments.CreateCustomerParams) (_ *payments.Customer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var b [8]byte
 
-	_, err := rand.Read(b[:])
+	_, err = rand.Read(b[:])
 	if err != nil {
 		return nil, internalPaymentsErr.New("error creating customer")
 	}
@@ -74,22 +81,26 @@ func (*service) CreateCustomer(ctx context.Context, params payments.CreateCustom
 }
 
 // GetCustomer always returns default storjCustomer
-func (*service) GetCustomer(ctx context.Context, id []byte) (*payments.Customer, error) {
+func (*service) GetCustomer(ctx context.Context, id []byte) (_ *payments.Customer, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return &storjCustomer, nil
 }
 
 // GetCustomerDefaultPaymentMethod always returns defaultPaymentMethod
-func (*service) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (*payments.PaymentMethod, error) {
+func (*service) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (_ *payments.PaymentMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return &defaultPaymentMethod, nil
 }
 
 // GetCustomerPaymentsMethods always returns payments.Customer list with defaultPaymentMethod
-func (*service) GetCustomerPaymentsMethods(ctx context.Context, customerID []byte) ([]payments.PaymentMethod, error) {
+func (*service) GetCustomerPaymentsMethods(ctx context.Context, customerID []byte) (_ []payments.PaymentMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return []payments.PaymentMethod{defaultPaymentMethod}, nil
 }
 
 // GetPaymentMethod always returns defaultPaymentMethod or error
-func (*service) GetPaymentMethod(ctx context.Context, id []byte) (*payments.PaymentMethod, error) {
+func (*service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.PaymentMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if string(id) == "0" {
 		return &defaultPaymentMethod, nil
 	}
@@ -98,14 +109,16 @@ func (*service) GetPaymentMethod(ctx context.Context, id []byte) (*payments.Paym
 }
 
 // CreateProjectInvoice creates invoice from provided params
-func (*service) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (*payments.Invoice, error) {
+func (*service) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (_ *payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO: fill data
 	return &payments.Invoice{}, nil
 }
 
 // GetInvoice retrieves invoice information from project invoice stamp by invoice id
 // and returns invoice
-func (*service) GetInvoice(ctx context.Context, id []byte) (*payments.Invoice, error) {
+func (*service) GetInvoice(ctx context.Context, id []byte) (_ *payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO: get project invoice stamp by invoice id from the db and fill data
 	return &payments.Invoice{}, nil
 }
