@@ -903,12 +903,6 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: do we need auth here?
-	//auth, err := GetAuth(ctx)
-	//if err != nil {
-	//	return err
-	//}
-
 	utc := date.UTC()
 	startDate := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(utc.Year(), utc.Month()+1, 1, 0, 0, 0, -1, time.UTC)
@@ -918,19 +912,13 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 		return errs.New("can not create invoices for future periods")
 	}
 
-	projects, err := s.store.Projects().GetAll(ctx)
+	projects, err := s.store.Projects().GetCreatedAfter(ctx, endDate)
 	if err != nil {
 		return
 	}
 
 	var invoiceError errs.Group
 	for _, proj := range projects {
-		// skip projects that were created after endDate
-		if proj.CreatedAt.After(endDate) {
-			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, created after start of the period", proj.ID))
-			continue
-		}
-
 		// check if there is entry in the db for selected project and date
 		// range, if so skip project as invoice has already been created
 		// this way we can run this function for the second time to generate

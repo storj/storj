@@ -14,6 +14,8 @@ import (
 type Projects interface {
 	// GetAll is a method for querying all projects from the database.
 	GetAll(ctx context.Context) ([]Project, error)
+	// GetCreatedAfter retrieves all projects created after provided date
+	GetCreatedAfter(ctx context.Context, after time.Time) ([]Project, error)
 	// GetByUserID is a method for querying all projects from the database by userID.
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Project, error)
 	// Get is a method for querying project from the database by id.
