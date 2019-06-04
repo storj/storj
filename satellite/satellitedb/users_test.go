@@ -14,7 +14,7 @@ import (
 
 func TestUserFromDbx(t *testing.T) {
 	t.Run("can't create dbo from nil dbx model", func(t *testing.T) {
-		user, err := userFromDBX(nil)
+		user, err := userFromDBX(ctx, nil)
 		assert.Nil(t, user)
 		assert.Error(t, err)
 	})
@@ -29,7 +29,7 @@ func TestUserFromDbx(t *testing.T) {
 			CreatedAt:    time.Now(),
 		}
 
-		user, err := userFromDBX(&dbxUser)
+		user, err := userFromDBX(ctx, &dbxUser)
 
 		assert.Nil(t, user)
 		assert.Error(t, err)

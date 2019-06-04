@@ -24,12 +24,13 @@ type usagerollups struct {
 
 // GetProjectTotal retrieves project usage for a given period
 func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *console.ProjectUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 
 	storageQuery := db.db.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart
 
 	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
-		FROM bucket_bandwidth_rollups 
+		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
 
@@ -97,7 +98,8 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period
-func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]console.BucketUsageRollup, error) {
+func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []console.BucketUsageRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 
 	buckets, err := db.getBuckets(ctx, projectID, since, before)
@@ -106,7 +108,7 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 	}
 
 	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
-		FROM bucket_bandwidth_rollups 
+		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
 
@@ -183,7 +185,8 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 }
 
 // GetBucketTotals retrieves bucket usage totals for period of time
-func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (*console.BucketUsagePage, error) {
+func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor console.BucketUsageCursor, since, before time.Time) (_ *console.BucketUsagePage, err error) {
+	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
 	search := cursor.Search + "%"
 
@@ -200,8 +203,8 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 		Offset: uint64((cursor.Page - 1) * cursor.Limit),
 	}
 
-	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name) 
-		FROM bucket_bandwidth_rollups 
+	countQuery := db.db.Rebind(`SELECT COUNT(DISTINCT bucket_name)
+		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
 		AND CAST(bucket_name as TEXT) LIKE ?`)
 
@@ -211,7 +214,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 		since, before,
 		search)
 
-	err := countRow.Scan(&page.TotalCount)
+	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
 		return nil, err
 	}
@@ -222,8 +225,8 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 		return nil, errs.New("page is out of range")
 	}
 
-	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name 
-		FROM bucket_bandwidth_rollups 
+	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
+		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
 		AND CAST(bucket_name as TEXT) LIKE ?
 		ORDER BY bucket_name ASC
@@ -254,11 +257,11 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 	}
 
 	roullupsQuery := db.db.Rebind(`SELECT SUM(settled), SUM(inline), action
-		FROM bucket_bandwidth_rollups 
+		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
 
-	storageQuery := db.db.Rebind(`SELECT inline, remote, object_count 
+	storageQuery := db.db.Rebind(`SELECT inline, remote, object_count
 		FROM bucket_storage_tallies
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ?
 		ORDER BY interval_start DESC
@@ -329,9 +332,10 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 }
 
 // getBuckets list all bucket of certain project for given period
-func (db *usagerollups) getBuckets(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]string, error) {
-	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name 
-		FROM bucket_bandwidth_rollups 
+func (db *usagerollups) getBuckets(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
+		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?`)
 
 	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, []byte(projectID.String()), since, before)
