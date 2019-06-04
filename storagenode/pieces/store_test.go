@@ -5,7 +5,6 @@ package pieces_test
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"math/rand"
 	"testing"
@@ -20,10 +19,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
-)
-
-var (
-	ctx = context.Background() // test context
 )
 
 func TestPieces(t *testing.T) {

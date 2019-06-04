@@ -22,8 +22,10 @@ import (
 )
 
 var (
+	// OrderError represents errors with orders
 	OrderError = errs.Class("order")
-	mon        = monkit.Package()
+
+	mon = monkit.Package()
 )
 
 // Info contains full information about an order.
