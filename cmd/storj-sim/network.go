@@ -417,9 +417,19 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			process.WaitForStart(satellite)
 		}
 
+		// TODO: reuse for satellite and storagenode operator
+		// TODO: find source file, to set static path
+		_, filename, _, ok := runtime.Caller(0)
+		if !ok {
+			return nil, errs.Combine(processes.Close(), errs.New("no caller information"))
+		}
+		storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
+
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
+				"--operator.address", net.JoinHostPort(host, port(storagenodePeer, i, publicHTTP)),
+				"--operator.static-dir", filepath.Join(storjRoot, "web/operator/"),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateGRPC)),
 

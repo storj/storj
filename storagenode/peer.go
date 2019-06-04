@@ -5,6 +5,7 @@ package storagenode
 
 import (
 	"context"
+	"net"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -27,6 +28,8 @@ import (
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/operator"
+	"storj.io/storj/storagenode/operator/operatorserver"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -70,6 +73,8 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
+	Operator operatorserver.Config
+
 	Version version.Config
 }
 
@@ -111,6 +116,13 @@ type Peer struct {
 	}
 
 	Collector *collector.Service
+
+	// Web server with web UI
+	Operator struct {
+		Listener net.Listener
+		Service  *operator.Service
+		Endpoint *operatorserver.Server
+	}
 }
 
 // New creates a new Storage Node.
@@ -252,6 +264,30 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 	}
 
+	// Storage Node Operator Dashboard
+	{
+		peer.Operator.Service, err = operator.NewService(
+			peer.Log.Named("operator:service"),
+			peer.DB.Bandwidth(),
+			peer.Storage2.Monitor)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Operator.Listener, err = net.Listen("tcp", config.Operator.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Operator.Endpoint = operatorserver.NewServer(
+			peer.Log.Named("operator:endpoint"),
+			config.Operator,
+			peer.Operator.Service,
+			peer.Operator.Listener,
+		)
+	}
+
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
 	return peer, nil
@@ -291,6 +327,11 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	})
+
+	group.Go(func() error {
+		var err = errs2.IgnoreCanceled(peer.Operator.Endpoint.Run(ctx))
+		return err
 	})
 
 	return group.Wait()
