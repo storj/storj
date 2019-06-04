@@ -1,4 +1,4 @@
-1// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
