@@ -38,7 +38,6 @@ message InfoResponse {
     node.NodeOperator operator = 3;
     node.NodeCapacity capacity = 4;
     node.NodeVersion version = 5;
-    bool disqualified = 6;
 }
 
 message Restriction {
