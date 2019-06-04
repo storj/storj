@@ -11,10 +11,9 @@ package main
 import "C"
 import (
 	"context"
-	"fmt"
 	"io"
-	"os"
 	"storj.io/storj/lib/uplink"
+	"unsafe"
 )
 
 //export CloseObject
@@ -32,7 +31,7 @@ func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
 }
 
 //export DownloadRange
-func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, path *C.char, cErr **C.char) {
+func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, callback uintptr, cErr **C.char) {
 	ctx := context.Background()
 
 	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
@@ -48,19 +47,28 @@ func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, pa
 	}
 	defer rc.Close()
 
-	if _, err := os.Stat(C.GoString(path)); os.IsExist(err) {
-		*cErr = C.CString(fmt.Sprintf("Path (%s) already exists", C.GoString(path)))
-		return
-	}
+	// TODO: This size could be optimized
+	buf := make([]byte, 1024)
 
-	f, err := os.OpenFile(C.GoString(path), os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
+	for {
+		n, err := rc.Read(buf)
+		if err == io.EOF {
+			callback(nil, C.bool(true))
+			break
+		}
 
-	if _, err := io.Copy(f, rc); err != nil {
-		*cErr = C.CString(err.Error())
-		return
+		ptr := CMalloc(uintptr(n))
+		mem := unsafe.Pointer(ptr)
+		for i := 0; i < n; i++ {
+			nextAddress := uintptr(int(ptr) + i)
+			*(*uint8)(unsafe.Pointer(nextAddress)) = buf[i]
+		}
+
+		bytes := C.Bytes_t{
+			length: C.int32_t(n),
+			bytes: (*C.uint8_t)(mem),
+		}
+
+		callback(bytes, C.bool(false))
 	}
 }

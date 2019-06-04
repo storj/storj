@@ -24,6 +24,8 @@ typedef struct Bytes {
     int32_t length;
 } Bytes_t;
 
+void DownloadCallback(Bytes_t* bytes, bool done, char *path);
+
 typedef struct IDVersion {
     uint16_t number;
 } IDVersion_t;

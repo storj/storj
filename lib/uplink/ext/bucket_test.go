@@ -77,7 +77,6 @@ func TestOpenObject(t *testing.T) {
 			// TODO: Test only checks for no error right now
 		}
 	})
-
 }
 
 func TestUploadObject(t *testing.T) {
