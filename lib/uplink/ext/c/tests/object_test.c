@@ -48,8 +48,8 @@ void TestObject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
 
-//    DownloadRange(object, 0, 0, err, callback);
-//    TEST_ASSERT_EQUAL_STRING("", *err);
+    DownloadRange(object, 0, 0, err, callback);
+    TEST_ASSERT_EQUAL_STRING("", *err);
 
     // Close Project
     CloseProject(ref_project, err);
