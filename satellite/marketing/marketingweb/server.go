@@ -26,7 +26,7 @@ var (
 
 // Config contains configuration for marketing offersweb server
 type Config struct {
-	Address string `help:"server address of the frontend app" default:"0.0.0.0:8090"`
+	Address string `help:"server address of the marketing Admin GUI" default:"0.0.0.0:8090"`
 }
 
 // Server represents marketing offersweb server
