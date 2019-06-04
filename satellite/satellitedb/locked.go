@@ -370,11 +370,11 @@ func (m *lockedProjects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]c
 	return m.db.GetByUserID(ctx, userID)
 }
 
-// GetCreatedAfter retrieves all projects created after provided date
-func (m *lockedProjects) GetCreatedAfter(ctx context.Context, after time.Time) ([]console.Project, error) {
+// GetCreatedBefore retrieves all projects created before provided date
+func (m *lockedProjects) GetCreatedBefore(ctx context.Context, before time.Time) ([]console.Project, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetCreatedAfter(ctx, after)
+	return m.db.GetCreatedBefore(ctx, before)
 }
 
 // Insert is a method for inserting project into the database.

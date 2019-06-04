@@ -5648,14 +5648,14 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 
 }
 
-func (obj *postgresImpl) All_Project_By_CreatedAt_Greater_OrderBy_Asc_CreatedAt(ctx context.Context,
-	project_created_at_greater Project_CreatedAt_Field) (
+func (obj *postgresImpl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.created_at > ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, project_created_at_greater.value())
+	__values = append(__values, project_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -8899,14 +8899,14 @@ func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 
 }
 
-func (obj *sqlite3Impl) All_Project_By_CreatedAt_Greater_OrderBy_Asc_CreatedAt(ctx context.Context,
-	project_created_at_greater Project_CreatedAt_Field) (
+func (obj *sqlite3Impl) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.created_at > ? ORDER BY projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.created_at < ? ORDER BY projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, project_created_at_greater.value())
+	__values = append(__values, project_created_at_less.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -11683,14 +11683,14 @@ func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
 }
 
-func (rx *Rx) All_Project_By_CreatedAt_Greater_OrderBy_Asc_CreatedAt(ctx context.Context,
-	project_created_at_greater Project_CreatedAt_Field) (
+func (rx *Rx) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+	project_created_at_less Project_CreatedAt_Field) (
 	rows []*Project, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_Project_By_CreatedAt_Greater_OrderBy_Asc_CreatedAt(ctx, project_created_at_greater)
+	return tx.All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx, project_created_at_less)
 }
 
 func (rx *Rx) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,
@@ -12679,8 +12679,8 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
 
-	All_Project_By_CreatedAt_Greater_OrderBy_Asc_CreatedAt(ctx context.Context,
-		project_created_at_greater Project_CreatedAt_Field) (
+	All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
+		project_created_at_less Project_CreatedAt_Field) (
 		rows []*Project, err error)
 
 	All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx context.Context,

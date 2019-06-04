@@ -31,11 +31,11 @@ func (projects *projects) GetAll(ctx context.Context) (_ []console.Project, err 
 	return projectsFromDbxSlice(ctx, projectsDbx)
 }
 
-// GetCreatedAfter retrieves all projects created after provided date
-func (projects *projects) GetCreatedAfter(ctx context.Context, after time.Time) (_ []console.Project, err error) {
+// GetCreatedBefore retrieves all projects created before provided date
+func (projects *projects) GetCreatedBefore(ctx context.Context, before time.Time) (_ []console.Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projectsDbx, err := projects.db.All_Project_By_CreatedAt_Greater_OrderBy_Asc_CreatedAt(ctx, dbx.Project_CreatedAt(after))
+	projectsDbx, err := projects.db.All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx, dbx.Project_CreatedAt(before))
 	if err != nil {
 		return nil, err
 	}

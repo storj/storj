@@ -253,7 +253,7 @@ read all (
 )
 read all (
     select project
-    where project.created_at > ?
+    where project.created_at < ?
     orderby asc project.created_at
 )
 read all (

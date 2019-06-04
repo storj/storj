@@ -912,7 +912,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 		return errs.New("can not create invoices for future periods")
 	}
 
-	projects, err := s.store.Projects().GetCreatedAfter(ctx, endDate)
+	projects, err := s.store.Projects().GetCreatedBefore(ctx, endDate)
 	if err != nil {
 		return
 	}
