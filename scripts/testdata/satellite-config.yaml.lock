@@ -229,6 +229,9 @@ kademlia.operator.wallet: ""
 # public address to listen on
 server.address: ":7777"
 
+# log all GRPC traffic to zap logger
+server.debug-log-traffic: false
+
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
 # server.extensions.revocation: true
 
