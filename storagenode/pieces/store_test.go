@@ -5,6 +5,7 @@ package pieces_test
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"math/rand"
 	"testing"
@@ -19,6 +20,10 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
+)
+
+var (
+	ctx = context.Background() // test context
 )
 
 func TestPieces(t *testing.T) {
@@ -54,9 +59,9 @@ func TestPieces(t *testing.T) {
 		assert.Equal(t, hash.Sum(nil), writer.Hash())
 
 		// commit
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 		// after commit we should be able to call cancel without an error
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 	}
 
 	{ // valid reads
@@ -101,9 +106,9 @@ func TestPieces(t *testing.T) {
 		assert.Equal(t, len(source), int(writer.Size()))
 
 		// cancel writing
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 		// commit should not fail
-		require.Error(t, writer.Commit())
+		require.Error(t, writer.Commit(ctx))
 
 		// read should fail
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)
