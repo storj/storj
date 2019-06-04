@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	maxIdleConns    = flag.Int("db.max_idle_conns", 50, "default value for database connections, -1 means the stdlib default")
-	maxOpenConns    = flag.Int("db.max_open_conns", 100, "default value for database connections, -1 means the stdlib default")
-	connMaxLifetime = flag.Duration("db.conn_max_lifetime", -1, "default value for database connections, -1 means the stdlib default")
+	maxIdleConns    = flag.Int("db.max_idle_conns", 50, "Maximum Amount of Idle Database connections, -1 means the stdlib default")
+	maxOpenConns    = flag.Int("db.max_open_conns", 100, "Maximum Amount of Open Database connections, -1 means the stdlib default")
+	connMaxLifetime = flag.Duration("db.conn_max_lifetime", -1, "Maximum Database Connection Lifetime, -1 means the stdlib default")
 )
 
 // Configure Sets Connection Boundaries and adds db_stats monitoring to monkit
