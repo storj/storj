@@ -329,19 +329,19 @@ type storjFile struct {
 	reader          io.ReadCloser
 	writer          io.WriteCloser
 	predictedOffset int64
-	FS              *storjFS
+	fs              *storjFS
 
 	nodefs.File
 }
 
-func newStorjFile(ctx context.Context, name string, bucket *libuplink.Bucket, created bool, FS *storjFS) *storjFile {
+func newStorjFile(ctx context.Context, name string, bucket *libuplink.Bucket, created bool, fs *storjFS) *storjFile {
 	return &storjFile{
 		name:    name,
 		ctx:     ctx,
 		bucket:  bucket,
 		mtime:   uint64(time.Now().Unix()),
 		created: created,
-		FS:      FS,
+		fs:      fs,
 		File:    nodefs.NewDefaultFile(),
 	}
 }
@@ -455,21 +455,9 @@ func (f *storjFile) closeWriter() {
 			zap.S().Errorf("error closing writer: %v", closeErr)
 		}
 
-		f.FS.removeCreatedFile(f.name)
+		f.fs.removeCreatedFile(f.name)
 		f.writer = nil
 	}
-}
-
-func convertError(err error, path fpath.FPath) error {
-	if storj.ErrBucketNotFound.Has(err) {
-		return fmt.Errorf("Bucket not found: %s", path.Bucket())
-	}
-
-	if storj.ErrObjectNotFound.Has(err) {
-		return fmt.Errorf("Object not found: %s", path.String())
-	}
-
-	return err
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
