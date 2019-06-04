@@ -1,9 +1,9 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+1// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
 	<div>
-		<div  class="buckets-overflow">
+		<div class="buckets-overflow" v-if="pages !== 0">
 			<div class="buckets-header">
 				<p>Buckets</p>
 				<SearchArea/>
@@ -21,49 +21,47 @@
                 mainTitle="Nothing found :("
                 :imageSource="emptyImage" />
 		</div>
-		<EmptyState
-			class="empty-container"
-			v-if="pages === 0 && !search"
-			mainTitle="You have no Buckets yet"
-			:imageSource="emptyImage" />
+		<NoBucketArea v-if="pages === 0 && !search" />
 	</div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import SearchArea from '@/components/buckets/SearchArea.vue';
-    import BucketItem from '@/components/buckets/BucketItem.vue';
-    import PaginationArea from '@/components/buckets/PaginationArea.vue';
-    import SortingHeader from '@/components/buckets/SortingHeader.vue';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+	import { Component, Vue } from 'vue-property-decorator';
+	import EmptyState from '@/components/common/EmptyStateArea.vue';
+	import SearchArea from '@/components/buckets/SearchArea.vue';
+	import BucketItem from '@/components/buckets/BucketItem.vue';
+	import PaginationArea from '@/components/buckets/PaginationArea.vue';
+	import SortingHeader from '@/components/buckets/SortingHeader.vue';
+	import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
+	import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-    @Component({
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.API_KEY
-            };
-        },
-        components: {
-            EmptyState,
-            SearchArea,
-            SortingHeader,
-            BucketItem,
-            PaginationArea,
-        },
+	@Component({
+		data: function () {
+			return {
+				emptyImage: EMPTY_STATE_IMAGES.API_KEY
+			};
+		},
+		components: {
+			EmptyState,
+			SearchArea,
+			SortingHeader,
+			BucketItem,
+			PaginationArea,
+			NoBucketArea,
+		},
 		computed: {
-        	buckets: function (): BucketUsage[] {
+			buckets: function (): BucketUsage[] {
 				return this.$store.state.bucketUsageModule.page.bucketUsages;
 			},
 			pages: function (): number {
-        		return this.$store.state.bucketUsageModule.page.pageCount;
+				return this.$store.state.bucketUsageModule.page.pageCount;
 			},
 			search: function (): string {
 				return this.$store.state.bucketUsageModule.cursor.search;
 			}
 		}
-    })
-    export default class BucketArea extends Vue {}
+	})
+	export default class BucketArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
