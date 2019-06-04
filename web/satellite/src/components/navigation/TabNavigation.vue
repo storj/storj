@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="project-navigation-container">
-		<router-link :to="navLink.path" class="project-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
+	<div class="tab-navigation-container">
+		<router-link :to="navLink.path" class="tab-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
 			<p>{{navLink.name}}</p>
 		</router-link>
 	</div>
@@ -11,23 +11,23 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { PROJECT_ROUTES } from '@/utils/constants/projectNavigation';
 
     @Component(
         {
-            data: function() {
-                return {
-                    navigation: PROJECT_ROUTES,
-                };
+            props: {
+                navigation: {
+                    type: Object,
+                    default: {},
+                }
             },
         }
     )
 
-    export default class ProjectNavigation extends Vue {}
+    export default class TabNavigation extends Vue {}
 </script>
 
 <style scoped lang="scss">
-    .project-navigation-container {
+    .tab-navigation-container {
 	    width: auto;
 		display: flex;
 

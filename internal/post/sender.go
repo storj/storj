@@ -4,16 +4,20 @@
 package post
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/mail"
 	"net/smtp"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 // Address is alias of net/mail.Address
 type Address = mail.Address
+
+var mon = monkit.Package()
 
 // SMTPSender is smtp sender
 type SMTPSender struct {
@@ -29,7 +33,8 @@ func (sender *SMTPSender) FromAddress() Address {
 }
 
 // SendEmail sends email message to the given recipient
-func (sender *SMTPSender) SendEmail(msg *Message) error {
+func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO: validate address before initializing SMTPSender
 	// suppress error because address should be validated
 	// before creating SMTPSender

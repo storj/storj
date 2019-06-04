@@ -11,9 +11,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -36,6 +38,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid1ID := storj.NodeID{}
 	valid2ID := storj.NodeID{}
 	missingID := storj.NodeID{}
+	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 
 	_, _ = rand.Read(valid1ID[:])
 	_, _ = rand.Read(valid2ID[:])
@@ -44,12 +47,12 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	cache := overlay.NewCache(zaptest.NewLogger(t), store, overlay.NodeSelectionConfig{OnlineWindow: time.Hour})
 
 	{ // Put
-		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID})
+		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID})
+		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -171,5 +174,38 @@ func TestRandomizedSelection(t *testing.T) {
 				t.Logf("%3d = %4d", count, amount)
 			}
 		}
+	})
+}
+
+func TestIsVetted(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.AuditCount = 1
+				config.Overlay.Node.AuditSuccessRatio = 1
+				config.Overlay.Node.UptimeCount = 1
+				config.Overlay.Node.UptimeRatio = 1
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		var err error
+		satellite := planet.Satellites[0]
+		service := satellite.Overlay.Service
+
+		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       planet.StorageNodes[0].ID(),
+			IsUp:         true,
+			AuditSuccess: true,
+		})
+		assert.NoError(t, err)
+
+		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+		assert.True(t, reputable)
+
+		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
+		require.NoError(t, err)
+		assert.False(t, reputable)
 	})
 }

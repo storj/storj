@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -33,10 +34,11 @@ var (
 func init() {
 	rootCmd.AddCommand(revocationsCmd)
 
-	cfgstruct.Bind(revocationsCmd.Flags(), &revCfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(revocationsCmd, &revCfg, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func cmdRevocations(cmd *cobra.Command, args []string) error {
+	ctx := process.Ctx(cmd)
 	if len(args) > 0 {
 		revCfg.RevocationDBURL = "bolt://" + filepath.Join(configDir, args[0], "revocations.db")
 	}
@@ -46,7 +48,7 @@ func cmdRevocations(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	revs, err := revDB.List()
+	revs, err := revDB.List(ctx)
 	if err != nil {
 		return err
 	}

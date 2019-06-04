@@ -60,8 +60,8 @@ type Client interface {
 }
 
 // NewClient initializes a new metainfo client
-func NewClient(ctx context.Context, tc transport.Client, address string, APIKey string) (*Metainfo, error) {
-	apiKeyInjector := grpcauth.NewAPIKeyInjector(APIKey)
+func NewClient(ctx context.Context, tc transport.Client, address string, apiKey string) (*Metainfo, error) {
+	apiKeyInjector := grpcauth.NewAPIKeyInjector(apiKey)
 	conn, err := tc.DialAddress(
 		ctx,
 		address,

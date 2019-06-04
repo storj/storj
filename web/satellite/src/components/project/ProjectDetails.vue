@@ -55,7 +55,6 @@
     import { PROJETS_ACTIONS, APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
-    import ProjectNavigation from '@/components/project/ProjectNavigation.vue';
 
     @Component(
         {
@@ -117,7 +116,6 @@
                 Checkbox,
                 EmptyState,
                 DeleteProjectPopup,
-                ProjectNavigation,
             }
         }
     )
