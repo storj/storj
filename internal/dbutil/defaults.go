@@ -16,6 +16,7 @@ var (
 	connMaxLifetime = flag.Duration("db.conn_max_lifetime", -1, "default value for database connections, -1 means the stdlib default")
 )
 
+// Configure Sets Connection Boundaries and adds db_stats monitoring to monkit
 func Configure(db *sql.DB, mon *monkit.Scope) {
 	if *maxIdleConns >= 0 {
 		db.SetMaxIdleConns(*maxIdleConns)
