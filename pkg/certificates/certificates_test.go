@@ -5,7 +5,6 @@ package certificates
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/gob"
@@ -44,8 +43,6 @@ var (
 		UserID: "user2@example.com",
 		Data:   [tokenDataLength]byte{4, 5, 6},
 	}
-
-	ctx = context.Background() // test context
 )
 
 func TestCertSignerConfig_NewAuthDB(t *testing.T) {
