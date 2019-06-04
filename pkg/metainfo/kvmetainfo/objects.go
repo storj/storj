@@ -137,12 +137,13 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 }
 
 // DeleteObject deletes an object from database
+// TODO remove bucket from method signature
 func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 store := buckets.PrefixedObjStore{
-	store: objects.NewStore(db.streams, db.streams.Cipher),
-	prefix: bucket,
+	Store: objects.NewStore(db.streams, db.streams.Cipher),
+	Prefix: bucket,
 }
 	return store.Delete(ctx, path)
 }
@@ -169,8 +170,8 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 	}
 
 	objects := buckets.PrefixedObjStore{
-		store: objects.NewStore(db.streams, db.streams.Cipher),
-		prefix: bucket,
+		Store: objects.NewStore(db.streams, db.streams.Cipher),
+		Prefix: bucket,
 	}
 
 	var startAfter, endBefore string

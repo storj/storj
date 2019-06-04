@@ -15,8 +15,8 @@ import (
 )
 // PrefixedObjStore  ...
 type PrefixedObjStore struct {
-	store  objects.Store
-	prefix string
+	Store  objects.Store
+	Prefix string
 }
 
 // Meta ...
@@ -27,7 +27,7 @@ func (o *PrefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta obje
 		return objects.Meta{}, storj.ErrNoPath.New("")
 	}
 
-	return o.store.Meta(ctx, storj.JoinPaths(o.prefix, path))
+	return o.Store.Meta(ctx, storj.JoinPaths(o.Prefix, path))
 }
 
 // Get ...
@@ -38,7 +38,7 @@ func (o *PrefixedObjStore) Get(ctx context.Context, path storj.Path) (rr ranger.
 		return nil, objects.Meta{}, storj.ErrNoPath.New("")
 	}
 
-	return o.store.Get(ctx, storj.JoinPaths(o.prefix, path))
+	return o.Store.Get(ctx, storj.JoinPaths(o.Prefix, path))
 }
 
 // Put ...
@@ -49,7 +49,7 @@ func (o *PrefixedObjStore) Put(ctx context.Context, path storj.Path, data io.Rea
 		return objects.Meta{}, storj.ErrNoPath.New("")
 	}
 
-	return o.store.Put(ctx, storj.JoinPaths(o.prefix, path), data, metadata, expiration)
+	return o.Store.Put(ctx, storj.JoinPaths(o.Prefix, path), data, metadata, expiration)
 }
 
 // Delete ...
@@ -60,12 +60,12 @@ func (o *PrefixedObjStore) Delete(ctx context.Context, path storj.Path) (err err
 		return storj.ErrNoPath.New("")
 	}
 
-	return o.store.Delete(ctx, storj.JoinPaths(o.prefix, path))
+	return o.Store.Delete(ctx, storj.JoinPaths(o.Prefix, path))
 }
 
 // List ...
 func (o *PrefixedObjStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []objects.ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return o.store.List(ctx, storj.JoinPaths(o.prefix, prefix), startAfter, endBefore, recursive, limit, metaFlags)
+	return o.Store.List(ctx, storj.JoinPaths(o.Prefix, prefix), startAfter, endBefore, recursive, limit, metaFlags)
 }
