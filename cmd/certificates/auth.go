@@ -5,6 +5,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/certificates"
+	"storj.io/storj/pkg/process"
 )
 
 var (
@@ -63,6 +65,7 @@ func parseEmailsList(fileName, delimiter string) (emails []string, err error) {
 }
 
 func cmdCreateAuth(cmd *cobra.Command, args []string) error {
+	ctx := process.Ctx(cmd)
 	count, err := strconv.Atoi(args[0])
 	if err != nil {
 		return errs.New("Count couldn't be parsed: %s", args[0])
@@ -87,7 +90,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 
 	var incErrs errs.Group
 	for _, email := range emails {
-		if _, err := authDB.Create(email, count); err != nil {
+		if _, err := authDB.Create(ctx, email, count); err != nil {
 			incErrs.Add(err)
 		}
 	}
@@ -95,6 +98,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 }
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
+	ctx := process.Ctx(cmd)
 	authDB, err := config.Signer.NewAuthDB()
 	if err != nil {
 		return err
@@ -107,7 +111,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 		}
 		emails = args
 	} else if len(args) == 0 || config.All {
-		emails, err = authDB.UserIDs()
+		emails, err = authDB.UserIDs(ctx)
 		if err != nil {
 			return err
 		}
@@ -127,7 +131,7 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, email := range emails {
-		if err := writeAuthInfo(authDB, email, w); err != nil {
+		if err := writeAuthInfo(ctx, authDB, email, w); err != nil {
 			emailErrs.Add(err)
 			continue
 		}
@@ -139,8 +143,8 @@ func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	return errs.Combine(emailErrs.Err(), printErrs.Err())
 }
 
-func writeAuthInfo(authDB *certificates.AuthorizationDB, email string, w io.Writer) error {
-	auths, err := authDB.Get(email)
+func writeAuthInfo(ctx context.Context, authDB *certificates.AuthorizationDB, email string, w io.Writer) error {
+	auths, err := authDB.Get(ctx, email)
 	if err != nil {
 		return err
 	}
@@ -189,6 +193,7 @@ func writeTokenInfo(claimed, open certificates.Authorizations, w io.Writer) erro
 }
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
+	ctx := process.Ctx(cmd)
 	authDB, err := config.Signer.NewAuthDB()
 	if err != nil {
 		return err
@@ -202,7 +207,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 		}
 		emails = args
 	case len(args) == 0 || config.All:
-		emails, err = authDB.UserIDs()
+		emails, err = authDB.UserIDs(ctx)
 		if err != nil {
 			return err
 		}
@@ -232,7 +237,7 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	csvWriter := csv.NewWriter(output)
 
 	for _, email := range emails {
-		if err := writeAuthExport(authDB, email, csvWriter); err != nil {
+		if err := writeAuthExport(ctx, authDB, email, csvWriter); err != nil {
 			emailErrs.Add(err)
 		}
 	}
@@ -241,8 +246,8 @@ func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	return errs.Combine(emailErrs.Err(), csvErrs.Err())
 }
 
-func writeAuthExport(authDB *certificates.AuthorizationDB, email string, w *csv.Writer) error {
-	auths, err := authDB.Get(email)
+func writeAuthExport(ctx context.Context, authDB *certificates.AuthorizationDB, email string, w *csv.Writer) error {
+	auths, err := authDB.Get(ctx, email)
 	if err != nil {
 		return err
 	}

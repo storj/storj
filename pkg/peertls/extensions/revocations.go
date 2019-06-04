@@ -5,6 +5,7 @@ package extensions
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -49,9 +50,9 @@ type Revocation struct {
 
 // RevocationDB stores certificate revocation data.
 type RevocationDB interface {
-	Get(chain []*x509.Certificate) (*Revocation, error)
-	Put(chain []*x509.Certificate, ext pkix.Extension) error
-	List() ([]*Revocation, error)
+	Get(ctx context.Context, chain []*x509.Certificate) (*Revocation, error)
+	Put(ctx context.Context, chain []*x509.Certificate, ext pkix.Extension) error
+	List(ctx context.Context) ([]*Revocation, error)
 	Close() error
 }
 
@@ -96,7 +97,7 @@ func NewRevocationExt(key crypto.PrivateKey, revokedCert *x509.Certificate) (pki
 func revocationChecker(opts *Options) HandlerFunc {
 	return func(_ pkix.Extension, chains [][]*x509.Certificate) error {
 		ca, leaf := chains[0][peertls.CAIndex], chains[0][peertls.LeafIndex]
-		lastRev, lastRevErr := opts.RevDB.Get(chains[0])
+		lastRev, lastRevErr := opts.RevDB.Get(context.TODO(), chains[0])
 		if lastRevErr != nil {
 			return Error.Wrap(lastRevErr)
 		}
@@ -128,7 +129,7 @@ func revocationChecker(opts *Options) HandlerFunc {
 
 func revocationUpdater(opts *Options) HandlerFunc {
 	return func(ext pkix.Extension, chains [][]*x509.Certificate) error {
-		if err := opts.RevDB.Put(chains[0], ext); err != nil {
+		if err := opts.RevDB.Put(context.TODO(), chains[0], ext); err != nil {
 			return err
 		}
 		return nil

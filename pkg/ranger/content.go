@@ -27,6 +27,7 @@ import (
 // ServeContent is the Go standard library's http.ServeContent but modified to
 // work with Rangers.
 func ServeContent(ctx context.Context, w http.ResponseWriter, r *http.Request, name string, modtime time.Time, content Ranger) {
+	defer mon.Task()(&ctx)(nil)
 	setLastModified(w, modtime)
 	done, rangeReq := checkPreconditions(w, r, modtime)
 	if done {
