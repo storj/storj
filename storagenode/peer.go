@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/storagenode/vouchers"
 )
 
 var (
@@ -51,6 +52,7 @@ type DB interface {
 	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
+	Vouchers() vouchers.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
