@@ -80,3 +80,9 @@ export const BUCKET_USAGE_ACTIONS = {
     SET_SEARCH: 'setSearchBucketUsage',
     CLEAR: 'clearBucketUsages'
 };
+
+export const PROJECT_PAYMENT_METHODS_ACTIONS = {
+    ADD: 'addProjectPaymentMethod',
+    FETCH: 'fetchProjectPaymentMethods',
+    CLEAR: 'clearProjectPaymentMethods'
+};

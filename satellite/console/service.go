@@ -165,6 +165,38 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, projectID uuid.UUID, userID uuid.UUID) (paymentInfo ProjectPaymentInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	//info, err := s.store.UserPaymentInfos().Get(ctx, userID)
+	//if err != nil {
+	//	return ProjectPaymentInfo{}, err
+	//}
+
+	//params := payments.AddPaymentMethodParams{
+	//	Token:      paymentMethodToken,
+	//	CustomerID: info.CustomerID,
+	//}
+
+	//method, err := s.stripeService.AddPaymentMethod(ctx, params)
+	//if err != nil {
+	//	return ProjectPaymentInfo{}, err
+	//}
+
+	//projectPaymentInfo := ProjectPaymentInfo{ProjectID: projectID,
+	//	PayerID:         userID,
+	//	PaymentMethodID: method.ID,
+	//	CreatedAt:       time.Now()}
+
+	//create, err := s.store.ProjectPaymentInfos().Create(ctx, projectPaymentInfo)
+	//if err != nil {
+	//	return ProjectPaymentInfo{}, err
+	//}
+
+	//return *create, nil
+	return paymentInfo, nil
+}
+
 // GenerateActivationToken - is a method for generating activation token
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -627,6 +659,11 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
+	//projectPaymentInfo, err := s.store.ProjectPaymentInfos().GetDefaultByProjctID(ctx, projectID)
+	//if err != nil {
+	//	return err
+	//}
+
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
@@ -917,6 +954,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 		}
 
 		paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
+		//paymentInfo, err := s.store.ProjectPaymentInfos().GetDefaultByProjctID(ctx, proj.ID)
 		if err != nil {
 			invoiceError.Add(err)
 			continue

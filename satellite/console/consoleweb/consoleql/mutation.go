@@ -42,6 +42,10 @@ const (
 	// DeleteAPIKeysMutation is a mutation name for api key deleting
 	DeleteAPIKeysMutation = "deleteAPIKeys"
 
+	AddPaymentMethodMutation = "addPaymentMethod"
+	DeletePaymentMethod      = "deletePaymentMethod"
+	SetDefaultPaymentMethod  = "setDefaultPaymentMethod"
+
 	// InputArg is argument name for all input types
 	InputArg = "input"
 	// FieldProjectID is field name for projectID
@@ -420,6 +424,36 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					return keys, nil
 				},
 			},
+			AddPaymentMethodMutation: &graphql.Field{
+				Type: graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					FieldProjectID: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+					FieldCardToken: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					projectID , _ := p.Args[FieldProjectID].(string)
+					cardToken , _ := p.Args[FieldCardToken].(string)
+
+					auth, err := console.GetAuth(p.Context)
+					if err != nil {
+						return false, err
+					}
+
+					projID, err := uuid.Parse(projectID)
+					if err != nil {
+						return false, err
+					}
+
+					_, err = service.AddNewPaymentMethod(p.Context, cardToken, *projID, auth.User.ID)
+					if err != nil {
+						return false, err
+					}
+
+					return true, nil
+				},
+			},
+			//DeletePaymentMethod:     &graphql.Field{},
+			//SetDefaultPaymentMethod: &graphql.Field{},
 		},
 	})
 }

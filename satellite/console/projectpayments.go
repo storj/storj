@@ -14,6 +14,7 @@ import (
 type ProjectPayments interface {
 	Create(ctx context.Context, info ProjectPayment) (*ProjectPayment, error)
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) (*ProjectPayment, error)
+	GetDefaultByProjctID(ctx context.Context, projectID uuid.UUID)(*ProjectPayment, error)
 	GetByPayerID(ctx context.Context, payerID uuid.UUID) (*ProjectPayment, error)
 }
 

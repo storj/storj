@@ -11,7 +11,7 @@ model value_attribution (
 )
 
 create value_attribution ()
-delete value_attribution ( 
+delete value_attribution (
 	where value_attribution.project_id = ?
 	where value_attribution.bucket_name = ?
 )
@@ -275,11 +275,14 @@ read all (
 
 // add is default, make composite key
 model project_payment (
-    key project_id
+    key id
+
+    field id                blob
 
     field project_id        project.id              cascade
     field payer_id          user_payment.user_id    cascade
     field payment_method_id blob
+    field is_default        bool ( updatable )
 
     field created_at        timestamp  ( autoinsert )
 )
@@ -289,8 +292,13 @@ create project_payment ( )
 read one (
     select project_payment
     where project_payment.project_id = ?
+    where project_payment.is_default = true
 )
-read one (
+read all (
+    select project_payment
+    where project_payment.project_id = ?
+)
+read all (
     select project_payment
     where project_payment.payer_id = ?
 )

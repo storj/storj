@@ -35,6 +35,11 @@
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator";
     import Button from "@/components/common/Button.vue";
+    import {
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS
+    } from "@/utils/constants/actionNames";
     // import Card from "@/components/project/CardChoiceItem.vue";
 
     @Component(
@@ -85,13 +90,26 @@
                 });
 
                 const form = document.getElementById("payment-form") as HTMLElement;
+                let self = this;
                 form.addEventListener("submit", function (event) {
                     event.preventDefault();
-
                     console.log("beforeCreate");
-                    stripe.createToken(card).then(function (result) {
+                    stripe.createToken(card).then(async function (result: any) {
                         console.log("inside create callback")
                         console.log(result)
+                        if(result.token.card.funding == 'prepaid') {
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards not supported')
+                            return;
+                        }
+                        const response = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
+                        console.log(response);
+                        if (!response.isSuccess){
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+                        }
+
+                        await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+                        self.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+                        self.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP);
                     });
                 });
             },
@@ -107,6 +125,9 @@
                 },
                 onSubmitClick: function () {
                     console.log("submit click");
+                },
+                onCloseClick: function () {
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP);
                 }
 
             },
