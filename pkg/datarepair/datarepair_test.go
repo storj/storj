@@ -28,9 +28,9 @@ func TestDataRepair(t *testing.T) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
 		// pause discovery service so that we do not get a race condition when we delete nodes from overlay cache
-		satellite.Discovery.Service.Discovery.Pause()
-		satellite.Discovery.Service.Refresh.Pause()
-		satellite.Discovery.Service.Graveyard.Pause()
+		satellite.Discovery.Service.Discovery.Stop()
+		satellite.Discovery.Service.Refresh.Stop()
+		satellite.Discovery.Service.Graveyard.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
