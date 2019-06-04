@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -58,6 +59,8 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
+
+var mon = monkit.Package()
 
 // DB is the master database for the satellite
 type DB interface {
@@ -591,7 +594,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 }
 
 // Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
