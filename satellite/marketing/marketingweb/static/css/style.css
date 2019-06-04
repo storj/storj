@@ -25,11 +25,11 @@ body{
 }
 
 .offer-label{
-font-family: 'Inter';
-font-size: 11px;
-line-height: 49px;
-letter-spacing: -0.100741px;
-color: #656565;
+    font-family: 'Inter';
+    font-size: 11px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #656565;
 }
 
 .toggler{

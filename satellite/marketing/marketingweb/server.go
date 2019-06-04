@@ -40,8 +40,8 @@ type Server struct {
 // The three pages contained in addPages are pages all templates require
 // This exists in order to limit handler verbosity
 func addPages(assets []string) ([]string){
-	d := dir + "pages/"
-	pages  := []string{d+"base.html",d+"index.html",d+"banner.html"}
+	rp := dir + "pages/"
+	pages  := []string{rp+"base.html",rp+"index.html",rp+"banner.html"}
 	for _, page := range assets {
 		pages = append(pages,page)
 	}
@@ -76,16 +76,16 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	d := dir+"pages/"
-	pages :=  []string{d+"home.html",d+"refOffers.html",d+"freeOffers.html",d+"roModal.html",d+"foModal.html"}
+	rp := dir+"pages/"
+	pages :=  []string{rp+"home.html",rp+"refOffers.html",rp+"freeOffers.html",rp+"roModal.html",rp+"foModal.html"}
 	files := addPages(pages)
 	home := template.Must(template.New("landingPage").ParseFiles(files...))
 	home.ExecuteTemplate(w, "base", nil)
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	d := dir+"pages/"
-	unavailable := template.Must(template.New("404").ParseFiles(d + "404.html"))
+	rp := dir+"pages/"
+	unavailable := template.Must(template.New("404").ParseFiles(rp + "404.html"))
 	unavailable.ExecuteTemplate(w, "base", nil)
 }
 
