@@ -140,6 +140,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 	return storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
+		ShareSize:      c.RS.ErasureShareSize.Int32(),
 		RequiredShares: int16(c.RS.MinThreshold),
 		RepairShares:   int16(c.RS.RepairThreshold),
 		OptimalShares:  int16(c.RS.SuccessThreshold),
