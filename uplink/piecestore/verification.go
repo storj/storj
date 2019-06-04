@@ -24,7 +24,8 @@ var (
 )
 
 // VerifyPieceHash verifies piece hash which is sent by peer.
-func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
+func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
 		return ErrProtocol.New("invalid arguments")
 	}

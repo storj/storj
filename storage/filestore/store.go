@@ -40,7 +40,8 @@ func NewAt(path string) (*Store, error) {
 func (store *Store) Close() error { return nil }
 
 // Open loads blob with the specified hash
-func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (storage.BlobReader, error) {
+func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (_ storage.BlobReader, err error) {
+	defer mon.Task()(&ctx)(&err)
 	file, err := store.dir.Open(ref)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -52,20 +53,21 @@ func (store *Store) Open(ctx context.Context, ref storage.BlobRef) (storage.Blob
 }
 
 // Delete deletes blobs with the specified ref
-func (store *Store) Delete(ctx context.Context, ref storage.BlobRef) error {
-	err := store.dir.Delete(ref)
-	return Error.Wrap(err)
+func (store *Store) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.dir.Delete(ref))
 }
 
 // GarbageCollect tries to delete any files that haven't yet been deleted
-func (store *Store) GarbageCollect(ctx context.Context) error {
-	err := store.dir.GarbageCollect()
-	return Error.Wrap(err)
+func (store *Store) GarbageCollect(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(store.dir.GarbageCollect())
 }
 
 // Create creates a new blob that can be written
 // optionally takes a size argument for performance improvements, -1 is unknown size
-func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64) (storage.BlobWriter, error) {
+func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64) (_ storage.BlobWriter, err error) {
+	defer mon.Task()(&ctx)(&err)
 	file, err := store.dir.CreateTemporaryFile(size)
 	if err != nil {
 		return nil, Error.Wrap(err)

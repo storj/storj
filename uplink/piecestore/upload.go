@@ -21,9 +21,9 @@ type Uploader interface {
 	// Write uploads data to the storage node.
 	Write([]byte) (int, error)
 	// Cancel cancels the upload.
-	Cancel() error
+	Cancel(ctx context.Context) error
 	// Commit finalizes the upload.
-	Commit() (*pb.PieceHash, error)
+	Commit(ctx context.Context) (*pb.PieceHash, error)
 }
 
 // Upload implements uploading to the storage node.
@@ -43,7 +43,8 @@ type Upload struct {
 }
 
 // Upload initiates an upload to the storage node.
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Uploader, error) {
+func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uploader, err error) {
+	defer mon.Task()(&ctx)(&err)
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
 		return nil, err
@@ -149,7 +150,8 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 }
 
 // Cancel cancels the uploading.
-func (client *Upload) Cancel() error {
+func (client *Upload) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if client.finished {
 		return io.EOF
 	}
@@ -158,7 +160,8 @@ func (client *Upload) Cancel() error {
 }
 
 // Commit finishes uploading by sending the piece-hash and retrieving the piece-hash.
-func (client *Upload) Commit() (*pb.PieceHash, error) {
+func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if client.finished {
 		return nil, io.EOF
 	}

@@ -49,7 +49,8 @@ func NewService(config Config, info Info, service string) (client *Service) {
 }
 
 // CheckVersion checks to make sure the version is still okay, returning an error if not
-func (srv *Service) CheckVersion(ctx context.Context) error {
+func (srv *Service) CheckVersion(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !srv.checkVersion(ctx) {
 		return fmt.Errorf("outdated software version (%v), please update", srv.info.Version.String())
 	}
@@ -58,12 +59,14 @@ func (srv *Service) CheckVersion(ctx context.Context) error {
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
 // used for other utilities
-func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) error {
+func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return NewService(config, info, service).CheckVersion(ctx)
 }
 
 // Run logs the current version information
-func (srv *Service) Run(ctx context.Context) error {
+func (srv *Service) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !srv.checked.Released() {
 		err := srv.CheckVersion(ctx)
 		if err != nil {
