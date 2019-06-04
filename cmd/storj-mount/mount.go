@@ -62,16 +62,11 @@ func init() {
 
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 
-	confDirParam := cfgstruct.FindConfigDirParam()
-	if confDirParam != "" {
-		defaultConfDir = confDirParam
-	}
-
 	var confDir string
-	cfgstruct.SetupFlag(zap.L(), mountCmd, &confDir, "config-dir", defaultConfDir, "main directory for mount configuration")
+	cfgstruct.SetupFlag(zap.L(), rootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
+	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
-	defaults := cfgstruct.DefaultsFlag(mountCmd)
-	cfgstruct.Bind(mountCmd.Flags(), &cfg, defaults, cfgstruct.ConfDir(confDir))
+	process.Bind(mountCmd, &cfg, defaults, cfgstruct.ConfDir(confDir))
 }
 
 func mountBucket(cmd *cobra.Command, args []string) (err error) {
