@@ -167,7 +167,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 				break
 			}
 		}
-		_, commitErr := uploader.Commit()
+		_, commitErr := uploader.Commit(ctx)
 		err = errs.Combine(writeErr, commitErr)
 		testIndex := fmt.Sprintf("#%d", i)
 		if tt.err != "" {
