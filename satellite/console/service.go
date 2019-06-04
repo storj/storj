@@ -915,7 +915,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 
 	// disallow invoice generation for future periods
 	if endDate.After(time.Now()) {
-		return errs.New("can't create invoices for future periods")
+		return errs.New("can not create invoices for future periods")
 	}
 
 	projects, err := s.store.Projects().GetAll(ctx)
@@ -937,7 +937,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 		// invoices only for project that failed before
 		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
 		if err == nil {
-			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp allready exists", proj.ID))
+			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp already exists", proj.ID))
 			continue
 		}
 
