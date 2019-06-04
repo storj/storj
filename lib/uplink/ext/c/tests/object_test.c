@@ -10,7 +10,7 @@
 #include "helpers.h"
 
 void callback(Bytes_t bytes, bool done) {
-    printf("Hi");
+    printf("Hi\n");
 }
 
 void TestObject(void)
@@ -26,13 +26,14 @@ void TestObject(void)
 
     // Create buckets
     Bucket_t *bucket = CreateTestBucket(ref_project, bucket_name, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
     free(bucket);
 
     uint8_t *enc_key = "abcdefghijklmnopqrstuvwxyzABCDEF";
     EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
 
     // Open bucket
-    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, access, err);
+    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     char *object_path = "TestObject1";
