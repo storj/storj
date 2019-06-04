@@ -157,7 +157,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage)
 	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)
 
-	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
+	pendingAudits, err := createPendingAudits(ctx, containedNodes, correctedShares, stripe)
 	if err != nil {
 		return &Report{
 			Successes: successNodes,
@@ -392,6 +392,7 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
 func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -421,7 +422,8 @@ func createBucketID(path storj.Path) []byte {
 	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
-func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) ([]*PendingAudit, error) {
+func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) (_ []*PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(containedNodes) > 0 {
 		return nil, nil
 	}
@@ -436,7 +438,7 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 		return nil, Error.Wrap(err)
 	}
 
-	stripeData, err := rebuildStripe(fec, correctedShares, int(shareSize))
+	stripeData, err := rebuildStripe(ctx, fec, correctedShares, int(shareSize))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -460,9 +462,10 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 	return pendingAudits, nil
 }
 
-func rebuildStripe(fec *infectious.FEC, corrected []infectious.Share, shareSize int) ([]byte, error) {
+func rebuildStripe(ctx context.Context, fec *infectious.FEC, corrected []infectious.Share, shareSize int) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	stripe := make([]byte, fec.Required()*shareSize)
-	err := fec.Rebuild(corrected, func(share infectious.Share) {
+	err = fec.Rebuild(corrected, func(share infectious.Share) {
 		copy(stripe[share.Number*shareSize:], share.Data)
 	})
 	if err != nil {
