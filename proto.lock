@@ -1,6 +1,99 @@
 {
   "definitions": [
     {
+      "protopath": "pkg:/:macaroon:/:types.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Caveat",
+            "fields": [
+              {
+                "id": 1,
+                "name": "disallow_reads",
+                "type": "bool"
+              },
+              {
+                "id": 2,
+                "name": "disallow_writes",
+                "type": "bool"
+              },
+              {
+                "id": 3,
+                "name": "disallow_lists",
+                "type": "bool"
+              },
+              {
+                "id": 4,
+                "name": "disallow_deletes",
+                "type": "bool"
+              },
+              {
+                "id": 10,
+                "name": "allowed_paths",
+                "type": "Path",
+                "is_repeated": true
+              },
+              {
+                "id": 20,
+                "name": "not_after",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 21,
+                "name": "not_before",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 30,
+                "name": "nonce",
+                "type": "bytes"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Path",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bucket",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "encrypted_path_prefix",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "macaroon"
+        }
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:bandwidth.proto",
       "def": {
         "enums": [
@@ -84,7 +177,13 @@
         ],
         "package": {
           "name": "bandwidth"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -137,7 +236,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -163,7 +268,13 @@
         ],
         "package": {
           "name": "repair"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -583,7 +694,21 @@
         ],
         "package": {
           "name": "gogoproto"
-        }
+        },
+        "options": [
+          {
+            "name": "java_package",
+            "value": "com.google.protobuf"
+          },
+          {
+            "name": "java_outer_classname",
+            "value": "GoGoProtos"
+          },
+          {
+            "name": "go_package",
+            "value": "github.com/gogo/protobuf/gogoproto"
+          }
+        ]
       }
     },
     {
@@ -1402,7 +1527,13 @@
         ],
         "package": {
           "name": "inspector"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1432,7 +1563,13 @@
         ],
         "package": {
           "name": "objects"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1788,7 +1925,13 @@
         ],
         "package": {
           "name": "metainfo"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2061,7 +2204,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2348,7 +2497,13 @@
         ],
         "package": {
           "name": "orders"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2521,7 +2676,13 @@
         ],
         "package": {
           "name": "overlay"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2724,7 +2885,13 @@
         ],
         "package": {
           "name": "piecestoreroutes"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2896,7 +3063,13 @@
         ],
         "package": {
           "name": "piecestore"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3124,7 +3297,13 @@
         ],
         "package": {
           "name": "pointerdb"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3199,7 +3378,97 @@
         ],
         "package": {
           "name": "streams"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:vouchers.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Voucher",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "storage_node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "expiration",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 4,
+                "name": "satellite_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "VoucherRequest"
+          }
+        ],
+        "services": [
+          {
+            "name": "Vouchers",
+            "rpcs": [
+              {
+                "name": "Request",
+                "in_type": "VoucherRequest",
+                "out_type": "Voucher"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "vouchers"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     }
   ]

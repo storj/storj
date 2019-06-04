@@ -245,7 +245,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 
 	fullpath := bucket + "/" + path
 
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, bucketInfo.PathCipher, db.rootKey)
+	encryptedPath, err := streams.EncryptAfterBucket(ctx, fullpath, bucketInfo.PathCipher, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -396,22 +396,26 @@ type mutableObject struct {
 
 func (object *mutableObject) Info() storj.Object { return object.info }
 
-func (object *mutableObject) CreateStream(ctx context.Context) (storj.MutableStream, error) {
+func (object *mutableObject) CreateStream(ctx context.Context) (_ storj.MutableStream, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return &mutableStream{
 		db:   object.db,
 		info: object.info,
 	}, nil
 }
 
-func (object *mutableObject) ContinueStream(ctx context.Context) (storj.MutableStream, error) {
+func (object *mutableObject) ContinueStream(ctx context.Context) (_ storj.MutableStream, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
-func (object *mutableObject) DeleteStream(ctx context.Context) error {
+func (object *mutableObject) DeleteStream(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return errors.New("not implemented")
 }
 
-func (object *mutableObject) Commit(ctx context.Context) error {
+func (object *mutableObject) Commit(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, info, err := object.db.getInfo(ctx, committedPrefix, object.info.Bucket.Name, object.info.Path)
 	object.info = info
 	return err

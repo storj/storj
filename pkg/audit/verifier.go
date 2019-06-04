@@ -42,27 +42,27 @@ type Share struct {
 
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
-	log               *zap.Logger
-	orders            *orders.Service
-	auditor           *identity.PeerIdentity
-	transport         transport.Client
-	overlay           *overlay.Cache
-	containment       Containment
-	reporter          reporter
-	minBytesPerSecond memory.Size
+	log                *zap.Logger
+	orders             *orders.Service
+	auditor            *identity.PeerIdentity
+	transport          transport.Client
+	overlay            *overlay.Cache
+	containment        Containment
+	minBytesPerSecond  memory.Size
+	minDownloadTimeout time.Duration
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, reporter reporter, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size) *Verifier {
+func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
-		log:               log,
-		reporter:          reporter,
-		orders:            orders,
-		auditor:           id.PeerIdentity(),
-		transport:         transport,
-		overlay:           overlay,
-		containment:       containment,
-		minBytesPerSecond: minBytesPerSecond,
+		log:                log,
+		orders:             orders,
+		auditor:            id.PeerIdentity(),
+		transport:          transport,
+		overlay:            overlay,
+		containment:        containment,
+		minBytesPerSecond:  minBytesPerSecond,
+		minDownloadTimeout: minDownloadTimeout,
 	}
 }
 
@@ -126,7 +126,38 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 
 	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes, containedNodes)
 
-	pendingAudits, err := createPendingAudits(containedNodes, correctedShares, stripe)
+	totalInPointer := len(stripe.Segment.GetRemote().GetRemotePieces())
+	totalAudited := len(successNodes) + len(failedNodes) + len(offlineNodes)
+	numOffline := len(offlineNodes)
+	numSuccessful := len(successNodes)
+	numFailed := len(failedNodes)
+	auditedPercentage := float64(totalAudited) / float64(totalInPointer)
+	offlinePercentage := float64(0)
+	successfulPercentage := float64(0)
+	failedPercentage := float64(0)
+	if totalAudited > 0 {
+		offlinePercentage = float64(numOffline) / float64(totalAudited)
+		successfulPercentage = float64(numSuccessful) / float64(totalAudited)
+		failedPercentage = float64(numFailed) / float64(totalAudited)
+	}
+
+	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
+	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
+	mon.Meter("audit_offline_nodes_global").Mark(numOffline)
+	mon.Meter("audit_total_nodes_global").Mark(totalAudited)
+	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer)
+
+	mon.IntVal("audit_success_nodes").Observe(int64(len(successNodes)))
+	mon.IntVal("audit_fail_nodes").Observe(int64(len(failedNodes)))
+	mon.IntVal("audit_offline_nodes").Observe(int64(len(offlineNodes)))
+	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))
+	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))
+	mon.FloatVal("audited_percentage").Observe(auditedPercentage)
+	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)
+	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage)
+	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)
+
+	pendingAudits, err := createPendingAudits(ctx, containedNodes, correctedShares, stripe)
 	if err != nil {
 		return &Report{
 			Successes: successNodes,
@@ -268,8 +299,8 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	timedCtx := ctx
 	if verifier.minBytesPerSecond > 0 {
 		maxTransferTime := time.Duration(int64(time.Second) * int64(bandwidthMsgSize) / verifier.minBytesPerSecond.Int64())
-		if maxTransferTime < (5 * time.Second) {
-			maxTransferTime = 5 * time.Second
+		if maxTransferTime < verifier.minDownloadTimeout {
+			maxTransferTime = verifier.minDownloadTimeout
 		}
 		var cancel func()
 		timedCtx, cancel = context.WithTimeout(ctx, maxTransferTime)
@@ -361,6 +392,7 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
 func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true
@@ -390,7 +422,8 @@ func createBucketID(path storj.Path) []byte {
 	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
-func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) ([]*PendingAudit, error) {
+func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) (_ []*PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(containedNodes) > 0 {
 		return nil, nil
 	}
@@ -405,7 +438,7 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 		return nil, Error.Wrap(err)
 	}
 
-	stripeData, err := rebuildStripe(fec, correctedShares, int(shareSize))
+	stripeData, err := rebuildStripe(ctx, fec, correctedShares, int(shareSize))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -429,9 +462,10 @@ func createPendingAudits(containedNodes map[int]storj.NodeID, correctedShares []
 	return pendingAudits, nil
 }
 
-func rebuildStripe(fec *infectious.FEC, corrected []infectious.Share, shareSize int) ([]byte, error) {
+func rebuildStripe(ctx context.Context, fec *infectious.FEC, corrected []infectious.Share, shareSize int) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	stripe := make([]byte, fec.Required()*shareSize)
-	err := fec.Rebuild(corrected, func(share infectious.Share) {
+	err = fec.Rebuild(corrected, func(share infectious.Share) {
 		copy(stripe[share.Number*shareSize:], share.Data)
 	})
 	if err != nil {

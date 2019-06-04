@@ -25,10 +25,11 @@ var Error = errs.Class("audit error")
 
 // Config contains configurable values for audit service
 type Config struct {
-	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
-	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
-	MaxReverifyCount  int           `help:"limit above which we consider an audit is failed" default:"3"`
+	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval           time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5s"`
+	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -50,7 +51,7 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)), transport, overlay, containment, orders, identity, config.MinBytesPerSecond),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
 		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
 		Loop: *sync2.NewCycle(config.Interval),
@@ -78,7 +79,8 @@ func (service *Service) Close() error {
 }
 
 // process picks a random stripe and verifies correctness
-func (service *Service) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var stripe *Stripe
 	for {
 		s, more, err := service.Cursor.NextStripe(ctx)

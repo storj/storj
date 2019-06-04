@@ -5,11 +5,13 @@ package macaroon
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
@@ -23,6 +25,8 @@ var (
 	ErrUnauthorized = errs.Class("api key unauthorized error")
 	// ErrRevoked means the API key has been revoked
 	ErrRevoked = errs.Class("api key revocation error")
+
+	mon = monkit.Package()
 )
 
 // ActionType specifies the operation type being performed that the Macaroon will validate
@@ -81,7 +85,9 @@ func NewAPIKey(secret []byte) (*APIKey, error) {
 // Check makes sure that the key authorizes the provided action given the root
 // project secret and any possible revocations, returning an error if the action
 // is not authorized. 'revoked' is a list of revoked heads.
-func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) error {
+func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	if !a.mac.Validate(secret) {
 		return ErrInvalid.New("macaroon unauthorized")
 	}

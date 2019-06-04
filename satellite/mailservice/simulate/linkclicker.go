@@ -4,14 +4,18 @@
 package simulate
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/post"
 )
+
+var mon = monkit.Package()
 
 // LinkClicker is mailservice.Sender that click all links
 // from html msg parts
@@ -23,7 +27,9 @@ func (clicker *LinkClicker) FromAddress() post.Address {
 }
 
 // SendEmail click all links from email html parts
-func (clicker *LinkClicker) SendEmail(msg *post.Message) error {
+func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// dirty way to find links without pulling in a html dependency
 	regx := regexp.MustCompile(`href="([^\s])+"`)
 	// collect all links
