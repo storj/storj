@@ -26,6 +26,8 @@ func getRatio(success, total int64) (ratio float64) {
 }
 
 func TestStatDB(t *testing.T) {
+	// TODO(team green): remove the skip when implementing V3-1843
+	t.Skip("require disqualification implementation")
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
