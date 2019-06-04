@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -91,6 +92,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	// Marketing returns database for marketing admin GUI
+	Marketing() marketing.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
