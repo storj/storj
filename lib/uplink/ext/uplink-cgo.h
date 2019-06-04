@@ -150,7 +150,9 @@ extern void ReadBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
 extern void CloseObject(ObjectRef_t p0, char** p1);
 
-extern void DownloadRange(ObjectRef_t p0, int64_t p1, int64_t p2, char* p3, char** p4);
+extern void DownloadRange(ObjectRef_t p0, int64_t p1, int64_t p2, char** p3, void* p4);
+
+extern ObjectMeta_t ObjectMeta(ObjectRef_t p0, char** p1);
 
 extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t* p2, char** p3);
 

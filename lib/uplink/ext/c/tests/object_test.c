@@ -41,9 +41,23 @@ void TestObject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     free(object);
 
+    object = OpenObject(ref_bucket, object_path, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+
+    object_meta = ObjectMeta(object, err)
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
+
+//    DownloadRange(object, 0, 0, err, callback);
+//    TEST_ASSERT_EQUAL_STRING("", *err);
+
     // Close Project
     CloseProject(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+}
+
+void callback(Bytes_t bytes, bool done) {
+    printf("Hi");
 }
 
 int main(int argc, char *argv[])

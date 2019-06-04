@@ -24,7 +24,7 @@ typedef struct Bytes {
     int32_t length;
 } Bytes_t;
 
-void DownloadCallback(Bytes_t* bytes, bool done, char *path);
+void DownloadCallback(Bytes_t bytes, bool done, char *path);
 
 typedef struct IDVersion {
     uint16_t number;
@@ -114,3 +114,16 @@ typedef struct ListOptions {
     int8_t direction;
     int64_t limit;
 } ListOptions_t;
+
+typedef struct ObjectMeta {
+	char *Bucket;
+	char *Path;
+	bool IsPrefix;
+	char *ContentType;
+	MapRef_t Metadata;
+	uint64_t Created;
+	uint64_t Modified;
+	uint64_t Expires;
+	uint64_t Size;
+	Bytes_t Checksum;
+} ObjectMeta_t;

@@ -37,6 +37,8 @@ type CUint = C.uint
 type CBytes = C.Bytes_t
 type CUint8 = C.uint8_t
 type CInt32 = C.int32_t
+type CBytes_t = C.Bytes_t
+type Cbool = C.bool
 
 // Ref types
 type CAPIKeyRef = C.APIKeyRef_t
