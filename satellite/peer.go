@@ -51,6 +51,10 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
@@ -113,6 +117,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Vouchers vouchers.Config
 
 	Version version.Config
 }
@@ -189,6 +195,10 @@ type Peer struct {
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	Vouchers struct {
+		Service *vouchers.Service
 	}
 
 	Console struct {
@@ -313,6 +323,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup vouchers
+		log.Debug("Setting up vouchers")
+		config := config.Vouchers
+		if config.Expiration < 0 {
+			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
+		}
+		expirationHours := config.Expiration * 24
+		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
+		if err != nil {
+			return nil, err
+		}
+		peer.Vouchers.Service = vouchers.NewService(
+			peer.Log.Named("vouchers"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			duration,
+		)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+	}
+
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
 		config := config.LiveAccounting
@@ -369,7 +399,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
-			peer.DB.StoragenodeAccounting(),
 			peer.Accounting.ProjectUsage,
 		)
 
@@ -391,7 +420,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval)
+			config.Checker.Interval,
+			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
@@ -524,10 +554,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = localpayments.NewService(nil)
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 
@@ -606,10 +645,8 @@ func (peer *Peer) Close() error {
 
 	if peer.Console.Endpoint != nil {
 		errlist.Add(peer.Console.Endpoint.Close())
-	} else {
-		if peer.Console.Listener != nil {
-			errlist.Add(peer.Console.Listener.Close())
-		}
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
 	}
 
 	if peer.Mail.Service != nil {

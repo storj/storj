@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/payments"
 )
 
 var (
@@ -57,34 +58,33 @@ const (
 type Service struct {
 	Signer
 
-	store DB
 	log   *zap.Logger
+	pm    payments.Service
+	store DB
 
 	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, pm payments.Service, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
-
 	if store == nil {
 		return nil, errs.New("store can't be nil")
 	}
-
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
-
 	if passwordCost == 0 {
 		passwordCost = bcrypt.DefaultCost
 	}
 
 	return &Service{
+		log:          log,
 		Signer:       signer,
 		store:        store,
-		log:          log,
+		pm:           pm,
 		passwordCost: passwordCost,
 	}, nil
 }
@@ -119,19 +119,35 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, errs.New(internalErrMsg)
 	}
 
-	u, err = s.store.Users().Insert(ctx, &User{
-		Email:        user.Email,
-		FullName:     user.FullName,
-		ShortName:    user.ShortName,
-		PasswordHash: hash,
-	})
+	// store data
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
-	err = s.store.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+	err = withTx(tx, func(tx DBTx) error {
+		u, err = tx.Users().Insert(ctx,
+			&User{
+				Email:        user.Email,
+				FullName:     user.FullName,
+				ShortName:    user.ShortName,
+				PasswordHash: hash,
+			},
+		)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
 	return u, nil
@@ -441,39 +457,35 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
-	project := &Project{
-		Description: projectInfo.Description,
-		Name:        projectInfo.Name,
-	}
-
-	transaction, err := s.store.BeginTx(ctx)
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
 	}
 
-	defer func() {
+	err = withTx(tx, func(tx DBTx) (err error) {
+		p, err = tx.Projects().Insert(ctx,
+			&Project{
+				Description: projectInfo.Description,
+				Name:        projectInfo.Name,
+			},
+		)
 		if err != nil {
-			err = errs.Combine(err, transaction.Rollback())
-			return
+			return errs.New(internalErrMsg)
 		}
 
-		err = transaction.Commit()
+		_, err = tx.ProjectMembers().Insert(ctx, auth.User.ID, p.ID)
 		if err != nil {
-			err = errs.New(internalErrMsg)
+			return errs.New(internalErrMsg)
 		}
-	}()
 
-	prj, err := transaction.Projects().Insert(ctx, project)
+		return nil
+	})
+
 	if err != nil {
-		return nil, errs.New(internalErrMsg)
+		return nil, err
 	}
 
-	_, err = transaction.ProjectMembers().Insert(ctx, auth.User.ID, prj.ID)
-	if err != nil {
-		return nil, errs.New(internalErrMsg)
-	}
-
-	return prj, nil
+	return p, nil
 }
 
 // DeleteProject is a method for deleting project by id
@@ -977,11 +989,26 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 
 	for _, membership := range memberships {
 		if membership.ProjectID == projectID {
-			result.membership = &membership
+			result.membership = &membership // nolint: scopelint
 			result.project = project
 			return
 		}
 	}
 
 	return isProjectMember{}, ErrNoMembership.New(unauthorizedErrMsg)
+}
+
+// withTx is a helper function for executing db operations
+// in transaction scope
+func withTx(tx DBTx, cb func(tx DBTx) error) (err error) {
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

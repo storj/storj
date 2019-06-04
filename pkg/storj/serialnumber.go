@@ -35,7 +35,7 @@ func SerialNumberFromBytes(b []byte) (SerialNumber, error) {
 	}
 
 	var id SerialNumber
-	copy(id[:], b[:])
+	copy(id[:], b)
 	return id, nil
 }
 

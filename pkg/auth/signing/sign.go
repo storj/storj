@@ -70,3 +70,20 @@ func SignPieceHash(signer Signer, unsigned *pb.PieceHash) (*pb.PieceHash, error)
 
 	return &signed, nil
 }
+
+// SignVoucher signs the voucher using the specified signer
+// Signer is a satellite
+func SignVoucher(signer Signer, unsigned *pb.Voucher) (*pb.Voucher, error) {
+	bytes, err := EncodeVoucher(unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.SatelliteSignature, err = signer.HashAndSign(bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &signed, nil
+}
