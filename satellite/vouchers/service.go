@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -30,9 +31,11 @@ type Service struct {
 	expiration time.Duration
 }
 
-// Error the default vouchers errs class
 var (
+	// Error the default vouchers errs class
 	Error = errs.Class("vouchers error")
+
+	mon = monkit.Package()
 )
 
 // NewService creates a new service for issuing signed vouchers
@@ -46,7 +49,9 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 }
 
 // Request receives a voucher request and returns a voucher and an error
-func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (*pb.Voucher, error) {
+func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ *pb.Voucher, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return &pb.Voucher{}, Error.Wrap(err)

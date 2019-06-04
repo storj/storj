@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"bufio"
+	"context"
 	"hash"
 	"io"
 
@@ -48,7 +49,8 @@ func (w *Writer) Size() int64 { return w.size }
 func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 
 // Commit commits piece to permanent storage.
-func (w *Writer) Commit() error {
+func (w *Writer) Commit(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return Error.New("already closed")
 	}
@@ -60,7 +62,8 @@ func (w *Writer) Commit() error {
 }
 
 // Cancel deletes any temporarily written data.
-func (w *Writer) Cancel() error {
+func (w *Writer) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return nil
 	}

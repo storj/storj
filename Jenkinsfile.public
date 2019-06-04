@@ -35,10 +35,11 @@ pipeline {
                         sh 'go run ./scripts/check-imports.go -race ./...'
                         sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'protolock status'
+                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
+                        sh 'make check-satellite-config-lock'
                     }
                 }
 
@@ -95,7 +96,6 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
-                        sh 'make test-satellite-cfg-change'
                     }
                 }
             }

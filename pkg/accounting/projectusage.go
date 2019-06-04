@@ -49,6 +49,8 @@ func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.
 // expansion factor, so that the uplinks have a raw limit.
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var group errgroup.Group
 	var bandwidthGetTotal int64
 	limit = usage.maxAlphaUsage
@@ -86,6 +88,8 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 // expansion factor, so that the uplinks have a raw limit.
 // Ref: https://storjlabs.atlassian.net/browse/V3-1274
 func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var group errgroup.Group
 	var inlineTotal, remoteTotal int64
 	limit = usage.maxAlphaUsage
@@ -116,7 +120,9 @@ func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uu
 	return false, limit, nil
 }
 
-func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
 	if err != nil {
 		return 0, 0, err
@@ -131,6 +137,7 @@ func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectI
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
-func (usage *ProjectUsage) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+func (usage *ProjectUsage) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
 }
