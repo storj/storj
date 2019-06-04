@@ -155,7 +155,7 @@ func TestUpload(t *testing.T) {
 		_, err = uploader.Write(data)
 		require.NoError(t, err)
 
-		pieceHash, err := uploader.Commit()
+		pieceHash, err := uploader.Commit(ctx)
 		if tt.err != "" {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
@@ -212,7 +212,7 @@ func TestDownload(t *testing.T) {
 	_, err = uploader.Write(expectedData)
 	require.NoError(t, err)
 
-	_, err = uploader.Commit()
+	_, err = uploader.Commit(ctx)
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -318,7 +318,7 @@ func TestDelete(t *testing.T) {
 	_, err = uploader.Write(expectedData)
 	require.NoError(t, err)
 
-	_, err = uploader.Commit()
+	_, err = uploader.Commit(ctx)
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
