@@ -69,7 +69,7 @@ func TestStreamStoreMeta(t *testing.T) {
 		Data:       streamMetaUnmarshaled.EncryptedStreamInfo,
 	}
 
-	streamMeta := convertMeta(segmentMetaStreamInfo, streamInfo, streamMetaUnmarshaled)
+	streamMeta := ConvertMeta(segmentMetaStreamInfo, streamInfo, streamMetaUnmarshaled)
 
 	for i, test := range []struct {
 		// input for test function

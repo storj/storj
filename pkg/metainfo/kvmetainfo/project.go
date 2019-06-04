@@ -12,8 +12,8 @@ import (
 type Project struct {
 	buckets            buckets.Store
 	encryptedBlockSize int32
-	// redundancy         eestream.RedundancyStrategy
-	segmentsSize int64
+	redundancy         eestream.RedundancyStrategy
+	segmentsSize       int64
 }
 
 // NewProject constructs a *Project

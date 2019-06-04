@@ -139,11 +139,10 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	store, err := db.buckets.GetObjectStore(ctx, bucket)
-	if err != nil {
-		return err
-	}
-
+store := prefixedObjStore{
+	store: objects.NewStore(db.streams, db.streams.Cipher),
+	prefix: bucket,
+}
 	return store.Delete(ctx, path)
 }
 
@@ -168,9 +167,14 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, err
 	}
 
-	objects, err := db.buckets.GetObjectStore(ctx, bucket)
-	if err != nil {
-		return storj.ObjectList{}, err
+	// objects, err := db.buckets.GetObjectStore(ctx, bucket)
+	// if err != nil {
+	// 	return storj.ObjectList{}, err
+	// }
+
+	objects := prefixedObjStore{
+		store: objects.NewStore(db.streams, db.streams.Cipher),
+		prefix: bucket,
 	}
 
 	var startAfter, endBefore string

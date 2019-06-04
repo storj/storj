@@ -5,13 +5,14 @@ package buckets
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/encryption"
@@ -21,7 +22,6 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -33,7 +33,6 @@ type Store interface {
 	Put(ctx context.Context, bucket string, inMeta Meta) (meta Meta, err error)
 	Delete(ctx context.Context, bucket string) (err error)
 	List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error)
-	GetObjectStore(ctx context.Context, bucketName string) (store objects.Store, err error)
 }
 
 // ListItem is a single item in a listing
@@ -59,29 +58,6 @@ type Meta struct {
 // NewStore instantiates BucketStore
 func NewStore(metainfo metainfo.Client) Store {
 	return &BucketStore{metainfo: metainfo}
-}
-
-// GetObjectStore returns an implementation of objects.Store
-func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ objects.Store, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if bucket == "" {
-		return nil, storj.ErrNoBucket.New("")
-	}
-
-	m, err := b.Get(ctx, bucket)
-	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrBucketNotFound.Wrap(err)
-		}
-		return nil, err
-	}
-
-	prefixed := prefixedObjStore{
-		store:  objects.NewStore(nil, m.PathEncryptionType),
-		prefix: bucket,
-	}
-	return &prefixed, nil
-
 }
 
 // Get calls objects store Get
@@ -123,12 +99,17 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 	defer mon.Task()(&ctx)(&err)
 
 	if bucketName == "" {
-		return Meta{}, storj.ErrNoBucket.New("")
+		return meta, storj.ErrNoBucket.New("")
+	}
+
+	_, err = b.Get(ctx, bucketName)
+	if err == nil {
+		return meta, errs.New("Bucket already exists, cannot create bucket")
 	}
 
 	pathCipher := inMeta.PathEncryptionType
 	if pathCipher < storj.Unencrypted || pathCipher > storj.SecretBox {
-		return Meta{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
+		return meta, encryption.ErrInvalidConfig.New("encryption type %d is not supported", pathCipher)
 	}
 
 	userMeta := map[string]string{
@@ -144,28 +125,19 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 
-	m, err := b.Get(ctx, bucketName) //what do I do with this?
-	if err == nil {
-		// TODO
-		fmt.Print(m)
-		// bucket exists, add meta to existing entry?
-	}
-
-	// TODO: check if parameters are correct
-
 	metadata, err := proto.Marshal(&pb.SerializableMeta{UserDefined: userMeta})
 	if err != nil {
-		return Meta{}, err
+		return meta, err
 	}
 
 	streamInfo, err := proto.Marshal(&pb.StreamInfo{
 		NumberOfSegments: 1,
-		SegmentsSize:     inMeta.SegmentsSize, //0 see if this is used anywhere for buckets?
-		LastSegmentSize:  0, //?
+		SegmentsSize:     0,
+		LastSegmentSize:  0,
 		Metadata:         metadata,
 	})
 	if err != nil {
-		return Meta{}, err
+		return meta, err
 	}
 
 	streamMeta, err := proto.Marshal(&pb.StreamMeta{
@@ -177,29 +149,26 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 	var exp timestamp.Timestamp
 	pointer := &pb.Pointer{
 		Type:           pb.Pointer_INLINE,
-		InlineSegment:  nil, //?
-		SegmentSize:    inMeta.SegmentsSize, //used anywhere? 0?
+		InlineSegment:  nil,
+		SegmentSize:    0,
 		ExpirationDate: &exp,
 		Metadata:       streamMeta,
 	}
 	path := storj.JoinPaths("l", bucketName)
-	p, err := b.metainfo.CommitSegment(ctx, bucketName, path, 0, pointer, nil) // what do i do with this?
-	fmt.Print(p)
+	p, err := b.metainfo.CommitSegment(ctx, bucketName, path, 0, pointer, nil)
+
 	if err != nil {
 		return Meta{}, err
 	}
 
-	bt := storj.Bucket{ // what do i do with this?
-		Name:                 bucketName,
-		Created:              p.CreationDate, //p.CreationDate?
-		PathCipher:           pathCipher,
-		SegmentsSize:         inMeta.SegmentsSize,
-		RedundancyScheme:     inMeta.RedundancyScheme,
-		EncryptionParameters: storj.EncryptionParameters{CipherSuite: storj.EncNull}, 
-
-	// inMeta.Created = m.Modified
-	//what do we return??
-	// return inMeta, nil
+	meta = Meta{
+		Created:            convertTime(p.CreationDate),
+		PathEncryptionType: storj.Unencrypted,
+		SegmentsSize:       p.SegmentSize,
+		RedundancyScheme:   storj.RedundancyScheme{},
+		EncryptionScheme:   storj.EncryptionScheme{Cipher: storj.Unencrypted},
+	}
+	return meta, nil
 }
 
 // Delete calls objects store Delete
@@ -316,4 +285,16 @@ func convertMeta(ctx context.Context, m objects.Meta) (out Meta, err error) {
 	applySetting("default-rs-total", 16, func(v int64) { rs.TotalShares = int16(v) })
 
 	return out, err
+}
+
+// convertTime converts gRPC timestamp to Go time
+func convertTime(ts *timestamp.Timestamp) time.Time {
+	if ts == nil {
+		return time.Time{}
+	}
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
+	}
+	return t
 }

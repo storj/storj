@@ -150,7 +150,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 			return Meta{}, currentSegment, err
 		}
 
-		encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
+		encrypter, err := encryption.NewEncrypter(s.Cipher, &contentKey, &contentNonce, s.encBlockSize)
 		if err != nil {
 			return Meta{}, currentSegment, err
 		}
@@ -162,7 +162,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 			return Meta{}, currentSegment, err
 		}
 
-		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, derivedKey, &keyNonce)
+		encryptedKey, err := encryption.EncryptKey(&contentKey, s.Cipher, derivedKey, &keyNonce)
 		if err != nil {
 			return Meta{}, currentSegment, err
 		}
@@ -184,7 +184,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 			if err != nil {
 				return Meta{}, currentSegment, err
 			}
-			cipherData, err := encryption.Encrypt(data, s.cipher, &contentKey, &contentNonce)
+			cipherData, err := encryption.Encrypt(data, s.Cipher, &contentKey, &contentNonce)
 			if err != nil {
 				return Meta{}, currentSegment, err
 			}
@@ -200,7 +200,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 			if !eofReader.isEOF() {
 				segmentPath := getSegmentPath(encPath, currentSegment)
 
-				if s.cipher == storj.Unencrypted {
+				if s.Cipher == storj.Unencrypted {
 					return segmentPath, nil, nil
 				}
 
@@ -228,18 +228,18 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 			}
 
 			// encrypt metadata with the content encryption key and zero nonce
-			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
+			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.Cipher, &contentKey, &storj.Nonce{})
 			if err != nil {
 				return "", nil, err
 			}
 
 			streamMeta := pb.StreamMeta{
 				EncryptedStreamInfo: encryptedStreamInfo,
-				EncryptionType:      int32(s.cipher),
+				EncryptionType:      int32(s.Cipher),
 				EncryptionBlockSize: int32(s.encBlockSize),
 			}
 
-			if s.cipher != storj.Unencrypted {
+			if s.Cipher != storj.Unencrypted {
 				streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 					EncryptedKey: encryptedKey,
 					KeyNonce:     keyNonce[:],
