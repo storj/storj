@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/require"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/lib/uplink"
@@ -105,8 +104,6 @@ func TestDownloadRange(t *testing.T) {
 					if done {
 						donech <- true
 					}
-
-					fmt.Println(bytes)
 				})
 
 			}()
