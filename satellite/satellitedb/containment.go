@@ -21,7 +21,8 @@ type containment struct {
 }
 
 // Get gets the pending audit by node id
-func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.PendingAudit, error) {
+func (containment *containment) Get(ctx context.Context, id pb.NodeID) (_ *audit.PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
 		return nil, audit.ContainError.New("node ID empty")
 	}
@@ -34,11 +35,12 @@ func (containment *containment) Get(ctx context.Context, id pb.NodeID) (*audit.P
 		return nil, audit.ContainError.Wrap(err)
 	}
 
-	return convertDBPending(pending)
+	return convertDBPending(ctx, pending)
 }
 
 // IncrementPending creates a new pending audit entry, or increases its reverify count if it already exists
-func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) error {
+func (containment *containment) IncrementPending(ctx context.Context, pendingAudit *audit.PendingAudit) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	tx, err := containment.db.Open(ctx)
 	if err != nil {
 		return audit.ContainError.Wrap(err)
@@ -85,7 +87,8 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 }
 
 // Delete deletes the pending audit
-func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (bool, error) {
+func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if id.IsZero() {
 		return false, audit.ContainError.New("node ID empty")
 	}
@@ -111,7 +114,8 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (bool,
 	return isDeleted, audit.ContainError.Wrap(tx.Commit())
 }
 
-func convertDBPending(info *dbx.PendingAudits) (*audit.PendingAudit, error) {
+func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if info == nil {
 		return nil, Error.New("missing info")
 	}

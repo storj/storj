@@ -4,6 +4,8 @@
 package signing
 
 import (
+	"context"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -15,7 +17,9 @@ type Signee interface {
 }
 
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
-func VerifyOrderLimitSignature(satellite Signee, signed *pb.OrderLimit2) error {
+func VerifyOrderLimitSignature(satellite Signee, signed *pb.OrderLimit2) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrderLimit(signed)
 	if err != nil {
 		return Error.Wrap(err)
@@ -25,7 +29,9 @@ func VerifyOrderLimitSignature(satellite Signee, signed *pb.OrderLimit2) error {
 }
 
 // VerifyOrderSignature verifies that the signature inside order belongs to the uplink.
-func VerifyOrderSignature(uplink Signee, signed *pb.Order2) error {
+func VerifyOrderSignature(uplink Signee, signed *pb.Order2) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrder(signed)
 	if err != nil {
 		return Error.Wrap(err)
@@ -35,7 +41,9 @@ func VerifyOrderSignature(uplink Signee, signed *pb.Order2) error {
 }
 
 // VerifyPieceHashSignature verifies that the signature inside piece hash belongs to the signer, which is either uplink or storage node.
-func VerifyPieceHashSignature(signee Signee, signed *pb.PieceHash) error {
+func VerifyPieceHashSignature(signee Signee, signed *pb.PieceHash) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodePieceHash(signed)
 	if err != nil {
 		return Error.Wrap(err)

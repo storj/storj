@@ -13,7 +13,7 @@
 # the minimum duration for downloading a share from storage nodes before timing out
 # audit.min-download-timeout: 5s
 
-# how frequently checker should audit segments
+# how frequently checker should check for bad segments
 # checker.interval: 30s
 
 # how frequently irrepairable checker should check for lost pieces
@@ -205,7 +205,7 @@ kademlia.operator.wallet: ""
 # a node's ratio of being up/online vs. down/offline
 # overlay.node.uptime-ratio: 0.9
 
-# how frequently checker should audit segments
+# how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
@@ -228,6 +228,9 @@ kademlia.operator.wallet: ""
 
 # public address to listen on
 server.address: ":7777"
+
+# log all GRPC traffic to zap logger
+server.debug-log-traffic: false
 
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
 # server.extensions.revocation: true

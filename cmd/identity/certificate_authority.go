@@ -161,6 +161,7 @@ func cmdRevokeCA(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
 	argLen := len(args)
 	switch {
 	case argLen > 0:
@@ -200,7 +201,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err = revDB.Put([]*x509.Certificate{ca.Cert, peerCA.Cert}, ext); err != nil {
+	if err = revDB.Put(ctx, []*x509.Certificate{ca.Cert, peerCA.Cert}, ext); err != nil {
 		return err
 	}
 	return nil
