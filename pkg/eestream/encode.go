@@ -126,6 +126,8 @@ type encodedReader struct {
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // io.ReadClosers.
 func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	er := &encodedReader{
 		rs:     rs,
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
@@ -166,7 +168,9 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []
 }
 
 func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.PipeWriter) {
-	_, err := sync2.Copy(ctx, w, r)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	_, err = sync2.Copy(ctx, w, r)
 	err = w.CloseWithError(err)
 	if err != nil {
 		zap.S().Error(err)
@@ -247,7 +251,8 @@ func (er *EncodedRanger) OutputSize() int64 {
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
-func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.ReadCloser, error) {
+func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) (_ []io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(

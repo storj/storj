@@ -39,6 +39,7 @@ func NewReporter(overlay *overlay.Cache, containment Containment, maxRetries int
 
 // RecordAudits saves audit details to overlay
 func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if req == nil {
 		return nil, nil
 	}
@@ -100,6 +101,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range failedAuditNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -127,6 +129,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 
 // recordOfflineStatus updates nodeIDs in overlay with isup=false
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range offlineNodeIDs {
 		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
@@ -143,6 +146,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range successNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -170,6 +174,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 
 // recordPendingAudits updates the containment status of nodes with pending audits
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, pendingAudit := range pendingAudits {
 		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {

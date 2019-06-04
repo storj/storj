@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
@@ -19,7 +20,7 @@ import (
 )
 
 var (
-	// mon = monkit.Package() //TODO: check whether this needs monitoring
+	mon = monkit.Package()
 
 	// Error is a general error class of this package
 	Error = errs.Class("discovery error")
@@ -75,7 +76,9 @@ func (discovery *Discovery) Close() error {
 }
 
 // Run runs the discovery service
-func (discovery *Discovery) Run(ctx context.Context) error {
+func (discovery *Discovery) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var group errgroup.Group
 	discovery.Refresh.Start(ctx, &group, func(ctx context.Context) error {
 		err := discovery.refresh(ctx)
@@ -104,7 +107,9 @@ func (discovery *Discovery) Run(ctx context.Context) error {
 // refresh updates the cache db with the current DHT.
 // We currently do not penalize nodes that are unresponsive,
 // but should in the future.
-func (discovery *Discovery) refresh(ctx context.Context) error {
+func (discovery *Discovery) refresh(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	nodes := discovery.kad.Seen()
 	for _, v := range nodes {
 		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
@@ -167,7 +172,9 @@ func (discovery *Discovery) refresh(ctx context.Context) error {
 // graveyard attempts to ping all nodes in the Seen() map from Kademlia and adds them to the cache
 // if they respond. This is an attempt to resurrect nodes that may have gone offline in the last hour
 // and were removed from the cache due to an unsuccessful response.
-func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
+func (discovery *Discovery) searchGraveyard(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	seen := discovery.kad.Seen()
 
 	var errors errs.Group
@@ -203,7 +210,9 @@ func (discovery *Discovery) searchGraveyard(ctx context.Context) error {
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
-func (discovery *Discovery) discover(ctx context.Context) error {
+func (discovery *Discovery) discover(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	r, err := randomID()
 	if err != nil {
 		return Error.Wrap(err)
@@ -212,12 +221,6 @@ func (discovery *Discovery) discover(ctx context.Context) error {
 	if err != nil && !kademlia.NodeNotFound.Has(err) {
 		return Error.Wrap(err)
 	}
-	return nil
-}
-
-// Walk iterates over each node in each bucket to traverse the network
-func (discovery *Discovery) walk(ctx context.Context) error {
-	// TODO: This should walk the cache, rather than be a duplicate of refresh
 	return nil
 }
 
