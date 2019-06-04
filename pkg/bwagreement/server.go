@@ -209,7 +209,8 @@ func (s *Server) Settlement(client pb.Bandwidth_SettlementServer) (err error) {
 	}
 }
 
-func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) error {
+func (s *Server) verifySignature(ctx context.Context, rba *pb.Order) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	pba := rba.GetPayerAllocation()
 
 	// Get renter's public key from uplink agreement db

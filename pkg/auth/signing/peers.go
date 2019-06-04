@@ -4,12 +4,17 @@
 package signing
 
 import (
+	"context"
 	"crypto"
+
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 )
+
+var mon = monkit.Package()
 
 // PrivateKey implements a signer and signee using a crypto.PrivateKey.
 type PrivateKey struct {
@@ -34,7 +39,9 @@ func (private *PrivateKey) HashAndSign(data []byte) ([]byte, error) {
 }
 
 // HashAndVerifySignature hashes the data and verifies that the signature belongs to the PrivateKey.
-func (private *PrivateKey) HashAndVerifySignature(data, signature []byte) error {
+func (private *PrivateKey) HashAndVerifySignature(data, signature []byte) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	pub := pkcrypto.PublicKeyFromPrivate(private.Key)
 	return pkcrypto.HashAndVerifySignature(pub, data, signature)
 }
@@ -57,6 +64,8 @@ func SigneeFromPeerIdentity(identity *identity.PeerIdentity) Signee {
 func (public *PublicKey) ID() storj.NodeID { return public.Self }
 
 // HashAndVerifySignature hashes the data and verifies that the signature belongs to the PublicKey.
-func (public *PublicKey) HashAndVerifySignature(data, signature []byte) error {
+func (public *PublicKey) HashAndVerifySignature(data, signature []byte) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	return pkcrypto.HashAndVerifySignature(public.Key, data, signature)
 }
