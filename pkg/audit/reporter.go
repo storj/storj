@@ -34,6 +34,7 @@ func NewReporter(overlay *overlay.Cache, maxRetries int) *Reporter {
 
 // RecordAudits saves failed audit details to overlay
 func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInfo) (failed *RecordAuditsInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	successNodeIDs := req.SuccessNodeIDs
 	failNodeIDs := req.FailNodeIDs
 	offlineNodeIDs := req.OfflineNodeIDs
@@ -81,6 +82,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *RecordAuditsInf
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range failedAuditNodeIDs {
@@ -102,6 +104,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 // recordOfflineStatus updates nodeIDs in overlay with isup=false
 // TODO: offline nodes should maybe be marked as failing the audit in the future
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range offlineNodeIDs {
@@ -118,6 +121,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	failedIDs := storj.NodeIDList{}
 
 	for _, nodeID := range successNodeIDs {

@@ -138,7 +138,7 @@ func TestExtensionMap_HandleExtensions_error(t *testing.T) {
 
 		assert.NotEqual(t, oldRevocation, newRevocation)
 
-		err = revDB.Put(chain, newRevocation)
+		err = revDB.Put(ctx, chain, newRevocation)
 		assert.NoError(t, err)
 
 		opts := &extensions.Options{RevDB: revDB}

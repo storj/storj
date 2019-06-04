@@ -195,7 +195,8 @@ func (c *Client) Close() error {
 
 // Sign claims an authorization using the token string and returns a signed
 // copy of the client's CA certificate
-func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
+func (c *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	res, err := c.client.Sign(ctx, &pb.SigningRequest{
 		AuthToken: tokenStr,
 		Timestamp: time.Now().Unix(),
@@ -209,7 +210,8 @@ func (c *Client) Sign(ctx context.Context, tokenStr string) ([][]byte, error) {
 
 // Sign signs the CA certificate of the remote peer's identity with the signer's certificate.
 // Returns a certificate chain consisting of the remote peer's CA followed by the signer's chain.
-func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*pb.SigningResponse, error) {
+func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (_ *pb.SigningResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	grpcPeer, ok := peer.FromContext(ctx)
 	if !ok {
 		// TODO: better error
@@ -228,7 +230,7 @@ func (c CertificateSigner) Sign(ctx context.Context, req *pb.SigningRequest) (*p
 
 	signedChainBytes := [][]byte{signedPeerCA.Raw, c.signer.Cert.Raw}
 	signedChainBytes = append(signedChainBytes, c.signer.RawRestChain()...)
-	err = c.authDB.Claim(&ClaimOpts{
+	err = c.authDB.Claim(ctx, &ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
 		ChainBytes:    signedChainBytes,
@@ -266,7 +268,8 @@ func (authDB *AuthorizationDB) Close() error {
 }
 
 // Create creates a new authorization and adds it to the authorization database.
-func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations, error) {
+func (authDB *AuthorizationDB) Create(ctx context.Context, userID string, count int) (_ Authorizations, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(userID) == 0 {
 		return nil, ErrAuthorizationDB.New("userID cannot be empty")
 	}
@@ -290,7 +293,7 @@ func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations,
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := authDB.add(userID, newAuths); err != nil {
+	if err := authDB.add(ctx, userID, newAuths); err != nil {
 		return nil, err
 	}
 
@@ -298,7 +301,8 @@ func (authDB *AuthorizationDB) Create(userID string, count int) (Authorizations,
 }
 
 // Get retrieves authorizations by user ID.
-func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
+func (authDB *AuthorizationDB) Get(ctx context.Context, userID string) (_ Authorizations, err error) {
+	defer mon.Task()(&ctx)(&err)
 	authsBytes, err := authDB.DB.Get(storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, ErrAuthorizationDB.Wrap(err)
@@ -315,7 +319,8 @@ func (authDB *AuthorizationDB) Get(userID string) (Authorizations, error) {
 }
 
 // UserIDs returns a list of all userIDs present in the authorization database.
-func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
+func (authDB *AuthorizationDB) UserIDs(ctx context.Context) (userIDs []string, err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = authDB.DB.Iterate(storage.IterateOptions{
 		Recurse: true,
 	}, func(iterator storage.Iterator) error {
@@ -329,7 +334,8 @@ func (authDB *AuthorizationDB) UserIDs() (userIDs []string, err error) {
 }
 
 // List returns all authorizations in the database.
-func (authDB *AuthorizationDB) List() (auths Authorizations, err error) {
+func (authDB *AuthorizationDB) List(ctx context.Context) (auths Authorizations, err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = authDB.DB.Iterate(storage.IterateOptions{
 		Recurse: true,
 	}, func(iterator storage.Iterator) error {
@@ -348,7 +354,8 @@ func (authDB *AuthorizationDB) List() (auths Authorizations, err error) {
 }
 
 // Claim marks an authorization as claimed and records claim information.
-func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
+func (authDB *AuthorizationDB) Claim(ctx context.Context, opts *ClaimOpts) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	now := time.Now().Unix()
 	if !(now-MaxClaimDelaySeconds < opts.Req.Timestamp) ||
 		!(opts.Req.Timestamp < now+MaxClaimDelaySeconds) {
@@ -374,7 +381,7 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 		return err
 	}
 
-	auths, err := authDB.Get(token.UserID)
+	auths, err := authDB.Get(ctx, token.UserID)
 	if err != nil {
 		return err
 	}
@@ -394,7 +401,7 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 					SignedChainBytes: opts.ChainBytes,
 				},
 			}
-			if err := authDB.put(token.UserID, auths); err != nil {
+			if err := authDB.put(ctx, token.UserID, auths); err != nil {
 				return err
 			}
 			break
@@ -404,13 +411,14 @@ func (authDB *AuthorizationDB) Claim(opts *ClaimOpts) error {
 }
 
 // Unclaim removes a claim from an authorization.
-func (authDB *AuthorizationDB) Unclaim(authToken string) error {
+func (authDB *AuthorizationDB) Unclaim(ctx context.Context, authToken string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	token, err := ParseToken(authToken)
 	if err != nil {
 		return err
 	}
 
-	auths, err := authDB.Get(token.UserID)
+	auths, err := authDB.Get(ctx, token.UserID)
 	if err != nil {
 		return err
 	}
@@ -418,23 +426,25 @@ func (authDB *AuthorizationDB) Unclaim(authToken string) error {
 	for i, auth := range auths {
 		if auth.Token.Equal(token) {
 			auths[i].Claim = nil
-			return authDB.put(token.UserID, auths)
+			return authDB.put(ctx, token.UserID, auths)
 		}
 	}
 	return errs.New("token not found in authorizations DB")
 }
 
-func (authDB *AuthorizationDB) add(userID string, newAuths Authorizations) error {
-	auths, err := authDB.Get(userID)
+func (authDB *AuthorizationDB) add(ctx context.Context, userID string, newAuths Authorizations) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	auths, err := authDB.Get(ctx, userID)
 	if err != nil {
 		return err
 	}
 
 	auths = append(auths, newAuths...)
-	return authDB.put(userID, auths)
+	return authDB.put(ctx, userID, auths)
 }
 
-func (authDB *AuthorizationDB) put(userID string, auths Authorizations) error {
+func (authDB *AuthorizationDB) put(ctx context.Context, userID string, auths Authorizations) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	authsBytes, err := auths.Marshal()
 	if err != nil {
 		return ErrAuthorizationDB.Wrap(err)

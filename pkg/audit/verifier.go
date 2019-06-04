@@ -244,6 +244,7 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 
 // getSuccessNodes uses the failed nodes and offline nodes arrays to determine which nodes passed the audit
 func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList) (successNodes storj.NodeIDList) {
+	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
 		fails[fail] = true

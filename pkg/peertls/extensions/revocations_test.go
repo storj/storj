@@ -4,6 +4,7 @@
 package extensions_test
 
 import (
+	"context"
 	"crypto/x509/pkix"
 	"testing"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
+
+var ctx = context.Background() // test context
 
 func TestRevocationCheckHandler(t *testing.T) {
 	testidentity.RevocationDBsTest(t, func(t *testing.T, revDB extensions.RevocationDB, _ storage.KeyValueStore) {
@@ -47,7 +50,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 
 		// NB: add leaf revocation to revocation DB
 		t.Log("revocation DB put leaf revocation")
-		err = revDB.Put(revokingChain, leafRevocationExt)
+		err = revDB.Put(ctx, revokingChain, leafRevocationExt)
 		require.NoError(t, err)
 
 		{
@@ -97,7 +100,7 @@ func TestRevocationCheckHandler(t *testing.T) {
 
 		// NB: add CA revocation to revocation DB
 		t.Log("revocation DB put CA revocation")
-		err = revDB.Put(revokingChain, caRevocationExt)
+		err = revDB.Put(ctx, revokingChain, caRevocationExt)
 		require.NoError(t, err)
 
 		{

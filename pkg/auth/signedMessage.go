@@ -4,6 +4,8 @@
 package auth
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
@@ -68,7 +70,9 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 }
 
 //VerifyMsg checks the crypto-related aspects of signed message
-func VerifyMsg(msg SignableMessage, signer storj.NodeID) error {
+func VerifyMsg(msg SignableMessage, signer storj.NodeID) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	//setup
 	if msg == nil {
 		return ErrMissing.New("message")
