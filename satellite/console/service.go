@@ -649,7 +649,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		// abort if one of the members payment info
 		// attached to this project
 		if projPaymentInfo.PayerID == user.ID {
-			return errs.New("member with atached payment can't be deleted")
+			return errs.New("member with attached payment can not be deleted")
 		}
 
 		userIDs = append(userIDs, user.ID)
