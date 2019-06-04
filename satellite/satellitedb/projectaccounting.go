@@ -24,7 +24,8 @@ type ProjectAccounting struct {
 }
 
 // SaveTallies saves the latest bucket info
-func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
+func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (_ []accounting.BucketTally, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(bucketTallies) == 0 {
 		return nil, Error.New("In SaveTallies with empty bucketTallies")
 	}
@@ -62,8 +63,9 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 }
 
 // CreateStorageTally creates a record in the bucket_storage_tallies accounting table
-func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accounting.BucketStorageTally) error {
-	_, err := db.db.Create_BucketStorageTally(
+func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accounting.BucketStorageTally) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = db.db.Create_BucketStorageTally(
 		ctx,
 		dbx.BucketStorageTally_BucketName([]byte(tally.BucketName)),
 		dbx.BucketStorageTally_ProjectId(tally.ProjectID[:]),
@@ -82,12 +84,13 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 }
 
 // GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
-func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	pathEl := bytes.Split(bucketID, []byte("/"))
 	_, projectID := pathEl[1], pathEl[0]
 	var sum *int64
 	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
-	err := db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
@@ -96,7 +99,8 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, buc
 }
 
 // GetStorageTotals returns the current inline and remote storage usage for a projectID
-func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
+func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var inlineSum, remoteSum sql.NullInt64
 	var intervalStart time.Time
 
@@ -109,7 +113,7 @@ func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uui
 		GROUP BY interval_start
 		ORDER BY interval_start DESC LIMIT 1;`
 
-	err := db.db.QueryRow(db.db.Rebind(query), projectID[:]).Scan(&intervalStart, &inlineSum, &remoteSum)
+	err = db.db.QueryRow(db.db.Rebind(query), projectID[:]).Scan(&intervalStart, &inlineSum, &remoteSum)
 	if err != nil || !inlineSum.Valid || !remoteSum.Valid {
 		return 0, 0, nil
 	}
@@ -117,7 +121,8 @@ func (db *ProjectAccounting) GetStorageTotals(ctx context.Context, projectID uui
 }
 
 // GetProjectUsageLimits returns project usage limit
-func (db *ProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+func (db *ProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx)(&err)
 	project, err := db.db.Get_Project_By_Id(ctx, dbx.Project_Id(projectID[:]))
 	if err != nil {
 		return 0, err
