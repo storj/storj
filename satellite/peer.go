@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -52,9 +53,15 @@ import (
 	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
+
+var mon = monkit.Package()
 
 // DB is the master database for the satellite
 type DB interface {
@@ -116,7 +123,10 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-	Version   version.Config
+
+	Vouchers vouchers.Config
+
+	Version version.Config
 }
 
 // Peer is the satellite
@@ -193,6 +203,10 @@ type Peer struct {
 		Service *mailservice.Service
 	}
 
+	Vouchers struct {
+		Service *vouchers.Service
+	}
+
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -234,7 +248,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
+		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
+		if sc.DebugLogTraffic {
+			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
+		}
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -320,6 +338,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup vouchers
+		log.Debug("Setting up vouchers")
+		config := config.Vouchers
+		if config.Expiration < 0 {
+			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
+		}
+		expirationHours := config.Expiration * 24
+		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
+		if err != nil {
+			return nil, err
+		}
+		peer.Vouchers.Service = vouchers.NewService(
+			peer.Log.Named("vouchers"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			duration,
+		)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+	}
+
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
 		config := config.LiveAccounting
@@ -397,7 +435,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval)
+			config.Checker.Interval,
+			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
@@ -530,10 +569,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = localpayments.NewService(nil)
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 
@@ -570,7 +618,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 }
 
 // Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {

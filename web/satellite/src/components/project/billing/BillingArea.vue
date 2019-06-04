@@ -10,7 +10,7 @@
 			<div class="billing-container">
 				<table class="billing-container__table">
 					<SortingHeader />
-					<BucketItem />
+					<BillingItem />
 				</table>
 				<PaginationArea />
 			</div>
@@ -21,7 +21,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import EmptyState from '@/components/common/EmptyStateArea.vue';
-    import BucketItem from '@/components/project/billing/BillingItem.vue';
+    import BillingItem from '@/components/project/billing/BillingItem.vue';
     import PaginationArea from '@/components/project/billing/PaginationArea.vue';
     import SortingHeader from '@/components/project/billing/SortingHeader.vue';
 
@@ -34,7 +34,7 @@
         components: {
             EmptyState,
             SortingHeader,
-            BucketItem,
+            BillingItem,
             PaginationArea,
         }
     })

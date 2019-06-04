@@ -21,6 +21,7 @@ type bandwidthagreement struct {
 }
 
 func (b *bandwidthagreement) SaveOrder(ctx context.Context, rba *pb.Order) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var saveOrderSQL = `INSERT INTO bwagreements ( serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )`
 	_, err = b.db.DB.ExecContext(ctx, b.db.Rebind(saveOrderSQL),
 		rba.PayerAllocation.SerialNumber+rba.StorageNodeId.String(),
@@ -36,11 +37,12 @@ func (b *bandwidthagreement) SaveOrder(ctx context.Context, rba *pb.Order) (err 
 
 //GetTotals returns stats about an uplink
 func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.Time) (stats []bwagreement.UplinkStat, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	var uplinkSQL = fmt.Sprintf(`SELECT uplink_id, SUM(total), 
-		COUNT(CASE WHEN action = %d THEN total ELSE null END), 
+	var uplinkSQL = fmt.Sprintf(`SELECT uplink_id, SUM(total),
+		COUNT(CASE WHEN action = %d THEN total ELSE null END),
 		COUNT(CASE WHEN action = %d THEN total ELSE null END), COUNT(*)
-		FROM bwagreements WHERE created_at > ? 
+		FROM bwagreements WHERE created_at > ?
 		AND created_at <= ? GROUP BY uplink_id ORDER BY uplink_id`,
 		pb.BandwidthAction_PUT, pb.BandwidthAction_GET)
 	rows, err := b.db.DB.QueryContext(ctx, b.db.Rebind(uplinkSQL), from.UTC(), to.UTC())
@@ -61,13 +63,14 @@ func (b *bandwidthagreement) GetUplinkStats(ctx context.Context, from, to time.T
 
 //GetTotals returns the sum of each bandwidth type after (exluding) a given date range
 func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) (bwa map[storj.NodeID][]int64, err error) {
-	var getTotalsSQL = fmt.Sprintf(`SELECT storage_node_id, 
+	defer mon.Task()(&ctx)(&err)
+	var getTotalsSQL = fmt.Sprintf(`SELECT storage_node_id,
 		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
-		SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
 		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
-		SUM(CASE WHEN action = %d THEN total ELSE 0 END), 
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
+		SUM(CASE WHEN action = %d THEN total ELSE 0 END),
 		SUM(CASE WHEN action = %d THEN total ELSE 0 END)
-		FROM bwagreements WHERE created_at > ? AND created_at <= ? 
+		FROM bwagreements WHERE created_at > ? AND created_at <= ?
 		GROUP BY storage_node_id ORDER BY storage_node_id`, pb.BandwidthAction_PUT,
 		pb.BandwidthAction_GET, pb.BandwidthAction_GET_AUDIT,
 		pb.BandwidthAction_GET_REPAIR, pb.BandwidthAction_PUT_REPAIR)
@@ -93,7 +96,8 @@ func (b *bandwidthagreement) GetTotals(ctx context.Context, from, to time.Time) 
 
 //GetExpired gets orders that are expired and were created before some time
 func (b *bandwidthagreement) GetExpired(ctx context.Context, before time.Time, expiredAt time.Time) (orders []bwagreement.SavedOrder, err error) {
-	var getExpiredSQL = `SELECT serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at 
+	defer mon.Task()(&ctx)(&err)
+	var getExpiredSQL = `SELECT serialnum, storage_node_id, uplink_id, action, total, created_at, expires_at
 		FROM bwagreements WHERE created_at < ? AND expires_at < ?`
 	rows, err := b.db.DB.QueryContext(ctx, b.db.Rebind(getExpiredSQL), before, expiredAt)
 	if err != nil {
@@ -112,8 +116,9 @@ func (b *bandwidthagreement) GetExpired(ctx context.Context, before time.Time, e
 }
 
 //DeleteExpired deletes orders that are expired and were created before some time
-func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, expiredAt time.Time) error {
+func (b *bandwidthagreement) DeleteExpired(ctx context.Context, before time.Time, expiredAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var deleteExpiredSQL = `DELETE FROM bwagreements WHERE created_at < ? AND expires_at < ?`
-	_, err := b.db.DB.ExecContext(ctx, b.db.Rebind(deleteExpiredSQL), before, expiredAt)
+	_, err = b.db.DB.ExecContext(ctx, b.db.Rebind(deleteExpiredSQL), before, expiredAt)
 	return err
 }

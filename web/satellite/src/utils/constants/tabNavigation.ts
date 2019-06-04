@@ -19,3 +19,18 @@ export const PROJECT_ROUTES = {
         name: 'Report'
     },
 };
+
+export const ACCOUNT_ROUTES = {
+    PROFILE: {
+        path: '/account/profile',
+        name: 'Profile'
+    },
+    PAYMENT_METHODS: {
+        path: '/account/payment-methods',
+        name: 'Payment Methods'
+    },
+    BILLING_HISTORY: {
+        path: '/account/billing-history',
+        name: 'Billing History'
+    },
+};
