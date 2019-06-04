@@ -82,13 +82,19 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
 	files := addPages(pages)
 	home := template.Must(template.New("landingPage").ParseFiles(files...))
-	home.ExecuteTemplate(w, "base", nil)
+	err := home.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.serveError(w, req)
+	}
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
 	rp := dir + "pages/"
 	unavailable := template.Must(template.New("404").ParseFiles(rp + "404.html"))
-	unavailable.ExecuteTemplate(w, "base", nil)
+	err := unavailable.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.serveError(w, req)
+	}
 }
 
 // Run starts the server that host admin web app and api endpoint

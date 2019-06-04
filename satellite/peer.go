@@ -691,10 +691,8 @@ func (peer *Peer) Close() error {
 
 	if peer.Marketing.Endpoint != nil {
 		errlist.Add(peer.Marketing.Endpoint.Close())
-	} else {
-		if peer.Marketing.Listener != nil {
-			errlist.Add(peer.Marketing.Listener.Close())
-		}
+	} else if peer.Marketing.Listener != nil {
+		errlist.Add(peer.Marketing.Listener.Close())
 	}
 
 	// close services in reverse initialization order
