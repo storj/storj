@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
@@ -113,7 +114,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 // process picks items from repair queue and spawns a repair worker
-func (service *Service) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
 		zap.L().Info("Dequeued segment from repair queue", zap.String("segment", seg.GetPath()))
@@ -125,16 +127,25 @@ func (service *Service) process(ctx context.Context) error {
 		}
 
 		service.Limiter.Go(ctx, func() {
-			zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
-			err := service.repairer.Repair(ctx, seg.GetPath())
+			err := service.worker(ctx, seg)
 			if err != nil {
-				zap.L().Error("repair failed", zap.Error(err))
-			}
-			zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
-			err = service.queue.Delete(ctx, seg)
-			if err != nil {
-				zap.L().Error("repair delete failed", zap.Error(err))
+				zap.L().Error("repair failed:", zap.Error(err))
 			}
 		})
 	}
+}
+
+func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
+	err = service.repairer.Repair(ctx, seg.GetPath())
+	if err != nil {
+		return Error.New("repair failed: %v", err)
+	}
+	zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
+	err = service.queue.Delete(ctx, seg)
+	if err != nil {
+		return Error.New("repair delete failed: %v", err)
+	}
+	return nil
 }

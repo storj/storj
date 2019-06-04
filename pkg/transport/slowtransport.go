@@ -36,12 +36,14 @@ type slowTransport struct {
 }
 
 // DialNode dials a node with latency
-func (client *slowTransport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (client *slowTransport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (_ *grpc.ClientConn, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return client.client.DialNode(ctx, node, append(client.network.DialOptions(), opts...)...)
 }
 
 // DialAddress dials an address with latency
-func (client *slowTransport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (client *slowTransport) DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (_ *grpc.ClientConn, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return client.client.DialAddress(ctx, address, append(client.network.DialOptions(), opts...)...)
 }
 
@@ -61,7 +63,8 @@ func (network *SimulatedNetwork) DialOptions() []grpc.DialOption {
 }
 
 // GRPCDialContext implements DialContext that is suitable for `grpc.WithContextDialer`
-func (network *SimulatedNetwork) GRPCDialContext(ctx context.Context, address string) (net.Conn, error) {
+func (network *SimulatedNetwork) GRPCDialContext(ctx context.Context, address string) (_ net.Conn, err error) {
+	defer mon.Task()(&ctx)(&err)
 	timer := time.NewTimer(network.DialLatency)
 	defer timer.Stop()
 

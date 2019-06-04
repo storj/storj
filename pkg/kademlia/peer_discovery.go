@@ -45,6 +45,7 @@ func newPeerDiscovery(log *zap.Logger, self pb.Node, nodes []*pb.Node, dialer *D
 }
 
 func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if lookup.queue.Len() == 0 {
 		return nil, nil // TODO: should we return an error here?
 	}
