@@ -40,8 +40,8 @@
 # satellite database connection string
 # database: "postgres://"
 
-# Maximum Database Connection Lifetime, -1 means the stdlib default
-# db.conn_max_lifetime: -1s
+# Maximum Database Connection Lifetime, -1ns means the stdlib default
+# db.conn_max_lifetime: -1ns
 
 # Maximum Amount of Idle Database connections, -1 means the stdlib default
 # db.max_idle_conns: 50
