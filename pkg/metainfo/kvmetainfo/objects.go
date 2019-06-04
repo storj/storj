@@ -124,8 +124,8 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 		if info.EncryptionScheme.BlockSize%stripeSize != 0 {
 			fmt.Printf(`encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d).
 			Overwriting Blocksize with kvmetainfo.DefaultES.BlockSize (%d)`,
-				info.EncryptionScheme.BlockSize, DefaultRS.RequiredShares,
-				DefaultRS.ShareSize, DefaultES.BlockSize,
+				info.EncryptionScheme.BlockSize, DefaultRS.ShareSize,
+				DefaultRS.RequiredShares, DefaultES.BlockSize,
 			)
 			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
 		}

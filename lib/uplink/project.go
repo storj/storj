@@ -130,7 +130,7 @@ func validateBlockSize(cfg BucketConfig) error {
 
 	if blockSize%stripeSize != 0 {
 		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
-			shareSize, requiredShares, blockSize,
+			blockSize, shareSize, requiredShares,
 		)
 	}
 	return nil

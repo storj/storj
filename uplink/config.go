@@ -32,7 +32,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"1KiB"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
@@ -44,7 +44,7 @@ type RSConfig struct {
 type EncryptionConfig struct {
 	EncryptionKey string      `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
 	KeyFilepath   string      `help:"the path to the file which contains the root key for encrypting the data"`
-	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks, must be a multiple of stripe size (i.e. RS.ErasureShareSize * RS.MinThreshold)" releaseDefault:"29KiB" devDefault:"4KiB"`
+	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks, must be a multiple of stripe size (i.e. RS.ErasureShareSize * RS.MinThreshold)" releaseDefault:"7424B" devDefault:"1KiB"`
 	DataType      int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
 	PathType      int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
@@ -116,7 +116,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	}
 	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
+	if c.Enc.BlockSize.Int()%c.RS.ErasureShareSize.Int()*c.RS.MinThreshold != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, nil, err
 	}
