@@ -77,6 +77,8 @@ The credit is automatically applied to the account and will have a max limit tha
     invitee_credit_duration_days - int
     // ACTIVE=1, DEFAULT=2, DONE=0
     status - int
+    // FreeCredit=0, Referral=1
+    type - int
     PRIMARY KEY (id)
 ```
 
@@ -107,14 +109,8 @@ The credit is automatically applied to the account and will have a max limit tha
 
 **satellite/marketing/service.go**
 ```golang
-func (m *marketing) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) (*Offer, error) {
-  offer, err := m.db.Marketing().Offers().GetOfferByStatus(ctx, offerStatus)
-  if err == sql.ErrNoRows && offerStatus == Active {
-    offer, err = m.db.Marketing().Offers().GetOfferByStatus(ctx, Default)
-    if err != nil {
-      return nil, Error.Wrap(err)
-    }
-  }
+func (m *marketing) GetCurrentOffer(ctx context.Context, offerType OfferType) (*Offer, error) {
+  offer, err := m.db.Marketing().Offers().GetOfferByType(ctx, offerType)
   if err != nil {
     return nil, Error.Wrap(err)
   }
@@ -166,7 +162,14 @@ const (
   Default OfferStatus = 2
 )
 
+type OfferType int
+const (
+    FreeCredit = 0
+    Referral = 1
+)
+
 type UpdateOffer struct {
+  NumRedeemed int 
   Status OfferStatus
   ExpiresAt time.time
 }
