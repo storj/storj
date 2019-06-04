@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 )
@@ -143,8 +144,9 @@ func newProject(t *testing.T, planet *testplanet.Planet) *console.Project {
 
 func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, id uuid.UUID) string {
 	// TODO: support multiple satellites?
-	projectName := t.Name()
-	APIKey := console.APIKeyFromBytes([]byte(projectName))
+	APIKey, err := macaroon.NewAPIKey([]byte("testSecret"))
+	require.NoError(t, err)
+
 	consoleDB := planet.Satellites[0].DB.Console()
 
 	project, err := consoleDB.Projects().Get(ctx, id)
@@ -153,14 +155,15 @@ func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet
 
 	_, err = consoleDB.APIKeys().Create(
 		context.Background(),
-		*APIKey,
+		APIKey.Head(),
 		console.APIKeyInfo{
 			Name:      "root",
 			ProjectID: project.ID,
+			Secret:    []byte("testSecret"),
 		},
 	)
 	require.NoError(t, err)
-	return APIKey.String()
+	return APIKey.Serialize()
 }
 
 func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *uplink.Uplink {

@@ -12,7 +12,6 @@ import "C"
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"storj.io/storj/pkg/storj"
 	"time"
 	"unsafe"
@@ -30,9 +29,7 @@ func OpenObject(cBucket C.BucketRef_t, cpath *C.char, cErr **C.char) (objectRef 
 		return objectRef
 	}
 
-	var path storj.Path = storj.JoinPaths(C.GoString(cpath))
-	fmt.Println(path)
-
+	path := storj.JoinPaths(C.GoString(cpath))
 	object, err := bucket.OpenObject(ctx, path)
 	if err != nil {
 		*cErr = C.CString(err.Error())
