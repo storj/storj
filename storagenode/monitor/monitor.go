@@ -64,7 +64,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	storageStatus, err := service.store.StorageStatus()
+	storageStatus, err := service.store.StorageStatus(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -122,7 +122,9 @@ func (service *Service) Close() (err error) {
 	return nil
 }
 
-func (service *Service) updateNodeInformation(ctx context.Context) error {
+func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	usedSpace, err := service.usedSpace(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -141,7 +143,8 @@ func (service *Service) updateNodeInformation(ctx context.Context) error {
 	return nil
 }
 
-func (service *Service) usedSpace(ctx context.Context) (int64, error) {
+func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return 0, err
@@ -149,7 +152,8 @@ func (service *Service) usedSpace(ctx context.Context) (int64, error) {
 	return usedSpace, nil
 }
 
-func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
+func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
 	if err != nil {
 		return 0, err
@@ -158,7 +162,8 @@ func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
 }
 
 // AvailableSpace returns available disk space for upload
-func (service *Service) AvailableSpace(ctx context.Context) (int64, error) {
+func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
@@ -168,7 +173,8 @@ func (service *Service) AvailableSpace(ctx context.Context) (int64, error) {
 }
 
 // AvailableBandwidth returns available bandwidth for upload/download
-func (service *Service) AvailableBandwidth(ctx context.Context) (int64, error) {
+func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
 	if err != nil {
 		return 0, Error.Wrap(err)
