@@ -8,8 +8,10 @@ import (
 	"io"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -17,6 +19,13 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+)
+
+var (
+	// OrderError represents errors with orders
+	OrderError = errs.Class("order")
+
+	mon = monkit.Package()
 )
 
 // Info contains full information about an order.
@@ -94,66 +103,75 @@ func NewSender(log *zap.Logger, transport transport.Client, kademlia *kademlia.K
 }
 
 // Run sends orders on every interval to the appropriate satellites.
-func (sender *Sender) Run(ctx context.Context) error {
-	return sender.Loop.Run(ctx, func(ctx context.Context) error {
-		sender.log.Debug("sending")
+func (sender *Sender) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return sender.Loop.Run(ctx, sender.runOnce)
+}
 
-		ordersBySatellite, err := sender.orders.ListUnsentBySatellite(ctx)
-		if err != nil {
-			sender.log.Error("listing orders", zap.Error(err))
-			return nil
-		}
+func (sender *Sender) runOnce(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	sender.log.Debug("sending")
 
-		if len(ordersBySatellite) > 0 {
-			var group errgroup.Group
-			ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
-			defer cancel()
-
-			for satelliteID, orders := range ordersBySatellite {
-				satelliteID, orders := satelliteID, orders
-				group.Go(func() error {
-
-					sender.Settle(ctx, satelliteID, orders)
-					return nil
-				})
-			}
-			_ = group.Wait() // doesn't return errors
-		} else {
-			sender.log.Debug("no orders to send")
-		}
-
+	ordersBySatellite, err := sender.orders.ListUnsentBySatellite(ctx)
+	if err != nil {
+		sender.log.Error("listing orders", zap.Error(err))
 		return nil
-	})
+	}
+
+	if len(ordersBySatellite) > 0 {
+		var group errgroup.Group
+		ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
+		defer cancel()
+
+		for satelliteID, orders := range ordersBySatellite {
+			satelliteID, orders := satelliteID, orders
+			group.Go(func() error {
+
+				sender.Settle(ctx, satelliteID, orders)
+				return nil
+			})
+		}
+		_ = group.Wait() // doesn't return errors
+	} else {
+		sender.log.Debug("no orders to send")
+	}
+
+	return nil
 }
 
 // Settle uploads orders to the satellite.
 func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info) {
 	log := sender.log.Named(satelliteID.String())
+	err := sender.settle(ctx, log, satelliteID, orders)
+	if err != nil {
+		log.Error("failed to settle orders", zap.Error(err))
+	}
+}
+
+func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))
 	defer log.Info("finished")
 
 	satellite, err := sender.kademlia.FindNode(ctx, satelliteID)
 	if err != nil {
-		log.Error("unable to find satellite on the network", zap.Error(err))
-		return
+		return OrderError.New("unable to find satellite on the network: %v", err)
 	}
 
 	conn, err := sender.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		log.Error("unable to connect to the satellite", zap.Error(err))
-		return
+		return OrderError.New("unable to connect to the satellite: %v", err)
 	}
 	defer func() {
-		if err := conn.Close(); err != nil {
-			log.Warn("failed to close connection", zap.Error(err))
+		if cerr := conn.Close(); cerr != nil {
+			err = errs.Combine(err, OrderError.New("failed to close connection: %v", err))
 		}
 	}()
 
 	client, err := pb.NewOrdersClient(conn).Settlement(ctx)
 	if err != nil {
-		log.Error("failed to start settlement", zap.Error(err))
-		return
+		return OrderError.New("failed to start settlement: %v", err)
 	}
 
 	var group errgroup.Group
@@ -170,6 +188,11 @@ func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orde
 		return client.CloseSend()
 	})
 
+	var errList errs.Group
+	errHandle := func(cls errs.Class, format string, args ...interface{}) {
+		log.Sugar().Errorf(format, args...)
+		errList.Add(cls.New(format, args...))
+	}
 	for {
 		response, err := client.Recv()
 		if err != nil {
@@ -177,7 +200,7 @@ func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orde
 				break
 			}
 
-			log.Error("failed to receive response", zap.Error(err))
+			errHandle(OrderError, "failed to receive response: %v", err)
 			break
 		}
 
@@ -185,21 +208,23 @@ func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orde
 		case pb.SettlementResponse_ACCEPTED:
 			err = sender.orders.Archive(ctx, satelliteID, response.SerialNumber, StatusAccepted)
 			if err != nil {
-				log.Error("failed to archive order as accepted", zap.Stringer("serial", response.SerialNumber), zap.Error(err))
+				errHandle(OrderError, "failed to archive order as accepted: serial: %v, %v", response.SerialNumber, err)
 			}
 		case pb.SettlementResponse_REJECTED:
 			err = sender.orders.Archive(ctx, satelliteID, response.SerialNumber, StatusRejected)
 			if err != nil {
-				log.Error("failed to archive order as rejected", zap.Stringer("serial", response.SerialNumber), zap.Error(err))
+				errHandle(OrderError, "failed to archive order as rejected: serial: %v, %v", response.SerialNumber, err)
 			}
 		default:
-			log.Error("unexpected response", zap.Error(err))
+			errHandle(OrderError, "unexpected response: %v", response.Status)
 		}
 	}
 
 	if err := group.Wait(); err != nil {
-		log.Error("sending agreements returned an error", zap.Error(err))
+		errHandle(OrderError, "sending aggreements returned an error: %v", err)
 	}
+
+	return errList.Err()
 }
 
 // Close stops the sending service.
