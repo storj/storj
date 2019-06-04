@@ -17,9 +17,9 @@ var (
 	// Error is the default filestore error class
 	Error = errs.Class("filestore error")
 	
-	_ storage.Blobs = (*Store)(nil)
-	
 	mon = monkit.Package()
+	
+	_ storage.Blobs = (*Store)(nil)
 )
 
 // Store implements a blob store
