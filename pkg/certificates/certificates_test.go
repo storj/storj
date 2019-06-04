@@ -120,7 +120,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 				require.Len(t, existingAuths, testCase.startCount)
 			}
 
-			expectedAuths, err := authDB.Create(testCase.email, testCase.incCount)
+			expectedAuths, err := authDB.Create(ctx, testCase.email, testCase.incCount)
 			if testCase.errClass != nil {
 				assert.True(t, testCase.errClass.Has(err))
 			}
@@ -185,7 +185,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
-			auths, err := authDB.Get(testCase.email)
+			auths, err := authDB.Get(ctx, testCase.email)
 			require.NoError(t, err)
 			if testCase.result != nil {
 				assert.NotEmpty(t, auths)
@@ -207,7 +207,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 
 	userID := "user@example.com"
 
-	auths, err := authDB.Create(userID, 1)
+	auths, err := authDB.Create(ctx, userID, 1)
 	require.NoError(t, err)
 	require.NotEmpty(t, auths)
 
@@ -236,7 +236,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	difficulty, err := ident.ID.Difficulty()
 	require.NoError(t, err)
 
-	err = authDB.Claim(&ClaimOpts{
+	err = authDB.Claim(ctx, &ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
 		ChainBytes:    [][]byte{ident.CA.Raw},
@@ -244,7 +244,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	updatedAuths, err := authDB.Get(userID)
+	updatedAuths, err := authDB.Get(ctx, userID)
 	require.NoError(t, err)
 	require.NotEmpty(t, updatedAuths)
 	assert.Equal(t, auths[0].Token, updatedAuths[0].Token)
@@ -281,7 +281,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 		Leaf: ident1.Leaf,
 	}
 
-	auths, err := authDB.Create(userID, 2)
+	auths, err := authDB.Create(ctx, userID, 2)
 	require.NoError(t, err)
 	require.NotEmpty(t, auths)
 
@@ -293,7 +293,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 		Identity:         claimedIdent,
 		SignedChainBytes: [][]byte{claimedIdent.CA.Raw},
 	}
-	err = authDB.put(userID, auths)
+	err = authDB.put(ctx, userID, auths)
 	require.NoError(t, err)
 
 	ident2, err := testidentity.NewTestIdentity(ctx)
@@ -317,7 +317,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("double claim", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
+		err = authDB.Claim(ctx, &ClaimOpts{
 			Req: &pb.SigningRequest{
 				AuthToken: auths[claimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
@@ -332,7 +332,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		updatedAuths, err := authDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.NotEmpty(t, updatedAuths)
 
@@ -345,7 +345,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	})
 
 	t.Run("invalid timestamp", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
+		err = authDB.Claim(ctx, &ClaimOpts{
 			Req: &pb.SigningRequest{
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				// NB: 1 day ago
@@ -361,7 +361,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		updatedAuths, err := authDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.NotEmpty(t, updatedAuths)
 
@@ -370,7 +370,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	})
 
 	t.Run("invalid difficulty", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
+		err = authDB.Claim(ctx, &ClaimOpts{
 			Req: &pb.SigningRequest{
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
@@ -385,7 +385,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		updatedAuths, err := authDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.NotEmpty(t, updatedAuths)
 
@@ -476,14 +476,14 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 
 	var authErrs errs.Group
 	for i := 0; i < 5; i++ {
-		_, err := authDB.Create(fmt.Sprintf("user%d@example.com", i), 1)
+		_, err := authDB.Create(ctx, fmt.Sprintf("user%d@example.com", i), 1)
 		if err != nil {
 			authErrs.Add(err)
 		}
 	}
 	require.NoError(t, authErrs.Err())
 
-	userIDs, err := authDB.UserIDs()
+	userIDs, err := authDB.UserIDs(ctx)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, userIDs)
 }
@@ -591,7 +591,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				authDB, err := config.NewAuthDB()
 				require.NoError(t, err)
 
-				auths, err := authDB.Create("user@example.com", 1)
+				auths, err := authDB.Create(ctx, "user@example.com", 1)
 				require.NoError(t, err)
 				require.NotEmpty(t, auths)
 
@@ -653,7 +653,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				defer ctx.Check(authDB.Close)
 				require.NotNil(t, authDB)
 
-				updatedAuths, err := authDB.Get(userID)
+				updatedAuths, err := authDB.Get(ctx, userID)
 				require.NoError(t, err)
 				require.NotEmpty(t, updatedAuths)
 				require.NotNil(t, updatedAuths[0].Claim)
@@ -752,7 +752,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			defer ctx.Check(authDB.Close)
 			require.NotNil(t, authDB)
 
-			auths, err := authDB.Create(userID, 1)
+			auths, err := authDB.Create(ctx, userID, 1)
 			require.NoError(t, err)
 			require.NotEmpty(t, auths)
 
@@ -791,7 +791,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			err = signedChain[0].CheckSignatureFrom(signer.Cert)
 			require.NoError(t, err)
 
-			updatedAuths, err := authDB.Get(userID)
+			updatedAuths, err := authDB.Get(ctx, userID)
 			require.NoError(t, err)
 			require.NotEmpty(t, updatedAuths)
 			require.NotNil(t, updatedAuths[0].Claim)

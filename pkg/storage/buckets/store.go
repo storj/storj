@@ -61,7 +61,8 @@ func NewStore(stream streams.Store) Store {
 }
 
 // GetObjectStore returns an implementation of objects.Store
-func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (objects.Store, error) {
+func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ objects.Store, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if bucket == "" {
 		return nil, storj.ErrNoBucket.New("")
 	}
@@ -96,7 +97,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, err
 	}
 
-	return convertMeta(objMeta)
+	return convertMeta(ctx, objMeta)
 }
 
 // Put calls objects store Put and fills in some specific metadata to be used
@@ -169,7 +170,7 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 		if itm.IsPrefix {
 			continue
 		}
-		m, err := convertMeta(itm.Meta)
+		m, err := convertMeta(ctx, itm.Meta)
 		if err != nil {
 			return items, more, err
 		}
@@ -182,7 +183,9 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 }
 
 // convertMeta converts stream metadata to object metadata
-func convertMeta(m objects.Meta) (out Meta, err error) {
+func convertMeta(ctx context.Context, m objects.Meta) (out Meta, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	out.Created = m.Modified
 	// backwards compatibility for old buckets
 	out.PathEncryptionType = storj.AESGCM
