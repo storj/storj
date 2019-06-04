@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/dbutil/dbschema"
@@ -21,6 +22,10 @@ type DB struct {
 	Schema string
 }
 
+var (
+	mon = monkit.Package()
+)
+
 // Open opens a postgres database with a schema
 func Open(connstr string, schemaPrefix string) (*DB, error) {
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
@@ -30,7 +35,7 @@ func Open(connstr string, schemaPrefix string) (*DB, error) {
 		return nil, err
 	}
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db, mon)
 
 	err = CreateSchema(db, schemaName)
 	if err != nil {
