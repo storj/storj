@@ -740,7 +740,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Create value attribution table",
 				Version:     27,
 				Action: migrate.SQL{
-					`CREATE TABLE IF NOT EXISTS value_attribution (
+					`CREATE TABLE IF NOT EXISTS value_attributions (
 						bucket_id bytea NOT NULL,
 						user_id bytea NOT NULL,
 						partner_id bytea NOT NULL,
