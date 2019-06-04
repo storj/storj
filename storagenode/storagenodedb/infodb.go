@@ -36,7 +36,7 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db, mon)
 
 	return &InfoDB{db: db}, nil
 }
@@ -48,7 +48,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db, mon)
 
 	return &InfoDB{db: db}, nil
 }
