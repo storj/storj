@@ -181,9 +181,11 @@ func (rt *RoutingTable) DumpNodes() ([]*pb.Node, error) {
 
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
-func (rt *RoutingTable) FindNear(target storj.NodeID, limit int) ([]*pb.Node, error) {
+func (rt *RoutingTable) FindNear(target storj.NodeID, limit int) (_ []*pb.Node, err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	closestNodes := make([]*pb.Node, 0, limit+1)
-	err := rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
+	err = rt.iterateNodes(storj.NodeID{}, func(newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
 		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {
 		}
@@ -209,7 +211,9 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int) ([]*pb.Node, er
 
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
-func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
+func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	// valid to connect to node without ID but don't store connection
 	if node.Id == (storj.NodeID{}) {
 		return nil
@@ -239,8 +243,10 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) error {
 
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
-func (rt *RoutingTable) ConnectionFailed(node *pb.Node) error {
-	err := rt.removeNode(node)
+func (rt *RoutingTable) ConnectionFailed(node *pb.Node) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
+	err = rt.removeNode(node)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)
 	}
