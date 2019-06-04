@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"context"
 	"encoding/binary"
 	"time"
 
@@ -17,7 +18,9 @@ import (
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table
 // Returns true if node was added successfully
-func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
+func (rt *RoutingTable) addNode(node *pb.Node) (_ bool, err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 
@@ -91,7 +94,9 @@ func (rt *RoutingTable) addNode(node *pb.Node) (bool, error) {
 
 // updateNode will update the node information given that
 // the node is already in the routing table.
-func (rt *RoutingTable) updateNode(node *pb.Node) error {
+func (rt *RoutingTable) updateNode(node *pb.Node) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	if err := rt.putNode(node); err != nil {
 		return RoutingErr.New("could not update node: %v", err)
 	}
@@ -99,7 +104,9 @@ func (rt *RoutingTable) updateNode(node *pb.Node) error {
 }
 
 // removeNode will remove churned nodes and replace those entries with nodes from the replacement cache.
-func (rt *RoutingTable) removeNode(node *pb.Node) error {
+func (rt *RoutingTable) removeNode(node *pb.Node) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	kadBucketID, err := rt.getKBucketID(node.Id)
@@ -145,7 +152,9 @@ func (rt *RoutingTable) removeNode(node *pb.Node) error {
 }
 
 // putNode: helper, adds or updates Node and ID to nodeBucketDB
-func (rt *RoutingTable) putNode(node *pb.Node) error {
+func (rt *RoutingTable) putNode(node *pb.Node) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	v, err := proto.Marshal(node)
 	if err != nil {
 		return RoutingErr.Wrap(err)

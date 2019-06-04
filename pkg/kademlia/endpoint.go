@@ -34,7 +34,8 @@ func NewEndpoint(log *zap.Logger, service *Kademlia, routingTable *RoutingTable)
 }
 
 // Query is a node to node communication query
-func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
+func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *pb.QueryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	endpoint.service.Queried()
 
 	if req.GetPingback() {
@@ -51,7 +52,9 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (*pb.
 
 // pingback implements pingback for queries
 func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
-	_, err := endpoint.service.Ping(ctx, *target)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	_, err = endpoint.service.Ping(ctx, *target)
 	if err != nil {
 		endpoint.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", target.Id.String()))
 		err = endpoint.routingTable.ConnectionFailed(target)
@@ -74,13 +77,15 @@ func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 }
 
 // Ping provides an easy way to verify a node is online and accepting requests
-func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+func (endpoint *Endpoint) Ping(ctx context.Context, req *pb.PingRequest) (_ *pb.PingResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	endpoint.service.Pinged()
 	return &pb.PingResponse{}, nil
 }
 
 // RequestInfo returns the node info
-func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (*pb.InfoResponse, error) {
+func (endpoint *Endpoint) RequestInfo(ctx context.Context, req *pb.InfoRequest) (_ *pb.InfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	self := endpoint.service.Local()
 
 	return &pb.InfoResponse{
