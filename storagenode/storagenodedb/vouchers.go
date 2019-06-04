@@ -9,9 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
