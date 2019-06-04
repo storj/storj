@@ -19,7 +19,8 @@ type apikeys struct {
 }
 
 // GetByProjectID implements satellite.APIKeys ordered by name
-func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]console.APIKeyInfo, error) {
+func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) (_ []console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	dbKeys, err := keys.db.All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx, dbx.ApiKey_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
@@ -29,7 +30,7 @@ func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([
 	var parseErr errs.Group
 
 	for _, key := range dbKeys {
-		info, err := fromDBXAPIKey(key)
+		info, err := fromDBXAPIKey(ctx, key)
 		if err != nil {
 			parseErr.Add(err)
 			continue
@@ -46,27 +47,30 @@ func (keys *apikeys) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([
 }
 
 // Get implements satellite.APIKeys
-func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyInfo, error) {
+func (keys *apikeys) Get(ctx context.Context, id uuid.UUID) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	dbKey, err := keys.db.Get_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
 	if err != nil {
 		return nil, err
 	}
 
-	return fromDBXAPIKey(dbKey)
+	return fromDBXAPIKey(ctx, dbKey)
 }
 
 // GetByHead implements satellite.APIKeys
-func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
+func (keys *apikeys) GetByHead(ctx context.Context, head []byte) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	dbKey, err := keys.db.Get_ApiKey_By_Head(ctx, dbx.ApiKey_Head(head))
 	if err != nil {
 		return nil, err
 	}
 
-	return fromDBXAPIKey(dbKey)
+	return fromDBXAPIKey(ctx, dbKey)
 }
 
 // Create implements satellite.APIKeys
-func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	id, err := uuid.New()
 	if err != nil {
 		return nil, err
@@ -85,12 +89,13 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		return nil, err
 	}
 
-	return fromDBXAPIKey(dbKey)
+	return fromDBXAPIKey(ctx, dbKey)
 }
 
 // Update implements satellite.APIKeys
-func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) error {
-	_, err := keys.db.Update_ApiKey_By_Id(
+func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = keys.db.Update_ApiKey_By_Id(
 		ctx,
 		dbx.ApiKey_Id(key.ID[:]),
 		dbx.ApiKey_Update_Fields{
@@ -102,13 +107,15 @@ func (keys *apikeys) Update(ctx context.Context, key console.APIKeyInfo) error {
 }
 
 // Delete implements satellite.APIKeys
-func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := keys.db.Delete_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
+func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = keys.db.Delete_ApiKey_By_Id(ctx, dbx.ApiKey_Id(id[:]))
 	return err
 }
 
 // fromDBXAPIKey converts dbx.ApiKey to satellite.APIKeyInfo
-func fromDBXAPIKey(key *dbx.ApiKey) (*console.APIKeyInfo, error) {
+func fromDBXAPIKey(ctx context.Context, key *dbx.ApiKey) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	id, err := bytesToUUID(key.Id)
 	if err != nil {
 		return nil, err

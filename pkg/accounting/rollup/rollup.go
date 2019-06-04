@@ -42,8 +42,8 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time
 
 // Run the Rollup loop
 func (r *Service) Run(ctx context.Context) (err error) {
-	r.logger.Info("Rollup service starting up")
 	defer mon.Task()(&ctx)(&err)
+	r.logger.Info("Rollup service starting up")
 	for {
 		err = r.Rollup(ctx)
 		if err != nil {
@@ -58,7 +58,8 @@ func (r *Service) Run(ctx context.Context) (err error) {
 }
 
 // Rollup aggregates storage and bandwidth amounts for the time interval
-func (r *Service) Rollup(ctx context.Context) error {
+func (r *Service) Rollup(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// only Rollup new things - get LastRollup
 	lastRollup, err := r.sdb.LastTimestamp(ctx, accounting.LastRollup)
 	if err != nil {
@@ -101,6 +102,7 @@ func (r *Service) Rollup(ctx context.Context) error {
 
 // RollupStorage rolls up storage tally, modifies rollupStats map
 func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
 	tallies, err := r.sdb.GetTalliesSince(ctx, lastRollup)
 	if err != nil {
 		return time.Now(), Error.Wrap(err)
@@ -133,7 +135,8 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 }
 
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map
-func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) error {
+func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var latestTally time.Time
 	bws, err := r.sdb.GetBandwidthSince(ctx, lastRollup.UTC())
 	if err != nil {
