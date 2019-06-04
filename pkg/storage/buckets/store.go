@@ -199,7 +199,6 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 // List calls objects store List
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// objItems, more, err := b.store.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
 
 	bb, strippedPrefix, _, err := segments.SplitPathFragments("")
 	if err != nil {

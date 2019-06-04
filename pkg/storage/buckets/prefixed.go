@@ -13,13 +13,14 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 )
-
-type prefixedObjStore struct {
+// PrefixedObjStore  ...
+type PrefixedObjStore struct {
 	store  objects.Store
 	prefix string
 }
 
-func (o *prefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta objects.Meta, err error) {
+// Meta ...
+func (o *PrefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta objects.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
@@ -29,7 +30,8 @@ func (o *prefixedObjStore) Meta(ctx context.Context, path storj.Path) (meta obje
 	return o.store.Meta(ctx, storj.JoinPaths(o.prefix, path))
 }
 
-func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta objects.Meta, err error) {
+// Get ...
+func (o *PrefixedObjStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta objects.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
@@ -39,7 +41,8 @@ func (o *prefixedObjStore) Get(ctx context.Context, path storj.Path) (rr ranger.
 	return o.store.Get(ctx, storj.JoinPaths(o.prefix, path))
 }
 
-func (o *prefixedObjStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta objects.Meta, err error) {
+// Put ...
+func (o *PrefixedObjStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta objects.Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
@@ -49,7 +52,8 @@ func (o *prefixedObjStore) Put(ctx context.Context, path storj.Path, data io.Rea
 	return o.store.Put(ctx, storj.JoinPaths(o.prefix, path), data, metadata, expiration)
 }
 
-func (o *prefixedObjStore) Delete(ctx context.Context, path storj.Path) (err error) {
+// Delete ...
+func (o *PrefixedObjStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
@@ -59,7 +63,8 @@ func (o *prefixedObjStore) Delete(ctx context.Context, path storj.Path) (err err
 	return o.store.Delete(ctx, storj.JoinPaths(o.prefix, path))
 }
 
-func (o *prefixedObjStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []objects.ListItem, more bool, err error) {
+// List ...
+func (o *PrefixedObjStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []objects.ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return o.store.List(ctx, storj.JoinPaths(o.prefix, prefix), startAfter, endBefore, recursive, limit, metaFlags)
