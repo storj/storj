@@ -44,6 +44,8 @@ func NewCursor(metainfo *metainfo.Service) *Cursor {
 
 // NextStripe returns a random stripe to be audited. "more" is true except when we have completed iterating over metainfo. It can be disregarded if there is an error or stripe returned
 func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cursor.mutex.Lock()
 	defer cursor.mutex.Unlock()
 
@@ -62,7 +64,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 
-	pointer, path, err := cursor.getRandomValidPointer(pointerItems)
+	pointer, path, err := cursor.getRandomValidPointer(ctx, pointerItems)
 	if err != nil {
 		return nil, more, err
 	}
@@ -70,7 +72,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 		return nil, more, nil
 	}
 
-	index, err := getRandomStripe(pointer)
+	index, err := getRandomStripe(ctx, pointer)
 	if err != nil {
 		return nil, more, err
 	}
@@ -82,7 +84,8 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 	}, more, nil
 }
 
-func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
+func getRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
 		return 0, err
@@ -102,7 +105,8 @@ func getRandomStripe(pointer *pb.Pointer) (index int64, err error) {
 }
 
 // getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
-func (cursor *Cursor) getRandomValidPointer(pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
+func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var src cryptoSource
 	rnd := rand.New(src)
 	errGroup := new(errs.Group)

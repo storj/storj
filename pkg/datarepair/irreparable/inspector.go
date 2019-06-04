@@ -6,7 +6,13 @@ package irreparable
 import (
 	"context"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/pkg/pb"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Inspector is a gRPC service for inspecting irreparable internals
@@ -20,7 +26,8 @@ func NewInspector(irrdb DB) *Inspector {
 }
 
 // ListIrreparableSegments returns a number of irreparable segments by limit and offset
-func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListIrreparableSegmentsRequest) (*pb.ListIrreparableSegmentsResponse, error) {
+func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListIrreparableSegmentsRequest) (_ *pb.ListIrreparableSegmentsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	segments, err := srv.irrdb.GetLimited(ctx, int(req.GetLimit()), int64(req.GetOffset()))
 	if err != nil {
 		return nil, err
