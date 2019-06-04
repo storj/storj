@@ -5,14 +5,18 @@ package teststore
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"sort"
 	"sync"
 
 	"storj.io/storj/storage"
+
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var errInternal = errors.New("internal error")
+var mon = monkit.Package()
 
 // Client implements in-memory key value store
 type Client struct {
@@ -64,7 +68,8 @@ func (store *Client) forcedError() bool {
 }
 
 // Put adds a value to store
-func (store *Client) Put(key storage.Key, value storage.Value) error {
+func (store *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
 	store.version++
@@ -95,7 +100,8 @@ func (store *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // Get gets a value to store
-func (store *Client) Get(key storage.Key) (storage.Value, error) {
+func (store *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
 	store.CallCount.Get++
@@ -117,7 +123,8 @@ func (store *Client) Get(key storage.Key) (storage.Value, error) {
 }
 
 // GetAll gets all values from the store
-func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
+func (store *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
 	store.CallCount.GetAll++
@@ -142,7 +149,8 @@ func (store *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 // Delete deletes key and the value
-func (store *Client) Delete(key storage.Key) error {
+func (store *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
 	store.version++
@@ -167,7 +175,8 @@ func (store *Client) Delete(key storage.Key) error {
 }
 
 // List lists all keys starting from start and upto limit items
-func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
+func (store *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
 	store.mu.Lock()
 	store.CallCount.List++
 	if store.forcedError() {
@@ -175,7 +184,7 @@ func (store *Client) List(first storage.Key, limit int) (storage.Keys, error) {
 		return nil, errors.New("internal error")
 	}
 	store.mu.Unlock()
-	return storage.ListKeys(store, first, limit)
+	return storage.ListKeys(ctx, store, first, limit)
 }
 
 // Close closes the store
@@ -190,7 +199,8 @@ func (store *Client) Close() error {
 }
 
 // Iterate iterates over items based on opts
-func (store *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+func (store *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer store.locked()()
 
 	store.CallCount.Iterate++
@@ -209,47 +219,48 @@ func (store *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterat
 	var lastPrefix storage.Key
 	var wasPrefix bool
 
-	return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-		next, ok := cursor.Advance()
-		if !ok {
-			return false
-		}
+	return fn(ctx, storage.IteratorFunc(
+		func(ctx context.Context, item *storage.ListItem) bool {
+			next, ok := cursor.Advance()
+			if !ok {
+				return false
+			}
 
-		if !opts.Recurse {
-			if wasPrefix && bytes.HasPrefix(next.Key, lastPrefix) {
-				next, ok = cursor.SkipPrefix(lastPrefix)
+			if !opts.Recurse {
+				if wasPrefix && bytes.HasPrefix(next.Key, lastPrefix) {
+					next, ok = cursor.SkipPrefix(lastPrefix)
 
-				if !ok {
-					return false
+					if !ok {
+						return false
+					}
+					wasPrefix = false
 				}
-				wasPrefix = false
 			}
-		}
 
-		if !bytes.HasPrefix(next.Key, opts.Prefix) {
-			cursor.close()
-			return false
-		}
-
-		if !opts.Recurse {
-			if p := bytes.IndexByte([]byte(next.Key[len(opts.Prefix):]), storage.Delimiter); p >= 0 {
-				lastPrefix = append(lastPrefix[:0], next.Key[:len(opts.Prefix)+p+1]...)
-
-				item.Key = append(item.Key[:0], lastPrefix...)
-				item.Value = item.Value[:0]
-				item.IsPrefix = true
-
-				wasPrefix = true
-				return true
+			if !bytes.HasPrefix(next.Key, opts.Prefix) {
+				cursor.close()
+				return false
 			}
-		}
 
-		item.Key = append(item.Key[:0], next.Key...)
-		item.Value = append(item.Value[:0], next.Value...)
-		item.IsPrefix = false
+			if !opts.Recurse {
+				if p := bytes.IndexByte([]byte(next.Key[len(opts.Prefix):]), storage.Delimiter); p >= 0 {
+					lastPrefix = append(lastPrefix[:0], next.Key[:len(opts.Prefix)+p+1]...)
 
-		return true
-	}))
+					item.Key = append(item.Key[:0], lastPrefix...)
+					item.Value = item.Value[:0]
+					item.IsPrefix = true
+
+					wasPrefix = true
+					return true
+				}
+			}
+
+			item.Key = append(item.Key[:0], next.Key...)
+			item.Value = append(item.Value[:0], next.Value...)
+			item.IsPrefix = false
+
+			return true
+		}))
 }
 
 type advancer interface {
