@@ -32,6 +32,7 @@ type Project struct {
 
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	UsageLimit  int64  `json:"usageLimit"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

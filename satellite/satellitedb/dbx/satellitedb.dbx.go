@@ -360,6 +360,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
+	last_ip text NOT NULL,
 	protocol integer NOT NULL,
 	type integer NOT NULL,
 	email text NOT NULL,
@@ -384,6 +385,23 @@ CREATE TABLE nodes (
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
+	disqualified boolean NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE offers (
+	id serial NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	award_credit_in_cents integer NOT NULL,
+	invitee_credit_in_cents integer NOT NULL,
+	award_credit_duration_days integer NOT NULL,
+	invitee_credit_duration_days integer NOT NULL,
+	redeemable_cap integer NOT NULL,
+	num_redeemed integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	status integer NOT NULL,
+	type integer NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (
@@ -399,6 +417,7 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
+	usage_limit bigint NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -453,11 +472,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key bytea NOT NULL,
+	head bytea NOT NULL,
 	name text NOT NULL,
+	secret bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -473,6 +493,7 @@ CREATE TABLE used_serials (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX node_last_ip ON nodes ( last_ip );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
@@ -627,6 +648,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	address TEXT NOT NULL,
+	last_ip TEXT NOT NULL,
 	protocol INTEGER NOT NULL,
 	type INTEGER NOT NULL,
 	email TEXT NOT NULL,
@@ -651,6 +673,23 @@ CREATE TABLE nodes (
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
+	disqualified INTEGER NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE offers (
+	id INTEGER NOT NULL,
+	name TEXT NOT NULL,
+	description TEXT NOT NULL,
+	award_credit_in_cents INTEGER NOT NULL,
+	invitee_credit_in_cents INTEGER NOT NULL,
+	award_credit_duration_days INTEGER NOT NULL,
+	invitee_credit_duration_days INTEGER NOT NULL,
+	redeemable_cap INTEGER NOT NULL,
+	num_redeemed INTEGER NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	status INTEGER NOT NULL,
+	type INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (
@@ -666,6 +705,7 @@ CREATE TABLE projects (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
+	usage_limit INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -720,11 +760,12 @@ CREATE TABLE users (
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	key BLOB NOT NULL,
+	head BLOB NOT NULL,
 	name TEXT NOT NULL,
+	secret BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
-	UNIQUE ( key ),
+	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_members (
@@ -740,6 +781,7 @@ CREATE TABLE used_serials (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX node_last_ip ON nodes ( last_ip );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );`
@@ -2069,6 +2111,7 @@ func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_
 type Node struct {
 	Id                 []byte
 	Address            string
+	LastIp             string
 	Protocol           int
 	Type               int
 	Email              string
@@ -2093,12 +2136,14 @@ type Node struct {
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
 	Contained          bool
+	Disqualified       bool
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Update_Fields struct {
 	Address            Node_Address_Field
+	LastIp             Node_LastIp_Field
 	Protocol           Node_Protocol_Field
 	Type               Node_Type_Field
 	Email              Node_Email_Field
@@ -2121,6 +2166,7 @@ type Node_Update_Fields struct {
 	LastContactSuccess Node_LastContactSuccess_Field
 	LastContactFailure Node_LastContactFailure_Field
 	Contained          Node_Contained_Field
+	Disqualified       Node_Disqualified_Field
 }
 
 type Node_Id_Field struct {
@@ -2160,6 +2206,25 @@ func (f Node_Address_Field) value() interface{} {
 }
 
 func (Node_Address_Field) _Column() string { return "address" }
+
+type Node_LastIp_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Node_LastIp(v string) Node_LastIp_Field {
+	return Node_LastIp_Field{_set: true, _value: v}
+}
+
+func (f Node_LastIp_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_LastIp_Field) _Column() string { return "last_ip" }
 
 type Node_Protocol_Field struct {
 	_set   bool
@@ -2617,6 +2682,304 @@ func (f Node_Contained_Field) value() interface{} {
 
 func (Node_Contained_Field) _Column() string { return "contained" }
 
+type Node_Disqualified_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Node_Disqualified(v bool) Node_Disqualified_Field {
+	return Node_Disqualified_Field{_set: true, _value: v}
+}
+
+func (f Node_Disqualified_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Node_Disqualified_Field) _Column() string { return "disqualified" }
+
+type Offer struct {
+	Id                        int
+	Name                      string
+	Description               string
+	AwardCreditInCents        int
+	InviteeCreditInCents      int
+	AwardCreditDurationDays   int
+	InviteeCreditDurationDays int
+	RedeemableCap             int
+	NumRedeemed               int
+	ExpiresAt                 time.Time
+	CreatedAt                 time.Time
+	Status                    int
+	Type                      int
+}
+
+func (Offer) _Table() string { return "offers" }
+
+type Offer_Update_Fields struct {
+	Name                      Offer_Name_Field
+	Description               Offer_Description_Field
+	AwardCreditInCents        Offer_AwardCreditInCents_Field
+	InviteeCreditInCents      Offer_InviteeCreditInCents_Field
+	AwardCreditDurationDays   Offer_AwardCreditDurationDays_Field
+	InviteeCreditDurationDays Offer_InviteeCreditDurationDays_Field
+	RedeemableCap             Offer_RedeemableCap_Field
+	NumRedeemed               Offer_NumRedeemed_Field
+	ExpiresAt                 Offer_ExpiresAt_Field
+	Status                    Offer_Status_Field
+	Type                      Offer_Type_Field
+}
+
+type Offer_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_Id(v int) Offer_Id_Field {
+	return Offer_Id_Field{_set: true, _value: v}
+}
+
+func (f Offer_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_Id_Field) _Column() string { return "id" }
+
+type Offer_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Offer_Name(v string) Offer_Name_Field {
+	return Offer_Name_Field{_set: true, _value: v}
+}
+
+func (f Offer_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_Name_Field) _Column() string { return "name" }
+
+type Offer_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func Offer_Description(v string) Offer_Description_Field {
+	return Offer_Description_Field{_set: true, _value: v}
+}
+
+func (f Offer_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_Description_Field) _Column() string { return "description" }
+
+type Offer_AwardCreditInCents_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_AwardCreditInCents(v int) Offer_AwardCreditInCents_Field {
+	return Offer_AwardCreditInCents_Field{_set: true, _value: v}
+}
+
+func (f Offer_AwardCreditInCents_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_AwardCreditInCents_Field) _Column() string { return "award_credit_in_cents" }
+
+type Offer_InviteeCreditInCents_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_InviteeCreditInCents(v int) Offer_InviteeCreditInCents_Field {
+	return Offer_InviteeCreditInCents_Field{_set: true, _value: v}
+}
+
+func (f Offer_InviteeCreditInCents_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_InviteeCreditInCents_Field) _Column() string { return "invitee_credit_in_cents" }
+
+type Offer_AwardCreditDurationDays_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_AwardCreditDurationDays(v int) Offer_AwardCreditDurationDays_Field {
+	return Offer_AwardCreditDurationDays_Field{_set: true, _value: v}
+}
+
+func (f Offer_AwardCreditDurationDays_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_AwardCreditDurationDays_Field) _Column() string { return "award_credit_duration_days" }
+
+type Offer_InviteeCreditDurationDays_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_InviteeCreditDurationDays(v int) Offer_InviteeCreditDurationDays_Field {
+	return Offer_InviteeCreditDurationDays_Field{_set: true, _value: v}
+}
+
+func (f Offer_InviteeCreditDurationDays_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_InviteeCreditDurationDays_Field) _Column() string { return "invitee_credit_duration_days" }
+
+type Offer_RedeemableCap_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_RedeemableCap(v int) Offer_RedeemableCap_Field {
+	return Offer_RedeemableCap_Field{_set: true, _value: v}
+}
+
+func (f Offer_RedeemableCap_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_RedeemableCap_Field) _Column() string { return "redeemable_cap" }
+
+type Offer_NumRedeemed_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_NumRedeemed(v int) Offer_NumRedeemed_Field {
+	return Offer_NumRedeemed_Field{_set: true, _value: v}
+}
+
+func (f Offer_NumRedeemed_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_NumRedeemed_Field) _Column() string { return "num_redeemed" }
+
+type Offer_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Offer_ExpiresAt(v time.Time) Offer_ExpiresAt_Field {
+	return Offer_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f Offer_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type Offer_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Offer_CreatedAt(v time.Time) Offer_CreatedAt_Field {
+	return Offer_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Offer_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Offer_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_Status(v int) Offer_Status_Field {
+	return Offer_Status_Field{_set: true, _value: v}
+}
+
+func (f Offer_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_Status_Field) _Column() string { return "status" }
+
+type Offer_Type_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func Offer_Type(v int) Offer_Type_Field {
+	return Offer_Type_Field{_set: true, _value: v}
+}
+
+func (f Offer_Type_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Offer_Type_Field) _Column() string { return "type" }
+
 type PendingAudits struct {
 	NodeId            []byte
 	PieceId           []byte
@@ -2750,6 +3113,7 @@ type Project struct {
 	Id          []byte
 	Name        string
 	Description string
+	UsageLimit  int64
 	CreatedAt   time.Time
 }
 
@@ -2757,6 +3121,7 @@ func (Project) _Table() string { return "projects" }
 
 type Project_Update_Fields struct {
 	Description Project_Description_Field
+	UsageLimit  Project_UsageLimit_Field
 }
 
 type Project_Id_Field struct {
@@ -2815,6 +3180,25 @@ func (f Project_Description_Field) value() interface{} {
 }
 
 func (Project_Description_Field) _Column() string { return "description" }
+
+type Project_UsageLimit_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Project_UsageLimit(v int64) Project_UsageLimit_Field {
+	return Project_UsageLimit_Field{_set: true, _value: v}
+}
+
+func (f Project_UsageLimit_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
 
 type Project_CreatedAt_Field struct {
 	_set   bool
@@ -3491,8 +3875,9 @@ func (User_CreatedAt_Field) _Column() string { return "created_at" }
 type ApiKey struct {
 	Id        []byte
 	ProjectId []byte
-	Key       []byte
+	Head      []byte
 	Name      string
+	Secret    []byte
 	CreatedAt time.Time
 }
 
@@ -3540,24 +3925,24 @@ func (f ApiKey_ProjectId_Field) value() interface{} {
 
 func (ApiKey_ProjectId_Field) _Column() string { return "project_id" }
 
-type ApiKey_Key_Field struct {
+type ApiKey_Head_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func ApiKey_Key(v []byte) ApiKey_Key_Field {
-	return ApiKey_Key_Field{_set: true, _value: v}
+func ApiKey_Head(v []byte) ApiKey_Head_Field {
+	return ApiKey_Head_Field{_set: true, _value: v}
 }
 
-func (f ApiKey_Key_Field) value() interface{} {
+func (f ApiKey_Head_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (ApiKey_Key_Field) _Column() string { return "key" }
+func (ApiKey_Head_Field) _Column() string { return "head" }
 
 type ApiKey_Name_Field struct {
 	_set   bool
@@ -3577,6 +3962,25 @@ func (f ApiKey_Name_Field) value() interface{} {
 }
 
 func (ApiKey_Name_Field) _Column() string { return "name" }
+
+type ApiKey_Secret_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ApiKey_Secret(v []byte) ApiKey_Secret_Field {
+	return ApiKey_Secret_Field{_set: true, _value: v}
+}
+
+func (f ApiKey_Secret_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ApiKey_Secret_Field) _Column() string { return "secret" }
 
 type ApiKey_CreatedAt_Field struct {
 	_set   bool
@@ -4048,6 +4452,7 @@ func (obj *postgresImpl) Create_AccountingRollup(ctx context.Context,
 func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_address Node_Address_Field,
+	node_last_ip Node_LastIp_Field,
 	node_protocol Node_Protocol_Field,
 	node_type Node_Type_Field,
 	node_email Node_Email_Field,
@@ -4069,12 +4474,14 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_uptime_ratio Node_UptimeRatio_Field,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field) (
+	node_contained Node_Contained_Field,
+	node_disqualified Node_Disqualified_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
 	__address_val := node_address.value()
+	__last_ip_val := node_last_ip.value()
 	__protocol_val := node_protocol.value()
 	__type_val := node_type.value()
 	__email_val := node_email.value()
@@ -4099,14 +4506,15 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__last_contact_success_val := node_last_contact_success.value()
 	__last_contact_failure_val := node_last_contact_failure.value()
 	__contained_val := node_contained.value()
+	__disqualified_val := node_disqualified.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure, contained ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_ip, protocol, type, email, wallet, free_bandwidth, free_disk, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+	err = obj.driver.QueryRow(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4148,22 +4556,24 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 func (obj *postgresImpl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
-	project_description Project_Description_Field) (
+	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field) (
 	project *Project, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := project_usage_limit.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4198,24 +4608,26 @@ func (obj *postgresImpl) Create_ProjectMember(ctx context.Context,
 func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_key ApiKey_Key_Field,
-	api_key_name ApiKey_Name_Field) (
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field) (
 	api_key *ApiKey, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := api_key_id.value()
 	__project_id_val := api_key_project_id.value()
-	__key_val := api_key_key.value()
+	__head_val := api_key_head.value()
 	__name_val := api_key_name.value()
+	__secret_val := api_key_secret.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4440,6 +4852,47 @@ func (obj *postgresImpl) Create_ResetPasswordToken(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_Offer(ctx context.Context,
+	offer_name Offer_Name_Field,
+	offer_description Offer_Description_Field,
+	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
+	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
+	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
+	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
+	offer_redeemable_cap Offer_RedeemableCap_Field,
+	offer_expires_at Offer_ExpiresAt_Field,
+	offer_status Offer_Status_Field,
+	offer_type Offer_Type_Field) (
+	offer *Offer, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__name_val := offer_name.value()
+	__description_val := offer_description.value()
+	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
+	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
+	__award_credit_duration_days_val := offer_award_credit_duration_days.value()
+	__invitee_credit_duration_days_val := offer_invitee_credit_duration_days.value()
+	__redeemable_cap_val := offer_redeemable_cap.value()
+	__num_redeemed_val := int(0)
+	__expires_at_val := offer_expires_at.value()
+	__created_at_val := __now
+	__status_val := offer_status.value()
+	__type_val := offer_type.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __num_redeemed_val, __expires_at_val, __created_at_val, __status_val, __type_val)
+
+	offer = &Offer{}
+	err = obj.driver.QueryRow(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __num_redeemed_val, __expires_at_val, __created_at_val, __status_val, __type_val).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return offer, nil
+
+}
+
 func (obj *postgresImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
@@ -4599,7 +5052,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -4608,7 +5061,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4653,7 +5106,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 	limit int, offset int64) (
 	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -4671,7 +5124,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4751,7 +5204,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 func (obj *postgresImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -4767,7 +5220,7 @@ func (obj *postgresImpl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4784,7 +5237,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -4793,7 +5246,7 @@ func (obj *postgresImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4805,7 +5258,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -4821,7 +5274,7 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -4907,7 +5360,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -4916,7 +5369,7 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4924,20 +5377,20 @@ func (obj *postgresImpl) Get_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_ApiKey_By_Key(ctx context.Context,
-	api_key_key ApiKey_Key_Field) (
+func (obj *postgresImpl) Get_ApiKey_By_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.key = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
 
 	var __values []interface{}
-	__values = append(__values, api_key_key.value())
+	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -4949,7 +5402,7 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 	api_key_project_id ApiKey_ProjectId_Field) (
 	rows []*ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
 
 	var __values []interface{}
 	__values = append(__values, api_key_project_id.value())
@@ -4965,7 +5418,7 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 
 	for __rows.Next() {
 		api_key := &ApiKey{}
-		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -5473,6 +5926,59 @@ func (obj *postgresImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field) (
+	offer *Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE offers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, offer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	offer = &Offer{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return offer, nil
+
+}
+
+func (obj *postgresImpl) All_Offer(ctx context.Context) (
+	rows []*Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		offer := &Offer{}
+		err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, offer)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -5614,7 +6120,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -5623,6 +6129,11 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	if update.Address._set {
 		__values = append(__values, update.Address.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
+	}
+
+	if update.LastIp._set {
+		__values = append(__values, update.LastIp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip = ?"))
 	}
 
 	if update.Protocol._set {
@@ -5735,6 +6246,11 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
 	}
 
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -5749,7 +6265,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -5825,7 +6341,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	project *Project, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE projects SET "), __sets, __sqlbundle_Literal(" WHERE projects.id = ? RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -5834,6 +6350,11 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	if update.Description._set {
 		__values = append(__values, update.Description.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
 	}
 
 	if len(__sets_sql.SQLs) == 0 {
@@ -5849,7 +6370,7 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -5865,7 +6386,7 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	api_key *ApiKey, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ? RETURNING api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE api_keys SET "), __sets, __sqlbundle_Literal(" WHERE api_keys.id = ? RETURNING api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -5889,7 +6410,7 @@ func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -5973,6 +6494,96 @@ func (obj *postgresImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return registration_token, nil
+}
+
+func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field,
+	update Offer_Update_Fields) (
+	offer *Offer, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ? RETURNING offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.AwardCreditInCents._set {
+		__values = append(__values, update.AwardCreditInCents.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("award_credit_in_cents = ?"))
+	}
+
+	if update.InviteeCreditInCents._set {
+		__values = append(__values, update.InviteeCreditInCents.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invitee_credit_in_cents = ?"))
+	}
+
+	if update.AwardCreditDurationDays._set {
+		__values = append(__values, update.AwardCreditDurationDays.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("award_credit_duration_days = ?"))
+	}
+
+	if update.InviteeCreditDurationDays._set {
+		__values = append(__values, update.InviteeCreditDurationDays.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invitee_credit_duration_days = ?"))
+	}
+
+	if update.RedeemableCap._set {
+		__values = append(__values, update.RedeemableCap.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redeemable_cap = ?"))
+	}
+
+	if update.NumRedeemed._set {
+		__values = append(__values, update.NumRedeemed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("num_redeemed = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, offer_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	offer = &Offer{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return offer, nil
 }
 
 func (obj *postgresImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
@@ -6437,6 +7048,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM offers;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -6667,6 +7288,7 @@ func (obj *sqlite3Impl) Create_AccountingRollup(ctx context.Context,
 func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_address Node_Address_Field,
+	node_last_ip Node_LastIp_Field,
 	node_protocol Node_Protocol_Field,
 	node_type Node_Type_Field,
 	node_email Node_Email_Field,
@@ -6688,12 +7310,14 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_uptime_ratio Node_UptimeRatio_Field,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field) (
+	node_contained Node_Contained_Field,
+	node_disqualified Node_Disqualified_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := node_id.value()
 	__address_val := node_address.value()
+	__last_ip_val := node_last_ip.value()
 	__protocol_val := node_protocol.value()
 	__type_val := node_type.value()
 	__email_val := node_email.value()
@@ -6718,13 +7342,14 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__last_contact_success_val := node_last_contact_success.value()
 	__last_contact_failure_val := node_last_contact_failure.value()
 	__contained_val := node_contained.value()
+	__disqualified_val := node_disqualified.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, protocol, type, email, wallet, free_bandwidth, free_disk, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure, contained ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_ip, protocol, type, email, wallet, free_bandwidth, free_disk, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val)
+	obj.logStmt(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __address_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6773,21 +7398,23 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
-	project_description Project_Description_Field) (
+	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field) (
 	project *Project, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := project_usage_limit.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, created_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, created_at ) VALUES ( ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __name_val, __description_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __name_val, __description_val, __usage_limit_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6829,23 +7456,25 @@ func (obj *sqlite3Impl) Create_ProjectMember(ctx context.Context,
 func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_key ApiKey_Key_Field,
-	api_key_name ApiKey_Name_Field) (
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field) (
 	api_key *ApiKey, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := api_key_id.value()
 	__project_id_val := api_key_project_id.value()
-	__key_val := api_key_key.value()
+	__head_val := api_key_head.value()
 	__name_val := api_key_name.value()
+	__secret_val := api_key_secret.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, key, name, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO api_keys ( id, project_id, head, name, secret, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __key_val, __name_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __head_val, __name_val, __secret_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7098,6 +7727,50 @@ func (obj *sqlite3Impl) Create_ResetPasswordToken(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
+	offer_name Offer_Name_Field,
+	offer_description Offer_Description_Field,
+	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
+	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
+	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
+	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
+	offer_redeemable_cap Offer_RedeemableCap_Field,
+	offer_expires_at Offer_ExpiresAt_Field,
+	offer_status Offer_Status_Field,
+	offer_type Offer_Type_Field) (
+	offer *Offer, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__name_val := offer_name.value()
+	__description_val := offer_description.value()
+	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
+	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
+	__award_credit_duration_days_val := offer_award_credit_duration_days.value()
+	__invitee_credit_duration_days_val := offer_invitee_credit_duration_days.value()
+	__redeemable_cap_val := offer_redeemable_cap.value()
+	__num_redeemed_val := int(0)
+	__expires_at_val := offer_expires_at.value()
+	__created_at_val := __now
+	__status_val := offer_status.value()
+	__type_val := offer_type.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO offers ( name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __num_redeemed_val, __expires_at_val, __created_at_val, __status_val, __type_val)
+
+	__res, err := obj.driver.Exec(__stmt, __name_val, __description_val, __award_credit_in_cents_val, __invitee_credit_in_cents_val, __award_credit_duration_days_val, __invitee_credit_duration_days_val, __redeemable_cap_val, __num_redeemed_val, __expires_at_val, __created_at_val, __status_val, __type_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastOffer(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
@@ -7257,7 +7930,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -7266,7 +7939,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7311,7 +7984,7 @@ func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx con
 	limit int, offset int64) (
 	rows []*Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified FROM nodes WHERE nodes.id >= ? ORDER BY nodes.id LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id_greater_or_equal.value())
@@ -7329,7 +8002,7 @@ func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx con
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7409,7 +8082,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -7425,7 +8098,7 @@ func (obj *sqlite3Impl) All_Project(ctx context.Context) (
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7442,7 +8115,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
@@ -7451,7 +8124,7 @@ func (obj *sqlite3Impl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7463,7 +8136,7 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 	project_member_member_id ProjectMember_MemberId_Field) (
 	rows []*Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects  JOIN project_members ON projects.id = project_members.project_id WHERE project_members.member_id = ? ORDER BY projects.name")
 
 	var __values []interface{}
 	__values = append(__values, project_member_member_id.value())
@@ -7479,7 +8152,7 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 
 	for __rows.Next() {
 		project := &Project{}
-		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+		err = __rows.Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7565,7 +8238,7 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, api_key_id.value())
@@ -7574,7 +8247,7 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7582,20 +8255,20 @@ func (obj *sqlite3Impl) Get_ApiKey_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_ApiKey_By_Key(ctx context.Context,
-	api_key_key ApiKey_Key_Field) (
+func (obj *sqlite3Impl) Get_ApiKey_By_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.key = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.head = ?")
 
 	var __values []interface{}
-	__values = append(__values, api_key_key.value())
+	__values = append(__values, api_key_head.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7607,7 +8280,7 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 	api_key_project_id ApiKey_ProjectId_Field) (
 	rows []*ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.project_id = ? ORDER BY api_keys.name")
 
 	var __values []interface{}
 	__values = append(__values, api_key_project_id.value())
@@ -7623,7 +8296,7 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 
 	for __rows.Next() {
 		api_key := &ApiKey{}
-		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+		err = __rows.Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -8131,6 +8804,59 @@ func (obj *sqlite3Impl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field) (
+	offer *Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE offers.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, offer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	offer = &Offer{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return offer, nil
+
+}
+
+func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
+	rows []*Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		offer := &Offer{}
+		err = __rows.Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, offer)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
 func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -8313,6 +9039,11 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("address = ?"))
 	}
 
+	if update.LastIp._set {
+		__values = append(__values, update.LastIp.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("last_ip = ?"))
+	}
+
 	if update.Protocol._set {
 		__values = append(__values, update.Protocol.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("protocol = ?"))
@@ -8423,6 +9154,11 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
 	}
 
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
 	__now := obj.db.Hooks.Now().UTC()
 
 	__values = append(__values, __now)
@@ -8442,12 +9178,12 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified FROM nodes WHERE nodes.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8544,6 +9280,11 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
 	}
 
+	if update.UsageLimit._set {
+		__values = append(__values, update.UsageLimit.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("usage_limit = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -8562,12 +9303,12 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE projects.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE projects.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8612,12 +9353,12 @@ func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE api_keys.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8721,6 +9462,106 @@ func (obj *sqlite3Impl) Update_RegistrationToken_By_Secret(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return registration_token, nil
+}
+
+func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field,
+	update Offer_Update_Fields) (
+	offer *Offer, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE offers SET "), __sets, __sqlbundle_Literal(" WHERE offers.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.Description._set {
+		__values = append(__values, update.Description.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("description = ?"))
+	}
+
+	if update.AwardCreditInCents._set {
+		__values = append(__values, update.AwardCreditInCents.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("award_credit_in_cents = ?"))
+	}
+
+	if update.InviteeCreditInCents._set {
+		__values = append(__values, update.InviteeCreditInCents.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invitee_credit_in_cents = ?"))
+	}
+
+	if update.AwardCreditDurationDays._set {
+		__values = append(__values, update.AwardCreditDurationDays.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("award_credit_duration_days = ?"))
+	}
+
+	if update.InviteeCreditDurationDays._set {
+		__values = append(__values, update.InviteeCreditDurationDays.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("invitee_credit_duration_days = ?"))
+	}
+
+	if update.RedeemableCap._set {
+		__values = append(__values, update.RedeemableCap.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("redeemable_cap = ?"))
+	}
+
+	if update.NumRedeemed._set {
+		__values = append(__values, update.NumRedeemed.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("num_redeemed = ?"))
+	}
+
+	if update.ExpiresAt._set {
+		__values = append(__values, update.ExpiresAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("expires_at = ?"))
+	}
+
+	if update.Status._set {
+		__values = append(__values, update.Status.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
+	}
+
+	if update.Type._set {
+		__values = append(__values, update.Type.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("type = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, offer_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	offer = &Offer{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE offers.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return offer, nil
 }
 
 func (obj *sqlite3Impl) Delete_PendingAudits_By_NodeId(ctx context.Context,
@@ -9138,13 +9979,13 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 	pk int64) (
 	node *Node, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained FROM nodes WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified FROM nodes WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9174,13 +10015,13 @@ func (obj *sqlite3Impl) getLastProject(ctx context.Context,
 	pk int64) (
 	project *Project, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.created_at FROM projects WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.id, projects.name, projects.description, projects.usage_limit, projects.created_at FROM projects WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	project = &Project{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.Name, &project.Description, &project.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9210,13 +10051,13 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 	pk int64) (
 	api_key *ApiKey, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.key, api_keys.name, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT api_keys.id, api_keys.project_id, api_keys.head, api_keys.name, api_keys.secret, api_keys.created_at FROM api_keys WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Key, &api_key.Name, &api_key.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9368,6 +10209,24 @@ func (obj *sqlite3Impl) getLastResetPasswordToken(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastOffer(ctx context.Context,
+	pk int64) (
+	offer *Offer, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	offer = &Offer{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.NumRedeemed, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return offer, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -9487,6 +10346,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM pending_audits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM offers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -9685,6 +10554,15 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
+func (rx *Rx) All_Offer(ctx context.Context) (
+	rows []*Offer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Offer(ctx)
+}
+
 func (rx *Rx) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	var tx *Tx
@@ -9776,14 +10654,15 @@ func (rx *Rx) Create_AccountingTimestamps(ctx context.Context,
 func (rx *Rx) Create_ApiKey(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	api_key_project_id ApiKey_ProjectId_Field,
-	api_key_key ApiKey_Key_Field,
-	api_key_name ApiKey_Name_Field) (
+	api_key_head ApiKey_Head_Field,
+	api_key_name ApiKey_Name_Field,
+	api_key_secret ApiKey_Secret_Field) (
 	api_key *ApiKey, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_key, api_key_name)
+	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_head, api_key_name, api_key_secret)
 
 }
 
@@ -9858,6 +10737,7 @@ func (rx *Rx) Create_Irreparabledb(ctx context.Context,
 func (rx *Rx) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_address Node_Address_Field,
+	node_last_ip Node_LastIp_Field,
 	node_protocol Node_Protocol_Field,
 	node_type Node_Type_Field,
 	node_email Node_Email_Field,
@@ -9879,13 +10759,34 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_uptime_ratio Node_UptimeRatio_Field,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
-	node_contained Node_Contained_Field) (
+	node_contained Node_Contained_Field,
+	node_disqualified Node_Disqualified_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_address, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure, node_contained)
+	return tx.Create_Node(ctx, node_id, node_address, node_last_ip, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure, node_contained, node_disqualified)
+
+}
+
+func (rx *Rx) Create_Offer(ctx context.Context,
+	offer_name Offer_Name_Field,
+	offer_description Offer_Description_Field,
+	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
+	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
+	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
+	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
+	offer_redeemable_cap Offer_RedeemableCap_Field,
+	offer_expires_at Offer_ExpiresAt_Field,
+	offer_status Offer_Status_Field,
+	offer_type Offer_Type_Field) (
+	offer *Offer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_Offer(ctx, offer_name, offer_description, offer_award_credit_in_cents, offer_invitee_credit_in_cents, offer_award_credit_duration_days, offer_invitee_credit_duration_days, offer_redeemable_cap, offer_expires_at, offer_status, offer_type)
 
 }
 
@@ -9908,13 +10809,14 @@ func (rx *Rx) Create_PendingAudits(ctx context.Context,
 func (rx *Rx) Create_Project(ctx context.Context,
 	project_id Project_Id_Field,
 	project_name Project_Name_Field,
-	project_description Project_Description_Field) (
+	project_description Project_Description_Field,
+	project_usage_limit Project_UsageLimit_Field) (
 	project *Project, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Project(ctx, project_id, project_name, project_description)
+	return tx.Create_Project(ctx, project_id, project_name, project_description, project_usage_limit)
 
 }
 
@@ -10205,6 +11107,16 @@ func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
 	return tx.Get_AccountingRollup_By_Id(ctx, accounting_rollup_id)
 }
 
+func (rx *Rx) Get_ApiKey_By_Head(ctx context.Context,
+	api_key_head ApiKey_Head_Field) (
+	api_key *ApiKey, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ApiKey_By_Head(ctx, api_key_head)
+}
+
 func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	api_key *ApiKey, err error) {
@@ -10213,16 +11125,6 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
-}
-
-func (rx *Rx) Get_ApiKey_By_Key(ctx context.Context,
-	api_key_key ApiKey_Key_Field) (
-	api_key *ApiKey, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ApiKey_By_Key(ctx, api_key_key)
 }
 
 func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
@@ -10263,6 +11165,16 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_Node_By_Id(ctx, node_id)
+}
+
+func (rx *Rx) Get_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field) (
+	offer *Offer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Offer_By_Id(ctx, offer_id)
 }
 
 func (rx *Rx) Get_PendingAudits_By_NodeId(ctx context.Context,
@@ -10468,6 +11380,17 @@ func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	return tx.Update_Node_By_Id(ctx, node_id, update)
 }
 
+func (rx *Rx) Update_Offer_By_Id(ctx context.Context,
+	offer_id Offer_Id_Field,
+	update Offer_Update_Fields) (
+	offer *Offer, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Offer_By_Id(ctx, offer_id, update)
+}
+
 func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -10531,6 +11454,9 @@ type Methods interface {
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
+	All_Offer(ctx context.Context) (
+		rows []*Offer, err error)
+
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
 
@@ -10572,8 +11498,9 @@ type Methods interface {
 	Create_ApiKey(ctx context.Context,
 		api_key_id ApiKey_Id_Field,
 		api_key_project_id ApiKey_ProjectId_Field,
-		api_key_key ApiKey_Key_Field,
-		api_key_name ApiKey_Name_Field) (
+		api_key_head ApiKey_Head_Field,
+		api_key_name ApiKey_Name_Field,
+		api_key_secret ApiKey_Secret_Field) (
 		api_key *ApiKey, err error)
 
 	Create_BucketStorageTally(ctx context.Context,
@@ -10619,6 +11546,7 @@ type Methods interface {
 	Create_Node(ctx context.Context,
 		node_id Node_Id_Field,
 		node_address Node_Address_Field,
+		node_last_ip Node_LastIp_Field,
 		node_protocol Node_Protocol_Field,
 		node_type Node_Type_Field,
 		node_email Node_Email_Field,
@@ -10640,8 +11568,22 @@ type Methods interface {
 		node_uptime_ratio Node_UptimeRatio_Field,
 		node_last_contact_success Node_LastContactSuccess_Field,
 		node_last_contact_failure Node_LastContactFailure_Field,
-		node_contained Node_Contained_Field) (
+		node_contained Node_Contained_Field,
+		node_disqualified Node_Disqualified_Field) (
 		node *Node, err error)
+
+	Create_Offer(ctx context.Context,
+		offer_name Offer_Name_Field,
+		offer_description Offer_Description_Field,
+		offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
+		offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
+		offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
+		offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
+		offer_redeemable_cap Offer_RedeemableCap_Field,
+		offer_expires_at Offer_ExpiresAt_Field,
+		offer_status Offer_Status_Field,
+		offer_type Offer_Type_Field) (
+		offer *Offer, err error)
 
 	Create_PendingAudits(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,
@@ -10655,7 +11597,8 @@ type Methods interface {
 	Create_Project(ctx context.Context,
 		project_id Project_Id_Field,
 		project_name Project_Name_Field,
-		project_description Project_Description_Field) (
+		project_description Project_Description_Field,
+		project_usage_limit Project_UsageLimit_Field) (
 		project *Project, err error)
 
 	Create_ProjectMember(ctx context.Context,
@@ -10781,12 +11724,12 @@ type Methods interface {
 		accounting_rollup_id AccountingRollup_Id_Field) (
 		accounting_rollup *AccountingRollup, err error)
 
-	Get_ApiKey_By_Id(ctx context.Context,
-		api_key_id ApiKey_Id_Field) (
+	Get_ApiKey_By_Head(ctx context.Context,
+		api_key_head ApiKey_Head_Field) (
 		api_key *ApiKey, err error)
 
-	Get_ApiKey_By_Key(ctx context.Context,
-		api_key_key ApiKey_Key_Field) (
+	Get_ApiKey_By_Id(ctx context.Context,
+		api_key_id ApiKey_Id_Field) (
 		api_key *ApiKey, err error)
 
 	Get_BucketUsage_By_Id(ctx context.Context,
@@ -10804,6 +11747,10 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Get_Offer_By_Id(ctx context.Context,
+		offer_id Offer_Id_Field) (
+		offer *Offer, err error)
 
 	Get_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field) (
@@ -10893,6 +11840,11 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		node *Node, err error)
+
+	Update_Offer_By_Id(ctx context.Context,
+		offer_id Offer_Id_Field,
+		update Offer_Update_Fields) (
+		offer *Offer, err error)
 
 	Update_PendingAudits_By_NodeId(ctx context.Context,
 		pending_audits_node_id PendingAudits_NodeId_Field,

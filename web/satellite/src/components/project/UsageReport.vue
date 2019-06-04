@@ -75,8 +75,6 @@ import { toUnixTimestamp } from '@/utils/time';
             components: {
                 Datepicker,
             },
-            beforeMount: function() {
-            },
             beforeRouteLeave: function(to, from, next) {
             	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
 
@@ -161,13 +159,15 @@ import { toUnixTimestamp } from '@/utils/time';
                     });
                 },
                 onReportClick: function (): void {
-                    let projectID = this.$store.getters.selectedProject.id;
+                    const projectID = this.$store.getters.selectedProject.id;
+                    const startDate = this.$store.state.usageModule.startDate;
+                    const endDate = this.$store.state.usageModule.endDate;
 
                     let url = new URL(location.origin);
                     url.pathname = 'usage-report';
                     url.searchParams.append('projectID', projectID);
-                    url.searchParams.append('since', toUnixTimestamp(this.$data.dateRange.startDate).toString());
-                    url.searchParams.append('before', toUnixTimestamp(this.$data.dateRange.endDate).toString());
+                    url.searchParams.append('since', toUnixTimestamp(startDate).toString());
+                    url.searchParams.append('before', toUnixTimestamp(endDate).toString());
 
                     window.open(url.href, '_blank');
                 },

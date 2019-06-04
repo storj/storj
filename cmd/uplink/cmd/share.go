@@ -13,7 +13,6 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/process"
@@ -41,25 +40,26 @@ func init() {
 		RunE:  shareMain,
 	}, RootCmd)
 
-	cfgstruct.Bind(shareCmd.Flags(), &shareCfg)
+	process.Bind(shareCmd, &shareCfg)
 }
 
 const shareISO8601 = "2006-01-02T15:04:05-0700"
 
 func parseHumanDate(date string, now time.Time) (*time.Time, error) {
-	if date == "" {
+	switch {
+	case date == "":
 		return nil, nil
-	} else if date == "now" {
+	case date == "now":
 		return &now, nil
-	} else if date[0] == '+' {
+	case date[0] == '+':
 		d, err := time.ParseDuration(date[1:])
 		t := now.Add(d)
 		return &t, errs.Wrap(err)
-	} else if date[0] == '-' {
+	case date[0] == '-':
 		d, err := time.ParseDuration(date[1:])
 		t := now.Add(-d)
 		return &t, errs.Wrap(err)
-	} else {
+	default:
 		t, err := time.Parse(shareISO8601, date)
 		return &t, errs.Wrap(err)
 	}

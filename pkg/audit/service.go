@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -24,9 +25,11 @@ var Error = errs.Class("audit error")
 
 // Config contains configurable values for audit service
 type Config struct {
-	MaxRetriesStatDB  int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
-	Interval          time.Duration `help:"how frequently segments are audited" default:"30s"`
-	MinBytesPerSecond memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
+	Interval           time.Duration `help:"how frequently segments are audited" default:"30s"`
+	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5s"`
+	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
@@ -43,13 +46,13 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
-	identity *identity.FullIdentity) (service *Service, err error) {
+	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
-		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, orders, identity, config.MinBytesPerSecond),
-		Reporter: NewReporter(overlay, config.MaxRetriesStatDB),
+		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
+		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
@@ -76,7 +79,8 @@ func (service *Service) Close() error {
 }
 
 // process picks a random stripe and verifies correctness
-func (service *Service) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var stripe *Stripe
 	for {
 		s, more, err := service.Cursor.NextStripe(ctx)
@@ -92,16 +96,46 @@ func (service *Service) process(ctx context.Context) error {
 		}
 	}
 
-	verifiedNodes, err := service.Verifier.Verify(ctx, stripe)
+	var errlist errs.Group
+
+	report, err := service.Verifier.Reverify(ctx, stripe)
 	if err != nil {
-		return err
+		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = service.Reporter.RecordAudits(ctx, verifiedNodes)
+	_, err = service.Reporter.RecordAudits(ctx, report)
 	if err != nil {
-		return err
+		errlist.Add(err)
 	}
 
-	return nil
+	// skip all reverified nodes in the next Verify step
+	skip := make(map[storj.NodeID]bool)
+	if report != nil {
+		for _, nodeID := range report.Successes {
+			skip[nodeID] = true
+		}
+		for _, nodeID := range report.Offlines {
+			skip[nodeID] = true
+		}
+		for _, nodeID := range report.Fails {
+			skip[nodeID] = true
+		}
+		for _, pending := range report.PendingAudits {
+			skip[pending.NodeID] = true
+		}
+	}
+
+	report, err = service.Verifier.Verify(ctx, stripe, skip)
+	if err != nil {
+		errlist.Add(err)
+	}
+
+	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
+	_, err = service.Reporter.RecordAudits(ctx, report)
+	if err != nil {
+		errlist.Add(err)
+	}
+
+	return errlist.Err()
 }

@@ -13,6 +13,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/bwagreement"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -147,10 +149,10 @@ type lockedAPIKeys struct {
 }
 
 // Create creates and stores new APIKeyInfo
-func (m *lockedAPIKeys) Create(ctx context.Context, key console.APIKey, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
+func (m *lockedAPIKeys) Create(ctx context.Context, head []byte, info console.APIKeyInfo) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, key, info)
+	return m.db.Create(ctx, head, info)
 }
 
 // Delete deletes APIKeyInfo from store
@@ -167,11 +169,11 @@ func (m *lockedAPIKeys) Get(ctx context.Context, id uuid.UUID) (*console.APIKeyI
 	return m.db.Get(ctx, id)
 }
 
-// GetByKey retrieves APIKeyInfo for given key
-func (m *lockedAPIKeys) GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error) {
+// GetByHead retrieves APIKeyInfo for given key head
+func (m *lockedAPIKeys) GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByKey(ctx, key)
+	return m.db.GetByHead(ctx, head)
 }
 
 // GetByProjectID retrieves list of APIKeys for given projectID
@@ -483,16 +485,16 @@ func (m *lockedUsers) Update(ctx context.Context, user *console.User) error {
 }
 
 // Containment returns database for containment
-func (m *locked) Containment() audit.DB {
+func (m *locked) Containment() audit.Containment {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedContainment{m.Locker, m.db.Containment()}
 }
 
-// lockedContainment implements locking wrapper for audit.DB
+// lockedContainment implements locking wrapper for audit.Containment
 type lockedContainment struct {
 	sync.Locker
-	db audit.DB
+	db audit.Containment
 }
 
 func (m *lockedContainment) Delete(ctx context.Context, nodeID storj.NodeID) (bool, error) {
@@ -573,6 +575,55 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+// Marketing returns database for marketing admin GUI
+func (m *locked) Marketing() marketing.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedMarketing{m.Locker, m.db.Marketing()}
+}
+
+// lockedMarketing implements locking wrapper for marketing.DB
+type lockedMarketing struct {
+	sync.Locker
+	db marketing.DB
+}
+
+func (m *lockedMarketing) Offers() marketing.Offers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOffers{m.Locker, m.db.Offers()}
+}
+
+// lockedOffers implements locking wrapper for marketing.Offers
+type lockedOffers struct {
+	sync.Locker
+	db marketing.Offers
+}
+
+func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, offer)
+}
+
+func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCurrentByType(ctx, offerType)
+}
+
+func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListAll(ctx)
+}
+
+func (m *lockedOffers) Update(ctx context.Context, offer *marketing.UpdateOffer) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, offer)
 }
 
 // Orders returns database for orders
@@ -685,6 +736,13 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IsVetted(ctx, id, criteria)
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
@@ -766,6 +824,13 @@ func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+}
+
+// GetProjectUsageLimits returns project usage limit
+func (m *lockedProjectAccounting) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetProjectUsageLimits(ctx, projectID)
 }
 
 // GetStorageTotals returns the current inline and remote storage usage for a projectID

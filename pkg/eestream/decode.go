@@ -40,6 +40,7 @@ type decodedReader struct {
 // mbm is the maximum memory (in bytes) to be allocated for read buffers. If
 // set to 0, the minimum possible memory will be used.
 func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureScheme, expectedSize int64, mbm int) io.ReadCloser {
+	defer mon.Task()(&ctx)(nil)
 	if expectedSize < 0 {
 		return readcloser.FatalReadCloser(Error.New("negative expected size"))
 	}
@@ -68,7 +69,7 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureSche
 }
 
 func (dr *decodedReader) Read(p []byte) (n int, err error) {
-	if len(dr.outbuf) <= 0 {
+	if len(dr.outbuf) == 0 {
 		// if the output buffer is empty, let's fill it again
 		// if we've already had an error, fail
 		if dr.err != nil {
@@ -80,7 +81,7 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			return 0, dr.err
 		}
 		// read the input buffers of the next stripe - may also decode it
-		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(dr.currentStripe, dr.outbuf)
+		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(context.TODO(), dr.currentStripe, dr.outbuf)
 		if dr.err != nil {
 			return 0, dr.err
 		}
@@ -148,11 +149,9 @@ func Decode(rrs map[int]ranger.Ranger, es ErasureScheme, mbm int) (ranger.Ranger
 	for _, rr := range rrs {
 		if size == -1 {
 			size = rr.Size()
-		} else {
-			if size != rr.Size() {
-				return nil, Error.New(
-					"decode failure: range reader sizes don't all match")
-			}
+		} else if size != rr.Size() {
+			return nil, Error.New(
+				"decode failure: range reader sizes don't all match")
 		}
 	}
 	if size == -1 {
@@ -176,7 +175,8 @@ func (dr *decodedRanger) Size() int64 {
 	return blocks * int64(dr.es.StripeSize())
 }
 
-func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// offset and length might not be block-aligned. figure out which
 	// blocks contain this request
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(offset, length, dr.es.StripeSize())
@@ -209,7 +209,7 @@ func (dr *decodedRanger) Range(ctx context.Context, offset, length int64) (io.Re
 	// decode from all those ranges
 	r := DecodeReaders(ctx, readers, dr.es, blockCount*int64(dr.es.StripeSize()), dr.mbm)
 	// offset might start a few bytes in, potentially discard the initial bytes
-	_, err := io.CopyN(ioutil.Discard, r,
+	_, err = io.CopyN(ioutil.Discard, r,
 		offset-firstBlock*int64(dr.es.StripeSize()))
 	if err != nil {
 		return nil, Error.Wrap(err)

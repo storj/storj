@@ -102,21 +102,21 @@ func countZeros(num, base int64) (count int) {
 // Base2String converts size to a string using base-2 prefixes
 func (size Size) Base2String() string {
 	if size == 0 {
-		return "0"
+		return "0 B"
 	}
 
 	switch {
-	case size >= EiB*2/3:
+	case abs(size) >= EiB*2/3:
 		return fmt.Sprintf("%.1f EiB", size.EiB())
-	case size >= PiB*2/3:
+	case abs(size) >= PiB*2/3:
 		return fmt.Sprintf("%.1f PiB", size.PiB())
-	case size >= TiB*2/3:
+	case abs(size) >= TiB*2/3:
 		return fmt.Sprintf("%.1f TiB", size.TiB())
-	case size >= GiB*2/3:
+	case abs(size) >= GiB*2/3:
 		return fmt.Sprintf("%.1f GiB", size.GiB())
-	case size >= MiB*2/3:
+	case abs(size) >= MiB*2/3:
 		return fmt.Sprintf("%.1f MiB", size.MiB())
-	case size >= KiB*2/3:
+	case abs(size) >= KiB*2/3:
 		return fmt.Sprintf("%.1f KiB", size.KiB())
 	}
 
@@ -126,25 +126,32 @@ func (size Size) Base2String() string {
 // Base10String converts size to a string using base-10 prefixes
 func (size Size) Base10String() string {
 	if size == 0 {
-		return "0"
+		return "0 B"
 	}
 
 	switch {
-	case size >= EB*2/3:
+	case abs(size) >= EB*2/3:
 		return fmt.Sprintf("%.1f EB", size.EB())
-	case size >= PB*2/3:
+	case abs(size) >= PB*2/3:
 		return fmt.Sprintf("%.1f PB", size.PB())
-	case size >= TB*2/3:
+	case abs(size) >= TB*2/3:
 		return fmt.Sprintf("%.1f TB", size.TB())
-	case size >= GB*2/3:
+	case abs(size) >= GB*2/3:
 		return fmt.Sprintf("%.1f GB", size.GB())
-	case size >= MB*2/3:
+	case abs(size) >= MB*2/3:
 		return fmt.Sprintf("%.1f MB", size.MB())
-	case size >= KB*2/3:
+	case abs(size) >= KB*2/3:
 		return fmt.Sprintf("%.1f KB", size.KB())
 	}
 
 	return strconv.FormatInt(size.Int64(), 10) + " B"
+}
+
+func abs(size Size) Size {
+	if size > 0 {
+		return size
+	}
+	return -size
 }
 
 func isLetter(b byte) bool {

@@ -663,6 +663,79 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Add last_ip column and index",
+				Version:     21,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD last_ip TEXT;
+					UPDATE nodes SET last_ip = '';
+					ALTER TABLE nodes ALTER COLUMN last_ip SET NOT NULL;
+					CREATE INDEX IF NOT EXISTS node_last_ip ON nodes (last_ip)`,
+				},
+			},
+			{
+				Description: "Create new tables for free credits program",
+				Version:     22,
+				Action: migrate.SQL{`
+					CREATE TABLE offers (
+						id serial NOT NULL,
+						name text NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						credit_in_cents integer NOT NULL,
+						award_credit_duration_days integer NOT NULL,
+						invitee_credit_duration_days integer NOT NULL,
+						redeemable_cap integer NOT NULL,
+						num_redeemed integer NOT NULL,
+						expires_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL,
+						status integer NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Drops and recreates api key table to handle macaroons and adds revocation table",
+				Version:     23,
+				Action: migrate.SQL{
+					`DROP TABLE api_keys CASCADE`,
+					`CREATE TABLE api_keys (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						head bytea NOT NULL,
+						name text NOT NULL,
+						secret bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( head ),
+						UNIQUE ( name, project_id )
+					);`,
+				},
+			},
+			{
+				Description: "Add usage_limit column to projects table",
+				Version:     24,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD usage_limit bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Add disqualified column to nodes table",
+				Version:     25,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD disqualified boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				Description: "Add invitee_credit_in_gb and award_credit_in_gb columns, delete type and credit_in_cents columns",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP COLUMN credit_in_cents;`,
+					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
+				},
+			},
 		},
 	}
 }

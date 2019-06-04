@@ -1,0 +1,26 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package vouchers;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+// Voucher is a signed message verifying that a node has been vetted by a particular satellite
+message Voucher {
+    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes storage_node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+
+    google.protobuf.Timestamp expiration = 3;
+
+    bytes satellite_signature = 4;
+}
+
+message VoucherRequest {}
+
+service Vouchers {
+    rpc Request(VoucherRequest) returns (Voucher) {}
+}

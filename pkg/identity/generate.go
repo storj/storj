@@ -15,6 +15,8 @@ import (
 // minDifficulty. No parallelism is used.
 func GenerateKey(ctx context.Context, minDifficulty uint16, version storj.IDVersion) (
 	k crypto.PrivateKey, id storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var d uint16
 	for {
 		err = ctx.Err()
@@ -46,7 +48,8 @@ type GenerateCallback func(crypto.PrivateKey, storj.NodeID) (done bool, err erro
 
 // GenerateKeys continues to generate keys until found returns done == false,
 // or the ctx is canceled.
-func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateCallback) error {
+func GenerateKeys(ctx context.Context, minDifficulty uint16, concurrency int, version storj.IDVersion, found GenerateCallback) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	errchan := make(chan error, concurrency)
