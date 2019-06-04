@@ -608,10 +608,10 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) GetCurrent(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetCurrent(ctx, offerStatus, offerType)
+	return m.db.GetCurrentByType(ctx, offerType)
 }
 
 func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {

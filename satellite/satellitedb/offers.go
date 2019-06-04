@@ -28,8 +28,8 @@ func (offers *offers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return offersFromDBX(offersDbx)
 }
 
-// GetCurrent returns an offer that has not expired based on offer status
-func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.OfferStatus, offerType marketing.OfferType) (*marketing.Offer, error) {
+// GetCurrent returns an offer that has not expired based on offer type
+func (offers *offers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
 	var statement string
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type"
 	statement = `
@@ -44,7 +44,7 @@ func (offers *offers) GetCurrent(ctx context.Context, offerStatus marketing.Offe
 			SELECT id FROM o
 		) order by created_at desc;`
 
-	rows := offers.db.DB.QueryRowContext(ctx, offers.db.Rebind(statement), offerStatus, offerType, time.Now().UTC(), offerType, marketing.Default)
+	rows := offers.db.DB.QueryRowContext(ctx, offers.db.Rebind(statement), marketing.Active, offerType, time.Now().UTC(), offerType, marketing.Default)
 
 	o := marketing.Offer{}
 	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCreditInCents, &o.InviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)

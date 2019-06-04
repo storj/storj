@@ -49,11 +49,11 @@ func (s *Service) ListAllOffers(ctx context.Context) (offers []Offer, err error)
 	return offers, nil
 }
 
-// GetCurrentOffer returns current active offer
-func (s *Service) GetCurrentOffer(ctx context.Context, offerStatus OfferStatus) (offer *Offer, err error) {
+// GetCurrentOfferByType returns current active offer
+func (s *Service) GetCurrentOfferByType(ctx context.Context, offerType OfferType) (offer *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	offer, err = s.db.Offers().GetCurrent(ctx, offer.Status, offer.Type)
+	offer, err = s.db.Offers().GetCurrentByType(ctx, offer.Type)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

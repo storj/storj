@@ -54,7 +54,7 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, all, *new)
 
-			c, err := planet.Satellites[0].DB.Marketing().Offers().GetCurrent(ctx, new.Status, new.Type)
+			c, err := planet.Satellites[0].DB.Marketing().Offers().GetCurrentByType(ctx, new.Type)
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
