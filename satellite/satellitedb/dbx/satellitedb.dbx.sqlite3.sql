@@ -196,6 +196,16 @@ CREATE TABLE users (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE value_attributions (
+	bucket_id BLOB NOT NULL,
+	user_id BLOB NOT NULL,
+	partner_id BLOB NOT NULL,
+	at_rest_data INTEGER NOT NULL,
+	egress_data INTEGER NOT NULL,
+	ingress_data INTEGER NOT NULL,
+	last_updated TIMESTAMP NOT NULL,
+	PRIMARY KEY ( bucket_id )
+);
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
