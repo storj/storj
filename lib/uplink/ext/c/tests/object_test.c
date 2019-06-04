@@ -7,6 +7,11 @@
 #include <time.h>
 #include "unity.h"
 #include "../../uplink-cgo.h"
+#include "helpers.h"
+
+void callback(Bytes_t bytes, bool done) {
+    printf("Hi");
+}
 
 void TestObject(void)
 {
@@ -27,7 +32,7 @@ void TestObject(void)
     EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
 
     // Open bucket
-    BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], access, err);
+    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, access, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     char *object_path = "TestObject1";
@@ -41,23 +46,19 @@ void TestObject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     free(object);
 
-    object = OpenObject(ref_bucket, object_path, err);
+    ObjectRef_t object_ref = OpenObject(ref_bucket, object_path, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    object_meta = ObjectMeta(object, err)
+    ObjectMeta_t object_meta = ObjectMeta(object_ref, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
 
-    DownloadRange(object, 0, 0, err, callback);
+    DownloadRange(object_ref, 0, 0, err, callback);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // Close Project
     CloseProject(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-}
-
-void callback(Bytes_t bytes, bool done) {
-    printf("Hi");
 }
 
 int main(int argc, char *argv[])

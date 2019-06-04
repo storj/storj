@@ -113,3 +113,22 @@ Bytes_t *BytesFromString(char *str_data)
     data->length = strlen(str_data);
     return data;
 }
+
+void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, Bytes_t *data, char **err)
+{
+    BufferRef_t ref_data = NewBuffer();
+    WriteBuffer(ref_data, data, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+    free(data);
+
+    UploadOptions_t opts = {
+        "text/plain",
+        0,
+        // TODO: Set expiration and assert on it
+
+        time(NULL),
+    };
+
+    UploadObject(ref_bucket, path, ref_data, &opts, err);
+    TEST_ASSERT_EQUAL_STRING("", *err);
+}
