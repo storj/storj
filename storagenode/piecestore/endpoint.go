@@ -168,11 +168,13 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		uploadDuration := dt.Nanoseconds()
 
 		if err != nil {
+			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
 			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
+			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
@@ -355,11 +357,13 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		}
 		downloadDuration := dt.Nanoseconds()
 		if err != nil {
+			mon.Meter("download_failure_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
 			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
+			mon.Meter("download_success_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
