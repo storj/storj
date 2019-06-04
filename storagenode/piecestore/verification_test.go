@@ -227,7 +227,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 
 		_, err = uploader.Write(data)
 		require.NoError(t, err)
-		_, err = uploader.Commit()
+		_, err = uploader.Commit(ctx)
 		require.NoError(t, err)
 	}
 
