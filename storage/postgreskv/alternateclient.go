@@ -157,7 +157,7 @@ func newAlternateOrderedPostgresIterator(ctx context.Context, altClient *Alterna
 
 // Iterate iterates over items based on opts
 func (altClient *AlternateClient) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
-	defer mon.Task()(&ctx)
+	defer mon.Task()(&ctx)(&err)
 	opi, err := newAlternateOrderedPostgresIterator(ctx, altClient, opts, defaultBatchSize)
 	if err != nil {
 		return err
