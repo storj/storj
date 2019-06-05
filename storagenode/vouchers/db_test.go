@@ -26,29 +26,55 @@ func TestVouchers(t *testing.T) {
 
 		vdb := db.Vouchers()
 
-		storagenode := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-
-		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		satellite := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		storagenode := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
 		expiration, err := ptypes.TimestampProto(time.Now().UTC().Add(24 * time.Hour))
 		require.NoError(t, err)
 
 		voucher := &pb.Voucher{
-			SatelliteId:   satellite0.ID,
+			SatelliteId:   satellite.ID,
 			StorageNodeId: storagenode.ID,
 			Expiration:    expiration,
 		}
 
+		// basic Put test
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
 
+		// basic GetExpiring test
 		expiring, err := vdb.GetExpiring(ctx)
 		require.NoError(t, err)
-		require.Equal(t, satellite0.ID, expiring[0])
+		require.Equal(t, satellite.ID, expiring[0])
 
-		result, err := vdb.PresentVoucher(ctx, []storj.NodeID{satellite0.ID})
+		// basic PresentVoucher test
+		result, err := vdb.PresentVoucher(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 		require.Equal(t, voucher.SatelliteId, result.SatelliteId)
 		require.Equal(t, voucher.StorageNodeId, result.StorageNodeId)
+
+		expectedTime, err := ptypes.Timestamp(voucher.GetExpiration())
+		require.NoError(t, err)
+		actualTime, err := ptypes.Timestamp(result.GetExpiration())
+		require.NoError(t, err)
+
+		require.Equal(t, expectedTime, actualTime)
+
+		// Test duplicate satellite id updates voucher
+		voucher.Expiration, err = ptypes.TimestampProto(time.Now().UTC().Add(48 * time.Hour))
+		require.NoError(t, err)
+
+		err = vdb.Put(ctx, voucher)
+		require.NoError(t, err)
+
+		result, err = vdb.PresentVoucher(ctx, []storj.NodeID{satellite.ID})
+		require.NoError(t, err)
+
+		expectedTime, err = ptypes.Timestamp(voucher.GetExpiration())
+		require.NoError(t, err)
+		actualTime, err = ptypes.Timestamp(result.GetExpiration())
+		require.NoError(t, err)
+
+		require.Equal(t, expectedTime, actualTime)
 	})
 }
