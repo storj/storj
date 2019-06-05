@@ -185,6 +185,8 @@ github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0/go.mod h1:OtVLEpPHG
 github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20 h1:XK96humQhnPbQ24uKtSHKbdShDgrKYqlWBNKJTcIKbg=
 github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20/go.mod h1:1liUiYZzx8ZoPTfZrBE2q8DFRDPafts0GGjslOtcZcw=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/kaloyan-raev/errs v1.2.0 h1:rKo8z2k4yQvQgSfeSLSbbrGhfLBoxDp2XLDTVN8sWv0=
+github.com/kaloyan-raev/errs v1.2.0/go.mod h1:cJhxUKid9XaqMse8Afi3n5SUG2NgBShLxhM1Hj7iXxE=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/gotool v1.0.0 h1:AV2c/EiW3KqPNT9ZKl07ehoAGi4C5/01Cfbblndcapg=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
