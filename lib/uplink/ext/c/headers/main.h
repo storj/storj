@@ -22,12 +22,12 @@ typedef GoUintptr ObjectRef_t;
 typedef GoUintptr DownloadReaderRef_t;
 typedef GoUintptr UploadReaderRef_t;
 
+// TODO: Add free functions for each struct
+
 typedef struct Bytes {
     uint8_t *bytes;
     int32_t length;
 } Bytes_t;
-
-void DownloadCallback(Bytes_t bytes, bool done, char *path);
 
 typedef struct IDVersion {
     uint16_t number;

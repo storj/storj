@@ -54,8 +54,27 @@ void TestObject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
 
-    DownloadRange(object_ref, 0, 0, err, callback);
+    DownloadReaderRef_t downloader = DownloadRange(object_ref, 0, object_meta.Size, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+
+    char downloadedData[object_meta.Size];
+    memset(downloadedData, '\0', object_meta.Size);
+    int downloadedTotal = 0;
+
+    while (true) {
+        Bytes_t *bytes = malloc(sizeof(Bytes_t));
+        uint64_t downloadedSize = Download(downloader, bytes, err);
+        if (downloadedSize == EOF) {
+            free(bytes);
+            break;
+        }
+        TEST_ASSERT_EQUAL_STRING("", *err);
+        memcpy(downloadedData+downloadedTotal, bytes->bytes, bytes->length);
+        downloadedTotal += downloadedSize;
+        free(bytes);
+    }
+
+    TEST_ASSERT_EQUAL_STRING(str_data, downloadedData);
 
     // Close Project
     CloseProject(ref_project, err);
