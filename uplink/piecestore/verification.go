@@ -36,7 +36,7 @@ func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerId
 		return ErrVerifyUntrusted.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyPieceHashSignature(signing.SigneeFromPeerIdentity(peer), hash); err != nil {
+	if err := signing.VerifyPieceHashSignature(ctx, signing.SigneeFromPeerIdentity(peer), hash); err != nil {
 		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report grpc status bad message
 	}
 

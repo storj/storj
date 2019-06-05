@@ -152,7 +152,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			tt.limit,
 		)
 
-		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
 		uploader, err := client.Upload(ctx, orderLimit)
@@ -216,7 +216,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			defaultPieceSize.Int64(),
 		)
 
-		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
 		uploader, err := client.Upload(ctx, orderLimit)
@@ -274,7 +274,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			tt.limit,
 		)
 
-		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
 		downloader, err := client.Download(ctx, orderLimit, 0, tt.limit)
