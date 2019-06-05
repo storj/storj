@@ -85,8 +85,7 @@ func NewAPIKey(secret []byte) (*APIKey, error) {
 // Check makes sure that the key authorizes the provided action given the root
 // project secret and any possible revocations, returning an error if the action
 // is not authorized. 'revoked' is a list of revoked heads.
-func (a *APIKey) Check(secret []byte, action Action, revoked [][]byte) (err error) {
-	ctx := context.TODO()
+func (a *APIKey) Check(ctx context.Context, secret []byte, action Action, revoked [][]byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !a.mac.Validate(secret) {
 		return ErrInvalid.New("macaroon unauthorized")
