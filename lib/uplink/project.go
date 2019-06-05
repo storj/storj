@@ -5,7 +5,6 @@ package uplink
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/vivint/infectious"
 
@@ -102,10 +101,6 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg = cfg.clone()
 	cfg.setDefaults()
 
-	if err := validateBlockSize(*cfg); err != nil {
-		return bucket, err
-	}
-
 	bucket = storj.Bucket{
 		PathCipher:           cfg.PathCipher.ToCipher(),
 		EncryptionParameters: cfg.EncryptionParameters,
@@ -113,27 +108,6 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
 	return p.project.CreateBucket(ctx, name, &bucket)
-}
-
-// validateBlockSize confirms the encryption block size aligns with stripe size.
-// Stripes contain encrypted data therefore we want the stripe boundaries to match
-// with the encryption block size boundaries. We also want stripes to be small for
-// audits, but encryption can be a bit larger. All told, block size should be an integer
-// multiple of stripe size.
-func validateBlockSize(cfg BucketConfig) error {
-	shareSize := cfg.Volatile.RedundancyScheme.ShareSize
-	requiredShares := int32(cfg.Volatile.RedundancyScheme.RequiredShares)
-	blockSize := cfg.EncryptionParameters.BlockSize
-
-	// number of bytes needed to recreate a stripe
-	stripeSize := shareSize * requiredShares
-
-	if blockSize%stripeSize != 0 {
-		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
-			blockSize, shareSize, requiredShares,
-		)
-	}
-	return nil
 }
 
 // DeleteBucket deletes a bucket if authorized. If the bucket contains any

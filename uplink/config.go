@@ -148,7 +148,7 @@ func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 	}
 }
 
-// GetPathCipherSuite returns the cipher suite used for path encryption for buckets
+// GetPathCipherSuite returns the cipher suite used for path encryption for bucket objects
 func (c Config) GetPathCipherSuite() storj.CipherSuite {
 	return storj.Cipher(c.Enc.PathType).ToCipherSuite()
 }
