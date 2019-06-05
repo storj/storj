@@ -48,8 +48,8 @@ type DB interface {
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
-	// VetNode returns whether or not the node reaches reputable thresholds
-	VetNode(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
+	// IsVetted returns whether or not the node reaches reputable thresholds
+	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// CreateStats initializes the stats for node.
 	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// Update updates node address
@@ -139,7 +139,8 @@ func NewCache(log *zap.Logger, db DB, preferences NodeSelectionConfig) *Cache {
 func (cache *Cache) Close() error { return nil }
 
 // Inspect lists limited number of items in the cache
-func (cache *Cache) Inspect(ctx context.Context) (storage.Keys, error) {
+func (cache *Cache) Inspect(ctx context.Context) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// TODO: implement inspection tools
 	return nil, errors.New("not implemented")
 }
@@ -166,7 +167,8 @@ func (cache *Cache) IsOnline(node *NodeDossier) bool {
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
-func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) ([]*pb.Node, error) {
+func (cache *Cache) FindStorageNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return cache.FindStorageNodesWithPreferences(ctx, req, &cache.preferences)
 }
 
@@ -270,8 +272,8 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if value.Address == nil {
 		return errors.New("node has no address")
 	}
-	//Resolve IP Address to ensure it is set
-	value.LastIp, err = getIP(value.Address.Address)
+	// Resolve IP Address to ensure it is set
+	value.LastIp, err = getIP(ctx, value.Address.Address)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
@@ -284,8 +286,8 @@ func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *No
 	return cache.db.CreateStats(ctx, nodeID, initial)
 }
 
-// VetNode returns whether or not the node reaches reputable thresholds
-func (cache *Cache) VetNode(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
 		AuditCount:         cache.preferences.AuditCount,
@@ -293,7 +295,7 @@ func (cache *Cache) VetNode(ctx context.Context, nodeID storj.NodeID) (reputable
 		UptimeCount:        cache.preferences.UptimeCount,
 		UptimeSuccessRatio: cache.preferences.UptimeRatio,
 	}
-	reputable, err = cache.db.VetNode(ctx, nodeID, criteria)
+	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
 		return false, err
 	}
@@ -349,6 +351,7 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 
 // GetMissingPieces returns the list of offline nodes
 func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
 	for _, p := range pieces {
 		nodeIDs = append(nodeIDs, p.NodeId)
@@ -368,7 +371,8 @@ func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePie
 	return missingPieces, nil
 }
 
-func getIP(target string) (string, error) {
+func getIP(ctx context.Context, target string) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {
 		return "", err

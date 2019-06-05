@@ -4,6 +4,8 @@
 package metainfo
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
@@ -27,6 +29,9 @@ func NewService(logger *zap.Logger, db storage.KeyValueStore) *Service {
 
 // Put puts pointer to db under specific path
 func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
+
 	// Update the pointer with the creation date
 	pointer.CreationDate = ptypes.TimestampNow()
 
@@ -47,6 +52,8 @@ func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
 
 // Get gets pointer from db
 func (s *Service) Get(path string) (pointer *pb.Pointer, err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	pointerBytes, err := s.DB.Get([]byte(path))
 	if err != nil {
 		return nil, err
@@ -64,6 +71,8 @@ func (s *Service) Get(path string) (pointer *pb.Pointer, err error) {
 // List returns all Path keys in the pointers bucket
 func (s *Service) List(prefix string, startAfter string, endBefore string, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 
 	var prefixKey storage.Key
 	if prefix != "" {
@@ -86,14 +95,15 @@ func (s *Service) List(prefix string, startAfter string, endBefore string, recur
 	}
 
 	for _, rawItem := range rawItems {
-		items = append(items, s.createListItem(rawItem, metaFlags))
+		items = append(items, s.createListItem(ctx, rawItem, metaFlags))
 	}
 	return items, more, nil
 }
 
 // createListItem creates a new list item with the given path. It also adds
 // the metadata according to the given metaFlags.
-func (s *Service) createListItem(rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+func (s *Service) createListItem(ctx context.Context, rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+	defer mon.Task()(&ctx)(nil)
 	item := &pb.ListResponse_Item{
 		Path:     rawItem.Key.String(),
 		IsPrefix: rawItem.IsPrefix,
@@ -143,11 +153,15 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 
 // Delete deletes from item from db
 func (s *Service) Delete(path string) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	return s.DB.Delete([]byte(path))
 }
 
 // Iterate iterates over items in db
 func (s *Service) Iterate(prefix string, first string, recurse bool, reverse bool, f func(it storage.Iterator) error) (err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	opts := storage.IterateOptions{
 		Prefix:  storage.Key(prefix),
 		First:   storage.Key(first),

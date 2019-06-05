@@ -5,6 +5,7 @@ package consoleql_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -30,7 +32,7 @@ import (
 type discardSender struct{}
 
 // SendEmail immediately returns with nil error
-func (*discardSender) SendEmail(msg *post.Message) error {
+func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 
@@ -50,6 +52,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			localpayments.NewService(nil),
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)

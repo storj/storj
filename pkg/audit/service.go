@@ -79,7 +79,8 @@ func (service *Service) Close() error {
 }
 
 // process picks a random stripe and verifies correctness
-func (service *Service) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var stripe *Stripe
 	for {
 		s, more, err := service.Cursor.NextStripe(ctx)

@@ -22,7 +22,8 @@ func NewInspector(cache *Cache) *Inspector {
 }
 
 // CountNodes returns the number of nodes in the cache
-func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (*pb.CountNodesResponse, error) {
+func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (_ *pb.CountNodesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	overlayKeys, err := srv.cache.Inspect(ctx)
 	if err != nil {
 		return nil, err
@@ -34,12 +35,14 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 }
 
 // DumpNodes returns all of the nodes in the overlay cachea
-func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (*pb.DumpNodesResponse, error) {
+func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (_ *pb.DumpNodesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
 }
 
 // GetStats returns the stats for a particular node ID
-func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*pb.GetStatsResponse, error) {
+func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	node, err := srv.cache.Get(ctx, req.NodeId)
 	if err != nil {
 		return nil, err
@@ -54,7 +57,8 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (*p
 }
 
 // CreateStats creates a node with specified stats
-func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (*pb.CreateStatsResponse, error) {
+func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (_ *pb.CreateStatsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	stats := &NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
@@ -62,7 +66,7 @@ func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsReques
 		UptimeSuccessCount: req.UptimeSuccessCount,
 	}
 
-	_, err := srv.cache.Create(ctx, req.NodeId, stats)
+	_, err = srv.cache.Create(ctx, req.NodeId, stats)
 	if err != nil {
 		return nil, err
 	}

@@ -22,8 +22,9 @@ type repairQueue struct {
 	db *dbx.DB
 }
 
-func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error {
-	_, err := r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO injuredsegments ( path, data ) VALUES ( ?, ? )`), seg.Path, seg)
+func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = r.db.ExecContext(ctx, r.db.Rebind(`INSERT INTO injuredsegments ( path, data ) VALUES ( ?, ? )`), seg.Path, seg)
 	if err != nil {
 		if pgutil.IsConstraintError(err) || sqliteutil.IsConstraintError(err) {
 			return nil // quietly fail on reinsert
@@ -34,6 +35,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment) error 
 }
 
 func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = r.db.QueryRowContext(ctx, `
 	UPDATE injuredsegments SET attempted = timezone('utc', now()) WHERE path = (
 		SELECT path FROM injuredsegments
@@ -47,12 +49,13 @@ func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegmen
 }
 
 func (r *repairQueue) sqliteSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
 	err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		var path string
 		err = tx.Tx.QueryRowContext(ctx, r.db.Rebind(`
-			SELECT path, data FROM injuredsegments 
-			WHERE attempted IS NULL 
-			OR attempted < datetime('now','-1 hours') 
+			SELECT path, data FROM injuredsegments
+			WHERE attempted IS NULL
+			OR attempted < datetime('now','-1 hours')
 			ORDER BY path LIMIT 1`)).Scan(&path, &seg)
 		if err != nil {
 			return err
@@ -77,6 +80,7 @@ func (r *repairQueue) sqliteSelect(ctx context.Context) (seg *pb.InjuredSegment,
 }
 
 func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
 	switch t := r.db.DB.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		return r.sqliteSelect(ctx)
@@ -88,11 +92,13 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 }
 
 func (r *repairQueue) Delete(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, err = r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM injuredsegments WHERE path = ?`), seg.Path)
 	return
 }
 
 func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.InjuredSegment, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if limit <= 0 || limit > storage.LookupLimit {
 		limit = storage.LookupLimit
 	}
