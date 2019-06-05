@@ -8,14 +8,15 @@ Nodes can be disqualified due to audit failures, failures to return data during 
 
 ## Main Objectives
 
-1. To stop using and fuly demonetize nodes which are not behaving as desired.
+1. To stop using and fully demonetize nodes which are not behaving as desired.
 2. Efficiently identify and ignore these 'bad' nodes.
 
 ## Background
 
-The whitepaper section 4.13 talks about disqualification mode as follows:
+The whitepaper section 4.15 and 4.16 talk about disqualification mode as follows:
 
-> The filtering system is the third subsystem; it blocks bad storage nodes from participating. In addition to simply not having done a suficient proof of work, certain actions a storage node can take are disqualifying events. The reputation system will be used to filter these nodes out from future uploads, regardless of where the node is in the vetting process. Actions that are disqualifying include: failing too many audits; failing to return data, with reasonable speed; and failing too many uptime checks.
+> The filtering system is the third subsystem; it blocks bad storage nodes from participating. In addition to simply not having done a sufficient proof of work, certain actions a storage node can take are disqualifying events. The reputation system will be used to filter these nodes out from future uploads, regardless of where the node is in the vetting process. Actions that are disqualifying include: failing too many audits; failing to return data, with reasonable speed; and failing too many uptime checks.
+>
 > If a storage node is disqualified, that node will no longer be selected for future data storage and the data that node stores will be moved to new storage nodes. Likewise, if a client attempts to download a piece from a storage node that the node should have stored and the node fails to return it, the node will be disqualified. Importantly, storagenodes will be allowed to reject and fail _put_ operations without penalty, as nodes will be allowed to choose which Satellite operators to work with and which data to store.
 
 'Failing to return data' is clarified to mean during an audit or a repair. Failure to return data to uplinks is specifically excluded, as this would imply a robust system of trust that does not currently exist. "Filter these nodes out from future uploads" has been clarified to mean that we want to stop any transactions with these nodes:  upload and downloading including repair and graceful exist.  In effect, the satellite should do no business with a disqualified node.
@@ -30,7 +31,7 @@ Further, the node will be demonetized.
 
 A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia as the kademlia network supports multiple satellites.  It will also be found in Node DB / overlay cache, as nodes are not currently ever removed from that database.  Filtering of Node DB records will be required for most operations.
 
-One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  [Storage Node Payment and Incentives for V3](https://docs.google.com/document/d/1-Pxzk-ad-0QtF6nnTwfgzk8e_-XbBNSDxuRvnbd0QL8/edit#heading=h.rz1ehm5mbeuz) describes this feature:
+One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  "Storage Node Payment and Incentives for V3" describes this feature:
 
 > When a node operator wants to leave the network, if they just shut down the node, the unavailability of the data on the network can contribute to repair costs.  If instead, the node triggers a function to call a Satellite, request new storage nodes to store the pieces stored on the node being shut down, then directly upload those pieces to the new nodes, file repair would be avoided.
 
@@ -63,11 +64,11 @@ Existing calls to the DBX `UpdateNodeInfo()` method must set `disqualified` if a
 
 ### Determining Disqualification
 
-A node is disqualified when its reputation falls below a fixed value.  We are currently envision two disinct reputation check values, one for uptime and another for audit.  These values will represent an idea value minus some some standard-deviation.  The proposed system for calculation repuations is based on four values: α0, β0, λ, and v.  Because changing these values will change the expected standard deviation of measurements, the reputation cutoff values will vary as these parameters vary.  At this phase, it is exected that these cutoffs are all configured based on numbers from the data science team.  A node will be disqualified if either the audit or the uptime reputation value falls below their disqualification cutoff value.
+A node is disqualified when its reputation falls below a fixed value.  We are currently envision two disinct reputation check values, one for uptime and another for audit.  These values will represent an idea value minus some standard-deviation.  The proposed system for calculation repuations is based on four values: α0, β0, λ, and v.  Because changing these values will change the expected standard deviation of measurements, the reputation cutoff values will vary as these parameters vary.  At this phase, it is exected that these cutoffs are all configured based on numbers from the data science team.  A node will be disqualified if either the audit or the uptime reputation value falls below their disqualification cutoff value.
 
 ## Rationale
 
-Although disqualification is largely an atomic operation that would be handled well by an external hash, the inherent tie-ins with node selection make the above solution the most straightforward.  If we were to refactor node selection in the future, I would likely leave disqualified nodes out of the stats database, leaving them only in the overlay cache.
+Although disqualification is largely an atomic operation that would be handled well by an external hash, the inherent tie-ins with node selection make the above solution the most straightforward.  If we were to refactor node selection in the future, we would likely leave disqualified nodes out of the stats database, leaving them only in the overlay cache.
 
 ## Implementation (Stories)
 
