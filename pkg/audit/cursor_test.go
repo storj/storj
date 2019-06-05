@@ -4,6 +4,7 @@
 package audit_test
 
 import (
+	"context"
 	"crypto/rand"
 	"math"
 	"math/big"
@@ -55,7 +56,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := metainfo.List("", "", "", true, 10, meta.None)
+			list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -119,7 +120,7 @@ func TestDeleteExpired(t *testing.T) {
 		//populate metainfo with 10 expired pointers of test data
 		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
 		//make sure it they're in there
-		list, _, err := metainfo.List("", "", "", true, 10, meta.None)
+		list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
 		// make sure an error and no pointer is returned
@@ -129,7 +130,7 @@ func TestDeleteExpired(t *testing.T) {
 			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
-		list, _, err = metainfo.List("", "", "", true, 10, meta.None)
+		list, _, err = metainfo.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 0)
 	})
@@ -141,6 +142,7 @@ type testData struct {
 }
 
 func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *metainfo.Service) {
+	ctx := context.TODO()
 	tests := []testData{
 		{bm: "success-1", path: "folder1/file1"},
 		{bm: "success-2", path: "foodFolder1/file1/file2"},
@@ -161,7 +163,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 		for _, tt := range tests {
 			t.Run(tt.bm, func(t *testing.T) {
 				pointer := makePointer(tt.path, expiration)
-				require.NoError(t, metainfo.Put(tt.path, pointer))
+				require.NoError(t, metainfo.Put(ctx, tt.path, pointer))
 			})
 		}
 	})

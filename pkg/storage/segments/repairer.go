@@ -46,7 +46,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment pointer from the metainfo
-	pointer, err := repairer.metainfo.Get(path)
+	pointer, err := repairer.metainfo.Get(ctx, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -174,7 +174,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
 	// Update the segment pointer in the metainfo
-	return repairer.metainfo.Put(path, pointer)
+	return repairer.metainfo.Put(ctx, path, pointer)
 }
 
 // sliceToSet converts the given slice to a set

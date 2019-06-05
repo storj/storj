@@ -100,7 +100,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put("fake-piece-id", pointer)
+		err := metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -136,6 +136,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 }
 
 func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
+	ctx := context.TODO()
 	numOfStorageNodes := len(planet.StorageNodes)
 	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
 	// use online nodes
@@ -170,7 +171,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(pieceID, pointer)
+	err := pointerdb.Put(ctx, pieceID, pointer)
 	require.NoError(t, err)
 }
 

@@ -307,7 +307,7 @@ func (k *Kademlia) lookup(ctx context.Context, ID storj.NodeID, isBootstrap bool
 	if err != nil {
 		return pb.Node{}, err
 	}
-	bucket, err := k.routingTable.getKBucketID(ID)
+	bucket, err := k.routingTable.getKBucketID(ctx, ID)
 	if err != nil {
 		k.log.Warn("Error getting getKBucketID in kad lookup")
 	} else {

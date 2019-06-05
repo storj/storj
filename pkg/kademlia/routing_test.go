@@ -168,7 +168,7 @@ func TestConnectionSuccess(t *testing.T) {
 		t.Run(c.testID, func(t *testing.T) {
 			err := rt.ConnectionSuccess(c.node)
 			assert.NoError(t, err)
-			v, err := rt.nodeBucketDB.Get(c.id.Bytes())
+			v, err := rt.nodeBucketDB.Get(ctx, c.id.Bytes())
 			assert.NoError(t, err)
 			n, err := unmarshalNodes([]storage.Value{v})
 			assert.NoError(t, err)
@@ -187,7 +187,7 @@ func TestConnectionFailed(t *testing.T) {
 	defer ctx.Check(rt.Close)
 	err := rt.ConnectionFailed(node)
 	assert.NoError(t, err)
-	v, err := rt.nodeBucketDB.Get(id.Bytes())
+	v, err := rt.nodeBucketDB.Get(ctx, id.Bytes())
 	assert.Error(t, err)
 	assert.Nil(t, v)
 }
@@ -201,7 +201,7 @@ func TestSetBucketTimestamp(t *testing.T) {
 	defer ctx.Check(rt.Close)
 	now := time.Now().UTC()
 
-	err := rt.createOrUpdateKBucket(keyToBucketID(id.Bytes()), now)
+	err := rt.createOrUpdateKBucket(ctx, keyToBucketID(id.Bytes()), now)
 	assert.NoError(t, err)
 	ti, err := rt.GetBucketTimestamp(id.Bytes())
 	assert.Equal(t, now, ti)
@@ -222,7 +222,7 @@ func TestGetBucketTimestamp(t *testing.T) {
 	rt := createRoutingTable(id)
 	defer ctx.Check(rt.Close)
 	now := time.Now().UTC()
-	err := rt.createOrUpdateKBucket(keyToBucketID(id.Bytes()), now)
+	err := rt.createOrUpdateKBucket(ctx, keyToBucketID(id.Bytes()), now)
 	assert.NoError(t, err)
 	ti, err := rt.GetBucketTimestamp(id.Bytes())
 	assert.Equal(t, now, ti)

@@ -91,13 +91,13 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
-		func(it storage.Iterator) error {
+	err = checker.metainfo.Iterate(ctx, "", checker.lastChecked, true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
 			defer func() {
 				var nextItem storage.ListItem
-				it.Next(&nextItem)
+				it.Next(ctx, &nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
 
@@ -119,7 +119,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				}
 			}()
 
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
