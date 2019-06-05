@@ -2,7 +2,7 @@
 
 ## Abstract
 
-StorageNode B is added to StorageNode A's routing table only if StorageNode A trusts Satellite C and Satellite C has verified StorageNode B has a high enough identity-generation difficulty (CPU proof-of-work) and disk space. If StorageNode B does not have this verification, it is added to StorageNode A's Routing Table Antechamber.
+StorageNode B is added to StorageNode A's routing table only if StorageNode A trusts Satellite C and Satellite C has verified StorageNode B is not disqualified and has a high enough audit count and uptime count. If StorageNode B does not have this verification, it is added to StorageNode A's Routing Table Antechamber.
 
 ## Background
 
@@ -65,7 +65,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 ## Rationale
 
-To help prevent Sybill Attacks where bad Nodes fill the routing tables and push out good Nodes.
+To help prevent Sybill Attacks where bad Nodes fill the routing tables, push out good Nodes, and propogate themselves across the network into the majority of routing tables, essentially voiding the DHT.
 
 ## Implementation
 
@@ -87,11 +87,11 @@ To help prevent Sybill Attacks where bad Nodes fill the routing tables and push 
 
 Q: Should closer buckets to self get refreshed more frequently?
 
-A: ?
+A: Yes, but not as part of this Epic. See this [ticket](https://storjlabs.atlassian.net/browse/V3-1907)
 
 Q: If a node is removed from the Routing Table, should it be added back to the antechamber?
 
-A: ?
+A: No, it must start the process from the beginning. No special action should be taken.
 
 Q: Should the routing table antechamber have a maximum size? 
 
