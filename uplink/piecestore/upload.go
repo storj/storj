@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -16,14 +17,16 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 )
 
+var mon = monkit.Package()
+
 // Uploader defines the interface for uploading a piece.
 type Uploader interface {
 	// Write uploads data to the storage node.
 	Write([]byte) (int, error)
 	// Cancel cancels the upload.
-	Cancel() error
+	Cancel(context.Context) error
 	// Commit finalizes the upload.
-	Commit() (*pb.PieceHash, error)
+	Commit(context.Context) (*pb.PieceHash, error)
 }
 
 // Upload implements uploading to the storage node.
@@ -32,6 +35,7 @@ type Upload struct {
 	limit  *pb.OrderLimit2
 	peer   *identity.PeerIdentity
 	stream pb.Piecestore_UploadClient
+	ctx    context.Context
 
 	hash           hash.Hash // TODO: use concrete implementation
 	offset         int64
@@ -67,6 +71,7 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 		limit:  limit,
 		peer:   peer,
 		stream: stream,
+		ctx:    ctx,
 
 		hash:           pkcrypto.NewHash(),
 		offset:         0,
@@ -82,7 +87,9 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Upload
 }
 
 // Write sends data to the storagenode allocating as necessary.
-func (client *Upload) Write(data []byte) (written int, _ error) {
+func (client *Upload) Write(data []byte) (written int, err error) {
+	ctx := client.ctx
+	defer mon.Task()(&ctx)(&err)
 	if client.finished {
 		return 0, io.EOF
 	}
@@ -108,7 +115,7 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 		}
 
 		// create a signed order for the next chunk
-		order, err := signing.SignOrder(client.client.signer, &pb.Order2{
+		order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order2{
 			SerialNumber: client.limit.SerialNumber,
 			Amount:       client.offset + int64(len(sendData)),
 		})
@@ -149,7 +156,8 @@ func (client *Upload) Write(data []byte) (written int, _ error) {
 }
 
 // Cancel cancels the uploading.
-func (client *Upload) Cancel() error {
+func (client *Upload) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if client.finished {
 		return io.EOF
 	}
@@ -158,7 +166,8 @@ func (client *Upload) Cancel() error {
 }
 
 // Commit finishes uploading by sending the piece-hash and retrieving the piece-hash.
-func (client *Upload) Commit() (*pb.PieceHash, error) {
+func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if client.finished {
 		return nil, io.EOF
 	}
@@ -172,7 +181,7 @@ func (client *Upload) Commit() (*pb.PieceHash, error) {
 	}
 
 	// sign the hash for storage node
-	uplinkHash, err := signing.SignPieceHash(client.client.signer, &pb.PieceHash{
+	uplinkHash, err := signing.SignPieceHash(ctx, client.client.signer, &pb.PieceHash{
 		PieceId: client.limit.PieceId,
 		Hash:    client.hash.Sum(nil),
 	})
