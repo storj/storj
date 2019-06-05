@@ -44,7 +44,7 @@ func TestRevocationDB_Get(t *testing.T) {
 			nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 			require.NoError(t, err)
 
-			err = db.Put(nodeID.Bytes(), ext.Value)
+			err = db.Put(ctx, nodeID.Bytes(), ext.Value)
 			require.NoError(t, err)
 		}
 
@@ -102,7 +102,7 @@ func TestRevocationDB_Put_success(t *testing.T) {
 			nodeID, err := identity.NodeIDFromCert(chain[peertls.CAIndex])
 			require.NoError(t, err)
 
-			revBytes, err := db.Get(nodeID.Bytes())
+			revBytes, err := db.Get(ctx, nodeID.Bytes())
 			require.NoError(t, err)
 
 			assert.Equal(t, testcase.ext.Value, []byte(revBytes))
