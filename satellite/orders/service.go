@@ -84,6 +84,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
+	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
 	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
 		return err
 	}
