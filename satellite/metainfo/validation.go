@@ -41,63 +41,63 @@ type createRequest struct {
 type createRequests struct {
 	mu sync.RWMutex
 	// orders limit serial number used because with CreateSegment we don't have path yet
-	requests map[storj.SerialNumber]*createRequest
+	entries map[storj.SerialNumber]*createRequest
 
-	ttlMu    sync.Mutex
-	ttlItems []*TTLItem
+	muTTL      sync.Mutex
+	entriesTTL []*TTLItem
 }
 
 func newCreateRequests() *createRequests {
 	return &createRequests{
-		requests: make(map[storj.SerialNumber]*createRequest),
-		ttlItems: make([]*TTLItem, 0),
+		entries:    make(map[storj.SerialNumber]*createRequest),
+		entriesTTL: make([]*TTLItem, 0),
 	}
 }
 
-func (cr *createRequests) Put(serialNumber storj.SerialNumber, createRequest *createRequest) {
+func (requests *createRequests) Put(serialNumber storj.SerialNumber, createRequest *createRequest) {
 	ttl := time.Now().Add(requestTTL)
 
 	go func() {
-		cr.ttlMu.Lock()
-		cr.ttlItems = append(cr.ttlItems, &TTLItem{
+		requests.muTTL.Lock()
+		requests.entriesTTL = append(requests.entriesTTL, &TTLItem{
 			serialNumber: serialNumber,
 			ttl:          ttl,
 		})
-		cr.ttlMu.Unlock()
+		requests.muTTL.Unlock()
 	}()
 
 	createRequest.ttl = ttl
-	cr.mu.Lock()
-	cr.requests[serialNumber] = createRequest
-	cr.mu.Unlock()
+	requests.mu.Lock()
+	requests.entries[serialNumber] = createRequest
+	requests.mu.Unlock()
 
-	go cr.cleanup()
+	go requests.cleanup()
 }
 
-func (cr *createRequests) Load(serialNumber storj.SerialNumber) (*createRequest, bool) {
-	cr.mu.RLock()
-	request, found := cr.requests[serialNumber]
+func (requests *createRequests) Load(serialNumber storj.SerialNumber) (*createRequest, bool) {
+	requests.mu.RLock()
+	request, found := requests.entries[serialNumber]
 	if request != nil && request.ttl.Before(time.Now()) {
 		request = nil
 		found = false
 	}
-	cr.mu.RUnlock()
+	requests.mu.RUnlock()
 
 	return request, found
 }
 
-func (cr *createRequests) Remove(serialNumber storj.SerialNumber) {
-	cr.mu.Lock()
-	delete(cr.requests, serialNumber)
-	cr.mu.Unlock()
+func (requests *createRequests) Remove(serialNumber storj.SerialNumber) {
+	requests.mu.Lock()
+	delete(requests.entries, serialNumber)
+	requests.mu.Unlock()
 }
 
-func (cr *createRequests) cleanup() {
-	cr.ttlMu.Lock()
+func (requests *createRequests) cleanup() {
+	requests.muTTL.Lock()
 	now := time.Now()
 	remove := make([]storj.SerialNumber, 0)
 	newStart := 0
-	for i, item := range cr.ttlItems {
+	for i, item := range requests.entriesTTL {
 		if item.ttl.Before(now) {
 			remove = append(remove, item.serialNumber)
 			newStart = i + 1
@@ -105,11 +105,11 @@ func (cr *createRequests) cleanup() {
 			break
 		}
 	}
-	cr.ttlItems = cr.ttlItems[newStart:]
-	cr.ttlMu.Unlock()
+	requests.entriesTTL = requests.entriesTTL[newStart:]
+	requests.muTTL.Unlock()
 
 	for _, serialNumber := range remove {
-		cr.Remove(serialNumber)
+		requests.Remove(serialNumber)
 	}
 }
 
