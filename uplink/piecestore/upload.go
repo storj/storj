@@ -47,7 +47,8 @@ type Upload struct {
 }
 
 // Upload initiates an upload to the storage node.
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (Uploader, error) {
+func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uploader, err error) {
+	defer mon.Task()(&ctx)(&err)
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
 		return nil, err
