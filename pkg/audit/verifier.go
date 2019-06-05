@@ -103,32 +103,37 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			if context.DeadlineExceeded == errs.Unwrap(share.Error) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
+				verifier.log.Debug("dial timeout (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 				continue
 			}
 			if codes.Unknown == status.Code(errs.Unwrap(share.Error)) {
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
+				verifier.log.Debug("dial failed (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 				continue
 			}
 			// unknown transport error
 			containedNodes[pieceNum] = nodes[pieceNum]
-			continue
+			verifier.log.Debug("unknown transport error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 		}
 
 		if codes.NotFound == status.Code(errs.Unwrap(share.Error)) {
 			// missing share
 			failedNodes = append(failedNodes, nodes[pieceNum])
+			verifier.log.Debug("piece not found (audit failed)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 			continue
 		}
 
 		if codes.DeadlineExceeded == status.Code(errs.Unwrap(share.Error)) {
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = nodes[pieceNum]
+			verifier.log.Debug("download timeout (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 			continue
 		}
 
 		// unknown error
 		containedNodes[pieceNum] = nodes[pieceNum]
+		verifier.log.Debug("unknown error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
