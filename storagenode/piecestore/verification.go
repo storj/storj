@@ -101,7 +101,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 		return ErrProtocol.New("order exceeded allowed amount=%v, limit=%v", order.Amount, limit.Limit) // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyOrderSignature(signing.SigneeFromPeerIdentity(peer), order); err != nil {
+	if err := signing.VerifyOrderSignature(ctx, signing.SigneeFromPeerIdentity(peer), order); err != nil {
 		return ErrVerifyUntrusted.New("invalid order signature") // TODO: report grpc status bad message
 	}
 
@@ -122,7 +122,7 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyPieceHashSignature(signing.SigneeFromPeerIdentity(peer), hash); err != nil {
+	if err := signing.VerifyPieceHashSignature(ctx, signing.SigneeFromPeerIdentity(peer), hash); err != nil {
 		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report grpc status bad message
 	}
 
@@ -141,7 +141,7 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyOrderLimitSignature(signee, limit); err != nil {
+	if err := signing.VerifyOrderLimitSignature(ctx, signee, limit); err != nil {
 		return ErrVerifyUntrusted.New("invalid order limit signature: %v", err) // TODO: report grpc status bad message
 	}
 

@@ -4,11 +4,14 @@
 package auth
 
 import (
+	"context"
+
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
 // GenerateSignature creates signature from identity id
-func GenerateSignature(data []byte, identity *identity.FullIdentity) ([]byte, error) {
+func GenerateSignature(ctx context.Context, data []byte, identity *identity.FullIdentity) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return pkcrypto.HashAndSign(identity.Key, data)
 }
