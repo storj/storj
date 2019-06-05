@@ -10,12 +10,22 @@ package main
 //   #include "c/headers/main.h"
 // #endif
 import "C"
+import (
+	"storj.io/storj/pkg/storj"
+)
 
 var structRefMap = newMapping()
 
-//CMalloc allocates C memory
-func CMalloc(size uintptr) uintptr {
-	CMem := C.malloc(C.size_t(size))
-	return uintptr(CMem)
+//export GetIDVersion
+func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
+	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cIDVersion
+	}
+
+	return C.IDVersion_t{
+		number: C.uint16_t(goIDVersion.Number),
+	}
 }
 

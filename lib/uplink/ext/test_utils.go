@@ -11,24 +11,20 @@ package main
 // #endif
 import "C"
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"unsafe"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/console"
 )
 
 // C types
@@ -36,13 +32,11 @@ type Cchar = *C.char
 
 // Ref types
 type CAPIKeyRef = C.APIKeyRef_t
-type CUplinkRef = C.UplinkRef_t
 
 var (
 	cLibDir, cSrcDir, cTestsDir, libuplink string
 
 	testConfig = new(uplink.Config)
-	ciphers    = []storj.CipherSuite{storj.EncNull, storj.EncAESGCM, storj.EncSecretBox}
 )
 
 func init() {
@@ -112,44 +106,11 @@ func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet 
 	return planet
 }
 
-func newProject(t *testing.T, planet *testplanet.Planet) *console.Project {
-	// TODO: support multiple satellites?
-	projectName := t.Name()
-	consoleDB := planet.Satellites[0].DB.Console()
-
-	project, err := consoleDB.Projects().Insert(
-		context.Background(),
-		&console.Project{
-			Name: projectName,
-		},
-	)
-	require.NoError(t, err)
-	require.NotNil(t, project)
-
-	return project
+func stringToCCharPtr(str string) *C.char {
+	return (*C.char)(unsafe.Pointer(C.CString(str)))
 }
 
-func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, id uuid.UUID) string {
-	// TODO: support multiple satellites?
-	APIKey, err := macaroon.NewAPIKey([]byte("testSecret"))
-	require.NoError(t, err)
-
-	consoleDB := planet.Satellites[0].DB.Console()
-
-	project, err := consoleDB.Projects().Get(ctx, id)
-	require.NoError(t, err)
-	require.NotNil(t, project)
-
-	_, err = consoleDB.APIKeys().Create(
-		context.Background(),
-		APIKey.Head(),
-		console.APIKeyInfo{
-			Name:      "root",
-			ProjectID: project.ID,
-			Secret:    []byte("testSecret"),
-		},
-	)
-	require.NoError(t, err)
-	return APIKey.Serialize()
+func cCharToGoString(cchar *C.char) string {
+	return C.GoString(cchar)
 }
 
