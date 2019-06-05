@@ -198,6 +198,8 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 
 		for _, share := range shares {
 			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
+				fmt.Println("IsFunc err:", err)
+				fmt.Println("IsFunc code:", status.Code(err))
 				return status.Code(err) == codes.NotFound
 			}), "unexpected error:", share.Error)
 		}
@@ -355,6 +357,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		for _, share := range shares {
 			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
+				fmt.Println("IsFunc err:", err)
+				fmt.Println("IsFunc code:", status.Code(err))
 				return status.Code(err) == codes.DeadlineExceeded
 			}), "unexpected error:", share.Error)
 			assert.False(t, transport.Error.Has(share.Error), "unexpected error:", share.Error)
