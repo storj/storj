@@ -41,7 +41,9 @@ type Download struct {
 }
 
 // Download starts a new download using the specified order limit at the specified offset and size.
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (Downloader, error) {
+func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (_ Downloader, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	stream, err := client.client.Download(ctx)
 	if err != nil {
 		return nil, err

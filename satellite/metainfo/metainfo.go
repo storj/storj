@@ -4,7 +4,6 @@
 package metainfo
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"strconv"
@@ -18,7 +17,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
@@ -53,13 +51,14 @@ type Containment interface {
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log          *zap.Logger
-	metainfo     *Service
-	orders       *orders.Service
-	cache        *overlay.Cache
-	projectUsage *accounting.ProjectUsage
-	containment  Containment
-	apiKeys      APIKeys
+	log            *zap.Logger
+	metainfo       *Service
+	orders         *orders.Service
+	cache          *overlay.Cache
+	projectUsage   *accounting.ProjectUsage
+	containment    Containment
+	apiKeys        APIKeys
+	createRequests *createRequests
 }
 
 // NewEndpoint creates new metainfo endpoint instance
@@ -67,48 +66,19 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:          log,
-		metainfo:     metainfo,
-		orders:       orders,
-		cache:        cache,
-		containment:  containment,
-		apiKeys:      apiKeys,
-		projectUsage: projectUsage,
+		log:            log,
+		metainfo:       metainfo,
+		orders:         orders,
+		cache:          cache,
+		containment:    containment,
+		apiKeys:        apiKeys,
+		projectUsage:   projectUsage,
+		createRequests: newCreateRequests(),
 	}
 }
 
 // Close closes resources
 func (endpoint *Endpoint) Close() error { return nil }
-
-func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	keyData, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	key, err := macaroon.ParseAPIKey(string(keyData))
-	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	keyInfo, err := endpoint.apiKeys.GetByHead(ctx, key.Head())
-	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	// Revocations are currently handled by just deleting the key.
-	err = key.Check(ctx, keyInfo.Secret, action, nil)
-	if err != nil {
-		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	return keyInfo, nil
-}
 
 // SegmentInfo returns segment metadata info
 func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRequest) (resp *pb.SegmentInfoResponse, err error) {
@@ -135,7 +105,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -209,6 +179,13 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, Error.Wrap(err)
 	}
 
+	if len(addressedLimits) > 0 {
+		endpoint.createRequests.Put(addressedLimits[0].Limit.SerialNumber, &createRequest{
+			Expiration: req.Expiration,
+			Redundancy: req.Redundancy,
+		})
+	}
+
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
 }
 
@@ -247,7 +224,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.validateCommit(ctx, req)
+	err = endpoint.validateCommitSegment(ctx, req)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -269,7 +246,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	err = endpoint.metainfo.Put(path, req.Pointer)
+	err = endpoint.metainfo.Put(ctx, path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -283,9 +260,13 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 	}
 
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	if len(req.OriginalLimits) > 0 {
+		endpoint.createRequests.Remove(req.OriginalLimits[0].SerialNumber)
 	}
 
 	return &pb.SegmentCommitResponse{Pointer: pointer}, nil
@@ -329,7 +310,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -385,7 +366,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -393,7 +374,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Delete(path)
+	err = endpoint.metainfo.Delete(ctx, path)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -443,7 +424,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.metainfo.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}
@@ -503,78 +484,6 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
-func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	if len(bucket) == 0 {
-		return errs.New("bucket not specified")
-	}
-	if bytes.ContainsAny(bucket, "/") {
-		return errs.New("bucket should not contain slash")
-	}
-	return nil
-}
-
-func (endpoint *Endpoint) validateCommit(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	err = endpoint.validatePointer(ctx, req.Pointer)
-	if err != nil {
-		return err
-	}
-
-	if req.Pointer.Type == pb.Pointer_REMOTE {
-		remote := req.Pointer.Remote
-
-		if len(req.OriginalLimits) == 0 {
-			return Error.New("no order limits")
-		}
-		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
-			return Error.New("invalid no order limit for piece")
-		}
-
-		for _, piece := range remote.RemotePieces {
-			limit := req.OriginalLimits[piece.PieceNum]
-
-			err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
-			if err != nil {
-				return err
-			}
-
-			if limit == nil {
-				return Error.New("invalid no order limit for piece")
-			}
-			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId)
-			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
-				return Error.New("invalid order limit piece id")
-			}
-			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
-				return Error.New("piece NodeID != order limit NodeID")
-			}
-		}
-	}
-	return nil
-}
-
-func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	if pointer == nil {
-		return Error.New("no pointer specified")
-	}
-
-	// TODO does it all?
-	if pointer.Type == pb.Pointer_REMOTE {
-		if pointer.Remote == nil {
-			return Error.New("no remote segment specified")
-		}
-		if pointer.Remote.RemotePieces == nil {
-			return Error.New("no remote segment pieces specified")
-		}
-		if pointer.Remote.Redundancy == nil {
-			return Error.New("no redundancy scheme specified")
-		}
-	}
-	return nil
-}
-
 // CreatePath will create a Segment path
 func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ storj.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -596,13 +505,4 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 		entries = append(entries, string(path))
 	}
 	return storj.JoinPaths(entries...), nil
-}
-
-func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	// TODO more validation, use validation from eestream.NewRedundancyStrategy
-	if redundancy.ErasureShareSize <= 0 {
-		return Error.New("erasure share size cannot be less than 0")
-	}
-	return nil
 }
