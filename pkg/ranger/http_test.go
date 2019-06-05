@@ -16,6 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	ctx = context.Background() // test context
+)
+
 func TestHTTPRanger(t *testing.T) {
 	var content string
 	ts := httptest.NewServer(http.HandlerFunc(
@@ -46,7 +50,7 @@ func TestHTTPRanger(t *testing.T) {
 		tag := fmt.Sprintf("#%d. %+v", i, tt)
 
 		content = tt.data
-		rr, err := HTTPRanger(ts.URL)
+		rr, err := HTTPRanger(ctx, ts.URL)
 		if assert.NoError(t, err, tag) {
 			assert.Equal(t, tt.size, rr.Size(), tag)
 		}
@@ -64,7 +68,7 @@ func TestHTTPRanger(t *testing.T) {
 }
 
 func TestHTTPRangerURLError(t *testing.T) {
-	rr, err := HTTPRanger("")
+	rr, err := HTTPRanger(ctx, "")
 	assert.Nil(t, rr)
 	assert.NotNil(t, err)
 }
@@ -75,7 +79,7 @@ func TestHTTPRangeStatusCodeOk(t *testing.T) {
 			w.WriteHeader(http.StatusForbidden)
 			http.ServeContent(w, r, "test", time.Now(), strings.NewReader(""))
 		}))
-	rr, err := HTTPRanger(ts.URL)
+	rr, err := HTTPRanger(ctx, ts.URL)
 	assert.Nil(t, rr)
 	assert.NotNil(t, err)
 }

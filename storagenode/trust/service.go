@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -19,6 +20,7 @@ import (
 
 // Error is the default error class
 var Error = errs.Class("trust:")
+var mon = monkit.Package()
 
 // Pool implements different peer verifications.
 type Pool struct {
@@ -74,7 +76,8 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 }
 
 // VerifySatelliteID checks whether id corresponds to a trusted satellite.
-func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error {
+func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if pool.trustAllSatellites {
 		return nil
 	}
@@ -90,14 +93,17 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error 
 }
 
 // VerifyUplinkID verifides whether id corresponds to a trusted uplink.
-func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
+func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// trusting all the uplinks for now
 	return nil
 }
 
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
-func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
+func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// lookup peer identity with id
 	pool.mu.RLock()
 	info, ok := pool.trustedSatellites[id]

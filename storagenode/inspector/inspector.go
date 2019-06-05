@@ -51,7 +51,8 @@ func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademl
 	}
 }
 
-func (inspector *Endpoint) retrieveStats(ctx context.Context) (*pb.StatSummaryResponse, error) {
+func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
 	totalUsedSpace, err := inspector.pieceInfo.SpaceUsed(ctx)
@@ -93,7 +94,9 @@ func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out 
 	return statsSummary, nil
 }
 
-func (inspector *Endpoint) getDashboardData(ctx context.Context) (*pb.DashboardResponse, error) {
+func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.DashboardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
 		return &pb.DashboardResponse{}, Error.Wrap(err)

@@ -4,6 +4,7 @@
 package eestream
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -11,6 +12,11 @@ import (
 	"sync"
 
 	"github.com/vivint/infectious"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // StripeReader can read and decodes stripes from a set of readers
@@ -82,7 +88,8 @@ func (r *StripeReader) Close() error {
 
 // ReadStripe reads and decodes the num-th stripe and concatenates it to p. The
 // return value is the updated byte slice.
-func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
+func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	for i := range r.inmap {
 		delete(r.inmap, i)
 	}
@@ -91,7 +98,7 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 	defer r.cond.L.Unlock()
 
 	for r.pendingReaders() {
-		for r.readAvailableShares(num) == 0 {
+		for r.readAvailableShares(ctx, num) == 0 {
 			r.cond.Wait()
 		}
 		if r.hasEnoughShares() {
@@ -112,7 +119,8 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 // readAvailableShares reads the available num-th erasure shares from the piece
 // buffers without blocking. The return value n is the number of erasure shares
 // read.
-func (r *StripeReader) readAvailableShares(num int64) (n int) {
+func (r *StripeReader) readAvailableShares(ctx context.Context, num int64) (n int) {
+	defer mon.Task()(&ctx)(nil)
 	for i, buf := range r.bufs {
 		if r.inmap[i] != nil || r.errmap[i] != nil {
 			continue

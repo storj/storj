@@ -69,14 +69,14 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = pdb.Get(path)
+			pointer, err = pdb.Get(ctx, path)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -242,14 +242,14 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := planet.Satellites[0].Metainfo.Service
-		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = pdb.Get(path)
+			pointer, err = pdb.Get(ctx, path)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break

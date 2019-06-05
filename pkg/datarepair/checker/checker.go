@@ -31,7 +31,7 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval            time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"15s" devDefault:"0h0m5s"`
 }
 
@@ -101,13 +101,13 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
-		func(it storage.Iterator) error {
+	err = checker.metainfo.Iterate(ctx, "", checker.lastChecked, true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
 			defer func() {
 				var nextItem storage.ListItem
-				it.Next(&nextItem)
+				it.Next(ctx, &nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
 				// if we have finished iterating, send and reset durability stats
@@ -124,7 +124,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				}
 			}()
 
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -158,6 +158,7 @@ func contains(a []string, x string) bool {
 }
 
 func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
 	if remote == nil {
 		return nil

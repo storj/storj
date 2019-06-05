@@ -141,10 +141,12 @@ type mutableStream struct {
 
 func (stream *mutableStream) Info() storj.Object { return stream.info }
 
-func (stream *mutableStream) AddSegments(ctx context.Context, segments ...storj.Segment) error {
+func (stream *mutableStream) AddSegments(ctx context.Context, segments ...storj.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return errors.New("not implemented")
 }
 
-func (stream *mutableStream) UpdateSegments(ctx context.Context, segments ...storj.Segment) error {
+func (stream *mutableStream) UpdateSegments(ctx context.Context, segments ...storj.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return errors.New("not implemented")
 }

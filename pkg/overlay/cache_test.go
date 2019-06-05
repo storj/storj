@@ -177,7 +177,7 @@ func TestRandomizedSelection(t *testing.T) {
 	})
 }
 
-func TestVetNode(t *testing.T) {
+func TestIsVetted(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
@@ -200,11 +200,11 @@ func TestVetNode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		reputable, err := service.VetNode(ctx, planet.StorageNodes[0].ID())
+		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
 		assert.True(t, reputable)
 
-		reputable, err = service.VetNode(ctx, planet.StorageNodes[1].ID())
+		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
 		require.NoError(t, err)
 		assert.False(t, reputable)
 	})
