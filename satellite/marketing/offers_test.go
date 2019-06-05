@@ -61,10 +61,12 @@ func TestOffer_Database(t *testing.T) {
 			update := &marketing.UpdateOffer{
 				ID:          new.ID,
 				Status:      marketing.Done,
-				NumRedeemed: new.NumRedeemed,
 				ExpiresAt:   time.Now(),
 			}
-			err = planet.Satellites[0].DB.Marketing().Offers().Update(ctx, update)
+			err = planet.Satellites[0].DB.Marketing().Offers().Redeem(ctx, update.ID)
+			require.NoError(t, err)
+
+			err = planet.Satellites[0].DB.Marketing().Offers().Finish(ctx, update.ID)
 			require.NoError(t, err)
 		}
 
