@@ -141,11 +141,11 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		}
 
 		rejectErr := func() error {
-			if err := signing.VerifyOrderLimitSignature(endpoint.satelliteSignee, orderLimit); err != nil {
+			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
 
-			if err := signing.VerifyOrderSignature(uplinkSignee, order); err != nil {
+			if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
 				return Error.New("unable to verify order")
 			}
 
