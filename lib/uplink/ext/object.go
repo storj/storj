@@ -12,6 +12,7 @@ import "C"
 import (
 	"context"
 	"io"
+	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/lib/uplink"
 	"unsafe"
 )
@@ -31,45 +32,52 @@ func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
 }
 
 //export DownloadRange
-func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, cErr **C.char, callback func(bytes C.Bytes_t, done C.bool)) {
+func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloadReaderRef_t) {
 	ctx := context.Background()
 
 	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
 	if !ok {
 		*cErr = C.CString("invalid object")
-		return
+		return downloader
 	}
 
 	rc, err := object.DownloadRange(ctx, int64(offset), int64(length))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return
+		return downloader
 	}
-	defer rc.Close()
+
+	return C.DownloadReaderRef_t(structRefMap.Add(rc))
+}
+
+//export Download
+func Download(downloader C.DownloadReaderRef_t, bytes *C.Bytes_t, cErr **C.char) (readLength C.int){
+	readCloser, ok := structRefMap.Get(token(downloader)).(*readcloser.LimitedReadCloser)
+	if !ok {
+		*cErr = C.CString("invalid reader")
+		return C.int(0)
+	}
 
 	// TODO: This size could be optimized
 	buf := make([]byte, 1024)
-	var bytes C.Bytes_t
 
-	for {
-		n, err := rc.Read(buf)
-		if err == io.EOF {
-			callback(bytes, C.bool(true))
-			break
-		}
-
-		ptr := CMalloc(uintptr(n))
-		mem := unsafe.Pointer(ptr)
-		for i := 0; i < n; i++ {
-			nextAddress := uintptr(int(ptr) + i)
-			*(*uint8)(unsafe.Pointer(nextAddress)) = buf[i]
-		}
-
-		bytes.length = C.int32_t(n)
-		bytes.bytes = (*C.uint8_t)(mem)
-
-		callback(bytes, C.bool(false))
+	n, err := readCloser.Read(buf)
+	if err == io.EOF {
+		readCloser.Close()
+		return C.EOF
 	}
+
+	ptr := CMalloc(uintptr(n))
+	mem := unsafe.Pointer(ptr)
+	for i := 0; i < n; i++ {
+		nextAddress := uintptr(int(ptr) + i)
+		*(*uint8)(unsafe.Pointer(nextAddress)) = buf[i]
+	}
+
+	bytes.length = C.int32_t(n)
+	bytes.bytes = (*C.uint8_t)(mem)
+
+	return C.int(n)
 }
 
 //export ObjectMeta

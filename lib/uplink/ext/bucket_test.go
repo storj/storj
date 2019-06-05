@@ -21,6 +21,7 @@ import (
 )
 
 type TestObject struct {
+	Data []byte
 	storj.Object
 	UploadOpts uplink.UploadOptions
 }
@@ -227,8 +228,7 @@ func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *Cchar)
 }
 
 func (obj *TestObject) goUpload(t *testing.T, ctx *testcontext.Context, bucket *uplink.Bucket) {
-	data := bytes.NewBuffer([]byte("test data for path " + obj.Path))
-	err := bucket.UploadObject(ctx, obj.Path, data, &obj.UploadOpts)
+	err := bucket.UploadObject(ctx, obj.Path, bytes.NewBuffer(obj.Data), &obj.UploadOpts)
 	require.NoError(t, err)
 }
 
@@ -237,12 +237,14 @@ func newTestObjects(count int) (objects []TestObject) {
 	randPath := make([]byte, 15)
 	copy(randPath[:], randSeq(15))
 
+	objectPath := string(randPath)
+
 	obj := storj.Object{
 		// TODO: test `Version`?
 		// TODO: test `IsPrefix`?
 		//Version:,
 		//IsPrefix:,
-		Path: string(randPath),
+		Path: objectPath,
 	}
 
 	expiration := time.Now().Add(time.Duration(rand.Intn(1000) * int(time.Second)))
@@ -261,6 +263,7 @@ func newTestObjects(count int) (objects []TestObject) {
 		objects = append(objects, TestObject{
 			Object:     obj,
 			UploadOpts: opts,
+			Data: []byte("test data for path " + objectPath),
 		})
 	}
 

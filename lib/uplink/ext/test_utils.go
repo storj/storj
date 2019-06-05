@@ -2,6 +2,7 @@ package main
 
 // #cgo CFLAGS: -g -Wall
 // #include <stdlib.h>
+// #include <stdio.h>
 // #ifndef STORJ_HEADERS
 //   #define STORJ_HEADERS
 //   #include "c/headers/main.h"
@@ -34,11 +35,14 @@ import (
 // C types
 type Cchar = *C.char
 type CUint = C.uint
+type Cint = C.int
 type CBytes = C.Bytes_t
 type CUint8 = C.uint8_t
 type CInt32 = C.int32_t
+type Cint64 = C.int64_t
 type CBytes_t = C.Bytes_t
 type Cbool = C.bool
+const CEOF = C.EOF
 
 // Ref types
 type CAPIKeyRef = C.APIKeyRef_t
@@ -300,4 +304,8 @@ func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
 		metadata:     metadataRef,
 		expires:      C.time_t(opts.Expires.Unix()),
 	}
+}
+
+func CGoBytes(ptr unsafe.Pointer, n C.int) []byte {
+	return C.GoBytes(ptr, n)
 }

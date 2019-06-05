@@ -5,6 +5,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/lib/uplink"
 	"testing"
+	"unsafe"
 )
 
 // TODO: Start up test planet and call these from bash instead
@@ -96,22 +97,29 @@ func TestDownloadRange(t *testing.T) {
 			objectRef := OpenObject(cBucketRef, path, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			donech := make(chan bool)
-
-			go func() {
-				DownloadRange(objectRef, 0, 100, &cErr, func(bytes CBytes_t, done Cbool) {
-					// convert bytes to thing we can use
-					if done {
-						donech <- true
-					}
-				})
-
-			}()
-
-			<-donech
-
-			// check if bytes received are what we put in
+			objectMeta := ObjectMeta(objectRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
+
+			reader := DownloadRange(objectRef, 0, Cint64(objectMeta.Size), &cErr)
+			require.Empty(t, cCharToGoString(cErr))
+
+			var downloadedData []byte
+
+			for {
+				bytes := new(CBytes_t)
+				readSize := Download(reader, bytes, &cErr)
+				if readSize == CEOF {
+					break
+				}
+				require.Empty(t, cCharToGoString(cErr))
+
+				data := CGoBytes(unsafe.Pointer(bytes.bytes), Cint(bytes.length))
+
+				downloadedData = append(downloadedData, data...)
+			}
+
+			require.Equal(t, len(testObj.Data), len(downloadedData))
+			require.Equal(t, testObj.Data, downloadedData)
 		}
 	})
 }

@@ -80,6 +80,23 @@ func ReadBuffer(cBuffer C.BufferRef_t, cData *C.Bytes_t, cErr **C.char) {
 	cData.bytes = (*C.uint8_t)(mem)
 }
 
+func bytesToCbytes(bytes []byte) (cData *C.Bytes_t) {
+	cData = new(C.Bytes_t)
+	lenOfBytes := len(bytes)
+
+	ptr := CMalloc(uintptr(lenOfBytes))
+	mem := unsafe.Pointer(ptr)
+	for i := 0; i < lenOfBytes; i++ {
+		nextAddress := uintptr(int(ptr) + i)
+		*(*uint8)(unsafe.Pointer(nextAddress)) = bytes[i]
+	}
+
+	cData.length = C.int32_t(lenOfBytes)
+	cData.bytes = (*C.uint8_t)(mem)
+
+	return cData
+}
+
 func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
 	encParamsPtr := NewCEncryptionParamsPtr(&bucket.EncryptionParameters)
 	redundancySchemePtr := NewCRedundancySchemePtr(&bucket.RedundancyScheme)

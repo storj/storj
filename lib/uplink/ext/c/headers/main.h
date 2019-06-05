@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <time.h>
 
 typedef __SIZE_TYPE__ GoUintptr;
@@ -18,6 +19,8 @@ typedef GoUintptr BucketConfigRef_t;
 typedef GoUintptr MapRef_t;
 typedef GoUintptr BufferRef_t;
 typedef GoUintptr ObjectRef_t;
+typedef GoUintptr DownloadReaderRef_t;
+typedef GoUintptr UploadReaderRef_t;
 
 typedef struct Bytes {
     uint8_t *bytes;
