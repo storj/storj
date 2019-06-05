@@ -288,12 +288,8 @@
 		}
 	}
 
-	@media screen and (max-height: 850px) {
+	@media screen and (max-height: 825px) {
 		.profile-container {
-			height: 650px;
-			overflow-y: scroll;
-			margin-top: 70px;
-
 			&__secondary-container {
 				margin-top: 20px;
 
@@ -305,6 +301,48 @@
 			&__button-area {
 				margin-top: 20px;
 			}
+
+			margin-top: 70px;
+		}
+	}
+
+	@media screen and (max-height: 790px) {
+		.profile-container {
+			height: 535px;
+			overflow-y: scroll;
+
+			&::-webkit-scrollbar, &::-webkit-scrollbar-track, &::-webkit-scrollbar-thumb {
+				visibility: hidden;
+			}
+		}
+	}
+
+	@media screen and (max-height: 770px) {
+		.profile-container {
+			height: 515px;
+			overflow-y: scroll;
+		}
+	}
+
+	@media screen and (max-height: 750px) {
+		.profile-container {
+			height: 495px;
+			overflow-y: scroll;
+
+		}
+	}
+
+	@media screen and (max-height: 730px) {
+		.profile-container {
+			height: 475px;
+			overflow-y: scroll;
+		}
+	}
+
+	@media screen and (max-height: 710px) {
+		.profile-container {
+			height: 455px;
+			overflow-y: scroll;
 		}
 	}
 </style>
