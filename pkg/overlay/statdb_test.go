@@ -25,9 +25,7 @@ func getRatio(success, total int64) (ratio float64) {
 }
 
 func TestStatDB(t *testing.T) {
-	// TODO(team green): disabled by PR #2102.
-	// Remove the skip when implementing V3-1843.
-	t.Skip("require disqualification implementation")
+	t.Skip("team green skipped until V3-1843 is implemented")
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
