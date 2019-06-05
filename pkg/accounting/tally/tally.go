@@ -53,8 +53,8 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accountin
 
 // Run the tally service loop
 func (t *Service) Run(ctx context.Context) (err error) {
-	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+	t.logger.Info("Tally service starting up")
 
 	for {
 		if err = t.Tally(ctx); err != nil {
@@ -69,7 +69,8 @@ func (t *Service) Run(ctx context.Context) (err error) {
 }
 
 // Tally calculates data-at-rest usage once
-func (t *Service) Tally(ctx context.Context) error {
+func (t *Service) Tally(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// The live accounting store will only keep a delta to space used relative
 	// to the latest tally. Since a new tally is beginning, we will zero it out
 	// now. There is a window between this call and the point where the tally DB

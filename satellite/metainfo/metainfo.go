@@ -94,12 +94,12 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -130,7 +130,12 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateCreateSegment(req)
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.validateRedundancy(ctx, req.Redundancy)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -214,14 +219,24 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateCommitSegment(req)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.filterValidPieces(req.Pointer)
+	err = endpoint.validateCommitSegment(ctx, req)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	err = endpoint.filterValidPieces(ctx, req.Pointer)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
@@ -229,11 +244,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
-	}
-
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	err = endpoint.metainfo.Put(path, req.Pointer)
@@ -276,7 +286,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -294,7 +304,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -345,12 +355,12 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -409,7 +419,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreatePath(keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -438,7 +448,9 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
@@ -473,7 +485,8 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 }
 
 // CreatePath will create a Segment path
-func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (storj.Path, error) {
+func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ storj.Path, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if segmentIndex < -1 {
 		return "", errors.New("invalid segment index")
 	}

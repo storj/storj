@@ -113,7 +113,8 @@ func (requests *createRequests) cleanup() {
 	}
 }
 
-func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (*console.APIKeyInfo, error) {
+func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Action) (_ *console.APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
@@ -142,13 +143,15 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(req *pb.SegmentWriteRequest) error {
-	err := endpoint.validateBucket(req.Bucket)
+func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return err
 	}
 
-	err = endpoint.validateRedundancy(req.Redundancy)
+	err = endpoint.validateRedundancy(ctx, req.Redundancy)
 	if err != nil {
 		return err
 	}
@@ -156,13 +159,15 @@ func (endpoint *Endpoint) validateCreateSegment(req *pb.SegmentWriteRequest) err
 	return nil
 }
 
-func (endpoint *Endpoint) validateCommitSegment(req *pb.SegmentCommitRequest) error {
-	err := endpoint.validateBucket(req.Bucket)
+func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return err
 	}
 
-	err = endpoint.validatePointer(req.Pointer)
+	err = endpoint.validatePointer(ctx, req.Pointer)
 	if err != nil {
 		return err
 	}
@@ -180,7 +185,7 @@ func (endpoint *Endpoint) validateCommitSegment(req *pb.SegmentCommitRequest) er
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
-			err := endpoint.orders.VerifyOrderLimitSignature(limit)
+			err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
 			if err != nil {
 				return err
 			}
@@ -214,7 +219,9 @@ func (endpoint *Endpoint) validateCommitSegment(req *pb.SegmentCommitRequest) er
 	return nil
 }
 
-func (endpoint *Endpoint) validateBucket(bucket []byte) error {
+func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(bucket) == 0 {
 		return errs.New("bucket not specified")
 	}
@@ -224,7 +231,9 @@ func (endpoint *Endpoint) validateBucket(bucket []byte) error {
 	return nil
 }
 
-func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
+func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if pointer == nil {
 		return Error.New("no pointer specified")
 	}
@@ -248,7 +257,9 @@ func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
 	return nil
 }
 
-func (endpoint *Endpoint) validateRedundancy(redundancy *pb.RedundancyScheme) error {
+func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO more validation, use validation from eestream.NewRedundancyStrategy
 	if redundancy.ErasureShareSize <= 0 {
 		return Error.New("erasure share size cannot be less than 0")
