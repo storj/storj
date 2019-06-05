@@ -3,11 +3,10 @@ package filters
 import (
 	"encoding/binary"
 
+	"github.com/spaolacci/murmur3"
 	steakknife "github.com/steakknife/bloomfilter"
 	willf "github.com/willf/bloom"
 	zeebo "github.com/zeebo/sbloom"
-
-	"hash/fnv"
 )
 
 // ZeeboBloomFilter represents zeebo's bloom filter implementation
@@ -26,9 +25,10 @@ type SteakknifeBloomFilter struct {
 }
 
 // NewZeeboBloomFilter returns a zeebo bloom filter
-func NewZeeboBloomFilter() *ZeeboBloomFilter {
+func NewZeeboBloomFilter(maxElements uint, p float64) *ZeeboBloomFilter {
 	var zbf ZeeboBloomFilter
-	zbf.filter = zeebo.NewFilter(fnv.New64(), 10)
+	m := steakknife.OptimalM(uint64(maxElements), p)
+	zbf.filter = zeebo.NewFilter(murmur3.New64(), int(m/uint64(maxElements)))
 	return &zbf
 }
 
