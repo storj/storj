@@ -471,11 +471,7 @@ CREATE TABLE users (
 );
 CREATE TABLE value_attributions (
 	bucket_id bytea NOT NULL,
-	user_id bytea NOT NULL,
 	partner_id bytea NOT NULL,
-	at_rest_data bigint NOT NULL,
-	egress_data bigint NOT NULL,
-	ingress_data bigint NOT NULL,
 	last_updated timestamp NOT NULL,
 	PRIMARY KEY ( bucket_id )
 );
@@ -769,11 +765,7 @@ CREATE TABLE users (
 );
 CREATE TABLE value_attributions (
 	bucket_id BLOB NOT NULL,
-	user_id BLOB NOT NULL,
 	partner_id BLOB NOT NULL,
-	at_rest_data INTEGER NOT NULL,
-	egress_data INTEGER NOT NULL,
-	ingress_data INTEGER NOT NULL,
 	last_updated TIMESTAMP NOT NULL,
 	PRIMARY KEY ( bucket_id )
 );
@@ -3894,11 +3886,7 @@ func (User_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ValueAttribution struct {
 	BucketId    []byte
-	UserId      []byte
 	PartnerId   []byte
-	AtRestData  int64
-	EgressData  int64
-	IngressData int64
 	LastUpdated time.Time
 }
 
@@ -3926,25 +3914,6 @@ func (f ValueAttribution_BucketId_Field) value() interface{} {
 
 func (ValueAttribution_BucketId_Field) _Column() string { return "bucket_id" }
 
-type ValueAttribution_UserId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func ValueAttribution_UserId(v []byte) ValueAttribution_UserId_Field {
-	return ValueAttribution_UserId_Field{_set: true, _value: v}
-}
-
-func (f ValueAttribution_UserId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ValueAttribution_UserId_Field) _Column() string { return "user_id" }
-
 type ValueAttribution_PartnerId_Field struct {
 	_set   bool
 	_null  bool
@@ -3963,63 +3932,6 @@ func (f ValueAttribution_PartnerId_Field) value() interface{} {
 }
 
 func (ValueAttribution_PartnerId_Field) _Column() string { return "partner_id" }
-
-type ValueAttribution_AtRestData_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func ValueAttribution_AtRestData(v int64) ValueAttribution_AtRestData_Field {
-	return ValueAttribution_AtRestData_Field{_set: true, _value: v}
-}
-
-func (f ValueAttribution_AtRestData_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ValueAttribution_AtRestData_Field) _Column() string { return "at_rest_data" }
-
-type ValueAttribution_EgressData_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func ValueAttribution_EgressData(v int64) ValueAttribution_EgressData_Field {
-	return ValueAttribution_EgressData_Field{_set: true, _value: v}
-}
-
-func (f ValueAttribution_EgressData_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ValueAttribution_EgressData_Field) _Column() string { return "egress_data" }
-
-type ValueAttribution_IngressData_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func ValueAttribution_IngressData(v int64) ValueAttribution_IngressData_Field {
-	return ValueAttribution_IngressData_Field{_set: true, _value: v}
-}
-
-func (f ValueAttribution_IngressData_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (ValueAttribution_IngressData_Field) _Column() string { return "ingress_data" }
 
 type ValueAttribution_LastUpdated_Field struct {
 	_set   bool

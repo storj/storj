@@ -199,11 +199,7 @@ CREATE TABLE users (
 );
 CREATE TABLE value_attributions (
 	bucket_id BLOB NOT NULL,
-	user_id BLOB NOT NULL,
 	partner_id BLOB NOT NULL,
-	at_rest_data INTEGER NOT NULL,
-	egress_data INTEGER NOT NULL,
-	ingress_data INTEGER NOT NULL,
 	last_updated TIMESTAMP NOT NULL,
 	PRIMARY KEY ( bucket_id )
 );
