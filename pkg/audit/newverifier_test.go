@@ -132,13 +132,13 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 
 		for i, share := range shares {
 			if nodes[i] == stoppedNodeID {
-				assert.True(t, transport.Error.Has(share.Error), "unexpected err: %+v", share.Error)
+				assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 				assert.False(t, errs.IsFunc(share.Error, func(err error) bool {
 					return err == context.DeadlineExceeded
-				}), "unexpected err: %+v", share.Error)
+				}), "unexpected error: %+v", share.Error)
 				assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
 					return status.Code(err) == codes.Unknown
-				}), "unexpected err: %+v", share.Error)
+				}), "unexpected error: %+v", share.Error)
 			} else {
 				assert.NoError(t, share.Error)
 			}
@@ -201,7 +201,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 				fmt.Printf("IsFunc err: %+v\n", err)
 				fmt.Println("IsFunc code:", status.Code(err))
 				return status.Code(err) == codes.NotFound
-			}), "unexpected err: %+v", share.Error)
+			}), "unexpected error: %+v", share.Error)
 		}
 	})
 }
@@ -276,10 +276,10 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, transport.Error.Has(share.Error), "unexpected err: %+v", share.Error)
+			assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
 				return err == context.DeadlineExceeded
-			}), "unexpected err: %+v", share.Error)
+			}), "unexpected error: %+v", share.Error)
 		}
 	})
 }
@@ -360,8 +360,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 				fmt.Printf("IsFunc err: %+v\n", err)
 				fmt.Println("IsFunc code:", status.Code(err))
 				return status.Code(err) == codes.DeadlineExceeded
-			}), "unexpected err: %+v", share.Error)
-			assert.False(t, transport.Error.Has(share.Error), "unexpected err: %+v", share.Error)
+			}), "unexpected error: %+v", share.Error)
+			assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 		}
 	})
 }
