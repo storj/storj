@@ -10,9 +10,9 @@ import (
 	"sort"
 	"sync"
 
-	"storj.io/storj/storage"
-
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/storj/storage"
 )
 
 var errInternal = errors.New("internal error")
