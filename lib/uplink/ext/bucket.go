@@ -50,6 +50,7 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cO
 	}
 
 	// TODO: should `unsafe.Pointer(cOpts) == nil` be an error?
+	// TODO: fix ^
 	var metadata map[string]string
 	if uintptr(cOpts.metadata) != 0 {
 		metadata, ok = structRefMap.Get(token(cOpts.metadata)).(map[string]string)
