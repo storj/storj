@@ -736,6 +736,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
 				},
 			},
+			{
+				Description: "Create value attribution table",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE TABLE value_attributions (
+						bucket_id bytea NOT NULL,
+						partner_id bytea NOT NULL,
+						last_updated timestamp NOT NULL,
+						PRIMARY KEY ( bucket_id )
+					)`,
+				},
+			},
 		},
 	}
 }
