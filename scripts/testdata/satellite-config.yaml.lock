@@ -40,6 +40,15 @@
 # satellite database connection string
 # database: "postgres://"
 
+# Maximum Database Connection Lifetime, -1ns means the stdlib default
+# db.conn_max_lifetime: -1ns
+
+# Maximum Amount of Idle Database connections, -1 means the stdlib default
+# db.max_idle_conns: 50
+
+# Maximum Amount of Open Database connections, -1 means the stdlib default
+# db.max_open_conns: 100
+
 # address to listen on for debug endpoints
 # debug.addr: "127.0.0.1:0"
 
