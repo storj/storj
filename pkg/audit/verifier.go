@@ -500,7 +500,7 @@ func createBucketID(path storj.Path) []byte {
 	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
-func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) (_ []*PendingAudit, err error) {
+func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) (pending []*PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(containedNodes) > 0 {
 		return nil, nil
@@ -521,14 +521,13 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 		return nil, Error.Wrap(err)
 	}
 
-	var pendingAudits []*PendingAudit
 	for pieceNum, nodeID := range containedNodes {
 		share := make([]byte, shareSize)
 		err = fec.EncodeSingle(stripeData, share, pieceNum)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		pendingAudits = append(pendingAudits, &PendingAudit{
+		pending = append(pending, &PendingAudit{
 			NodeID:            nodeID,
 			PieceID:           stripe.Segment.GetRemote().RootPieceId,
 			StripeIndex:       stripe.Index,
@@ -537,7 +536,7 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 		})
 	}
 
-	return pendingAudits, nil
+	return pending, nil
 }
 
 func rebuildStripe(ctx context.Context, fec *infectious.FEC, corrected []infectious.Share, shareSize int) (_ []byte, err error) {
