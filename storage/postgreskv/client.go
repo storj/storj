@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/storage"
@@ -18,6 +19,10 @@ import (
 const (
 	defaultBatchSize = 10000
 	defaultBucket    = ""
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Client is the entrypoint into a postgreskv data store
@@ -33,7 +38,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	pgConn.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(pgConn, mon)
 
 	err = schema.PrepareDB(pgConn, dbURL)
 	if err != nil {
