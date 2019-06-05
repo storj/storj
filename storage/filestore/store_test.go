@@ -57,11 +57,11 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 		// after committing we should be able to call cancel without an error
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 		// two commits should fail
-		require.Error(t, writer.Commit())
+		require.Error(t, writer.Commit(ctx))
 	}
 
 	namespace = randomValue()
@@ -80,7 +80,7 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 	}
 
 	namespace = randomValue()
@@ -99,7 +99,7 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 	}
 
 	namespace = randomValue()
@@ -117,9 +117,9 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 		// commit after cancel should return an error
-		require.Error(t, writer.Commit())
+		require.Error(t, writer.Commit(ctx))
 
 		_, err = store.Open(ctx, ref)
 		require.Error(t, err)
@@ -183,7 +183,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	require.Error(t, err, "loading uncommitted file should fail")
 
 	// commit the file
-	err = writer.Commit()
+	err = writer.Commit(ctx)
 	require.NoError(t, err, "commit the file")
 
 	// open a reader
