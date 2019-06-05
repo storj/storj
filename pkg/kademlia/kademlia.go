@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -32,6 +33,7 @@ var (
 	// TODO: shouldn't default to TCP but not sure what to do yet
 	defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
 	defaultRetries   = 3
+	mon              = monkit.Package()
 )
 
 type discoveryOptions struct {
@@ -116,7 +118,8 @@ func (k *Kademlia) Queried() {
 
 // FindNear returns all nodes from a starting node up to a maximum limit
 // stored in the local routing table.
-func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int) ([]*pb.Node, error) {
+func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return k.routingTable.FindNear(start, limit)
 }
 
@@ -144,7 +147,8 @@ func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
-func (k *Kademlia) Bootstrap(ctx context.Context) error {
+func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer k.bootstrapFinished.Release()
 
 	if !k.lookups.Start() {
@@ -219,7 +223,8 @@ func (k *Kademlia) WaitForBootstrap() {
 }
 
 // FetchPeerIdentity connects to a node and returns its peer identity
-func (k *Kademlia) FetchPeerIdentity(ctx context.Context, nodeID storj.NodeID) (*identity.PeerIdentity, error) {
+func (k *Kademlia) FetchPeerIdentity(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return nil, context.Canceled
 	}
@@ -232,7 +237,8 @@ func (k *Kademlia) FetchPeerIdentity(ctx context.Context, nodeID storj.NodeID) (
 }
 
 // Ping checks that the provided node is still accessible on the network
-func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
+func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (_ pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
@@ -249,7 +255,8 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (pb.Node, error) {
 }
 
 // FetchInfo connects to a node address and returns the node info
-func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoResponse, error) {
+func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return nil, context.Canceled
 	}
@@ -264,7 +271,8 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (*pb.InfoRespons
 
 // FindNode looks up the provided NodeID first in the local Node, and if it is not found
 // begins searching the network for the NodeID. Returns and error if node was not found
-func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (pb.Node, error) {
+func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
@@ -274,7 +282,8 @@ func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (pb.Node, 
 }
 
 //lookup initiates a kadmelia node lookup
-func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap bool) (pb.Node, error) {
+func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap bool) (_ pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
@@ -345,7 +354,9 @@ func (k *Kademlia) SetBucketRefreshThreshold(threshold time.Duration) {
 }
 
 // Run occasionally refreshes stale kad buckets
-func (k *Kademlia) Run(ctx context.Context) error {
+func (k *Kademlia) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if !k.lookups.Start() {
 		return context.Canceled
 	}
@@ -363,7 +374,8 @@ func (k *Kademlia) Run(ctx context.Context) error {
 }
 
 // refresh updates each Kademlia bucket not contacted in the last hour
-func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) error {
+func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	bIDs, err := k.routingTable.GetBucketIds()
 	if err != nil {
 		return Error.Wrap(err)

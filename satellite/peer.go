@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -49,12 +50,18 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripepayments"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
+
+var mon = monkit.Package()
 
 // DB is the master database for the satellite
 type DB interface {
@@ -84,6 +91,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	// Marketing returns database for marketing admin GUI
+	Marketing() marketing.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -234,7 +243,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
+		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
+		if sc.DebugLogTraffic {
+			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
+		}
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -551,10 +564,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = localpayments.NewService(nil)
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 
@@ -575,7 +597,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 }
 
 // Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
