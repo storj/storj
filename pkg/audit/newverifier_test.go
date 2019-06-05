@@ -465,8 +465,9 @@ func TestVerifierMissingPiece(t *testing.T) {
 
 		// delete the piece from the first node
 		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
-		getStorageNode(planet, nodeID).Storage2.Store.Delete(ctx, planet.Satellites[0].ID(),
+		err = getStorageNode(planet, nodeID).Storage2.Store.Delete(ctx, planet.Satellites[0].ID(),
 			stripe.Segment.GetRemote().RootPieceId.Derive(nodeID))
+		require.NoError(t, err)
 
 		report, err := verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
