@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kaloyan-raev/errs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
