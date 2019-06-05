@@ -95,10 +95,10 @@ func (s *Service) RedeemOffer(ctx context.Context, uo *UpdateOffer) (err error) 
 }
 
 // FinishOffer updates an active offer's status to be Done and its expiration time to be now
-func (s *Service) FinishOffer(ctx context.Context, oId int) (err error) {
+func (s *Service) FinishOffer(ctx context.Context, oID int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = s.db.Offers().Finish(ctx, oId)
+	err = s.db.Offers().Finish(ctx, oID)
 	if err != nil {
 		return Error.Wrap(err)
 	}

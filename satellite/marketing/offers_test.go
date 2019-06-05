@@ -59,9 +59,9 @@ func TestOffer_Database(t *testing.T) {
 			require.Equal(t, new, c)
 
 			update := &marketing.UpdateOffer{
-				ID:          new.ID,
-				Status:      marketing.Done,
-				ExpiresAt:   time.Now(),
+				ID:        new.ID,
+				Status:    marketing.Done,
+				ExpiresAt: time.Now(),
 			}
 			err = planet.Satellites[0].DB.Marketing().Offers().Redeem(ctx, update.ID)
 			require.NoError(t, err)

@@ -18,8 +18,8 @@ type Offers interface {
 	ListAll(ctx context.Context) ([]Offer, error)
 	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
-	Redeem(ctx context.Context, offerId int) error
-	Finish(ctx context.Context, offerId int) error
+	Redeem(ctx context.Context, offerID int) error
+	Finish(ctx context.Context, offerID int) error
 }
 
 // NewOffer holds information that's needed for creating a new offer
