@@ -39,7 +39,7 @@ func New(dbURL string) (*Client, error) {
 		return nil, err
 	}
 
-	pgConn.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(pgConn, mon)
 
 	err = schema.PrepareDB(pgConn, dbURL)
 	if err != nil {
