@@ -41,12 +41,14 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE type = ? AND NOT disqualified
-			AND free_bandwidth >= ? AND free_disk >= ?
-		  AND total_audit_count >= ?
-			AND total_uptime_count >= ?
-		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure`
+		WHERE NOT disqualified
+		AND type = ?
+		AND free_bandwidth >= ?
+		AND free_disk >= ?
+		AND total_audit_count >= ?
+		AND total_uptime_count >= ?
+		AND last_contact_success > ?
+		AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
@@ -95,11 +97,13 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE type = ? AND NOT disqualified
-			AND free_bandwidth >= ? AND free_disk >= ?
-		  AND total_audit_count < ?
-		  AND last_contact_success > ?
-		  AND last_contact_success > last_contact_failure`
+		WHERE NOT disqualified
+		AND type = ?
+		AND free_bandwidth >= ?
+		AND free_disk >= ?
+		AND total_audit_count < ?
+		AND last_contact_success > ?
+		AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, time.Now().Add(-criteria.OnlineWindow))
 
@@ -359,8 +363,8 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
 	FROM nodes
 	WHERE id = ?
-		AND type = ?
 		AND NOT disqualified
+		AND type = ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
 		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.UptimeCount)
