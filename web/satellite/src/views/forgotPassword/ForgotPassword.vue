@@ -51,8 +51,8 @@
                     this.$router.push(ROUTES.LOGIN.path);
                 },
                 onLogoClick: function () {
-                   location.reload();
-                   this.$segment.track(EVENTS.CLICKED_LOGO);
+                    this.$segment.track(EVENTS.CLICKED_LOGO);
+                    location.reload();
                 },
                 validateFields: function (): boolean {
                     const isEmailValid = validateEmail(this.$data.email.trim());
