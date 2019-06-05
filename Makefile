@@ -100,6 +100,10 @@ test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
 
+.PHONY: test-bindings
+test-bindings: libuplink ## Run language binding tests
+	go generate lib/uplink/ext/tests.go
+
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
@@ -229,6 +233,10 @@ OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+
+.PHONY: libuplink
+libuplink:
+	go generate lib/uplink/ext/main.go
 
 ##@ Deploy
 
