@@ -197,6 +197,12 @@ CREATE TABLE users (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE value_attributions (
+	bucket_id bytea NOT NULL,
+	partner_id bytea NOT NULL,
+	last_updated timestamp NOT NULL,
+	PRIMARY KEY ( bucket_id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

@@ -4,6 +4,7 @@
 package filestore
 
 import (
+	"context"
 	"io"
 	"os"
 
@@ -44,23 +45,25 @@ func newBlobWriter(ref storage.BlobRef, store *Store, file *os.File) *blobWriter
 }
 
 // Cancel discards the blob.
-func (blob *blobWriter) Cancel() error {
+func (blob *blobWriter) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if blob.closed {
 		return nil
 	}
 	blob.closed = true
-	err := blob.File.Close()
+	err = blob.File.Close()
 	removeErr := os.Remove(blob.File.Name())
 	return Error.Wrap(errs.Combine(err, removeErr))
 }
 
 // Commit moves the file to the target location.
-func (blob *blobWriter) Commit() error {
+func (blob *blobWriter) Commit(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if blob.closed {
 		return Error.New("already closed")
 	}
 	blob.closed = true
-	err := blob.store.dir.Commit(blob.File, blob.ref)
+	err = blob.store.dir.Commit(ctx, blob.File, blob.ref)
 	return Error.Wrap(err)
 }
 
