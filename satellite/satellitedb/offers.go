@@ -105,14 +105,26 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 }
 
 // Update modifies an offer entry's status and amount of offers redeemed based on offer id
-func (offers *offers) Update(ctx context.Context, o *marketing.UpdateOffer) error {
-	updateFields := dbx.Offer_Update_Fields{
-		Status:      dbx.Offer_Status(int(o.Status)),
-		NumRedeemed: dbx.Offer_NumRedeemed(o.NumRedeemed),
-		ExpiresAt:   dbx.Offer_ExpiresAt(o.ExpiresAt),
+func (offers *offers) Redeem(ctx context.Context, oId int) error {
+	statement := offers.db.Rebind(
+		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
+	)
+
+	_, err := offers.db.DB.ExecContext(ctx, statement, oId, marketing.Active)
+	if err != nil {
+		return marketing.OffersErr.Wrap(err)
 	}
 
-	offerID := dbx.Offer_Id(o.ID)
+	return nil
+}
+
+func (offers *offers) Finish(ctx context.Context, oId int) error {
+	updateFields := dbx.Offer_Update_Fields{
+		Status:    dbx.Offer_Status(int(marketing.Done)),
+		ExpiresAt: dbx.Offer_ExpiresAt(time.Now().UTC()),
+	}
+
+	offerID := dbx.Offer_Id(oId)
 
 	_, err := offers.db.Update_Offer_By_Id(ctx, offerID, updateFields)
 	if err != nil {
