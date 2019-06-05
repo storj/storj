@@ -53,7 +53,7 @@ func (s *Service) ListAllOffers(ctx context.Context) (offers []Offer, err error)
 func (s *Service) GetCurrentOfferByType(ctx context.Context, offerType OfferType) (offer *Offer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	offer, err = s.db.Offers().GetCurrentByType(ctx, offer.Type)
+	offer, err = s.db.Offers().GetCurrentByType(ctx, offerType)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -78,14 +78,27 @@ func (s *Service) InsertNewOffer(ctx context.Context, offer *NewOffer) (o *Offer
 	return o, nil
 }
 
-// UpdateOffer modifies an existing offer in the db when the offer status is set to NoStatus
-func (s *Service) UpdateOffer(ctx context.Context, offer *UpdateOffer) (err error) {
+// RedeemOffer adds 1 to the number of redeemed for an offer
+func (s *Service) RedeemOffer(ctx context.Context, uo *UpdateOffer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if offer.Status == Default {
-		offer.NumRedeemed = 0
+	if uo.Status == Default {
+		return nil
 	}
-	err = s.db.Offers().Update(ctx, offer)
+
+	err = s.db.Offers().Redeem(ctx, uo.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// FinishOffer updates an active offer's status to be Done and its expiration time to be now
+func (s *Service) FinishOffer(ctx context.Context, oId int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.db.Offers().Finish(ctx, oId)
 	if err != nil {
 		return Error.Wrap(err)
 	}
