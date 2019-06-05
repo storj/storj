@@ -225,11 +225,7 @@ CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
 CREATE TABLE value_attributions (
     bucket_id bytea NOT NULL,
-    user_id bytea NOT NULL,
     partner_id bytea NOT NULL,
-    at_rest_data bigint NOT NULL,
-    egress_data bigint NOT NULL,
-    ingress_data bigint NOT NULL,
     last_updated timestamp NOT NULL,
     PRIMARY KEY ( bucket_id )
 );
@@ -285,4 +281,4 @@ INSERT INTO "api_keys" ("id", "project_id", "head", "name", "secret", "created_a
 
 -- NEW DATA --
 
-INSERT INTO "value_attributions" ("bucket_id", "user_id", "partner_id", "at_rest_data", "egress_data", "ingress_data", "last_updated") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 0, 0, 0, '2019-02-14 08:07:31.028103+00');
+INSERT INTO "value_attributions" ("bucket_id", "partner_id", "last_updated") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea,'2019-02-14 08:07:31.028103+00');
