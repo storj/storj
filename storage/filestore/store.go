@@ -8,15 +8,12 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
 
 // Error is the default filestore error class
 var Error = errs.Class("filestore error")
-
-var mon = monkit.Package()
 
 var _ storage.Blobs = (*Store)(nil)
 
