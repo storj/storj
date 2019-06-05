@@ -83,7 +83,14 @@ func monitoredSettlementStreamReceive(ctx context.Context, stream pb.Orders_Sett
 
 func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_SettlementServer, resp *pb.SettlementResponse) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	mon.IntVal("settlement_response_status").Observe(int64(resp.Status))
+	switch resp.Status {
+	case pb.SettlementResponse_ACCEPTED:
+		mon.Event("settlement_response_accepted")
+	case pb.SettlementResponse_REJECTED:
+		mon.Event("settlement_response_rejected")
+	default:
+		mon.Event("settlement_response_unknown")
+	}
 	return stream.Send(resp)
 }
 
