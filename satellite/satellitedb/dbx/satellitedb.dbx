@@ -9,7 +9,7 @@ model value_attribution (
 	field partner_id	blob
 	field at_rest_data	int64
 	field egress_data	int64
-	field ingress_data  int64
+	field ingress_data  	int64
 	field last_updated 	utimestamp
 )
 
