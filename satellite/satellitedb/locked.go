@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -576,6 +577,55 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
+// Marketing returns database for marketing admin GUI
+func (m *locked) Marketing() marketing.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedMarketing{m.Locker, m.db.Marketing()}
+}
+
+// lockedMarketing implements locking wrapper for marketing.DB
+type lockedMarketing struct {
+	sync.Locker
+	db marketing.DB
+}
+
+func (m *lockedMarketing) Offers() marketing.Offers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOffers{m.Locker, m.db.Offers()}
+}
+
+// lockedOffers implements locking wrapper for marketing.Offers
+type lockedOffers struct {
+	sync.Locker
+	db marketing.Offers
+}
+
+func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, offer)
+}
+
+func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCurrentByType(ctx, offerType)
+}
+
+func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListAll(ctx)
+}
+
+func (m *lockedOffers) Update(ctx context.Context, offer *marketing.UpdateOffer) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, offer)
+}
+
 // Orders returns database for orders
 func (m *locked) Orders() orders.DB {
 	m.Lock()
@@ -686,6 +736,13 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IsVetted(ctx, id, criteria)
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
@@ -698,13 +755,6 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
-}
-
-// IsVetted returns whether or not the node reaches reputable thresholds
-func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.IsVetted(ctx, id, criteria)
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria
