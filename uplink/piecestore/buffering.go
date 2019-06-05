@@ -9,12 +9,9 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 )
-
-var mon = monkit.Package()
 
 // BufferedUpload implements buffering for an Upload.
 type BufferedUpload struct {
