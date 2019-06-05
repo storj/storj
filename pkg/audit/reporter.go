@@ -53,7 +53,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 
 	retries := 0
 	for retries < reporter.maxRetries {
-		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 {
+		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
 			return nil, nil
 		}
 
