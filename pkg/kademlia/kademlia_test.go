@@ -145,7 +145,7 @@ func TestBootstrap(t *testing.T) {
 	err = n2.Bootstrap(ctx)
 	require.NoError(t, err)
 
-	nodeIDs, err := n2.routingTable.nodeBucketDB.List(nil, 0)
+	nodeIDs, err := n2.routingTable.nodeBucketDB.List(ctx, nil, 0)
 	require.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
 }

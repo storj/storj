@@ -80,7 +80,7 @@ func (r RevocationDB) Get(ctx context.Context, chain []*x509.Certificate) (_ *ex
 		return nil, extensions.ErrRevocation.Wrap(err)
 	}
 
-	revBytes, err := r.DB.Get(nodeID.Bytes())
+	revBytes, err := r.DB.Get(ctx, nodeID.Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
@@ -124,7 +124,7 @@ func (r RevocationDB) Put(ctx context.Context, chain []*x509.Certificate, revExt
 	if err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
-	if err := r.DB.Put(nodeID.Bytes(), revExt.Value); err != nil {
+	if err := r.DB.Put(ctx, nodeID.Bytes(), revExt.Value); err != nil {
 		return extensions.ErrRevocationDB.Wrap(err)
 	}
 	return nil
@@ -133,12 +133,12 @@ func (r RevocationDB) Put(ctx context.Context, chain []*x509.Certificate, revExt
 // List lists all revocations in the store
 func (r RevocationDB) List(ctx context.Context) (revs []*extensions.Revocation, err error) {
 	defer mon.Task()(&ctx)(&err)
-	keys, err := r.DB.List([]byte{}, 0)
+	keys, err := r.DB.List(ctx, []byte{}, 0)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}
 
-	marshaledRevs, err := r.DB.GetAll(keys)
+	marshaledRevs, err := r.DB.GetAll(ctx, keys)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
 	}

@@ -135,7 +135,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -269,7 +269,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	err = endpoint.metainfo.Put(path, req.Pointer)
+	err = endpoint.metainfo.Put(ctx, path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -283,7 +283,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 	}
 
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -329,7 +329,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -385,7 +385,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -393,7 +393,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Delete(path)
+	err = endpoint.metainfo.Delete(ctx, path)
 
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
@@ -443,7 +443,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.metainfo.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}

@@ -26,7 +26,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 	}
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
-	if err := storage.PutAll(store, items...); err != nil {
+	if err := storage.PutAll(ctx, store, items...); err != nil {
 		t.Fatalf("failed to setup: %v", err)
 	}
 
@@ -168,7 +168,7 @@ func testListV2(t *testing.T, store storage.KeyValueStore) {
 	}
 
 	for _, test := range tests {
-		got, more, err := storage.ListV2(store, test.Options)
+		got, more, err := storage.ListV2(ctx, store, test.Options)
 		if err != nil {
 			t.Errorf("%v: %v", test.Name, err)
 			continue
