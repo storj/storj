@@ -211,7 +211,7 @@ read one (
 )
 
 // add payment method id to indentify if it has been set up
-model user_payment_info (
+model user_payment (
     key    user_id
     unique customer_id
 
@@ -221,11 +221,11 @@ model user_payment_info (
     field created_at    timestamp ( autoinsert )
 )
 
-create user_payment_info ( )
+create user_payment ( )
 
 read one (
-    select user_payment_info
-    where  user_payment_info.user_id = ?
+    select user_payment
+    where  user_payment.user_id = ?
 )
 
 model project (
@@ -264,25 +264,25 @@ read all (
 )
 
 // add is default, make composite key
-model project_payment_info (
+model project_payment (
     key project_id
 
-    field project_id        project.id                   cascade
-    field payer_id          user_payment_info.user_id    cascade
+    field project_id        project.id              cascade
+    field payer_id          user_payment.user_id    cascade
     field payment_method_id blob
 
     field created_at        timestamp  ( autoinsert )
 )
 
-create project_payment_info ( )
+create project_payment ( )
 
 read one (
-    select project_payment_info
-    where project_payment_info.project_id = ?
+    select project_payment
+    where project_payment.project_id = ?
 )
 read one (
-    select project_payment_info
-    where project_payment_info.payer_id = ?
+    select project_payment
+    where project_payment.payer_id = ?
 )
 
 model project_invoice_stamp (

@@ -12,48 +12,48 @@ import (
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-// projectpaymentinfos is the an implementation of console.ProjectPaymentInfos.
+// projectpayments is the an implementation of console.ProjectPayments.
 // Allows to work with project payment info storage
-type projectpaymentinfos struct {
+type projectpayments struct {
 	db dbx.Methods
 }
 
 // Create stores new project payment info into db
-func (infos *projectpaymentinfos) Create(ctx context.Context, info console.ProjectPaymentInfo) (*console.ProjectPaymentInfo, error) {
-	dbxInfo, err := infos.db.Create_ProjectPaymentInfo(ctx,
-		dbx.ProjectPaymentInfo_ProjectId(info.ProjectID[:]),
-		dbx.ProjectPaymentInfo_PayerId(info.PayerID[:]),
-		dbx.ProjectPaymentInfo_PaymentMethodId(info.PaymentMethodID))
+func (infos *projectpayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
+	dbxInfo, err := infos.db.Create_ProjectPayment(ctx,
+		dbx.ProjectPayment_ProjectId(info.ProjectID[:]),
+		dbx.ProjectPayment_PayerId(info.PayerID[:]),
+		dbx.ProjectPayment_PaymentMethodId(info.PaymentMethodID))
 
 	if err != nil {
 		return nil, err
 	}
 
-	return fromDBXProjectPaymentInfo(dbxInfo)
+	return fromDBXProjectPayment(dbxInfo)
 }
 
 // GetByProjectID retrieves project payment info from db by projectID
-func (infos *projectpaymentinfos) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPaymentInfo, error) {
-	dbxInfo, err := infos.db.Get_ProjectPaymentInfo_By_ProjectId(ctx, dbx.ProjectPaymentInfo_ProjectId(projectID[:]))
+func (infos *projectpayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+	dbxInfo, err := infos.db.Get_ProjectPayment_By_ProjectId(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}
 
-	return fromDBXProjectPaymentInfo(dbxInfo)
+	return fromDBXProjectPayment(dbxInfo)
 }
 
 // GetByPayerID retrieves project payment info from db by payerID(userID)
-func (infos *projectpaymentinfos) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPaymentInfo, error) {
-	dbxInfo, err := infos.db.Get_ProjectPaymentInfo_By_PayerId(ctx, dbx.ProjectPaymentInfo_PayerId(payerID[:]))
+func (infos *projectpayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
+	dbxInfo, err := infos.db.Get_ProjectPayment_By_PayerId(ctx, dbx.ProjectPayment_PayerId(payerID[:]))
 	if err != nil {
 		return nil, err
 	}
 
-	return fromDBXProjectPaymentInfo(dbxInfo)
+	return fromDBXProjectPayment(dbxInfo)
 }
 
-// fromDBXProjectPaymentInfo is a helper method to convert from *dbx.ProjectPaymentInfo to *console.ProjectPaymentInfo
-func fromDBXProjectPaymentInfo(dbxInfo *dbx.ProjectPaymentInfo) (*console.ProjectPaymentInfo, error) {
+// fromDBXProjectPayment is a helper method to convert from *dbx.ProjectPayment to *console.ProjectPayment
+func fromDBXProjectPayment(dbxInfo *dbx.ProjectPayment) (*console.ProjectPayment, error) {
 	projectID, err := bytesToUUID(dbxInfo.ProjectId)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func fromDBXProjectPaymentInfo(dbxInfo *dbx.ProjectPaymentInfo) (*console.Projec
 		return nil, err
 	}
 
-	return &console.ProjectPaymentInfo{
+	return &console.ProjectPayment{
 		ProjectID:       projectID,
 		PayerID:         payerID,
 		PaymentMethodID: dbxInfo.PaymentMethodId,

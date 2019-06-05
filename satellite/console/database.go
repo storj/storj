@@ -27,10 +27,10 @@ type DB interface {
 	ResetPasswordTokens() ResetPasswordTokens
 	// UsageRollups is a getter for UsageRollups repository
 	UsageRollups() UsageRollups
-	// UserPaymentInfos is a getter for UserPaymentInfos repository
-	UserPaymentInfos() UserPaymentInfos
-	// ProjectPaymentInfos is a getter for ProjectPaymentInfos repository
-	ProjectPaymentInfos() ProjectPaymentInfos
+	// UserPayments is a getter for UserPayments repository
+	UserPayments() UserPayments
+	// ProjectPayments is a getter for ProjectPayments repository
+	ProjectPayments() ProjectPayments
 	// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
 	ProjectInvoiceStamps() ProjectInvoiceStamps
 

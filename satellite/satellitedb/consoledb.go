@@ -61,14 +61,14 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 	return &usagerollups{db.db}
 }
 
-// UserPaymentInfos is a getter for console.UserPaymentInfos repository
-func (db *ConsoleDB) UserPaymentInfos() console.UserPaymentInfos {
-	return &userpaymentinfos{db.methods}
+// UserPayments is a getter for console.UserPayments repository
+func (db *ConsoleDB) UserPayments() console.UserPayments {
+	return &userpayments{db.methods}
 }
 
-// ProjectPaymentInfos is a getter for console.ProjectPaymentInfos repository
-func (db *ConsoleDB) ProjectPaymentInfos() console.ProjectPaymentInfos {
-	return &projectpaymentinfos{db.methods}
+// ProjectPayments is a getter for console.ProjectPayments repository
+func (db *ConsoleDB) ProjectPayments() console.ProjectPayments {
+	return &projectpayments{db.methods}
 }
 
 // ProjectInvoiceStamps is a getter for console.ProjectInvoiceStamps repository

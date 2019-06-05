@@ -152,7 +152,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return err
 		}
 
-		_, err = tx.UserPaymentInfos().Create(ctx, UserPaymentInfo{
+		_, err = tx.UserPayments().Create(ctx, UserPayment{
 			UserID:     u.ID,
 			CustomerID: cus.ID,
 		})
@@ -471,7 +471,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
-	pmInfo, err := s.store.UserPaymentInfos().Get(ctx, auth.User.ID)
+	pmInfo, err := s.store.UserPayments().Get(ctx, auth.User.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +502,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			return errs.New(internalErrMsg)
 		}
 
-		_, err = tx.ProjectPaymentInfos().Create(ctx, ProjectPaymentInfo{
+		_, err = tx.ProjectPayments().Create(ctx, ProjectPayment{
 			ProjectID:       p.ID,
 			PayerID:         pmInfo.UserID,
 			PaymentMethodID: defaultPayment.ID,
@@ -629,7 +629,7 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	projPaymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, projectID)
+	projPaymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
 	if err != nil {
 		return err
 	}
@@ -929,13 +929,13 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		paymentInfo, err := s.store.ProjectPaymentInfos().GetByProjectID(ctx, proj.ID)
+		paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
 		if err != nil {
 			invoiceError.Add(err)
 			continue
 		}
 
-		payerInfo, err := s.store.UserPaymentInfos().Get(ctx, paymentInfo.PayerID)
+		payerInfo, err := s.store.UserPayments().Get(ctx, paymentInfo.PayerID)
 		if err != nil {
 			invoiceError.Add(err)
 			continue

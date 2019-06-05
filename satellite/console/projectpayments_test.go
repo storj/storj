@@ -51,7 +51,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 		}
 
 		// create user payment info
-		userPmInfo, err := consoleDB.UserPaymentInfos().Create(ctx, console.UserPaymentInfo{
+		userPmInfo, err := consoleDB.UserPayments().Create(ctx, console.UserPayment{
 			UserID:     user.ID,
 			CustomerID: customerID[:],
 		})
@@ -68,7 +68,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 		}
 
 		t.Run("create project payment info", func(t *testing.T) {
-			info, err := consoleDB.ProjectPaymentInfos().Create(ctx, console.ProjectPaymentInfo{
+			info, err := consoleDB.ProjectPayments().Create(ctx, console.ProjectPayment{
 				ProjectID:       proj.ID,
 				PayerID:         userPmInfo.UserID,
 				PaymentMethodID: paymentMethodID[:],
@@ -81,7 +81,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 		})
 
 		t.Run("get by project id", func(t *testing.T) {
-			info, err := consoleDB.ProjectPaymentInfos().GetByProjectID(ctx, proj.ID)
+			info, err := consoleDB.ProjectPayments().GetByProjectID(ctx, proj.ID)
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
@@ -90,7 +90,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 		})
 
 		t.Run("get by payer id", func(t *testing.T) {
-			info, err := consoleDB.ProjectPaymentInfos().GetByPayerID(ctx, userPmInfo.UserID)
+			info, err := consoleDB.ProjectPayments().GetByPayerID(ctx, userPmInfo.UserID)
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)

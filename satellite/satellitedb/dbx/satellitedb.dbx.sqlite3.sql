@@ -228,16 +228,16 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE TABLE user_payment_infos (
+CREATE TABLE user_payments (
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	customer_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
-CREATE TABLE project_payment_infos (
+CREATE TABLE project_payments (
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id BLOB NOT NULL REFERENCES user_payment_infos( user_id ) ON DELETE CASCADE,
+	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 	payment_method_id BLOB NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( project_id )

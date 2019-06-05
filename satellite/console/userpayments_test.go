@@ -45,7 +45,7 @@ func TestUserPaymentInfos(t *testing.T) {
 		}
 
 		t.Run("create user payment info", func(t *testing.T) {
-			info, err := consoleDB.UserPaymentInfos().Create(ctx, console.UserPaymentInfo{
+			info, err := consoleDB.UserPayments().Create(ctx, console.UserPayment{
 				UserID:     user.ID,
 				CustomerID: customerID[:],
 			})
@@ -56,7 +56,7 @@ func TestUserPaymentInfos(t *testing.T) {
 		})
 
 		t.Run("get user payment info", func(t *testing.T) {
-			info, err := consoleDB.UserPaymentInfos().Get(ctx, user.ID)
+			info, err := consoleDB.UserPayments().Get(ctx, user.ID)
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)

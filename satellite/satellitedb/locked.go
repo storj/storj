@@ -299,32 +299,32 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	return m.db.Insert(ctx, memberID, projectID)
 }
 
-// ProjectPaymentInfos is a getter for ProjectPaymentInfos repository
-func (m *lockedConsole) ProjectPaymentInfos() console.ProjectPaymentInfos {
+// ProjectPayments is a getter for ProjectPayments repository
+func (m *lockedConsole) ProjectPayments() console.ProjectPayments {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedProjectPaymentInfos{m.Locker, m.db.ProjectPaymentInfos()}
+	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
 }
 
-// lockedProjectPaymentInfos implements locking wrapper for console.ProjectPaymentInfos
-type lockedProjectPaymentInfos struct {
+// lockedProjectPayments implements locking wrapper for console.ProjectPayments
+type lockedProjectPayments struct {
 	sync.Locker
-	db console.ProjectPaymentInfos
+	db console.ProjectPayments
 }
 
-func (m *lockedProjectPaymentInfos) Create(ctx context.Context, info console.ProjectPaymentInfo) (*console.ProjectPaymentInfo, error) {
+func (m *lockedProjectPayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, info)
 }
 
-func (m *lockedProjectPaymentInfos) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPaymentInfo, error) {
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByPayerID(ctx, payerID)
 }
 
-func (m *lockedProjectPaymentInfos) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPaymentInfo, error) {
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByProjectID(ctx, projectID)
@@ -505,26 +505,26 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
 }
 
-// UserPaymentInfos is a getter for UserPaymentInfos repository
-func (m *lockedConsole) UserPaymentInfos() console.UserPaymentInfos {
+// UserPayments is a getter for UserPayments repository
+func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
 	defer m.Unlock()
-	return &lockedUserPaymentInfos{m.Locker, m.db.UserPaymentInfos()}
+	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
 }
 
-// lockedUserPaymentInfos implements locking wrapper for console.UserPaymentInfos
-type lockedUserPaymentInfos struct {
+// lockedUserPayments implements locking wrapper for console.UserPayments
+type lockedUserPayments struct {
 	sync.Locker
-	db console.UserPaymentInfos
+	db console.UserPayments
 }
 
-func (m *lockedUserPaymentInfos) Create(ctx context.Context, info console.UserPaymentInfo) (*console.UserPaymentInfo, error) {
+func (m *lockedUserPayments) Create(ctx context.Context, info console.UserPayment) (*console.UserPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, info)
 }
 
-func (m *lockedUserPaymentInfos) Get(ctx context.Context, userID uuid.UUID) (*console.UserPaymentInfo, error) {
+func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Get(ctx, userID)
