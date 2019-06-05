@@ -12,6 +12,8 @@ import (
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
@@ -74,34 +76,59 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
 	bucketID := createBucketID(stripe.SegmentPath)
 
-	// TODO(kaloyan): CreateAuditOrderLimits checks overlay cache if nodes are online and won't return
-	// order limits for offline node. So we miss to record them as offline during the audit
+	var offlineNodes storj.NodeIDList
+	var failedNodes storj.NodeIDList
+	containedNodes := make(map[int]storj.NodeID)
+	sharesToAudit := make(map[int]Share)
+
 	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer, skip)
 	if err != nil {
 		return nil, err
 	}
+
+	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits)
 
 	shares, nodes, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
 	}
 
-	var offlineNodes storj.NodeIDList
-	var failedNodes storj.NodeIDList
-	containedNodes := make(map[int]storj.NodeID)
-	sharesToAudit := make(map[int]Share)
-
 	for pieceNum, share := range shares {
-		if share.Error != nil {
-			// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
-			if share.Error == context.DeadlineExceeded || !transport.Error.Has(share.Error) || ContainError.Has(share.Error) {
-				containedNodes[pieceNum] = nodes[pieceNum]
-			} else {
-				offlineNodes = append(offlineNodes, nodes[pieceNum])
-			}
-		} else {
+		if share.Error == nil {
+			// no error -- share downloaded successfully
 			sharesToAudit[pieceNum] = share
+			continue
 		}
+		if transport.Error.Has(share.Error) {
+			if context.DeadlineExceeded == errs.Unwrap(share.Error) {
+				// dial timeout
+				offlineNodes = append(offlineNodes, nodes[pieceNum])
+				continue
+			}
+			if codes.Unknown == status.Code(errs.Unwrap(share.Error)) {
+				// dial failed -- offline node
+				offlineNodes = append(offlineNodes, nodes[pieceNum])
+				continue
+			}
+			// unknown transport error
+			containedNodes[pieceNum] = nodes[pieceNum]
+			continue
+		}
+
+		if codes.NotFound == status.Code(errs.Unwrap(share.Error)) {
+			// missing share
+			failedNodes = append(failedNodes, nodes[pieceNum])
+			continue
+		}
+
+		if codes.DeadlineExceeded == status.Code(errs.Unwrap(share.Error)) {
+			// dial successful, but download timed out
+			containedNodes[pieceNum] = nodes[pieceNum]
+			continue
+		}
+
+		// unknown error
+		containedNodes[pieceNum] = nodes[pieceNum]
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
@@ -109,6 +136,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 
 	if len(sharesToAudit) < required {
 		return &Report{
+			Fails:    failedNodes,
 			Offlines: offlineNodes,
 		}, ErrNotEnoughShares.New("got %d, required %d", len(sharesToAudit), required)
 	}
@@ -116,6 +144,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	pieceNums, correctedShares, err := auditShares(ctx, required, total, sharesToAudit)
 	if err != nil {
 		return &Report{
+			Fails:    failedNodes,
 			Offlines: offlineNodes,
 		}, err
 	}
@@ -251,12 +280,36 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 
 			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
 			if err != nil {
-				// TODO(kaloyan): we need to check the logic here if we correctly identify offline nodes from those that didn't respond.
-				if err == context.DeadlineExceeded || !transport.Error.Has(err) {
+				if transport.Error.Has(share.Error) {
+					if context.DeadlineExceeded == errs.Unwrap(share.Error) {
+						// dial timeout
+						ch <- result{nodeID: piece.NodeId, status: offline}
+						return
+					}
+					if codes.Unknown == status.Code(errs.Unwrap(share.Error)) {
+						// dial failed -- offline node
+						ch <- result{nodeID: piece.NodeId, status: offline}
+						return
+					}
+					// unknown transport error
 					ch <- result{nodeID: piece.NodeId, status: contained}
-				} else {
-					ch <- result{nodeID: piece.NodeId, status: offline}
+					return
 				}
+
+				if codes.NotFound == status.Code(errs.Unwrap(share.Error)) {
+					// missing share
+					ch <- result{nodeID: piece.NodeId, status: failed}
+					return
+				}
+
+				if codes.DeadlineExceeded == status.Code(errs.Unwrap(share.Error)) {
+					// dial successful, but download timed out
+					ch <- result{nodeID: piece.NodeId, status: contained}
+					return
+				}
+
+				// unknown error
+				ch <- result{nodeID: piece.NodeId, status: contained}
 				return
 			}
 
@@ -388,6 +441,26 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 			Number: original.PieceNum})
 	}
 	return copies, nil
+}
+
+// getOfflines nodes returns these storage nodes from pointer which have no order limit
+func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit) storj.NodeIDList {
+	var offlines storj.NodeIDList
+
+	limitsMap := make(map[storj.NodeID]*pb.AddressedOrderLimit, len(limits))
+	for _, limit := range limits {
+		if limit != nil {
+			limitsMap[limit.GetLimit().StorageNodeId] = limit
+		}
+	}
+
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		if _, ok := limitsMap[piece.NodeId]; !ok {
+			offlines = append(offlines, piece.NodeId)
+		}
+	}
+
+	return offlines
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
