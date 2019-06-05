@@ -40,6 +40,8 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 		return ErrInfo.Wrap(err)
 	}
 
+	defer db.locked()()
+
 	_, err = db.db.Exec(`
 		INSERT INTO vouchers(
 			satellite_id, 
@@ -57,6 +59,7 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 // GetExpiring retrieves all vouchers that are expired or about to expire
 func (db *vouchersdb) GetExpiring(ctx context.Context) (satellites []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
+	defer db.locked()()
 
 	expiresBefore := time.Now().UTC().AddDate(0, 0, 3)
 	rows, err := db.db.Query(`
@@ -88,6 +91,8 @@ func (db *vouchersdb) GetExpiring(ctx context.Context) (satellites []storj.NodeI
 func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (*pb.Voucher, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+	defer db.locked()()
+
 	var args []interface{}
 
 	idCondition := `satellite_id IN (?` + strings.Repeat(", ?", len(satellites)-1) + `)`
