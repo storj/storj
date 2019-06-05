@@ -4,6 +4,7 @@
 package filestore
 
 import (
+	"context"
 	"encoding/base32"
 	"io"
 	"io/ioutil"
@@ -54,7 +55,7 @@ func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
 // prealloc preallocates file to make writing faster
-func (dir *Dir) CreateTemporaryFile(prealloc int64) (*os.File, error) {
+func (dir *Dir) CreateTemporaryFile(ctx context.Context, prealloc int64) (_ *os.File, err error) {
 	const preallocLimit = 5 << 20 // 5 MB
 	if prealloc > preallocLimit {
 		prealloc = preallocLimit
@@ -74,7 +75,8 @@ func (dir *Dir) CreateTemporaryFile(prealloc int64) (*os.File, error) {
 }
 
 // DeleteTemporary deletes a temporary file
-func (dir *Dir) DeleteTemporary(file *os.File) error {
+func (dir *Dir) DeleteTemporary(ctx context.Context, file *os.File) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	closeErr := file.Close()
 	return errs.Combine(closeErr, os.Remove(file.Name()))
 }
@@ -104,7 +106,8 @@ func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
 }
 
 // Commit commits temporary file to the permanent storage
-func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
+func (dir *Dir) Commit(ctx context.Context, file *os.File, ref storage.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	position, seekErr := file.Seek(0, io.SeekCurrent)
 	truncErr := file.Truncate(position)
 	syncErr := file.Sync()
@@ -142,7 +145,8 @@ func (dir *Dir) Commit(file *os.File, ref storage.BlobRef) error {
 }
 
 // Open opens the file with the specified ref
-func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
+func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, err error) {
+	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToPath(ref)
 	if err != nil {
 		return nil, err
@@ -155,7 +159,8 @@ func (dir *Dir) Open(ref storage.BlobRef) (*os.File, error) {
 }
 
 // Delete deletes file with the specified ref
-func (dir *Dir) Delete(ref storage.BlobRef) error {
+func (dir *Dir) Delete(ctx context.Context, ref storage.BlobRef) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	path, err := dir.blobToPath(ref)
 	if err != nil {
 		return err
@@ -199,7 +204,8 @@ func (dir *Dir) Delete(ref storage.BlobRef) error {
 }
 
 // GarbageCollect collects files that are pending deletion
-func (dir *Dir) GarbageCollect() error {
+func (dir *Dir) GarbageCollect(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	offset := int(math.MaxInt32)
 	// limited deletion loop to avoid blocking `Delete` for too long
 	for offset >= 0 {
@@ -225,12 +231,13 @@ func (dir *Dir) GarbageCollect() error {
 	}
 
 	// remove anything left in the trashdir
-	_ = removeAllContent(dir.trashdir())
+	_ = removeAllContent(ctx, dir.trashdir())
 	return nil
 }
 
 // removeAllContent deletes everything in the folder
-func removeAllContent(path string) error {
+func removeAllContent(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	dir, err := os.Open(path)
 	if err != nil {
 		return err
