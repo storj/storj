@@ -352,7 +352,7 @@ func TestWouldBeInNearestK(t *testing.T) {
 			result, err := rt.wouldBeInNearestK(c.nodeID)
 			assert.NoError(t, err)
 			assert.Equal(t, c.closest, result)
-			assert.NoError(t, rt.nodeBucketDB.Put(c.nodeID.Bytes(), []byte("")))
+			assert.NoError(t, rt.nodeBucketDB.Put(ctx, c.nodeID.Bytes(), []byte("")))
 		})
 	}
 }
