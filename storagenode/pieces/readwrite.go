@@ -56,9 +56,9 @@ func (w *Writer) Commit(ctx context.Context) (err error) {
 	}
 	w.closed = true
 	if err := w.buf.Flush(); err != nil {
-		return Error.Wrap(errs.Combine(err, w.blob.Cancel()))
+		return Error.Wrap(errs.Combine(err, w.blob.Cancel(ctx)))
 	}
-	return Error.Wrap(w.blob.Commit())
+	return Error.Wrap(w.blob.Commit(ctx))
 }
 
 // Cancel deletes any temporarily written data.
@@ -69,7 +69,7 @@ func (w *Writer) Cancel(ctx context.Context) (err error) {
 	}
 	w.closed = true
 	w.buf.Reset(nil)
-	return Error.Wrap(w.blob.Cancel())
+	return Error.Wrap(w.blob.Cancel(ctx))
 }
 
 // Reader implements a piece reader that reads content from blob store.

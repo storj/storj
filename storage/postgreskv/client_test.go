@@ -4,6 +4,7 @@
 package postgreskv
 
 import (
+	"context"
 	"database/sql"
 	"testing"
 
@@ -14,6 +15,8 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
+
+var ctx = context.Background() // test context
 
 func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
 	if *pgtest.ConnStr == "" {
@@ -73,7 +76,7 @@ func bulkImport(db *sql.DB, iter storage.Iterator) (err error) {
 	}()
 
 	var item storage.ListItem
-	for iter.Next(&item) {
+	for iter.Next(ctx, &item) {
 		if _, err := stmt.Exec([]byte(""), []byte(item.Key), []byte(item.Value)); err != nil {
 			return err
 		}

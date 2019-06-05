@@ -24,7 +24,8 @@ var (
 )
 
 // VerifyPieceHash verifies piece hash which is sent by peer.
-func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) error {
+func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
 		return ErrProtocol.New("invalid arguments")
 	}
@@ -35,7 +36,7 @@ func (client *Client) VerifyPieceHash(ctx context.Context, peer *identity.PeerId
 		return ErrVerifyUntrusted.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyPieceHashSignature(signing.SigneeFromPeerIdentity(peer), hash); err != nil {
+	if err := signing.VerifyPieceHashSignature(ctx, signing.SigneeFromPeerIdentity(peer), hash); err != nil {
 		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report grpc status bad message
 	}
 
