@@ -42,9 +42,14 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
     - Create a Message (protobuf) to sign that Satellite C says Node B has been vetted
     - Get info about the Node's difficulty and disk space to add to the message
  [TODO: protobuf]
+```go
+    // IsVetted returns whether or not the node reaches reputable thresholds
+    IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
+```
 2. Trusted Satellites List
     - Create Whitelist/blacklist with an abstraction layer for trusted/untrusted Satellites
     - These lists will live on each Node
+    - NB: We are using `config.Storage.WhitelistedSatelliteIDs` "a comma-separated list of approved satellite node ids" for now
 
 3. Routing Table Antechamber
     - XOR ordered data structure (perhaps an ordered slice)
@@ -74,7 +79,6 @@ To help prevent Sybill Attacks where bad Nodes fill the routing tables, push out
     * [part III](https://storjlabs.atlassian.net/browse/V3-1833)
 
 2. Make [Trusted Satellites List](https://storjlabs.atlassian.net/browse/V3-1727)
-    * DONE: using satellite whitelist for now.
 
 3. Deploy steps 1 and 2 to production
 
