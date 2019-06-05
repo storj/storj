@@ -12,7 +12,10 @@ import (
 
 // DB implements storing and retrieving vouchers
 type DB interface {
+	// Put inserts or updates a voucher from a satellite
 	Put(context.Context, *pb.Voucher) error
+	// GetExpiring retrieves all vouchers that are expired or about to expire
 	GetExpiring(context.Context) ([]storj.NodeID, error)
-	PresentVoucher(context.Context, []storj.NodeID) (*pb.Voucher, error)
+	// GetValid returns one valid voucher from the list of approved satellites
+	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
 }

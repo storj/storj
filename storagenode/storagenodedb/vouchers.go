@@ -54,7 +54,7 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 	return err
 }
 
-// GetExpiring retrieves all vouchers that are about to expire
+// GetExpiring retrieves all vouchers that are expired or about to expire
 func (db *vouchersdb) GetExpiring(ctx context.Context) (satellites []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -84,8 +84,8 @@ func (db *vouchersdb) GetExpiring(ctx context.Context) (satellites []storj.NodeI
 	return satellites, ErrInfo.Wrap(rows.Err())
 }
 
-// PresentVoucher attempts to return a voucher from the list of requested satellites
-func (db *vouchersdb) PresentVoucher(ctx context.Context, satellites []storj.NodeID) (*pb.Voucher, error) {
+// GetValid returns one valid voucher from the list of approved satellites
+func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (*pb.Voucher, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 	var args []interface{}

@@ -47,8 +47,8 @@ func TestVouchers(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, satellite.ID, expiring[0])
 
-		// basic PresentVoucher test
-		result, err := vdb.PresentVoucher(ctx, []storj.NodeID{satellite.ID})
+		// basic GetValid test
+		result, err := vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 		require.Equal(t, voucher.SatelliteId, result.SatelliteId)
 		require.Equal(t, voucher.StorageNodeId, result.StorageNodeId)
@@ -67,7 +67,7 @@ func TestVouchers(t *testing.T) {
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
 
-		result, err = vdb.PresentVoucher(ctx, []storj.NodeID{satellite.ID})
+		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 
 		expectedTime, err = ptypes.Timestamp(voucher.GetExpiration())
