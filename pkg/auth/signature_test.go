@@ -27,7 +27,7 @@ func TestGenerateSignature(t *testing.T) {
 		{identity.ID.Bytes(), true},
 		{[]byte("non verifiable data"), false},
 	} {
-		signature, err := GenerateSignature(identity.ID.Bytes(), identity)
+		signature, err := GenerateSignature(ctx, identity.ID.Bytes(), identity)
 		assert.NoError(t, err)
 
 		verifyError := pkcrypto.HashAndVerifySignature(identity.Leaf.PublicKey, tt.data, signature)

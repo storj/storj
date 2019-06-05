@@ -4,13 +4,16 @@
 package signing
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/pb"
 )
 
 // EncodeOrderLimit encodes order limit into bytes for signing. Removes signature from serialized limit.
-func EncodeOrderLimit(limit *pb.OrderLimit2) ([]byte, error) {
+func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit2) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := limit.SatelliteSignature
 	limit.SatelliteSignature = nil
 	out, err := proto.Marshal(limit)
@@ -19,7 +22,8 @@ func EncodeOrderLimit(limit *pb.OrderLimit2) ([]byte, error) {
 }
 
 // EncodeOrder encodes order into bytes for signing. Removes signature from serialized order.
-func EncodeOrder(order *pb.Order2) ([]byte, error) {
+func EncodeOrder(ctx context.Context, order *pb.Order2) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := order.UplinkSignature
 	order.UplinkSignature = nil
 	out, err := proto.Marshal(order)
@@ -28,7 +32,8 @@ func EncodeOrder(order *pb.Order2) ([]byte, error) {
 }
 
 // EncodePieceHash encodes piece hash into bytes for signing. Removes signature from serialized hash.
-func EncodePieceHash(hash *pb.PieceHash) ([]byte, error) {
+func EncodePieceHash(ctx context.Context, hash *pb.PieceHash) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := hash.Signature
 	hash.Signature = nil
 	out, err := proto.Marshal(hash)
@@ -37,7 +42,8 @@ func EncodePieceHash(hash *pb.PieceHash) ([]byte, error) {
 }
 
 // EncodeVoucher encodes voucher into bytes for signing.
-func EncodeVoucher(voucher *pb.Voucher) ([]byte, error) {
+func EncodeVoucher(ctx context.Context, voucher *pb.Voucher) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := voucher.SatelliteSignature
 	voucher.SatelliteSignature = nil
 	out, err := proto.Marshal(voucher)

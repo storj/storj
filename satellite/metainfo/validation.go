@@ -134,7 +134,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	}
 
 	// Revocations are currently handled by just deleting the key.
-	err = key.Check(keyInfo.Secret, action, nil)
+	err = key.Check(ctx, keyInfo.Secret, action, nil)
 	if err != nil {
 		endpoint.log.Error("unauthorized request", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
 		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
