@@ -48,7 +48,7 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
 func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit2) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return signing.VerifyOrderLimitSignature(service.satellite, signed)
+	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
 }
 
 func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber, err error) {
@@ -140,7 +140,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        uplink.ID,
@@ -202,7 +202,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	var pieceNum int32
 	for _, node := range nodes {
-		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        uplink.ID,
@@ -279,7 +279,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        uplink.ID,
@@ -360,7 +360,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        auditor.ID,
@@ -444,7 +444,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        repairer.ID,
@@ -518,7 +518,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
 		}
 
-		orderLimit, err := signing.SignOrderLimit(service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:    serialNumber,
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        repairer.ID,

@@ -50,7 +50,8 @@ type SignableMessage interface {
 }
 
 //SignMessage adds the crypto-related aspects of signed message
-func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
+func SignMessage(ctx context.Context, msg SignableMessage, ID identity.FullIdentity) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if msg == nil {
 		return ErrMissing.New("message")
 	}
@@ -70,8 +71,7 @@ func SignMessage(msg SignableMessage, ID identity.FullIdentity) error {
 }
 
 //VerifyMsg checks the crypto-related aspects of signed message
-func VerifyMsg(msg SignableMessage, signer storj.NodeID) (err error) {
-	ctx := context.TODO()
+func VerifyMsg(ctx context.Context, msg SignableMessage, signer storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	//setup
 	if msg == nil {

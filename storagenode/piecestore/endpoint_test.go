@@ -146,7 +146,7 @@ func TestUpload(t *testing.T) {
 			int64(len(data)),
 		)
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
 		uploader, err := client.Upload(ctx, orderLimit)
@@ -155,7 +155,7 @@ func TestUpload(t *testing.T) {
 		_, err = uploader.Write(data)
 		require.NoError(t, err)
 
-		pieceHash, err := uploader.Commit()
+		pieceHash, err := uploader.Commit(ctx)
 		if tt.err != "" {
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tt.err)
@@ -165,7 +165,7 @@ func TestUpload(t *testing.T) {
 			assert.Equal(t, expectedHash, pieceHash.Hash)
 
 			signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
-			require.NoError(t, signing.VerifyPieceHashSignature(signee, pieceHash))
+			require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
 		}
 	}
 }
@@ -203,7 +203,7 @@ func TestDownload(t *testing.T) {
 		int64(len(expectedData)),
 	)
 	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-	orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+	orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 	require.NoError(t, err)
 
 	uploader, err := client.Upload(ctx, orderLimit)
@@ -212,7 +212,7 @@ func TestDownload(t *testing.T) {
 	_, err = uploader.Write(expectedData)
 	require.NoError(t, err)
 
-	_, err = uploader.Commit()
+	_, err = uploader.Commit(ctx)
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -251,7 +251,7 @@ func TestDownload(t *testing.T) {
 			int64(len(expectedData)),
 		)
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
 		downloader, err := client.Download(ctx, orderLimit, 0, int64(len(expectedData)))
@@ -309,7 +309,7 @@ func TestDelete(t *testing.T) {
 		int64(len(expectedData)),
 	)
 	signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-	orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+	orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 	require.NoError(t, err)
 
 	uploader, err := client.Upload(ctx, orderLimit)
@@ -318,7 +318,7 @@ func TestDelete(t *testing.T) {
 	_, err = uploader.Write(expectedData)
 	require.NoError(t, err)
 
-	_, err = uploader.Commit()
+	_, err = uploader.Commit(ctx)
 	require.NoError(t, err)
 
 	for _, tt := range []struct {
@@ -358,7 +358,7 @@ func TestDelete(t *testing.T) {
 			100,
 		)
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		orderLimit, err = signing.SignOrderLimit(signer, orderLimit)
+		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
 		err := client.Delete(ctx, orderLimit)

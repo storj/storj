@@ -4,13 +4,16 @@
 package signing
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/pb"
 )
 
 // EncodeOrderLimit encodes order limit into bytes for signing.
-func EncodeOrderLimit(limit *pb.OrderLimit2) ([]byte, error) {
+func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit2) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := limit.SatelliteSignature
 	limit.SatelliteSignature = nil
 	defer func() { limit.SatelliteSignature = signature }()
@@ -18,7 +21,8 @@ func EncodeOrderLimit(limit *pb.OrderLimit2) ([]byte, error) {
 }
 
 // EncodeOrder encodes order into bytes for signing.
-func EncodeOrder(order *pb.Order2) ([]byte, error) {
+func EncodeOrder(ctx context.Context, order *pb.Order2) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := order.UplinkSignature
 	order.UplinkSignature = nil
 	defer func() { order.UplinkSignature = signature }()
@@ -26,7 +30,8 @@ func EncodeOrder(order *pb.Order2) ([]byte, error) {
 }
 
 // EncodePieceHash encodes piece hash into bytes for signing.
-func EncodePieceHash(hash *pb.PieceHash) ([]byte, error) {
+func EncodePieceHash(ctx context.Context, hash *pb.PieceHash) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	signature := hash.Signature
 	hash.Signature = nil
 	defer func() { hash.Signature = signature }()
