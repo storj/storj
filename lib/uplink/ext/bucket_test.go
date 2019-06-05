@@ -122,7 +122,6 @@ func TestUploadObject(t *testing.T) {
 			assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
 			// TODO: test with `IsPrefix` == true
 			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
-			// TODO: assert version
 
 			err = openBucket.DeleteObject(ctx, object.Path)
 			require.NoError(t, err)
@@ -179,7 +178,6 @@ func TestListObjects(t *testing.T) {
 			assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
 			// TODO: test with `IsPrefix` == true
 			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
-			// TODO: assert version
 
 			err = openBucket.DeleteObject(ctx, object.Path)
 			require.NoError(t, err)

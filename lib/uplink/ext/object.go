@@ -45,7 +45,12 @@ func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, cE
 		*cErr = C.CString(err.Error())
 		return
 	}
-	defer rc.Close()
+	defer func() {
+		err := rc.Close()
+		if err != nil {
+			*cErr = C.CString(err.Error())
+		}
+	}()
 
 	// TODO: This size could be optimized
 	buf := make([]byte, 1024)

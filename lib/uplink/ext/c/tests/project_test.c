@@ -51,7 +51,7 @@ void TestProject(void)
     EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
 
     // Open bucket
-    BucketRef_t opened_bucket = OpenBucket(ref_project, bucket_names[0], access, err);
+    BucketRef_t ref_open_bucket = OpenBucket(ref_project, bucket_names[0], access, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: exercise functions that operate on an open bucket to add assertions

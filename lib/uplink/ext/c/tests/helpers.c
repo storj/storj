@@ -62,6 +62,7 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
     // TODO: what is expected here (bucket.path_cipher is 1 when bucket_cfg.path_cipher is 0 and vice-versa)?
 //    TEST_ASSERT_EQUAL(bucket_cfg.path_cipher, bucket.path_cipher);
     // TODO: what is expected here (bucket.segment_size is 67108864)?
+    // TODO: reference same default constant
     TEST_ASSERT_EQUAL(67108864, bucket->segment_size);
 
     return bucket;
