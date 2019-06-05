@@ -728,7 +728,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
-				Version:     26,
+				Version:     27,
 				Action: migrate.SQL{
 					`CREATE TABLE user_payment_infos (
 						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
