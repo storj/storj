@@ -52,7 +52,7 @@ func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 
 		Cursor:   NewCursor(metainfo),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
-		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
+		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
