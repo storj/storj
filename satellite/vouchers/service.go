@@ -80,5 +80,5 @@ func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ 
 		Expiration:    expiration,
 	}
 
-	return signing.SignVoucher(service.satellite, unsigned)
+	return signing.SignVoucher(ctx, service.satellite, unsigned)
 }
