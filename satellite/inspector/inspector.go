@@ -123,7 +123,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

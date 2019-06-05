@@ -508,7 +508,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				ClientSecret: mailConfig.ClientSecret,
 				TokenURI:     mailConfig.TokenURI,
 			}
-			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
