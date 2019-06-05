@@ -217,16 +217,16 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE TABLE user_payment_infos (
+CREATE TABLE user_payments (
   user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
   customer_id bytea NOT NULL,
   created_at timestamp with time zone NOT NULL,
   PRIMARY KEY ( user_id ),
   UNIQUE ( customer_id )
 );
-CREATE TABLE project_payment_infos (
+CREATE TABLE project_payments (
   project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-  payer_id bytea NOT NULL REFERENCES user_payment_infos( user_id ) ON DELETE CASCADE,
+  payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
   payment_method_id bytea NOT NULL,
   created_at timestamp with time zone NOT NULL,
   PRIMARY KEY ( project_id )
@@ -298,6 +298,6 @@ INSERT INTO "api_keys" ("id", "project_id", "head", "name", "secret", "created_a
 
 -- NEW DATA --
 
-INSERT INTO "user_payment_infos" ("user_id", "customer_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\022\\217/\\014\\376!K\\023\\276'::bytea, '2019-06-01 08:28:24.267934+00');
-INSERT INTO "project_payment_infos" ("project_id", "payer_id", "payment_method_id", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\022\\217/\\014\\376!K\\023\\276'::bytea, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "user_payments" ("user_id", "customer_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\022\\217/\\014\\376!K\\023\\276'::bytea, '2019-06-01 08:28:24.267934+00');
+INSERT INTO "project_payments" ("project_id", "payer_id", "payment_method_id", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\022\\217/\\014\\376!K\\023\\276'::bytea, '2019-06-01 08:28:24.267934+00');
 INSERT INTO "project_invoice_stamps" ("project_id", "invoice_id", "start_date", "end_date", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, E'\\363\\311\\033w\\222\\303,'::bytea, '2019-06-01 08:28:24.267934+00', '2019-06-29 08:28:24.267934+00', '2019-06-01 08:28:24.267934+00');

@@ -740,16 +740,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
 				Version:     27,
 				Action: migrate.SQL{
-					`CREATE TABLE user_payment_infos (
+					`CREATE TABLE user_payments (
 						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 						customer_id bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( user_id ),
 						UNIQUE ( customer_id )
 					);`,
-					`CREATE TABLE project_payment_infos (
+					`CREATE TABLE project_payments (
 						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-						payer_id bytea NOT NULL REFERENCES user_payment_infos( user_id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 						payment_method_id bytea NOT NULL,
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( project_id )
