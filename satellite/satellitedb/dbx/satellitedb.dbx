@@ -688,17 +688,27 @@ model user_credit (
 	key		id
 
 	field	id				serial
+
 	field	user_id user.id	restrict
 	field	offer_id offer.id	restrict
-	field	referred_by user.id	restrict
-	field	credits_earned	int
-	field	credits_used	int
-	field	credits_type	int
-	field	expires_at		timestamp	(autoinsert)
-	field	created_at		timestamp	(autoinsert)
+	field	referred_by user.id	restrict ( nullable, updatable )
+
+	field	credits_earned_in_cents	int
+	field	credits_used_in_cents	int ( updatable )
+
+	field	expires_at		timestamp	( updatable )
+	field	created_at		timestamp	( autoinsert )
 )
 
-read one (
-	select user_credit
-	where	user_credit.offer_id = ?
+read all (
+	select  user_credit
+	where   user_credit.user_id = ?
+    where   expires_at > ?
+)
+
+create user_credit ()
+
+update user_credit (
+    where user_id = ?
+    where referred_by = ?
 )
