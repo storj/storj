@@ -81,7 +81,7 @@ install-sim: ## install storj-sim
 ##@ Test
 
 .PHONY: test
-test: ## Run tests on source code (jenkins)
+test: libuplink ## Run tests on source code (jenkins)
 	go test -race -v -cover -coverprofile=.coverprofile ./...
 	@echo done
 
