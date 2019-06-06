@@ -10,7 +10,7 @@ The white paper describes the a 'preferences' system used in node selection, bas
 
 > After disqualified storage nodes have been filtered out, remaining statistics collected during audits will be used to establish a preference for better storage nodes during uploads. These statistics include performance characteristics such as throughput and latency, history of reliability and uptime, geographic location, and other desirable qualities. They will be combined into a load-balancing selection process, such that all uploads are sent to qualified nodes, with a higher likelihood of uploads to preferred nodes, but with a non-zero chance for any qualified node.  Initially, we’ll be load balancing with these preferences via a randomized scheme, such as the Power of Two Choices, which selects two options entirely at random and then chooses the more qualified between those two. On the Storj network, preferential storage node reputation is only used to select where new data will be stored, both during repair and during the upload of new files, unlike disqualifying events.  If a storage node’s preferential reputation decreases, its file pieces will not be moved or repaired to other nodes.
 
-The existing reputation-like system uses uptime and audit responses.  It does not currently consider geographic location, throughput, or latency.  In addition to factors which affect reputation, there are other considerations which are involved in node selection.  These considerations currently include IP address, advertised available bandwidth, advertised available disk space, software version compatibility, and whether the node appeared to be online in the latest communication with the satellite.
+The existing reputation-like system uses uptime and audit responses.  It does not currently consider geographic location, throughput, or latency.  In addition to factors which affect reputation, there are other factors in node selection.  These considerations currently include IP address, advertised available bandwidth, advertised available disk space, software version compatibility, and whether the node appeared to be online in the latest communication with the satellite.
 
 
 ## Design
@@ -20,7 +20,9 @@ Separate reputation scores will be maintained for audits and uptime.  Two sets o
 The reputation _R(n)_ is calculated based on some measured success _v_, two persisted values a and β, and fixed configuration values λ and _w_.  
 
 > α(n) = λ·α(n-1) + _w_(1+_v_)/2
+>
 > β(n) = λ·β(n-1) + _w_(1-_v_)/2
+>
 > R(n) = α(n) / (α(n) + β(n))
 
 Initial values for a and β - a0 and β0 - will also be configuration values.  While _v_ may need to vary depending on our "easing" implementation, it will likely vary algorithmically and should not require configuration.  The initial implement may simply assume that _v_ = 1.
@@ -32,9 +34,10 @@ The node selection SQL queries will also change.  Twice as many nodes must retur
 Note that the initial implementation has two different reputation statistics:  audit and uptime.  For the purposes of node selection, we assume that these two reputation can be combined by scaling one of them by some constant.  We further assume that operations may weigh these reputations differently.  The initial configuration should include a uptime_repair_weight, audit_repair_weight, uptime_uplink_weight, and audit_uplink_weight constants.
 
 > Total Repair Reputation = uptime_repair_weight · uptime R(n) + audit_repair_weight · audit R(n)
+>
 > Total Uplink Reputation = uptime_uplink_weight · uptime R(n) + audit_uplink_weight · audit R(n)
 
-This design may be refined in the future to prefer faster downloads, etc..
+This design may be refined in the future to prefer faster nodes, geography, etc..
 
 ### Database changes
 
