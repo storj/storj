@@ -34,10 +34,9 @@ func TestCreateObject(t *testing.T) {
 		ShareSize:      2 * memory.KiB.Int32(),
 	}
 
-	stripeSize := int32(customRS.RequiredShares) * customRS.ShareSize
 	customES := storj.EncryptionScheme{
 		Cipher:    storj.Unencrypted,
-		BlockSize: stripeSize,
+		BlockSize: customRS.StripeSize(),
 	}
 
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {

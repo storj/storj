@@ -41,10 +41,10 @@ var DefaultRS = storj.RedundancyScheme{
 }
 
 // DefaultES default values for EncryptionScheme
-// BlockSize should default to the size of one stripe
+// BlockSize should default to the size of a stripe
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
-	BlockSize: DefaultRS.ShareSize * int32(DefaultRS.RequiredShares),
+	BlockSize: DefaultRS.StripeSize(),
 }
 
 // GetObject returns information about an object

@@ -705,14 +705,15 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	encKey := new(storj.Key)
 	copy(encKey[:], TestEncKey)
 
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, 1*memory.KiB.Int(), storj.AESGCM)
+	blockSize := rs.StripeSize()
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, 1*memory.KiB.Int32(), rs, 64*memory.MiB.Int64())
+	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, int32(blockSize), rs, 64*memory.MiB.Int64())
 
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {
@@ -739,14 +740,15 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	stripeSize := rs.ErasureShareSize() * rs.RequiredCount()
+	stripeSize := rs.StripeSize()
+
 	gateway := NewStorjGateway(
 		proj,
 		encKey,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
-			BlockSize:   2 * int32(stripeSize),
+			BlockSize:   int32(stripeSize),
 		},
 		storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,

@@ -71,16 +71,12 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 // with the encryption block size boundaries. We also want stripes to be small for
 // audits, but encryption can be a bit larger. All told, block size should be an integer
 // multiple of stripe size.
-func validateBlockSize(RS storj.RedundancyScheme, blockSize int32) error {
-	shareSize := RS.ShareSize
-	requiredShares := int32(RS.RequiredShares)
-
-	// number of bytes needed to recreate a stripe
-	stripeSize := shareSize * requiredShares
+func validateBlockSize(redundancyScheme storj.RedundancyScheme, blockSize int32) error {
+	stripeSize := redundancyScheme.StripeSize()
 
 	if blockSize%stripeSize != 0 {
 		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
-			blockSize, shareSize, requiredShares,
+			blockSize, redundancyScheme.ShareSize, redundancyScheme.RequiredShares,
 		)
 	}
 	return nil
