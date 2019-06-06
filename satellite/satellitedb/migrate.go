@@ -737,6 +737,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				Description: "Create value attribution table",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE TABLE value_attributions (
+						bucket_id bytea NOT NULL,
+						partner_id bytea NOT NULL,
+						last_updated timestamp NOT NULL,
+						PRIMARY KEY ( bucket_id )
+					)`,
+				},
+			},
+			{
 				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
 				Version:     28,
 				Action: migrate.SQL{

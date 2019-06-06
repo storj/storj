@@ -469,6 +469,12 @@ CREATE TABLE users (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE value_attributions (
+	bucket_id bytea NOT NULL,
+	partner_id bytea NOT NULL,
+	last_updated timestamp NOT NULL,
+	PRIMARY KEY ( bucket_id )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -779,6 +785,12 @@ CREATE TABLE users (
 	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE value_attributions (
+	bucket_id BLOB NOT NULL,
+	partner_id BLOB NOT NULL,
+	last_updated TIMESTAMP NOT NULL,
+	PRIMARY KEY ( bucket_id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -3917,6 +3929,75 @@ func (f User_CreatedAt_Field) value() interface{} {
 }
 
 func (User_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ValueAttribution struct {
+	BucketId    []byte
+	PartnerId   []byte
+	LastUpdated time.Time
+}
+
+func (ValueAttribution) _Table() string { return "value_attributions" }
+
+type ValueAttribution_Update_Fields struct {
+}
+
+type ValueAttribution_BucketId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ValueAttribution_BucketId(v []byte) ValueAttribution_BucketId_Field {
+	return ValueAttribution_BucketId_Field{_set: true, _value: v}
+}
+
+func (f ValueAttribution_BucketId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ValueAttribution_BucketId_Field) _Column() string { return "bucket_id" }
+
+type ValueAttribution_PartnerId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ValueAttribution_PartnerId(v []byte) ValueAttribution_PartnerId_Field {
+	return ValueAttribution_PartnerId_Field{_set: true, _value: v}
+}
+
+func (f ValueAttribution_PartnerId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ValueAttribution_PartnerId_Field) _Column() string { return "partner_id" }
+
+type ValueAttribution_LastUpdated_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ValueAttribution_LastUpdated(v time.Time) ValueAttribution_LastUpdated_Field {
+	v = toUTC(v)
+	return ValueAttribution_LastUpdated_Field{_set: true, _value: v}
+}
+
+func (f ValueAttribution_LastUpdated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ValueAttribution_LastUpdated_Field) _Column() string { return "last_updated" }
 
 type ApiKey struct {
 	Id        []byte
@@ -7571,6 +7652,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM value_attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11243,6 +11334,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM value_attributions;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
