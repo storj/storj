@@ -86,6 +86,7 @@ require (
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/pkg/profile v1.2.1 // indirect
 	github.com/prometheus/client_golang v0.9.3 // indirect
+	github.com/prometheus/common v0.4.0
 	github.com/prometheus/procfs v0.0.0-20190517135640-51af30a78b0e // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/rs/cors v1.5.0 // indirect

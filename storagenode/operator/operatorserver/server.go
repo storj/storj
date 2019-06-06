@@ -7,8 +7,9 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"path/filepath"
+	"strings"
 
+	"github.com/prometheus/common/log"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -16,13 +17,15 @@ import (
 	"storj.io/storj/storagenode/operator"
 )
 
+// TODO: improve embedded resources generation
+//go-bindata -pkg operatorserver -o storagenode/operator/operatorserver/static.go web/operator/dist web/operator/dist/public/
+
 // Error is storagenode operator web error type
 var Error = errs.Class("storagenode operator web error")
 
 // Config contains configuration for storagenode operator web server
 type Config struct {
-	Address   string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:14002"`
-	StaticDir string `help:"path to static resources" default:""`
+	Address string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
 }
 
 // Server represents storagenode operator web server
@@ -34,6 +37,8 @@ type Server struct {
 	listener net.Listener
 
 	server http.Server
+
+	staticDir string
 }
 
 // NewServer creates new instance of storagenode operator web server
@@ -46,12 +51,11 @@ func NewServer(logger *zap.Logger, config Config, service *operator.Service, lis
 	}
 
 	mux := http.NewServeMux()
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
-	if server.config.StaticDir != "" {
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
-	}
+	server.staticDir = "web/operator/"
+
+	mux.Handle("/", http.HandlerFunc(server.appHandler))
+	mux.Handle("/static/", http.HandlerFunc(server.appStaticHandler))
 
 	server.server = http.Server{
 		Handler: mux,
@@ -62,7 +66,34 @@ func NewServer(logger *zap.Logger, config Config, service *operator.Service, lis
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+	data, err := Asset(s.staticDir + "dist/public/index.html")
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+}
+
+// appHandler is web app http handler function
+func (s *Server) appStaticHandler(w http.ResponseWriter, req *http.Request) {
+	resourceName := strings.TrimPrefix(req.RequestURI, "/static/")
+
+	data, err := Asset(s.staticDir + resourceName)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		log.Error(err)
+		return
+	}
 }
 
 // Run starts the server that host webapp and api endpoints
