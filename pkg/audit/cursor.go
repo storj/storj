@@ -52,7 +52,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 	var pointerItems []*pb.ListResponse_Item
 	var path storj.Path
 
-	pointerItems, more, err = cursor.metainfo.List("", cursor.lastPath, "", true, 0, meta.None)
+	pointerItems, more, err = cursor.metainfo.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
 		return nil, more, err
 	}
@@ -117,7 +117,7 @@ func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []
 		path := pointerItem.Path
 
 		// get pointer info
-		pointer, err := cursor.metainfo.Get(path)
+		pointer, err := cursor.metainfo.Get(ctx, path)
 		if err != nil {
 			errGroup.Add(err)
 			continue
@@ -131,7 +131,7 @@ func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []
 				continue
 			}
 			if t.Before(time.Now()) {
-				err := cursor.metainfo.Delete(path)
+				err := cursor.metainfo.Delete(ctx, path)
 				if err != nil {
 					errGroup.Add(err)
 				}
