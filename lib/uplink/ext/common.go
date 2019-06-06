@@ -80,10 +80,8 @@ func ReadBuffer(cBuffer C.BufferRef_t, cData *C.Bytes_t, cErr **C.char) {
 	cData.bytes = (*C.uint8_t)(mem)
 }
 
-func bytesToCbytes(bytes []byte) (cData *C.Bytes_t) {
-	cData = new(C.Bytes_t)
-	lenOfBytes := len(bytes)
-
+// bytesToCbytes creates a C.Bytes_t struct from a go bytes array
+func bytesToCbytes(bytes []byte, lenOfBytes int, cData *C.Bytes_t) {
 	ptr := CMalloc(uintptr(lenOfBytes))
 	mem := unsafe.Pointer(ptr)
 	for i := 0; i < lenOfBytes; i++ {
@@ -93,8 +91,6 @@ func bytesToCbytes(bytes []byte) (cData *C.Bytes_t) {
 
 	cData.length = C.int32_t(lenOfBytes)
 	cData.bytes = (*C.uint8_t)(mem)
-
-	return cData
 }
 
 func NewCBucket(bucket *storj.Bucket) C.Bucket_t {

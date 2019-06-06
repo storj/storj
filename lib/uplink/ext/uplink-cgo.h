@@ -148,6 +148,8 @@ extern void WriteBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
 extern void ReadBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
+extern void FreeReference(GoUintptr p0);
+
 extern void CloseObject(ObjectRef_t p0, char** p1);
 
 extern DownloadReaderRef_t DownloadRange(ObjectRef_t p0, int64_t p1, int64_t p2, char** p3);

@@ -14,7 +14,6 @@ import (
 	"io"
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/lib/uplink"
-	"unsafe"
 )
 
 //export CloseObject
@@ -69,15 +68,7 @@ func Download(downloader C.DownloadReaderRef_t, bytes *C.Bytes_t, cErr **C.char)
 		return C.EOF
 	}
 
-	ptr := CMalloc(uintptr(n))
-	mem := unsafe.Pointer(ptr)
-	for i := 0; i < n; i++ {
-		nextAddress := uintptr(int(ptr) + i)
-		*(*uint8)(unsafe.Pointer(nextAddress)) = buf[i]
-	}
-
-	bytes.length = C.int32_t(n)
-	bytes.bytes = (*C.uint8_t)(mem)
+	bytesToCbytes(buf, n, bytes)
 
 	return C.int(n)
 }
@@ -90,18 +81,8 @@ func ObjectMeta(cObject C.ObjectRef_t, cErr **C.char) (objectMeta C.ObjectMeta_t
 		return objectMeta
 	}
 
-	checksumLen := len(object.Meta.Checksum)
-	ptr := CMalloc(uintptr(checksumLen))
-	mem := unsafe.Pointer(ptr)
-	for i := 0; i < checksumLen; i++ {
-		nextAddress := uintptr(int(ptr) + i)
-		*(*uint8)(unsafe.Pointer(nextAddress)) = object.Meta.Checksum[i]
-	}
-
-	bytes := C.Bytes_t{
-		length: C.int32_t(checksumLen),
-		bytes: (*C.uint8_t)(mem),
-	}
+	bytes := new(C.Bytes_t)
+	bytesToCbytes(object.Meta.Checksum, len(object.Meta.Checksum), bytes)
 
 	return C.ObjectMeta_t {
 		Bucket: C.CString(object.Meta.Bucket),
@@ -113,6 +94,6 @@ func ObjectMeta(cObject C.ObjectRef_t, cErr **C.char) (objectMeta C.ObjectMeta_t
 		Modified: C.uint64_t(object.Meta.Modified.Unix()),
 		Expires: C.uint64_t(object.Meta.Expires.Unix()),
 		Size: C.uint64_t(object.Meta.Size),
-		Checksum: bytes,
+		Checksum: *bytes,
 	}
 }
