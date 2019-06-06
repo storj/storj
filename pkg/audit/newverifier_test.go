@@ -299,7 +299,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
+		testData := make([]byte, 32*memory.KiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
@@ -309,7 +309,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			RepairThreshold:  2,
 			SuccessThreshold: 3,
 			MaxThreshold:     4,
-			ErasureShareSize: 8 * memory.KiB,
+			ErasureShareSize: 32 * memory.KiB,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -327,7 +327,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		stripe.Index = 0
 
 		network := &transport.SimulatedNetwork{
-			BytesPerSecond: 64 * memory.KiB,
+			BytesPerSecond: 128 * memory.KiB,
 		}
 
 		slowClient := network.NewClient(planet.Satellites[0].Transport)
@@ -336,7 +336,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
-		minBytesPerSecond := 100 * memory.KiB
+		minBytesPerSecond := 1 * memory.MiB
 
 		verifier := audit.NewVerifier(zap.L(),
 			slowClient,
