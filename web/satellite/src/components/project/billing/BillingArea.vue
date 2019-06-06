@@ -8,10 +8,12 @@
 				<p>Billing</p>
 			</div>
 			<div class="billing-container">
-				<table class="billing-container__table">
-					<SortingHeader />
-					<BillingItem />
-				</table>
+				<div class="billing-container__table-holder">
+					<table class="billing-container__table">
+						<SortingHeader />
+						<BillingItem />
+					</table>
+				</div>
 				<PaginationArea />
 			</div>
 		</div>
@@ -59,6 +61,10 @@
 	}
 
 	.billing-container {
+		&__table-holder {
+			margin-top: 20px;
+		}
+
 		&__table {
 			margin-top: 20px;
 			width: 100%;
@@ -76,16 +82,34 @@
 		}
 	}
 
-	@media screen and (max-height: 880px) {
-		.billing-overflow {
+	@media screen and (max-height: 900px) {
+		.billing-container__table-holder {
 			overflow-y: scroll;
-			height: 600px;
+			height: 555px;
+
+			&::-webkit-scrollbar,
+			&::-webkit-scrollbar-track,
+			&::-webkit-scrollbar-thumb {
+				visibility: hidden;
+			}
 		}
 	}
 
-	@media screen and (max-height: 700px) {
-		.billing-overflow {
-			height: 570px;
+	@media screen and (max-height: 860px) {
+		.billing-container__table-holder {
+			height: 535px;
+		}
+	}
+
+	@media screen and (max-height: 835px) {
+		.billing-container__table-holder {
+			height: 495px;
+		}
+	}
+
+	@media screen and (max-height: 795px) {
+		.billing-container__table-holder {
+			height: 475px;
 		}
 	}
 </style>

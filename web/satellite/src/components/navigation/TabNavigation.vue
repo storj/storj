@@ -30,11 +30,11 @@
     .tab-navigation-container {
 	    width: auto;
 		display: flex;
+		border-bottom: 1px solid #AFB7C1;
 
 	    &__item {
 		    width: 150px;
 		    height: 48px;
-		    border-bottom: 1px solid #AFB7C1;
 		    display: flex;
 		    align-items: center;
 		    justify-content: center;
@@ -50,7 +50,7 @@
 		    &:hover {
 			    border-bottom: 3px solid #2683FF;
 
-			    p {
+				p {
 				    color: #354049;
 			    }
 		    }

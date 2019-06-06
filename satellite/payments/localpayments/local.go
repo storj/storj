@@ -15,11 +15,20 @@ import (
 )
 
 var (
-	// storjCreationDate is a Storj creation date. TODO: correct values
-	storjCreationDate = time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
+	// creationDate is a Storj creation date.
+	creationDate = time.Date(2016, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	mon = monkit.Package()
 )
+
+// StorjCustomer is a predefined customer
+// which is linked with every user by default
+var storjCustomer = payments.Customer{
+	ID:        []byte("0"),
+	Name:      "Storj",
+	Email:     "storj@example.com",
+	CreatedAt: creationDate,
+}
 
 // defaultPaymentMethod represents one and only payment method for local payments,
 // which attached to all customers by default
@@ -29,21 +38,12 @@ var defaultPaymentMethod = payments.PaymentMethod{
 	Card: payments.Card{
 		Country:  "us",
 		Brand:    "visa",
-		Name:     "Storj",
+		Name:     "Storj Labs",
 		ExpMonth: 12,
-		ExpYear:  2022,
-		LastFour: "1488",
+		ExpYear:  2024,
+		LastFour: "3567",
 	},
-	CreatedAt: storjCreationDate,
-}
-
-// StorjCustomer is a predefined customer
-// which is linked with every user by default
-var storjCustomer = payments.Customer{
-	ID:        []byte("0"),
-	Name:      "Storj",
-	Email:     "storj@example.com",
-	CreatedAt: storjCreationDate,
+	CreatedAt: creationDate,
 }
 
 // internalPaymentsErr is a wrapper for local payments service errors
