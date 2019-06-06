@@ -1,4 +1,4 @@
-# Title: Reputation and Node Selection
+# Reputation and Node Selection
 
 ## Abstract
 
@@ -13,6 +13,8 @@ The white paper section 4.15 describes a 'preferences' system used in node selec
 > On the Storj network, preferential storage node reputation is only used to select where new data will be stored, both during repair and during the upload of new files, unlike disqualifying events.  If a storage node’s preferential reputation decreases, its file pieces will not be moved or repaired to other nodes.
 
 The existing reputation-like system uses uptime and audit responses.  It does not currently consider geographic location, throughput, or latency.  In addition to factors which affect reputation, there are other factors in node selection.  These considerations currently include IP address, advertised available bandwidth, advertised available disk space, software version compatibility, and whether the node appeared to be online in the latest communication with the satellite.
+
+One final factor involved in node selection is node 'vetting.'  During upload
 
 
 ## Design
@@ -33,13 +35,13 @@ Existing codes which updates database audit / uptime success-counts and ratios m
 
 The node selection SQL queries will also change.  Twice as many nodes must returned from these functions to satisfy the "Power of Two Choices" requirement, which gives preference to nodes with better reputation.  For every two nodes returned, the one with the higher reputation scores will be selected returned and the other discarded.
 
-Note that the initial implementation has two different reputation statistics:  audit and uptime.  For the purposes of node selection, we assume that these two reputation can be combined by scaling one of them by some constant.  We further assume that operations may weigh these reputations differently.  The initial configuration should include a `uptime_repair_weight`, `audit_repair_weight`, `uptime_uplink_weight`, and `audit_uplink_weight` constants.
+Note that the initial implementation has two different reputation statistics:  audit and uptime.  For the purposes of node selection, we assume that these two reputation can be combined by scaling one of them by some constant.  We further assume that different operations may weigh these reputations differently. For instance, repair may be more concerned that a node is reliable than it is speedy.  New file uploads coming from an uplink may have different criteria.   The initial configuration should include a `uptime_repair_weight`, `audit_repair_weight`, `uptime_uplink_weight`, and `audit_uplink_weight` constants.
 
 > Total Repair Reputation = uptime_repair_weight · uptime R(n) + audit_repair_weight · audit R(n)
 >
 > Total Uplink Reputation = uptime_uplink_weight · uptime R(n) + audit_uplink_weight · audit R(n)
 
-This design may be refined in the future to prefer faster nodes, geography, etc..
+This design may be refined in the future to prefer storage nodes based on speed, geography, etc..
 
 ### Database changes
 
@@ -59,8 +61,8 @@ model node (
 ## Rationale
 
 The Storj Data Science team has currently published two papers on the design of our reputation score:
-[Reputation Scoring](https://github.com/storj/datascience/blob/master/reputation/Reputation_Scoring_Framework_Highlevel.pdf) and [Extending Audit/Uptime Success Ratios](
-https://github.com/storj/datascience/blob/master/reputation/extending%20ratios%20to%20reputation/extending%20ratios%20to%20reputation.pdf).  
+[Reputation Scoring](https://github.com/storj/datascience/blob/8b02707dceedd4ce20d699a5a9791ce589b303bd/reputation/Reputation_Scoring_Framework_Highlevel.pdf) and [Extending Audit/Uptime Success Ratios](
+https://github.com/storj/datascience/blob/2ec82c9ec89263d9348798e8a5d50a7b62782110/reputation/extending%20ratios%20to%20reputation/extending%20ratios%20to%20reputation.pdf).  
 
 These papers put forth a model where reputation chance be determined based on previous 'shape' values α and β, a forgetting factor λ, single value feedback _v_, and a normalization weight _w_.
 
@@ -74,10 +76,11 @@ Implementing α0 = β0 = 1 as described above would require some type of relaxat
 * Create configuration elements for uptime_α0, uptime_β0, uptime_λ, uptime_w, uptime_repair_weight, and uptime_uplink_weight
 * Alter DBX model removing audit_success_count, audit_success_ratio, uptime_success_count, uptime_ratio
 * Alter DBX model adding audit_reputation_α, audit_reputation_β, uptime_reputation_α, uptime_reputation_β
+* Create migration scripts for SQL table changes
 * Alter SQL node selection queries to consider new values
 * Alter SQL node selection queries to return 2x more nodes
 * Implement "Power of Two Choices" logic in node selection query
-* Update disqualification code to use reputation
+* Update disqualification code to use reputation instead of checking ratios
 
 
 ## Open issues (if applicable)
