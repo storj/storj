@@ -5,7 +5,6 @@ package main
 
 import (
 	"sync"
-	"unsafe"
 )
 
 // #include <stdlib.h>
@@ -46,6 +45,4 @@ func (m *mapping) Del(x token) {
 	m.lock.Lock()
 	delete(m.values, x)
 	m.lock.Unlock()
-
-	C.free(unsafe.Pointer(x))
 }

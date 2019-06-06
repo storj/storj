@@ -145,3 +145,8 @@ func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) *C.RedundancySche
 	}
 	return cScheme
 }
+
+//export FreeReference
+func FreeReference(reference token) {
+	structRefMap.Del(reference)
+}

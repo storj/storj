@@ -29,6 +29,8 @@ func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
 		*cErr = C.CString(err.Error())
 		return
 	}
+
+	structRefMap.Del(token(cObject))
 }
 
 //export DownloadRange

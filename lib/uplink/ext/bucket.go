@@ -142,6 +142,7 @@ func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 		return
 	}
 
+	structRefMap.Del(token(bucketRef))
 }
 
 func NewCObject(object *storj.Object) C.Object_t {

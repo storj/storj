@@ -173,4 +173,6 @@ func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
 		*cErr = C.CString(err.Error())
 		return
 	}
+
+	structRefMap.Del(token(cProject))
 }
