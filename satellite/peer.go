@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -75,8 +74,6 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// BandwidthAgreement returns database for storing bandwidth agreements
-	BandwidthAgreement() bwagreement.DB
 	// CertDB returns database for storing uplink's public key & ID
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
@@ -110,8 +107,7 @@ type Config struct {
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	Metainfo    metainfo.Config
-	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
+	Metainfo metainfo.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -169,10 +165,6 @@ type Peer struct {
 
 	Inspector struct {
 		Endpoint *inspector.Endpoint
-	}
-
-	Agreements struct {
-		Endpoint *bwagreement.Server
 	}
 
 	Orders struct {
@@ -413,13 +405,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
-	}
-
-	{ // setup agreements
-		log.Debug("Setting up agreements")
-		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
-		peer.Agreements.Endpoint = bwServer
-		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
@@ -671,10 +656,6 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Agreements.Endpoint != nil {
-		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
 	if peer.Metainfo.Database != nil {
