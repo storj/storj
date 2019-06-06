@@ -70,7 +70,7 @@ func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...O
 // DialAddress. The connection will be established successfully only if the
 // target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: ", node.Id.String()[0:8])(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")

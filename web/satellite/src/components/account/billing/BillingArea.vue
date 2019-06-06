@@ -5,10 +5,12 @@
 	<div>
 		<div v-if="billing > 0" class="billing-overflow">
 			<div class="billing-container">
-				<table class="billing-container__table">
-					<SortingHeader />
-					<BillingItem />
-				</table>
+				<div class="billing-container__table-holder">
+					<table class="billing-container__table">
+						<SortingHeader />
+						<BillingItem />
+					</table>
+				</div>
 				<PaginationArea />
 			</div>
 		</div>
@@ -59,38 +61,32 @@
 		}
 	}
 
-	@media screen and (max-height: 860px) {
-		.billing-overflow {
+	@media screen and (max-height: 900px) {
+		.billing-container__table-holder {
 			overflow-y: scroll;
-			height: 700px;
+			height: 555px;
+
+			&::-webkit-scrollbar, &::-webkit-scrollbar-track, &::-webkit-scrollbar-thumb {
+				visibility: hidden;
+			}
+		}
+	}
+
+	@media screen and (max-height: 860px) {
+		.billing-container__table-holder {
+			height: 535px;
 		}
 	}
 
 	@media screen and (max-height: 835px) {
-		.billing-overflow {
-			overflow-y: scroll;
-			height: 660px;
-		}
-	}
-
-	@media screen and (max-height: 815px) {
-		.billing-overflow {
-			overflow-y: scroll;
-			height: 660px;
+		.billing-container__table-holder {
+			height: 495px;
 		}
 	}
 
 	@media screen and (max-height: 795px) {
-		.billing-overflow {
-			overflow-y: scroll;
-			height: 640px;
-		}
-	}
-
-	@media screen and (max-height: 780px) {
-		.billing-overflow {
-			overflow-y: scroll;
-			height: 620px;
+		.billing-container__table-holder {
+			height: 475px;
 		}
 	}
 </style>

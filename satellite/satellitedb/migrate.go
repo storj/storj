@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
 // ErrMigrate is for tracking migration errors
@@ -221,7 +222,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 									return ErrMigrate.Wrap(err)
 								}
 
-								var rba pb.Order
+								var rba pbold.Order
 								if err := proto.Unmarshal(data, &rba); err != nil {
 									return ErrMigrate.Wrap(err)
 								}
@@ -734,6 +735,54 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
 					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
 					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Create value attribution table",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE TABLE value_attributions (
+						bucket_id bytea NOT NULL,
+						partner_id bytea NOT NULL,
+						last_updated timestamp NOT NULL,
+						PRIMARY KEY ( bucket_id )
+					)`,
+				},
+			},
+			{
+				Description: "Remove agreements table",
+				Version:     28,
+				Action: migrate.SQL{
+					`DROP TABLE bwagreements`,
+				},
+			},
+			{
+				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
+				Version:     29,
+				Action: migrate.SQL{
+					`CREATE TABLE user_payments (
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						customer_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id ),
+						UNIQUE ( customer_id )
+					);`,
+					`CREATE TABLE project_payments (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+						payment_method_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id )
+					);`,
+					`CREATE TABLE project_invoice_stamps (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						invoice_id bytea NOT NULL,
+						start_date timestamp with time zone NOT NULL,
+						end_date timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, start_date, end_date ),
+						UNIQUE ( invoice_id )
+					);`,
 				},
 			},
 		},
