@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/errs2"
@@ -35,7 +37,7 @@ func TestInsertSelect(t *testing.T) {
 		require.NoError(t, err)
 		err = q.Delete(ctx, s)
 		require.NoError(t, err)
-		require.True(t, pb.Equal(s, seg))
+		require.True(t, proto.Equal(s, seg))
 	})
 }
 
@@ -93,7 +95,7 @@ func TestSequential(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, list, N)
 		for i := 0; i < N; i++ {
-			require.True(t, pb.Equal(addSegs[i], &list[i]))
+			require.Empty(t, cmp.Diff(addSegs[i], &list[i], cmp.Comparer(proto.Equal)))
 		}
 
 		// TODO: fix out of order issue
@@ -103,7 +105,7 @@ func TestSequential(t *testing.T) {
 			err = q.Delete(ctx, s)
 			require.NoError(t, err)
 			expected := s.LostPieces[0]
-			require.True(t, pb.Equal(addSegs[expected], s))
+			require.Empty(t, cmp.Diff(addSegs[expected], s, cmp.Comparer(proto.Equal)))
 		}
 	})
 }

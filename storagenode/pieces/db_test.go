@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -116,11 +117,11 @@ func TestPieceInfo(t *testing.T) {
 		// getting the added information
 		info0loaded, err := pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff(info0, info0loaded, cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff(info0, info0loaded, cmp.Comparer(proto.Equal)))
 
 		info1loaded, err := pieceinfos.Get(ctx, info1.SatelliteID, info1.PieceID)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff(info1, info1loaded, cmp.Comparer(proto.Equal)))
 
 		// getting no expired pieces
 		expired, err := pieceinfos.GetExpired(ctx, now.Add(-10*time.Hour), 10)
