@@ -100,13 +100,17 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			continue
 		}
 		if transport.Error.Has(share.Error) {
-			if context.DeadlineExceeded == errs.Unwrap(share.Error) {
+			if errs.IsFunc(share.Error, func(err error) bool {
+				return err == context.DeadlineExceeded
+			}) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
 				verifier.log.Debug("dial timeout (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 				continue
 			}
-			if codes.Unknown == status.Code(errs.Unwrap(share.Error)) {
+			if errs.IsFunc(share.Error, func(err error) bool {
+				return status.Code(err) == codes.Unknown
+			}) {
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
 				verifier.log.Debug("dial failed (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
@@ -117,14 +121,18 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			verifier.log.Debug("unknown transport error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 		}
 
-		if codes.NotFound == status.Code(errs.Unwrap(share.Error)) {
+		if errs.IsFunc(share.Error, func(err error) bool {
+			return status.Code(err) == codes.NotFound
+		}) {
 			// missing share
 			failedNodes = append(failedNodes, nodes[pieceNum])
 			verifier.log.Debug("piece not found (audit failed)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 			continue
 		}
 
-		if codes.DeadlineExceeded == status.Code(errs.Unwrap(share.Error)) {
+		if errs.IsFunc(share.Error, func(err error) bool {
+			return status.Code(err) == codes.DeadlineExceeded
+		}) {
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = nodes[pieceNum]
 			verifier.log.Debug("download timeout (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
@@ -286,12 +294,16 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
 			if err != nil {
 				if transport.Error.Has(share.Error) {
-					if context.DeadlineExceeded == errs.Unwrap(share.Error) {
+					if errs.IsFunc(share.Error, func(err error) bool {
+						return err == context.DeadlineExceeded
+					}) {
 						// dial timeout
 						ch <- result{nodeID: piece.NodeId, status: offline}
 						return
 					}
-					if codes.Unknown == status.Code(errs.Unwrap(share.Error)) {
+					if errs.IsFunc(share.Error, func(err error) bool {
+						return status.Code(err) == codes.Unknown
+					}) {
 						// dial failed -- offline node
 						ch <- result{nodeID: piece.NodeId, status: offline}
 						return
@@ -301,13 +313,17 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					return
 				}
 
-				if codes.NotFound == status.Code(errs.Unwrap(share.Error)) {
+				if errs.IsFunc(share.Error, func(err error) bool {
+					return status.Code(err) == codes.NotFound
+				}) {
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
 					return
 				}
 
-				if codes.DeadlineExceeded == status.Code(errs.Unwrap(share.Error)) {
+				if errs.IsFunc(share.Error, func(err error) bool {
+					return status.Code(err) == codes.DeadlineExceeded
+				}) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained}
 					return
