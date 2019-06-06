@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/piecestore"
 )
 
 var mon = monkit.Package()
@@ -25,19 +26,21 @@ type Config struct {
 
 // Service implements collecting expired pieces on the storage node.
 type Service struct {
-	log        *zap.Logger
-	pieces     *pieces.Store
-	pieceinfos pieces.DB
+	log         *zap.Logger
+	pieces      *pieces.Store
+	pieceinfos  pieces.DB
+	usedSerials piecestore.UsedSerials
 
 	Loop sync2.Cycle
 }
 
 // NewService creates a new collector service.
-func NewService(log *zap.Logger, pieces *pieces.Store, pieceinfos pieces.DB, config Config) *Service {
+func NewService(log *zap.Logger, pieces *pieces.Store, pieceinfos pieces.DB, usedSerials piecestore.UsedSerials, config Config) *Service {
 	return &Service{
 		log:        log,
 		pieces:     pieces,
 		pieceinfos: pieceinfos,
+		usedSerials: usedSerials,
 		Loop:       *sync2.NewCycle(config.Interval),
 	}
 }
@@ -64,6 +67,10 @@ func (service *Service) Close() (err error) {
 // Collect collects pieces that have expired by now.
 func (service *Service) Collect(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if deleteErr := service.usedSerials.DeleteExpired(ctx, now); err != nil {
+		service.log.Error("unable to delete expired used serials", zap.Error(deleteErr))
+	}
 
 	const maxBatches = 100
 	const batchSize = 1000
