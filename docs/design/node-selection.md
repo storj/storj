@@ -68,7 +68,7 @@ These papers put forth a model where reputation chance be determined based on pr
 
 > We suggest one minor modification from [1] to how _v_ is selected. ... we propose starting with small (but negative) values for failures, and small (but positive) values for successes.... This has the benefit of "easing" a new node's reputation towards its "true" reputation. ... We start with α0 = 1 and β0 = 1 for two reasons:  first, because 0/0 is undefined; second, this assigns new nodes a reputation score of 0.5...
 
-Implementing α0 = β0 = 1 as described above would require some type of relaxation of disqualification criteria for new nodes.  The alternative recommended in this document is to initialize α0 and β0 such that α0 / (α0 + β0) is greater than the disqualification cutoff and less than or equal to 1 (the maximum reputation).  The easing of _v_ described above may lessen in importance, given these starting values.  For the initial implementation, we assume that _v_ is fixed at 1.
+Implementing α0 = β0 = 1 as described above would require some type of relaxation of disqualification criteria for new nodes.  The alternative recommended in this document is to initialize α0 and β0 such that α0 / (α0 + β0) is greater than the disqualification cutoff and less than or equal to 1 (the maximum reputation).  The easing of _v_ described above may lessen in importance, given these starting values.  For the initial implementation, we assume that _v_ is 1 on success and -1 on failure.
 
 ## Implementation
 
