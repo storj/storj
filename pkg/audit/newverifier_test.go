@@ -538,7 +538,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 			5*time.Second)
 
 		report, err := verifier.Verify(ctx, stripe, nil)
-		require.True(t, audit.ErrNotEnoughShares.Has(err), "unexpected error:", err)
+		require.True(t, audit.ErrNotEnoughShares.Has(err), "unexpected error: %+v", err)
 
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
