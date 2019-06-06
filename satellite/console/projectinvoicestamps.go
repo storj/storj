@@ -17,7 +17,8 @@ type ProjectInvoiceStamps interface {
 	GetAll(ctx context.Context, projectID uuid.UUID) ([]ProjectInvoiceStamp, error)
 }
 
-// ProjectInvoiceStamp declare invoice to project mappings
+// ProjectInvoiceStamp stores a reference of an invoice created on payments service side.
+// Used to help prevent double invoicing and to connect an invoice with console project
 type ProjectInvoiceStamp struct {
 	ProjectID uuid.UUID
 	InvoiceID []byte
