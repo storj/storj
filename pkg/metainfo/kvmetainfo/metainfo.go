@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/vpath"
 	"storj.io/storj/storage"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -34,17 +35,17 @@ type DB struct {
 	streams  streams.Store
 	segments segments.Store
 
-	rootKey *storj.Key
+	searcher *vpath.Searcher
 }
 
 // New creates a new metainfo database
-func New(metainfo metainfo.Client, buckets buckets.Store, streams streams.Store, segments segments.Store, rootKey *storj.Key, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *DB {
+func New(metainfo metainfo.Client, buckets buckets.Store, streams streams.Store, segments segments.Store, searcher *vpath.Searcher, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *DB {
 	return &DB{
 		Project:  NewProject(buckets, encryptedBlockSize, redundancy, segmentsSize),
 		metainfo: metainfo,
 		streams:  streams,
 		segments: segments,
-		rootKey:  rootKey,
+		searcher: searcher,
 	}
 }
 

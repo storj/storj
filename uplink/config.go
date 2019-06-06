@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/vpath"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -126,14 +127,18 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, int(blockSize), storj.Cipher(c.Enc.DataType))
+	// TODO(jeff): this is wrong. the searcher should be added with bucket names.
+	searcher := vpath.NewSearcher()
+	searcher.Add("", "", *key)
+
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), searcher, int(blockSize), storj.Cipher(c.Enc.DataType))
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, searcher, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

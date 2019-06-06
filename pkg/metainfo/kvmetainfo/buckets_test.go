@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/vpath"
 )
 
 const (
@@ -367,15 +368,18 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
+	searcher := vpath.NewSearcher()
+	searcher.Add(TestBucket, TestBucket, *key)
+
 	blockSize := rs.StripeSize()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, blockSize, storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), searcher, blockSize, storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, int32(blockSize), rs, 64*memory.MiB.Int64()), buckets, streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, searcher, int32(blockSize), rs, 64*memory.MiB.Int64()), buckets, streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {

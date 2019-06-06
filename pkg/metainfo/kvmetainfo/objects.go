@@ -11,6 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
@@ -46,6 +47,43 @@ var DefaultES = storj.EncryptionScheme{
 	BlockSize: DefaultRS.StripeSize(),
 }
 
+// TODO(jeff): better sharing of encryptPath and getPathKey
+
+// getPathKey finds the appropriate key for the unencrypted path.
+func (db *DB) getPathKey(ctx context.Context, path storj.Path) (pathKey *storj.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, consumed, base := db.searcher.Lookup(path)
+	if base == nil {
+		return nil, errs.New("cannot find encryption information for: %q", path)
+	}
+	pathKey, err = encryption.DerivePathKey(path[len(consumed):], &base.Key)
+	return pathKey, errs.Wrap(err)
+}
+
+// encryptPath finds the appropriate key for the unencrypted path and encrypts the remainder.
+func (db *DB) encryptPath(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (encPath storj.Path, pathKey *storj.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, consumed, base := db.searcher.Lookup(path)
+	if base == nil {
+		return "", nil, errs.New("cannot find encryption information for: %q", path)
+	}
+
+	remainingPath := path[len(consumed):]
+	pathKey, err = encryption.DerivePathKey(remainingPath, &base.Key)
+	if err != nil {
+		return "", nil, errs.Wrap(err)
+	}
+
+	encryptedRemaining, err := encryption.EncryptPath(remainingPath, pathCipher, &base.Key)
+	if err != nil {
+		return "", nil, errs.Wrap(err)
+	}
+
+	return storj.JoinPaths(consumed, encryptedRemaining), pathKey, nil
+}
+
 // GetObject returns information about an object
 func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -64,7 +102,13 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 		return nil, err
 	}
 
-	streamKey, err := encryption.DeriveContentKey(meta.fullpath, db.rootKey)
+	pathKey, err := db.getPathKey(ctx, meta.fullpath)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO(jeff): make this a helper in encryption
+	streamKey, err := encryption.DeriveKey(pathKey, "content")
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +281,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 
 	fullpath := bucket + "/" + path
 
-	encryptedPath, err := streams.EncryptAfterBucket(ctx, fullpath, bucketInfo.PathCipher, db.rootKey)
+	encryptedPath, pathKey, err := db.encryptPath(ctx, fullpath, bucketInfo.PathCipher)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -272,7 +316,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		Data:       pointer.GetMetadata(),
 	}
 
-	streamInfoData, streamMeta, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.rootKey)
+	streamInfoData, streamMeta, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta.Data, pathKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

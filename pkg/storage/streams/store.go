@@ -100,7 +100,7 @@ func (s *streamStore) encryptPath(ctx context.Context, path storj.Path, pathCiph
 	}
 
 	remainingPath := path[len(consumed):]
-	pathKey, err = encryption.DeriveContentKey(remainingPath, &base.Key)
+	pathKey, err = encryption.DerivePathKey(remainingPath, &base.Key)
 	if err != nil {
 		return "", nil, Error.Wrap(err)
 	}
