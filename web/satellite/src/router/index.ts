@@ -145,7 +145,7 @@ let router = new Router({
 // and if we are able to navigate to page without existing project
 router.beforeEach((to, from, next) => {
     if (isUnavailablePageWithoutProject(to.name as string)) {
-        next(ROUTES.PROJECT_OVERVIEW + '/' + ROUTES.PROJECT_DETAILS);
+        next(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
 
         return;
     }
