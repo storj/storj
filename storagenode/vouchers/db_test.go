@@ -43,7 +43,7 @@ func TestVouchers(t *testing.T) {
 		require.NoError(t, err)
 
 		// basic GetExpiring test
-		expirationBuffer := 24*3*time.Hour
+		expirationBuffer := 48*time.Hour
 		expiring, err := vdb.GetExpiring(ctx, expirationBuffer)
 		require.NoError(t, err)
 		require.Equal(t, satellite.ID, expiring[0])
