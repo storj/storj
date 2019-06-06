@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -38,54 +37,6 @@ type locked struct {
 // newLocked returns database wrapped with locker.
 func newLocked(db satellite.DB) satellite.DB {
 	return &locked{&sync.Mutex{}, db}
-}
-
-// BandwidthAgreement returns database for storing bandwidth agreements
-func (m *locked) BandwidthAgreement() bwagreement.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedBandwidthAgreement{m.Locker, m.db.BandwidthAgreement()}
-}
-
-// lockedBandwidthAgreement implements locking wrapper for bwagreement.DB
-type lockedBandwidthAgreement struct {
-	sync.Locker
-	db bwagreement.DB
-}
-
-// DeleteExpired deletes orders that are expired and were created before some time
-func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 time.Time) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.DeleteExpired(ctx, a1, a2)
-}
-
-// GetExpired gets orders that are expired and were created before some time
-func (m *lockedBandwidthAgreement) GetExpired(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.SavedOrder, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetExpired(ctx, a1, a2)
-}
-
-// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
-func (m *lockedBandwidthAgreement) GetTotals(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][]int64, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetTotals(ctx, a1, a2)
-}
-
-// GetTotals returns stats about an uplink
-func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.UplinkStat, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetUplinkStats(ctx, a1, a2)
-}
-
-// SaveOrder saves an order for accounting
-func (m *lockedBandwidthAgreement) SaveOrder(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SaveOrder(ctx, a1)
 }
 
 // CertDB returns database for storing uplink's public key & ID

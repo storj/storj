@@ -29,21 +29,6 @@ read one (
 	where  pending_audits.node_id = ?
 )
 
-//--- bwagreement ---//
-
-model bwagreement (
-	key serialnum
-
-	field serialnum       text
-	field storage_node_id blob
-	field uplink_id       blob
-	field action          int64
-	field total           int64
-	field created_at      timestamp ( autoinsert )
-	field expires_at      timestamp
-)
-
-
 //--- irreparableDB ---//
 
 model irreparabledb (
