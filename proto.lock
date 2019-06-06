@@ -2987,9 +2987,6 @@
             "path": "node.proto"
           },
           {
-            "path": "piecestore.proto"
-          },
-          {
             "path": "orders.proto"
           }
         ],
