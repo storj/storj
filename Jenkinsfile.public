@@ -22,6 +22,7 @@ pipeline {
 
                 sh 'go install -v -race ./...'
                 sh 'make install-sim'
+                sh 'make libuplink'
 
                 sh 'service postgresql start'
             }
