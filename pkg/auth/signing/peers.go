@@ -34,13 +34,13 @@ func SignerFromFullIdentity(identity *identity.FullIdentity) Signer {
 func (private *PrivateKey) ID() storj.NodeID { return private.Self }
 
 // HashAndSign hashes the data and signs with the used key.
-func (private *PrivateKey) HashAndSign(data []byte) ([]byte, error) {
+func (private *PrivateKey) HashAndSign(ctx context.Context, data []byte) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return pkcrypto.HashAndSign(private.Key, data)
 }
 
 // HashAndVerifySignature hashes the data and verifies that the signature belongs to the PrivateKey.
-func (private *PrivateKey) HashAndVerifySignature(data, signature []byte) (err error) {
-	ctx := context.TODO()
+func (private *PrivateKey) HashAndVerifySignature(ctx context.Context, data, signature []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	pub := pkcrypto.PublicKeyFromPrivate(private.Key)
 	return pkcrypto.HashAndVerifySignature(pub, data, signature)
@@ -64,8 +64,7 @@ func SigneeFromPeerIdentity(identity *identity.PeerIdentity) Signee {
 func (public *PublicKey) ID() storj.NodeID { return public.Self }
 
 // HashAndVerifySignature hashes the data and verifies that the signature belongs to the PublicKey.
-func (public *PublicKey) HashAndVerifySignature(data, signature []byte) (err error) {
-	ctx := context.TODO()
+func (public *PublicKey) HashAndVerifySignature(ctx context.Context, data, signature []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return pkcrypto.HashAndVerifySignature(public.Key, data, signature)
 }
