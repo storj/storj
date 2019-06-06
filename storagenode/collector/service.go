@@ -37,11 +37,11 @@ type Service struct {
 // NewService creates a new collector service.
 func NewService(log *zap.Logger, pieces *pieces.Store, pieceinfos pieces.DB, usedSerials piecestore.UsedSerials, config Config) *Service {
 	return &Service{
-		log:        log,
-		pieces:     pieces,
-		pieceinfos: pieceinfos,
+		log:         log,
+		pieces:      pieces,
+		pieceinfos:  pieceinfos,
 		usedSerials: usedSerials,
-		Loop:       *sync2.NewCycle(config.Interval),
+		Loop:        *sync2.NewCycle(config.Interval),
 	}
 }
 
