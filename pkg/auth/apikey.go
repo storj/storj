@@ -40,7 +40,7 @@ func ValidateAPIKey(ctx context.Context, actualKey []byte) (err error) {
 		return Error.New("Could not get api key from context")
 	}
 
-	matches := (1 == subtle.ConstantTimeCompare(actualKey, expectedKey))
+	matches := 1 == subtle.ConstantTimeCompare(actualKey, expectedKey)
 	if !matches {
 		return Error.New("Invalid API credential")
 	}
