@@ -100,7 +100,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !accessKeyFlag.Changed {
 		accessKey, err := generateKey()
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		overrides[accessKeyFlag.Name] = accessKey
@@ -110,14 +110,14 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	if !secretKeyFlag.Changed {
 		secretKey, err := generateKey()
 		if err != nil {
-			return Error.Wrap(err)
+			return err
 		}
 
 		overrides[secretKeyFlag.Name] = secretKey
 	}
 
 	// override is required because the default value of Enc.KeyFilepath is ""
-	// and setting the value directly in setupCfg.Enc.KeyFiletpathon will set the
+	// and setting the value directly in setupCfg.Enc.KeyFiletpath will set the
 	// value in the config file but commented out.
 	encryptionKeyFilepath := setupCfg.Enc.KeyFilepath
 	if encryptionKeyFilepath == "" {
@@ -166,7 +166,7 @@ func generateKey() (key string, err error) {
 	var buf [20]byte
 	_, err = rand.Read(buf[:])
 	if err != nil {
-		return "", err
+		return "", Error.Wrap(err)
 	}
 	return base58.Encode(buf[:]), nil
 }
