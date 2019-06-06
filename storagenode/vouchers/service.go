@@ -20,4 +20,3 @@ type DB interface {
 	// GetValid returns one valid voucher from the list of approved satellites
 	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
 }
-
