@@ -56,8 +56,6 @@ model node (
 
 ## Rationale
 
-[A discussion of alternate approaches and the trade offs, advantages, and disadvantages of the specified approach.]
-
 The Storj Data Science team has currently published two papers on the design of our reputation score:
 [Reputation Scoring](https://github.com/storj/datascience/blob/master/reputation/Reputation_Scoring_Framework_Highlevel.pdf and [Extending Audit/Uptime Success Ratios](
 https://github.com/storj/datascience/blob/master/reputation/extending%20ratios%20to%20reputation/extending%20ratios%20to%20reputation.pdf).  
