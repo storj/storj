@@ -87,7 +87,9 @@
 			overflow-y: scroll;
 			height: 555px;
 
-			&::-webkit-scrollbar, &::-webkit-scrollbar-track, &::-webkit-scrollbar-thumb {
+			&::-webkit-scrollbar,
+			&::-webkit-scrollbar-track,
+			&::-webkit-scrollbar-thumb {
 				visibility: hidden;
 			}
 		}
@@ -107,21 +109,7 @@
 		}
 	}
 
-	@media screen and (max-height: 815px) {
-		.billing-container__table-holder {
-			overflow-y: scroll;
-			height: 495px;
-		}
-	}
-
 	@media screen and (max-height: 795px) {
-		.billing-container__table-holder {
-			overflow-y: scroll;
-			height: 475px;
-		}
-	}
-
-	@media screen and (max-height: 780px) {
 		.billing-container__table-holder {
 			overflow-y: scroll;
 			height: 475px;
