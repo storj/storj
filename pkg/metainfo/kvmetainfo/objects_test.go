@@ -36,7 +36,7 @@ func TestCreateObject(t *testing.T) {
 
 	customES := storj.EncryptionScheme{
 		Cipher:    storj.Unencrypted,
-		BlockSize: 1 * memory.KiB.Int32(),
+		BlockSize: customRS.StripeSize(),
 	}
 
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
@@ -52,18 +52,21 @@ func TestCreateObject(t *testing.T) {
 				create:     nil,
 				expectedRS: kvmetainfo.DefaultRS,
 				expectedES: kvmetainfo.DefaultES,
-			}, {
+			},
+			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionScheme: customES},
 				expectedRS: customRS,
 				expectedES: customES,
-			}, {
+			},
+			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
-				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: customRS.ShareSize},
-			}, {
+				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
+			},
+			{
 				create:     &storj.CreateObject{EncryptionScheme: customES},
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: customES,
+				expectedES: storj.EncryptionScheme{Cipher: customES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
