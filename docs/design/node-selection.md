@@ -19,11 +19,11 @@ Separate reputation scores will be maintained for audits and uptime.  Two sets o
 
 The reputation _R(n)_ is calculated based on some measured success _v_, two persisted values a and β, and fixed configuration values λ and _w_.  
 
-α(n) = λ·α(n-1) + _w_(1+_v_)/2
-β(n) = λ·β(n-1) + _w_(1-_v_)/2
-R(n) = α(n) / (α(n) + β(n))
+> α(n) = λ·α(n-1) + _w_(1+_v_)/2
+> β(n) = λ·β(n-1) + _w_(1-_v_)/2
+> R(n) = α(n) / (α(n) + β(n))
 
-Initial values for a and β, a0 and β0 will also be configuration values.  While _v_ may need to vary depending on our "easing" implementation, it will likely vary algorithmically and should not require configuration.  The initial implement may simply assume that _v_ = 1.
+Initial values for a and β - a0 and β0 - will also be configuration values.  While _v_ may need to vary depending on our "easing" implementation, it will likely vary algorithmically and should not require configuration.  The initial implement may simply assume that _v_ = 1.
 
 Existing codes which updates database audit / uptime success-counts and ratios must be updated to track audit / uptime a and β values.  TotalAuditCount and TotalUptimeCount will still be needed to determine if the node is new or vetted.
 
@@ -31,13 +31,14 @@ The node selection SQL queries will also change.  Twice as many nodes must retur
 
 Note that the initial implementation has two different reputation statistics:  audit and uptime.  For the purposes of node selection, we assume that these two reputation can be combined by scaling one of them by some constant.  We further assume that operations may weigh these reputations differently.  The initial configuration should include a uptime_repair_weight, audit_repair_weight, uptime_uplink_weight, and audit_uplink_weight constants.
 
-Total Repair Reputation = uptime_repair_weight · uptime R(n) + audit_repair_weight · audit R(n)
-Total Uplink Reputation = uptime_uplink_weight · uptime R(n) + audit_uplink_weight · audit R(n)
+> Total Repair Reputation = uptime_repair_weight · uptime R(n) + audit_repair_weight · audit R(n)
+> Total Uplink Reputation = uptime_uplink_weight · uptime R(n) + audit_uplink_weight · audit R(n)
 
 This design may be refined in the future to prefer faster downloads, etc..
 
 ### Database changes
 
+```DBX
 model node (
 ...
 	field audit_reputation_a   float64   ( updatable )
@@ -48,6 +49,7 @@ model node (
 	field total_uptime_count   int64     ( updatable )
 ...
 )
+```
 
 ## Rationale
 
@@ -65,14 +67,14 @@ Implementing α0 = β0 = 1 as described above would require some type of relaxat
 
 ## Implementation
 
-Create configuration elements for audit_a0, audit_β0, audit_λ, audit_w, audit_repair_weight, and audit_uplink_weight
-Create configuration elements for uptime_a0, uptime_β0, uptime_λ, uptime_w, uptime_repair_weight, and uptime_uplink_weight
-Alter DBX model removing audit_success_count, audit_success_ratio, uptime_success_count, uptime_ratio
-Alter DBX model adding audit_reputation_a, audit_reputation_b, uptime_reputation_a, uptime_reputation_b
-Alter SQL node selection queries to consider new values
-Alter SQL node selection queries to return 2x more nodes
-Implement "Power of Two Choices" logic in node selection query
-Update disqualification code to use reputation
+* Create configuration elements for audit_a0, audit_β0, audit_λ, audit_w, audit_repair_weight, and audit_uplink_weight
+* Create configuration elements for uptime_a0, uptime_β0, uptime_λ, uptime_w, uptime_repair_weight, and uptime_uplink_weight
+* Alter DBX model removing audit_success_count, audit_success_ratio, uptime_success_count, uptime_ratio
+* Alter DBX model adding audit_reputation_a, audit_reputation_b, uptime_reputation_a, uptime_reputation_b
+* Alter SQL node selection queries to consider new values
+* Alter SQL node selection queries to return 2x more nodes
+* Implement "Power of Two Choices" logic in node selection query
+* Update disqualification code to use reputation
 
 
 ## Open issues (if applicable)
