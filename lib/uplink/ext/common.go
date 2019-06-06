@@ -117,21 +117,16 @@ func NewCBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
 }
 
 // NB: caller is responsible for freeing memory at `ptr`
-func NewCEncryptionParamsPtr(goParams *storj.EncryptionParameters) *C.EncryptionParameters_t {
-	ptr := CMalloc(unsafe.Sizeof(C.EncryptionParameters_t{}))
-	cParams := (*C.EncryptionParameters_t)(unsafe.Pointer(ptr))
-	*cParams = C.EncryptionParameters_t{
+func NewCEncryptionParamsPtr(goParams *storj.EncryptionParameters) C.EncryptionParameters_t {
+	return C.EncryptionParameters_t{
 		cipher_suite: C.uint8_t(goParams.CipherSuite),
 		block_size:   C.int32_t(goParams.BlockSize),
 	}
-	return cParams
 }
 
 // NB: caller is responsible for freeing memory at `ptr`
-func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) *C.RedundancyScheme_t {
-	ptr := CMalloc(unsafe.Sizeof(C.RedundancyScheme_t{}))
-	cScheme := (*C.RedundancyScheme_t)(unsafe.Pointer(ptr))
-	*cScheme = C.RedundancyScheme_t{
+func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) C.RedundancyScheme_t {
+	return C.RedundancyScheme_t{
 		algorithm:       C.uint8_t(goScheme.Algorithm),
 		share_size:      C.int32_t(goScheme.ShareSize),
 		required_shares: C.int16_t(goScheme.RequiredShares),
@@ -139,7 +134,6 @@ func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) *C.RedundancySche
 		optimal_shares:  C.int16_t(goScheme.OptimalShares),
 		total_shares:    C.int16_t(goScheme.TotalShares),
 	}
-	return cScheme
 }
 
 //export FreeReference

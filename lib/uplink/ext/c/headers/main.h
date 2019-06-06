@@ -48,8 +48,8 @@ typedef struct RedundancyScheme {
 } RedundancyScheme_t;
 
 typedef struct Bucket {
-    EncryptionParameters_t *encryption_parameters;
-    RedundancyScheme_t *redundancy_scheme;
+    EncryptionParameters_t encryption_parameters;
+    RedundancyScheme_t redundancy_scheme;
     char *name;
     int64_t created;
     uint8_t path_cipher;
@@ -57,8 +57,8 @@ typedef struct Bucket {
 } Bucket_t;
 
 typedef struct BucketConfig {
-    EncryptionParameters_t *encryption_parameters;
-    RedundancyScheme_t *redundancy_scheme;
+    EncryptionParameters_t encryption_parameters;
+    RedundancyScheme_t redundancy_scheme;
     uint8_t path_cipher;
 } BucketConfig_t;
 

@@ -83,14 +83,13 @@ func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlob
 		filepath.Join(cSrcDir, "*.c"),
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)
-	commandPath := testBinPath
 
 	if dir, ok := os.LookupEnv("STORJ_DEBUG"); ok {
 		err := copyFile(testBinPath, filepath.Join(dir, t.Name()))
 		require.NoError(t, err)
 	}
 
-	cmd := exec.Command(commandPath)
+	cmd := exec.Command(testBinPath)
 	cmd.Env = append(os.Environ(), envVars...)
 
 	out, err := cmd.CombinedOutput()
@@ -229,19 +228,14 @@ func testEachBucketConfig(t *testing.T, f func(*uplink.BucketConfig)) {
 }
 
 func newGoBucket(cBucket *CBucket) storj.Bucket {
-	params := storj.EncryptionParameters{}
-	if unsafe.Pointer(cBucket.encryption_parameters) != nil {
-		params = newGoEncryptionParams(cBucket.encryption_parameters)
-	}
 
-	scheme := storj.RedundancyScheme{}
-	if unsafe.Pointer(cBucket.redundancy_scheme) != nil {
-		scheme = newGoRedundancyScheme(cBucket.redundancy_scheme)
-	}
+	// NB: static code analysis tools can't dereference dynamic types
+	params := cBucket.encryption_parameters
+	scheme := cBucket.redundancy_scheme
 
 	return storj.Bucket{
-		EncryptionParameters: params,
-		RedundancyScheme:     scheme,
+		EncryptionParameters: newGoEncryptionParams(&params),
+		RedundancyScheme:     newGoRedundancyScheme(&scheme),
 		Name:                 C.GoString(cBucket.name),
 		Created:              time.Unix(int64(cBucket.created), 0).UTC(),
 		PathCipher:           storj.Cipher(cBucket.path_cipher),
@@ -250,8 +244,10 @@ func newGoBucket(cBucket *CBucket) storj.Bucket {
 }
 
 func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) uplink.BucketConfig {
+	params := cBucketConfig.encryption_parameters
+
 	return uplink.BucketConfig{
-		EncryptionParameters: newGoEncryptionParams(cBucketConfig.encryption_parameters),
+		EncryptionParameters: newGoEncryptionParams(&params),
 		PathCipher:           storj.CipherSuite(cBucketConfig.path_cipher),
 	}
 }

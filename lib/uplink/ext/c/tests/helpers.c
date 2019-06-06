@@ -39,23 +39,21 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
 
     BucketConfig_t bucket_cfg;
     bucket_cfg.path_cipher = 0;
-    bucket_cfg.encryption_parameters = &enc_param;
-    bucket_cfg.redundancy_scheme = &scheme;
+    bucket_cfg.encryption_parameters = enc_param;
+    bucket_cfg.redundancy_scheme = scheme;
 
     *bucket = CreateBucket(ref_project, bucket_name, &bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    TEST_ASSERT_NOT_NULL(bucket->encryption_parameters);
-    TEST_ASSERT_EQUAL(enc_param.cipher_suite, bucket->encryption_parameters->cipher_suite);
-    TEST_ASSERT_EQUAL(enc_param.block_size, bucket->encryption_parameters->block_size);
+    TEST_ASSERT_EQUAL(enc_param.cipher_suite, bucket->encryption_parameters.cipher_suite);
+    TEST_ASSERT_EQUAL(enc_param.block_size, bucket->encryption_parameters.block_size);
 
-    TEST_ASSERT_NOT_NULL(bucket->redundancy_scheme);
-    TEST_ASSERT_EQUAL(scheme.algorithm, bucket->redundancy_scheme->algorithm);
-    TEST_ASSERT_EQUAL(scheme.share_size, bucket->redundancy_scheme->share_size);
-    TEST_ASSERT_EQUAL(scheme.required_shares, bucket->redundancy_scheme->required_shares);
-    TEST_ASSERT_EQUAL(scheme.repair_shares, bucket->redundancy_scheme->repair_shares);
-    TEST_ASSERT_EQUAL(scheme.optimal_shares, bucket->redundancy_scheme->optimal_shares);
-    TEST_ASSERT_EQUAL(scheme.total_shares, bucket->redundancy_scheme->total_shares);
+    TEST_ASSERT_EQUAL(scheme.algorithm, bucket->redundancy_scheme.algorithm);
+    TEST_ASSERT_EQUAL(scheme.share_size, bucket->redundancy_scheme.share_size);
+    TEST_ASSERT_EQUAL(scheme.required_shares, bucket->redundancy_scheme.required_shares);
+    TEST_ASSERT_EQUAL(scheme.repair_shares, bucket->redundancy_scheme.repair_shares);
+    TEST_ASSERT_EQUAL(scheme.optimal_shares, bucket->redundancy_scheme.optimal_shares);
+    TEST_ASSERT_EQUAL(scheme.total_shares, bucket->redundancy_scheme.total_shares);
 
     TEST_ASSERT_EQUAL_STRING(bucket_name, bucket->name);
     TEST_ASSERT_NOT_EQUAL(0, bucket->created);
@@ -96,12 +94,6 @@ void FreeEncryptionAccess(EncryptionAccess_t *access)
 void FreeBucket(Bucket_t *bucket)
 {
     if (bucket != NULL) {
-        if (bucket->encryption_parameters != NULL) {
-            free(bucket->encryption_parameters);
-        }
-        if (bucket->redundancy_scheme != NULL) {
-            free(bucket->redundancy_scheme);
-        }
         free(bucket);
     }
 }
