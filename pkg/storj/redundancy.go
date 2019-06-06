@@ -8,11 +8,11 @@ type RedundancyScheme struct {
 	// Algorithm determines the algorithm to be used for redundancy.
 	Algorithm RedundancyAlgorithm
 
-	// ShareSize is the size to use for new redundancy shares.
+	// ShareSize is the size in bytes for each erasure shares.
 	ShareSize int32
 
 	// RequiredShares is the minimum number of shares required to recover a
-	// segment.
+	// stripe, reed-solomon k.
 	RequiredShares int16
 	// RepairShares is the minimum number of safe shares that can remain
 	// before a repair is triggered.
@@ -28,6 +28,14 @@ type RedundancyScheme struct {
 // IsZero returns true if no field in the struct is set to non-zero value
 func (scheme RedundancyScheme) IsZero() bool {
 	return scheme == (RedundancyScheme{})
+}
+
+// StripeSize is the number of bytes for a stripe.
+// Stripes are erasure encoded and split into n shares, where we need k to
+// reconstruct the stripe. Therefore a stripe size is the erasure share size
+// times the required shares, k.
+func (scheme RedundancyScheme) StripeSize() int32 {
+	return scheme.ShareSize * int32(scheme.RequiredShares)
 }
 
 // RedundancyAlgorithm is the algorithm used for redundancy
