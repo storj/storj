@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"storj.io/storj/pkg/storj"
 )
 
 func printLookup(revealed map[string]string, consumed string, base *Base) {
@@ -12,8 +13,13 @@ func printLookup(revealed map[string]string, consumed string, base *Base) {
 		fmt.Printf("<%q, %q, nil>\n", revealed, consumed)
 	} else {
 		fmt.Printf("<%q, %q, <%q, %q>>\n",
-			revealed, consumed, base.Encrypted, base.Key)
+			revealed, consumed, base.Encrypted, base.Key[:2])
 	}
+}
+
+func toKey(val string) (out storj.Key) {
+	copy(out[:], val)
+	return out
 }
 
 func abortIfError(err error) {
@@ -25,11 +31,11 @@ func abortIfError(err error) {
 func ExampleSearcher() {
 	s := NewSearcher()
 
-	abortIfError(s.Add("u1/u2/u3", "e1/e2/e3", []byte("k3")))
-	abortIfError(s.Add("u1/u2/u3/u4", "e1/e2/e3/e4", []byte("k4")))
-	abortIfError(s.Add("u1/u5", "e1/e5", []byte("k5")))
-	abortIfError(s.Add("u6", "e6", []byte("k6")))
-	abortIfError(s.Add("u6/u7/u8", "e6/e7/e8", []byte("k8")))
+	abortIfError(s.Add("u1/u2/u3", "e1/e2/e3", toKey("k3")))
+	abortIfError(s.Add("u1/u2/u3/u4", "e1/e2/e3/e4", toKey("k4")))
+	abortIfError(s.Add("u1/u5", "e1/e5", toKey("k5")))
+	abortIfError(s.Add("u6", "e6", toKey("k6")))
+	abortIfError(s.Add("u6/u7/u8", "e6/e7/e8", toKey("k8")))
 
 	printLookup(s.Lookup("u1"))
 	printLookup(s.Lookup("u1/u2/u3"))
@@ -50,13 +56,13 @@ func TestSearcherErrors(t *testing.T) {
 	s := NewSearcher()
 
 	// Too many encrypted parts
-	require.Error(t, s.Add("u1", "e1/e2/e3", nil))
+	require.Error(t, s.Add("u1", "e1/e2/e3", storj.Key{}))
 
 	// Too many unencrypted parts
-	require.Error(t, s.Add("u1/u2/u3", "e1", nil))
+	require.Error(t, s.Add("u1/u2/u3", "e1", storj.Key{}))
 
 	// Mismatches
-	require.NoError(t, s.Add("u1", "e1", nil))
-	require.Error(t, s.Add("u2", "e1", nil))
-	require.Error(t, s.Add("u1", "f1", nil))
+	require.NoError(t, s.Add("u1", "e1", storj.Key{}))
+	require.Error(t, s.Add("u2", "e1", storj.Key{}))
+	require.Error(t, s.Add("u1", "f1", storj.Key{}))
 }

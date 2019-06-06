@@ -1,6 +1,9 @@
 package vpath
 
-import "github.com/zeebo/errs"
+import (
+	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/storj"
+)
 
 // The searcher allows one to find the matching most encrypted key and path for
 // some unencrypted path. It also reports a mapping of encrypted to unencrypted paths
@@ -37,8 +40,8 @@ type node struct {
 
 // Base represents a key with which to derive further keys at some encrypted path.
 type Base struct {
-	Encrypted string
-	Key       []byte
+	Encrypted storj.Path
+	Key       storj.Key
 }
 
 // NewSearcher constructs a Searcher.
@@ -58,7 +61,7 @@ func newNode() *node {
 }
 
 // Add creates a mapping from the unencrypted path to the encrypted path and key.
-func (s *Searcher) Add(unencrypted, encrypted string, key []byte) error {
+func (s *Searcher) Add(unencrypted, encrypted storj.Path, key storj.Key) error {
 	return s.root.add(newPathWalker(unencrypted), newPathWalker(encrypted), &Base{
 		Encrypted: encrypted,
 		Key:       key,
