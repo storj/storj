@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
 // ErrMigrate is for tracking migration errors
@@ -221,7 +222,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 									return ErrMigrate.Wrap(err)
 								}
 
-								var rba pb.Order
+								var rba pbold.Order
 								if err := proto.Unmarshal(data, &rba); err != nil {
 									return ErrMigrate.Wrap(err)
 								}
