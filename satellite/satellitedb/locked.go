@@ -178,6 +178,37 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
+// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
+func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
+}
+
+// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
+type lockedProjectInvoiceStamps struct {
+	sync.Locker
+	db console.ProjectInvoiceStamps
+}
+
+func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, stamp)
+}
+
+func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAll(ctx, projectID)
+}
+
+func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
+}
+
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -219,6 +250,37 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	return m.db.Insert(ctx, memberID, projectID)
 }
 
+// ProjectPayments is a getter for ProjectPayments repository
+func (m *lockedConsole) ProjectPayments() console.ProjectPayments {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
+}
+
+// lockedProjectPayments implements locking wrapper for console.ProjectPayments
+type lockedProjectPayments struct {
+	sync.Locker
+	db console.ProjectPayments
+}
+
+func (m *lockedProjectPayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByPayerID(ctx, payerID)
+}
+
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectID(ctx, projectID)
+}
+
 // Projects is a getter for Projects repository
 func (m *lockedConsole) Projects() console.Projects {
 	m.Lock()
@@ -258,6 +320,13 @@ func (m *lockedProjects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]c
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByUserID(ctx, userID)
+}
+
+// GetCreatedBefore retrieves all projects created before provided date
+func (m *lockedProjects) GetCreatedBefore(ctx context.Context, before time.Time) ([]console.Project, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCreatedBefore(ctx, before)
 }
 
 // Insert is a method for inserting project into the database.
@@ -385,6 +454,31 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
+}
+
+// UserPayments is a getter for UserPayments repository
+func (m *lockedConsole) UserPayments() console.UserPayments {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
+}
+
+// lockedUserPayments implements locking wrapper for console.UserPayments
+type lockedUserPayments struct {
+	sync.Locker
+	db console.UserPayments
+}
+
+func (m *lockedUserPayments) Create(ctx context.Context, info console.UserPayment) (*console.UserPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, userID)
 }
 
 // Users is a getter for Users repository
