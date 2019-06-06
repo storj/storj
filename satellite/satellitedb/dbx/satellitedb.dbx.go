@@ -327,16 +327,6 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE bwagreements (
-	serialnum text NOT NULL,
-	storage_node_id bytea NOT NULL,
-	uplink_id bytea NOT NULL,
-	action bigint NOT NULL,
-	total bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( serialnum )
-);
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
@@ -620,16 +610,6 @@ CREATE TABLE bucket_usages (
 	get_egress INTEGER NOT NULL,
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE bwagreements (
-	serialnum TEXT NOT NULL,
-	storage_node_id BLOB NOT NULL,
-	uplink_id BLOB NOT NULL,
-	action INTEGER NOT NULL,
-	total INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( serialnum )
 );
 CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
@@ -1704,154 +1684,6 @@ func (f BucketUsage_AuditEgress_Field) value() interface{} {
 }
 
 func (BucketUsage_AuditEgress_Field) _Column() string { return "audit_egress" }
-
-type Bwagreement struct {
-	Serialnum     string
-	StorageNodeId []byte
-	UplinkId      []byte
-	Action        int64
-	Total         int64
-	CreatedAt     time.Time
-	ExpiresAt     time.Time
-}
-
-func (Bwagreement) _Table() string { return "bwagreements" }
-
-type Bwagreement_Update_Fields struct {
-}
-
-type Bwagreement_Serialnum_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func Bwagreement_Serialnum(v string) Bwagreement_Serialnum_Field {
-	return Bwagreement_Serialnum_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_Serialnum_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_Serialnum_Field) _Column() string { return "serialnum" }
-
-type Bwagreement_StorageNodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Bwagreement_StorageNodeId(v []byte) Bwagreement_StorageNodeId_Field {
-	return Bwagreement_StorageNodeId_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_StorageNodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_StorageNodeId_Field) _Column() string { return "storage_node_id" }
-
-type Bwagreement_UplinkId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Bwagreement_UplinkId(v []byte) Bwagreement_UplinkId_Field {
-	return Bwagreement_UplinkId_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_UplinkId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_UplinkId_Field) _Column() string { return "uplink_id" }
-
-type Bwagreement_Action_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Bwagreement_Action(v int64) Bwagreement_Action_Field {
-	return Bwagreement_Action_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_Action_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_Action_Field) _Column() string { return "action" }
-
-type Bwagreement_Total_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func Bwagreement_Total(v int64) Bwagreement_Total_Field {
-	return Bwagreement_Total_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_Total_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_Total_Field) _Column() string { return "total" }
-
-type Bwagreement_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Bwagreement_CreatedAt(v time.Time) Bwagreement_CreatedAt_Field {
-	return Bwagreement_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_CreatedAt_Field) _Column() string { return "created_at" }
-
-type Bwagreement_ExpiresAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Bwagreement_ExpiresAt(v time.Time) Bwagreement_ExpiresAt_Field {
-	return Bwagreement_ExpiresAt_Field{_set: true, _value: v}
-}
-
-func (f Bwagreement_ExpiresAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Bwagreement_ExpiresAt_Field) _Column() string { return "expires_at" }
 
 type CertRecord struct {
 	Publickey []byte
@@ -7189,16 +7021,6 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_usages;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -10497,16 +10319,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM certRecords;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.Exec("DELETE FROM bwagreements;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

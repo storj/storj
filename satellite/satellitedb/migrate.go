@@ -748,6 +748,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Remove agreements table",
+				Version:     28,
+				Action: migrate.SQL{
+					`DROP TABLE bwagreements`,
+				},
+			},
 		},
 	}
 }
