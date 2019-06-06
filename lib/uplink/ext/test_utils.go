@@ -27,10 +27,14 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-// C types
+/* C types */
+
+// Cchar is an alias to the c character pointer type
 type Cchar = *C.char
 
-// Ref types
+/* Ref types */
+
+// CAPIKeyRef is an alias to the APIKeyRef_t c type
 type CAPIKeyRef = C.APIKeyRef_t
 
 var (
@@ -113,4 +117,3 @@ func stringToCCharPtr(str string) *C.char {
 func cCharToGoString(cchar *C.char) string {
 	return C.GoString(cchar)
 }
-

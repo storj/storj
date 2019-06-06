@@ -14,25 +14,25 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-//export ParseAPIKey
 // ParseAPIKey parses an API Key
-func ParseAPIKey(val *C.char, cErr **C.char) (cApiKey C.APIKeyRef_t) {
-	goApiKeyStruct, err := uplink.ParseAPIKey(C.GoString(val))
+//export ParseAPIKey
+func ParseAPIKey(val *C.char, cErr **C.char) (cAPIKey C.APIKeyRef_t) {
+	goAPIKeyStruct, err := uplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return cApiKey
+		return cAPIKey
 	}
 
-	return C.APIKeyRef_t(structRefMap.Add(goApiKeyStruct))
+	return C.APIKeyRef_t(structRefMap.Add(goAPIKeyStruct))
 }
 
-//export Serialize
 // Serialize serializes the API Key to a string
-func Serialize(cApiKey C.APIKeyRef_t) *C.char {
-	goApiKey, ok := structRefMap.Get(token(cApiKey)).(uplink.APIKey)
+//export Serialize
+func Serialize(cAPIKey C.APIKeyRef_t) *C.char {
+	goAPIKey, ok := structRefMap.Get(token(cAPIKey)).(uplink.APIKey)
 	if !ok {
 		return C.CString("")
 	}
 
-	return C.CString(goApiKey.Serialize())
+	return C.CString(goAPIKey.Serialize())
 }

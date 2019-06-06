@@ -31,6 +31,7 @@ func (ctx *Context) Compile(pkg string) string {
 	return exe
 }
 
+// CompileC compiles the c source files using gcc.
 func (ctx *Context) CompileC(srcGlobs ...string) string {
 	ctx.test.Helper()
 

@@ -96,6 +96,8 @@ extern APIKeyRef_t ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKeyRef_t p0);
 
+// GetIDVersion wraps uplink.GetIDVersion for c.
+
 extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
 
 #ifdef __cplusplus

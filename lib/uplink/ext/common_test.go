@@ -19,4 +19,3 @@ func TestCCommonTests(t *testing.T) {
 
 	runCTest(t, ctx, "common_test.c")
 }
-

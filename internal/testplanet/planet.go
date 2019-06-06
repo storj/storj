@@ -159,9 +159,9 @@ func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion
 // NewWithLogger creates a new full system with the given number of nodes.
 func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCount int) (*Planet, error) {
 	return NewCustom(log, Config{
-		SatelliteCount:   satelliteCount,
-		StorageNodeCount: storageNodeCount,
-		UplinkCount:      uplinkCount,
+		SatelliteCount:     satelliteCount,
+		StorageNodeCount:   storageNodeCount,
+		UplinkCount:        uplinkCount,
 		UsePeerCAWhitelist: true,
 	})
 }

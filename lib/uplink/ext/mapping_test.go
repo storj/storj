@@ -4,9 +4,10 @@
 package main
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestMapping_Add(t *testing.T) {

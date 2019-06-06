@@ -16,8 +16,8 @@ import (
 
 var structRefMap = newMapping()
 
-//export GetIDVersion
 // GetIDVersion wraps uplink.GetIDVersion for c.
+//export GetIDVersion
 func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
@@ -29,4 +29,3 @@ func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 		number: C.uint16_t(goIDVersion.Number),
 	}
 }
-
