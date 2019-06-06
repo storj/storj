@@ -55,16 +55,6 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE bwagreements (
-	serialnum text NOT NULL,
-	storage_node_id bytea NOT NULL,
-	uplink_id bytea NOT NULL,
-	action bigint NOT NULL,
-	total bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( serialnum )
-);
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
@@ -120,15 +110,16 @@ CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	type integer NOT NULL,
-	credit_in_cents integer NOT NULL,
+	award_credit_in_cents integer NOT NULL,
+	invitee_credit_in_cents integer NOT NULL,
 	award_credit_duration_days integer NOT NULL,
 	invitee_credit_duration_days integer NOT NULL,
 	redeemable_cap integer NOT NULL,
 	num_redeemed integer NOT NULL,
-	expires_at timestamp with time zone,
+	expires_at timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	status integer NOT NULL,
+	type integer NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (
@@ -195,6 +186,12 @@ CREATE TABLE users (
 	status integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE value_attributions (
+	bucket_id bytea NOT NULL,
+	partner_id bytea NOT NULL,
+	last_updated timestamp NOT NULL,
+	PRIMARY KEY ( bucket_id )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,

@@ -55,16 +55,6 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE bwagreements (
-	serialnum TEXT NOT NULL,
-	storage_node_id BLOB NOT NULL,
-	uplink_id BLOB NOT NULL,
-	action INTEGER NOT NULL,
-	total INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( serialnum )
-);
 CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
 	id BLOB NOT NULL,
@@ -120,15 +110,16 @@ CREATE TABLE offers (
 	id INTEGER NOT NULL,
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
-	type INTEGER NOT NULL,
-	credit_in_cents INTEGER NOT NULL,
+	award_credit_in_cents INTEGER NOT NULL,
+	invitee_credit_in_cents INTEGER NOT NULL,
 	award_credit_duration_days INTEGER NOT NULL,
 	invitee_credit_duration_days INTEGER NOT NULL,
 	redeemable_cap INTEGER NOT NULL,
 	num_redeemed INTEGER NOT NULL,
-	expires_at TIMESTAMP,
+	expires_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,
+	type INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (
@@ -195,6 +186,12 @@ CREATE TABLE users (
 	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE value_attributions (
+	bucket_id BLOB NOT NULL,
+	partner_id BLOB NOT NULL,
+	last_updated TIMESTAMP NOT NULL,
+	PRIMARY KEY ( bucket_id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,

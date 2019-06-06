@@ -4,6 +4,7 @@
 package oauth2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,6 +15,11 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // Auth is XOAUTH2 implementation of smtp.Auth interface
@@ -25,11 +31,13 @@ type Auth struct {
 
 // Start returns proto and auth credentials for first auth msg
 func (auth *Auth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	if !server.TLS {
 		return "", nil, errs.New("unencrypted connection")
 	}
 
-	token, err := auth.Storage.Token()
+	token, err := auth.Storage.Token(ctx)
 	if err != nil {
 		return "", nil, err
 	}
@@ -78,14 +86,15 @@ func NewTokenStore(creds Credentials, token Token) *TokenStore {
 }
 
 // Token retrieves token in a thread safe way and refreshes it if needed
-func (s *TokenStore) Token() (*Token, error) {
+func (s *TokenStore) Token(ctx context.Context) (_ *Token, err error) {
+	defer mon.Task()(&ctx)(&err)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	token := new(Token)
 	if s.token.Expiry.Before(time.Now()) {
 		var err error
-		token, err = RefreshToken(s.creds, s.token.RefreshToken)
+		token, err = RefreshToken(ctx, s.creds, s.token.RefreshToken)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +106,9 @@ func (s *TokenStore) Token() (*Token, error) {
 }
 
 // RefreshToken is a helper method that refreshes token with given credentials and OUATH2 refresh token
-func RefreshToken(creds Credentials, refreshToken string) (*Token, error) {
+func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (_ *Token, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	values := url.Values{
 		"grant_type":    {"refresh_token"},
 		"refresh_token": {refreshToken},

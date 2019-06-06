@@ -4,13 +4,17 @@
 package storelogger
 
 import (
+	"context"
 	"strconv"
 	"sync/atomic"
 
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
+
+var mon = monkit.Package()
 
 var id int64
 
@@ -28,47 +32,53 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 }
 
 // Put adds a value to store
-func (store *Logger) Put(key storage.Key, value storage.Value) error {
+func (store *Logger) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Put", zap.String("key", string(key)), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
-	return store.store.Put(key, value)
+	return store.store.Put(ctx, key, value)
 }
 
 // Get gets a value to store
-func (store *Logger) Get(key storage.Key) (storage.Value, error) {
+func (store *Logger) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Get", zap.String("key", string(key)))
-	return store.store.Get(key)
+	return store.store.Get(ctx, key)
 }
 
 // GetAll gets all values from the store corresponding to keys
-func (store *Logger) GetAll(keys storage.Keys) (storage.Values, error) {
+func (store *Logger) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("GetAll", zap.Any("keys", keys))
-	return store.store.GetAll(keys)
+	return store.store.GetAll(ctx, keys)
 }
 
 // Delete deletes key and the value
-func (store *Logger) Delete(key storage.Key) error {
+func (store *Logger) Delete(ctx context.Context, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Delete", zap.String("key", string(key)))
-	return store.store.Delete(key)
+	return store.store.Delete(ctx, key)
 }
 
 // List lists all keys starting from first and upto limit items
-func (store *Logger) List(first storage.Key, limit int) (storage.Keys, error) {
-	keys, err := store.store.List(first, limit)
+func (store *Logger) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
+	keys, err := store.store.List(ctx, first, limit)
 	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
 	return keys, err
 }
 
 // Iterate iterates over items based on opts
-func (store *Logger) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Iterate",
 		zap.String("prefix", string(opts.Prefix)),
 		zap.String("first", string(opts.First)),
 		zap.Bool("recurse", opts.Recurse),
 		zap.Bool("reverse", opts.Reverse),
 	)
-	return store.store.Iterate(opts, func(it storage.Iterator) error {
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
-			ok := it.Next(item)
+	return store.store.Iterate(ctx, opts, func(ctx context.Context, it storage.Iterator) error {
+		return fn(ctx, storage.IteratorFunc(func(ctx context.Context, item *storage.ListItem) bool {
+			ok := it.Next(ctx, item)
 			if ok {
 				store.log.Debug("  ",
 					zap.String("key", string(item.Key)),
