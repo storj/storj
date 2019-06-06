@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -53,7 +54,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db.DB, mon)
 
 	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
@@ -135,6 +136,14 @@ func (db *DB) Irreparable() irreparable.DB {
 // Console returns database for storing users, projects and api keys
 func (db *DB) Console() console.DB {
 	return &ConsoleDB{
+		db:      db.db,
+		methods: db.db,
+	}
+}
+
+// Marketing returns database for storing offers and credits
+func (db *DB) Marketing() marketing.DB {
+	return &MarketingDB{
 		db:      db.db,
 		methods: db.db,
 	}
