@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
@@ -471,7 +470,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Overlay:              true,
 				BwExpiration:         45,
 			},
-			BwAgreement: bwagreement.Config{},
 			Checker: checker.Config{
 				Interval:            30 * time.Second,
 				IrreparableInterval: 15 * time.Second,
