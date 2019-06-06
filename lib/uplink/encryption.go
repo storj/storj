@@ -16,8 +16,12 @@ const (
 type EncryptionAccess struct {
 	// Key is the base encryption key to be used for decrypting objects.
 	Key storj.Key
+
 	// EncryptedPathPrefix is the (possibly empty) encrypted version of the
-	// path from the top of the storage Bucket to this point. This is
-	// necessary to have in order to derive further encryption keys.
+	// path from the top of the storage Bucket to this point.
 	EncryptedPathPrefix storj.Path
+
+	// UnencryptedPathPrefix is the (possibly empty) unencrypted version of
+	// the path from the top of the storage Bucket to this point.
+	UnencryptedPathPrefix storj.Path
 }

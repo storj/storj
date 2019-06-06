@@ -147,13 +147,18 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
+func (p *Project) OpenBucket(ctx context.Context, bucketName string, accesses ...*EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
+
+	if len(accesses) != 1 {
+		return nil, Error.New("At least one encryption access must be provided")
+	}
+	access := accesses[0]
 
 	if access == nil || access.Key == (storj.Key{}) {
 		return nil, Error.New("No encryption key chosen")
