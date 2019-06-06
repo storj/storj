@@ -314,7 +314,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 						return
 					}
 					// unknown transport error
-					ch <- result{nodeID: piece.NodeId, status: contained}
+					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 					return
 				}
 
@@ -330,12 +330,12 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					return status.Code(err) == codes.DeadlineExceeded
 				}) {
 					// dial successful, but download timed out
-					ch <- result{nodeID: piece.NodeId, status: contained}
+					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 					return
 				}
 
 				// unknown error
-				ch <- result{nodeID: piece.NodeId, status: contained}
+				ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 				return
 			}
 
