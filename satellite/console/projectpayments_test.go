@@ -5,10 +5,10 @@ package console_test
 
 import (
 	"crypto/rand"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
@@ -23,21 +23,15 @@ func TestProjectPaymentInfos(t *testing.T) {
 
 		var customerID [8]byte
 		_, err := rand.Read(customerID[:])
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create customer id: %s", err))
-		}
+		require.NoError(t, err)
 
 		var paymentMethodID [8]byte
 		_, err = rand.Read(paymentMethodID[:])
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create payment method id: %s", err))
-		}
+		require.NoError(t, err)
 
 		var passHash [8]byte
 		_, err = rand.Read(passHash[:])
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create password hash for user: %s", err))
-		}
+		require.NoError(t, err)
 
 		// create user
 		user, err := consoleDB.Users().Insert(ctx, &console.User{
@@ -46,26 +40,20 @@ func TestProjectPaymentInfos(t *testing.T) {
 			PasswordHash: passHash[:],
 			Status:       console.Active,
 		})
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create user: %s", err))
-		}
+		require.NoError(t, err)
 
 		// create user payment info
 		userPmInfo, err := consoleDB.UserPayments().Create(ctx, console.UserPayment{
 			UserID:     user.ID,
 			CustomerID: customerID[:],
 		})
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create user payment info: %s", err))
-		}
+		require.NoError(t, err)
 
 		// create project
 		proj, err := consoleDB.Projects().Insert(ctx, &console.Project{
 			Name: "test",
 		})
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create project: %s", err))
-		}
+		require.NoError(t, err)
 
 		t.Run("create project payment info", func(t *testing.T) {
 			info, err := consoleDB.ProjectPayments().Create(ctx, console.ProjectPayment{

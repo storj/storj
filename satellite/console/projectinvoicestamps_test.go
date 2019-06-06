@@ -5,11 +5,11 @@ package console_test
 
 import (
 	"crypto/rand"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
@@ -27,17 +27,13 @@ func TestProjectInvoiceStamps(t *testing.T) {
 
 		var invoiceID [8]byte
 		_, err := rand.Read(invoiceID[:])
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create invoice id: %s", err))
-		}
+		require.NoError(t, err)
 
 		//create project
 		proj, err := consoleDB.Projects().Insert(ctx, &console.Project{
 			Name: "test",
 		})
-		if err != nil {
-			t.Fatal(fmt.Sprintf("can not create project: %s", err))
-		}
+		require.NoError(t, err)
 
 		t.Run("create project invoice stamp", func(t *testing.T) {
 			stamp, err := consoleDB.ProjectInvoiceStamps().Create(ctx, console.ProjectInvoiceStamp{
