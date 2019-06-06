@@ -5,6 +5,7 @@ package vouchers
 
 import (
 	"context"
+	"time"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -15,7 +16,8 @@ type DB interface {
 	// Put inserts or updates a voucher from a satellite
 	Put(context.Context, *pb.Voucher) error
 	// GetExpiring retrieves all vouchers that are expired or about to expire
-	GetExpiring(context.Context) ([]storj.NodeID, error)
+	GetExpiring(context.Context, time.Duration) ([]storj.NodeID, error)
 	// GetValid returns one valid voucher from the list of approved satellites
 	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
 }
+

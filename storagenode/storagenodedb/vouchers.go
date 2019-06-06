@@ -57,11 +57,11 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 }
 
 // GetExpiring retrieves all vouchers that are expired or about to expire
-func (db *vouchersdb) GetExpiring(ctx context.Context) (satellites []storj.NodeID, err error) {
+func (db *vouchersdb) GetExpiring(ctx context.Context, expirationBuffer time.Duration) (satellites []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	expiresBefore := time.Now().UTC().AddDate(0, 0, 3)
+	expiresBefore := time.Now().UTC().Add(expirationBuffer)
 	rows, err := db.db.Query(`
 		SELECT satellite_id
 		FROM vouchers
