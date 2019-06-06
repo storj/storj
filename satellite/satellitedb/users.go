@@ -51,8 +51,8 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 
 	createdUser, err := users.db.Create_User(ctx,
 		dbx.User_Id(userID[:]),
-		dbx.User_FullName(user.FullName),
 		dbx.User_Email(user.Email),
+		dbx.User_FullName(user.FullName),
 		dbx.User_PasswordHash(user.PasswordHash),
 		dbx.User_Create_Fields{
 			ShortName: dbx.User_ShortName(user.ShortName),

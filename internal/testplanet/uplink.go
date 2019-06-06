@@ -226,8 +226,8 @@ func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite
 		return err
 	}
 
-	encScheme := config.GetEncryptionScheme()
 	redScheme := config.GetRedundancyScheme()
+	encScheme := config.GetEncryptionScheme()
 
 	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)

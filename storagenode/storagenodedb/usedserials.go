@@ -42,7 +42,6 @@ func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err er
 	defer db.locked()()
 
 	_, err = db.db.Exec(`DELETE FROM used_serial WHERE expiration < ?`, now)
-
 	return ErrInfo.Wrap(err)
 }
 
