@@ -105,8 +105,8 @@ func (n *node) add(unenc, enc pathWalker, base *Base) error {
 // Lookup finds the matching most unencrypted path added to the Searcher, reports how much
 // of the path matched, any known unencrypted paths at the requested path, and if a key
 // and encrypted path exists for the unencrypted path.
-func (s *Searcher) Lookup(unencrypted string) (
-	revealed map[string]string, consumed string, base *Base) {
+func (s *Searcher) Lookup(unencrypted storj.Path) (
+	revealed map[string]string, consumed storj.Path, base *Base) {
 
 	return s.root.lookup(newPathWalker(unencrypted), "", nil)
 }

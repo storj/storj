@@ -19,11 +19,16 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/vpath"
 )
 
-var (
-	ctx = context.Background()
-)
+var ctx = context.Background()
+
+func newSearcher() *vpath.Searcher {
+	searcher := vpath.NewSearcher()
+	searcher.Add("", "", storj.Key{})
+	return searcher
+}
 
 func TestStreamStoreMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -89,7 +94,7 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, storj.AESGCM)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newSearcher(), 10, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -168,7 +173,7 @@ func TestStreamStorePut(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newSearcher(), encBlockSize, dataCipher)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -277,7 +282,7 @@ func TestStreamStoreGet(t *testing.T) {
 
 		gomock.InOrder(calls...)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newSearcher(), encBlockSize, dataCipher)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -326,7 +331,7 @@ func TestStreamStoreDelete(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newSearcher(), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -370,7 +375,7 @@ func TestStreamStoreList(t *testing.T) {
 			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segments, test.segmentMore, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newSearcher(), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

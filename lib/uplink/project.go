@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/pkg/vpath"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -155,17 +156,29 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, accesses ..
 		return nil, err
 	}
 
+	// Construct a searcher from the accesses. This allows finding the appropriate key for
+	// any path in the bucket.
 	if len(accesses) != 1 {
 		return nil, Error.New("At least one encryption access must be provided")
 	}
-	access := accesses[0]
 
-	if access == nil || access.Key == (storj.Key{}) {
-		return nil, Error.New("No encryption key chosen")
+	searcher := vpath.NewSearcher()
+	for _, access := range accesses {
+		if access == nil || access.Key == (storj.Key{}) {
+			return nil, Error.New("Invalid encryption access specified")
+		}
+
+		// We add the bucket name to the front of all the encryption access because paths are
+		// expected to begin with the bucket in the stream store.
+		err := searcher.Add(
+			storj.JoinPaths(bucketName, access.UnencryptedPathPrefix),
+			storj.JoinPaths(bucketName, access.EncryptedPathPrefix),
+			access.Key)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
 	ec := ecclient.NewClient(p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
@@ -188,7 +201,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, accesses ..
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), searcher, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +213,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, accesses ..
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, &access.Key, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
+		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, searcher, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
 		streams:      streamStore,
 	}, nil
 }

@@ -46,46 +46,38 @@ func TestEncryption(t *testing.T) {
 
 func TestDeriveKey(t *testing.T) {
 	forAllCiphers(func(cipher storj.Cipher) {
-		for i, tt := range []struct {
-			path      storj.Path
-			depth     int
-			errString string
-		}{
-			{"fold1/fold2/fold3/file.txt", -1, "encryption error: negative depth"},
-			{"fold1/fold2/fold3/file.txt", 0, ""},
-			{"fold1/fold2/fold3/file.txt", 1, ""},
-			{"fold1/fold2/fold3/file.txt", 2, ""},
-			{"fold1/fold2/fold3/file.txt", 3, ""},
-			{"fold1/fold2/fold3/file.txt", 4, ""},
-			{"fold1/fold2/fold3/file.txt", 5, "encryption error: depth greater than path length"},
+		for i, path := range [][2]storj.Path{
+			{"fold1", "fold2"},
+			{"fold1/fold2", "fold3"},
+			{"fold1/fold2/fold3", "file.txt"},
 		} {
-			errTag := fmt.Sprintf("%d. %+v", i, tt)
+			errTag := fmt.Sprintf("%d. %q", i, path)
 
 			key := new(storj.Key)
 			copy(key[:], randData(storj.KeySize))
 
-			encrypted, err := EncryptPath(tt.path, cipher, key)
+			firstEncrypted, err := EncryptPath(path[0], cipher, key)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			derivedKey, err := DerivePathKey(tt.path, key, tt.depth)
-			if tt.errString != "" {
-				assert.EqualError(t, err, tt.errString, errTag)
-				continue
-			}
+			derivedKey, err := DerivePathKey(path[0], key)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			shared := storj.JoinPaths(storj.SplitPath(encrypted)[tt.depth:]...)
-			decrypted, err := DecryptPath(shared, cipher, derivedKey)
+			secondEncrypted, err := EncryptPath(path[1], cipher, derivedKey)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			expected := storj.JoinPaths(storj.SplitPath(tt.path)[tt.depth:]...)
-			assert.Equal(t, expected, decrypted, errTag)
+			fullDerived := storj.JoinPaths(firstEncrypted, secondEncrypted)
+			fullEncrypted, err := EncryptPath(storj.JoinPaths(path[:]...), cipher, key)
+			if !assert.NoError(t, err, errTag) {
+				continue
+			}
+
+			assert.Equal(t, fullDerived, fullEncrypted, errTag)
 		}
 	})
 }

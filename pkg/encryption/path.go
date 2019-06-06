@@ -58,24 +58,10 @@ func DecryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (decrypte
 
 // DerivePathKey derives the key for the given depth from the given root key.
 // This method must be called on an unencrypted path.
-func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *storj.Key, err error) {
-	if depth < 0 {
-		return nil, Error.New("negative depth")
-	}
-
-	// do not derive key from empty path
-	if len(path) == 0 {
-		return key, nil
-	}
-
-	comps := storj.SplitPath(path)
-	if depth > len(comps) {
-		return nil, Error.New("depth greater than path length")
-	}
-
+func DerivePathKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, err error) {
 	derivedKey = key
-	for i := 0; i < depth; i++ {
-		derivedKey, err = DeriveKey(derivedKey, "path:"+comps[i])
+	for _, comp := range storj.SplitPath(path) {
+		derivedKey, err = DeriveKey(derivedKey, "path:"+comp)
 		if err != nil {
 			return nil, err
 		}
@@ -86,11 +72,7 @@ func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *stor
 // DeriveContentKey derives the key for the encrypted object data using the root key.
 // This method must be called on an unencrypted path.
 func DeriveContentKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, err error) {
-	comps := storj.SplitPath(path)
-	if len(comps) == 0 {
-		return nil, Error.New("path is empty")
-	}
-	derivedKey, err = DerivePathKey(path, key, len(comps))
+	derivedKey, err = DerivePathKey(path, key)
 	if err != nil {
 		return nil, err
 	}
