@@ -97,21 +97,18 @@
 
 	@media screen and (max-height: 860px) {
 		.billing-container__table-holder {
-			overflow-y: scroll;
 			height: 535px;
 		}
 	}
 
 	@media screen and (max-height: 835px) {
 		.billing-container__table-holder {
-			overflow-y: scroll;
 			height: 495px;
 		}
 	}
 
 	@media screen and (max-height: 795px) {
 		.billing-container__table-holder {
-			overflow-y: scroll;
 			height: 475px;
 		}
 	}

@@ -320,29 +320,24 @@
 	@media screen and (max-height: 770px) {
 		.profile-container {
 			height: 515px;
-			overflow-y: scroll;
 		}
 	}
 
 	@media screen and (max-height: 750px) {
 		.profile-container {
 			height: 495px;
-			overflow-y: scroll;
-
 		}
 	}
 
 	@media screen and (max-height: 730px) {
 		.profile-container {
 			height: 475px;
-			overflow-y: scroll;
 		}
 	}
 
 	@media screen and (max-height: 710px) {
 		.profile-container {
 			height: 455px;
-			overflow-y: scroll;
 		}
 	}
 </style>
