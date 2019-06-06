@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
 // ErrMigrate is for tracking migration errors
@@ -221,7 +222,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 									return ErrMigrate.Wrap(err)
 								}
 
-								var rba pb.Order
+								var rba pbold.Order
 								if err := proto.Unmarshal(data, &rba); err != nil {
 									return ErrMigrate.Wrap(err)
 								}
@@ -734,6 +735,25 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
 					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
 					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Create value attribution table",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE TABLE value_attributions (
+						bucket_id bytea NOT NULL,
+						partner_id bytea NOT NULL,
+						last_updated timestamp NOT NULL,
+						PRIMARY KEY ( bucket_id )
+					)`,
+				},
+			},
+			{
+				Description: "Remove agreements table",
+				Version:     28,
+				Action: migrate.SQL{
+					`DROP TABLE bwagreements`,
 				},
 			},
 		},

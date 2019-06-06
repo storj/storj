@@ -1,5 +1,14 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//--- Value Attribution ---//
+model value_attribution (
+	key bucket_id
+
+	field bucket_id		blob
+	field partner_id	blob
+	field last_updated 	utimestamp
+)
+
 //--- containment ---//
 model pending_audits (
 	key node_id
@@ -19,21 +28,6 @@ read one (
 	select pending_audits
 	where  pending_audits.node_id = ?
 )
-
-//--- bwagreement ---//
-
-model bwagreement (
-	key serialnum
-
-	field serialnum       text
-	field storage_node_id blob
-	field uplink_id       blob
-	field action          int64
-	field total           int64
-	field created_at      timestamp ( autoinsert )
-	field expires_at      timestamp
-)
-
 
 //--- irreparableDB ---//
 

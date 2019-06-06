@@ -4,6 +4,7 @@
 package postgreskv
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -51,12 +52,14 @@ func New(dbURL string) (*Client, error) {
 }
 
 // Put sets the value for the provided key.
-func (client *Client) Put(key storage.Key, value storage.Value) error {
-	return client.PutPath(storage.Key(defaultBucket), key, value)
+func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.PutPath(ctx, storage.Key(defaultBucket), key, value)
 }
 
 // PutPath sets the value for the provided key (in the given bucket).
-func (client *Client) PutPath(bucket, key storage.Key, value storage.Value) error {
+func (client *Client) PutPath(ctx context.Context, bucket, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
@@ -65,17 +68,19 @@ func (client *Client) PutPath(bucket, key storage.Key, value storage.Value) erro
 			VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)
 			ON CONFLICT (bucket, fullpath) DO UPDATE SET metadata = EXCLUDED.metadata
 	`
-	_, err := client.pgConn.Exec(q, []byte(bucket), []byte(key), []byte(value))
+	_, err = client.pgConn.Exec(q, []byte(bucket), []byte(key), []byte(value))
 	return err
 }
 
 // Get looks up the provided key and returns its value (or an error).
-func (client *Client) Get(key storage.Key) (storage.Value, error) {
-	return client.GetPath(storage.Key(defaultBucket), key)
+func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.GetPath(ctx, storage.Key(defaultBucket), key)
 }
 
 // GetPath looks up the provided key (in the given bucket) and returns its value (or an error).
-func (client *Client) GetPath(bucket, key storage.Key) (storage.Value, error) {
+func (client *Client) GetPath(ctx context.Context, bucket, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return nil, storage.ErrEmptyKey.New("")
 	}
@@ -83,7 +88,7 @@ func (client *Client) GetPath(bucket, key storage.Key) (storage.Value, error) {
 	q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
 	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
 	var val []byte
-	err := row.Scan(&val)
+	err = row.Scan(&val)
 	if err == sql.ErrNoRows {
 		return nil, storage.ErrKeyNotFound.New(key.String())
 	}
@@ -94,12 +99,14 @@ func (client *Client) GetPath(bucket, key storage.Key) (storage.Value, error) {
 }
 
 // Delete deletes the given key and its associated value.
-func (client *Client) Delete(key storage.Key) error {
-	return client.DeletePath(storage.Key(defaultBucket), key)
+func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.DeletePath(ctx, storage.Key(defaultBucket), key)
 }
 
 // DeletePath deletes the given key (in the given bucket) and its associated value.
-func (client *Client) DeletePath(bucket, key storage.Key) error {
+func (client *Client) DeletePath(ctx context.Context, bucket, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
@@ -120,8 +127,9 @@ func (client *Client) DeletePath(bucket, key storage.Key) error {
 }
 
 // List returns either a list of known keys, in order, or an error.
-func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
-	return storage.ListKeys(client, first, limit)
+func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return storage.ListKeys(ctx, client, first, limit)
 }
 
 // Close closes the client
@@ -131,14 +139,16 @@ func (client *Client) Close() error {
 
 // GetAll finds all values for the provided keys (up to storage.LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
-func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
-	return client.GetAllPath(storage.Key(defaultBucket), keys)
+func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.GetAllPath(ctx, storage.Key(defaultBucket), keys)
 }
 
 // GetAllPath finds all values for the provided keys (up to storage.LookupLimit)
 // in the given bucket. if more keys are provided than the maximum, an error
 // will be returned.
-func (client *Client) GetAllPath(bucket storage.Key, keys storage.Keys) (storage.Values, error) {
+func (client *Client) GetAllPath(ctx context.Context, bucket storage.Key, keys storage.Keys) (_ storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(keys) > storage.LookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
@@ -176,11 +186,12 @@ type orderedPostgresIterator struct {
 	curRows        *sql.Rows
 	lastKeySeen    storage.Key
 	errEncountered error
-	nextQuery      func() (*sql.Rows, error)
+	nextQuery      func(context.Context) (*sql.Rows, error)
 }
 
 // Next fills in info for the next item in an ongoing listing.
-func (opi *orderedPostgresIterator) Next(item *storage.ListItem) bool {
+func (opi *orderedPostgresIterator) Next(ctx context.Context, item *storage.ListItem) bool {
+	defer mon.Task()(&ctx)(nil)
 	if !opi.curRows.Next() {
 		if err := opi.curRows.Close(); err != nil {
 			opi.errEncountered = errs.Wrap(err)
@@ -193,7 +204,7 @@ func (opi *orderedPostgresIterator) Next(item *storage.ListItem) bool {
 			opi.errEncountered = errs.Wrap(err)
 			return false
 		}
-		newRows, err := opi.nextQuery()
+		newRows, err := opi.nextQuery(ctx)
 		if err != nil {
 			opi.errEncountered = errs.Wrap(err)
 			return false
@@ -217,7 +228,7 @@ func (opi *orderedPostgresIterator) Next(item *storage.ListItem) bool {
 	item.Value = storage.Value(v)
 	opi.curIndex++
 	if opi.curIndex == 1 && opi.lastKeySeen.Equal(item.Key) {
-		return opi.Next(item)
+		return opi.Next(ctx, item)
 	}
 	if !opi.opts.Recurse && item.Key[len(item.Key)-1] == opi.delimiter && !item.Key.Equal(opi.opts.Prefix) {
 		item.IsPrefix = true
@@ -230,7 +241,8 @@ func (opi *orderedPostgresIterator) Next(item *storage.ListItem) bool {
 	return true
 }
 
-func (opi *orderedPostgresIterator) doNextQuery() (*sql.Rows, error) {
+func (opi *orderedPostgresIterator) doNextQuery(ctx context.Context) (_ *sql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
 	start := opi.lastKeySeen
 	if start == nil {
 		start = opi.opts.First
@@ -267,7 +279,8 @@ func (opi *orderedPostgresIterator) Close() error {
 	return errs.Combine(opi.errEncountered, opi.curRows.Close())
 }
 
-func newOrderedPostgresIterator(pgClient *Client, opts storage.IterateOptions, batchSize int) (*orderedPostgresIterator, error) {
+func newOrderedPostgresIterator(ctx context.Context, pgClient *Client, opts storage.IterateOptions, batchSize int) (_ *orderedPostgresIterator, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if opts.Prefix == nil {
 		opts.Prefix = storage.Key("")
 	}
@@ -283,7 +296,7 @@ func newOrderedPostgresIterator(pgClient *Client, opts storage.IterateOptions, b
 		curIndex:  0,
 	}
 	opi.nextQuery = opi.doNextQuery
-	newRows, err := opi.nextQuery()
+	newRows, err := opi.nextQuery(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -292,8 +305,9 @@ func newOrderedPostgresIterator(pgClient *Client, opts storage.IterateOptions, b
 }
 
 // Iterate iterates over items based on opts
-func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) (err error) {
-	opi, err := newOrderedPostgresIterator(client, opts, defaultBatchSize)
+func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	opi, err := newOrderedPostgresIterator(ctx, client, opts, defaultBatchSize)
 	if err != nil {
 		return err
 	}
@@ -301,5 +315,5 @@ func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Itera
 		err = errs.Combine(err, opi.Close())
 	}()
 
-	return fn(opi)
+	return fn(ctx, opi)
 }

@@ -117,10 +117,10 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	var bucketCount int64
 	var totalTallies, currentBucketTally accounting.BucketTally
 
-	err = t.metainfo.Iterate("", "", true, false,
-		func(it storage.Iterator) error {
+	err = t.metainfo.Iterate(ctx, "", "", true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
