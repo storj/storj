@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -51,9 +50,9 @@ func TestRequestInfo(t *testing.T) {
 		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local().Node)
 		require.NoError(t, err)
 		require.Equal(t, node.Local().Type, info.GetType())
-		require.Empty(t, cmp.Diff(node.Local().Operator, *info.GetOperator(), cmp.Comparer(proto.Equal)))
-		require.Empty(t, cmp.Diff(node.Local().Capacity, *info.GetCapacity(), cmp.Comparer(proto.Equal)))
-		require.Empty(t, cmp.Diff(node.Local().Version, *info.GetVersion(), cmp.Comparer(proto.Equal)))
+		require.Empty(t, cmp.Diff(node.Local().Operator, *info.GetOperator(), cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff(node.Local().Capacity, *info.GetCapacity(), cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff(node.Local().Version, *info.GetVersion(), cmp.Comparer(pb.Equal)))
 	})
 }
 

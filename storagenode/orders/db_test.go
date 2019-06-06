@@ -9,7 +9,6 @@ import (
 
 	"storj.io/storj/internal/testidentity"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
@@ -85,7 +84,7 @@ func TestOrders(t *testing.T) {
 
 		unsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff([]*orders.Info{info}, unsent, cmp.Comparer(proto.Equal)))
+		require.Empty(t, cmp.Diff([]*orders.Info{info}, unsent, cmp.Comparer(pb.Equal)))
 
 		// list by group
 		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
@@ -96,7 +95,7 @@ func TestOrders(t *testing.T) {
 				{Limit: limit, Order: order},
 			},
 		}
-		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(proto.Equal)))
+		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
 		err = ordersdb.Archive(ctx, satellite0.ID, serialNumber, orders.StatusAccepted)
@@ -125,7 +124,7 @@ func TestOrders(t *testing.T) {
 				Status:     orders.StatusAccepted,
 				ArchivedAt: archived[0].ArchivedAt,
 			},
-		}, archived, cmp.Comparer(proto.Equal)))
+		}, archived, cmp.Comparer(pb.Equal)))
 
 	})
 }
