@@ -53,16 +53,6 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE bwagreements (
-	serialnum text NOT NULL,
-	storage_node_id bytea NOT NULL,
-	uplink_id bytea NOT NULL,
-	action bigint NOT NULL,
-	total bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( serialnum )
-);
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
@@ -271,7 +261,6 @@ INSERT INTO "users"("id", "full_name", "short_name", "email", "password_hash", "
 INSERT INTO "projects"("id", "name", "description", "usage_limit", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 'projName1', 'Test project 1', 0, '2019-02-14 08:28:24.636949+00');
 INSERT INTO "project_members"("member_id", "project_id", "created_at") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, '2019-02-14 08:28:24.677953+00');
 
-INSERT INTO "bwagreements"("serialnum", "storage_node_id", "action", "total", "created_at", "expires_at", "uplink_id") VALUES ('8fc0ceaa-984c-4d52-bcf4-b5429e1e35e812FpiifDbcJkePa12jxjDEutKrfLmwzT7sz2jfVwpYqgtM8B74c', E'\\245Z[/\\333\\022\\011\\001\\036\\003\\204\\005\\032.\\206\\333E\\261\\342\\227=y,}aRaH6\\240\\370\\000'::bytea, 1, 666, '2019-02-14 15:09:54.420181+00', '2019-02-14 16:09:54+00', E'\\253Z+\\374eFm\\245$\\036\\206\\335\\247\\263\\350x\\\\\\304+\\364\\343\\364+\\276fIJQ\\361\\014\\232\\000'::bytea);
 INSERT INTO "irreparabledbs" ("segmentpath", "segmentdetail", "pieces_lost_count", "seg_damaged_unix_sec", "repair_attempt_count") VALUES ('\x49616d5365676d656e746b6579696e666f30', '\x49616d5365676d656e7464657461696c696e666f30', 10, 1550159554, 10);
 
 INSERT INTO "injuredsegments" ("path", "data") VALUES ('0', '\x0a0130120100');
