@@ -32,32 +32,10 @@ void TestAPIKey(void)
     TEST_ASSERT_EQUAL_STRING(key_str, result_key);
 }
 
-void TestBuffer(void)
-{
-    char *_err = "";
-    char **err = &_err;
-
-    BufferRef_t ref_buf = NewBuffer();
-
-    Bytes_t write_data = {
-        "test write data 123"
-    };
-    write_data.length = strlen((char *)write_data.bytes);
-    WriteBuffer(ref_buf, &write_data, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-
-    Bytes_t *read_data = malloc(sizeof(Bytes_t));
-    ReadBuffer(ref_buf, read_data, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_EQUAL(write_data.length, read_data->length);
-    TEST_ASSERT_EQUAL(0, memcmp(write_data.bytes, read_data->bytes, write_data.length));
-}
-
 int main(int argc, char *argv[])
 {
     UNITY_BEGIN();
     RUN_TEST(TestAPIKey);
     RUN_TEST(TestGetIDVersion);
-    RUN_TEST(TestBuffer);
     return UNITY_END();
 }

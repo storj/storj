@@ -53,6 +53,7 @@ void TestObject(void)
     ObjectMeta_t object_meta = ObjectMeta(object_ref, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
+    TEST_ASSERT_EQUAL(data->length, object_meta.Size);
 
     DownloadReaderRef_t downloader = DownloadRange(object_ref, 0, object_meta.Size, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
@@ -79,6 +80,8 @@ void TestObject(void)
     // Close Project
     CloseProject(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+
+    free(data);
 }
 
 int main(int argc, char *argv[])

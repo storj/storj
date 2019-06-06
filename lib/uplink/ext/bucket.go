@@ -8,9 +8,9 @@ package main
 //   #define STORJ_HEADERS
 //   #include "c/headers/main.h"
 // #endif
+// #include <stdio.h>
 import "C"
 import (
-	"bytes"
 	"context"
 	"storj.io/storj/pkg/storj"
 	"time"
@@ -40,7 +40,7 @@ func OpenObject(cBucket C.BucketRef_t, cpath *C.char, cErr **C.char) (objectRef 
 }
 
 //export UploadObject
-func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cOpts *C.UploadOptions_t, cErr **C.char) {
+func UploadObject(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.UploadOptions_t, cErr **C.char) {
 	ctx := context.Background()
 
 	bucket, ok := structRefMap.Get(token(cBucket)).(*uplink.Bucket)
@@ -60,12 +60,6 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cO
 		}
 	}
 
-	data, ok := structRefMap.Get(token(dataRef)).(*bytes.Buffer)
-	if !ok {
-		*cErr = C.CString("invalid data")
-		return
-	}
-
 	var opts *uplink.UploadOptions
 	if cOpts != nil {
 		opts = &uplink.UploadOptions{
@@ -75,7 +69,7 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, dataRef C.BufferRef_t, cO
 		}
 	}
 
-	if err := bucket.UploadObject(ctx, C.GoString(path), data, opts); err != nil {
+	if err := bucket.UploadObject(ctx, C.GoString(path), reader, opts); err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}

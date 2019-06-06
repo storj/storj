@@ -212,16 +212,15 @@ func TestCloseBucket(t *testing.T) {
 }
 
 func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *Cchar) {
-	dataRef := NewBuffer()
-	buf, ok := structRefMap.Get(token(dataRef)).(*bytes.Buffer)
-	require.True(t, ok)
 
-	_, err := buf.Write([]byte("test data for path " + obj.Path))
-	require.NoError(t, err)
-	require.NotEmpty(t, buf.Bytes())
+	data := []byte("test data for path " + obj.Path)
+	cbytes := new(CBytes_t)
+	bytesToCbytes(data, len(data), cbytes)
+	file := MemoryFile(cbytes.bytes, Csize_t(cbytes.length))
+	defer file.Close()
 
 	cOpts := newCUploadOpts(&obj.UploadOpts)
-	UploadObject(cBucketRef, stringToCCharPtr(obj.Path), dataRef, cOpts, cErr)
+	UploadObject(cBucketRef, stringToCCharPtr(obj.Path), file, cOpts, cErr)
 	require.Empty(t, cCharToGoString(*cErr))
 }
 

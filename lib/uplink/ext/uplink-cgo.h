@@ -35,12 +35,12 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
    #define STORJ_HEADERS
    #include "c/headers/main.h"
  #endif
+ #include <stdio.h>
 
 #line 1 "cgo-generated-wrapper"
 
 #line 6 "common.go"
 
- #include <stdlib.h>
  #ifndef STORJ_HEADERS
    #define STORJ_HEADERS
    #include "c/headers/main.h"
@@ -134,19 +134,13 @@ extern char* Serialize(APIKeyRef_t p0);
 
 extern ObjectRef_t OpenObject(BucketRef_t p0, char* p1, char** p2);
 
-extern void UploadObject(BucketRef_t p0, char* p1, BufferRef_t p2, UploadOptions_t* p3, char** p4);
+extern void UploadObject(BucketRef_t p0, char* p1, FILE* p2, UploadOptions_t* p3, char** p4);
 
 extern ObjectList_t ListObjects(BucketRef_t p0, ListOptions_t* p1, char** p2);
 
 extern void CloseBucket(BucketRef_t p0, char** p1);
 
 extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
-
-extern BufferRef_t NewBuffer();
-
-extern void WriteBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
-
-extern void ReadBuffer(BufferRef_t p0, Bytes_t* p1, char** p2);
 
 extern void FreeReference(GoUintptr p0);
 

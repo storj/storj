@@ -39,6 +39,7 @@ void TestBucket(void)
         create_test_object(ref_bucket, object_paths[i], object, data, err);
         TEST_ASSERT_EQUAL_STRING("", *err);
         free(object);
+        free(data);
     }
 
     // List objects

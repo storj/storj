@@ -36,12 +36,10 @@ import (
 type Cchar = *C.char
 type CUint = C.uint
 type Cint = C.int
-type CBytes = C.Bytes_t
 type CUint8 = C.uint8_t
-type CInt32 = C.int32_t
 type Cint64 = C.int64_t
+type Csize_t = C.size_t
 type CBytes_t = C.Bytes_t
-type Cbool = C.bool
 const CEOF = C.EOF
 
 // Ref types
@@ -73,6 +71,10 @@ func init() {
 	libuplink = filepath.Join(cLibDir, "..", "uplink-cgo.so")
 
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
+}
+
+func MemoryFile(data *C.uint8_t, data_len C.size_t) *File {
+	return (*File)(C.fmemopen(unsafe.Pointer(data), data_len, C.CString("r")))
 }
 
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {

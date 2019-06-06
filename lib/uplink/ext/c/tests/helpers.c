@@ -109,10 +109,8 @@ Bytes_t *BytesFromString(char *str_data)
 
 void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, Bytes_t *data, char **err)
 {
-    BufferRef_t ref_data = NewBuffer();
-    WriteBuffer(ref_data, data, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    free(data);
+
+	FILE *f = fmemopen(data->bytes, data->length, "r");
 
     UploadOptions_t opts = {
         "text/plain",
@@ -122,6 +120,8 @@ void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, By
         time(NULL),
     };
 
-    UploadObject(ref_bucket, path, ref_data, &opts, err);
+    UploadObject(ref_bucket, path, f, &opts, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
+
+    fclose(f);
 }
