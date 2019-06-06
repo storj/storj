@@ -523,7 +523,8 @@ func createBucketID(path storj.Path) []byte {
 
 func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) (pending []*PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if len(containedNodes) > 0 {
+
+	if len(containedNodes) == 0 {
 		return nil, nil
 	}
 

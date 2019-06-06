@@ -5,10 +5,15 @@ package audit
 
 import (
 	"context"
+	"crypto/rand"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/pkcrypto"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestFailingAudit(t *testing.T) {
@@ -102,4 +107,61 @@ func TestNotEnoughShares(t *testing.T) {
 	}
 	_, _, err = auditShares(ctx, 20, 40, auditPkgShares)
 	require.Contains(t, err.Error(), "infectious: must specify at least the number of required shares")
+}
+
+func TestCreatePendingAudits(t *testing.T) {
+	const (
+		required = 8
+		total    = 14
+	)
+
+	f, err := infectious.NewFEC(required, total)
+	if err != nil {
+		panic(err)
+	}
+
+	shares := make([]infectious.Share, total)
+	output := func(s infectious.Share) {
+		shares[s.Number] = s.DeepCopy()
+	}
+
+	// the data to encode must be padded to a multiple of required, hence the
+	// underscores.
+	err = f.Encode([]byte("hello, world! __"), output)
+	if err != nil {
+		panic(err)
+	}
+
+	var testNodeID storj.NodeID
+	_, err = rand.Read(testNodeID[:])
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	contained := make(map[int]storj.NodeID)
+	contained[1] = testNodeID
+	stripe := Stripe{
+		Index: 3,
+		Segment: &pb.Pointer{
+			Type: pb.Pointer_REMOTE,
+			Remote: &pb.RemoteSegment{
+				RootPieceId: storj.NewPieceID(),
+				Redundancy: &pb.RedundancyScheme{
+					MinReq:           8,
+					Total:            14,
+					ErasureShareSize: int32(len(shares[0].Data)),
+				},
+			},
+		},
+		SegmentPath: "test/path",
+	}
+
+	pending, err := createPendingAudits(ctx, contained, shares, &stripe)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(pending))
+	assert.Equal(t, testNodeID, pending[0].NodeID)
+	assert.Equal(t, stripe.Segment.Remote.RootPieceId, pending[0].PieceID)
+	assert.Equal(t, stripe.Index, pending[0].StripeIndex)
+	assert.Equal(t, stripe.Segment.Remote.Redundancy.ErasureShareSize, pending[0].ShareSize)
+	assert.Equal(t, pkcrypto.SHA256Hash(shares[1].Data), pending[0].ExpectedShareHash)
+	assert.EqualValues(t, 0, pending[0].ReverifyCount)
 }
