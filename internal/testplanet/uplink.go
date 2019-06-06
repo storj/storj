@@ -16,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -222,14 +221,12 @@ func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite
 		}
 	}
 
-	redScheme := config.GetRedundancyScheme()
-	config.Enc.BlockSize = memory.Size(redScheme.StripeSize())
-
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
 		return err
 	}
 
+	redScheme := config.GetRedundancyScheme()
 	encScheme := config.GetEncryptionScheme()
 
 	// create bucket if not exists

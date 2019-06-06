@@ -32,7 +32,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"1KiB"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
@@ -42,11 +42,10 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey string      `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
-	KeyFilepath   string      `help:"the path to the file which contains the root key for encrypting the data"`
-	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks, must be a multiple of stripe size (i.e. RS.ErasureShareSize * RS.MinThreshold)" releaseDefault:"7424B" devDefault:"1KiB"`
-	DataType      int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType      int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncryptionKey string `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
+	KeyFilepath   string `help:"the path to the file which contains the root key for encrypting the data"`
+	DataType      int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType      int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -116,7 +115,8 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	}
 	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	if c.Enc.BlockSize.Int()%c.RS.ErasureShareSize.Int()*c.RS.MinThreshold != 0 {
+	blockSize := c.GetEncryptionScheme().BlockSize
+	if int(blockSize)%c.RS.ErasureShareSize.Int()*c.RS.MinThreshold != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, nil, err
 	}
@@ -126,14 +126,14 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, int(blockSize), storj.Cipher(c.Enc.DataType))
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, key, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
@@ -157,7 +157,7 @@ func (c Config) GetPathCipherSuite() storj.CipherSuite {
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(c.Enc.DataType),
-		BlockSize: int32(c.Enc.BlockSize),
+		BlockSize: c.GetRedundancyScheme().StripeSize(),
 	}
 }
 
