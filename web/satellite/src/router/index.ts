@@ -144,8 +144,10 @@ let router = new Router({
 // Makes check that Token exist at session storage before any route except Login and Register
 // and if we are able to navigate to page without existing project
 router.beforeEach((to, from, next) => {
+    console.dir(from);
+    console.dir(to);
     if (isUnavailablePageWithoutProject(to.name as string)) {
-        next(ROUTES.PROJECT_OVERVIEW + '/' + ROUTES.PROJECT_DETAILS);
+        next(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
 
         return;
     }
