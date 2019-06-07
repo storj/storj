@@ -48,7 +48,7 @@ type Upload struct {
 
 // Upload initiates an upload to the storage node.
 func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uploader, err error) {
-	defer mon.Task()(&ctx, "node: ", limit.StorageNodeId.String()[0:8])(&err)
+	defer mon.Task()(&ctx, "node: "+limit.StorageNodeId.String()[0:8])(&err)
 
 	stream, err := client.client.Upload(ctx)
 	if err != nil {
@@ -91,7 +91,8 @@ func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uplo
 // Write sends data to the storagenode allocating as necessary.
 func (client *Upload) Write(data []byte) (written int, err error) {
 	ctx := client.ctx
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+client.peer.ID.String()[0:8])(&err)
+
 	if client.finished {
 		return 0, io.EOF
 	}
@@ -169,7 +170,7 @@ func (client *Upload) Cancel(ctx context.Context) (err error) {
 
 // Commit finishes uploading by sending the piece-hash and retrieving the piece-hash.
 func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+client.peer.ID.String()[0:8])(&err)
 	if client.finished {
 		return nil, io.EOF
 	}
