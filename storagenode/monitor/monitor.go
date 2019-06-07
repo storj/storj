@@ -25,6 +25,11 @@ var (
 	Error = errs.Class("piecestore monitor")
 )
 
+const (
+	minimumDiskSpace int64 = 500000000000
+	minimumBandwidth int64 = 500000000000
+)
+
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
 	Interval time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
@@ -105,6 +110,16 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
 		service.allocatedDiskSpace = freeDiskSpace + totalUsed
 		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+	}
+
+	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
+	if service.allocatedDiskSpace < minimumDiskSpace {
+		service.log.Fatal("Total disk space less than required minimum", zap.Int64("bytes", minimumDiskSpace))
+	}
+
+	// Ensure the bandwidth is at least 500GB
+	if service.allocatedBandwidth < minimumBandwidth {
+		service.log.Fatal("Total Bandwidth available less than required minimum", zap.Int64("bytes", minimumBandwidth))
 	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
