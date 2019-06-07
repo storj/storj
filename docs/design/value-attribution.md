@@ -72,8 +72,4 @@ The attribution table will consist of data that allows for ease of calculating t
 | last_updated | timestamp  |
 
 ### Reporting
-When the total attribution needs to be calculated for a partner, the attribution service will need to find all buckets attributed to the partner, list all objects for each bucket and tally the total storage used. This can either be done on an ad hoc basis or a recurring interval.  After a calculation has been tallied, the updated total storage will be added to the attribution table.
-
-## IMPLEMENTATION MILESTONES
-
-
+When the total attribution needs to be calculated for a partner, the attribution service will need to find all buckets attributed to the partner, list all objects for each bucket, tally the total storage used, can calculate how much egress and ingress bandwidth was used. This can either be done on an ad hoc basis or a recurring interval.  After a calculation has been tallied, the updated total storage and egress/ingress bandwidth will be added to the attribution table.
