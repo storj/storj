@@ -46,7 +46,6 @@ const (
 	passwordRecoveryTokenIsExpiredErrMsg = "Your password recovery link has expired, please request another one"
 	credentialsErrMsg                    = "Your email or password was incorrect, please try again"
 	oldPassIncorrectErrMsg               = "Old password is incorrect, please try again"
-	NoConnectorIDSetErrMsg               = "No ConnectorID set"
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`

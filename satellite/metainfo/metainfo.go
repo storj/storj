@@ -188,12 +188,13 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 
 	// check validation attributes just before upload
-	info, bucketExists, err := endpoint.checkBucketPointers(ctx, keyInfo.ProjectID, req.Bucket)
+	info, noBucketExists, err := endpoint.checkBucketPointers(ctx, keyInfo.ProjectID, req.Bucket)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	if info.User.ID.String() != "" && bucketExists == false {
+	// make a value attribution entry
+	if info.ID.String() != "" && noBucketExists == true {
 		//TODO: make an entry into attribution DB [WIP]
 	}
 
@@ -519,25 +520,25 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 }
 
 // checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, projectID uuid.UUID, bucket []byte) (console.Authorization, bool, error) {
-	connectorIDInfo, err := console.GetConnectorIDInfo(ctx)
+func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, projectID uuid.UUID, bucket []byte) (console.ConnectorKeyInfo, bool, error) {
+	connectorIDInfo, err := console.GetConnectorKeyInfo(ctx)
 	if err != nil {
 		switch err.Error() {
 		case errs.New(console.NoConnectorIDSetErrMsg).Error():
-			return console.Authorization{}, true, nil
+			return console.ConnectorKeyInfo{}, false, nil
 		default:
-			return console.Authorization{}, false, err
+			return console.ConnectorKeyInfo{}, false, err
 		}
 	}
 
 	prefix, err := CreatePath(ctx, projectID, -1, bucket, []byte(string("")))
 	if err != nil {
-		return console.Authorization{}, false, status.Errorf(codes.InvalidArgument, err.Error())
+		return console.ConnectorKeyInfo{}, false, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	items, _, err := endpoint.metainfo.List(ctx, prefix, string(""), string(""), false, 1, meta.All)
 	if err != nil {
-		return console.Authorization{}, false, status.Errorf(codes.Internal, "ListV2: %v", err)
+		return console.ConnectorKeyInfo{}, false, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}
 
 	if len(items) == 0 {
