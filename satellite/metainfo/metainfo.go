@@ -187,12 +187,13 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 
 	// check validation attributes just before upload
-	info, bucketExists, err := endpoint.checkBucketPointers(ctx, keyInfo.ProjectID, req.Bucket)
+	info, noBucketExists, err := endpoint.checkBucketPointers(ctx, keyInfo.ProjectID, req.Bucket)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	if info.User.ID.String() != "" && bucketExists == false {
+	// make a value attribution entry
+	if info.ID.String() != "" && noBucketExists == true {
 		//TODO: make an entry into attribution DB [WIP]
 	}
 

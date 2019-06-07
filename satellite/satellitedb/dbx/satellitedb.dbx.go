@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -4395,54 +4396,10 @@ func __sqlbundle_Render(dialect __sqlbundle_Dialect, sql __sqlbundle_SQL, ops ..
 	return dialect.Rebind(out)
 }
 
-func __sqlbundle_flattenSQL(x string) string {
-	// trim whitespace from beginning and end
-	s, e := 0, len(x)-1
-	for s < len(x) && (x[s] == ' ' || x[s] == '\t' || x[s] == '\n') {
-		s++
-	}
-	for s <= e && (x[e] == ' ' || x[e] == '\t' || x[e] == '\n') {
-		e--
-	}
-	if s > e {
-		return ""
-	}
-	x = x[s : e+1]
+var __sqlbundle_reSpace = regexp.MustCompile(`\s+`)
 
-	// check for whitespace that needs fixing
-	wasSpace := false
-	for i := 0; i < len(x); i++ {
-		r := x[i]
-		justSpace := r == ' '
-		if (wasSpace && justSpace) || r == '\t' || r == '\n' {
-			// whitespace detected, start writing a new string
-			var result strings.Builder
-			result.Grow(len(x))
-			if wasSpace {
-				result.WriteString(x[:i-1])
-			} else {
-				result.WriteString(x[:i])
-			}
-			for p := i; p < len(x); p++ {
-				for p < len(x) && (x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteByte(' ')
-
-				start := p
-				for p < len(x) && !(x[p] == ' ' || x[p] == '\t' || x[p] == '\n') {
-					p++
-				}
-				result.WriteString(x[start:p])
-			}
-
-			return result.String()
-		}
-		wasSpace = justSpace
-	}
-
-	// no problematic whitespace found
-	return x
+func __sqlbundle_flattenSQL(s string) string {
+	return strings.TrimSpace(__sqlbundle_reSpace.ReplaceAllString(s, " "))
 }
 
 // this type is specially named to match up with the name returned by the
@@ -4521,8 +4478,6 @@ type __sqlbundle_Condition struct {
 func (*__sqlbundle_Condition) private() {}
 
 func (c *__sqlbundle_Condition) Render() string {
-	// TODO(jeff): maybe check if we can use placeholders instead of the
-	// literal null: this would make the templates easier.
 
 	switch {
 	case c.Equal && c.Null:
@@ -4560,6 +4515,29 @@ type Id_Row struct {
 
 type Value_Row struct {
 	Value time.Time
+}
+
+func (obj *postgresImpl) Create_ValueAttribution(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field,
+	value_attribution_partner_id ValueAttribution_PartnerId_Field,
+	value_attribution_last_updated ValueAttribution_LastUpdated_Field) (
+	value_attribution *ValueAttribution, err error) {
+	__bucket_id_val := value_attribution_bucket_id.value()
+	__partner_id_val := value_attribution_partner_id.value()
+	__last_updated_val := value_attribution_last_updated.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( bucket_id, partner_id, last_updated ) VALUES ( ?, ?, ? ) RETURNING value_attributions.bucket_id, value_attributions.partner_id, value_attributions.last_updated")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_id_val, __partner_id_val, __last_updated_val)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.driver.QueryRow(__stmt, __bucket_id_val, __partner_id_val, __last_updated_val).Scan(&value_attribution.BucketId, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+
 }
 
 func (obj *postgresImpl) Create_PendingAudits(ctx context.Context,
@@ -5190,6 +5168,59 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return offer, nil
+
+}
+
+func (obj *postgresImpl) Get_ValueAttribution_By_BucketId(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+	value_attribution *ValueAttribution, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.bucket_id, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE value_attributions.bucket_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&value_attribution.BucketId, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+
+}
+
+func (obj *postgresImpl) All_ValueAttribution(ctx context.Context) (
+	rows []*ValueAttribution, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.bucket_id, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		value_attribution := &ValueAttribution{}
+		err = __rows.Scan(&value_attribution.BucketId, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, value_attribution)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -7081,6 +7112,32 @@ func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
 	return offer, nil
 }
 
+func (obj *postgresImpl) Delete_ValueAttribution_By_BucketId(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM value_attributions WHERE value_attributions.bucket_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *postgresImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -7685,6 +7742,32 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	count += __count
 
 	return count, nil
+
+}
+
+func (obj *sqlite3Impl) Create_ValueAttribution(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field,
+	value_attribution_partner_id ValueAttribution_PartnerId_Field,
+	value_attribution_last_updated ValueAttribution_LastUpdated_Field) (
+	value_attribution *ValueAttribution, err error) {
+	__bucket_id_val := value_attribution_bucket_id.value()
+	__partner_id_val := value_attribution_partner_id.value()
+	__last_updated_val := value_attribution_last_updated.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO value_attributions ( bucket_id, partner_id, last_updated ) VALUES ( ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __bucket_id_val, __partner_id_val, __last_updated_val)
+
+	__res, err := obj.driver.Exec(__stmt, __bucket_id_val, __partner_id_val, __last_updated_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastValueAttribution(ctx, __pk)
 
 }
 
@@ -8379,6 +8462,59 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastOffer(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Get_ValueAttribution_By_BucketId(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+	value_attribution *ValueAttribution, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.bucket_id, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE value_attributions.bucket_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&value_attribution.BucketId, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
+
+}
+
+func (obj *sqlite3Impl) All_ValueAttribution(ctx context.Context) (
+	rows []*ValueAttribution, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.bucket_id, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions")
+
+	var __values []interface{}
+	__values = append(__values)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		value_attribution := &ValueAttribution{}
+		err = __rows.Scan(&value_attribution.BucketId, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, value_attribution)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -10370,6 +10506,32 @@ func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
 	return offer, nil
 }
 
+func (obj *sqlite3Impl) Delete_ValueAttribution_By_BucketId(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM value_attributions WHERE value_attributions.bucket_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, value_attribution_bucket_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	deleted bool, err error) {
@@ -10706,6 +10868,24 @@ func (obj *sqlite3Impl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) getLastValueAttribution(ctx context.Context,
+	pk int64) (
+	value_attribution *ValueAttribution, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.bucket_id, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	value_attribution = &ValueAttribution{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&value_attribution.BucketId, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return value_attribution, nil
 
 }
 
@@ -11531,6 +11711,15 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
+func (rx *Rx) All_ValueAttribution(ctx context.Context) (
+	rows []*ValueAttribution, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ValueAttribution(ctx)
+}
+
 func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
@@ -11860,6 +12049,19 @@ func (rx *Rx) Create_UserPayment(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_ValueAttribution(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field,
+	value_attribution_partner_id ValueAttribution_PartnerId_Field,
+	value_attribution_last_updated ValueAttribution_LastUpdated_Field) (
+	value_attribution *ValueAttribution, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_ValueAttribution(ctx, value_attribution_bucket_id, value_attribution_partner_id, value_attribution_last_updated)
+
+}
+
 func (rx *Rx) Delete_AccountingRollup_By_Id(ctx context.Context,
 	accounting_rollup_id AccountingRollup_Id_Field) (
 	deleted bool, err error) {
@@ -11990,6 +12192,16 @@ func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_User_By_Id(ctx, user_id)
+}
+
+func (rx *Rx) Delete_ValueAttribution_By_BucketId(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ValueAttribution_By_BucketId(ctx, value_attribution_bucket_id)
 }
 
 func (rx *Rx) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
@@ -12258,6 +12470,16 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
+func (rx *Rx) Get_ValueAttribution_By_BucketId(ctx context.Context,
+	value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+	value_attribution *ValueAttribution, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_ValueAttribution_By_BucketId(ctx, value_attribution_bucket_id)
+}
+
 func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 	bucket_usage_bucket_id BucketUsage_BucketId_Field,
 	bucket_usage_rollup_end_time_greater BucketUsage_RollupEndTime_Field,
@@ -12478,6 +12700,9 @@ type Methods interface {
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
 
+	All_ValueAttribution(ctx context.Context) (
+		rows []*ValueAttribution, err error)
+
 	Create_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
@@ -12660,6 +12885,12 @@ type Methods interface {
 		user_payment_customer_id UserPayment_CustomerId_Field) (
 		user_payment *UserPayment, err error)
 
+	Create_ValueAttribution(ctx context.Context,
+		value_attribution_bucket_id ValueAttribution_BucketId_Field,
+		value_attribution_partner_id ValueAttribution_PartnerId_Field,
+		value_attribution_last_updated ValueAttribution_LastUpdated_Field) (
+		value_attribution *ValueAttribution, err error)
+
 	Delete_AccountingRollup_By_Id(ctx context.Context,
 		accounting_rollup_id AccountingRollup_Id_Field) (
 		deleted bool, err error)
@@ -12711,6 +12942,10 @@ type Methods interface {
 
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
+		deleted bool, err error)
+
+	Delete_ValueAttribution_By_BucketId(ctx context.Context,
+		value_attribution_bucket_id ValueAttribution_BucketId_Field) (
 		deleted bool, err error)
 
 	Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
@@ -12822,6 +13057,10 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
+
+	Get_ValueAttribution_By_BucketId(ctx context.Context,
+		value_attribution_bucket_id ValueAttribution_BucketId_Field) (
+		value_attribution *ValueAttribution, err error)
 
 	Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Asc_RollupEndTime(ctx context.Context,
 		bucket_usage_bucket_id BucketUsage_BucketId_Field,
