@@ -22,7 +22,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -40,6 +40,7 @@ type CUint8 = C.uint8_t
 type Cint64 = C.int64_t
 type Csize_t = C.size_t
 type CBytes_t = C.Bytes_t
+
 const CEOF = C.EOF
 
 // Ref types
@@ -86,7 +87,7 @@ func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlob
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)
 
-	if dir, ok := os.LookupEnv("STORJ_DEBUG"); ok {
+	if dir, ok := os.LookupEnv("STORJ_C_TEST_BIN_DIR"); ok {
 		err := copyFile(testBinPath, filepath.Join(dir, t.Name()))
 		require.NoError(t, err)
 	}
@@ -118,12 +119,12 @@ func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars .
 
 func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet {
 	planet, err := testplanet.NewCustom(
-		zap.NewNop(),
+		zaptest.NewLogger(t),
 		testplanet.Config{
-			SatelliteCount:     1,
-			StorageNodeCount:   8,
-			UplinkCount:        0,
-			UsePeerCAWhitelist: false,
+			SatelliteCount:   1,
+			StorageNodeCount: 8,
+			UplinkCount:      0,
+			Reconfigure:      testplanet.DisablePeerCAWhitelist,
 		},
 	)
 	require.NoError(t, err)
