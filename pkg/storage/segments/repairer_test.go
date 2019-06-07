@@ -33,7 +33,6 @@ func TestSegmentStoreRepair(t *testing.T) {
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
-		satellite.Discovery.Service.Graveyard.Stop()
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
