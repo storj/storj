@@ -313,7 +313,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
-				"--non-interactive=true",
+				"--non-interactive",
+
+				"--enc.encryption-key=TestEncryptionKey",
+
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 
@@ -331,9 +334,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
-			"run": {
-				"--enc.encryption-key=TestEncryptionKey",
-			},
+			"run": {},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
