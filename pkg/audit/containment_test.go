@@ -101,7 +101,6 @@ func TestReverifySuccess(t *testing.T) {
 }
 
 func TestReverifyFailMissingShare(t *testing.T) {
-	t.Skip("todo: find out why a node with deleted piece yields Unknown error instead of NotFound (like it does for verify)")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
