@@ -785,6 +785,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Move away from ratio based reputations",
+				Version:     28,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_success_count;`,
+					`ALTER TABLE nodes DROP COLUMN audit_success_ratio;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_success_count;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_ratio;`,
+					`ALTER TABLE nodes ADD COLUMN audit_reputation_α double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN audit_reputation_β double precision NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN uptime_reputation_α double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN uptime_reputation_β double precision NOT NULL DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }
