@@ -69,8 +69,8 @@ func (service *Service) runOnce(ctx context.Context) (err error) {
 	// request vouchers for entries that are expired/about to expire
 	err = service.renewVouchers(ctx)
 
-	// TODO: request first vouchers from new satellites
-
+	// request first vouchers from new satellites
+	err = service.initialVouchers(ctx)
 	return err
 }
 
@@ -98,6 +98,27 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 		service.log.Debug("No vouchers close to expiration")
 	}
 	return err
+}
+
+func (service *Service) initialVouchers(ctx context.Context) (err error) {
+	defer mon.Task(&ctx)(&err)
+
+	// get all satellite IDs without vouchers
+
+	if len(newSatellites) > 0 {
+		var group errgroup.Group
+		ctx, cancel := context.WithTimeout(ctx, time.Hour)
+		defer cancel()
+
+		for satelliteID := range newSatellites {
+			err = service.request(ctx, satelliteID)
+			if err != nil {
+				service.log.Error("Error requesting voucher from satellite", satelliteID, zap.Error(err))
+			}
+		}
+	} else {
+		service.log.Debug("No vouchers close to expiration")
+	}
 }
 
 func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (err error) {
