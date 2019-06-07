@@ -95,7 +95,9 @@ type Uplink struct {
 
 // NewUplink creates a new Uplink. This is the first step to create an uplink
 // session with a user specified config or with default config, if nil config
-func NewUplink(ctx context.Context, cfg *Config) (*Uplink, error) {
+func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
 		Difficulty:  0,
 		Concurrency: 1,

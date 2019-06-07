@@ -29,7 +29,6 @@ var (
 // Config loads on the configuration values for the cache
 type Config struct {
 	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	GraveyardInterval time.Duration `help:"the interval at which the the graveyard tries to resurrect nodes" default:"30s"`
 	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
 	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
@@ -45,7 +44,6 @@ type Discovery struct {
 	refreshLimit  int
 
 	Refresh   sync2.Cycle
-	Graveyard sync2.Cycle
 	Discovery sync2.Cycle
 }
 
@@ -61,7 +59,6 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 	}
 
 	discovery.Refresh.SetInterval(config.RefreshInterval)
-	discovery.Graveyard.SetInterval(config.GraveyardInterval)
 	discovery.Discovery.SetInterval(config.DiscoveryInterval)
 
 	return discovery
@@ -70,7 +67,6 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 // Close closes resources
 func (discovery *Discovery) Close() error {
 	discovery.Refresh.Close()
-	discovery.Graveyard.Close()
 	discovery.Discovery.Close()
 	return nil
 }
@@ -84,13 +80,6 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 		err := discovery.refresh(ctx)
 		if err != nil {
 			discovery.log.Error("error with cache refresh: ", zap.Error(err))
-		}
-		return nil
-	})
-	discovery.Graveyard.Start(ctx, &group, func(ctx context.Context) error {
-		err := discovery.searchGraveyard(ctx)
-		if err != nil {
-			discovery.log.Error("graveyard resurrection failed: ", zap.Error(err))
 		}
 		return nil
 	})
@@ -109,13 +98,6 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 // but should in the future.
 func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	nodes := discovery.kad.Seen()
-	for _, v := range nodes {
-		if err := discovery.cache.Put(ctx, v.Id, *v); err != nil {
-			return err
-		}
-	}
 
 	list, more, err := discovery.cache.Paginate(ctx, discovery.refreshOffset, discovery.refreshLimit)
 	if err != nil {
@@ -167,46 +149,6 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	}
 
 	return nil
-}
-
-// graveyard attempts to ping all nodes in the Seen() map from Kademlia and adds them to the cache
-// if they respond. This is an attempt to resurrect nodes that may have gone offline in the last hour
-// and were removed from the cache due to an unsuccessful response.
-func (discovery *Discovery) searchGraveyard(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	seen := discovery.kad.Seen()
-
-	var errors errs.Group
-	for _, n := range seen {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		ping, err := discovery.kad.Ping(ctx, *n)
-		if err != nil {
-			discovery.log.Debug("could not ping node in graveyard check")
-			// we don't want to report the ping error to ErrorGroup because it's to be expected here.
-			continue
-		}
-
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		err = discovery.cache.Put(ctx, ping.Id, ping)
-		if err != nil {
-			discovery.log.Warn("could not update node uptime")
-			errors.Add(err)
-		}
-
-		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
-		if err != nil {
-			discovery.log.Warn("could not update node uptime")
-			errors.Add(err)
-		}
-	}
-	return errors.Err()
 }
 
 // Discovery runs lookups for random node ID's to find new nodes in the network
