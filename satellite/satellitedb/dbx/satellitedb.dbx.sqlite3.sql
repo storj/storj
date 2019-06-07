@@ -184,6 +184,7 @@ CREATE TABLE users (
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
+	total_referred INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -223,6 +224,17 @@ CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_credits (
+	id INTEGER NOT NULL,
+	user_id BLOB NOT NULL REFERENCES users( id ),
+	offer_id INTEGER NOT NULL REFERENCES offers( id ),
+	referred_by BLOB REFERENCES users( id ),
+	credits_earned_in_cents INTEGER NOT NULL,
+	credits_used_in_cents INTEGER NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE user_payments (
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,

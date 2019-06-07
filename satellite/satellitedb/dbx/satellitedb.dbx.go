@@ -456,6 +456,7 @@ CREATE TABLE users (
 	short_name text,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
+	total_referred integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -495,6 +496,17 @@ CREATE TABLE used_serials (
 	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_credits (
+	id serial NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	offer_id integer NOT NULL REFERENCES offers( id ),
+	referred_by bytea REFERENCES users( id ),
+	credits_earned_in_cents integer NOT NULL,
+	credits_used_in_cents integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE user_payments (
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -763,6 +775,7 @@ CREATE TABLE users (
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
+	total_referred INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -802,6 +815,17 @@ CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_credits (
+	id INTEGER NOT NULL,
+	user_id BLOB NOT NULL REFERENCES users( id ),
+	offer_id INTEGER NOT NULL REFERENCES offers( id ),
+	referred_by BLOB REFERENCES users( id ),
+	credits_earned_in_cents INTEGER NOT NULL,
+	credits_used_in_cents INTEGER NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE user_payments (
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -3593,13 +3617,14 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type User struct {
-	Id           []byte
-	Email        string
-	FullName     string
-	ShortName    *string
-	PasswordHash []byte
-	Status       int
-	CreatedAt    time.Time
+	Id            []byte
+	Email         string
+	FullName      string
+	ShortName     *string
+	PasswordHash  []byte
+	Status        int
+	TotalReferred int
+	CreatedAt     time.Time
 }
 
 func (User) _Table() string { return "users" }
@@ -3609,11 +3634,12 @@ type User_Create_Fields struct {
 }
 
 type User_Update_Fields struct {
-	Email        User_Email_Field
-	FullName     User_FullName_Field
-	ShortName    User_ShortName_Field
-	PasswordHash User_PasswordHash_Field
-	Status       User_Status_Field
+	Email         User_Email_Field
+	FullName      User_FullName_Field
+	ShortName     User_ShortName_Field
+	PasswordHash  User_PasswordHash_Field
+	Status        User_Status_Field
+	TotalReferred User_TotalReferred_Field
 }
 
 type User_Id_Field struct {
@@ -3742,6 +3768,25 @@ func (f User_Status_Field) value() interface{} {
 }
 
 func (User_Status_Field) _Column() string { return "status" }
+
+type User_TotalReferred_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func User_TotalReferred(v int) User_TotalReferred_Field {
+	return User_TotalReferred_Field{_set: true, _value: v}
+}
+
+func (f User_TotalReferred_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_TotalReferred_Field) _Column() string { return "total_referred" }
 
 type User_CreatedAt_Field struct {
 	_set   bool
@@ -4183,6 +4228,193 @@ func (f UsedSerial_StorageNodeId_Field) value() interface{} {
 }
 
 func (UsedSerial_StorageNodeId_Field) _Column() string { return "storage_node_id" }
+
+type UserCredit struct {
+	Id                   int
+	UserId               []byte
+	OfferId              int
+	ReferredBy           []byte
+	CreditsEarnedInCents int
+	CreditsUsedInCents   int
+	ExpiresAt            time.Time
+	CreatedAt            time.Time
+}
+
+func (UserCredit) _Table() string { return "user_credits" }
+
+type UserCredit_Create_Fields struct {
+	ReferredBy UserCredit_ReferredBy_Field
+}
+
+type UserCredit_Update_Fields struct {
+	CreditsUsedInCents UserCredit_CreditsUsedInCents_Field
+	ExpiresAt          UserCredit_ExpiresAt_Field
+}
+
+type UserCredit_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func UserCredit_Id(v int) UserCredit_Id_Field {
+	return UserCredit_Id_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_Id_Field) _Column() string { return "id" }
+
+type UserCredit_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserCredit_UserId(v []byte) UserCredit_UserId_Field {
+	return UserCredit_UserId_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_UserId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_UserId_Field) _Column() string { return "user_id" }
+
+type UserCredit_OfferId_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func UserCredit_OfferId(v int) UserCredit_OfferId_Field {
+	return UserCredit_OfferId_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_OfferId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_OfferId_Field) _Column() string { return "offer_id" }
+
+type UserCredit_ReferredBy_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func UserCredit_ReferredBy(v []byte) UserCredit_ReferredBy_Field {
+	return UserCredit_ReferredBy_Field{_set: true, _value: v}
+}
+
+func UserCredit_ReferredBy_Raw(v []byte) UserCredit_ReferredBy_Field {
+	if v == nil {
+		return UserCredit_ReferredBy_Null()
+	}
+	return UserCredit_ReferredBy(v)
+}
+
+func UserCredit_ReferredBy_Null() UserCredit_ReferredBy_Field {
+	return UserCredit_ReferredBy_Field{_set: true, _null: true}
+}
+
+func (f UserCredit_ReferredBy_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f UserCredit_ReferredBy_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_ReferredBy_Field) _Column() string { return "referred_by" }
+
+type UserCredit_CreditsEarnedInCents_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func UserCredit_CreditsEarnedInCents(v int) UserCredit_CreditsEarnedInCents_Field {
+	return UserCredit_CreditsEarnedInCents_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_CreditsEarnedInCents_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_CreditsEarnedInCents_Field) _Column() string { return "credits_earned_in_cents" }
+
+type UserCredit_CreditsUsedInCents_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func UserCredit_CreditsUsedInCents(v int) UserCredit_CreditsUsedInCents_Field {
+	return UserCredit_CreditsUsedInCents_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_CreditsUsedInCents_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_CreditsUsedInCents_Field) _Column() string { return "credits_used_in_cents" }
+
+type UserCredit_ExpiresAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UserCredit_ExpiresAt(v time.Time) UserCredit_ExpiresAt_Field {
+	return UserCredit_ExpiresAt_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_ExpiresAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_ExpiresAt_Field) _Column() string { return "expires_at" }
+
+type UserCredit_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func UserCredit_CreatedAt(v time.Time) UserCredit_CreatedAt_Field {
+	return UserCredit_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f UserCredit_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (UserCredit_CreatedAt_Field) _Column() string { return "created_at" }
 
 type UserPayment struct {
 	UserId     []byte
@@ -4760,15 +4992,16 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
 	__status_val := int(0)
+	__total_referred_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, total_referred, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5193,6 +5426,37 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_UserCredit(ctx context.Context,
+	user_credit_user_id UserCredit_UserId_Field,
+	user_credit_offer_id UserCredit_OfferId_Field,
+	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
+	user_credit_expires_at UserCredit_ExpiresAt_Field,
+	optional UserCredit_Create_Fields) (
+	user_credit *UserCredit, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := user_credit_user_id.value()
+	__offer_id_val := user_credit_offer_id.value()
+	__referred_by_val := optional.ReferredBy.value()
+	__credits_earned_in_cents_val := user_credit_credits_earned_in_cents.value()
+	__credits_used_in_cents_val := int(0)
+	__expires_at_val := user_credit_expires_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
+
+	user_credit = &UserCredit{}
+	err = obj.driver.QueryRow(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_credit, nil
+
+}
+
 func (obj *postgresImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
@@ -5441,7 +5705,7 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_email.value())
@@ -5463,7 +5727,7 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5484,7 +5748,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -5493,7 +5757,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6474,6 +6738,68 @@ func (obj *postgresImpl) All_Offer(ctx context.Context) (
 
 }
 
+func (obj *postgresImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+	user_credit_user_id UserCredit_UserId_Field,
+	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
+	rows []*UserCredit, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents")
+
+	var __values []interface{}
+	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		user_credit := &UserCredit{}
+		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, user_credit)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
+	user_credit_referred_by UserCredit_ReferredBy_Field) (
+	count int64, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "user_credits.referred_by", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM user_credits WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !user_credit_referred_by.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_credit_referred_by.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -6776,7 +7102,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -6807,6 +7133,11 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
 
+	if update.TotalReferred._set {
+		__values = append(__values, update.TotalReferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_referred = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -6820,7 +7151,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -7453,6 +7784,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM used_serials;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -7901,14 +8242,15 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
 	__status_val := int(0)
+	__total_referred_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, total_referred, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8382,6 +8724,40 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Create_UserCredit(ctx context.Context,
+	user_credit_user_id UserCredit_UserId_Field,
+	user_credit_offer_id UserCredit_OfferId_Field,
+	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
+	user_credit_expires_at UserCredit_ExpiresAt_Field,
+	optional UserCredit_Create_Fields) (
+	user_credit *UserCredit, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__user_id_val := user_credit_user_id.value()
+	__offer_id_val := user_credit_offer_id.value()
+	__referred_by_val := optional.ReferredBy.value()
+	__credits_earned_in_cents_val := user_credit_credits_earned_in_cents.value()
+	__credits_used_in_cents_val := int(0)
+	__expires_at_val := user_credit_expires_at.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO user_credits ( user_id, offer_id, referred_by, credits_earned_in_cents, credits_used_in_cents, expires_at, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __user_id_val, __offer_id_val, __referred_by_val, __credits_earned_in_cents_val, __credits_used_in_cents_val, __expires_at_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastUserCredit(ctx, __pk)
+
+}
+
 func (obj *sqlite3Impl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
@@ -8630,7 +9006,7 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_email.value())
@@ -8652,7 +9028,7 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -8673,7 +9049,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -8682,7 +9058,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9663,6 +10039,68 @@ func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
 
 }
 
+func (obj *sqlite3Impl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+	user_credit_user_id UserCredit_UserId_Field,
+	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
+	rows []*UserCredit, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents")
+
+	var __values []interface{}
+	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		user_credit := &UserCredit{}
+		err = __rows.Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, user_credit)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Count_UserCredit_By_ReferredBy(ctx context.Context,
+	user_credit_referred_by UserCredit_ReferredBy_Field) (
+	count int64, err error) {
+
+	var __cond_0 = &__sqlbundle_Condition{Left: "user_credits.referred_by", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM user_credits WHERE "), __cond_0}}
+
+	var __values []interface{}
+	__values = append(__values)
+
+	if !user_credit_referred_by.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_credit_referred_by.value())
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -10036,6 +10474,11 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
 
+	if update.TotalReferred._set {
+		__values = append(__values, update.TotalReferred.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_referred = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -10054,12 +10497,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -10803,13 +11246,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11087,6 +11530,24 @@ func (obj *sqlite3Impl) getLastOffer(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastUserCredit(ctx context.Context,
+	pk int64) (
+	user_credit *UserCredit, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	user_credit = &UserCredit{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return user_credit, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -11116,6 +11577,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM user_payments;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM user_credits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11531,6 +12002,27 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
+func (rx *Rx) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+	user_credit_user_id UserCredit_UserId_Field,
+	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
+	rows []*UserCredit, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx, user_credit_user_id, user_credit_expires_at_greater)
+}
+
+func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
+	user_credit_referred_by UserCredit_ReferredBy_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Count_UserCredit_By_ReferredBy(ctx, user_credit_referred_by)
+}
+
 func (rx *Rx) Create_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
@@ -11845,6 +12337,21 @@ func (rx *Rx) Create_User(ctx context.Context,
 		return
 	}
 	return tx.Create_User(ctx, user_id, user_email, user_full_name, user_password_hash, optional)
+
+}
+
+func (rx *Rx) Create_UserCredit(ctx context.Context,
+	user_credit_user_id UserCredit_UserId_Field,
+	user_credit_offer_id UserCredit_OfferId_Field,
+	user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
+	user_credit_expires_at UserCredit_ExpiresAt_Field,
+	optional UserCredit_Create_Fields) (
+	user_credit *UserCredit, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_UserCredit(ctx, user_credit_user_id, user_credit_offer_id, user_credit_credits_earned_in_cents, user_credit_expires_at, optional)
 
 }
 
@@ -12478,6 +12985,15 @@ type Methods interface {
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
 
+	All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+		user_credit_user_id UserCredit_UserId_Field,
+		user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
+		rows []*UserCredit, err error)
+
+	Count_UserCredit_By_ReferredBy(ctx context.Context,
+		user_credit_referred_by UserCredit_ReferredBy_Field) (
+		count int64, err error)
+
 	Create_AccountingRollup(ctx context.Context,
 		accounting_rollup_node_id AccountingRollup_NodeId_Field,
 		accounting_rollup_start_time AccountingRollup_StartTime_Field,
@@ -12654,6 +13170,14 @@ type Methods interface {
 		user_password_hash User_PasswordHash_Field,
 		optional User_Create_Fields) (
 		user *User, err error)
+
+	Create_UserCredit(ctx context.Context,
+		user_credit_user_id UserCredit_UserId_Field,
+		user_credit_offer_id UserCredit_OfferId_Field,
+		user_credit_credits_earned_in_cents UserCredit_CreditsEarnedInCents_Field,
+		user_credit_expires_at UserCredit_ExpiresAt_Field,
+		optional UserCredit_Create_Fields) (
+		user_credit *UserCredit, err error)
 
 	Create_UserPayment(ctx context.Context,
 		user_payment_user_id UserPayment_UserId_Field,

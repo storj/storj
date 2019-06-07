@@ -705,7 +705,7 @@ read all (
 	select user_credit
 	where user_credit.user_id = ?
     where user_credit.expires_at > ?
-    where user_credit.credits_used_in_cents < credits_earned_in_cents
+    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
 )
 
 read count (
