@@ -16,7 +16,3 @@
 # kademlia
 /pkg/dht/ @jenlij
 /pkg/kademlia/ @jenlij
-
-# bwagreement
-/pkg/bwagreement/ @wthorp
-

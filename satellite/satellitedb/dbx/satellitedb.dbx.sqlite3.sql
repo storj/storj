@@ -55,16 +55,6 @@ CREATE TABLE bucket_usages (
 	audit_egress INTEGER NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE bwagreements (
-	serialnum TEXT NOT NULL,
-	storage_node_id BLOB NOT NULL,
-	uplink_id BLOB NOT NULL,
-	action INTEGER NOT NULL,
-	total INTEGER NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	expires_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( serialnum )
-);
 CREATE TABLE certRecords (
 	publickey BLOB NOT NULL,
 	id BLOB NOT NULL,
@@ -189,13 +179,19 @@ CREATE TABLE storagenode_storage_tallies (
 );
 CREATE TABLE users (
 	id BLOB NOT NULL,
+	email TEXT NOT NULL,
 	full_name TEXT NOT NULL,
 	short_name TEXT,
-	email TEXT NOT NULL,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE value_attributions (
+	bucket_id BLOB NOT NULL,
+	partner_id BLOB NOT NULL,
+	last_updated TIMESTAMP NOT NULL,
+	PRIMARY KEY ( bucket_id )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -208,6 +204,15 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE project_invoice_stamps (
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	invoice_id BLOB NOT NULL,
+	start_date TIMESTAMP NOT NULL,
+	end_date TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( project_id, start_date, end_date ),
+	UNIQUE ( invoice_id )
+);
 CREATE TABLE project_members (
 	member_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -218,6 +223,20 @@ CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_payments (
+	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	customer_id BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
+CREATE TABLE project_payments (
+	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+	payment_method_id BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( project_id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );

@@ -54,7 +54,6 @@ export default class ProjectDetailsArea extends Vue {
     .project-overview {
         padding: 44px 55px 55px 55px;
         position: relative;
-        overflow-x: hidden;
         height: 85vh;
 
         &__navigation {

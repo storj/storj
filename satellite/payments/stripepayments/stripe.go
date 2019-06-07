@@ -207,9 +207,12 @@ func (s *service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.
 // (no further editing) and attempted to be paid in 1 hour after creation
 func (s *service) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (_ *payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	customerID := string(params.CustomerID)
+
 	// create line items
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
-		Customer:    stripe.String(params.CustomerID),
+		Customer:    stripe.String(customerID),
 		Description: stripe.String("Storage"),
 		Quantity:    stripe.Int64(int64(params.Storage)),
 		UnitAmount:  stripe.Int64(100),
@@ -220,7 +223,7 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 	}
 
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
-		Customer:    stripe.String(params.CustomerID),
+		Customer:    stripe.String(customerID),
 		Description: stripe.String("Egress"),
 		Quantity:    stripe.Int64(int64(params.Egress)),
 		UnitAmount:  stripe.Int64(100),
@@ -231,7 +234,7 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 	}
 
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
-		Customer:    stripe.String(params.CustomerID),
+		Customer:    stripe.String(customerID),
 		Description: stripe.String("ObjectsCount"),
 		Quantity:    stripe.Int64(int64(params.ObjectCount)),
 		UnitAmount:  stripe.Int64(100),
@@ -241,11 +244,10 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 		return nil, stripeErr.Wrap(err)
 	}
 
-	// TODO: fetch card info manually?
 	// create invoice
 	invoiceParams := &stripe.InvoiceParams{
-		Customer:             stripe.String(params.CustomerID),
-		DefaultPaymentMethod: stripe.String(params.PaymentMethodID),
+		Customer:             stripe.String(customerID),
+		DefaultPaymentMethod: stripe.String(string(params.PaymentMethodID)),
 		Description:          stripe.String(fmt.Sprintf("Invoice for usage of %s", params.ProjectName)),
 		CustomFields: []*stripe.InvoiceCustomFieldParams{
 			{

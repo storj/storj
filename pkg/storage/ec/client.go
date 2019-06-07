@@ -78,6 +78,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
+	zap.S().Infof("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
+		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
+
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs)
 	if err != nil {
@@ -271,7 +274,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 }
 
 func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: ", limit.GetLimit().StorageNodeId.String()[0:8])(&err)
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
@@ -299,10 +302,10 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	defer func() {
 		if ctx.Err() != nil || err != nil {
 			hash = nil
-			err = errs.Combine(err, upload.Cancel())
+			err = errs.Combine(err, upload.Cancel(ctx))
 			return
 		}
-		h, closeErr := upload.Commit()
+		h, closeErr := upload.Commit(ctx)
 		hash = h
 		err = errs.Combine(err, closeErr)
 	}()

@@ -5,10 +5,14 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"errors"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
+
+var mon = monkit.Package()
 
 // Delimiter separates nested paths in storage
 const Delimiter = '/'
@@ -53,17 +57,17 @@ type ListItem struct {
 // KeyValueStore describes key/value stores like redis and boltdb
 type KeyValueStore interface {
 	// Put adds a value to store
-	Put(Key, Value) error
+	Put(context.Context, Key, Value) error
 	// Get gets a value to store
-	Get(Key) (Value, error)
+	Get(context.Context, Key) (Value, error)
 	// GetAll gets all values from the store
-	GetAll(Keys) (Values, error)
+	GetAll(context.Context, Keys) (Values, error)
 	// Delete deletes key and the value
-	Delete(Key) error
+	Delete(context.Context, Key) error
 	// List lists all keys starting from start and upto limit items
-	List(start Key, limit int) (Keys, error)
+	List(ctx context.Context, start Key, limit int) (Keys, error)
 	// Iterate iterates over items based on opts
-	Iterate(opts IterateOptions, fn func(Iterator) error) error
+	Iterate(ctx context.Context, opts IterateOptions, fn func(context.Context, Iterator) error) error
 	// Close closes the store
 	Close() error
 }
@@ -84,7 +88,7 @@ type IterateOptions struct {
 type Iterator interface {
 	// Next prepares the next list item.
 	// It returns true on success, or false if there is no next result row or an error happened while preparing it.
-	Next(item *ListItem) bool
+	Next(ctx context.Context, item *ListItem) bool
 }
 
 // IsZero returns true if the value struct is it's zero value
