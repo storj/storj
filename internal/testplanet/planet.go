@@ -152,7 +152,6 @@ func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion
 		StorageNodeCount: storageNodeCount,
 		UplinkCount:      uplinkCount,
 		IdentityVersion:  identityVersion,
-		Reconfigure:      DisablePeerCAWhitelist,
 	})
 }
 
@@ -162,7 +161,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		SatelliteCount:   satelliteCount,
 		StorageNodeCount: storageNodeCount,
 		UplinkCount:      uplinkCount,
-		Reconfigure:      DisablePeerCAWhitelist,
 	})
 }
 
