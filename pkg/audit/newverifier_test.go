@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
 
@@ -255,7 +256,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
-		minBytesPerSecond := 110 * memory.KB
+		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
 			slowClient,
@@ -298,7 +299,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
+		testData := make([]byte, 32*memory.KiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
@@ -308,7 +309,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			RepairThreshold:  2,
 			SuccessThreshold: 3,
 			MaxThreshold:     4,
-			ErasureShareSize: 8 * memory.KiB,
+			ErasureShareSize: 32 * memory.KiB,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -326,7 +327,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		stripe.Index = 0
 
 		network := &transport.SimulatedNetwork{
-			BytesPerSecond: 64 * memory.KiB,
+			BytesPerSecond: 128 * memory.KiB,
 		}
 
 		slowClient := network.NewClient(planet.Satellites[0].Transport)
@@ -335,7 +336,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
-		minBytesPerSecond := 100 * memory.KiB
+		minBytesPerSecond := 1 * memory.MiB
 
 		verifier := audit.NewVerifier(zap.L(),
 			slowClient,
@@ -364,72 +365,210 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 func TestVerifierHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
+		testData := make([]byte, 8*memory.KiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  5,
-			SuccessThreshold: 6,
-			MaxThreshold:     6,
-		}, "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		metainfo := planet.Satellites[0].Metainfo.Service
-		overlay := planet.Satellites[0].Overlay.Service
-		cursor := audit.NewCursor(metainfo)
-
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
-		require.NotNil(t, stripe)
 
-		transport := planet.Satellites[0].Transport
-		orders := planet.Satellites[0].Orders.Service
-		containment := planet.Satellites[0].DB.Containment()
-		minBytesPerSecond := 128 * memory.B
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
 
-		verifier := audit.NewVerifier(zap.L(), transport, overlay, containment, orders, planet.Satellites[0].Identity, minBytesPerSecond, 5*time.Second)
-		require.NotNil(t, verifier)
-
-		// stop some storage nodes to ensure audit can deal with it
-		err = planet.StopPeer(planet.StorageNodes[0])
-		require.NoError(t, err)
-		err = planet.StopPeer(planet.StorageNodes[1])
+		report, err := verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		// mark stopped nodes as offline in overlay cache
-		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[0].ID(), false)
-		require.NoError(t, err)
-		_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, planet.StorageNodes[1].ID(), false)
-		require.NoError(t, err)
-
-		verifiedNodes, err := verifier.Verify(ctx, stripe, nil)
-		require.NoError(t, err)
-
-		require.Len(t, verifiedNodes.Successes, 4)
-		require.Len(t, verifiedNodes.Fails, 0)
+		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces()))
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 0)
 	})
 }
 
-func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) error {
+func TestVerifierOfflineNode(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.Satellites[0].Discovery.Service.Discovery.Pause()
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// stop the first node in the pointer
+		stoppedNodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		err = stopStorageNode(ctx, planet, stoppedNodeID)
+		require.NoError(t, err)
+
+		report, err := verifier.Verify(ctx, stripe, nil)
+		require.NoError(t, err)
+
+		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 1)
+		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
+func TestVerifierMissingPiece(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// delete the piece from the first node
+		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
+		node := getStorageNode(planet, nodeID)
+		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
+		require.NoError(t, err)
+
+		report, err := verifier.Verify(ctx, stripe, nil)
+		require.NoError(t, err)
+
+		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, report.Fails, 1)
+		assert.Len(t, report.Offlines, 0)
+		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
+func TestVerifierDialTimeout(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		network := &transport.SimulatedNetwork{
+			DialLatency:    200 * time.Second,
+			BytesPerSecond: 1 * memory.KiB,
+		}
+
+		tlsOpts, err := tlsopts.NewOptions(planet.Satellites[0].Identity, tlsopts.Config{})
+		require.NoError(t, err)
+
+		newTransport := transport.NewClientWithTimeouts(tlsOpts, transport.Timeouts{
+			Dial: 20 * time.Millisecond,
+		})
+
+		slowClient := network.NewClient(newTransport)
+		require.NotNil(t, slowClient)
+
+		// This config value will create a very short timeframe allowed for receiving
+		// data from storage nodes. This will cause context to cancel and start
+		// downloading from new nodes.
+		minBytesPerSecond := 100 * memory.KiB
+
+		verifier := audit.NewVerifier(zap.L(),
+			slowClient,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			minBytesPerSecond,
+			5*time.Second)
+
+		report, err := verifier.Verify(ctx, stripe, nil)
+		require.True(t, audit.ErrNotEnoughShares.Has(err), "unexpected error: %+v", err)
+
+		assert.Len(t, report.Successes, 0)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, len(stripe.Segment.GetRemote().GetRemotePieces()))
+		assert.Len(t, report.PendingAudits, 0)
+	})
+}
+
+func getStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) *storagenode.Peer {
 	for _, node := range planet.StorageNodes {
 		if node.ID() == nodeID {
-			err := planet.StopPeer(node)
-			if err != nil {
-				return err
-			}
-
-			// mark stopped node as offline in overlay cache
-			_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, nodeID, false)
-			return err
+			return node
 		}
 	}
-	return fmt.Errorf("no such node: %s", nodeID.String())
+	return nil
+}
+
+func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) error {
+	node := getStorageNode(planet, nodeID)
+	if node == nil {
+		return fmt.Errorf("no such node: %s", nodeID.String())
+	}
+
+	err := planet.StopPeer(node)
+	if err != nil {
+		return err
+	}
+
+	// mark stopped node as offline in overlay cache
+	_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, nodeID, false)
+	return err
 }
