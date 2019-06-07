@@ -62,7 +62,6 @@ type RoutingTable struct {
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
 	rcMutex          *sync.Mutex
-	seen             map[storj.NodeID]*pb.Node
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
@@ -87,7 +86,6 @@ func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, nd
 
 		mutex:            &sync.Mutex{},
 		rcMutex:          &sync.Mutex{},
-		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
 		bucketSize:   config.BucketSize,
@@ -227,9 +225,6 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) (err error) {
 		return nil
 	}
 
-	rt.mutex.Lock()
-	rt.seen[node.Id] = node
-	rt.mutex.Unlock()
 	v, err := rt.nodeBucketDB.Get(ctx, storage.Key(node.Id.Bytes()))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return RoutingErr.New("could not get node %s", err)

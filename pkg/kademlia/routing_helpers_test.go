@@ -45,7 +45,6 @@ func newTestRoutingTable(local *overlay.NodeDossier, opts routingTableOpts) (*Ro
 
 		mutex:            &sync.Mutex{},
 		rcMutex:          &sync.Mutex{},
-		seen:             make(map[storj.NodeID]*pb.Node),
 		replacementCache: make(map[bucketID][]*pb.Node),
 
 		bucketSize:   opts.bucketSize,

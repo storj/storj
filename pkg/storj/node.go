@@ -233,6 +233,15 @@ func (id *NodeID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// Strings returns a string slice of the node IDs
+func (n NodeIDList) Strings() []string {
+	var strings []string
+	for _, nid := range n {
+		strings = append(strings, nid.String())
+	}
+	return strings
+}
+
 // Bytes returns a 2d byte slice of the node IDs
 func (n NodeIDList) Bytes() (idsBytes [][]byte) {
 	for _, nid := range n {

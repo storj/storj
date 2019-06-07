@@ -42,7 +42,7 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey string `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
+	EncryptionKey string `help:"the root key for encrypting the data which will be stored in KeyFilePath" setup:"true"`
 	KeyFilepath   string `help:"the path to the file which contains the root key for encrypting the data"`
 	DataType      int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
 	PathType      int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
@@ -121,7 +121,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	key, err := LoadEncryptionKey(c.Enc.KeyFilepath)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
@@ -181,20 +181,4 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 	}
 
 	return storj.NewKey(rawKey)
-}
-
-// UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
-// it isn't empty otherwise try to load the key from the file pointed by
-// filepath calling LoadEncryptionKey function.
-func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
-	if humanReadableKey != "" {
-		key, err := storj.NewKey([]byte(humanReadableKey))
-		if err != nil {
-			return nil, err
-		}
-
-		return key, nil
-	}
-
-	return LoadEncryptionKey(filepath)
 }

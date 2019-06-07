@@ -581,7 +581,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	return peer, nil
 }
 
-// Run runs storage node until it's either closed or it errors.
+// Run runs satellite until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
