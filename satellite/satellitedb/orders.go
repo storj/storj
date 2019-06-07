@@ -9,6 +9,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
@@ -125,20 +127,41 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, bucketID []
 }
 
 // UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
+func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	statement := db.db.Rebind(
-		`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(storagenode_id, interval_start, action)
-		DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + ?`,
-	)
-	_, err = db.db.ExecContext(ctx, statement,
-		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0, uint64(amount),
-	)
-	if err != nil {
-		return err
+
+	switch t := db.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		statement := db.db.Rebind(
+			`INSERT INTO storagenode_bandwidth_rollups (storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(storagenode_id, interval_start, action)
+			DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated`,
+		)
+		for _, storageNode := range storageNodes {
+			_, err = db.db.ExecContext(ctx, statement,
+				storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0,
+			)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+	case *pq.Driver:
+		_, err := db.db.ExecContext(ctx, `
+			INSERT INTO storagenode_bandwidth_rollups
+				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
+			SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
+			ON CONFLICT(storagenode_id, interval_start, action)
+			DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
+		`, postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	default:
+		return Error.New("Unsupported database %t", t)
 	}
+
 	return nil
 }
 
