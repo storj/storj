@@ -5,6 +5,7 @@ package kvmetainfo
 
 import (
 	"context"
+	"fmt"
 
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storj"
@@ -48,6 +49,10 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		info.SegmentsSize = db.segmentsSize
 	}
 
+	if err := validateBlockSize(info.RedundancyScheme, info.EncryptionParameters.BlockSize); err != nil {
+		return bucketInfo, err
+	}
+
 	meta, err := db.buckets.Put(ctx, bucketName, buckets.Meta{
 		PathEncryptionType: info.PathCipher,
 		SegmentsSize:       info.SegmentsSize,
@@ -59,6 +64,22 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	}
 
 	return bucketFromMeta(bucketName, meta), nil
+}
+
+// validateBlockSize confirms the encryption block size aligns with stripe size.
+// Stripes contain encrypted data therefore we want the stripe boundaries to match
+// with the encryption block size boundaries. We also want stripes to be small for
+// audits, but encryption can be a bit larger. All told, block size should be an integer
+// multiple of stripe size.
+func validateBlockSize(redundancyScheme storj.RedundancyScheme, blockSize int32) error {
+	stripeSize := redundancyScheme.StripeSize()
+
+	if blockSize%stripeSize != 0 {
+		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
+			blockSize, redundancyScheme.ShareSize, redundancyScheme.RequiredShares,
+		)
+	}
+	return nil
 }
 
 // DeleteBucket deletes bucket

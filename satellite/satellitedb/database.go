@@ -11,7 +11,6 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -91,11 +90,6 @@ func (db *DB) DropSchema(schema string) error {
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
-}
-
-// BandwidthAgreement is a getter for bandwidth agreement repository
-func (db *DB) BandwidthAgreement() bwagreement.DB {
-	return &bandwidthagreement{db: db.db}
 }
 
 // CertDB is a getter for uplink's specific info like public key, id, etc...

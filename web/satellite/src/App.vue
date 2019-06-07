@@ -25,6 +25,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'sortTeamMemberByDropdown',
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
+                'successfulRegistrationPopup',
             ]
         };
     },
