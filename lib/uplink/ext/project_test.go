@@ -14,26 +14,6 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-// TODO: Start up test planet and call these from bash instead
-func TestCProjectTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	project := newProject(t, planet)
-	apikey := newAPIKey(t, ctx, planet, project.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
-	envVars := []string{
-		"SATELLITE_ADDR=" + satelliteAddr,
-		"APIKEY=" + apikey,
-	}
-
-	runCTest(t, ctx, "project_test.c", envVars...)
-}
-
 func TestCreateBucket(t *testing.T) {
 	// TODO: figure this out (there may be other inconsistencies as well)
 	t.Log("listed bucket *always* has `PathCipher` = `AESGCM`; is this expected behavior?")

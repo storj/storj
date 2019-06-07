@@ -57,7 +57,7 @@ type CObject = C.Object_t
 type CUploadOptions = C.UploadOptions_t
 
 var (
-	cLibDir, cSrcDir, cTestsDir, libuplink string
+	CLibDir, CSrcDir, CTestsDir, LibuplinkSO string
 
 	testConfig = new(uplink.Config)
 	ciphers    = []storj.CipherSuite{storj.EncNull, storj.EncAESGCM, storj.EncSecretBox}
@@ -66,10 +66,10 @@ var (
 func init() {
 	// TODO: is there a cleaner way to do this?
 	_, thisFile, _, _ := runtime.Caller(0)
-	cLibDir = filepath.Join(filepath.Dir(thisFile), "c")
-	cSrcDir = filepath.Join(cLibDir, "src")
-	cTestsDir = filepath.Join(cLibDir, "tests")
-	libuplink = filepath.Join(cLibDir, "..", "uplink-cgo.so")
+	CLibDir = filepath.Join(filepath.Dir(thisFile), "c")
+	CSrcDir = filepath.Join(CLibDir, "src")
+	CTestsDir = filepath.Join(CLibDir, "tests")
+	LibuplinkSO = filepath.Join(CLibDir, "..", "uplink-cgo.so")
 
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
@@ -80,10 +80,10 @@ func MemoryFile(data *C.uint8_t, data_len C.size_t) *File {
 
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
 	srcGlobs = append([]string{
-		libuplink,
-		filepath.Join(cTestsDir, "unity.c"),
-		filepath.Join(cTestsDir, "helpers.c"),
-		filepath.Join(cSrcDir, "*.c"),
+		LibuplinkSO,
+		filepath.Join(CTestsDir, "unity.c"),
+		filepath.Join(CTestsDir, "helpers.c"),
+		filepath.Join(CSrcDir, "*.c"),
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)
 
@@ -114,7 +114,7 @@ func copyFile(src, dest string) error {
 }
 
 func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars ...string) {
-	runCTests(t, ctx, envVars, filepath.Join(cLibDir, "tests", filename))
+	runCTests(t, ctx, envVars, filename)
 }
 
 func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet {

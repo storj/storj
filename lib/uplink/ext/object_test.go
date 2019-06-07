@@ -8,26 +8,6 @@ import (
 	"unsafe"
 )
 
-// TODO: Start up test planet and call these from bash instead
-func TestCObjectTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	consoleProject := newProject(t, planet)
-	consoleApikey := newAPIKey(t, ctx, planet, consoleProject.ID)
-	satelliteAddr := planet.Satellites[0].Addr()
-
-	envVars := []string{
-		"SATELLITE_ADDR=" + satelliteAddr,
-		"APIKEY=" + consoleApikey,
-	}
-
-	runCTest(t, ctx, "object_test.c", envVars...)
-}
-
 func TestObjectMeta(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
