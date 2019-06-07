@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -431,6 +432,63 @@ func TestCommitSegmentPointer(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrorMessage)
+		}
+	})
+}
+
+func TestValueAttributeInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		projects := planet.Satellites[0].DB.Console().Projects()
+
+		project, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		assert.NotNil(t, project)
+		assert.NoError(t, err)
+
+		keyInfo := console.ConnectorKeyInfo{
+			ID:        project.ID, //partner id
+			ProjectID: project.ID, //bucket id
+			Name:      fmt.Sprintf("connectorkey"),
+		}
+
+		// set the connector key in the context
+		ctxConntectorKey := console.WithConnectorKey(ctx, keyInfo)
+		assert.NotNil(t, ctxConntectorKey)
+
+		{
+			// error if pointer is nil
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			require.Error(t, err)
+
+			// fix this
+			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1)
+			require.Error(t, err)
+		}
+		{
+			// error if number of remote pieces is lower then repair threshold
+			redundancy := &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 4,
+				Total:            6,
+				ErasureShareSize: 10,
+			}
+			expirationDate := time.Now()
+			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			require.NotEmpty(t, addresedLimits)
+			require.NotEmpty(t, rootPieceID)
+			require.NoError(t, err)
+
+			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1)
+			require.Error(t, err)
 		}
 	})
 }

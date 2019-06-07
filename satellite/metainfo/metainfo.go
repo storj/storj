@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
@@ -185,17 +184,6 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 			Expiration: req.Expiration,
 			Redundancy: req.Redundancy,
 		})
-	}
-
-	// check validation attributes just before upload
-	info, noBucketExists, err := endpoint.checkBucketPointers(ctx, keyInfo.ProjectID, req.Bucket)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// make a value attribution entry
-	if info.ID.String() != "" && noBucketExists == true {
-		//TODO: make an entry into attribution DB [WIP]
 	}
 
 	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
@@ -520,30 +508,38 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 }
 
 // checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, projectID uuid.UUID, bucket []byte) (console.ConnectorKeyInfo, bool, error) {
-	connectorIDInfo, err := console.GetConnectorKeyInfo(ctx)
+func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SegmentInfoRequest) (*pb.SegmentInfoResponse, error) {
+	_, err := console.GetConnectorKeyInfo(ctx)
 	if err != nil {
 		switch err.Error() {
 		case errs.New(console.NoConnectorIDSetErrMsg).Error():
-			return console.ConnectorKeyInfo{}, false, nil
+			// no connector id set
+			return nil, status.Errorf(codes.Unimplemented, err.Error())
 		default:
-			return console.ConnectorKeyInfo{}, false, err
+			return nil, status.Errorf(codes.Unknown, err.Error())
 		}
 	}
 
-	prefix, err := CreatePath(ctx, projectID, -1, bucket, []byte(string("")))
+	// not_found error indicates connectory id set but no entry exists
+	resp, err := endpoint.SegmentInfo(ctx, req)
+	return resp, err
+}
+
+// ValueAttributeInfo commits segment metadata
+func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.SegmentInfoRequest) (*pb.SegmentInfoResponse, error) {
+	resp, err := endpoint.checkBucketPointers(ctx, req)
 	if err != nil {
-		return console.ConnectorKeyInfo{}, false, status.Errorf(codes.InvalidArgument, err.Error())
+		switch status.Code(err) {
+		case codes.NotFound:
+			endpoint.log.Sugar().Info("Value attribution entry made: %v", err)
+			// @TODO make entry into Value attribution table
+			return nil, nil
+		default:
+			endpoint.log.Sugar().Info("Value attribution entry not made %v: %v: %v", string(req.Path), string(req.Bucket), err)
+			// no entry made into value attribution table
+			return nil, err
+		}
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, string(""), string(""), false, 1, meta.All)
-	if err != nil {
-		return console.ConnectorKeyInfo{}, false, status.Errorf(codes.Internal, "ListV2: %v", err)
-	}
-
-	if len(items) == 0 {
-		return connectorIDInfo, false, nil
-	}
-
-	return connectorIDInfo, true, nil
+	return resp, nil
 }

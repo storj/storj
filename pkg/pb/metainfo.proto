@@ -20,6 +20,7 @@ service Metainfo {
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
     rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
+    rpc ValueAttributeInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
 }
 
 message AddressedOrderLimit {
@@ -47,6 +48,7 @@ message SegmentCommitRequest {
     int64 segment = 3;
     pointerdb.Pointer pointer = 4;
     repeated orders.OrderLimit2 original_limits = 5;
+    bytes partnerid = 6;
 }
 
 message SegmentCommitResponse {
