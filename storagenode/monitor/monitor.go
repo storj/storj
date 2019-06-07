@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -25,14 +26,11 @@ var (
 	Error = errs.Class("piecestore monitor")
 )
 
-const (
-	minimumDiskSpace int64 = 500000000000
-	minimumBandwidth int64 = 500000000000
-)
-
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
-	Interval time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Interval         time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
+	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
 }
 
 // Service which monitors disk usage and updates kademlia network as necessary.
@@ -45,12 +43,13 @@ type Service struct {
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
 	Loop               sync2.Cycle
+	Config             Config
 }
 
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, pieceInfo pieces.DB, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration) *Service {
+func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, pieceInfo pieces.DB, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
 		routingTable:       routingTable,
@@ -60,6 +59,7 @@ func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pie
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
 		Loop:               *sync2.NewCycle(interval),
+		Config:             config,
 	}
 }
 
@@ -113,13 +113,15 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 
 	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
-	if service.allocatedDiskSpace < minimumDiskSpace {
-		service.log.Fatal("Total disk space less than required minimum", zap.Int64("bytes", minimumDiskSpace))
+	if service.allocatedDiskSpace < service.Config.MinimumDiskSpace.Int64() {
+		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
+		return Error.New("disk space requirement not met")
 	}
 
 	// Ensure the bandwidth is at least 500GB
-	if service.allocatedBandwidth < minimumBandwidth {
-		service.log.Fatal("Total Bandwidth available less than required minimum", zap.Int64("bytes", minimumBandwidth))
+	if service.allocatedBandwidth < service.Config.MinimumBandwidth.Int64() {
+		service.log.Error("Total Bandwidth available less than required minimum", zap.Int64("bytes", service.Config.MinimumBandwidth.Int64()))
+		return Error.New("bandwidth requirement not met")
 	}
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
