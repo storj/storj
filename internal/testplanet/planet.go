@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"storj.io/storj/storagenode/monitor"
 	"strconv"
 	"strings"
 	"sync"
@@ -618,6 +619,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
+				},
+				Monitor: monitor.Config{
+					MinimumBandwidth: memory.GB * 500,
+					MinimumDiskSpace: memory.GB * 25,
 				},
 			},
 			Version: planet.NewVersionConfig(),
