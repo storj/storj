@@ -293,7 +293,8 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 	var nodes []*pb.Node
 	if isBootstrap {
 		for _, bn := range k.bootstrapNodes {
-			nodes = append(nodes, &bn) // nolint: scopelint
+			bn := bn
+			nodes = append(nodes, &bn)
 		}
 	} else {
 		var err error

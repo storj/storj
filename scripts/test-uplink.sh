@@ -25,20 +25,20 @@ random_bytes_file () {
 random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
 random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
 
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink"  mb "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR"  mb "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
 
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" rm "sj://$BUCKET/small-upload-testfile"
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" rm "sj://$BUCKET/big-upload-testfile"
+uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/small-upload-testfile"
+uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/big-upload-testfile"
 
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" ls "sj://$BUCKET"
+uplink --config-dir "$GATEWAY_0_DIR" ls "sj://$BUCKET"
 
-uplink --config-dir "$GATEWAY_0_DIR" --enc.encryption-key "test-uplink" rb "sj://$BUCKET"
+uplink --config-dir "$GATEWAY_0_DIR" rb "sj://$BUCKET"
 
 if cmp "$SRC_DIR/small-upload-testfile" "$DST_DIR/small-upload-testfile"
 then
