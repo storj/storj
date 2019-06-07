@@ -8,7 +8,6 @@ import (
 	"html/template"
 	"net"
 	"net/http"
-	"fmt"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -39,7 +38,6 @@ type Server struct {
 // This exists in order to limit handler verbosity
 func (s *Server) addPages(assets []string) []string {
 	rp :=  s.config.StaticDir + "/pages/"
-	fmt.Printf("rp: %s\n",rp)
 	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html"}
 	for _, page := range assets {
 		pages = append(pages, page)
@@ -78,7 +76,6 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	rp := s.config.StaticDir + "/pages/"
 	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
 	files := s.addPages(pages)
-	fmt.Printf("files: %v\n",files)
 	home := template.Must(template.New("landingPage").ParseFiles(files...))
 	err := home.ExecuteTemplate(w, "base", nil)
 	if err != nil {
