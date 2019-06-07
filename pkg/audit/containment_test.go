@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/uplink"
 )
 
 func TestReverifySuccess(t *testing.T) {
@@ -331,98 +330,6 @@ func TestReverifyOffline(t *testing.T) {
 
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pieces[0].NodeId)
-	})
-}
-
-func TestReverifyContainedDownloadTimeout(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		// - uploads random data
-		// - uses the cursor to get a stripe
-		// - creates pending audit for one node holding a piece for that stripe
-		// - uses a slow transport client so that download timeout will happen (a contained case)
-		// - calls reverify on that same stripe
-		// - expects one storage node to be marked as contained in the audit report
-
-		err := planet.Satellites[0].Audit.Service.Close()
-		require.NoError(t, err)
-
-		upl := planet.Uplinks[0]
-		testData := make([]byte, 32*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
-
-		// Upload with larger erasure share size to simulate longer download over slow transport client
-		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     4,
-			ErasureShareSize: 32 * memory.KiB,
-		}, "testbucket", "test/path", testData)
-		require.NoError(t, err)
-
-		metainfo := planet.Satellites[0].Metainfo.Service
-		cursor := audit.NewCursor(metainfo)
-
-		var stripe *audit.Stripe
-		stripe, _, err = cursor.NextStripe(ctx)
-		require.NoError(t, err)
-		require.NotNil(t, stripe)
-
-		// set stripe index to 0 to ensure we are auditing large enough stripe
-		// instead of the last stripe, which could be smaller
-		stripe.Index = 0
-
-		network := &transport.SimulatedNetwork{
-			BytesPerSecond: 128 * memory.KiB,
-		}
-
-		slowClient := network.NewClient(planet.Satellites[0].Transport)
-		require.NotNil(t, slowClient)
-
-		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
-		minBytesPerSecond := 100 * memory.MiB
-
-		verifier := audit.NewVerifier(zap.L(),
-			slowClient,
-			planet.Satellites[0].Overlay.Service,
-			planet.Satellites[0].DB.Containment(),
-			planet.Satellites[0].Orders.Service,
-			planet.Satellites[0].Identity,
-			minBytesPerSecond,
-			100*time.Millisecond)
-
-		pieces := stripe.Segment.GetRemote().GetRemotePieces()
-
-		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		redundancy := stripe.Segment.GetRemote().GetRedundancy()
-
-		randBytes := make([]byte, 10)
-		_, err = rand.Read(randBytes)
-		require.NoError(t, err)
-
-		pending := &audit.PendingAudit{
-			NodeID:            pieces[0].NodeId,
-			PieceID:           rootPieceID,
-			StripeIndex:       stripe.Index,
-			ShareSize:         redundancy.ErasureShareSize,
-			ExpectedShareHash: pkcrypto.SHA256Hash(randBytes),
-			ReverifyCount:     0,
-		}
-
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
-		require.NoError(t, err)
-
-		report, err := verifier.Reverify(ctx, stripe)
-		require.NoError(t, err)
-
-		require.Len(t, report.PendingAudits, 1)
-		require.Equal(t, report.PendingAudits[0], pending)
 	})
 }
 
