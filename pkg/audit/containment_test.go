@@ -386,7 +386,7 @@ func TestReverifyContainedDownloadTimeout(t *testing.T) {
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start
 		// downloading from new nodes.
-		minBytesPerSecond := 1 * memory.MiB
+		minBytesPerSecond := 100 * memory.MiB
 
 		verifier := audit.NewVerifier(zap.L(),
 			slowClient,
