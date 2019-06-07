@@ -11,6 +11,7 @@ import (
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
+
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/pb"
