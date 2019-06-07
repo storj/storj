@@ -161,7 +161,7 @@ kademlia.operator.wallet: ""
 # marketing.address: "0.0.0.0:8090"
 
 # path to static resources
-# marketing.static-dir: "satellite/marketing/marketingweb/static/"
+# marketing.static-dir: ""
 
 # lifespan of bandwidth agreements in days
 # metainfo.bw-expiration: 45
