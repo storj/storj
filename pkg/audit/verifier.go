@@ -86,7 +86,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		return nil, err
 	}
 
-	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits)
+	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline)", zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
@@ -485,18 +485,18 @@ func makeCopies(ctx context.Context, originals map[int]Share) (copies []infectio
 }
 
 // getOfflines nodes returns these storage nodes from pointer which have no order limit
-func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit) storj.NodeIDList {
+func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip map[storj.NodeID]bool) storj.NodeIDList {
 	var offlines storj.NodeIDList
 
-	limitsMap := make(map[storj.NodeID]*pb.AddressedOrderLimit, len(limits))
+	nodesWithLimit := make(map[storj.NodeID]bool, len(limits))
 	for _, limit := range limits {
 		if limit != nil {
-			limitsMap[limit.GetLimit().StorageNodeId] = limit
+			nodesWithLimit[limit.GetLimit().StorageNodeId] = true
 		}
 	}
 
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		if _, ok := limitsMap[piece.NodeId]; !ok {
+		if !nodesWithLimit[piece.NodeId] && !skip[piece.NodeId] {
 			offlines = append(offlines, piece.NodeId)
 		}
 	}
