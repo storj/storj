@@ -32,7 +32,7 @@ type Config struct {
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 
 	ReputationAlpha0 float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
-	ReputationBeta0  float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:"1.0"`
+	ReputationBeta0  float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:0.0"`
 	ReputationLambda float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"1.0"`
 	ReputationOmega  float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
 }
