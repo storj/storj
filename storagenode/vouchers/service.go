@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode/orders"
 )
 
 var (
@@ -26,7 +27,13 @@ var (
 	mon = monkit.Package()
 )
 
-// Service is a service for requesting 
+// Config defines configuration for requesting vouchers.
+type Config struct {
+	Interval         int `help:"number of days between voucher service iterations" default: 7`
+	ExpirationBuffer int `help:"buffer period of X days into the future. If a voucher would expire within this period, send a request for renewal" default: 7`
+}
+
+// Service is a service for requesting vouchers
 type Service struct {
 	log *zap.Logger
 
@@ -34,16 +41,20 @@ type Service struct {
 	transport transport.Client
 
 	// vdb vouchers.DB
-	// archive orders.DB
+	archive orders.DB
+
+	expirationBuffer time.Duration
 	
 	Loop sync2.Cycle
 }
 
 // NewService creates a new voucher service
-func NewService(log *zap.Logger) *Service {
+func NewService(log *zap.Logger, interval, expirationBuffer time.Duration) *Service {
+
 	return &Service{
 		log: log,
-		Loop: *sync2.NewCycle(24*7*time.Hour),
+		expirationBuffer: expirationBuffer,
+		Loop: *sync2.NewCycle(interval),
 	}
 }
 
@@ -67,7 +78,7 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("Getting vouchers close to expiration")
 
-	expired, err := service.vdb.GetExpired(ctx)
+	expired, err := service.vdb.GetExpired(ctx, service.expirationBuffer)
 	if err != nil {
 		return err
 	}
@@ -80,7 +91,7 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 		for satelliteID := range expired {
 			err = service.request(ctx, satelliteID)
 			if err != nil {
-				return err
+				service.log.Error("Error requesting voucher from satellite", satelliteID, zap.Error(err))
 			}
 		}
 	} else {
