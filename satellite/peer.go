@@ -98,6 +98,11 @@ type DB interface {
 
 // Config is the global config satellite
 type Config struct {
+	ReputationAuditRepairWeight  float64 `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
+	ReputationAuditUplinkWeight  float64 `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
+	ReputationUptimeRepairWeight float64 `help:"weight to apply to uptime reputation for total repair reputation calculation" default:"1.0"`
+	ReputationUptimeUplinkWeight float64 `help:"weight to apply to uptime reputation for total uplink reputation calculation" default:"1.0"`
+
 	Identity identity.Config
 
 	// TODO: switch to using server.Config when Identity has been removed from it
