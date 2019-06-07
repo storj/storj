@@ -36,7 +36,7 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
 	if err != nil {
 		return err
 	}
