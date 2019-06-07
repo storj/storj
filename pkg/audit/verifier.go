@@ -87,6 +87,9 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	}
 
 	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits)
+	if len(offlineNodes) > 0 {
+		verifier.log.Debug("Verify: order limits not created for some nodes (offline)", zap.Strings("Node IDs", offlineNodes.Strings()))
+	}
 
 	shares, nodes, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
@@ -105,7 +108,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			}) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
-				verifier.log.Debug("dial timeout (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+				verifier.log.Debug("Verify: dial timeout (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 				continue
 			}
 			if errs.IsFunc(share.Error, func(err error) bool {
@@ -113,12 +116,12 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			}) {
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, nodes[pieceNum])
-				verifier.log.Debug("dial failed (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+				verifier.log.Debug("Verify: dial failed (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 				continue
 			}
 			// unknown transport error
 			containedNodes[pieceNum] = nodes[pieceNum]
-			verifier.log.Debug("unknown transport error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+			verifier.log.Debug("Verify: unknown transport error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 		}
 
 		if errs.IsFunc(share.Error, func(err error) bool {
@@ -126,7 +129,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		}) {
 			// missing share
 			failedNodes = append(failedNodes, nodes[pieceNum])
-			verifier.log.Debug("piece not found (audit failed)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+			verifier.log.Debug("Verify: piece not found (audit failed)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 			continue
 		}
 
@@ -135,13 +138,13 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		}) {
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = nodes[pieceNum]
-			verifier.log.Debug("download timeout (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+			verifier.log.Debug("Verify: download timeout (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 			continue
 		}
 
 		// unknown error
 		containedNodes[pieceNum] = nodes[pieceNum]
-		verifier.log.Debug("unknown error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+		verifier.log.Debug("Verify: unknown error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
@@ -282,6 +285,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				continue
 			}
 			ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+			verifier.log.Debug("Reverify: error getting from containment db", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 			continue
 		}
 
@@ -290,60 +294,71 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			if err != nil {
 				if overlay.ErrNodeOffline.Has(err) {
 					ch <- result{nodeID: piece.NodeId, status: offline}
+					verifier.log.Debug("Reverify: order limit not created (offline)", zap.String("Node ID", piece.NodeId.String()))
 					return
 				}
 				ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+				verifier.log.Debug("Reverify: error creating order limit", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 				return
 			}
 
 			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
 			if err != nil {
-				if transport.Error.Has(share.Error) {
-					if errs.IsFunc(share.Error, func(err error) bool {
+				if transport.Error.Has(err) {
+					if errs.IsFunc(err, func(err error) bool {
 						return err == context.DeadlineExceeded
 					}) {
 						// dial timeout
 						ch <- result{nodeID: piece.NodeId, status: offline}
+						verifier.log.Debug("Reverify: dial timeout (offline)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 						return
 					}
-					if errs.IsFunc(share.Error, func(err error) bool {
+					if errs.IsFunc(err, func(err error) bool {
 						return status.Code(err) == codes.Unknown
 					}) {
 						// dial failed -- offline node
+						verifier.log.Debug("Reverify: dial failed (offline)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 						ch <- result{nodeID: piece.NodeId, status: offline}
 						return
 					}
 					// unknown transport error
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
+					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 					return
 				}
 
-				if errs.IsFunc(share.Error, func(err error) bool {
+				if errs.IsFunc(err, func(err error) bool {
 					return status.Code(err) == codes.NotFound
 				}) {
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
+					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 					return
 				}
 
-				if errs.IsFunc(share.Error, func(err error) bool {
+				if errs.IsFunc(err, func(err error) bool {
 					return status.Code(err) == codes.DeadlineExceeded
 				}) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
+					verifier.log.Debug("Reverify: download timeout (contained)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 					return
 				}
 
 				// unknown error
 				ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
+				verifier.log.Debug("Reverify: unknown error (contained)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 				return
 			}
 
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
 				ch <- result{nodeID: piece.NodeId, status: success}
+				verifier.log.Debug("Reverify: hashes match (audit success)", zap.String("Node ID", piece.NodeId.String()))
 			} else {
 				ch <- result{nodeID: piece.NodeId, status: failed}
+				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.String("Node ID", piece.NodeId.String()),
+					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
 			}
 		}(pending, piece)
 	}
