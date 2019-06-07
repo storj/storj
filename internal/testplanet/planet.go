@@ -76,10 +76,9 @@ type Config struct {
 	StorageNodeCount int
 	UplinkCount      int
 
-	Identities         *testidentity.Identities
-	IdentityVersion    *storj.IDVersion
-	Reconfigure        Reconfigure
-	UsePeerCAWhitelist bool
+	Identities      *testidentity.Identities
+	IdentityVersion *storj.IDVersion
+	Reconfigure     Reconfigure
 }
 
 // Planet is a full storj system setup.
@@ -149,11 +148,10 @@ func NewWithIdentityVersion(t zaptest.TestingT, identityVersion *storj.IDVersion
 	}
 
 	return NewCustom(log, Config{
-		SatelliteCount:     satelliteCount,
-		StorageNodeCount:   storageNodeCount,
-		UplinkCount:        uplinkCount,
-		IdentityVersion:    identityVersion,
-		UsePeerCAWhitelist: true,
+		SatelliteCount:   satelliteCount,
+		StorageNodeCount: storageNodeCount,
+		UplinkCount:      uplinkCount,
+		IdentityVersion:  identityVersion,
 	})
 }
 
@@ -163,7 +161,6 @@ func NewWithLogger(log *zap.Logger, satelliteCount, storageNodeCount, uplinkCoun
 		SatelliteCount:   satelliteCount,
 		StorageNodeCount: storageNodeCount,
 		UplinkCount:      uplinkCount,
-		UsePeerCAWhitelist: true,
 	})
 }
 
@@ -431,7 +428,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
-					UsePeerCAWhitelist:  planet.config.UsePeerCAWhitelist,
 					PeerCAWhitelistPath: planet.whitelistPath,
 					PeerIDVersions:      "latest",
 					Extensions: extensions.Config{
@@ -589,7 +585,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
-					UsePeerCAWhitelist:  planet.config.UsePeerCAWhitelist,
 					PeerCAWhitelistPath: planet.whitelistPath,
 					PeerIDVersions:      "*",
 					Extensions: extensions.Config{
@@ -694,7 +689,6 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 
 			Config: tlsopts.Config{
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
-				UsePeerCAWhitelist:  planet.config.UsePeerCAWhitelist,
 				PeerCAWhitelistPath: planet.whitelistPath,
 				PeerIDVersions:      "latest",
 				Extensions: extensions.Config{

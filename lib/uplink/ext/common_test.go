@@ -4,6 +4,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,15 +15,41 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// TODO: Start up test planet and call these from bash instead
-func TestCCommonTests(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+func TestCTests(t *testing.T) {
+	ctests, err := filepath.Glob(filepath.Join(CTestsDir, "*_test.c"))
+	require.NoError(t, err)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
+	t.Run("all", func(t *testing.T) {
+		for _, ctest := range ctests {
+			t.Run(ctest, func(t *testing.T) {
+				t.Parallel()
 
-	runCTest(t, ctx, "common_test.c")
+				ctx := testcontext.New(t)
+				defer ctx.Cleanup()
+
+				planet := startTestPlanet(t, ctx)
+				defer ctx.Check(planet.Shutdown)
+
+				consoleProject := newProject(t, planet)
+				consoleApikey := newAPIKey(t, ctx, planet, consoleProject.ID)
+				satelliteAddr := planet.Satellites[0].Addr()
+
+				envVars := []string{
+					"SATELLITE_ADDR=" + satelliteAddr,
+					"APIKEY=" + consoleApikey,
+				}
+
+				runCTest(t, ctx, ctest, envVars...)
+			})
+		}
+	})
+
+	// NB: delete shared object if it exist to satisfy check-clean-directory.go
+	_, err = os.Stat(LibuplinkSO)
+	if err != nil && !os.IsNotExist(err) {
+		require.NoError(t, err)
+	}
+	_ = os.Remove(LibuplinkSO)
 }
 
 func TestGetIDVersion(t *testing.T) {
