@@ -142,6 +142,12 @@ extern void CloseBucket(BucketRef_t p0, char** p1);
 
 extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
 
+extern MapRef_t NewMapRef();
+
+extern void MapRefSet(MapRef_t p0, char* p1, char* p2, char** p3);
+
+extern char* MapRefGet(MapRef_t p0, char* p1, char** p2);
+
 extern void FreeReference(GoUintptr p0);
 
 extern void CloseObject(ObjectRef_t p0, char** p1);

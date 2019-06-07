@@ -124,7 +124,7 @@ typedef struct ObjectMeta {
 	char *Path;
 	bool IsPrefix;
 	char *ContentType;
-	MapRef_t Metadata;
+	MapRef_t MetaData;
 	uint64_t Created;
 	uint64_t Modified;
 	uint64_t Expires;

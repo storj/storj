@@ -89,7 +89,7 @@ func ObjectMeta(cObject C.ObjectRef_t, cErr **C.char) (objectMeta C.ObjectMeta_t
 		Path:  C.CString(object.Meta.Path),
 		IsPrefix: C.bool(object.Meta.IsPrefix),
 		ContentType:  C.CString(object.Meta.ContentType),
-		// TODO: Metadata
+		MetaData: NewMapRef(),
 		Created: C.uint64_t(object.Meta.Created.Unix()),
 		Modified: C.uint64_t(object.Meta.Modified.Unix()),
 		Expires: C.uint64_t(object.Meta.Expires.Unix()),

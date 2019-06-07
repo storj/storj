@@ -10,6 +10,7 @@ package main
 // #endif
 import "C"
 import (
+	"sync"
 	"unsafe"
 
 	"storj.io/storj/lib/uplink"
@@ -35,6 +36,44 @@ func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 	return C.IDVersion_t{
 		number: C.uint16_t(goIDVersion.Number),
 	}
+}
+
+type MapRef struct {
+	mtx sync.Mutex
+	m map[string]string
+}
+
+//export NewMapRef
+func NewMapRef() C.MapRef_t {
+	return C.MapRef_t(structRefMap.Add(&MapRef{}))
+}
+//export MapRefSet
+func MapRefSet(metaDataRef C.MapRef_t, key *C.char, value *C.char, cErr **C.char) {
+	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)
+	if !ok {
+		*cErr = C.CString("invalid map")
+		return
+	}
+
+	metaData.mtx.Lock()
+	metaData.m[C.GoString(key)] = C.GoString(value)
+	metaData.mtx.Unlock()
+}
+
+
+//export MapRefGet
+func MapRefGet(metaDataRef C.MapRef_t, key *C.char, cErr **C.char) (cValue *C.char) {
+	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)
+	if !ok {
+		*cErr = C.CString("invalid map")
+		return cValue
+	}
+
+	metaData.mtx.Lock()
+	value := metaData.m[C.GoString(key)]
+	metaData.mtx.Unlock()
+
+	return C.CString(value)
 }
 
 // bytesToCbytes creates a C.Bytes_t struct from a go bytes array
