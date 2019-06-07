@@ -56,9 +56,10 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", server.listener.Addr().String())
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 	mux := mux.NewRouter()
-	mux.Handle("/static/", http.StripPrefix("/static",fs))
-	mux.Handle("/", http.HandlerFunc(server.appHandler))
-
+	if server.config.StaticDir != "" {
+		mux.Handle("/static/", http.StripPrefix("/static",fs))
+		mux.Handle("/", http.HandlerFunc(server.appHandler))
+	}
 	server.server = http.Server{
 		Handler: mux,
 	}
