@@ -60,7 +60,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 		zap.Int("successes", len(successes)),
 		zap.Int("failures", len(fails)),
 		zap.Int("offlines", len(offlines)),
-		zap.Int("pendingAudits", len(pendingAudits)),
+		zap.Int("pending", len(pendingAudits)),
 	)
 
 	var errlist errs.Group
