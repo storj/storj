@@ -37,7 +37,11 @@ func (m *AddressedOrderLimit) Reset()         { *m = AddressedOrderLimit{} }
 func (m *AddressedOrderLimit) String() string { return proto.CompactTextString(m) }
 func (*AddressedOrderLimit) ProtoMessage()    {}
 func (*AddressedOrderLimit) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{0}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{0}
+>>>>>>> added value addition test case
 }
 func (m *AddressedOrderLimit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddressedOrderLimit.Unmarshal(m, b)
@@ -87,7 +91,11 @@ func (m *SegmentWriteRequest) Reset()         { *m = SegmentWriteRequest{} }
 func (m *SegmentWriteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentWriteRequest) ProtoMessage()    {}
 func (*SegmentWriteRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{1}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{1}
+>>>>>>> added value addition test case
 }
 func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteRequest.Unmarshal(m, b)
@@ -161,7 +169,11 @@ func (m *SegmentWriteResponse) Reset()         { *m = SegmentWriteResponse{} }
 func (m *SegmentWriteResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentWriteResponse) ProtoMessage()    {}
 func (*SegmentWriteResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{2}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{2}
+>>>>>>> added value addition test case
 }
 func (m *SegmentWriteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteResponse.Unmarshal(m, b)
@@ -194,6 +206,10 @@ type SegmentCommitRequest struct {
 	Segment              int64          `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
 	Pointer              *Pointer       `protobuf:"bytes,4,opt,name=pointer" json:"pointer,omitempty"`
 	OriginalLimits       []*OrderLimit2 `protobuf:"bytes,5,rep,name=original_limits,json=originalLimits" json:"original_limits,omitempty"`
+<<<<<<< HEAD
+=======
+	Partnerid            []byte         `protobuf:"bytes,6,opt,name=partnerid,proto3" json:"partnerid,omitempty"`
+>>>>>>> added value addition test case
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -203,7 +219,11 @@ func (m *SegmentCommitRequest) Reset()         { *m = SegmentCommitRequest{} }
 func (m *SegmentCommitRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitRequest) ProtoMessage()    {}
 func (*SegmentCommitRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{3}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{3}
+>>>>>>> added value addition test case
 }
 func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitRequest.Unmarshal(m, b)
@@ -258,6 +278,13 @@ func (m *SegmentCommitRequest) GetOriginalLimits() []*OrderLimit2 {
 	return nil
 }
 
+func (m *SegmentCommitRequest) GetPartnerid() []byte {
+	if m != nil {
+		return m.Partnerid
+	}
+	return nil
+}
+
 type SegmentCommitResponse struct {
 	Pointer              *Pointer `protobuf:"bytes,1,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -269,7 +296,11 @@ func (m *SegmentCommitResponse) Reset()         { *m = SegmentCommitResponse{} }
 func (m *SegmentCommitResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentCommitResponse) ProtoMessage()    {}
 func (*SegmentCommitResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{4}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{4}
+>>>>>>> added value addition test case
 }
 func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitResponse.Unmarshal(m, b)
@@ -309,7 +340,11 @@ func (m *SegmentDownloadRequest) Reset()         { *m = SegmentDownloadRequest{}
 func (m *SegmentDownloadRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentDownloadRequest) ProtoMessage()    {}
 func (*SegmentDownloadRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{5}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{5}
+>>>>>>> added value addition test case
 }
 func (m *SegmentDownloadRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDownloadRequest.Unmarshal(m, b)
@@ -362,7 +397,11 @@ func (m *SegmentDownloadResponse) Reset()         { *m = SegmentDownloadResponse
 func (m *SegmentDownloadResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentDownloadResponse) ProtoMessage()    {}
 func (*SegmentDownloadResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{6}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{6}
+>>>>>>> added value addition test case
 }
 func (m *SegmentDownloadResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDownloadResponse.Unmarshal(m, b)
@@ -409,7 +448,11 @@ func (m *SegmentInfoRequest) Reset()         { *m = SegmentInfoRequest{} }
 func (m *SegmentInfoRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentInfoRequest) ProtoMessage()    {}
 func (*SegmentInfoRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{7}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{7}
+>>>>>>> added value addition test case
 }
 func (m *SegmentInfoRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentInfoRequest.Unmarshal(m, b)
@@ -461,7 +504,11 @@ func (m *SegmentInfoResponse) Reset()         { *m = SegmentInfoResponse{} }
 func (m *SegmentInfoResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentInfoResponse) ProtoMessage()    {}
 func (*SegmentInfoResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{8}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{8}
+>>>>>>> added value addition test case
 }
 func (m *SegmentInfoResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentInfoResponse.Unmarshal(m, b)
@@ -501,7 +548,11 @@ func (m *SegmentDeleteRequest) Reset()         { *m = SegmentDeleteRequest{} }
 func (m *SegmentDeleteRequest) String() string { return proto.CompactTextString(m) }
 func (*SegmentDeleteRequest) ProtoMessage()    {}
 func (*SegmentDeleteRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{9}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{9}
+>>>>>>> added value addition test case
 }
 func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteRequest.Unmarshal(m, b)
@@ -553,7 +604,11 @@ func (m *SegmentDeleteResponse) Reset()         { *m = SegmentDeleteResponse{} }
 func (m *SegmentDeleteResponse) String() string { return proto.CompactTextString(m) }
 func (*SegmentDeleteResponse) ProtoMessage()    {}
 func (*SegmentDeleteResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{10}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{10}
+>>>>>>> added value addition test case
 }
 func (m *SegmentDeleteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteResponse.Unmarshal(m, b)
@@ -597,7 +652,11 @@ func (m *ListSegmentsRequest) Reset()         { *m = ListSegmentsRequest{} }
 func (m *ListSegmentsRequest) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsRequest) ProtoMessage()    {}
 func (*ListSegmentsRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{11}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{11}
+>>>>>>> added value addition test case
 }
 func (m *ListSegmentsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsRequest.Unmarshal(m, b)
@@ -678,7 +737,11 @@ func (m *ListSegmentsResponse) Reset()         { *m = ListSegmentsResponse{} }
 func (m *ListSegmentsResponse) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsResponse) ProtoMessage()    {}
 func (*ListSegmentsResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{12}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{12}
+>>>>>>> added value addition test case
 }
 func (m *ListSegmentsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse.Unmarshal(m, b)
@@ -725,7 +788,11 @@ func (m *ListSegmentsResponse_Item) Reset()         { *m = ListSegmentsResponse_
 func (m *ListSegmentsResponse_Item) String() string { return proto.CompactTextString(m) }
 func (*ListSegmentsResponse_Item) ProtoMessage()    {}
 func (*ListSegmentsResponse_Item) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{12, 0}
+=======
+	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{12, 0}
+>>>>>>> added value addition test case
 }
 func (m *ListSegmentsResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse_Item.Unmarshal(m, b)
@@ -881,8 +948,11 @@ func init() {
 	proto.RegisterType((*ListSegmentsRequest)(nil), "metainfo.ListSegmentsRequest")
 	proto.RegisterType((*ListSegmentsResponse)(nil), "metainfo.ListSegmentsResponse")
 	proto.RegisterType((*ListSegmentsResponse_Item)(nil), "metainfo.ListSegmentsResponse.Item")
+<<<<<<< HEAD
 	proto.RegisterType((*ValueAttributionRequest)(nil), "metainfo.ValueAttributionRequest")
 	proto.RegisterType((*ValueAttributionResponse)(nil), "metainfo.ValueAttributionResponse")
+=======
+>>>>>>> added value addition test case
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -903,7 +973,11 @@ type MetainfoClient interface {
 	DownloadSegment(ctx context.Context, in *SegmentDownloadRequest, opts ...grpc.CallOption) (*SegmentDownloadResponse, error)
 	DeleteSegment(ctx context.Context, in *SegmentDeleteRequest, opts ...grpc.CallOption) (*SegmentDeleteResponse, error)
 	ListSegments(ctx context.Context, in *ListSegmentsRequest, opts ...grpc.CallOption) (*ListSegmentsResponse, error)
+<<<<<<< HEAD
 	ValueAttributeInfo(ctx context.Context, in *ValueAttributionRequest, opts ...grpc.CallOption) (*ValueAttributionResponse, error)
+=======
+	ValueAttributeInfo(ctx context.Context, in *SegmentInfoRequest, opts ...grpc.CallOption) (*SegmentInfoResponse, error)
+>>>>>>> added value addition test case
 }
 
 type metainfoClient struct {
@@ -968,8 +1042,13 @@ func (c *metainfoClient) ListSegments(ctx context.Context, in *ListSegmentsReque
 	return out, nil
 }
 
+<<<<<<< HEAD
 func (c *metainfoClient) ValueAttributeInfo(ctx context.Context, in *ValueAttributionRequest, opts ...grpc.CallOption) (*ValueAttributionResponse, error) {
 	out := new(ValueAttributionResponse)
+=======
+func (c *metainfoClient) ValueAttributeInfo(ctx context.Context, in *SegmentInfoRequest, opts ...grpc.CallOption) (*SegmentInfoResponse, error) {
+	out := new(SegmentInfoResponse)
+>>>>>>> added value addition test case
 	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/ValueAttributeInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -985,7 +1064,11 @@ type MetainfoServer interface {
 	DownloadSegment(context.Context, *SegmentDownloadRequest) (*SegmentDownloadResponse, error)
 	DeleteSegment(context.Context, *SegmentDeleteRequest) (*SegmentDeleteResponse, error)
 	ListSegments(context.Context, *ListSegmentsRequest) (*ListSegmentsResponse, error)
+<<<<<<< HEAD
 	ValueAttributeInfo(context.Context, *ValueAttributionRequest) (*ValueAttributionResponse, error)
+=======
+	ValueAttributeInfo(context.Context, *SegmentInfoRequest) (*SegmentInfoResponse, error)
+>>>>>>> added value addition test case
 }
 
 func RegisterMetainfoServer(s *grpc.Server, srv MetainfoServer) {
@@ -1101,7 +1184,11 @@ func _Metainfo_ListSegments_Handler(srv interface{}, ctx context.Context, dec fu
 }
 
 func _Metainfo_ValueAttributeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+<<<<<<< HEAD
 	in := new(ValueAttributionRequest)
+=======
+	in := new(SegmentInfoRequest)
+>>>>>>> added value addition test case
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1113,7 +1200,11 @@ func _Metainfo_ValueAttributeInfo_Handler(srv interface{}, ctx context.Context, 
 		FullMethod: "/metainfo.Metainfo/ValueAttributeInfo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+<<<<<<< HEAD
 		return srv.(MetainfoServer).ValueAttributeInfo(ctx, req.(*ValueAttributionRequest))
+=======
+		return srv.(MetainfoServer).ValueAttributeInfo(ctx, req.(*SegmentInfoRequest))
+>>>>>>> added value addition test case
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1155,6 +1246,7 @@ var _Metainfo_serviceDesc = grpc.ServiceDesc{
 	Metadata: "metainfo.proto",
 }
 
+<<<<<<< HEAD
 func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_d4afd0f297e34f0b) }
 
 var fileDescriptor_metainfo_d4afd0f297e34f0b = []byte{
@@ -1220,4 +1312,66 @@ var fileDescriptor_metainfo_d4afd0f297e34f0b = []byte{
 	0x65, 0xee, 0x9d, 0xfd, 0x01, 0xc8, 0xd4, 0xf0, 0xa0, 0xc1, 0xb2, 0xd4, 0xd9, 0x82, 0xab, 0x11,
 	0x84, 0x37, 0xb9, 0xd8, 0xe0, 0xc7, 0x6b, 0x2f, 0x56, 0xf2, 0x6e, 0x77, 0xc3, 0xfc, 0x2a, 0x3d,
 	0xfa, 0x37, 0x00, 0x00, 0xff, 0xff, 0xa1, 0x10, 0x03, 0xc7, 0x21, 0x0b, 0x00, 0x00,
+=======
+func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_c16c49b4e5e5f6cd) }
+
+var fileDescriptor_metainfo_c16c49b4e5e5f6cd = []byte{
+	// 885 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0x4f, 0x6f, 0x1b, 0x45,
+	0x14, 0x67, 0xfd, 0x27, 0x4e, 0x9e, 0x9d, 0x1a, 0x26, 0x21, 0x5d, 0x6d, 0x1b, 0x6c, 0x96, 0x4b,
+	0x90, 0xd0, 0x56, 0x4a, 0x4f, 0x50, 0x2e, 0xf9, 0x53, 0x44, 0x50, 0x5b, 0xc2, 0x04, 0x15, 0xa9,
+	0x42, 0xac, 0xc6, 0xde, 0x67, 0x77, 0x84, 0x77, 0x67, 0x99, 0x19, 0x43, 0xda, 0x3b, 0x1f, 0xa0,
+	0x07, 0xbe, 0x11, 0x07, 0x0e, 0x7c, 0x00, 0xc4, 0x21, 0x47, 0x3e, 0x07, 0xda, 0xd9, 0x19, 0x7b,
+	0x13, 0xdb, 0x04, 0x84, 0x6f, 0xf3, 0xde, 0xfc, 0xe6, 0xfd, 0xfb, 0xbd, 0xf7, 0x76, 0xe1, 0x4e,
+	0x8a, 0x9a, 0xf1, 0x6c, 0x24, 0xa2, 0x5c, 0x0a, 0x2d, 0xc8, 0xa6, 0x93, 0x03, 0x18, 0x8b, 0xb1,
+	0xd5, 0x06, 0xbd, 0xb1, 0x10, 0xe3, 0x09, 0x3e, 0x30, 0xd2, 0x60, 0x3a, 0x7a, 0xa0, 0x79, 0x8a,
+	0x4a, 0xb3, 0x34, 0xb7, 0x00, 0xc8, 0x44, 0x82, 0xf6, 0xdc, 0xcd, 0x05, 0xcf, 0x34, 0xca, 0x64,
+	0x60, 0x15, 0x1d, 0x21, 0x13, 0x94, 0xaa, 0x94, 0xc2, 0x9f, 0x3d, 0xd8, 0x39, 0x4a, 0x12, 0x89,
+	0x4a, 0x61, 0xf2, 0x65, 0x71, 0xf3, 0x84, 0xa7, 0x5c, 0x93, 0x0f, 0xa1, 0x39, 0x29, 0x0e, 0xbe,
+	0xd7, 0xf7, 0x0e, 0xda, 0x87, 0x3b, 0x91, 0x7d, 0x35, 0x87, 0x1c, 0xd2, 0x12, 0x41, 0x4e, 0x60,
+	0x57, 0x69, 0x21, 0xd9, 0x18, 0xe3, 0xc2, 0x6f, 0xcc, 0x4a, 0x73, 0x7e, 0xcd, 0xbc, 0x7c, 0x27,
+	0x32, 0xc1, 0x3c, 0x13, 0x09, 0x5a, 0x3f, 0x94, 0x58, 0x78, 0x45, 0x17, 0xbe, 0xa9, 0xc1, 0xce,
+	0x05, 0x8e, 0x53, 0xcc, 0xf4, 0x37, 0x92, 0x6b, 0xa4, 0xf8, 0xc3, 0x14, 0x95, 0x26, 0x7b, 0xb0,
+	0x31, 0x98, 0x0e, 0xbf, 0xc7, 0x32, 0x90, 0x0e, 0xb5, 0x12, 0x21, 0xd0, 0xc8, 0x99, 0x7e, 0x69,
+	0x9c, 0x74, 0xa8, 0x39, 0x13, 0x1f, 0x5a, 0xaa, 0x34, 0xe1, 0xd7, 0xfb, 0xde, 0x41, 0x9d, 0x3a,
+	0x91, 0x3c, 0x02, 0x90, 0x98, 0x4c, 0xb3, 0x84, 0x65, 0xc3, 0x57, 0x7e, 0xc3, 0x04, 0x76, 0x2f,
+	0x9a, 0x57, 0x86, 0xce, 0x2e, 0x2f, 0x86, 0x2f, 0x31, 0x45, 0x5a, 0x81, 0x93, 0x47, 0x10, 0xa4,
+	0xec, 0x32, 0xc6, 0x6c, 0x28, 0x5f, 0xe5, 0x1a, 0x93, 0xd8, 0x5a, 0x8d, 0x15, 0x7f, 0x8d, 0x7e,
+	0xd3, 0x78, 0xba, 0x9b, 0xb2, 0xcb, 0xc7, 0x0e, 0x60, 0xf3, 0xb8, 0xe0, 0xaf, 0x91, 0x7c, 0x02,
+	0x80, 0x97, 0x39, 0x97, 0x4c, 0x73, 0x91, 0xf9, 0x1b, 0xc6, 0x73, 0x10, 0x95, 0x04, 0x46, 0x8e,
+	0xc0, 0xe8, 0x6b, 0x47, 0x20, 0xad, 0xa0, 0xc3, 0x5f, 0x3c, 0xd8, 0xbd, 0x5e, 0x13, 0x95, 0x8b,
+	0x4c, 0x21, 0xf9, 0x1c, 0xde, 0x66, 0x8e, 0xb3, 0xd8, 0x90, 0xa0, 0x7c, 0xaf, 0x5f, 0x3f, 0x68,
+	0x1f, 0xee, 0x47, 0xb3, 0x0e, 0x5a, 0xc2, 0x2a, 0xed, 0xce, 0x9e, 0x19, 0x59, 0x91, 0x87, 0xb0,
+	0x2d, 0x85, 0xd0, 0x71, 0xce, 0x71, 0x88, 0x31, 0x4f, 0xca, 0x7a, 0x1e, 0x77, 0x7f, 0xbb, 0xea,
+	0xbd, 0xf5, 0xe7, 0x55, 0xaf, 0x75, 0x5e, 0xe8, 0xcf, 0x4e, 0x69, 0xbb, 0x40, 0x95, 0x42, 0x12,
+	0xfe, 0x35, 0x8f, 0xeb, 0x44, 0xa4, 0x85, 0xdd, 0xb5, 0x92, 0xf5, 0x11, 0xb4, 0x2c, 0x33, 0x96,
+	0x29, 0x52, 0x61, 0xea, 0xbc, 0x3c, 0x51, 0x07, 0x21, 0x9f, 0x42, 0x57, 0x48, 0x3e, 0xe6, 0x19,
+	0x9b, 0xb8, 0x52, 0x34, 0x4d, 0x29, 0x96, 0xb6, 0xec, 0x1d, 0x87, 0xb5, 0xf9, 0xdf, 0x87, 0xad,
+	0x9c, 0x49, 0x9d, 0xa1, 0xe4, 0x89, 0x61, 0xa7, 0x43, 0xe7, 0x8a, 0xf0, 0x31, 0xbc, 0x7b, 0x23,
+	0x4f, 0x4b, 0x40, 0x25, 0x44, 0xef, 0xd6, 0x10, 0xc3, 0xef, 0x60, 0xcf, 0x9a, 0x39, 0x15, 0x3f,
+	0x65, 0x13, 0xc1, 0x92, 0xb5, 0x16, 0x2c, 0x7c, 0xe3, 0xc1, 0xdd, 0x05, 0x07, 0x6b, 0x6f, 0x95,
+	0x4a, 0xce, 0xb5, 0xdb, 0x73, 0x7e, 0x01, 0xc4, 0x86, 0x74, 0x96, 0x8d, 0xc4, 0x7a, 0xf3, 0x3d,
+	0x99, 0xad, 0x8a, 0xd2, 0xf6, 0x22, 0x29, 0xff, 0x22, 0xc0, 0x6f, 0x67, 0x3d, 0x7c, 0x8a, 0x13,
+	0x5c, 0xf3, 0xc2, 0x09, 0xd9, 0xac, 0x73, 0x9c, 0xf5, 0x75, 0xf3, 0x11, 0xfe, 0xe1, 0xc1, 0xce,
+	0x13, 0xae, 0xb4, 0xf5, 0xa3, 0x6e, 0x4b, 0x60, 0x0f, 0x36, 0x72, 0x89, 0x23, 0x7e, 0x69, 0x53,
+	0xb0, 0x12, 0xe9, 0x41, 0x5b, 0x69, 0x26, 0x75, 0xcc, 0x46, 0x45, 0xe9, 0xea, 0xe6, 0x12, 0x8c,
+	0xea, 0xa8, 0xd0, 0x90, 0x7d, 0x00, 0xcc, 0x92, 0x78, 0x80, 0x23, 0x21, 0xd1, 0x8c, 0x64, 0x87,
+	0x6e, 0x61, 0x96, 0x1c, 0x1b, 0x45, 0x31, 0x42, 0x12, 0x87, 0x53, 0xa9, 0xf8, 0x8f, 0xe5, 0x36,
+	0xdc, 0xa4, 0x73, 0x05, 0xd9, 0x75, 0xdf, 0x91, 0x62, 0xb8, 0x9a, 0xee, 0x93, 0xb1, 0x0f, 0x50,
+	0x24, 0x1b, 0x8f, 0x26, 0x6c, 0xac, 0xfc, 0x56, 0xdf, 0x3b, 0x68, 0xd1, 0xad, 0x42, 0xf3, 0x59,
+	0xa1, 0x08, 0x7f, 0xf7, 0x60, 0xf7, 0x7a, 0x6a, 0xb6, 0x7a, 0x1f, 0x43, 0x93, 0x6b, 0x4c, 0x5d,
+	0xc9, 0x3e, 0x98, 0x97, 0x6c, 0x19, 0x3c, 0x3a, 0xd3, 0x98, 0xd2, 0xf2, 0x45, 0xc1, 0x5f, 0x5a,
+	0xc4, 0x5f, 0x33, 0x11, 0x9a, 0x73, 0x80, 0xd0, 0x28, 0x20, 0x33, 0x6e, 0xbd, 0x0a, 0xb7, 0xff,
+	0xa9, 0x9b, 0xc8, 0x3d, 0xd8, 0xe2, 0x2a, 0xb6, 0xf5, 0xad, 0x1b, 0x17, 0x9b, 0x5c, 0x9d, 0x1b,
+	0xf9, 0xf0, 0xd7, 0x06, 0x6c, 0x3e, 0xb5, 0x81, 0x92, 0x67, 0xb0, 0x7d, 0x22, 0x91, 0x69, 0xb4,
+	0xd1, 0x92, 0x0a, 0xef, 0x4b, 0x3e, 0x80, 0xc1, 0x7b, 0xab, 0xae, 0x6d, 0x49, 0xce, 0x61, 0xbb,
+	0x5c, 0x4e, 0xce, 0xde, 0xe2, 0x83, 0x6b, 0x4b, 0x3a, 0xe8, 0xad, 0xbc, 0xb7, 0x16, 0xbf, 0x80,
+	0x76, 0x65, 0xbc, 0xc8, 0xfd, 0x05, 0x7c, 0x65, 0xa2, 0x83, 0xfd, 0x15, 0xb7, 0xd6, 0xd6, 0x73,
+	0xe8, 0xba, 0x95, 0xe4, 0xe2, 0xeb, 0x2f, 0xbc, 0xb8, 0xb1, 0x15, 0x83, 0xf7, 0xff, 0x01, 0x31,
+	0xcf, 0xba, 0x1c, 0xac, 0xd5, 0x59, 0x5f, 0x1b, 0xeb, 0x25, 0x59, 0xdf, 0x18, 0xcc, 0xa7, 0xd0,
+	0xa9, 0xf6, 0x50, 0x95, 0x96, 0x25, 0x53, 0x56, 0xa5, 0x65, 0x69, 0xa7, 0x7e, 0x05, 0xe4, 0x39,
+	0x9b, 0x4c, 0xf1, 0x48, 0x6b, 0xc9, 0x07, 0x53, 0x8d, 0xff, 0xbb, 0x96, 0xc7, 0x8d, 0x17, 0xb5,
+	0x7c, 0x30, 0xd8, 0x30, 0x3f, 0x0d, 0x0f, 0xff, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xde, 0x1c, 0x06,
+	0xb2, 0x2b, 0x0a, 0x00, 0x00,
+>>>>>>> added value addition test case
 }

@@ -7,7 +7,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+<<<<<<< HEAD
 	"io"
+=======
+>>>>>>> added value addition test case
 	"sort"
 	"testing"
 	"time"
@@ -445,6 +448,7 @@ func TestValueAttributeInfo(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+<<<<<<< HEAD
 		uplink := planet.Uplinks[0]
 		config := uplink.GetConfig(planet.Satellites[0])
 		metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
@@ -487,11 +491,61 @@ func TestValueAttributeInfo(t *testing.T) {
 			// bucket with items
 			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
 			fmt.Println("KISHORE KISHORE --> err=", err)
+=======
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		projects := planet.Satellites[0].DB.Console().Projects()
+
+		project, err := projects.Insert(ctx, &console.Project{
+			Name:        "ProjectName",
+			Description: "projects description",
+		})
+		assert.NotNil(t, project)
+		assert.NoError(t, err)
+
+		keyInfo := console.ConnectorKeyInfo{
+			ID:        project.ID, //partner id
+			ProjectID: project.ID, //bucket id
+			Name:      fmt.Sprintf("connectorkey"),
+		}
+
+		// set the connector key in the context
+		ctxConntectorKey := console.WithConnectorKey(ctx, keyInfo)
+		assert.NotNil(t, ctxConntectorKey)
+
+		{
+			// error if pointer is nil
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			require.Error(t, err)
+
+			// fix this
+			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1)
+			require.Error(t, err)
+		}
+		{
+			// error if number of remote pieces is lower then repair threshold
+			redundancy := &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 4,
+				Total:            6,
+				ErasureShareSize: 10,
+			}
+			expirationDate := time.Now()
+			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			require.NotEmpty(t, addresedLimits)
+			require.NotEmpty(t, rootPieceID)
+			require.NoError(t, err)
+
+			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1)
+>>>>>>> added value addition test case
 			require.Error(t, err)
 		}
 	})
 }
 
+<<<<<<< HEAD
 func uploadStream(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
 	mutableStream, err := mutableObject.CreateStream(ctx)
 	if err != nil {
@@ -505,6 +559,8 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 	return errs.Combine(err, upload.Close())
 }
 
+=======
+>>>>>>> added value addition test case
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)

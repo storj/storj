@@ -57,7 +57,11 @@ type Client interface {
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
 	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
+<<<<<<< HEAD
 	ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, partnerID, userID string) (bool, error)
+=======
+	ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, error)
+>>>>>>> added value addition test case
 }
 
 // NewClient initializes a new metainfo client
@@ -226,6 +230,7 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 }
 
 // ValueAttributeInfo requests the connector key info
+<<<<<<< HEAD
 func (metainfo *Metainfo) ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, partnerID, userID string) (resp bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -241,4 +246,16 @@ func (metainfo *Metainfo) ValueAttributeInfo(ctx context.Context, bucket string,
 	})
 
 	return response.GetValueAttribution(), err
+=======
+func (metainfo *Metainfo) ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := metainfo.client.ValueAttributeInfo(ctx, &pb.SegmentInfoRequest{
+		Bucket:  []byte(bucket),
+		Path:    []byte(path),
+		Segment: segmentIndex,
+	})
+
+	return response.GetPointer(), err
+>>>>>>> added value addition test case
 }
