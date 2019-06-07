@@ -186,6 +186,7 @@ model user (
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
+    field total_referred int (updatable, autoinsert)
 
     field created_at       timestamp ( autoinsert )
 )
@@ -685,30 +686,31 @@ create offer ( )
 //--- user credit table ---//
 
 model user_credit (
-	key		id
+	key	id
 
-	field	id				serial
+	field id				serial
 
-	field	user_id user.id	restrict
-	field	offer_id offer.id	restrict
-	field	referred_by user.id	restrict ( nullable, updatable )
+	field user_id user.id	restrict
+	field offer_id offer.id	restrict
+	field referred_by user.id	restrict ( nullable )
 
-	field	credits_earned_in_cents	int
-	field	credits_used_in_cents	int ( updatable )
+	field credits_earned_in_cents	int
+	field credits_used_in_cents	int ( updatable, autoinsert )
 
-	field	expires_at		timestamp	( updatable )
-	field	created_at		timestamp	( autoinsert )
+	field expires_at		timestamp	( updatable )
+	field created_at		timestamp	( autoinsert )
 )
 
 read all (
-	select  user_credit
-	where   user_credit.user_id = ?
-    where   expires_at > ?
+	select user_credit
+	where user_credit.user_id = ?
+    where user_credit.expires_at > ?
+    where user_credit.credits_used_in_cents < credits_earned_in_cents
+)
+
+read count (
+    select user_credit
+    where user_credit.referred_by = ?
 )
 
 create user_credit ()
-
-update user_credit (
-    where user_id = ?
-    where referred_by = ?
-)
