@@ -42,8 +42,8 @@ type ConnectorKeys interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// WithConnectorID creates new context with partner connector ID
-func WithConnectorID(ctx context.Context, auth ConnectorKeyInfo) context.Context {
+// WithConnectorKey creates new context with partner connector ID
+func WithConnectorKey(ctx context.Context, auth ConnectorKeyInfo) context.Context {
 	return context.WithValue(ctx, connectorKey, auth)
 }
 
