@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments/localpayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -151,4 +152,9 @@ func (db *DB) Orders() orders.DB {
 // Containment returns database for storing pending audit info
 func (db *DB) Containment() audit.Containment {
 	return &containment{db: db.db}
+}
+
+// LocalPayments returns db for storing local payments info
+func (db *DB) LocalPayments() localpayments.DB {
+	return &localPaymentsDB{db: db.db}
 }

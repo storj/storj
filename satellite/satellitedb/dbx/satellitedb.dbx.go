@@ -347,6 +347,15 @@ CREATE TABLE irreparabledbs (
 	repair_attempt_count bigint NOT NULL,
 	PRIMARY KEY ( segmentpath )
 );
+CREATE TABLE local_invoices (
+	id bytea NOT NULL,
+	payment_method_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	currency text NOT NULL,
+	status text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
@@ -475,6 +484,23 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
+);
+CREATE TABLE local_invoice_custom_fields (
+	id bytea NOT NULL,
+	invoice_id bytea NOT NULL REFERENCES local_invoices( id ) ON DELETE CASCADE,
+	name text NOT NULL,
+	value text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE local_invoice_line_items (
+	id bytea NOT NULL,
+	invoice_id bytea NOT NULL REFERENCES local_invoices( id ) ON DELETE CASCADE,
+	key text NOT NULL,
+	quantity bigint NOT NULL,
+	amount bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE project_invoice_stamps (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -654,6 +680,15 @@ CREATE TABLE irreparabledbs (
 	repair_attempt_count INTEGER NOT NULL,
 	PRIMARY KEY ( segmentpath )
 );
+CREATE TABLE local_invoices (
+	id BLOB NOT NULL,
+	payment_method_id BLOB NOT NULL,
+	amount INTEGER NOT NULL,
+	currency TEXT NOT NULL,
+	status TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	address TEXT NOT NULL,
@@ -782,6 +817,23 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
+);
+CREATE TABLE local_invoice_custom_fields (
+	id BLOB NOT NULL,
+	invoice_id BLOB NOT NULL REFERENCES local_invoices( id ) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	value TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE local_invoice_line_items (
+	id BLOB NOT NULL,
+	invoice_id BLOB NOT NULL REFERENCES local_invoices( id ) ON DELETE CASCADE,
+	key TEXT NOT NULL,
+	quantity INTEGER NOT NULL,
+	amount INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE project_invoice_stamps (
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -1997,6 +2049,134 @@ func (f Irreparabledb_RepairAttemptCount_Field) value() interface{} {
 }
 
 func (Irreparabledb_RepairAttemptCount_Field) _Column() string { return "repair_attempt_count" }
+
+type LocalInvoice struct {
+	Id              []byte
+	PaymentMethodId []byte
+	Amount          int64
+	Currency        string
+	Status          string
+	CreatedAt       time.Time
+}
+
+func (LocalInvoice) _Table() string { return "local_invoices" }
+
+type LocalInvoice_Update_Fields struct {
+}
+
+type LocalInvoice_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func LocalInvoice_Id(v []byte) LocalInvoice_Id_Field {
+	return LocalInvoice_Id_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoice_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoice_Id_Field) _Column() string { return "id" }
+
+type LocalInvoice_PaymentMethodId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func LocalInvoice_PaymentMethodId(v []byte) LocalInvoice_PaymentMethodId_Field {
+	return LocalInvoice_PaymentMethodId_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoice_PaymentMethodId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoice_PaymentMethodId_Field) _Column() string { return "payment_method_id" }
+
+type LocalInvoice_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func LocalInvoice_Amount(v int64) LocalInvoice_Amount_Field {
+	return LocalInvoice_Amount_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoice_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoice_Amount_Field) _Column() string { return "amount" }
+
+type LocalInvoice_Currency_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func LocalInvoice_Currency(v string) LocalInvoice_Currency_Field {
+	return LocalInvoice_Currency_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoice_Currency_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoice_Currency_Field) _Column() string { return "currency" }
+
+type LocalInvoice_Status_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func LocalInvoice_Status(v string) LocalInvoice_Status_Field {
+	return LocalInvoice_Status_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoice_Status_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoice_Status_Field) _Column() string { return "status" }
+
+type LocalInvoice_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func LocalInvoice_CreatedAt(v time.Time) LocalInvoice_CreatedAt_Field {
+	return LocalInvoice_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoice_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoice_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Node struct {
 	Id                 []byte
@@ -3960,6 +4140,242 @@ func (f ApiKey_CreatedAt_Field) value() interface{} {
 
 func (ApiKey_CreatedAt_Field) _Column() string { return "created_at" }
 
+type LocalInvoiceCustomField struct {
+	Id        []byte
+	InvoiceId []byte
+	Name      string
+	Value     string
+	CreatedAt time.Time
+}
+
+func (LocalInvoiceCustomField) _Table() string { return "local_invoice_custom_fields" }
+
+type LocalInvoiceCustomField_Update_Fields struct {
+}
+
+type LocalInvoiceCustomField_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func LocalInvoiceCustomField_Id(v []byte) LocalInvoiceCustomField_Id_Field {
+	return LocalInvoiceCustomField_Id_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceCustomField_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceCustomField_Id_Field) _Column() string { return "id" }
+
+type LocalInvoiceCustomField_InvoiceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func LocalInvoiceCustomField_InvoiceId(v []byte) LocalInvoiceCustomField_InvoiceId_Field {
+	return LocalInvoiceCustomField_InvoiceId_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceCustomField_InvoiceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceCustomField_InvoiceId_Field) _Column() string { return "invoice_id" }
+
+type LocalInvoiceCustomField_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func LocalInvoiceCustomField_Name(v string) LocalInvoiceCustomField_Name_Field {
+	return LocalInvoiceCustomField_Name_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceCustomField_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceCustomField_Name_Field) _Column() string { return "name" }
+
+type LocalInvoiceCustomField_Value_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func LocalInvoiceCustomField_Value(v string) LocalInvoiceCustomField_Value_Field {
+	return LocalInvoiceCustomField_Value_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceCustomField_Value_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceCustomField_Value_Field) _Column() string { return "value" }
+
+type LocalInvoiceCustomField_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func LocalInvoiceCustomField_CreatedAt(v time.Time) LocalInvoiceCustomField_CreatedAt_Field {
+	return LocalInvoiceCustomField_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceCustomField_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceCustomField_CreatedAt_Field) _Column() string { return "created_at" }
+
+type LocalInvoiceLineItem struct {
+	Id        []byte
+	InvoiceId []byte
+	Key       string
+	Quantity  int64
+	Amount    int64
+	CreatedAt time.Time
+}
+
+func (LocalInvoiceLineItem) _Table() string { return "local_invoice_line_items" }
+
+type LocalInvoiceLineItem_Update_Fields struct {
+}
+
+type LocalInvoiceLineItem_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func LocalInvoiceLineItem_Id(v []byte) LocalInvoiceLineItem_Id_Field {
+	return LocalInvoiceLineItem_Id_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceLineItem_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceLineItem_Id_Field) _Column() string { return "id" }
+
+type LocalInvoiceLineItem_InvoiceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func LocalInvoiceLineItem_InvoiceId(v []byte) LocalInvoiceLineItem_InvoiceId_Field {
+	return LocalInvoiceLineItem_InvoiceId_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceLineItem_InvoiceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceLineItem_InvoiceId_Field) _Column() string { return "invoice_id" }
+
+type LocalInvoiceLineItem_Key_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func LocalInvoiceLineItem_Key(v string) LocalInvoiceLineItem_Key_Field {
+	return LocalInvoiceLineItem_Key_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceLineItem_Key_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceLineItem_Key_Field) _Column() string { return "key" }
+
+type LocalInvoiceLineItem_Quantity_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func LocalInvoiceLineItem_Quantity(v int64) LocalInvoiceLineItem_Quantity_Field {
+	return LocalInvoiceLineItem_Quantity_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceLineItem_Quantity_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceLineItem_Quantity_Field) _Column() string { return "quantity" }
+
+type LocalInvoiceLineItem_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func LocalInvoiceLineItem_Amount(v int64) LocalInvoiceLineItem_Amount_Field {
+	return LocalInvoiceLineItem_Amount_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceLineItem_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceLineItem_Amount_Field) _Column() string { return "amount" }
+
+type LocalInvoiceLineItem_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func LocalInvoiceLineItem_CreatedAt(v time.Time) LocalInvoiceLineItem_CreatedAt_Field {
+	return LocalInvoiceLineItem_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f LocalInvoiceLineItem_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (LocalInvoiceLineItem_CreatedAt_Field) _Column() string { return "created_at" }
+
 type ProjectInvoiceStamp struct {
 	ProjectId []byte
 	InvoiceId []byte
@@ -4932,6 +5348,94 @@ func (obj *postgresImpl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return api_key, nil
+
+}
+
+func (obj *postgresImpl) Create_LocalInvoice(ctx context.Context,
+	local_invoice_id LocalInvoice_Id_Field,
+	local_invoice_payment_method_id LocalInvoice_PaymentMethodId_Field,
+	local_invoice_amount LocalInvoice_Amount_Field,
+	local_invoice_currency LocalInvoice_Currency_Field,
+	local_invoice_status LocalInvoice_Status_Field) (
+	local_invoice *LocalInvoice, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := local_invoice_id.value()
+	__payment_method_id_val := local_invoice_payment_method_id.value()
+	__amount_val := local_invoice_amount.value()
+	__currency_val := local_invoice_currency.value()
+	__status_val := local_invoice_status.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO local_invoices ( id, payment_method_id, amount, currency, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING local_invoices.id, local_invoices.payment_method_id, local_invoices.amount, local_invoices.currency, local_invoices.status, local_invoices.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __payment_method_id_val, __amount_val, __currency_val, __status_val, __created_at_val)
+
+	local_invoice = &LocalInvoice{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __payment_method_id_val, __amount_val, __currency_val, __status_val, __created_at_val).Scan(&local_invoice.Id, &local_invoice.PaymentMethodId, &local_invoice.Amount, &local_invoice.Currency, &local_invoice.Status, &local_invoice.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice, nil
+
+}
+
+func (obj *postgresImpl) Create_LocalInvoiceLineItem(ctx context.Context,
+	local_invoice_line_item_id LocalInvoiceLineItem_Id_Field,
+	local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field,
+	local_invoice_line_item_key LocalInvoiceLineItem_Key_Field,
+	local_invoice_line_item_quantity LocalInvoiceLineItem_Quantity_Field,
+	local_invoice_line_item_amount LocalInvoiceLineItem_Amount_Field) (
+	local_invoice_line_item *LocalInvoiceLineItem, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := local_invoice_line_item_id.value()
+	__invoice_id_val := local_invoice_line_item_invoice_id.value()
+	__key_val := local_invoice_line_item_key.value()
+	__quantity_val := local_invoice_line_item_quantity.value()
+	__amount_val := local_invoice_line_item_amount.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO local_invoice_line_items ( id, invoice_id, key, quantity, amount, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING local_invoice_line_items.id, local_invoice_line_items.invoice_id, local_invoice_line_items.key, local_invoice_line_items.quantity, local_invoice_line_items.amount, local_invoice_line_items.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __invoice_id_val, __key_val, __quantity_val, __amount_val, __created_at_val)
+
+	local_invoice_line_item = &LocalInvoiceLineItem{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __invoice_id_val, __key_val, __quantity_val, __amount_val, __created_at_val).Scan(&local_invoice_line_item.Id, &local_invoice_line_item.InvoiceId, &local_invoice_line_item.Key, &local_invoice_line_item.Quantity, &local_invoice_line_item.Amount, &local_invoice_line_item.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice_line_item, nil
+
+}
+
+func (obj *postgresImpl) Create_LocalInvoiceCustomField(ctx context.Context,
+	local_invoice_custom_field_id LocalInvoiceCustomField_Id_Field,
+	local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field,
+	local_invoice_custom_field_name LocalInvoiceCustomField_Name_Field,
+	local_invoice_custom_field_value LocalInvoiceCustomField_Value_Field) (
+	local_invoice_custom_field *LocalInvoiceCustomField, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := local_invoice_custom_field_id.value()
+	__invoice_id_val := local_invoice_custom_field_invoice_id.value()
+	__name_val := local_invoice_custom_field_name.value()
+	__value_val := local_invoice_custom_field_value.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO local_invoice_custom_fields ( id, invoice_id, name, value, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING local_invoice_custom_fields.id, local_invoice_custom_fields.invoice_id, local_invoice_custom_fields.name, local_invoice_custom_fields.value, local_invoice_custom_fields.created_at")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __invoice_id_val, __name_val, __value_val, __created_at_val)
+
+	local_invoice_custom_field = &LocalInvoiceCustomField{}
+	err = obj.driver.QueryRow(__stmt, __id_val, __invoice_id_val, __name_val, __value_val, __created_at_val).Scan(&local_invoice_custom_field.Id, &local_invoice_custom_field.InvoiceId, &local_invoice_custom_field.Name, &local_invoice_custom_field.Value, &local_invoice_custom_field.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice_custom_field, nil
 
 }
 
@@ -5918,6 +6422,93 @@ func (obj *postgresImpl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Co
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) Get_LocalInvoice_By_Id(ctx context.Context,
+	local_invoice_id LocalInvoice_Id_Field) (
+	local_invoice *LocalInvoice, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoices.id, local_invoices.payment_method_id, local_invoices.amount, local_invoices.currency, local_invoices.status, local_invoices.created_at FROM local_invoices WHERE local_invoices.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, local_invoice_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	local_invoice = &LocalInvoice{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&local_invoice.Id, &local_invoice.PaymentMethodId, &local_invoice.Amount, &local_invoice.Currency, &local_invoice.Status, &local_invoice.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice, nil
+
+}
+
+func (obj *postgresImpl) All_LocalInvoiceLineItem_By_InvoiceId(ctx context.Context,
+	local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field) (
+	rows []*LocalInvoiceLineItem, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoice_line_items.id, local_invoice_line_items.invoice_id, local_invoice_line_items.key, local_invoice_line_items.quantity, local_invoice_line_items.amount, local_invoice_line_items.created_at FROM local_invoice_line_items WHERE local_invoice_line_items.invoice_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, local_invoice_line_item_invoice_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		local_invoice_line_item := &LocalInvoiceLineItem{}
+		err = __rows.Scan(&local_invoice_line_item.Id, &local_invoice_line_item.InvoiceId, &local_invoice_line_item.Key, &local_invoice_line_item.Quantity, &local_invoice_line_item.Amount, &local_invoice_line_item.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, local_invoice_line_item)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_LocalInvoiceCustomField_By_InvoiceId(ctx context.Context,
+	local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field) (
+	rows []*LocalInvoiceCustomField, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoice_custom_fields.id, local_invoice_custom_fields.invoice_id, local_invoice_custom_fields.name, local_invoice_custom_fields.value, local_invoice_custom_fields.created_at FROM local_invoice_custom_fields WHERE local_invoice_custom_fields.invoice_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, local_invoice_custom_field_invoice_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		local_invoice_custom_field := &LocalInvoiceCustomField{}
+		err = __rows.Scan(&local_invoice_custom_field.Id, &local_invoice_custom_field.InvoiceId, &local_invoice_custom_field.Name, &local_invoice_custom_field.Value, &local_invoice_custom_field.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, local_invoice_custom_field)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -7483,6 +8074,26 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM local_invoice_line_items;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM local_invoice_custom_fields;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -7594,6 +8205,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM local_invoices;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8094,6 +8715,103 @@ func (obj *sqlite3Impl) Create_ApiKey(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastApiKey(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_LocalInvoice(ctx context.Context,
+	local_invoice_id LocalInvoice_Id_Field,
+	local_invoice_payment_method_id LocalInvoice_PaymentMethodId_Field,
+	local_invoice_amount LocalInvoice_Amount_Field,
+	local_invoice_currency LocalInvoice_Currency_Field,
+	local_invoice_status LocalInvoice_Status_Field) (
+	local_invoice *LocalInvoice, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := local_invoice_id.value()
+	__payment_method_id_val := local_invoice_payment_method_id.value()
+	__amount_val := local_invoice_amount.value()
+	__currency_val := local_invoice_currency.value()
+	__status_val := local_invoice_status.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO local_invoices ( id, payment_method_id, amount, currency, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __payment_method_id_val, __amount_val, __currency_val, __status_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __payment_method_id_val, __amount_val, __currency_val, __status_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastLocalInvoice(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_LocalInvoiceLineItem(ctx context.Context,
+	local_invoice_line_item_id LocalInvoiceLineItem_Id_Field,
+	local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field,
+	local_invoice_line_item_key LocalInvoiceLineItem_Key_Field,
+	local_invoice_line_item_quantity LocalInvoiceLineItem_Quantity_Field,
+	local_invoice_line_item_amount LocalInvoiceLineItem_Amount_Field) (
+	local_invoice_line_item *LocalInvoiceLineItem, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := local_invoice_line_item_id.value()
+	__invoice_id_val := local_invoice_line_item_invoice_id.value()
+	__key_val := local_invoice_line_item_key.value()
+	__quantity_val := local_invoice_line_item_quantity.value()
+	__amount_val := local_invoice_line_item_amount.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO local_invoice_line_items ( id, invoice_id, key, quantity, amount, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __invoice_id_val, __key_val, __quantity_val, __amount_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __invoice_id_val, __key_val, __quantity_val, __amount_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastLocalInvoiceLineItem(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_LocalInvoiceCustomField(ctx context.Context,
+	local_invoice_custom_field_id LocalInvoiceCustomField_Id_Field,
+	local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field,
+	local_invoice_custom_field_name LocalInvoiceCustomField_Name_Field,
+	local_invoice_custom_field_value LocalInvoiceCustomField_Value_Field) (
+	local_invoice_custom_field *LocalInvoiceCustomField, err error) {
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := local_invoice_custom_field_id.value()
+	__invoice_id_val := local_invoice_custom_field_invoice_id.value()
+	__name_val := local_invoice_custom_field_name.value()
+	__value_val := local_invoice_custom_field_value.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO local_invoice_custom_fields ( id, invoice_id, name, value, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __id_val, __invoice_id_val, __name_val, __value_val, __created_at_val)
+
+	__res, err := obj.driver.Exec(__stmt, __id_val, __invoice_id_val, __name_val, __value_val, __created_at_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastLocalInvoiceCustomField(ctx, __pk)
 
 }
 
@@ -9107,6 +9825,93 @@ func (obj *sqlite3Impl) All_ApiKey_By_ProjectId_OrderBy_Asc_Name(ctx context.Con
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, api_key)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_LocalInvoice_By_Id(ctx context.Context,
+	local_invoice_id LocalInvoice_Id_Field) (
+	local_invoice *LocalInvoice, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoices.id, local_invoices.payment_method_id, local_invoices.amount, local_invoices.currency, local_invoices.status, local_invoices.created_at FROM local_invoices WHERE local_invoices.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, local_invoice_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	local_invoice = &LocalInvoice{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&local_invoice.Id, &local_invoice.PaymentMethodId, &local_invoice.Amount, &local_invoice.Currency, &local_invoice.Status, &local_invoice.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice, nil
+
+}
+
+func (obj *sqlite3Impl) All_LocalInvoiceLineItem_By_InvoiceId(ctx context.Context,
+	local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field) (
+	rows []*LocalInvoiceLineItem, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoice_line_items.id, local_invoice_line_items.invoice_id, local_invoice_line_items.key, local_invoice_line_items.quantity, local_invoice_line_items.amount, local_invoice_line_items.created_at FROM local_invoice_line_items WHERE local_invoice_line_items.invoice_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, local_invoice_line_item_invoice_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		local_invoice_line_item := &LocalInvoiceLineItem{}
+		err = __rows.Scan(&local_invoice_line_item.Id, &local_invoice_line_item.InvoiceId, &local_invoice_line_item.Key, &local_invoice_line_item.Quantity, &local_invoice_line_item.Amount, &local_invoice_line_item.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, local_invoice_line_item)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_LocalInvoiceCustomField_By_InvoiceId(ctx context.Context,
+	local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field) (
+	rows []*LocalInvoiceCustomField, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoice_custom_fields.id, local_invoice_custom_fields.invoice_id, local_invoice_custom_fields.name, local_invoice_custom_fields.value, local_invoice_custom_fields.created_at FROM local_invoice_custom_fields WHERE local_invoice_custom_fields.invoice_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, local_invoice_custom_field_invoice_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		local_invoice_custom_field := &LocalInvoiceCustomField{}
+		err = __rows.Scan(&local_invoice_custom_field.Id, &local_invoice_custom_field.InvoiceId, &local_invoice_custom_field.Name, &local_invoice_custom_field.Value, &local_invoice_custom_field.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, local_invoice_custom_field)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -10925,6 +11730,60 @@ func (obj *sqlite3Impl) getLastApiKey(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastLocalInvoice(ctx context.Context,
+	pk int64) (
+	local_invoice *LocalInvoice, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoices.id, local_invoices.payment_method_id, local_invoices.amount, local_invoices.currency, local_invoices.status, local_invoices.created_at FROM local_invoices WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	local_invoice = &LocalInvoice{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&local_invoice.Id, &local_invoice.PaymentMethodId, &local_invoice.Amount, &local_invoice.Currency, &local_invoice.Status, &local_invoice.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice, nil
+
+}
+
+func (obj *sqlite3Impl) getLastLocalInvoiceLineItem(ctx context.Context,
+	pk int64) (
+	local_invoice_line_item *LocalInvoiceLineItem, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoice_line_items.id, local_invoice_line_items.invoice_id, local_invoice_line_items.key, local_invoice_line_items.quantity, local_invoice_line_items.amount, local_invoice_line_items.created_at FROM local_invoice_line_items WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	local_invoice_line_item = &LocalInvoiceLineItem{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&local_invoice_line_item.Id, &local_invoice_line_item.InvoiceId, &local_invoice_line_item.Key, &local_invoice_line_item.Quantity, &local_invoice_line_item.Amount, &local_invoice_line_item.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice_line_item, nil
+
+}
+
+func (obj *sqlite3Impl) getLastLocalInvoiceCustomField(ctx context.Context,
+	pk int64) (
+	local_invoice_custom_field *LocalInvoiceCustomField, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT local_invoice_custom_fields.id, local_invoice_custom_fields.invoice_id, local_invoice_custom_fields.name, local_invoice_custom_fields.value, local_invoice_custom_fields.created_at FROM local_invoice_custom_fields WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	local_invoice_custom_field = &LocalInvoiceCustomField{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&local_invoice_custom_field.Id, &local_invoice_custom_field.InvoiceId, &local_invoice_custom_field.Name, &local_invoice_custom_field.Value, &local_invoice_custom_field.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return local_invoice_custom_field, nil
+
+}
+
 func (obj *sqlite3Impl) getLastBucketUsage(ctx context.Context,
 	pk int64) (
 	bucket_usage *BucketUsage, err error) {
@@ -11155,6 +12014,26 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM local_invoice_line_items;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM local_invoice_custom_fields;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM api_keys;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -11266,6 +12145,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM nodes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM local_invoices;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -11433,6 +12322,26 @@ func (rx *Rx) All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalSta
 		return
 	}
 	return tx.All_BucketStorageTally_By_ProjectId_And_BucketName_And_IntervalStart_GreaterOrEqual_And_IntervalStart_LessOrEqual_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id, bucket_storage_tally_bucket_name, bucket_storage_tally_interval_start_greater_or_equal, bucket_storage_tally_interval_start_less_or_equal)
+}
+
+func (rx *Rx) All_LocalInvoiceCustomField_By_InvoiceId(ctx context.Context,
+	local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field) (
+	rows []*LocalInvoiceCustomField, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_LocalInvoiceCustomField_By_InvoiceId(ctx, local_invoice_custom_field_invoice_id)
+}
+
+func (rx *Rx) All_LocalInvoiceLineItem_By_InvoiceId(ctx context.Context,
+	local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field) (
+	rows []*LocalInvoiceLineItem, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_LocalInvoiceLineItem_By_InvoiceId(ctx, local_invoice_line_item_invoice_id)
 }
 
 func (rx *Rx) All_Node_Id(ctx context.Context) (
@@ -11641,6 +12550,50 @@ func (rx *Rx) Create_Irreparabledb(ctx context.Context,
 		return
 	}
 	return tx.Create_Irreparabledb(ctx, irreparabledb_segmentpath, irreparabledb_segmentdetail, irreparabledb_pieces_lost_count, irreparabledb_seg_damaged_unix_sec, irreparabledb_repair_attempt_count)
+
+}
+
+func (rx *Rx) Create_LocalInvoice(ctx context.Context,
+	local_invoice_id LocalInvoice_Id_Field,
+	local_invoice_payment_method_id LocalInvoice_PaymentMethodId_Field,
+	local_invoice_amount LocalInvoice_Amount_Field,
+	local_invoice_currency LocalInvoice_Currency_Field,
+	local_invoice_status LocalInvoice_Status_Field) (
+	local_invoice *LocalInvoice, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_LocalInvoice(ctx, local_invoice_id, local_invoice_payment_method_id, local_invoice_amount, local_invoice_currency, local_invoice_status)
+
+}
+
+func (rx *Rx) Create_LocalInvoiceCustomField(ctx context.Context,
+	local_invoice_custom_field_id LocalInvoiceCustomField_Id_Field,
+	local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field,
+	local_invoice_custom_field_name LocalInvoiceCustomField_Name_Field,
+	local_invoice_custom_field_value LocalInvoiceCustomField_Value_Field) (
+	local_invoice_custom_field *LocalInvoiceCustomField, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_LocalInvoiceCustomField(ctx, local_invoice_custom_field_id, local_invoice_custom_field_invoice_id, local_invoice_custom_field_name, local_invoice_custom_field_value)
+
+}
+
+func (rx *Rx) Create_LocalInvoiceLineItem(ctx context.Context,
+	local_invoice_line_item_id LocalInvoiceLineItem_Id_Field,
+	local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field,
+	local_invoice_line_item_key LocalInvoiceLineItem_Key_Field,
+	local_invoice_line_item_quantity LocalInvoiceLineItem_Quantity_Field,
+	local_invoice_line_item_amount LocalInvoiceLineItem_Amount_Field) (
+	local_invoice_line_item *LocalInvoiceLineItem, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_LocalInvoiceLineItem(ctx, local_invoice_line_item_id, local_invoice_line_item_invoice_id, local_invoice_line_item_key, local_invoice_line_item_quantity, local_invoice_line_item_amount)
 
 }
 
@@ -12107,6 +13060,16 @@ func (rx *Rx) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	return tx.Get_Irreparabledb_By_Segmentpath(ctx, irreparabledb_segmentpath)
 }
 
+func (rx *Rx) Get_LocalInvoice_By_Id(ctx context.Context,
+	local_invoice_id LocalInvoice_Id_Field) (
+	local_invoice *LocalInvoice, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_LocalInvoice_By_Id(ctx, local_invoice_id)
+}
+
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -12442,6 +13405,14 @@ type Methods interface {
 		bucket_storage_tally_interval_start_less_or_equal BucketStorageTally_IntervalStart_Field) (
 		rows []*BucketStorageTally, err error)
 
+	All_LocalInvoiceCustomField_By_InvoiceId(ctx context.Context,
+		local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field) (
+		rows []*LocalInvoiceCustomField, err error)
+
+	All_LocalInvoiceLineItem_By_InvoiceId(ctx context.Context,
+		local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field) (
+		rows []*LocalInvoiceLineItem, err error)
+
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
@@ -12541,6 +13512,29 @@ type Methods interface {
 		irreparabledb_seg_damaged_unix_sec Irreparabledb_SegDamagedUnixSec_Field,
 		irreparabledb_repair_attempt_count Irreparabledb_RepairAttemptCount_Field) (
 		irreparabledb *Irreparabledb, err error)
+
+	Create_LocalInvoice(ctx context.Context,
+		local_invoice_id LocalInvoice_Id_Field,
+		local_invoice_payment_method_id LocalInvoice_PaymentMethodId_Field,
+		local_invoice_amount LocalInvoice_Amount_Field,
+		local_invoice_currency LocalInvoice_Currency_Field,
+		local_invoice_status LocalInvoice_Status_Field) (
+		local_invoice *LocalInvoice, err error)
+
+	Create_LocalInvoiceCustomField(ctx context.Context,
+		local_invoice_custom_field_id LocalInvoiceCustomField_Id_Field,
+		local_invoice_custom_field_invoice_id LocalInvoiceCustomField_InvoiceId_Field,
+		local_invoice_custom_field_name LocalInvoiceCustomField_Name_Field,
+		local_invoice_custom_field_value LocalInvoiceCustomField_Value_Field) (
+		local_invoice_custom_field *LocalInvoiceCustomField, err error)
+
+	Create_LocalInvoiceLineItem(ctx context.Context,
+		local_invoice_line_item_id LocalInvoiceLineItem_Id_Field,
+		local_invoice_line_item_invoice_id LocalInvoiceLineItem_InvoiceId_Field,
+		local_invoice_line_item_key LocalInvoiceLineItem_Key_Field,
+		local_invoice_line_item_quantity LocalInvoiceLineItem_Quantity_Field,
+		local_invoice_line_item_amount LocalInvoiceLineItem_Amount_Field) (
+		local_invoice_line_item *LocalInvoiceLineItem, err error)
 
 	Create_Node(ctx context.Context,
 		node_id Node_Id_Field,
@@ -12761,6 +13755,10 @@ type Methods interface {
 	Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 		irreparabledb *Irreparabledb, err error)
+
+	Get_LocalInvoice_By_Id(ctx context.Context,
+		local_invoice_id LocalInvoice_Id_Field) (
+		local_invoice *LocalInvoice, err error)
 
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (

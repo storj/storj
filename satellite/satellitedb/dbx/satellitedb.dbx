@@ -361,6 +361,67 @@ read all (
     orderby asc api_key.name
 )
 
+//-----local_payments-----//
+
+model local_invoice (
+    key id
+
+    field id  blob
+
+    field payment_method_id  blob
+    field amount             int64
+    field currency           text
+    field status             text
+
+    field  created_at  timestamp  (autoinsert)
+)
+
+create local_invoice()
+
+read one (
+    select local_invoice
+    where local_invoice.id = ?
+)
+
+model local_invoice_line_item (
+    key id
+
+    field id          blob
+    field invoice_id  local_invoice.id cascade
+
+    field key       text
+    field quantity  int64
+    field amount    int64
+
+    field  created_at  timestamp  (autoinsert)
+)
+
+create local_invoice_line_item ()
+
+read all (
+    select local_invoice_line_item
+    where local_invoice_line_item.invoice_id = ?
+)
+
+model local_invoice_custom_field (
+    key id
+
+    field id          blob
+    field invoice_id  local_invoice.id cascade
+
+    field name text
+    field value text
+
+    field  created_at  timestamp  (autoinsert)
+)
+
+create local_invoice_custom_field ()
+
+read all (
+    select local_invoice_custom_field
+    where local_invoice_custom_field.invoice_id = ?
+)
+
 //-----bucket_usage----//
 
 model bucket_usage (

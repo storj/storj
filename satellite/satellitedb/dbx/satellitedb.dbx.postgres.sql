@@ -75,6 +75,15 @@ CREATE TABLE irreparabledbs (
 	repair_attempt_count bigint NOT NULL,
 	PRIMARY KEY ( segmentpath )
 );
+CREATE TABLE local_invoices (
+	id bytea NOT NULL,
+	payment_method_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	currency text NOT NULL,
+	status text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	address text NOT NULL,
@@ -203,6 +212,23 @@ CREATE TABLE api_keys (
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
+);
+CREATE TABLE local_invoice_custom_fields (
+	id bytea NOT NULL,
+	invoice_id bytea NOT NULL REFERENCES local_invoices( id ) ON DELETE CASCADE,
+	name text NOT NULL,
+	value text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE local_invoice_line_items (
+	id bytea NOT NULL,
+	invoice_id bytea NOT NULL REFERENCES local_invoices( id ) ON DELETE CASCADE,
+	key text NOT NULL,
+	quantity bigint NOT NULL,
+	amount bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE project_invoice_stamps (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,

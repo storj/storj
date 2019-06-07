@@ -6,9 +6,11 @@ package localpayments
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
@@ -21,7 +23,7 @@ var (
 	mon = monkit.Package()
 )
 
-// StorjCustomer is a predefined customer
+// storjCustomer is a predefined customer
 // which is linked with every user by default
 var storjCustomer = payments.Customer{
 	ID:        []byte("0"),
@@ -31,7 +33,7 @@ var storjCustomer = payments.Customer{
 }
 
 // defaultPaymentMethod represents one and only payment method for local payments,
-// which attached to all customers by default
+// which is attached to all customers by default
 var defaultPaymentMethod = payments.PaymentMethod{
 	ID:         []byte("0"),
 	CustomerID: []byte("0"),
@@ -46,22 +48,24 @@ var defaultPaymentMethod = payments.PaymentMethod{
 	CreatedAt: creationDate,
 }
 
-// internalPaymentsErr is a wrapper for local payments service errors
-var internalPaymentsErr = errs.Class("internal payments error")
+// localPaymentsErr is a wrapper for local payments service errors
+var localPaymentsErr = errs.Class("internal payments error")
 
 // DB is internal payment methods storage
 type DB interface {
-	// TODO: add method to retrieve invoice information from project invoice stamp
+	CreateInvoice(ctx context.Context, invoice payments.Invoice) (*payments.Invoice, error)
+	GetInvoice(ctx context.Context, id []byte) (*payments.Invoice, error)
 }
 
 // service is internal payments.Service implementation
 type service struct {
-	db DB
+	log *zap.Logger
+	db  DB
 }
 
 // NewService create new instance of local payments service
-func NewService(db DB) payments.Service {
-	return &service{db: db}
+func NewService(log *zap.Logger, db DB) payments.Service {
+	return &service{log: log, db: db}
 }
 
 // CreateCustomer creates new payments.Customer with random id to satisfy unique db constraint
@@ -72,7 +76,7 @@ func (*service) CreateCustomer(ctx context.Context, params payments.CreateCustom
 
 	_, err = rand.Read(b[:])
 	if err != nil {
-		return nil, internalPaymentsErr.New("error creating customer")
+		return nil, localPaymentsErr.New("error creating customer")
 	}
 
 	return &payments.Customer{
@@ -98,27 +102,78 @@ func (*service) GetCustomerPaymentsMethods(ctx context.Context, customerID []byt
 	return []payments.PaymentMethod{defaultPaymentMethod}, nil
 }
 
-// GetPaymentMethod always returns defaultPaymentMethod or error
+// GetPaymentMethod returns defaultPaymentMethod or error otherwise
 func (*service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if string(id) == "0" {
 		return &defaultPaymentMethod, nil
 	}
 
-	return nil, internalPaymentsErr.New("only one payments method exists, with id \"0\"")
+	return nil, localPaymentsErr.New("only one payment method exists, with id \"0\"")
 }
 
-// CreateProjectInvoice creates invoice from provided params
-func (*service) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (_ *payments.Invoice, err error) {
+// CreateProjectInvoice creates invoice from provided params.
+// Returned invoice receives InvoiceStatusPaid by default
+func (s *service) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (_ *payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: fill data
-	return &payments.Invoice{}, nil
+
+	var amount int64
+	var lineItems []payments.LineItem
+	var customFields []payments.CustomField
+
+	// line items
+	storage := payments.LineItem{
+		Key:      payments.LineItemStorage,
+		Quantity: int64(params.Storage),
+		Amount:   int64(params.Storage),
+	}
+	egress := payments.LineItem{
+		Key:      payments.LineItemEgress,
+		Quantity: int64(params.Egress),
+		Amount:   int64(params.Egress),
+	}
+	objectCount := payments.LineItem{
+		Key:      payments.LineItemObjectCount,
+		Quantity: int64(params.ObjectCount),
+		Amount:   int64(params.ObjectCount),
+	}
+
+	// custom fields
+	billingPeriod := payments.CustomField{
+		Name:  payments.CustomFieldBillingPeriod,
+		Value: fmt.Sprintf("%s - %s", params.StartDate, params.EndDate),
+	}
+	projectName := payments.CustomField{
+		Name:  payments.CustomFieldProjectName,
+		Value: params.ProjectName,
+	}
+
+	lineItems = append(lineItems, storage, egress, objectCount)
+	customFields = append(customFields, billingPeriod, projectName)
+
+	amount = storage.Amount
+	amount += egress.Amount
+	amount += objectCount.Amount
+
+	inv, err := s.db.CreateInvoice(ctx,
+		payments.Invoice{
+			PaymentMethodID: params.PaymentMethodID,
+			Amount:          amount,
+			Currency:        payments.CurrencyUSD,
+			Status:          payments.InvoiceStatusPaid,
+			LineItems:       lineItems,
+			CustomFields:    customFields,
+		},
+	)
+
+	return inv, localPaymentsErr.Wrap(err)
 }
 
 // GetInvoice retrieves invoice information from project invoice stamp by invoice id
 // and returns invoice
-func (*service) GetInvoice(ctx context.Context, id []byte) (_ *payments.Invoice, err error) {
+func (s *service) GetInvoice(ctx context.Context, id []byte) (_ *payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: get project invoice stamp by invoice id from the db and fill data
-	return &payments.Invoice{}, nil
+
+	inv, err := s.db.GetInvoice(ctx, id)
+	return inv, localPaymentsErr.Wrap(err)
 }

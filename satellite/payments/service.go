@@ -77,6 +77,43 @@ const (
 	CurrencyUSD Currency = "usd"
 )
 
+// InvoiceStatus defines set of allowed invoice statuses
+type InvoiceStatus string
+
+const (
+	// InvoiceStatusOpen describes invoice which ready to be paid
+	InvoiceStatusOpen InvoiceStatus = "open"
+	// InvoiceStatusPaid describes successfully paid invoice
+	InvoiceStatusPaid InvoiceStatus = "paid"
+	// InvoiceStatusVoid describes invoice that can be considered as a mistake
+	InvoiceStatusVoid InvoiceStatus = "void"
+	// InvoiceStatusUncollectible describes invoice which can be considered as debt,
+	// as it's payment failed
+	InvoiceStatusUncollectible InvoiceStatus = "uncollectible"
+)
+
+// ProjectLineItem defines line items for project invoice
+type ProjectLineItem = string
+
+const (
+	// LineItemStorage defines line item key for storage used
+	LineItemStorage ProjectLineItem = "Storage"
+	// LineItemEgress defines line item key for egress used
+	LineItemEgress ProjectLineItem = "Egress"
+	// LineItemObjectCount defines line item key for object count
+	LineItemObjectCount ProjectLineItem = "Object Count"
+)
+
+// ProjectCustomField defines custom fields for project invoice
+type ProjectCustomField = string
+
+const (
+	// CustomFieldProjectName defines custom field name for project name
+	CustomFieldProjectName = "Project name"
+	// CustomFieldBillingPeriod defines custom field name for billing period
+	CustomFieldBillingPeriod = "Billing Period"
+)
+
 // LineItem contains invoice line item info
 type LineItem struct {
 	Key      string
@@ -97,6 +134,7 @@ type Invoice struct {
 
 	Amount       int64
 	Currency     Currency
+	Status       InvoiceStatus
 	LineItems    []LineItem
 	CustomFields []CustomField
 

@@ -26,6 +26,8 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -620,6 +622,31 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
+}
+
+// LocalPayments returns data base for local payment information
+func (m *locked) LocalPayments() localpayments.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedLocalPayments{m.Locker, m.db.LocalPayments()}
+}
+
+// lockedLocalPayments implements locking wrapper for localpayments.DB
+type lockedLocalPayments struct {
+	sync.Locker
+	db localpayments.DB
+}
+
+func (m *lockedLocalPayments) CreateInvoice(ctx context.Context, invoice payments.Invoice) (*payments.Invoice, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateInvoice(ctx, invoice)
+}
+
+func (m *lockedLocalPayments) GetInvoice(ctx context.Context, id []byte) (*payments.Invoice, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetInvoice(ctx, id)
 }
 
 // Marketing returns database for marketing admin GUI

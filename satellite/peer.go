@@ -94,6 +94,8 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
+	// LocalPayments returns data base for local payment information
+	LocalPayments() localpayments.DB
 }
 
 // Config is the global config satellite
@@ -189,6 +191,10 @@ type Peer struct {
 
 	LiveAccounting struct {
 		Service live.Service
+	}
+
+	Payments struct {
+		Service payments.Service
 	}
 
 	Mail struct {
@@ -536,6 +542,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
+	{ // setup payments
+		log.Debug("Setting up payments")
+		if config.Console.StripeKey != "" {
+			peer.Payments.Service = stripepayments.NewService(
+				peer.Log.Named("payments:stripe"),
+				config.Console.StripeKey)
+		} else {
+			peer.Payments.Service = localpayments.NewService(
+				peer.Log.Named("payments:local"),
+				peer.DB.LocalPayments())
+		}
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -549,19 +568,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
-		// TODO: change mock implementation to using mock stripe backend
-		var pmService payments.Service
-		if consoleConfig.StripeKey != "" {
-			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
-		} else {
-			pmService = localpayments.NewService(nil)
-		}
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
-			pmService,
+			peer.Payments.Service,
 			consoleConfig.PasswordCost,
 		)
 

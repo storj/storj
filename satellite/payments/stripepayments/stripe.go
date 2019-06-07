@@ -213,7 +213,7 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 	// create line items
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
 		Customer:    stripe.String(customerID),
-		Description: stripe.String("Storage"),
+		Description: stripe.String(payments.LineItemStorage),
 		Quantity:    stripe.Int64(int64(params.Storage)),
 		UnitAmount:  stripe.Int64(100),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
@@ -224,7 +224,7 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
 		Customer:    stripe.String(customerID),
-		Description: stripe.String("Egress"),
+		Description: stripe.String(payments.LineItemEgress),
 		Quantity:    stripe.Int64(int64(params.Egress)),
 		UnitAmount:  stripe.Int64(100),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
@@ -235,7 +235,7 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 
 	_, err = s.client.InvoiceItems.New(&stripe.InvoiceItemParams{
 		Customer:    stripe.String(customerID),
-		Description: stripe.String("ObjectsCount"),
+		Description: stripe.String(payments.LineItemObjectCount),
 		Quantity:    stripe.Int64(int64(params.ObjectCount)),
 		UnitAmount:  stripe.Int64(100),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
@@ -251,11 +251,11 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 		Description:          stripe.String(fmt.Sprintf("Invoice for usage of %s", params.ProjectName)),
 		CustomFields: []*stripe.InvoiceCustomFieldParams{
 			{
-				Name:  stripe.String("Billing period"),
+				Name:  stripe.String(payments.CustomFieldBillingPeriod),
 				Value: stripe.String(timeRangeString(params.StartDate, params.EndDate)),
 			},
 			{
-				Name:  stripe.String("Project Name"),
+				Name:  stripe.String(payments.CustomFieldProjectName),
 				Value: stripe.String(params.ProjectName),
 			},
 		},
@@ -289,6 +289,7 @@ func (s *service) CreateProjectInvoice(ctx context.Context, params payments.Crea
 		ID:           []byte(inv.ID),
 		Amount:       inv.AmountDue,
 		Currency:     payments.Currency(inv.Currency),
+		Status:       getInvoiceStatus(inv.Status),
 		LineItems:    lineItems,
 		CustomFields: customFields,
 		CreatedAt:    time.Unix(inv.Created, 0),
@@ -325,11 +326,22 @@ func (s *service) GetInvoice(ctx context.Context, id []byte) (_ *payments.Invoic
 		ID:           []byte(inv.ID),
 		Amount:       inv.AmountDue,
 		Currency:     payments.Currency(inv.Currency),
+		Status:       getInvoiceStatus(inv.Status),
 		LineItems:    lineItems,
 		CustomFields: customFields,
 		CreatedAt:    time.Unix(inv.Created, 0),
 	}, nil
 
+}
+
+// getInvoiceStatus maps stripe invoice status to payments invoice status
+func getInvoiceStatus(status stripe.InvoiceBillingStatus) payments.InvoiceStatus {
+	switch status {
+	case stripe.InvoiceBillingStatusDraft, stripe.InvoiceBillingStatusOpen:
+		return payments.InvoiceStatusOpen
+	default:
+		return payments.InvoiceStatus(status)
+	}
 }
 
 // timeRangeString helper function to create string representation of time range
