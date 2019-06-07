@@ -531,11 +531,11 @@ func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.Segmen
 	if err != nil {
 		switch status.Code(err) {
 		case codes.NotFound:
-			endpoint.log.Sugar().Info("Value attribution entry made: %v", err)
+			endpoint.log.Sugar().Info("Value attribution entry made\n")
 			// @TODO make entry into Value attribution table
 			return nil, nil
 		default:
-			endpoint.log.Sugar().Info("Value attribution entry not made %v: %v: %v", string(req.Path), string(req.Bucket), err)
+			endpoint.log.Sugar().Info("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
 			// no entry made into value attribution table
 			return nil, err
 		}
