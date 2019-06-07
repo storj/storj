@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"sort"
 	"time"
 
 	"github.com/lib/pq"
@@ -149,6 +150,9 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 		}
 
 	case *pq.Driver:
+		// sort nodes to avoid update deadlock
+		sort.Sort(storj.NodeIDList(storageNodes))
+
 		_, err := db.db.ExecContext(ctx, `
 			INSERT INTO storagenode_bandwidth_rollups
 				(storagenode_id, interval_start, interval_seconds, action, allocated, settled)
