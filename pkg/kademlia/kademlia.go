@@ -293,7 +293,8 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 	var nodes []*pb.Node
 	if isBootstrap {
 		for _, bn := range k.bootstrapNodes {
-			nodes = append(nodes, &bn) // nolint: scopelint
+			bn := bn
+			nodes = append(nodes, &bn)
 		}
 	} else {
 		var err error
@@ -325,17 +326,6 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 		return pb.Node{}, NodeNotFound.New("")
 	}
 	return *target, nil
-}
-
-// Seen returns all nodes that this kademlia instance has successfully communicated with
-func (k *Kademlia) Seen() []*pb.Node {
-	nodes := []*pb.Node{}
-	k.routingTable.mutex.Lock()
-	for _, v := range k.routingTable.seen {
-		nodes = append(nodes, pb.CopyNode(v))
-	}
-	k.routingTable.mutex.Unlock()
-	return nodes
 }
 
 // GetNodesWithinKBucket returns all the routing nodes in the specified k-bucket
