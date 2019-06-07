@@ -20,8 +20,8 @@ var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketing offersweb server
 type Config struct {
-	Address		string `help:"server address of the marketing Admin GUI" default:"0.0.0.0:8090"`
-	StaticDir	string `help:"path to static resources" default:""`
+	Address   string `help:"server address of the marketing Admin GUI" default:"0.0.0.0:8090"`
+	StaticDir string `help:"path to static resources" default:""`
 }
 
 // Server represents marketing offersweb server
@@ -37,7 +37,7 @@ type Server struct {
 // The three pages contained in addPages are pages all templates require
 // This exists in order to limit handler verbosity
 func (s *Server) addPages(assets []string) []string {
-	rp :=  s.config.StaticDir + "/pages/"
+	rp := s.config.StaticDir + "/pages/"
 	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html"}
 	for _, page := range assets {
 		pages = append(pages, page)
@@ -57,7 +57,7 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 	mux := mux.NewRouter()
 	if server.config.StaticDir != "" {
-		mux.Handle("/static/", http.StripPrefix("/static",fs))
+		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 	server.server = http.Server{
