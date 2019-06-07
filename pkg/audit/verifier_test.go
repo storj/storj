@@ -23,9 +23,7 @@ func TestFailingAudit(t *testing.T) {
 	)
 
 	f, err := infectious.NewFEC(required, total)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	shares := make([]infectious.Share, total)
 	output := func(s infectious.Share) {
@@ -35,9 +33,7 @@ func TestFailingAudit(t *testing.T) {
 	// the data to encode must be padded to a multiple of required, hence the
 	// underscores.
 	err = f.Encode([]byte("hello, world! __"), output)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	modifiedShares := make([]infectious.Share, len(shares))
 	for i := range shares {
@@ -81,9 +77,7 @@ func TestNotEnoughShares(t *testing.T) {
 	)
 
 	f, err := infectious.NewFEC(required, total)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	shares := make([]infectious.Share, total)
 	output := func(s infectious.Share) {
@@ -93,9 +87,7 @@ func TestNotEnoughShares(t *testing.T) {
 	// the data to encode must be padded to a multiple of required, hence the
 	// underscores.
 	err = f.Encode([]byte("hello, world! __"), output)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	auditPkgShares := make(map[int]Share, len(shares))
@@ -116,9 +108,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	)
 
 	f, err := infectious.NewFEC(required, total)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	shares := make([]infectious.Share, total)
 	output := func(s infectious.Share) {
@@ -128,9 +118,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	// the data to encode must be padded to a multiple of required, hence the
 	// underscores.
 	err = f.Encode([]byte("hello, world! __"), output)
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	var testNodeID storj.NodeID
 	_, err = rand.Read(testNodeID[:])
