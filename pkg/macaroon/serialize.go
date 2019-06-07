@@ -4,6 +4,7 @@
 package macaroon
 
 import (
+	"context"
 	"encoding/binary"
 	"errors"
 )
@@ -25,6 +26,8 @@ type packet struct {
 
 // Serialize converts macaroon to binary format
 func (m *Macaroon) Serialize() (data []byte) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(nil)
 	// Start data from version int
 	data = append(data, 2)
 
@@ -72,7 +75,9 @@ func appendVarint(data []byte, x int) []byte {
 }
 
 // ParseMacaroon converts binary to macaroon
-func ParseMacaroon(data []byte) (*Macaroon, error) {
+func ParseMacaroon(data []byte) (_ *Macaroon, err error) {
+	ctx := context.TODO()
+	defer mon.Task()(&ctx)(&err)
 	// skip version
 	data = data[1:]
 	// Parse Location

@@ -27,7 +27,7 @@ func TestCache_Refresh(t *testing.T) {
 	})
 }
 
-func TestCache_Graveyard(t *testing.T) {
+func TestCache_Discovery(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -38,7 +38,6 @@ func TestCache_Graveyard(t *testing.T) {
 		satellite.Kademlia.Service.RefreshBuckets.Pause()
 
 		satellite.Discovery.Service.Refresh.Pause()
-		satellite.Discovery.Service.Graveyard.Pause()
 		satellite.Discovery.Service.Discovery.Pause()
 
 		overlay := satellite.Overlay.Service
@@ -51,7 +50,7 @@ func TestCache_Graveyard(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, overlay.IsOnline(node))
 
-		satellite.Discovery.Service.Graveyard.TriggerWait()
+		satellite.Discovery.Service.Discovery.TriggerWait()
 
 		found, err := overlay.Get(ctx, offlineID)
 		assert.NoError(t, err)

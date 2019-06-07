@@ -55,12 +55,14 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	}()
 
 	bucketCfg := &uplink.BucketConfig{}
-	//TODO (alex): make segment size customizable
+	bucketCfg.PathCipher = cfg.GetPathCipherSuite()
+	bucketCfg.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
 	bucketCfg.Volatile = struct {
 		RedundancyScheme storj.RedundancyScheme
 		SegmentsSize     memory.Size
 	}{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
+		SegmentsSize:     cfg.GetSegmentSize(),
 	}
 
 	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)

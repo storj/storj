@@ -27,6 +27,17 @@ var (
 	mon = monkit.Package()
 )
 
+// DB implements storing and retrieving vouchers
+type DB interface {
+	// Put inserts or updates a voucher from a satellite
+	Put(context.Context, *pb.Voucher) error
+	// GetExpiring retrieves all vouchers that are expired or about to expire
+	GetExpiring(context.Context, time.Duration) ([]storj.NodeID, error)
+	// GetValid returns one valid voucher from the list of approved satellites
+	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
+}
+
+
 // Config defines configuration for requesting vouchers.
 type Config struct {
 	Interval         int `help:"number of days between voucher service iterations" default: 7`
