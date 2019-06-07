@@ -274,13 +274,14 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 }
 
 func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
-	defer mon.Task()(&ctx, "node: ", limit.GetLimit().StorageNodeId.String()[0:8])(&err)
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
 		_, _ = io.Copy(ioutil.Discard, data)
 		return nil, nil
 	}
+
+	defer mon.Task()(&ctx, "node: "+limit.GetLimit().StorageNodeId.String()[0:8])(&err)
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
