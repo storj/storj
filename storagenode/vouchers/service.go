@@ -101,6 +101,7 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 		defer cancel()
 
 		for _, satelliteID := range expired {
+			satelliteID := satelliteID
 			group.Go(func() error {
 				err = service.request(ctx, satelliteID)
 				if err != nil {
@@ -129,6 +130,7 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 		defer cancel()
 
 		for _, satelliteID := range withoutVouchers {
+			satelliteID := satelliteID
 			group.Go(func() error {
 				err = service.request(ctx, satelliteID)
 				if err != nil {
