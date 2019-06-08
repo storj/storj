@@ -41,8 +41,8 @@ type DB interface {
 
 // Config defines configuration for requesting vouchers.
 type Config struct {
-	Interval         int `help:"number of days between voucher service iterations" default: 7`
-	ExpirationBuffer int `help:"buffer period of X days into the future. If a voucher would expire within this period, send a request for renewal" default: 7`
+	Interval         int `help:"number of days between voucher service iterations" default:"7"`
+	ExpirationBuffer int `help:"buffer period of X days into the future. If a voucher would expire within this period, send a request for renewal" default:"7"`
 }
 
 // Service is a service for requesting vouchers
@@ -101,10 +101,13 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 		defer cancel()
 
 		for _, satelliteID := range expired {
-			err = service.request(ctx, satelliteID)
-			if err != nil {
-				service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
-			}
+			group.Go(func() error {
+				err = service.request(ctx, satelliteID)
+				if err != nil {
+					service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
+				}
+				return nil
+			})
 		}
 	} else {
 		service.log.Debug("No vouchers close to expiration")
@@ -126,10 +129,13 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 		defer cancel()
 
 		for _, satelliteID := range withoutVouchers {
-			err = service.request(ctx, satelliteID)
-			if err != nil {
-				service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
-			}
+			group.Go(func() error {
+				err = service.request(ctx, satelliteID)
+				if err != nil {
+					service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
+				}
+				return nil
+			})
 		}
 	} else {
 		service.log.Debug("No satellites requiring initial vouchers")
