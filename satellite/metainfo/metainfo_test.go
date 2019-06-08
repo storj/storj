@@ -443,6 +443,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 	})
 }
 
+// @TODO: Test case development in progress.....
 func TestValueAttributeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
@@ -514,6 +515,10 @@ func TestValueAttributeInfo(t *testing.T) {
 		ctxConntectorKey := console.WithConnectorKey(ctx, keyInfo)
 		assert.NotNil(t, ctxConntectorKey)
 
+		ctxValue, err := console.GetConnectorKeyInfo(ctxConntectorKey)
+		assert.NoError(t, err)
+		assert.NotNil(t, ctxValue)
+
 		{
 			// error if pointer is nil
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
@@ -521,27 +526,33 @@ func TestValueAttributeInfo(t *testing.T) {
 
 			// fix this
 			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1)
-			require.Error(t, err)
-		}
-		{
-			// error if number of remote pieces is lower then repair threshold
-			redundancy := &pb.RedundancyScheme{
-				MinReq:           1,
-				RepairThreshold:  2,
-				SuccessThreshold: 4,
-				Total:            6,
-				ErasureShareSize: 10,
-			}
-			expirationDate := time.Now()
-			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
-			require.NotEmpty(t, addresedLimits)
-			require.NotEmpty(t, rootPieceID)
 			require.NoError(t, err)
+<<<<<<< HEAD
 
 			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1)
 >>>>>>> added value addition test case
 			require.Error(t, err)
+=======
+>>>>>>> added the proto buf message ConnectorKeyInfo
 		}
+		// {
+		// 	// error if number of remote pieces is lower then repair threshold
+		// 	redundancy := &pb.RedundancyScheme{
+		// 		MinReq:           1,
+		// 		RepairThreshold:  2,
+		// 		SuccessThreshold: 4,
+		// 		Total:            6,
+		// 		ErasureShareSize: 10,
+		// 	}
+		// 	expirationDate := time.Now()
+		// 	addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+		// 	require.NotEmpty(t, addresedLimits)
+		// 	require.NotEmpty(t, rootPieceID)
+		// 	require.NoError(t, err)
+
+		// 	_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1)
+		// 	require.Error(t, err)
+		// }
 	})
 }
 

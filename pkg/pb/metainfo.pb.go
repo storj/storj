@@ -25,6 +25,33 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
+// UserStatus - is used to indicate status of the users account
+type ConnectorKeyInfo_UserStatus int32
+
+const (
+	ConnectorKeyInfo_INACTIVE ConnectorKeyInfo_UserStatus = 0
+	ConnectorKeyInfo_ACTIVE   ConnectorKeyInfo_UserStatus = 1
+	ConnectorKeyInfo_DELETED  ConnectorKeyInfo_UserStatus = 2
+)
+
+var ConnectorKeyInfo_UserStatus_name = map[int32]string{
+	0: "INACTIVE",
+	1: "ACTIVE",
+	2: "DELETED",
+}
+var ConnectorKeyInfo_UserStatus_value = map[string]int32{
+	"INACTIVE": 0,
+	"ACTIVE":   1,
+	"DELETED":  2,
+}
+
+func (x ConnectorKeyInfo_UserStatus) String() string {
+	return proto.EnumName(ConnectorKeyInfo_UserStatus_name, int32(x))
+}
+func (ConnectorKeyInfo_UserStatus) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{13, 0}
+}
+
 type AddressedOrderLimit struct {
 	Limit                *OrderLimit2 `protobuf:"bytes,1,opt,name=limit" json:"limit,omitempty"`
 	StorageNodeAddress   *NodeAddress `protobuf:"bytes,2,opt,name=storage_node_address,json=storageNodeAddress" json:"storage_node_address,omitempty"`
@@ -38,10 +65,14 @@ func (m *AddressedOrderLimit) String() string { return proto.CompactTextString(m
 func (*AddressedOrderLimit) ProtoMessage()    {}
 func (*AddressedOrderLimit) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{0}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{0}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{0}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *AddressedOrderLimit) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_AddressedOrderLimit.Unmarshal(m, b)
@@ -92,10 +123,14 @@ func (m *SegmentWriteRequest) String() string { return proto.CompactTextString(m
 func (*SegmentWriteRequest) ProtoMessage()    {}
 func (*SegmentWriteRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{1}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{1}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{1}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteRequest.Unmarshal(m, b)
@@ -170,10 +205,14 @@ func (m *SegmentWriteResponse) String() string { return proto.CompactTextString(
 func (*SegmentWriteResponse) ProtoMessage()    {}
 func (*SegmentWriteResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{2}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{2}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{2}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentWriteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentWriteResponse.Unmarshal(m, b)
@@ -207,9 +246,12 @@ type SegmentCommitRequest struct {
 	Pointer              *Pointer       `protobuf:"bytes,4,opt,name=pointer" json:"pointer,omitempty"`
 	OriginalLimits       []*OrderLimit2 `protobuf:"bytes,5,rep,name=original_limits,json=originalLimits" json:"original_limits,omitempty"`
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	Partnerid            []byte         `protobuf:"bytes,6,opt,name=partnerid,proto3" json:"partnerid,omitempty"`
 >>>>>>> added value addition test case
+=======
+>>>>>>> added the proto buf message ConnectorKeyInfo
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -220,10 +262,14 @@ func (m *SegmentCommitRequest) String() string { return proto.CompactTextString(
 func (*SegmentCommitRequest) ProtoMessage()    {}
 func (*SegmentCommitRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{3}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{3}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{3}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitRequest.Unmarshal(m, b)
@@ -278,13 +324,6 @@ func (m *SegmentCommitRequest) GetOriginalLimits() []*OrderLimit2 {
 	return nil
 }
 
-func (m *SegmentCommitRequest) GetPartnerid() []byte {
-	if m != nil {
-		return m.Partnerid
-	}
-	return nil
-}
-
 type SegmentCommitResponse struct {
 	Pointer              *Pointer `protobuf:"bytes,1,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -297,10 +336,14 @@ func (m *SegmentCommitResponse) String() string { return proto.CompactTextString
 func (*SegmentCommitResponse) ProtoMessage()    {}
 func (*SegmentCommitResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{4}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{4}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{4}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentCommitResponse.Unmarshal(m, b)
@@ -341,10 +384,14 @@ func (m *SegmentDownloadRequest) String() string { return proto.CompactTextStrin
 func (*SegmentDownloadRequest) ProtoMessage()    {}
 func (*SegmentDownloadRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{5}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{5}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{5}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentDownloadRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDownloadRequest.Unmarshal(m, b)
@@ -398,10 +445,14 @@ func (m *SegmentDownloadResponse) String() string { return proto.CompactTextStri
 func (*SegmentDownloadResponse) ProtoMessage()    {}
 func (*SegmentDownloadResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{6}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{6}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{6}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentDownloadResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDownloadResponse.Unmarshal(m, b)
@@ -436,12 +487,13 @@ func (m *SegmentDownloadResponse) GetPointer() *Pointer {
 }
 
 type SegmentInfoRequest struct {
-	Bucket               []byte   `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
-	Path                 []byte   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
-	Segment              int64    `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+	Bucket               []byte            `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
+	Path                 []byte            `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Segment              int64             `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
+	ConnectorKeyInfo     *ConnectorKeyInfo `protobuf:"bytes,4,opt,name=connector_key_info,json=connectorKeyInfo" json:"connector_key_info,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
 }
 
 func (m *SegmentInfoRequest) Reset()         { *m = SegmentInfoRequest{} }
@@ -449,10 +501,14 @@ func (m *SegmentInfoRequest) String() string { return proto.CompactTextString(m)
 func (*SegmentInfoRequest) ProtoMessage()    {}
 func (*SegmentInfoRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{7}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{7}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{7}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentInfoRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentInfoRequest.Unmarshal(m, b)
@@ -493,6 +549,13 @@ func (m *SegmentInfoRequest) GetSegment() int64 {
 	return 0
 }
 
+func (m *SegmentInfoRequest) GetConnectorKeyInfo() *ConnectorKeyInfo {
+	if m != nil {
+		return m.ConnectorKeyInfo
+	}
+	return nil
+}
+
 type SegmentInfoResponse struct {
 	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -505,10 +568,14 @@ func (m *SegmentInfoResponse) String() string { return proto.CompactTextString(m
 func (*SegmentInfoResponse) ProtoMessage()    {}
 func (*SegmentInfoResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{8}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{8}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{8}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentInfoResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentInfoResponse.Unmarshal(m, b)
@@ -549,10 +616,14 @@ func (m *SegmentDeleteRequest) String() string { return proto.CompactTextString(
 func (*SegmentDeleteRequest) ProtoMessage()    {}
 func (*SegmentDeleteRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{9}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{9}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{9}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteRequest.Unmarshal(m, b)
@@ -605,10 +676,14 @@ func (m *SegmentDeleteResponse) String() string { return proto.CompactTextString
 func (*SegmentDeleteResponse) ProtoMessage()    {}
 func (*SegmentDeleteResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{10}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{10}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{10}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *SegmentDeleteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SegmentDeleteResponse.Unmarshal(m, b)
@@ -653,10 +728,14 @@ func (m *ListSegmentsRequest) String() string { return proto.CompactTextString(m
 func (*ListSegmentsRequest) ProtoMessage()    {}
 func (*ListSegmentsRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{11}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{11}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{11}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *ListSegmentsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsRequest.Unmarshal(m, b)
@@ -738,10 +817,14 @@ func (m *ListSegmentsResponse) String() string { return proto.CompactTextString(
 func (*ListSegmentsResponse) ProtoMessage()    {}
 func (*ListSegmentsResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{12}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{12}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{12}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *ListSegmentsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse.Unmarshal(m, b)
@@ -789,10 +872,14 @@ func (m *ListSegmentsResponse_Item) String() string { return proto.CompactTextSt
 func (*ListSegmentsResponse_Item) ProtoMessage()    {}
 func (*ListSegmentsResponse_Item) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_metainfo_d4afd0f297e34f0b, []int{12, 0}
 =======
 	return fileDescriptor_metainfo_c16c49b4e5e5f6cd, []int{12, 0}
 >>>>>>> added value addition test case
+=======
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{12, 0}
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 func (m *ListSegmentsResponse_Item) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ListSegmentsResponse_Item.Unmarshal(m, b)
@@ -833,6 +920,7 @@ func (m *ListSegmentsResponse_Item) GetIsPrefix() bool {
 	return false
 }
 
+<<<<<<< HEAD
 type ValueAttributionRequest struct {
 	BucketId             []byte              `protobuf:"bytes,1,opt,name=bucket_id,json=bucketId,proto3" json:"bucket_id,omitempty"`
 	UserId               []byte              `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -870,17 +958,66 @@ var xxx_messageInfo_ValueAttributionRequest proto.InternalMessageInfo
 func (m *ValueAttributionRequest) GetBucketId() []byte {
 	if m != nil {
 		return m.BucketId
+=======
+type ConnectorKeyInfo struct {
+	PartnerId            []byte                      `protobuf:"bytes,1,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
+	BucketId             []byte                      `protobuf:"bytes,2,opt,name=bucket_id,json=bucketId,proto3" json:"bucket_id,omitempty"`
+	FullName             string                      `protobuf:"bytes,3,opt,name=full_name,json=fullName,proto3" json:"full_name,omitempty"`
+	ShortName            string                      `protobuf:"bytes,4,opt,name=short_name,json=shortName,proto3" json:"short_name,omitempty"`
+	Email                string                      `protobuf:"bytes,5,opt,name=email,proto3" json:"email,omitempty"`
+	Status               ConnectorKeyInfo_UserStatus `protobuf:"varint,6,opt,name=status,proto3,enum=metainfo.ConnectorKeyInfo_UserStatus" json:"status,omitempty"`
+	CreatedAt            *timestamp.Timestamp        `protobuf:"bytes,7,opt,name=created_at,json=createdAt" json:"created_at,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
+	XXX_unrecognized     []byte                      `json:"-"`
+	XXX_sizecache        int32                       `json:"-"`
+}
+
+func (m *ConnectorKeyInfo) Reset()         { *m = ConnectorKeyInfo{} }
+func (m *ConnectorKeyInfo) String() string { return proto.CompactTextString(m) }
+func (*ConnectorKeyInfo) ProtoMessage()    {}
+func (*ConnectorKeyInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_metainfo_e217047bb8c38eef, []int{13}
+}
+func (m *ConnectorKeyInfo) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConnectorKeyInfo.Unmarshal(m, b)
+}
+func (m *ConnectorKeyInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConnectorKeyInfo.Marshal(b, m, deterministic)
+}
+func (dst *ConnectorKeyInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConnectorKeyInfo.Merge(dst, src)
+}
+func (m *ConnectorKeyInfo) XXX_Size() int {
+	return xxx_messageInfo_ConnectorKeyInfo.Size(m)
+}
+func (m *ConnectorKeyInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConnectorKeyInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConnectorKeyInfo proto.InternalMessageInfo
+
+func (m *ConnectorKeyInfo) GetPartnerId() []byte {
+	if m != nil {
+		return m.PartnerId
+>>>>>>> added the proto buf message ConnectorKeyInfo
 	}
 	return nil
 }
 
+<<<<<<< HEAD
 func (m *ValueAttributionRequest) GetUserId() []byte {
 	if m != nil {
 		return m.UserId
+=======
+func (m *ConnectorKeyInfo) GetBucketId() []byte {
+	if m != nil {
+		return m.BucketId
+>>>>>>> added the proto buf message ConnectorKeyInfo
 	}
 	return nil
 }
 
+<<<<<<< HEAD
 func (m *ValueAttributionRequest) GetPartnerId() []byte {
 	if m != nil {
 		return m.PartnerId
@@ -931,6 +1068,41 @@ func (m *ValueAttributionResponse) GetValueAttribution() bool {
 		return m.ValueAttribution
 	}
 	return false
+=======
+func (m *ConnectorKeyInfo) GetFullName() string {
+	if m != nil {
+		return m.FullName
+	}
+	return ""
+}
+
+func (m *ConnectorKeyInfo) GetShortName() string {
+	if m != nil {
+		return m.ShortName
+	}
+	return ""
+}
+
+func (m *ConnectorKeyInfo) GetEmail() string {
+	if m != nil {
+		return m.Email
+	}
+	return ""
+}
+
+func (m *ConnectorKeyInfo) GetStatus() ConnectorKeyInfo_UserStatus {
+	if m != nil {
+		return m.Status
+	}
+	return ConnectorKeyInfo_INACTIVE
+}
+
+func (m *ConnectorKeyInfo) GetCreatedAt() *timestamp.Timestamp {
+	if m != nil {
+		return m.CreatedAt
+	}
+	return nil
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 
 func init() {
@@ -949,10 +1121,15 @@ func init() {
 	proto.RegisterType((*ListSegmentsResponse)(nil), "metainfo.ListSegmentsResponse")
 	proto.RegisterType((*ListSegmentsResponse_Item)(nil), "metainfo.ListSegmentsResponse.Item")
 <<<<<<< HEAD
+<<<<<<< HEAD
 	proto.RegisterType((*ValueAttributionRequest)(nil), "metainfo.ValueAttributionRequest")
 	proto.RegisterType((*ValueAttributionResponse)(nil), "metainfo.ValueAttributionResponse")
 =======
 >>>>>>> added value addition test case
+=======
+	proto.RegisterType((*ConnectorKeyInfo)(nil), "metainfo.ConnectorKeyInfo")
+	proto.RegisterEnum("metainfo.ConnectorKeyInfo_UserStatus", ConnectorKeyInfo_UserStatus_name, ConnectorKeyInfo_UserStatus_value)
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1247,6 +1424,7 @@ var _Metainfo_serviceDesc = grpc.ServiceDesc{
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_d4afd0f297e34f0b) }
 
 var fileDescriptor_metainfo_d4afd0f297e34f0b = []byte{
@@ -1314,10 +1492,14 @@ var fileDescriptor_metainfo_d4afd0f297e34f0b = []byte{
 	0xfa, 0x37, 0x00, 0x00, 0xff, 0xff, 0xa1, 0x10, 0x03, 0xc7, 0x21, 0x0b, 0x00, 0x00,
 =======
 func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_c16c49b4e5e5f6cd) }
+=======
+func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_metainfo_e217047bb8c38eef) }
+>>>>>>> added the proto buf message ConnectorKeyInfo
 
-var fileDescriptor_metainfo_c16c49b4e5e5f6cd = []byte{
-	// 885 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_metainfo_e217047bb8c38eef = []byte{
+	// 1056 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0x4f, 0x6f, 0x1b, 0x45,
+<<<<<<< HEAD
 	0x14, 0x67, 0xfd, 0x27, 0x4e, 0x9e, 0x9d, 0x1a, 0x26, 0x21, 0x5d, 0x6d, 0x1b, 0x6c, 0x96, 0x4b,
 	0x90, 0xd0, 0x56, 0x4a, 0x4f, 0x50, 0x2e, 0xf9, 0x53, 0x44, 0x50, 0x5b, 0xc2, 0x04, 0x15, 0xa9,
 	0x42, 0xac, 0xc6, 0xde, 0x67, 0x77, 0x84, 0x77, 0x67, 0x99, 0x19, 0x43, 0xda, 0x3b, 0x1f, 0xa0,
@@ -1374,4 +1556,71 @@ var fileDescriptor_metainfo_c16c49b4e5e5f6cd = []byte{
 	0x7c, 0x30, 0xd8, 0x30, 0x3f, 0x0d, 0x0f, 0xff, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xde, 0x1c, 0x06,
 	0xb2, 0x2b, 0x0a, 0x00, 0x00,
 >>>>>>> added value addition test case
+=======
+	0x14, 0xef, 0x3a, 0xfe, 0xfb, 0xec, 0x36, 0x61, 0x12, 0x5a, 0xcb, 0x6d, 0x48, 0x58, 0x84, 0x14,
+	0x24, 0xe4, 0x4a, 0xc9, 0xa9, 0x14, 0x0e, 0x89, 0x63, 0x54, 0x43, 0x1a, 0xc2, 0x26, 0x04, 0x09,
+	0x21, 0x56, 0x63, 0xef, 0xb3, 0x33, 0xaa, 0x77, 0x67, 0x99, 0x19, 0x43, 0xd2, 0x3b, 0x1f, 0xa0,
+	0x07, 0xbe, 0x01, 0x1f, 0x85, 0x43, 0x0f, 0x48, 0x5c, 0x11, 0x87, 0x7e, 0x16, 0x34, 0x7f, 0xd6,
+	0xde, 0x24, 0x4e, 0x03, 0xc2, 0xb7, 0x79, 0xef, 0xfd, 0xe6, 0xfd, 0xfb, 0xbd, 0x7d, 0xb3, 0x70,
+	0x2f, 0x46, 0x45, 0x59, 0x32, 0xe4, 0xed, 0x54, 0x70, 0xc5, 0x49, 0x35, 0x93, 0x5b, 0x30, 0xe2,
+	0x23, 0xa7, 0x6d, 0x6d, 0x8c, 0x38, 0x1f, 0x8d, 0xf1, 0xb1, 0x91, 0xfa, 0x93, 0xe1, 0x63, 0xc5,
+	0x62, 0x94, 0x8a, 0xc6, 0xa9, 0x03, 0x40, 0xc2, 0x23, 0x74, 0xe7, 0xe5, 0x94, 0xb3, 0x44, 0xa1,
+	0x88, 0xfa, 0x4e, 0xd1, 0xe0, 0x22, 0x42, 0x21, 0xad, 0xe4, 0xff, 0xe2, 0xc1, 0xea, 0x6e, 0x14,
+	0x09, 0x94, 0x12, 0xa3, 0xaf, 0xb4, 0xe5, 0x80, 0xc5, 0x4c, 0x91, 0x8f, 0xa0, 0x34, 0xd6, 0x87,
+	0xa6, 0xb7, 0xe9, 0x6d, 0xd5, 0xb7, 0x57, 0xdb, 0xee, 0xd6, 0x0c, 0xb2, 0x1d, 0x58, 0x04, 0xe9,
+	0xc0, 0x9a, 0x54, 0x5c, 0xd0, 0x11, 0x86, 0x3a, 0x6e, 0x48, 0xad, 0xbb, 0x66, 0xc1, 0xdc, 0x7c,
+	0xa7, 0x6d, 0x92, 0x39, 0xe4, 0x11, 0xba, 0x38, 0x01, 0x71, 0xf0, 0x9c, 0xce, 0x7f, 0x55, 0x80,
+	0xd5, 0x63, 0x1c, 0xc5, 0x98, 0xa8, 0x6f, 0x05, 0x53, 0x18, 0xe0, 0x8f, 0x13, 0x94, 0x8a, 0xdc,
+	0x87, 0x72, 0x7f, 0x32, 0x78, 0x81, 0x36, 0x91, 0x46, 0xe0, 0x24, 0x42, 0xa0, 0x98, 0x52, 0x75,
+	0x66, 0x82, 0x34, 0x02, 0x73, 0x26, 0x4d, 0xa8, 0x48, 0xeb, 0xa2, 0xb9, 0xb4, 0xe9, 0x6d, 0x2d,
+	0x05, 0x99, 0x48, 0x9e, 0x02, 0x08, 0x8c, 0x26, 0x49, 0x44, 0x93, 0xc1, 0x45, 0xb3, 0x68, 0x12,
+	0x7b, 0xd8, 0x9e, 0x75, 0x26, 0x98, 0x1a, 0x8f, 0x07, 0x67, 0x18, 0x63, 0x90, 0x83, 0x93, 0xa7,
+	0xd0, 0x8a, 0xe9, 0x79, 0x88, 0xc9, 0x40, 0x5c, 0xa4, 0x0a, 0xa3, 0xd0, 0x79, 0x0d, 0x25, 0x7b,
+	0x89, 0xcd, 0x92, 0x89, 0xf4, 0x20, 0xa6, 0xe7, 0xdd, 0x0c, 0xe0, 0xea, 0x38, 0x66, 0x2f, 0x91,
+	0x7c, 0x02, 0x80, 0xe7, 0x29, 0x13, 0x54, 0x31, 0x9e, 0x34, 0xcb, 0x26, 0x72, 0xab, 0x6d, 0x09,
+	0x6c, 0x67, 0x04, 0xb6, 0x4f, 0x32, 0x02, 0x83, 0x1c, 0xda, 0xff, 0xd5, 0x83, 0xb5, 0xcb, 0x3d,
+	0x91, 0x29, 0x4f, 0x24, 0x92, 0x67, 0xb0, 0x42, 0x33, 0xce, 0x42, 0x43, 0x82, 0x6c, 0x7a, 0x9b,
+	0x4b, 0x5b, 0xf5, 0xed, 0xf5, 0xf6, 0x74, 0x82, 0xe6, 0xb0, 0x1a, 0x2c, 0x4f, 0xaf, 0x19, 0x59,
+	0x92, 0x1d, 0xb8, 0x2b, 0x38, 0x57, 0x61, 0xca, 0x70, 0x80, 0x21, 0x8b, 0x6c, 0x3f, 0xf7, 0x96,
+	0x5f, 0xbf, 0xd9, 0xb8, 0xf3, 0xf7, 0x9b, 0x8d, 0xca, 0x91, 0xd6, 0xf7, 0xf6, 0x83, 0xba, 0x46,
+	0x59, 0x21, 0xf2, 0x5f, 0xcf, 0xf2, 0xea, 0xf0, 0x58, 0xfb, 0x5d, 0x28, 0x59, 0x1f, 0x43, 0xc5,
+	0x31, 0xe3, 0x98, 0x22, 0x39, 0xa6, 0x8e, 0xec, 0x29, 0xc8, 0x20, 0xe4, 0x53, 0x58, 0xe6, 0x82,
+	0x8d, 0x58, 0x42, 0xc7, 0x59, 0x2b, 0x4a, 0xa6, 0x15, 0x73, 0x47, 0xf6, 0x5e, 0x86, 0xb5, 0xf5,
+	0xfb, 0x5d, 0x78, 0xf7, 0x4a, 0x25, 0xae, 0xc5, 0xb9, 0x24, 0xbc, 0x5b, 0x93, 0xf0, 0x7f, 0x80,
+	0xfb, 0xce, 0xcd, 0x3e, 0xff, 0x39, 0x19, 0x73, 0x1a, 0x2d, 0xb4, 0x25, 0xfe, 0x2b, 0x0f, 0x1e,
+	0x5c, 0x0b, 0xb0, 0xf0, 0x61, 0xc8, 0xd5, 0x5c, 0xb8, 0xbd, 0xe6, 0xdf, 0x3c, 0x20, 0x2e, 0xa7,
+	0x5e, 0x32, 0xe4, 0x8b, 0x9d, 0x81, 0x67, 0x40, 0x06, 0x3c, 0x49, 0x70, 0xa0, 0xb8, 0x08, 0x5f,
+	0xe0, 0x45, 0xa8, 0xab, 0x70, 0xe3, 0xd0, 0x9a, 0x95, 0xd5, 0xc9, 0x30, 0x5f, 0xe2, 0x85, 0x49,
+	0x62, 0x65, 0x70, 0x45, 0xe3, 0x77, 0xa6, 0x7b, 0xc5, 0x66, 0x79, 0x9d, 0xdf, 0x7f, 0x51, 0xeb,
+	0xf7, 0xd3, 0x81, 0xdf, 0xc7, 0x31, 0x2e, 0x78, 0x3b, 0xf9, 0x74, 0x3a, 0x84, 0x99, 0xf7, 0x45,
+	0x53, 0xeb, 0xff, 0xe5, 0xc1, 0xea, 0x01, 0x93, 0xca, 0xc5, 0x91, 0xb7, 0x15, 0x70, 0x1f, 0xca,
+	0xa9, 0xc0, 0x21, 0x3b, 0x77, 0x25, 0x38, 0x89, 0x6c, 0x40, 0x5d, 0x2a, 0x2a, 0x54, 0x48, 0x87,
+	0xba, 0x75, 0x4b, 0xc6, 0x08, 0x46, 0xb5, 0xab, 0x35, 0x64, 0x1d, 0x00, 0x93, 0x28, 0xec, 0xe3,
+	0x90, 0x0b, 0x34, 0x84, 0x35, 0x82, 0x1a, 0x26, 0xd1, 0x9e, 0x51, 0x90, 0x47, 0x50, 0x13, 0x38,
+	0x98, 0x08, 0xc9, 0x7e, 0xb2, 0xab, 0xb3, 0x1a, 0xcc, 0x14, 0x64, 0x2d, 0x7b, 0x74, 0xf4, 0x9e,
+	0x2c, 0x65, 0xef, 0xcb, 0x3a, 0x80, 0x2e, 0x36, 0x1c, 0x8e, 0xe9, 0x48, 0x36, 0x2b, 0x9b, 0xde,
+	0x56, 0x25, 0xa8, 0x69, 0xcd, 0xe7, 0x5a, 0xe1, 0xff, 0xe1, 0xc1, 0xda, 0xe5, 0xd2, 0x5c, 0xf7,
+	0x9e, 0x40, 0x89, 0x29, 0x8c, 0xb3, 0x96, 0x7d, 0x30, 0x6b, 0xd9, 0x3c, 0x78, 0xbb, 0xa7, 0x30,
+	0x0e, 0xec, 0x0d, 0xcd, 0x5f, 0xac, 0xf3, 0x2f, 0x98, 0x0c, 0xcd, 0xb9, 0x85, 0x50, 0xd4, 0x90,
+	0x29, 0xb7, 0x5e, 0x8e, 0xdb, 0xff, 0x34, 0x4d, 0xe4, 0x21, 0xd4, 0x98, 0x0c, 0x5d, 0x7f, 0x97,
+	0x4c, 0x88, 0x2a, 0x93, 0x47, 0x46, 0xf6, 0xff, 0x2c, 0xc0, 0xca, 0xd5, 0xb1, 0xd6, 0x2d, 0x48,
+	0xa9, 0x50, 0x09, 0x0a, 0xbd, 0xa3, 0x6d, 0xe4, 0x9a, 0xd3, 0xf4, 0x22, 0xed, 0xd0, 0xf2, 0x36,
+	0xdd, 0xe0, 0x41, 0xd5, 0x2a, 0xac, 0x71, 0x38, 0x19, 0x8f, 0xc3, 0x84, 0xc6, 0x68, 0xa2, 0xd5,
+	0x82, 0xaa, 0x56, 0x1c, 0xd2, 0x18, 0xb5, 0x63, 0x79, 0xc6, 0x85, 0xb2, 0xd6, 0xa2, 0xb1, 0xd6,
+	0x8c, 0xc6, 0x98, 0xd7, 0xa0, 0x84, 0x31, 0x65, 0x63, 0x43, 0x55, 0x2d, 0xb0, 0x02, 0xf9, 0x0c,
+	0xca, 0x52, 0x51, 0x35, 0x91, 0x86, 0xa7, 0x7b, 0xdb, 0x1f, 0xde, 0xfc, 0x41, 0xb6, 0xbf, 0x91,
+	0x28, 0x8e, 0x0d, 0x38, 0x70, 0x97, 0xc8, 0x13, 0x80, 0x81, 0x40, 0xaa, 0x5f, 0x52, 0xaa, 0x0c,
+	0x9f, 0x6f, 0x7f, 0x12, 0x6b, 0x0e, 0xbd, 0xab, 0xfc, 0x1d, 0x80, 0x99, 0x43, 0xd2, 0x80, 0x6a,
+	0xef, 0x70, 0xb7, 0x73, 0xd2, 0x3b, 0xed, 0xae, 0xdc, 0x21, 0x00, 0x65, 0x77, 0xf6, 0x48, 0x1d,
+	0x2a, 0xfb, 0xdd, 0x83, 0xee, 0x49, 0x77, 0x7f, 0xa5, 0xb0, 0xfd, 0x7b, 0x11, 0xaa, 0xcf, 0x5d,
+	0x82, 0xe4, 0x10, 0xee, 0x76, 0x8c, 0x3b, 0xc7, 0x3f, 0xc9, 0x7d, 0x49, 0x73, 0xfe, 0x3f, 0x5a,
+	0xef, 0xdd, 0x64, 0x76, 0x43, 0x76, 0x04, 0x77, 0xed, 0xcb, 0x91, 0xf9, 0xbb, 0x7e, 0xe1, 0xd2,
+	0x1b, 0xd9, 0xda, 0xb8, 0xd1, 0xee, 0x3c, 0x7e, 0x01, 0xf5, 0xdc, 0xc2, 0x22, 0x8f, 0xae, 0xe1,
+	0x73, 0xdb, 0xb6, 0xb5, 0x7e, 0x83, 0xd5, 0xf9, 0x3a, 0x85, 0xe5, 0xec, 0xbd, 0xc8, 0xf2, 0xdb,
+	0xbc, 0x76, 0xe3, 0xca, 0x93, 0xd5, 0x7a, 0xff, 0x2d, 0x88, 0x59, 0xd5, 0x76, 0x55, 0xdd, 0x5c,
+	0xf5, 0xa5, 0x45, 0x39, 0xa7, 0xea, 0x2b, 0xab, 0xee, 0x39, 0x34, 0xf2, 0x5f, 0x65, 0x9e, 0x96,
+	0x39, 0x7b, 0x2b, 0x4f, 0xcb, 0xdc, 0x6f, 0xff, 0x6b, 0x20, 0xa7, 0x74, 0x3c, 0xc1, 0x5d, 0xa5,
+	0x04, 0xeb, 0x4f, 0x14, 0xfe, 0xef, 0x5e, 0xee, 0x15, 0xbf, 0x2b, 0xa4, 0xfd, 0x7e, 0xd9, 0x0c,
+	0xe8, 0xce, 0x3f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xca, 0x77, 0x2f, 0x7d, 0xaa, 0x0b, 0x00, 0x00,
+>>>>>>> added the proto buf message ConnectorKeyInfo
 }

@@ -25,11 +25,13 @@ var connectorKey connectorID = "CONNECTORID"
 
 // ConnectorKeyInfo describing connector/partner key info in the database
 type ConnectorKeyInfo struct {
-	ID        uuid.UUID `json:"id"`        // partner id
-	ProjectID uuid.UUID `json:"projectId"` //bucket id
-	Name      string    `json:"name"`
-	Secret    []byte    `json:"-"`
-	CreatedAt time.Time `json:"createdAt"`
+	PartnerID []byte
+	BucketID  []byte
+	FullName  string
+	ShortName string
+	Email     string
+	Status    UserStatus
+	CreatedAt time.Time
 }
 
 // ConnectorKeys is interface for working with connectory keys

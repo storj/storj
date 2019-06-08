@@ -22,42 +22,33 @@ func (keys *connectorkeys) GetByProjectID(ctx context.Context, projectID uuid.UU
 	defer mon.Task()(&ctx)(&err)
 
 	dbxInfo, err := keys.db.Get_ValueAttribution_By_BucketId(ctx, dbx.ValueAttribution_BucketId(projectID[:]))
-
-	if err != nil {
-		return nil, err
-	}
-	return fromDBXConnectorKey(ctx, dbxInfo)
-}
-
-// Create implements satellite.APIKeys
-func (keys *connectorkeys) Create(ctx context.Context, info console.ConnectorKeyInfo) (connectorkeyinfo *console.ConnectorKeyInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	dbxInfo, err := keys.db.Create_ValueAttribution(ctx, dbx.ValueAttribution_BucketId(info.ProjectID[:]),
-		dbx.ValueAttribution_PartnerId(info.ID[:]), dbx.ValueAttribution_LastUpdated(info.CreatedAt))
-	return fromDBXConnectorKey(ctx, dbxInfo)
-}
-
-// Delete implements satellite.APIKeys
-func (keys *connectorkeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
-	return nil
-}
-
-// fromDBXConnectorKey converts dbx.ValueAttribution to connectory key info
-func fromDBXConnectorKey(ctx context.Context, key *dbx.ValueAttribution) (_ *console.ConnectorKeyInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-	id, err := bytesToUUID(key.PartnerId)
-	if err != nil {
-		return nil, err
-	}
-
-	projectID, err := bytesToUUID(key.BucketId)
 	if err != nil {
 		return nil, err
 	}
 
 	return &console.ConnectorKeyInfo{
-		ID:        id,
-		ProjectID: projectID,
-		CreatedAt: key.LastUpdated,
+		PartnerID: dbxInfo.PartnerId,
+		BucketID:  dbxInfo.BucketId,
+		CreatedAt: dbxInfo.LastUpdated,
 	}, nil
+}
+
+// Create implements satellite.APIKeys
+func (keys *connectorkeys) Create(ctx context.Context, info console.ConnectorKeyInfo) (connectorkeyinfo *console.ConnectorKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxInfo, err := keys.db.Create_ValueAttribution(ctx, dbx.ValueAttribution_BucketId(info.BucketID),
+		dbx.ValueAttribution_PartnerId(info.PartnerID), dbx.ValueAttribution_LastUpdated(info.CreatedAt))
+	if err != nil {
+		return nil, err
+	}
+	return &console.ConnectorKeyInfo{
+		PartnerID: dbxInfo.PartnerId,
+		BucketID:  dbxInfo.BucketId,
+		CreatedAt: dbxInfo.LastUpdated,
+	}, nil
+}
+
+// Delete implements satellite.APIKeys
+func (keys *connectorkeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
+	return nil
 }
