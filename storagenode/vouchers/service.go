@@ -81,7 +81,7 @@ func (service *Service) runOnce(ctx context.Context) (err error) {
 	// request vouchers for entries that are expired/about to expire
 	err = service.renewVouchers(ctx)
 
-	// request first vouchers from new satellites
+	// request first vouchers from new satellites which have no voucher
 	err = service.initialVouchers(ctx)
 	return err
 }
@@ -115,19 +115,20 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 func (service *Service) initialVouchers(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// get all satellite IDs from archive
-	// get all satellite IDs from vouchers
-	// filter out satellites with vouchers
+	withoutVouchers, err := service.getWithoutVouchers(ctx)
+	if err != nil {
+		return err
+	}
 
-	if len(newSatellites) > 0 {
+	if len(withoutVouchers) > 0 {
 		var group errgroup.Group
 		ctx, cancel := context.WithTimeout(ctx, time.Hour)
 		defer cancel()
 
-		for satelliteID := range newSatellites {
+		for _, satelliteID := range withoutVouchers {
 			err = service.request(ctx, satelliteID)
 			if err != nil {
-				service.log.Error("Error requesting voucher from satellite", satelliteID, zap.Error(err))
+				service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
 			}
 		}
 	} else {
@@ -162,4 +163,34 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 	// check voucher fields
 
 	return service.vdb.Put(ctx, voucher)
+}
+
+func (service *Service) getWithoutVouchers(ctx context.Context) (withoutVouchers []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// get all satellite IDs from archive
+	allSatellites, err := service.archive.ListSatellites(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// get all satellites with vouchers
+	withVouchers, err := service.vdb.ListSatellites(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// insert all satellites with vouchers into a map for easy filtering
+	voucherMap := make(map[storj.NodeID]bool)
+	for _, sat := range withVouchers {
+		voucherMap[sat] = true
+	}
+
+	// filter out satellites with vouchers
+	for _, sat := range allSatellites {
+		if voucherMap[sat] == false {
+			withoutVouchers = append(withoutVouchers, sat)
+		}
+	}
+	return withoutVouchers, nil
 }
