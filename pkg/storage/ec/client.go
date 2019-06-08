@@ -274,7 +274,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 }
 
 func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
-	defer mon.Task()(&ctx, "node: ", limit.GetLimit().StorageNodeId.String()[0:8])(&err)
+	nodeName := "nil"
+	if limit != nil {
+		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
+	}
+	defer mon.Task()(&ctx, "node: "+nodeName)(&err)
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
