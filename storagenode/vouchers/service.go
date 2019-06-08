@@ -35,8 +35,9 @@ type DB interface {
 	GetExpiring(context.Context, time.Duration) ([]storj.NodeID, error)
 	// GetValid returns one valid voucher from the list of approved satellites
 	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
+	// ListSatellites returns all satellites from the vouchersDB
+	ListSatellites(context.Context) ([]storj.NodeID, error)
 }
-
 
 // Config defines configuration for requesting vouchers.
 type Config struct {
@@ -48,14 +49,14 @@ type Config struct {
 type Service struct {
 	log *zap.Logger
 
-	kademlia *kademlia.Kademlia
+	kademlia  *kademlia.Kademlia
 	transport transport.Client
 
-	// vdb vouchers.DB
+	vdb     DB
 	archive orders.DB
 
 	expirationBuffer time.Duration
-	
+
 	Loop sync2.Cycle
 }
 
@@ -63,9 +64,9 @@ type Service struct {
 func NewService(log *zap.Logger, interval, expirationBuffer time.Duration) *Service {
 
 	return &Service{
-		log: log,
+		log:              log,
 		expirationBuffer: expirationBuffer,
-		Loop: *sync2.NewCycle(interval),
+		Loop:             *sync2.NewCycle(interval),
 	}
 }
 
@@ -89,7 +90,7 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Debug("Getting vouchers close to expiration")
 
-	expired, err := service.vdb.GetExpired(ctx, service.expirationBuffer)
+	expired, err := service.vdb.GetExpiring(ctx, service.expirationBuffer)
 	if err != nil {
 		return err
 	}
@@ -99,10 +100,10 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 		ctx, cancel := context.WithTimeout(ctx, time.Hour)
 		defer cancel()
 
-		for satelliteID := range expired {
+		for _, satelliteID := range expired {
 			err = service.request(ctx, satelliteID)
 			if err != nil {
-				service.log.Error("Error requesting voucher from satellite", satelliteID, zap.Error(err))
+				service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
 			}
 		}
 	} else {
@@ -112,9 +113,11 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 }
 
 func (service *Service) initialVouchers(ctx context.Context) (err error) {
-	defer mon.Task(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
-	// get all satellite IDs without vouchers
+	// get all satellite IDs from archive
+	// get all satellite IDs from vouchers
+	// filter out satellites with vouchers
 
 	if len(newSatellites) > 0 {
 		var group errgroup.Group
@@ -130,6 +133,7 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 	} else {
 		service.log.Debug("No vouchers close to expiration")
 	}
+	return err
 }
 
 func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (err error) {
