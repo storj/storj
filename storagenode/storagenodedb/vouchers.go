@@ -127,7 +127,7 @@ func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (
 }
 
 // ListSatellites returns all satellites from the vouchersDB
-func ListSatellites(ctx context.Context) (satellites []storj.NodeID, err error) {
+func (db *vouchersdb) ListSatellites(ctx context.Context) (satellites []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 

@@ -132,7 +132,7 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 			}
 		}
 	} else {
-		service.log.Debug("No vouchers close to expiration")
+		service.log.Debug("No satellites requiring initial vouchers")
 	}
 	return err
 }
@@ -172,6 +172,9 @@ func (service *Service) getWithoutVouchers(ctx context.Context) (withoutVouchers
 	allSatellites, err := service.archive.ListSatellites(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if len(allSatellites) == 0 {
+		return withoutVouchers, nil
 	}
 
 	// get all satellites with vouchers

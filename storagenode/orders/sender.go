@@ -69,6 +69,8 @@ type DB interface {
 
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
+	// ListSatellites returns all satellites in the archive
+	ListSatellites(ctx context.Context) ([]storj.NodeID, error)
 }
 
 // SenderConfig defines configuration for sending orders.
