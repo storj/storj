@@ -312,6 +312,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
+	})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -338,6 +341,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Vouchers != nil {
+		errlist.Add(peer.Vouchers.Close())
+	}
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}

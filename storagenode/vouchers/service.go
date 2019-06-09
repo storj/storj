@@ -209,3 +209,9 @@ func (service *Service) getWithoutVouchers(ctx context.Context) (withoutVouchers
 	}
 	return withoutVouchers, nil
 }
+
+// Close stops the voucher service
+func (service *Service) Close() error {
+	service.Loop.Close()
+	return nil
+}

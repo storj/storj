@@ -50,12 +50,13 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/vouchers"
+	satVouchers "storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/vouchers"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -502,7 +503,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				PasswordCost:    console.TestPasswordCost,
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
-			Vouchers: vouchers.Config{
+			Vouchers: satVouchers.Config{
 				Expiration: 30,
 			},
 			Version: planet.NewVersionConfig(),
@@ -619,6 +620,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Interval: time.Hour,
 					Timeout:  time.Hour,
 				},
+			},
+			Vouchers: vouchers.Config{
+				Interval:         7,
+				ExpirationBuffer: 7,
 			},
 			Version: planet.NewVersionConfig(),
 		}
