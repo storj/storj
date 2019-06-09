@@ -5,6 +5,8 @@ package storagenode
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -70,6 +72,8 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
+	Vouchers vouchers.Config
+
 	Version version.Config
 }
 
@@ -109,6 +113,9 @@ type Peer struct {
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
 	}
+
+	//TODO: Where to put this? Storage2/Kademlia?
+	Vouchers *vouchers.Service
 
 	Collector *collector.Service
 }
@@ -248,6 +255,30 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.DB.Orders(),
 			config.Storage2.Sender,
 		)
+	}
+
+	{ // setup vouchers
+		if config.Vouchers.Interval <= 0 {
+			return nil, errs.New("voucher service interval (%d) must be > 0", config.Vouchers.Interval)
+		}
+		intervalHours := config.Vouchers.Interval * 24
+		intervalDuration, err := time.ParseDuration(fmt.Sprintf("%dh", intervalHours))
+		if err != nil {
+			return nil, err
+		}
+
+		if config.Vouchers.ExpirationBuffer <= 0 {
+			return nil, errs.New("voucher service expiration buffer (%d) must be > 0", config.Vouchers.ExpirationBuffer)
+		}
+		bufferHours := config.Vouchers.ExpirationBuffer
+		bufferDuration, err := time.ParseDuration(fmt.Sprintf("%dh", bufferHours))
+		if err != nil {
+			return nil, err
+		}
+
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(), peer.DB.Orders(),
+			intervalDuration, bufferDuration)
+
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)

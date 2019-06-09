@@ -61,10 +61,14 @@ type Service struct {
 }
 
 // NewService creates a new voucher service
-func NewService(log *zap.Logger, interval, expirationBuffer time.Duration) *Service {
+func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vdb DB, archive orders.DB, interval, expirationBuffer time.Duration) *Service {
 
 	return &Service{
 		log:              log,
+		kademlia:         kad,
+		transport:        transport,
+		vdb:              vdb,
+		archive:          archive,
 		expirationBuffer: expirationBuffer,
 		Loop:             *sync2.NewCycle(interval),
 	}
