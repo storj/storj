@@ -166,9 +166,9 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
-		expectedBucketName := "testbucket"
-		expectedTally := accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName),
+		expectedBucketName1 := "testbucket1"
+		expectedTally1 := accounting.BucketTally{
+			BucketName:     []byte(expectedBucketName1),
 			Segments:       1,
 			RemoteSegments: 1,
 			Files:          1,
@@ -178,19 +178,39 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			MetadataSize:   112, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
 
-		// Execute test: upload a file, then calculate at rest data
+		expectedBucketName2 := "testbucket2"
+		expectedTally2 := accounting.BucketTally{
+			BucketName:     []byte(expectedBucketName2),
+			Segments:       2,
+			RemoteSegments: 2,
+			Files:          2,
+			RemoteFiles:    2,
+			Bytes:          expectedTotalBytes * 2,
+			RemoteBytes:    expectedTotalBytes * 2,
+			MetadataSize:   112 * 2, // brittle, this is hardcoded since its too difficult to get this value progamatically
+		}
 
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		// Execute test: upload a file, then calculate at rest data
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName1, "test/path1", expectedData)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path2", expectedData)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path3", expectedData)
 
 		assert.NoError(t, err)
 		_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 		require.NoError(t, err)
 
 		// Confirm the correct bucket storage tally was created
-		assert.Equal(t, len(actualBucketData), 1)
+		assert.Equal(t, len(actualBucketData), 2)
 		for bucketID, actualTally := range actualBucketData {
-			assert.Contains(t, bucketID, expectedBucketName)
-			assert.Equal(t, expectedTally, *actualTally)
+			var bucketName = string(actualTally.BucketName)
+			assert.True(t, bucketName == expectedBucketName1 || bucketName == expectedBucketName2, "Test bucket names do not exist in results")
+			if bucketName == expectedBucketName1 {
+				assert.Contains(t, bucketID, expectedBucketName1)
+				assert.Equal(t, expectedTally1, *actualTally)
+			} else if bucketName == expectedBucketName2 {
+				assert.Contains(t, bucketID, expectedBucketName2)
+				assert.Equal(t, expectedTally2, *actualTally)
+			}
 		}
 	})
 }
