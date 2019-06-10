@@ -524,7 +524,6 @@ func TestValueAttributeInfo(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
 			require.Error(t, err)
 
-			// fix this
 			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1, keyInfo)
 			require.NoError(t, err)
 <<<<<<< HEAD
@@ -535,24 +534,15 @@ func TestValueAttributeInfo(t *testing.T) {
 =======
 >>>>>>> added the proto buf message ConnectorKeyInfo
 		}
-		// {
-		// 	// error if number of remote pieces is lower then repair threshold
-		// 	redundancy := &pb.RedundancyScheme{
-		// 		MinReq:           1,
-		// 		RepairThreshold:  2,
-		// 		SuccessThreshold: 4,
-		// 		Total:            6,
-		// 		ErasureShareSize: 10,
-		// 	}
-		// 	expirationDate := time.Now()
-		// 	addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
-		// 	require.NotEmpty(t, addresedLimits)
-		// 	require.NotEmpty(t, rootPieceID)
-		// 	require.NoError(t, err)
+		{
+			pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-		// 	_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1)
-		// 	require.Error(t, err)
-		// }
+			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+			require.NoError(t, err)
+
+			_, err = metainfo.ValueAttributeInfo(ctx, "myBucketName", "file/path", -1, keyInfo)
+			require.Error(t, err)
+		}
 	})
 }
 
