@@ -49,29 +49,29 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 }
 
 // Request receives a voucher request and returns a voucher and an error
-func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ *pb.Voucher, err error) {
+func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ *pb.VoucherResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return &pb.Voucher{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	reputable, err := service.cache.IsVetted(ctx, peer.ID)
 	if err != nil {
-		return &pb.Voucher{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	service.log.Debug("Node reputation", zap.Bool("reputable", reputable))
 
 	if !reputable {
-		return &pb.Voucher{}, Error.New("Request rejected. Node not reputable")
+		return &pb.VoucherResponse{Status: pb.VoucherResponse_REJECTED}, nil
 	}
 
 	expirationTime := time.Now().UTC().Add(service.expiration)
 	expiration, err := ptypes.TimestampProto(expirationTime)
 	if err != nil {
-		return &pb.Voucher{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	unsigned := &pb.Voucher{
@@ -80,5 +80,13 @@ func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ 
 		Expiration:    expiration,
 	}
 
-	return signing.SignVoucher(ctx, service.satellite, unsigned)
+	voucher, err := signing.SignVoucher(ctx, service.satellite, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &pb.VoucherResponse{
+		Voucher: voucher,
+		Status:  pb.VoucherResponse_ACCEPTED,
+	}, nil
 }

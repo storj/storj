@@ -5,6 +5,7 @@ package vouchers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -167,14 +168,28 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		}
 	}()
 
-	voucher, err := pb.NewVouchersClient(conn).Request(ctx, &pb.VoucherRequest{})
+	resp, err := pb.NewVouchersClient(conn).Request(ctx, &pb.VoucherRequest{})
 	if err != nil {
 		return VoucherError.New("failed to start request: %v", err)
 	}
 
-	// check voucher fields
+	// TODO: separate status for disqualified nodes?
+	switch resp.GetStatus() {
+	case pb.VoucherResponse_REJECTED:
+		service.log.Debug("Voucher request denied. Node does not meet voucher requirements")
+	case pb.VoucherResponse_ACCEPTED:
+		voucher := resp.GetVoucher()
+		// TODO: check voucher fields
+		err = service.vdb.Put(ctx, voucher)
+		if err != nil {
+			return err
+		}
+		service.log.Debug(fmt.Sprintf("Voucher request approved. Voucher from satellite %v expires %v", voucher.SatelliteId.String(), voucher.GetExpiration()))
+	default:
+		service.log.Debug("Unknown voucher response status")
+	}
 
-	return service.vdb.Put(ctx, voucher)
+	return nil
 }
 
 func (service *Service) getWithoutVouchers(ctx context.Context) (withoutVouchers []storj.NodeID, err error) {
