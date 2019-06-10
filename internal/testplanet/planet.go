@@ -53,6 +53,7 @@ import (
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -618,6 +619,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
+				},
+				Monitor: monitor.Config{
+					MinimumBandwidth: 100 * memory.MB,
+					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
 			Version: planet.NewVersionConfig(),

@@ -213,6 +213,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage.AllocatedBandwidth.Int64(),
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
+			config.Storage2.Monitor,
 		)
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
