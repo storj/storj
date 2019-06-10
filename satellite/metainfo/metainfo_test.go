@@ -504,26 +504,22 @@ func TestValueAttributeInfo(t *testing.T) {
 		assert.NotNil(t, project)
 		assert.NoError(t, err)
 
-		keyInfo := console.ConnectorKeyInfo{
-			PartnerID: []byte("PartnerID"),
-			BucketID:  []byte("myBucketName"),
+		createdAt, err := ptypes.TimestampProto(time.Now().UTC())
+		require.NoError(t, err)
+
+		keyInfo := pb.ConnectorKeyInfo{
+			PartnerId: []byte("PartnerID"),
+			BucketId:  []byte("myBucketName"),
 			FullName:  fmt.Sprintf("connectorkey"),
+			CreatedAt: createdAt,
 		}
-
-		// set the connector key in the context
-		ctxConntectorKey := console.WithConnectorKey(ctx, keyInfo)
-		assert.NotNil(t, ctxConntectorKey)
-
-		ctxValue, err := console.GetConnectorKeyInfo(ctxConntectorKey)
-		assert.NoError(t, err)
-		assert.NotNil(t, ctxValue)
 
 		{
 			// error if pointer is nil
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
 			require.Error(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1, keyInfo)
+			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1, &keyInfo)
 			require.NoError(t, err)
 <<<<<<< HEAD
 
@@ -536,10 +532,10 @@ func TestValueAttributeInfo(t *testing.T) {
 		{
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-			_, err = metainfo.CommitSegment(ctx, string(keyInfo.BucketID), "file/path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, string(keyInfo.BucketId), "file/path", -1, pointer, limits)
 			require.NoError(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctx, string(keyInfo.BucketID), "file/path", -1, keyInfo)
+			_, err = metainfo.ValueAttributeInfo(ctx, string(keyInfo.BucketId), "file/path", -1, &keyInfo)
 			require.Error(t, err)
 		}
 	})

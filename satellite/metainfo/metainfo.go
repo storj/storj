@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
@@ -55,6 +56,7 @@ type Endpoint struct {
 	metainfo       *Service
 	orders         *orders.Service
 	cache          *overlay.Cache
+	partnerinfo    valueattribution.DB
 	projectUsage   *accounting.ProjectUsage
 	containment    Containment
 	apiKeys        APIKeys
@@ -62,14 +64,15 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo valueattribution.DB,
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
 		metainfo:       metainfo,
 		orders:         orders,
 		cache:          cache,
+		partnerinfo:    partnerinfo,
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
