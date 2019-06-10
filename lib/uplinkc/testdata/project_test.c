@@ -6,8 +6,64 @@
 #include <string.h>
 #include <assert.h>
 
+#include "require.h"
 #include "uplink.h"
-#include "helpers.h"
+
+
+int main(int argc, char *argv[])
+{
+    char *_err = "";
+    char **err = &_err;
+
+    char *satellite_addr = getenv("SATELLITE_ADDR");
+    char *apikey = getenv("APIKEY");
+
+    APIKeyRef_t ref_apikey = ParseAPIKey(apikey, err);
+    require_noerror(*err);
+
+    // New insecure uplink
+    UplinkRef_t uplink = NewUplinkInsecure(err);
+    require_noerror(*err);
+    require(0 != uplink, "got empty uplink\n");
+
+    // OpenProject
+    ProjectRef_t project = OpenProject(uplink, satellite_addr, ref_apikey, err);
+    require_noerror(*err);
+    require(0 != project, "got empty project\n");
+
+    char *bucket_names[] = {"alpha", "beta", "gamma", "delta"};
+    int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
+
+    for(size_t i = 0; i < num_of_buckets; i++) {
+        EncryptionParameters_t enc_param = {};
+        enc_param.cipher_suite = 1;
+        enc_param.block_size = 1024;
+
+        RedundancyScheme_t scheme = {};
+        scheme.algorithm = 1;
+        scheme.share_size = 1024;
+        scheme.required_shares = 4;
+        scheme.repair_shares = 6;
+        scheme.optimal_shares = 8;
+        scheme.total_shares = 10;
+
+        BucketConfig_t bucket_cfg = {};
+        bucket_cfg.path_cipher = 0;
+        bucket_cfg.encryption_parameters = enc_param;
+        bucket_cfg.redundancy_scheme = scheme;
+
+        Bucket_t bucket = CreateBucket(project, bucket_names[i], &bucket_cfg, err);
+        require_noerror(err);
+        require(0 != bucket, "got empty bucket\n");
+
+        free(bucket);
+    }
+
+    // Close uplink
+    CloseUplink(uplink, err);
+    require_noerror(*err);
+}
+
 
 int main(int argc, char *argv[])
 {
