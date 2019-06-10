@@ -37,7 +37,7 @@ type Bucket struct {
 type Object struct {
 	Version  uint32
 	Bucket   Bucket
-	Path     Path
+	Path     UnencryptedPath
 	IsPrefix bool
 
 	Metadata map[string]string

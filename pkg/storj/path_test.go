@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSplitPath(t *testing.T) {
+func TestPathIterator(t *testing.T) {
 	for i, tt := range []struct {
 		path  string
 		comps []string
 	}{
-		{"", []string{""}},
+		{"", []string{}},
 		{"/", []string{"", ""}},
 		{"//", []string{"", "", ""}},
 		{" ", []string{" "}},
@@ -25,30 +25,11 @@ func TestSplitPath(t *testing.T) {
 		{"///a//b////c/d///", []string{"", "", "", "a", "", "b", "", "", "", "c", "d", "", "", ""}},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-		assert.Equal(t, tt.comps, SplitPath(tt.path), errTag)
+		iter, got := PathIterator{raw: tt.path}, make([]string, 0, len(tt.comps))
+		for !iter.Done() {
+			got = append(got, iter.Next())
+		}
+		assert.Equal(t, tt.comps, got, errTag)
 	}
 }
 
-func TestJoinPaths(t *testing.T) {
-	for i, tt := range []struct {
-		comps []string
-		path  string
-	}{
-		{[]string{}, ""},
-		{[]string{""}, ""},
-		{[]string{"", ""}, "/"},
-		{[]string{"/", ""}, "//"},
-		{[]string{"/", "/"}, "///"},
-		{[]string{"", "", ""}, "//"},
-		{[]string{" "}, " "},
-		{[]string{"a"}, "a"},
-		{[]string{"", "a", ""}, "/a/"},
-		{[]string{"a", "b", "c", "d"}, "a/b/c/d"},
-		{[]string{"a/b", "c/d"}, "a/b/c/d"},
-		{[]string{"a/b/", "c/d"}, "a/b//c/d"},
-		{[]string{"", "", "", "a", "", "b", "", "", "", "c", "d", "", "", ""}, "///a//b////c/d///"},
-	} {
-		errTag := fmt.Sprintf("Test case #%d", i)
-		assert.Equal(t, tt.path, JoinPaths(tt.comps...), errTag)
-	}
-}

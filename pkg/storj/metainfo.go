@@ -24,21 +24,21 @@ type Metainfo interface {
 	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
 
 	// GetObject returns information about an object
-	GetObject(ctx context.Context, bucket string, path Path) (Object, error)
+	GetObject(ctx context.Context, bucketPath UnencryptedBucketPath) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucket string, path Path) (ReadOnlyStream, error)
+	GetObjectStream(ctx context.Context, bucketPath UnencryptedBucketPath) (ReadOnlyStream, error)
 
 	// CreateObject creates a mutable object for uploading stream info
-	CreateObject(ctx context.Context, bucket string, path Path, info *CreateObject) (MutableObject, error)
+	CreateObject(ctx context.Context, bucketPath UnencryptedBucketPath, info *CreateObject) (MutableObject, error)
 	// ModifyObject creates a mutable object for updating a partially uploaded object
-	ModifyObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	ModifyObject(ctx context.Context, bucketPath UnencryptedBucketPath) (MutableObject, error)
 	// DeleteObject deletes an object from database
-	DeleteObject(ctx context.Context, bucket string, path Path) error
+	DeleteObject(ctx context.Context, bucketPath UnencryptedBucketPath) error
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 
 	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
-	ModifyPendingObject(ctx context.Context, bucket string, path Path) (MutableObject, error)
+	ModifyPendingObject(ctx context.Context, bucketPath UnencryptedBucketPath) (MutableObject, error)
 	// ListPendingObjects lists pending objects in bucket based on the ListOptions
 	ListPendingObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 }
@@ -54,7 +54,7 @@ type CreateObject struct {
 }
 
 // Object converts the CreateObject to an object with unitialized values
-func (create CreateObject) Object(bucket Bucket, path Path) Object {
+func (create CreateObject) Object(bucket Bucket, path UnencryptedPath) Object {
 	return Object{
 		Bucket:      bucket,
 		Path:        path,
@@ -89,8 +89,8 @@ const (
 
 // ListOptions lists objects
 type ListOptions struct {
-	Prefix    Path
-	Cursor    Path // Cursor is relative to Prefix, full path is Prefix + Cursor
+	Prefix    string
+	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
 	Delimiter rune
 	Recursive bool
 	Direction ListDirection
@@ -100,7 +100,7 @@ type ListOptions struct {
 // ObjectList is a list of objects
 type ObjectList struct {
 	Bucket string
-	Prefix Path
+	Prefix string
 	More   bool
 
 	// Items paths are relative to Prefix
@@ -118,14 +118,14 @@ func (opts ListOptions) NextPage(list ObjectList) ListOptions {
 	case Before, Backward:
 		return ListOptions{
 			Prefix:    opts.Prefix,
-			Cursor:    list.Items[0].Path,
+			Cursor:    list.Items[0].Path.Raw(),
 			Direction: Before,
 			Limit:     opts.Limit,
 		}
 	case After, Forward:
 		return ListOptions{
 			Prefix:    opts.Prefix,
-			Cursor:    list.Items[len(list.Items)-1].Path,
+			Cursor:    list.Items[len(list.Items)-1].Path.Raw(),
 			Direction: After,
 			Limit:     opts.Limit,
 		}
