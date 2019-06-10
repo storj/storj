@@ -132,14 +132,31 @@ typedef struct ObjectMeta {
 */
 import "C"
 
-import "storj.io/storj/lib/uplink"
+import (
+	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
+)
+
+
+//export GetIDVersion
+func GetIDVersion(number C.uint8_t, cErr **C.char) C.IDVersion_t {
+	version, err := storj.GetIDVersion(storj.IDVersionNumber(number))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return C.IDVersion_t{}
+	}
+
+	return C.IDVersion_t{
+		number: C.uint16_t(version.Number),
+	}
+}
 
 //export ParseAPIKey
-func ParseAPIKey(val *C.char, cErr **C.char) (cAPIKey C.APIKeyRef_t) {
+func ParseAPIKey(val *C.char, cErr **C.char) C.APIKeyRef_t {
 	apikey, err := uplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return cAPIKey
+		return C.APIKeyRef_t(0)
 	}
 
 	return C.APIKeyRef_t(universe.Add(apikey))
@@ -154,4 +171,3 @@ func Serialize(cAPIKey C.APIKeyRef_t) *C.char {
 
 	return C.CString(apikey.Serialize())
 }
-

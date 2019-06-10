@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "unity.h"
-#include "../../uplink-cgo.h"
+
+#include "uplink.h"
 #include "helpers.h"
 
 int main(int argc, char *argv[])

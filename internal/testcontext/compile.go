@@ -31,22 +31,18 @@ func (ctx *Context) Compile(pkg string) string {
 	return exe
 }
 
-func (ctx *Context) CompileC(srcGlobs ...string) string {
+// CompileShared compiles pkg as c-shared.
+func (ctx *Context) CompileShared(name string, pkg string) Include {
 	ctx.test.Helper()
 
-	exe := ctx.File("build", path.Base(srcGlobs[0])+".exe")
+	base := ctx.File("build", name)
 
-	var files []string
-	for _, glob := range srcGlobs {
-		newFiles, err := filepath.Glob(glob)
-		if err != nil {
-			panic(err)
-		}
-		files = append(files, newFiles...)
+	var cmd *exec.Cmd
+	if raceEnabled {
+		cmd = exec.Command("go", "build", "-buildmode", "c-shared", "-race", "-o", base+".so", pkg)
+	} else {
+		cmd = exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
 	}
-
-	cmdString := append(append([]string{"-ggdb"}, files...), "-o", exe)
-	cmd := exec.Command("gcc", cmdString...)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -54,5 +50,38 @@ func (ctx *Context) CompileC(srcGlobs ...string) string {
 		ctx.test.Fatal(err)
 	}
 
+	return Include{Header: base +".h", Library: base + ".so"}
+}
+
+// CompileC compiles file as with gcc and adds the includes.
+func (ctx *Context) CompileC(file string, includes ...Include) string {
+	ctx.test.Helper()
+
+	exe := ctx.File("build", filepath.Base(file)+".exe")
+
+	var args = []string{}
+	args = append(args, "-ggdb")
+	args = append(args, "-o", exe)
+	for _, inc := range includes {
+		args = append(args,
+			"-I", filepath.Dir(inc.Header),
+			"-L="+filepath.Dir(inc.Library),
+			"-l:"+filepath.Base(inc.Library),
+		)
+	}
+	args = append(args, file)
+
+	out, err := exec.Command("gcc", args...).CombinedOutput()
+	if err != nil {
+		ctx.test.Error(string(out))
+		ctx.test.Fatal(err)
+	}
+
 	return exe
+}
+
+// Include defines an includable library for gcc.
+type Include struct {
+	Header  string
+	Library string
 }

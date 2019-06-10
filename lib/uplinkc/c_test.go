@@ -4,56 +4,62 @@
 package main_test
 
 import (
+	"os/exec"
 	"path/filepath"
 	"testing"
-	
+
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
 )
 
 func TestC(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
+
 	ctests, err := filepath.Glob(filepath.Join("testdata", "*_test.c"))
 	require.NoError(t, err)
 
 	for _, ctest := range ctests {
 		ctest := ctest
-		t.Run(ctest, func(t *testing.T) {
-			t.Parallel()
+		t.Run(filepath.Base(ctest), func(t *testing.T) {
+			testexe := ctx.CompileC(ctest, libuplink)
+			/*
+				planet, err := testplanet.NewCustom(
+					zaptest.NewLogger(t),
+					testplanet.Config{
+						SatelliteCount:   1,
+						StorageNodeCount: 8,
+						UplinkCount:      0,
+						Reconfigure:      testplanet.DisablePeerCAWhitelist,
+					},
+				)
+				require.NoError(t, err)
 
-			ctx := testcontext.New(t)
-			defer ctx.Cleanup()
-
-			planet, err := testplanet.NewCustom(
-				zaptest.NewLogger(t),
-				testplanet.Config{
-					SatelliteCount:   1,
-					StorageNodeCount: 8,
-					UplinkCount:      0,
-					Reconfigure:      testplanet.DisablePeerCAWhitelist,
-				},
-			)
-			require.NoError(t, err)
-
-			planet.Start(ctx)
-			defer ctx.Check(planet.Shutdown)
-
-/*
-			consoleProject := newProject(t, planet)
-			consoleApikey := newAPIKey(t, ctx, planet, consoleProject.ID)
-			satelliteAddr := planet.Satellites[0].Addr()
-
-			envVars := []string{
-				"SATELLITE_ADDR=" + satelliteAddr,
-				"APIKEY=" + consoleApikey,
+				planet.Start(ctx)
+				defer ctx.Check(planet.Shutdown)
+			*/
+			out, err := exec.Command(testexe).CombinedOutput()
+			if err != nil {
+				t.Error(string(out))
+				t.Fatal(err)
+			} else {
+				t.Log(out)
 			}
 
-			runCTest(t, ctx, ctest, envVars...)
+			/*
+				consoleProject := newProject(t, planet)
+				consoleApikey := newAPIKey(t, ctx, planet, consoleProject.ID)
+				satelliteAddr := planet.Satellites[0].Addr()
+
+				envVars := []string{
+					"SATELLITE_ADDR=" + satelliteAddr,
+					"APIKEY=" + consoleApikey,
+				}
+
+				runCTest(t, ctx, ctest, envVars...)
 			*/
 		})
 	}
