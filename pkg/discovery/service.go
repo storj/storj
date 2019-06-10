@@ -31,11 +31,6 @@ type Config struct {
 	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
 	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
-
-	ReputationAlpha0 float64 `help:"the initial shape 'alpha' used to calculate uptime SNs reputation" default:"1.0"`
-	ReputationBeta0  float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
-	ReputationLambda float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"1.0"`
-	ReputationOmega  float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
 }
 
 // Discovery struct loads on cache, kad

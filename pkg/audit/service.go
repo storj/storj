@@ -30,11 +30,6 @@ type Config struct {
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
 	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
-
-	ReputationAlpha0 float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
-	ReputationBeta0  float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:0.0"`
-	ReputationLambda float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"1.0"`
-	ReputationOmega  float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
 }
 
 // Service helps coordinate Cursor and Verifier to run the audit process continuously
