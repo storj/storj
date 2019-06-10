@@ -331,7 +331,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	return hash, err
 }
 
-func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (rr ranger.Ranger, err error) {
+func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, segmentSize int64) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -342,7 +342,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		return nil, Error.New("number of non-nil limits (%d) is less than required count (%d) of erasure scheme", nonNilCount(limits), es.RequiredCount())
 	}
 
-	paddedSize := calcPadded(size, es.StripeSize())
+	paddedSize := calcPadded(segmentSize, es.StripeSize())
 	pieceSize := paddedSize / int64(es.RequiredCount())
 
 	rrs := map[int]ranger.Ranger{}
@@ -363,7 +363,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		return nil, err
 	}
 
-	return eestream.Unpad(rr, int(paddedSize-size))
+	return eestream.Unpad(rr, int(paddedSize-segmentSize))
 }
 
 func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) (err error) {

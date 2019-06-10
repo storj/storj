@@ -155,9 +155,10 @@ func (c Config) GetPathCipherSuite() storj.CipherSuite {
 
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
+	const stripesPerBlock = 2
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(c.Enc.DataType),
-		BlockSize: c.GetRedundancyScheme().StripeSize(),
+		BlockSize: c.GetRedundancyScheme().StripeSize() * stripesPerBlock,
 	}
 }
 

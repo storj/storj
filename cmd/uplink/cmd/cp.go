@@ -97,7 +97,8 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(reader)
 	}
@@ -160,7 +161,8 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(rc)
 	} else {
