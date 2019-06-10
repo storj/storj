@@ -133,16 +133,21 @@ typedef struct ObjectMeta {
 import "C"
 
 import (
-	"storj.io/storj/lib/uplink"
+	"errors"
+
+	"gopkg.in/spacemonkeygo/monkit.v2"
+
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
 
+var mon = monkit.Package()
 
 //export GetIDVersion
-func GetIDVersion(number C.uint8_t, cErr **C.char) C.IDVersion_t {
+func GetIDVersion(number C.uint8_t, cerr **C.char) C.IDVersion_t {
 	version, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cerr = C.CString(err.Error())
 		return C.IDVersion_t{}
 	}
 
@@ -152,10 +157,10 @@ func GetIDVersion(number C.uint8_t, cErr **C.char) C.IDVersion_t {
 }
 
 //export ParseAPIKey
-func ParseAPIKey(val *C.char, cErr **C.char) C.APIKeyRef_t {
-	apikey, err := uplink.ParseAPIKey(C.GoString(val))
+func ParseAPIKey(val *C.char, cerr **C.char) C.APIKeyRef_t {
+	apikey, err := libuplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cerr = C.CString(err.Error())
 		return C.APIKeyRef_t(0)
 	}
 
@@ -164,10 +169,91 @@ func ParseAPIKey(val *C.char, cErr **C.char) C.APIKeyRef_t {
 
 //export Serialize
 func Serialize(cAPIKey C.APIKeyRef_t) *C.char {
-	apikey, ok := universe.Get(Ref(cAPIKey)).(uplink.APIKey)
+	apikey, ok := universe.Get(Ref(cAPIKey)).(libuplink.APIKey)
 	if !ok {
 		return C.CString("")
 	}
 
 	return C.CString(apikey.Serialize())
+}
+
+type Uplink struct {
+	scope
+	lib *libuplink.Uplink
+}
+
+//export NewUplink
+func NewUplink(cerr **C.char) C.UplinkRef_t {
+	scope := rootScope("inmemory")
+
+	cfg := &libuplink.Config{}
+	lib, err := libuplink.NewUplink(scope.ctx, cfg)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.UplinkRef_t(0)
+	}
+
+	return C.UplinkRef_t(universe.Add(&Uplink{scope, lib}))
+}
+
+//export NewUplinkInsecure
+func NewUplinkInsecure(cerr **C.char) C.UplinkRef_t {
+	scope := rootScope("inmemory")
+
+	cfg := &libuplink.Config{}
+	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
+	lib, err := libuplink.NewUplink(scope.ctx, cfg)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.UplinkRef_t(0)
+	}
+
+	return C.UplinkRef_t(universe.Add(&Uplink{scope, lib}))
+}
+
+//export OpenProject
+func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyRef_t, cerr **C.char) C.ProjectRef_t {
+	uplink, ok := universe.Get(Ref(uplinkref)).(*Uplink)
+	if !ok {
+		*cerr = C.CString("invalid uplink")
+		return C.ProjectRef_t(0)
+	}
+
+	var err error
+	defer mon.Task()(&uplink.scope.ctx)(&err)
+
+	apikey, ok := universe.Get(Ref(cAPIKey)).(libuplink.APIKey)
+	if !ok {
+		err = errors.New("invalid API Key")
+		*cerr = C.CString(err.Error())
+		return C.ProjectRef_t(0)
+	}
+
+	scope := uplink.scope.child()
+
+	// TODO: add project options argument
+	var project *libuplink.Project
+	project, err = uplink.lib.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.ProjectRef_t(0)
+	}
+
+	return C.ProjectRef_t(universe.Add(project))
+}
+
+//export CloseUplink
+func CloseUplink(uplinkref C.UplinkRef_t, cerr **C.char) {
+	uplink, ok := universe.Get(Ref(uplinkref)).(*Uplink)
+	if !ok {
+		*cerr = C.CString("invalid uplink")
+		return
+	}
+	universe.Del(Ref(uplinkref))
+	defer uplink.cancel()
+
+	if err := uplink.lib.Close(); err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
 }

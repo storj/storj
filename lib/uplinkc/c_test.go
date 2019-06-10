@@ -4,13 +4,16 @@
 package main_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 )
 
 func TestC(t *testing.T) {
@@ -26,13 +29,13 @@ func TestC(t *testing.T) {
 		ctest := ctest
 		t.Run(filepath.Base(ctest), func(t *testing.T) {
 			testexe := ctx.CompileC(ctest, libuplink)
-			/*
+
 				planet, err := testplanet.NewCustom(
 					zaptest.NewLogger(t),
 					testplanet.Config{
 						SatelliteCount:   1,
-						StorageNodeCount: 8,
-						UplinkCount:      0,
+						StorageNodeCount: 6,
+						UplinkCount:      1,
 						Reconfigure:      testplanet.DisablePeerCAWhitelist,
 					},
 				)
@@ -40,27 +43,20 @@ func TestC(t *testing.T) {
 
 				planet.Start(ctx)
 				defer ctx.Check(planet.Shutdown)
-			*/
-			out, err := exec.Command(testexe).CombinedOutput()
-			if err != nil {
-				t.Error(string(out))
-				t.Fatal(err)
-			} else {
-				t.Log(out)
-			}
 
-			/*
-				consoleProject := newProject(t, planet)
-				consoleApikey := newAPIKey(t, ctx, planet, consoleProject.ID)
-				satelliteAddr := planet.Satellites[0].Addr()
+				cmd := exec.Command(testexe)
+				cmd.Env = append(os.Environ(),
+					"SATELLITE_ADDR=" + planet.Satellites[0].Addr(),
+					"APIKEY=" + planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+				)
 
-				envVars := []string{
-					"SATELLITE_ADDR=" + satelliteAddr,
-					"APIKEY=" + consoleApikey,
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Error(string(out))
+					t.Fatal(err)
+				} else {
+					t.Log(out)
 				}
-
-				runCTest(t, ctx, ctest, envVars...)
-			*/
 		})
 	}
 }
