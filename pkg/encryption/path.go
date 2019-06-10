@@ -7,102 +7,153 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
+	"strings"
 
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/storj"
 )
 
-// EncryptPath encrypts path with the given key
-func EncryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (encrypted storj.Path, err error) {
-	// do not encrypt empty paths
-	if len(path) == 0 {
-		return path, nil
-	}
+// EncryptBucketPath encrypts the bucketPath using the provided cipher and looking up
+// keys from the provided store.
+func EncryptBucketPath(bucketPath storj.UnencryptedBucketPath, cipher storj.Cipher, store *Store) (
+	storj.EncryptedBucketPath, error) {
 
+	bucket := bucketPath.Bucket()
 	if cipher == storj.Unencrypted {
-		return path, nil
+		return storj.NewEncryptedPath(bucketPath.Path().Raw()).WithBucket(bucket), nil
 	}
 
-	comps := storj.SplitPath(path)
-	for i, comp := range comps {
-		comps[i], err = encryptPathComponent(comp, cipher, key)
-		if err != nil {
-			return "", err
-		}
-		key, err = DeriveKey(key, "path:"+comp)
-		if err != nil {
-			return "", err
-		}
+	_, consumed, base := store.LookupUnencrypted(bucketPath)
+	if base == nil {
+		return storj.EncryptedBucketPath{}, errs.New(
+			"unable to find encryption base for: %q", bucketPath)
 	}
-	return storj.JoinPaths(comps...), nil
+
+	path, ok := bucketPath.Path().Consume(consumed)
+	if !ok {
+		return storj.EncryptedBucketPath{}, errs.New(
+			"unable to encrypt bucket path: %q", bucketPath)
+	}
+
+	var builder strings.Builder
+	builder.WriteString(base.Encrypted.Raw())
+
+	key := &base.Key
+	for iter, i := path.Iterator(), 0; !iter.Done(); i++ {
+		component := iter.Next()
+
+		encComponent, err := encryptPathComponent(component, cipher, key)
+		if err != nil {
+			return storj.EncryptedBucketPath{}, errs.Wrap(err)
+		}
+		key, err = DeriveKey(key, "path:"+component)
+		if err != nil {
+			return storj.EncryptedBucketPath{}, errs.Wrap(err)
+		}
+
+		if builder.Len() > 0 || i > 0 {
+			builder.WriteByte('/')
+		}
+		builder.WriteString(encComponent)
+	}
+
+	return storj.NewEncryptedPath(builder.String()).WithBucket(bucket), nil
 }
 
-// DecryptPath decrypts path with the given key
-func DecryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (decrypted storj.Path, err error) {
+// DecryptBucketPath decrypts the bucketPath using the provided cipher and looking up
+// keys from the provided store.
+func DecryptBucketPath(bucketPath storj.EncryptedBucketPath, cipher storj.Cipher, store *Store) (
+	storj.UnencryptedBucketPath, error) {
+
+	bucket := bucketPath.Bucket()
 	if cipher == storj.Unencrypted {
-		return path, nil
+		return storj.NewUnencryptedPath(bucketPath.Path().Raw()).WithBucket(bucket), nil
 	}
 
-	comps := storj.SplitPath(path)
-	for i, comp := range comps {
-		comps[i], err = decryptPathComponent(comp, cipher, key)
-		if err != nil {
-			return "", err
-		}
-		key, err = DeriveKey(key, "path:"+comps[i])
-		if err != nil {
-			return "", err
-		}
+	_, consumed, base := store.LookupEncrypted(bucketPath)
+	if base == nil {
+		return storj.UnencryptedBucketPath{}, errs.New(
+			"unable to find encryption base for: %q", bucketPath)
 	}
-	return storj.JoinPaths(comps...), nil
+
+	path, ok := bucketPath.Path().Consume(consumed)
+	if !ok {
+		return storj.UnencryptedBucketPath{}, errs.New(
+			"unable to encrpt bucket path: %q", bucketPath)
+	}
+
+	var builder strings.Builder
+	builder.WriteString(base.Unencrypted.Raw())
+
+	key := &base.Key
+	for iter, i := path.Iterator(), 0; !iter.Done(); i++ {
+		component := iter.Next()
+
+		unencComponent, err := decryptPathComponent(component, cipher, key)
+		if err != nil {
+			return storj.UnencryptedBucketPath{}, errs.Wrap(err)
+		}
+		key, err = DeriveKey(key, "path:"+unencComponent)
+		if err != nil {
+			return storj.UnencryptedBucketPath{}, errs.Wrap(err)
+		}
+
+		if builder.Len() > 0 || i > 0 {
+			builder.WriteByte('/')
+		}
+		builder.WriteString(unencComponent)
+	}
+
+	return storj.NewUnencryptedPath(builder.String()).WithBucket(bucket), nil
 }
 
-// DerivePathKey derives the key for the given depth from the given root key.
-// This method must be called on an unencrypted path.
-func DerivePathKey(path storj.Path, key *storj.Key, depth int) (derivedKey *storj.Key, err error) {
-	if depth < 0 {
-		return nil, Error.New("negative depth")
-	}
+// DeriveContentKey returns the content key for the passed in bucketPath by looking up
+// the appropriate base key from the store and deriving the rest.
+func DeriveContentKey(bucketPath storj.UnencryptedBucketPath, store *Store) (
+	key *storj.Key, err error) {
 
-	// do not derive key from empty path
-	if len(path) == 0 {
-		return key, nil
-	}
-
-	comps := storj.SplitPath(path)
-	if depth > len(comps) {
-		return nil, Error.New("depth greater than path length")
-	}
-
-	derivedKey = key
-	for i := 0; i < depth; i++ {
-		derivedKey, err = DeriveKey(derivedKey, "path:"+comps[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return derivedKey, nil
-}
-
-// DeriveContentKey derives the key for the encrypted object data using the root key.
-// This method must be called on an unencrypted path.
-func DeriveContentKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, err error) {
-	comps := storj.SplitPath(path)
-	if len(comps) == 0 {
-		return nil, Error.New("path is empty")
-	}
-	derivedKey, err = DerivePathKey(path, key, len(comps))
+	key, err = DerivePathKey(bucketPath, store)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
-	derivedKey, err = DeriveKey(derivedKey, "content")
-	if err != nil {
-		return nil, err
-	}
-	return derivedKey, nil
+	key, err = DeriveKey(key, "content")
+	return key, errs.Wrap(err)
 }
 
+// DerivePathKey returns the path key for the passed in bucketPath by looking up the
+// appropriate base key from the store and deriving the rest.
+func DerivePathKey(bucketPath storj.UnencryptedBucketPath, store *Store) (
+	key *storj.Key, err error) {
+
+	_, consumed, base := store.LookupUnencrypted(bucketPath)
+	if base == nil {
+		return nil, errs.New("unable to find encryption base for: %q", bucketPath)
+	}
+
+	path, ok := bucketPath.Path().Consume(consumed)
+	if !ok {
+		return nil, errs.New("unable to derive path key for: %q", bucketPath)
+	}
+
+	key = &base.Key
+	for iter := path.Iterator(); !iter.Done(); {
+		key, err = DeriveKey(key, "path:"+iter.Next())
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+	return key, nil
+}
+
+// encryptPathComponent encrypts a single path component with the provided cipher and key.
 func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
-	// derive the key for the current path component
+	// derive the key for the next path component. this is so that
+	// every encrypted component has a unique nonce.
+	//
+	// TODO(jeff): could we have just written the path component into an
+	// hmac keyed by the current path key? that seems like it would be
+	// just as good for nonce generation, and wouldn't require deriving
+	// the path key multiple times.
 	derivedKey, err := DeriveKey(key, "path:"+comp)
 	if err != nil {
 		return "", err
@@ -133,11 +184,8 @@ func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 	return base64.RawURLEncoding.EncodeToString(append(nonce[:nonceSize], cipherText...)), nil
 }
 
+// decryptPathComponent decrypts a single path component with the provided cipher and key.
 func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
-	if comp == "" {
-		return "", nil
-	}
-
 	data, err := base64.RawURLEncoding.DecodeString(comp)
 	if err != nil {
 		return "", Error.Wrap(err)

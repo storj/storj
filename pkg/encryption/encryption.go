@@ -23,7 +23,7 @@ type AESGCMNonce [AESGCMNonceSize]byte
 // ToAESGCMNonce returns the nonce as a AES-GCM nonce
 func ToAESGCMNonce(nonce *storj.Nonce) *AESGCMNonce {
 	aes := new(AESGCMNonce)
-	copy((*aes)[:], nonce[:AESGCMNonceSize])
+	copy(aes[:], nonce[:AESGCMNonceSize])
 	return aes
 }
 
