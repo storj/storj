@@ -12,7 +12,6 @@ import "C"
 import (
 	"context"
 	"io"
-	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/lib/uplink"
 )
 
@@ -33,44 +32,27 @@ func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
 }
 
 //export DownloadRange
-func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloadReaderRef_t) {
+func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
 	ctx := context.Background()
 
 	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
 	if !ok {
 		*cErr = C.CString("invalid object")
-		return downloader
+		return
 	}
 
 	rc, err := object.DownloadRange(ctx, int64(offset), int64(length))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return downloader
+		return
 	}
 
-	return C.DownloadReaderRef_t(structRefMap.Add(rc))
-}
-
-//export Download
-func Download(downloader C.DownloadReaderRef_t, bytes *C.Bytes_t, cErr **C.char) (readLength C.int){
-	readCloser, ok := structRefMap.Get(token(downloader)).(*readcloser.LimitedReadCloser)
-	if !ok {
-		*cErr = C.CString("invalid reader")
-		return C.int(0)
+	defer rc.Close()
+	_, err = io.Copy(file, rc)
+	if err != io.EOF && err != nil {
+		*cErr = C.CString(err.Error())
+		return
 	}
-
-	// TODO: This size could be optimized
-	buf := make([]byte, 1024)
-
-	n, err := readCloser.Read(buf)
-	if err == io.EOF {
-		readCloser.Close()
-		return C.EOF
-	}
-
-	bytesToCbytes(buf, n, bytes)
-
-	return C.int(n)
 }
 
 //export ObjectMeta

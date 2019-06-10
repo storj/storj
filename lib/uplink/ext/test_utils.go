@@ -78,6 +78,10 @@ func MemoryFile(data *C.uint8_t, data_len C.size_t) *File {
 	return (*File)(C.fmemopen(unsafe.Pointer(data), data_len, C.CString("r")))
 }
 
+func TempFile() *File {
+	return (*File)(C.tmpfile())
+}
+
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
 	srcGlobs = append([]string{
 		LibuplinkSO,

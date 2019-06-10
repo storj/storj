@@ -2,10 +2,10 @@ package main
 
 import (
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/lib/uplink"
 	"testing"
-	"unsafe"
 )
 
 func TestObjectMeta(t *testing.T) {
@@ -80,26 +80,18 @@ func TestDownloadRange(t *testing.T) {
 			objectMeta := ObjectMeta(objectRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			reader := DownloadRange(objectRef, 0, Cint64(objectMeta.Size), &cErr)
+			f := TempFile()
+			defer f.Close()
+
+			DownloadRange(objectRef, 0, Cint64(objectMeta.Size), f, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			var downloadedData []byte
+			f.Seek(0, 0)
+			b, err := ioutil.ReadAll(f)
+			require.Empty(t, err)
 
-			for {
-				bytes := new(CBytes_t)
-				readSize := Download(reader, bytes, &cErr)
-				if readSize == CEOF {
-					break
-				}
-				require.Empty(t, cCharToGoString(cErr))
-
-				data := CGoBytes(unsafe.Pointer(bytes.bytes), Cint(bytes.length))
-
-				downloadedData = append(downloadedData, data...)
-			}
-
-			require.Equal(t, len(testObj.Data), len(downloadedData))
-			require.Equal(t, testObj.Data, downloadedData)
+			require.Equal(t, len(testObj.Data), len(b))
+			require.Equal(t, testObj.Data, b)
 		}
 	})
 }
