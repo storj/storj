@@ -155,7 +155,7 @@ func (migration *Migration) ensureVersionTable(log *zap.Logger, db DB) error {
 		return Error.Wrap(err)
 	}
 
-	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)`))
+	_, err = tx.Exec(db.Rebind(`CREATE TABLE IF NOT EXISTS ` + migration.Table + ` (version int, commited_at text)`)) //nolint:misspell
 	if err != nil {
 		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -185,8 +185,7 @@ func (migration *Migration) getLatestVersion(log *zap.Logger, db DB) (int, error
 // addVersion adds information about a new migration
 func (migration *Migration) addVersion(tx *sql.Tx, db DB, version int) error {
 	_, err := tx.Exec(db.Rebind(`
-		INSERT INTO `+migration.Table+` (version, commited_at)
-		VALUES (?, ?)`),
+		INSERT INTO `+migration.Table+` (version, commited_at) VALUES (?, ?)`), //nolint:misspell
 		version, time.Now().String(),
 	)
 	return err
