@@ -118,7 +118,6 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	nodeData = make(map[storj.NodeID]float64)
 	bucketTallies = make(map[string]*accounting.BucketTally)
 
-	var currentBucket string
 	var bucketCount int64
 	var totalTallies accounting.BucketTally
 
@@ -157,29 +156,6 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 						bucketTallies[bucketID] = bucketTally
 					}
 
-					//currentBucketTally.ProjectID = []byte(project)
-					//currentBucketTally.BucketName = []byte(bucketName)
-
-					//// paths are iterated in order, so everything in a bucket is
-					//// iterated together. When a project or bucket changes,
-					//// the previous bucket is completely finished.
-					//if currentBucket != bucketID {
-					//	if currentBucket != "" {
-					//		// report the previous bucket and add to the totals
-					//		currentBucketTally.Report("bucket")
-					//		totalTallies.Combine(&currentBucketTally)
-
-					//		// add currentBucketTally to bucketTallies
-					//		bucketTallies[currentBucket] = &currentBucketTally
-					//		fmt.Printf("EEEE TALLY 2 ADDING: %s %d\n", currentBucket, currentBucketTally.RemoteBytes)
-					//		currentBucketTally = accounting.BucketTally{}
-					//		currentBucketTally.ProjectID = []byte(project)
-					//		currentBucketTally.BucketName = []byte(bucketName)
-					//	}
-					//
-					//						currentBucket = bucketID
-					//					}
-
 					bucketTally.AddSegment(pointer, segment == "l")
 				}
 
@@ -213,13 +189,6 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	)
 	if err != nil {
 		return latestTally, nodeData, bucketTallies, Error.Wrap(err)
-	}
-
-	if currentBucket != "" {
-		// wrap up the last bucket
-		//totalTallies.Combine(&currentBucketTally)
-		//fmt.Printf("EEEE TALLY 2 ADDING LAST: %s %d\n", currentBucket, currentBucketTally.RemoteBytes)
-		//bucketTallies[currentBucket] = &currentBucketTally
 	}
 
 	for _, bucketTally := range bucketTallies {
