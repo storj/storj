@@ -75,7 +75,9 @@ func TestOnlyInline(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
+		expectedBucketName := "testbucket"
 		expectedTally := accounting.BucketTally{
+			BucketName:     []byte(expectedBucketName),
 			Segments:       1,
 			InlineSegments: 1,
 			Files:          1,
@@ -86,7 +88,6 @@ func TestOnlyInline(t *testing.T) {
 		}
 
 		// Execute test: upload a file, then calculate at rest data
-		expectedBucketName := "testbucket"
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
@@ -127,7 +128,9 @@ func TestCalculateAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
+		expectedBucketName := "testbucket"
 		expectedTally := accounting.BucketTally{
+			BucketName:     []byte(expectedBucketName),
 			Segments:       1,
 			RemoteSegments: 1,
 			Files:          1,
@@ -138,8 +141,9 @@ func TestCalculateAtRestData(t *testing.T) {
 		}
 
 		// Execute test: upload a file, then calculate at rest data
-		expectedBucketName := "testbucket"
+
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+
 		assert.NoError(t, err)
 		_, actualNodeData, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 		require.NoError(t, err)
@@ -159,7 +163,7 @@ func TestCalculateAtRestData(t *testing.T) {
 		assert.Equal(t, len(actualBucketData), 1)
 		for bucketID, actualTally := range actualBucketData {
 			assert.Contains(t, bucketID, expectedBucketName)
-			assert.Equal(t, *actualTally, expectedTally)
+			assert.Equal(t, expectedTally, *actualTally)
 		}
 	})
 }
