@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package console
+package valueattribution
 
 import (
 	"context"
@@ -9,6 +9,9 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/satellite/console"
 )
 
 // Error messages
@@ -30,16 +33,16 @@ type ConnectorKeyInfo struct {
 	FullName  string
 	ShortName string
 	Email     string
-	Status    UserStatus
+	Status    console.UserStatus
 	CreatedAt time.Time
 }
 
-// ConnectorKeys is interface for working with connectory keys
-type ConnectorKeys interface {
+// DB implements the database for value attribution table
+type DB interface {
 	// GetByProjectID retrieves list of ConnectorKey for given projectID
-	GetByProjectID(ctx context.Context, projectID uuid.UUID) (*ConnectorKeyInfo, error)
+	GetByProjectID(ctx context.Context, projectID uuid.UUID) (*pb.ConnectorKeyInfo, error)
 	// Create creates and stores new ConnectorKeyInfo
-	Create(ctx context.Context, info ConnectorKeyInfo) (*ConnectorKeyInfo, error)
+	Create(ctx context.Context, info *pb.ConnectorKeyInfo) (*pb.ConnectorKeyInfo, error)
 	// Delete deletes ConnectorKeyInfo from store
 	Delete(ctx context.Context, id uuid.UUID) error
 }

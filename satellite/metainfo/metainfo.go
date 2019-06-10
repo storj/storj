@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
@@ -55,6 +56,7 @@ type Endpoint struct {
 	metainfo       *Service
 	orders         *orders.Service
 	cache          *overlay.Cache
+	partnerinfo    valueattribution.DB
 	projectUsage   *accounting.ProjectUsage
 	containment    Containment
 	apiKeys        APIKeys
@@ -62,14 +64,15 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo valueattribution.DB,
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
 		metainfo:       metainfo,
 		orders:         orders,
 		cache:          cache,
+		partnerinfo:    partnerinfo,
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
@@ -521,11 +524,16 @@ func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.Segmen
 		switch status.Code(err) {
 		case codes.NotFound:
 			endpoint.log.Sugar().Info("Value attribution entry made\n")
-			// @TODO make entry into Value attribution table
+
+			_, err := endpoint.partnerinfo.Create(ctx, req.GetConnectorKeyInfo())
+			if err != nil {
+				endpoint.log.Sugar().Errorf("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
+				return &pb.SegmentInfoResponse{}, err
+			}
 			return &pb.SegmentInfoResponse{}, nil
 		default:
-			endpoint.log.Sugar().Info("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
 			// no entry made into value attribution table
+			endpoint.log.Sugar().Info("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
 			return &pb.SegmentInfoResponse{}, err
 		}
 	}

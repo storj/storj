@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/storage"
 )
 
@@ -58,7 +57,7 @@ type Client interface {
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
 	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
-	ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, userInfo console.ConnectorKeyInfo) (*pb.Pointer, error)
+	ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, userInfo *pb.ConnectorKeyInfo) (*pb.Pointer, error)
 }
 
 // NewClient initializes a new metainfo client
@@ -227,26 +226,14 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 }
 
 // ValueAttributeInfo requests the connector key info
-func (metainfo *Metainfo) ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, userInfo console.ConnectorKeyInfo) (pointer *pb.Pointer, err error) {
+func (metainfo *Metainfo) ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, userInfo *pb.ConnectorKeyInfo) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	createdAt, err := ptypes.TimestampProto(userInfo.CreatedAt)
-	if err != nil {
-		return pointer, err
-	}
 
 	response, err := metainfo.client.ValueAttributeInfo(ctx, &pb.SegmentInfoRequest{
-		Bucket:  []byte(bucket),
-		Path:    []byte(path),
-		Segment: segmentIndex,
-		ConnectorKeyInfo: &pb.ConnectorKeyInfo{
-			PartnerId: userInfo.PartnerID,
-			BucketId:  userInfo.BucketID,
-			FullName:  userInfo.FullName,
-			ShortName: userInfo.ShortName,
-			Email:     userInfo.Email,
-			Status:    pb.ConnectorKeyInfo_UserStatus(userInfo.Status),
-			CreatedAt: createdAt,
-		},
+		Bucket:           []byte(bucket),
+		Path:             []byte(path),
+		Segment:          segmentIndex,
+		ConnectorKeyInfo: userInfo,
 	})
 
 	return response.GetPointer(), err
