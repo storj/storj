@@ -3,7 +3,7 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "unity.h"
+#include "unit_test.h"
 #include "../../uplink-cgo.h"
 #include <inttypes.h>
 

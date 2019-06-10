@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 #include <string.h>
-#include "unity.h"
+#include "unit_test.h"
 #include "../../uplink-cgo.h"
 
 void TestUplink(void)
@@ -37,7 +37,5 @@ void TestUplink(void)
 
 int main(int argc, char *argv[])
 {
-    UNITY_BEGIN();
-    RUN_TEST(TestUplink);
-    return UNITY_END();
+    TestUplink();
 }

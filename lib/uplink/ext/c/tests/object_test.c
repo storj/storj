@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "unity.h"
+#include "unit_test.h"
 #include "../../uplink-cgo.h"
 #include "helpers.h"
 
@@ -82,7 +82,5 @@ void TestObject(void)
 
 int main(int argc, char *argv[])
 {
-    UNITY_BEGIN();
-    RUN_TEST(TestObject);
-    return UNITY_END();
+    TestObject();
 }

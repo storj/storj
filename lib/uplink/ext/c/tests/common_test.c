@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include "unity.h"
+#include "unit_test.h"
 #include "../../uplink-cgo.h"
 
 void TestGetIDVersion(void)
@@ -34,8 +34,7 @@ void TestAPIKey(void)
 
 int main(int argc, char *argv[])
 {
-    UNITY_BEGIN();
-    RUN_TEST(TestAPIKey);
-    RUN_TEST(TestGetIDVersion);
-    return UNITY_END();
+    // TODO split into separate test files?
+    TestAPIKey();
+    TestGetIDVersion();
 }

@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include "unity.h"
+#include "unit_test.h"
 #include "../../uplink-cgo.h"
 #include "helpers.h"
 
@@ -30,7 +30,7 @@ void TestProject(void)
     // TODO: test BucketListOptions_t
     BucketList_t bucket_list = ListBuckets(ref_project, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_FALSE(bucket_list.more);
+    TEST_ASSERT_EQUAL(bucket_list.more, false);
     TEST_ASSERT_EQUAL(num_of_buckets, bucket_list.length);
     TEST_ASSERT_NOT_NULL(bucket_list.items);
 
@@ -71,7 +71,5 @@ void TestProject(void)
 
 int main(int argc, char *argv[])
 {
-    UNITY_BEGIN();
-    RUN_TEST(TestProject);
-    return UNITY_END();
+    TestProject();
 }
