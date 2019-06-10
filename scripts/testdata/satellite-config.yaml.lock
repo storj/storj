@@ -44,10 +44,10 @@
 # db.conn_max_lifetime: -1ns
 
 # Maximum Amount of Idle Database connections, -1 means the stdlib default
-# db.max_idle_conns: 50
+# db.max_idle_conns: 20
 
 # Maximum Amount of Open Database connections, -1 means the stdlib default
-# db.max_open_conns: 100
+# db.max_open_conns: 25
 
 # address to listen on for debug endpoints
 # debug.addr: "127.0.0.1:0"
@@ -100,7 +100,7 @@ kademlia.external-address: ""
 # operator email address
 kademlia.operator.email: ""
 
-# operator wallet adress
+# operator wallet address
 kademlia.operator.wallet: ""
 
 # size of Kademlia replacement cache
