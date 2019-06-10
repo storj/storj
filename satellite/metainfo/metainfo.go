@@ -509,17 +509,6 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 
 // checks if bucket has any pointers(entries)
 func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SegmentInfoRequest) (*pb.SegmentInfoResponse, error) {
-	_, err := console.GetConnectorKeyInfo(ctx)
-	if err != nil {
-		switch err.Error() {
-		case errs.New(console.NoConnectorIDSetErrMsg).Error():
-			// no connector id set
-			return nil, status.Errorf(codes.Unimplemented, err.Error())
-		default:
-			return nil, status.Errorf(codes.Unknown, err.Error())
-		}
-	}
-
 	// not_found error indicates connectory id set but no entry exists
 	resp, err := endpoint.SegmentInfo(ctx, req)
 	return resp, err
@@ -533,13 +522,13 @@ func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.Segmen
 		case codes.NotFound:
 			endpoint.log.Sugar().Info("Value attribution entry made\n")
 			// @TODO make entry into Value attribution table
-			return nil, nil
+			return &pb.SegmentInfoResponse{}, nil
 		default:
 			endpoint.log.Sugar().Info("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
 			// no entry made into value attribution table
-			return nil, err
+			return &pb.SegmentInfoResponse{}, err
 		}
 	}
 
-	return resp, nil
+	return resp, errors.New("BucketID  already exists")
 }
