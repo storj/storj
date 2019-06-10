@@ -41,17 +41,17 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE NOT disqualified
-		AND type = ?
-		AND free_bandwidth >= ?
-		AND free_disk >= ?
-		AND total_audit_count >= ?
-		AND total_uptime_count >= ?
-		AND last_contact_success > ?
-		AND last_contact_success > last_contact_failure`
+		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
+		  AND total_audit_count >= ?
+		  AND audit_success_ratio >= ?
+		  AND total_uptime_count >= ?
+		  AND uptime_ratio >= ?
+		  AND last_contact_success > ?
+		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 13),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
-		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk,
+		criteria.AuditCount, criteria.AuditSuccessRatio, criteria.UptimeCount, criteria.UptimeSuccessRatio,
+		time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -97,15 +97,12 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE NOT disqualified
-		AND type = ?
-		AND free_bandwidth >= ?
-		AND free_disk >= ?
-		AND total_audit_count < ?
-		AND last_contact_success > ?
-		AND last_contact_success > last_contact_failure`
+		WHERE type = ? AND free_bandwidth >= ? AND free_disk >= ?
+		  AND total_audit_count < ? AND audit_success_ratio >= ?
+		  AND last_contact_success > ?
+		  AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, time.Now().Add(-criteria.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.AuditSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -166,7 +163,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
 	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-	uptime_success_count, disqualified
+	uptime_success_count
 	FROM nodes
 	`+safeQuery+safeExcludeNodes+`
 	ORDER BY RANDOM()
@@ -183,7 +180,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified)
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount)
 		if err != nil {
 			return nil, err
 		}
@@ -239,9 +236,9 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
 	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-	uptime_success_count, disqualified
+	uptime_success_count
 	FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count, disqualified,
+		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count,
 		Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
@@ -260,7 +257,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
-			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified)
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount)
 		if err != nil {
 			return nil, err
 		}
@@ -363,11 +360,13 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
 	FROM nodes
 	WHERE id = ?
-		AND NOT disqualified
 		AND type = ?
 		AND total_audit_count >= ?
+		AND audit_success_ratio >= ?
 		AND total_uptime_count >= ?
-		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.UptimeCount)
+		AND uptime_ratio >= ?
+		`), id, pb.NodeType_STORAGE, criteria.AuditCount, criteria.AuditSuccessRatio,
+		criteria.UptimeCount, criteria.UptimeSuccessRatio)
 	var bytes *[]byte
 	err = row.Scan(&bytes)
 	if err != nil {
@@ -395,12 +394,12 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		for i := range nodeIds {
 			args = append(args, nodeIds[i].Bytes())
 		}
-		args = append(args, time.Now().Add(-criteria.OnlineWindow))
+		args = append(args, criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio, time.Now().Add(-criteria.OnlineWindow))
 
 		rows, err = cache.db.Query(cache.db.Rebind(`
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-			AND NOT disqualified
+			AND audit_success_ratio >= ? AND uptime_ratio >= ?
 			AND last_contact_success > ? AND last_contact_success > last_contact_failure
 		`), args...)
 
@@ -408,9 +407,11 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		rows, err = cache.db.Query(`
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
-				AND NOT disqualified
-				AND last_contact_success > $2 AND last_contact_success > last_contact_failure
-			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+				AND audit_success_ratio >= $2 AND uptime_ratio >= $3
+				AND last_contact_success > $4 AND last_contact_success > last_contact_failure
+			`, postgresNodeIDList(nodeIds),
+			criteria.AuditSuccessRatio, criteria.UptimeSuccessRatio,
+			time.Now().Add(-criteria.OnlineWindow),
 		)
 	default:
 		return nil, Error.New("Unsupported database %t", t)

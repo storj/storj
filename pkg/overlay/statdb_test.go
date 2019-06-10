@@ -25,7 +25,6 @@ func getRatio(success, total int64) (ratio float64) {
 }
 
 func TestStatDB(t *testing.T) {
-	t.Skip("team green skipped until V3-1843 is implemented")
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
