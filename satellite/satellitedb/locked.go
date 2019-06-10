@@ -844,13 +844,6 @@ func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.Node
 	return m.db.UpdateUptime(ctx, nodeID, isUp)
 }
 
-// VetNode returns whether or not the node reaches reputable thresholds
-func (m *lockedOverlayCache) VetNode(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.VetNode(ctx, id, criteria)
-}
-
 // ProjectAccounting returns database for storing information about project data use
 func (m *locked) ProjectAccounting() accounting.ProjectAccounting {
 	m.Lock()

@@ -186,7 +186,6 @@ model user (
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
-    field total_referred int (updatable, autoinsert)
 
     field created_at       timestamp ( autoinsert )
 )

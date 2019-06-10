@@ -456,7 +456,6 @@ CREATE TABLE users (
 	short_name text,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
-	total_referred integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -775,7 +774,6 @@ CREATE TABLE users (
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
-	total_referred INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -3617,14 +3615,13 @@ func (f StoragenodeStorageTally_DataTotal_Field) value() interface{} {
 func (StoragenodeStorageTally_DataTotal_Field) _Column() string { return "data_total" }
 
 type User struct {
-	Id            []byte
-	Email         string
-	FullName      string
-	ShortName     *string
-	PasswordHash  []byte
-	Status        int
-	TotalReferred int
-	CreatedAt     time.Time
+	Id           []byte
+	Email        string
+	FullName     string
+	ShortName    *string
+	PasswordHash []byte
+	Status       int
+	CreatedAt    time.Time
 }
 
 func (User) _Table() string { return "users" }
@@ -3634,12 +3631,11 @@ type User_Create_Fields struct {
 }
 
 type User_Update_Fields struct {
-	Email         User_Email_Field
-	FullName      User_FullName_Field
-	ShortName     User_ShortName_Field
-	PasswordHash  User_PasswordHash_Field
-	Status        User_Status_Field
-	TotalReferred User_TotalReferred_Field
+	Email        User_Email_Field
+	FullName     User_FullName_Field
+	ShortName    User_ShortName_Field
+	PasswordHash User_PasswordHash_Field
+	Status       User_Status_Field
 }
 
 type User_Id_Field struct {
@@ -3768,25 +3764,6 @@ func (f User_Status_Field) value() interface{} {
 }
 
 func (User_Status_Field) _Column() string { return "status" }
-
-type User_TotalReferred_Field struct {
-	_set   bool
-	_null  bool
-	_value int
-}
-
-func User_TotalReferred(v int) User_TotalReferred_Field {
-	return User_TotalReferred_Field{_set: true, _value: v}
-}
-
-func (f User_TotalReferred_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (User_TotalReferred_Field) _Column() string { return "total_referred" }
 
 type User_CreatedAt_Field struct {
 	_set   bool
@@ -4992,16 +4969,15 @@ func (obj *postgresImpl) Create_User(ctx context.Context,
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
 	__status_val := int(0)
-	__total_referred_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, total_referred, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5705,7 +5681,7 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_email.value())
@@ -5727,7 +5703,7 @@ func (obj *postgresImpl) Get_User_By_Email_And_Status_Not_Number(ctx context.Con
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5748,7 +5724,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -5757,7 +5733,7 @@ func (obj *postgresImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7102,7 +7078,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -7133,11 +7109,6 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
 
-	if update.TotalReferred._set {
-		__values = append(__values, update.TotalReferred.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_referred = ?"))
-	}
-
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -7151,7 +7122,7 @@ func (obj *postgresImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8242,15 +8213,14 @@ func (obj *sqlite3Impl) Create_User(ctx context.Context,
 	__short_name_val := optional.ShortName.value()
 	__password_hash_val := user_password_hash.value()
 	__status_val := int(0)
-	__total_referred_val := int(0)
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, total_referred, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO users ( id, email, full_name, short_name, password_hash, status, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __total_referred_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9006,7 +8976,7 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	user_email User_Email_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_email.value())
@@ -9028,7 +8998,7 @@ func (obj *sqlite3Impl) Get_User_By_Email_And_Status_Not_Number(ctx context.Cont
 	}
 
 	user = &User{}
-	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = __rows.Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9049,7 +9019,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -9058,7 +9028,7 @@ func (obj *sqlite3Impl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10474,11 +10444,6 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("status = ?"))
 	}
 
-	if update.TotalReferred._set {
-		__values = append(__values, update.TotalReferred.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_referred = ?"))
-	}
-
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -10497,12 +10462,12 @@ func (obj *sqlite3Impl) Update_User_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE users.id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE users.id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11246,13 +11211,13 @@ func (obj *sqlite3Impl) getLastUser(ctx context.Context,
 	pk int64) (
 	user *User, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.total_referred, users.created_at FROM users WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.full_name, users.short_name, users.password_hash, users.status, users.created_at FROM users WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	user = &User{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.TotalReferred, &user.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&user.Id, &user.Email, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}

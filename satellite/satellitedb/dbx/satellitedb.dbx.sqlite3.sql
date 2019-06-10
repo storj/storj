@@ -184,7 +184,6 @@ CREATE TABLE users (
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
-	total_referred INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );

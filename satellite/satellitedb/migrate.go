@@ -785,6 +785,23 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Add user_credit table",
+				Version:     30,
+				Action: migrate.SQL{
+					`CREATE TABLE user_credits (
+						id serial NOT NULL,
+						user_id bytea NOT NULL REFERENCES users( id ),
+						offer_id integer NOT NULL REFERENCES offers( id ),
+						referred_by bytea REFERENCES users( id ),
+						credits_earned_in_cents integer NOT NULL,
+						credits_used_in_cents integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

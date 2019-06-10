@@ -184,7 +184,6 @@ CREATE TABLE users (
 	short_name text,
 	password_hash bytea NOT NULL,
 	status integer NOT NULL,
-	total_referred integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
