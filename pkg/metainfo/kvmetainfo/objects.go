@@ -40,9 +40,10 @@ var DefaultRS = storj.RedundancyScheme{
 }
 
 // DefaultES default values for EncryptionScheme
+// BlockSize should default to the size of a stripe
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
-	BlockSize: 1 * memory.KiB.Int32(),
+	BlockSize: DefaultRS.StripeSize(),
 }
 
 // GetObject returns information about an object
@@ -105,14 +106,20 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.RedundancyScheme.IsZero() {
-		info.RedundancyScheme = DefaultRS
-	}
-
 	if info.EncryptionScheme.IsZero() {
 		info.EncryptionScheme = storj.EncryptionScheme{
 			Cipher:    DefaultES.Cipher,
-			BlockSize: info.RedundancyScheme.ShareSize,
+			BlockSize: DefaultES.BlockSize,
+		}
+	}
+
+	if info.RedundancyScheme.IsZero() {
+		info.RedundancyScheme = DefaultRS
+
+		// If the provided EncryptionScheme.BlockSize isn't a multiple of the
+		// DefaultRS stripeSize, then overwrite the EncryptionScheme with the DefaultES values
+		if err := validateBlockSize(DefaultRS, info.EncryptionScheme.BlockSize); err != nil {
+			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
 		}
 	}
 
@@ -230,7 +237,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 
 	fullpath := bucket + "/" + path
 
-	encryptedPath, err := streams.EncryptAfterBucket(fullpath, bucketInfo.PathCipher, db.rootKey)
+	encryptedPath, err := streams.EncryptAfterBucket(ctx, fullpath, bucketInfo.PathCipher, db.rootKey)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
@@ -381,22 +388,26 @@ type mutableObject struct {
 
 func (object *mutableObject) Info() storj.Object { return object.info }
 
-func (object *mutableObject) CreateStream(ctx context.Context) (storj.MutableStream, error) {
+func (object *mutableObject) CreateStream(ctx context.Context) (_ storj.MutableStream, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return &mutableStream{
 		db:   object.db,
 		info: object.info,
 	}, nil
 }
 
-func (object *mutableObject) ContinueStream(ctx context.Context) (storj.MutableStream, error) {
+func (object *mutableObject) ContinueStream(ctx context.Context) (_ storj.MutableStream, err error) {
+	defer mon.Task()(&ctx)(&err)
 	return nil, errors.New("not implemented")
 }
 
-func (object *mutableObject) DeleteStream(ctx context.Context) error {
+func (object *mutableObject) DeleteStream(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return errors.New("not implemented")
 }
 
-func (object *mutableObject) Commit(ctx context.Context) error {
+func (object *mutableObject) Commit(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, info, err := object.db.getInfo(ctx, committedPrefix, object.info.Bucket.Name, object.info.Path)
 	object.info = info
 	return err

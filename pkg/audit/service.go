@@ -46,13 +46,13 @@ type Service struct {
 // NewService instantiates a Service with access to a Cursor and Verifier
 func NewService(log *zap.Logger, config Config, metainfo *metainfo.Service,
 	orders *orders.Service, transport transport.Client, overlay *overlay.Cache,
-	containment Containment, identity *identity.FullIdentity) (service *Service, err error) {
+	containment Containment, identity *identity.FullIdentity) (*Service, error) {
 	return &Service{
 		log: log,
 
 		Cursor:   NewCursor(metainfo),
 		Verifier: NewVerifier(log.Named("audit:verifier"), transport, overlay, containment, orders, identity, config.MinBytesPerSecond, config.MinDownloadTimeout),
-		Reporter: NewReporter(overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
+		Reporter: NewReporter(log.Named("audit:reporter"), overlay, containment, config.MaxRetriesStatDB, int32(config.MaxReverifyCount)),
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}, nil
@@ -79,7 +79,8 @@ func (service *Service) Close() error {
 }
 
 // process picks a random stripe and verifies correctness
-func (service *Service) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var stripe *Stripe
 	for {
 		s, more, err := service.Cursor.NextStripe(ctx)

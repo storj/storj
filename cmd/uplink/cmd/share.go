@@ -102,7 +102,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 	var project *libuplink.Project
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
 	if err != nil {
 		return err
 	}

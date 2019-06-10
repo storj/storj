@@ -5,6 +5,7 @@ package consoleql_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ import (
 type discardSender struct{}
 
 // SendEmail immediately returns with nil error
-func (*discardSender) SendEmail(msg *post.Message) error {
+func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 

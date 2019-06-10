@@ -3,7 +3,10 @@
 
 package storage
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // NextKey returns the successive key
 func NextKey(key Key) Key {
@@ -42,9 +45,11 @@ func CloneItems(items Items) Items {
 }
 
 // PutAll adds multiple values to the store
-func PutAll(store KeyValueStore, items ...ListItem) error {
+func PutAll(ctx context.Context, store KeyValueStore, items ...ListItem) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, item := range items {
-		err := store.Put(item.Key, item.Value)
+		err := store.Put(ctx, item.Key, item.Value)
 		if err != nil {
 			return fmt.Errorf("failed to put %v: %v", item, err)
 		}
