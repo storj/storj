@@ -733,11 +733,11 @@ func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID
 	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
 }
 
-// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount, intervalStart)
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNodes, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
