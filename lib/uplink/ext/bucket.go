@@ -49,19 +49,17 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.Up
 		return
 	}
 
-	// TODO: should `unsafe.Pointer(cOpts) == nil` be an error?
-	// TODO: fix ^
-	var metadata map[string]string
-	if uintptr(cOpts.metadata) != 0 {
-		metadata, ok = structRefMap.Get(token(cOpts.metadata)).(map[string]string)
-		if !ok {
-			*cErr = C.CString("invalid metadata in upload options")
-			return
-		}
-	}
-
 	var opts *uplink.UploadOptions
 	if cOpts != nil {
+		var metadata map[string]string
+		if uintptr(cOpts.metadata) != 0 {
+			metadata, ok = structRefMap.Get(token(cOpts.metadata)).(map[string]string)
+			if !ok {
+				*cErr = C.CString("invalid metadata in upload options")
+				return
+			}
+		}
+
 		opts = &uplink.UploadOptions{
 			ContentType: C.GoString(cOpts.content_type),
 			Metadata:    metadata,

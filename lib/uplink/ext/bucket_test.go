@@ -23,7 +23,7 @@ import (
 type TestObject struct {
 	Data []byte
 	storj.Object
-	UploadOpts uplink.UploadOptions
+	UploadOpts *uplink.UploadOptions
 }
 
 func TestOpenObject(t *testing.T) {
@@ -101,6 +101,54 @@ func TestUploadObject(t *testing.T) {
 			assert.Equal(t, object.Expires.Unix(), testObj.UploadOpts.Expires.Unix())
 			assert.Equal(t, object.ContentType, testObj.UploadOpts.ContentType)
 			assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
+			// TODO: test with `IsPrefix` == true
+			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
+
+			err = openBucket.DeleteObject(ctx, object.Path)
+			require.NoError(t, err)
+		}
+	})
+}
+
+func TestUploadObject_NilOptions(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	planet := startTestPlanet(t, ctx)
+	defer ctx.Check(planet.Shutdown)
+
+	var cErr Cchar
+	bucketName := "TestBucket"
+	project, _ := openTestProject(t, ctx, planet)
+
+	testObjects := newTestObjects(15)
+	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+		require.NoError(t, err)
+
+		// TODO: test with EncryptionAccess
+		// TODO: test with different content types
+		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
+		require.NoError(t, err)
+		require.NotNil(t, openBucket)
+
+		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		for _, testObj := range testObjects {
+			testObj.UploadOpts = nil
+			testObj.cUpload(t, cBucketRef, &cErr)
+			require.Empty(t, cCharToGoString(cErr))
+
+			objectList, err := openBucket.ListObjects(ctx, nil)
+			require.NoError(t, err)
+			require.NotEmpty(t, objectList)
+			require.Len(t, objectList.Items, 1)
+
+			object := objectList.Items[0]
+
+			assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
+			assert.Equal(t, object.Path, testObj.Path)
+			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
+			assert.Equal(t, object.Created, object.Modified)
 			// TODO: test with `IsPrefix` == true
 			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
 
@@ -196,13 +244,17 @@ func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *Cchar)
 	file := TempFile([]byte("test data for path " + obj.Path))
 	defer file.Close()
 
-	cOpts := newCUploadOpts(&obj.UploadOpts)
+	var cOpts *CUploadOptions
+	if obj.UploadOpts != nil {
+		cOpts = newCUploadOpts(obj.UploadOpts)
+	}
+
 	UploadObject(cBucketRef, stringToCCharPtr(obj.Path), file, cOpts, cErr)
 	require.Empty(t, cCharToGoString(*cErr))
 }
 
 func (obj *TestObject) goUpload(t *testing.T, ctx *testcontext.Context, bucket *uplink.Bucket) {
-	err := bucket.UploadObject(ctx, obj.Path, bytes.NewBuffer(obj.Data), &obj.UploadOpts)
+	err := bucket.UploadObject(ctx, obj.Path, bytes.NewBuffer(obj.Data), obj.UploadOpts)
 	require.NoError(t, err)
 }
 
@@ -214,15 +266,13 @@ func newTestObjects(count int) (objects []TestObject) {
 	objectPath := string(randPath)
 
 	obj := storj.Object{
-		// TODO: test `Version`?
 		// TODO: test `IsPrefix`?
-		//Version:,
 		//IsPrefix:,
 		Path: objectPath,
 	}
 
 	expiration := time.Now().Add(time.Duration(rand.Intn(1000) * int(time.Second)))
-	opts := uplink.UploadOptions{
+	opts := &uplink.UploadOptions{
 		ContentType: "text/plain",
 		Expires:     expiration,
 		// TODO: randomize
