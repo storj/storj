@@ -132,29 +132,26 @@ typedef struct ObjectMeta {
 */
 import "C"
 
-/* Ref types */
-type cAPIKeyRef = C.APIKeyRef_t
-type cUplinkRef = C.UplinkRef_t
-type cProjectRef = C.ProjectRef_t
-type cBucketRef = C.BucketRef_t
-type cBufferRef = C.BufferRef_t
-type cObjectRef = C.ObjectRef_t
-type cMapRef = C.MapRef_t
-type cBytes = C.Bytes_t
-type cDownloadReaderRef = C.DownloadReaderRef_t
+import "storj.io/storj/lib/uplink"
 
-/* Struct types */
-type cIDVersion = C.IDVersion_t
-type cEncryptionAccess = C.EncryptionAccess_t
-type cEncryptionParameters = C.EncryptionParameters_t
-type cRedundancyScheme = C.RedundancyScheme_t
-type cBucket = C.Bucket_t
-type cBucketInfo = C.BucketInfo_t
-type cBucketConfig = C.BucketConfig_t
-type cBucketListOptions = C.BucketListOptions_t
-type cBucketList = C.BucketList_t
-type cObject = C.Object_t
-type cObjectListOptions = C.ObjectListOptions_t
-type cObjectList = C.ObjectList_t
-type cObjectMeta = C.ObjectMeta_t
-type cUploadOptions = C.UploadOptions_t
+//export ParseAPIKey
+func ParseAPIKey(val *C.char, cErr **C.char) (cAPIKey C.APIKeyRef_t) {
+	apikey, err := uplink.ParseAPIKey(C.GoString(val))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cAPIKey
+	}
+
+	return C.APIKeyRef_t(universe.Add(apikey))
+}
+
+//export Serialize
+func Serialize(cAPIKey C.APIKeyRef_t) *C.char {
+	apikey, ok := universe.Get(Ref(cAPIKey)).(uplink.APIKey)
+	if !ok {
+		return C.CString("")
+	}
+
+	return C.CString(apikey.Serialize())
+}
+

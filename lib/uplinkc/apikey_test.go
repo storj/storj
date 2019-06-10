@@ -3,7 +3,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package main_test
 
 import (
 	"testing"
@@ -14,29 +14,31 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func TestParseAPIKey(t *testing.T) {
-	var cErr CCharPtr
-	apikeyString := "testapikey123"
-	cAPIKeyRef := ParseAPIKey(stringToCCharPtr(apikeyString), &cErr)
-	require.Empty(t, cCharToGoString(cErr))
+import "C"
 
-	apikey, ok := universe.Get(Token(cAPIKeyRef)).(uplink.APIKey)
+func TestParseAPIKey(t *testing.T) {
+	var cerr *C.char
+	apikey := "testapikey123"
+	apikeyref := ParseAPIKey(C.CString(apikey), &cerr)
+	require.Empty(t, C.GoString(cerr))
+
+	apikey, ok := universe.Get(Ref(apikeyref)).(uplink.APIKey)
 	require.True(t, ok)
 	require.NotEmpty(t, apikey)
 
-	assert.Equal(t, apikeyString, apikey.Serialize())
+	assert.Equal(t, apikey, apikey.Serialize())
 }
 
 func TestSerialize(t *testing.T) {
-	apikeyString := "testapikey123"
-	apikey, err := uplink.ParseAPIKey(apikeyString)
+	apikey := "testapikey123"
+	apikey, err := uplink.ParseAPIKey(apikey)
 	require.NoError(t, err)
 	require.NotEmpty(t, apikey)
 
-	cAPIKeyRef := CAPIKeyRef(universe.Add(apikey))
-	require.NotEmpty(t, cAPIKeyRef)
+	apikeyref := CAPIKeyRef(universe.Add(apikey))
+	require.NotEmpty(t, apikeyref)
 
-	cAPIKey := Serialize(cAPIKeyRef)
+	cAPIKey := Serialize(apikeyref)
 
-	assert.Equal(t, apikeyString, cCharToGoString(cAPIKey))
+	assert.Equal(t, apikey, cCharToGoString(cAPIKey))
 }
