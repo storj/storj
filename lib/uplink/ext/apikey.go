@@ -3,12 +3,10 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdlib.h>
-// #ifndef STORJ_HEADERS
-//   #define STORJ_HEADERS
-//   #include "c/headers/main.h"
-// #endif
+/*
+#cgo CFLAGS: -g -Wall
+typedef GoUintptr APIKeyRef_t;
+*/
 import "C"
 import (
 	"storj.io/storj/lib/uplink"
@@ -16,23 +14,23 @@ import (
 
 //export ParseAPIKey
 // ParseAPIKey parses an API Key
-func ParseAPIKey(val *C.char, cErr **C.char) (cApiKey C.APIKeyRef_t) {
-	goApiKeyStruct, err := uplink.ParseAPIKey(C.GoString(val))
+func ParseAPIKey(val CCharPtr, cErr *CCharPtr) (cApiKey CAPIKeyRef) {
+	goApiKeyStruct, err := uplink.ParseAPIKey(CGoString(val))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cApiKey
 	}
 
-	return C.APIKeyRef_t(structRefMap.Add(goApiKeyStruct))
+	return CAPIKeyRef(structRefMap.Add(goApiKeyStruct))
 }
 
 //export Serialize
 // Serialize serializes the API Key to a string
-func Serialize(cApiKey C.APIKeyRef_t) *C.char {
-	goApiKey, ok := structRefMap.Get(token(cApiKey)).(uplink.APIKey)
+func Serialize(cApiKey CAPIKeyRef) CCharPtr {
+	goApiKey, ok := structRefMap.Get(Token(cApiKey)).(uplink.APIKey)
 	if !ok {
-		return C.CString("")
+		return CCString("")
 	}
 
-	return C.CString(goApiKey.Serialize())
+	return CCString(goApiKey.Serialize())
 }

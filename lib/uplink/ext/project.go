@@ -3,11 +3,6 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #ifndef STORJ_HEADERS
-//   #define STORJ_HEADERS
-//   #include "c/headers/main.h"
-// #endif
 import "C"
 import (
 	"context"
@@ -18,11 +13,11 @@ import (
 )
 
 //export CreateBucket
-func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketConfig_t, cErr **C.char) (cBucket C.Bucket_t) {
+func CreateBucket(cProject CProjectRef, name CCharPtr, cBucketCfg *CBucketConfig, cErr *CCharPtr) (cBucket CBucket) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
-		*cErr = C.CString("invalid project")
+		*cErr = CCString("invalid project")
 		return cBucket
 	}
 
@@ -45,9 +40,9 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketCon
 		}
 	}
 
-	bucket, err := project.CreateBucket(ctx, C.GoString(name), bucketCfg)
+	bucket, err := project.CreateBucket(ctx, CGoString(name), bucketCfg)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cBucket
 	}
 
@@ -55,58 +50,58 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketCon
 }
 
 //export OpenBucket
-func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAccess_t, cErr **C.char) (bucketRef C.BucketRef_t) {
+func OpenBucket(cProject CProjectRef, name CCharPtr, cAccess *CEncryptionAccess, cErr *CCharPtr) (bucketRef CBucketRef) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
-		*cErr = C.CString("invalid project")
+		*cErr = CCString("invalid project")
 		return bucketRef
 	}
 
 	var access *uplink.EncryptionAccess
 	if unsafe.Pointer(cAccess) != nil {
-		bytes := C.GoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)
+		bytes := CGoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)
 		access = &uplink.EncryptionAccess{}
 		copy(access.Key[:], bytes)
 	}
 
-	bucket, err := project.OpenBucket(ctx, C.GoString(name), access)
+	bucket, err := project.OpenBucket(ctx, CGoString(name), access)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return bucketRef
 	}
 
-	return C.BucketRef_t(structRefMap.Add(bucket))
+	return CBucketRef(structRefMap.Add(bucket))
 }
 
 //export DeleteBucket
-func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
+func DeleteBucket(cProject CProjectRef, bucketName CCharPtr, cErr *CCharPtr) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
-		*cErr = C.CString("invalid project")
+		*cErr = CCString("invalid project")
 		return
 	}
 
-	if err := project.DeleteBucket(ctx, C.GoString(bucketName)); err != nil {
-		*cErr = C.CString(err.Error())
+	if err := project.DeleteBucket(ctx, CGoString(bucketName)); err != nil {
+		*cErr = CCString(err.Error())
 		return
 	}
 }
 
 //export ListBuckets
-func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C.char) (cBucketList C.BucketList_t) {
+func ListBuckets(cProject CProjectRef, cOpts *CBucketListOptions, cErr *CCharPtr) (cBucketList CBucketList) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
-		*cErr = C.CString("invalid project")
+		*cErr = CCString("invalid project")
 		return
 	}
 
 	var opts *uplink.BucketListOptions
 	if cOpts != nil {
 		opts = &uplink.BucketListOptions{
-			Cursor:    C.GoString(cOpts.cursor),
+			Cursor:    CGoString(cOpts.cursor),
 			Direction: storj.ListDirection(cOpts.direction),
 			Limit:     int(cOpts.limit),
 		}
@@ -114,65 +109,65 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 
 	bucketList, err := project.ListBuckets(ctx, opts)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cBucketList
 	}
 	bucketListLen := len(bucketList.Items)
 
-	bucketSize := int(unsafe.Sizeof(C.Bucket_t{}))
+	bucketSize := int(unsafe.Sizeof(CBucket{}))
 	// TODO: use `calloc` instead?
-	cBucketsPtr := CMalloc(uintptr(bucketListLen * bucketSize))
+	cBucketsPtr := GoCMalloc(uintptr(bucketListLen * bucketSize))
 
 	for i, bucket := range bucketList.Items {
 		nextAddress := uintptr(int(cBucketsPtr) + (i * bucketSize))
-		cBucket := (*C.Bucket_t)(unsafe.Pointer(nextAddress))
+		cBucket := (*CBucket)(unsafe.Pointer(nextAddress))
 		*cBucket = NewCBucket(&bucket)
 	}
 
-	return C.BucketList_t{
-		more:   C.bool(bucketList.More),
-		items:  (*C.Bucket_t)(unsafe.Pointer(cBucketsPtr)),
-		length: C.int32_t(bucketListLen),
+	return CBucketList{
+		more:   CBool(bucketList.More),
+		items:  (*CBucket)(unsafe.Pointer(cBucketsPtr)),
+		length: CInt32(bucketListLen),
 	}
 }
 
 //export GetBucketInfo
-func GetBucketInfo(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) (cBucketInfo C.BucketInfo_t) {
+func GetBucketInfo(cProject CProjectRef, bucketName CCharPtr, cErr *CCharPtr) (cBucketInfo CBucketInfo) {
 	ctx := context.Background()
 
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
-		*cErr = C.CString("invalid project")
+		*cErr = CCString("invalid project")
 		return cBucketInfo
 	}
 
-	bucket, cfg, err := project.GetBucketInfo(ctx, C.GoString(bucketName))
+	bucket, cfg, err := project.GetBucketInfo(ctx, CGoString(bucketName))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cBucketInfo
 	}
 
-	return C.BucketInfo_t{
+	return CBucketInfo{
 		bucket: NewCBucket(&bucket),
-		config: C.BucketConfig_t{
-			path_cipher:           C.uint8_t(cfg.PathCipher),
+		config: CBucketConfig{
+			path_cipher:           CUint8(cfg.PathCipher),
 			encryption_parameters: NewCEncryptionParamsPtr(&cfg.EncryptionParameters),
 		},
 	}
 }
 
 //export CloseProject
-func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+func CloseProject(cProject CProjectRef, cErr *CCharPtr) {
+	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
-		*cErr = C.CString("invalid project")
+		*cErr = CCString("invalid project")
 		return
 	}
 
 	if err := project.Close(); err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return
 	}
 
-	structRefMap.Del(token(cProject))
+	structRefMap.Del(Token(cProject))
 }

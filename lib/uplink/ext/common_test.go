@@ -53,7 +53,7 @@ func TestCTests(t *testing.T) {
 }
 
 func TestGetIDVersion(t *testing.T) {
-	var cErr Cchar
+	var cErr CCharPtr
 	idVersionNumber := storj.LatestIDVersion().Number
 
 	cIDVersion := GetIDVersion(CUint(idVersionNumber), &cErr)

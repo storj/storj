@@ -3,21 +3,15 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-import "C"
 import (
 	"errors"
 	"io"
 	"unsafe"
 )
 
-type File C.FILE
 
-func (f *File) Read(buf []byte) (int, error) {
-	n := int(C.fread(unsafe.Pointer(&buf[0]), C.size_t(1), C.size_t(len(buf)), (*C.FILE)(f)))
+func (f *CFile) Read(buf []byte) (int, error) {
+	n := int(CFRead(unsafe.Pointer(&buf[0]), CSize(1), CSize(len(buf)), (*CFile)(f)))
 	
 	if n > 0 {
 		return n, nil
@@ -27,11 +21,11 @@ func (f *File) Read(buf []byte) (int, error) {
 		return 0, io.EOF
 	}
 
-	return 0, errors.New(C.GoString(C.strerror(C.int(f.Error()))))
+	return 0, errors.New(CGoString(CStrError(CInt(f.Error()))))
 }
 
-func (f *File) Close() error {
-	n := int(C.fclose((*C.FILE)(f)))
+func (f *CFile) Close() error {
+	n := int(CFClose((*CFile)(f)))
 
 	if n != 0 {
 		return io.EOF
@@ -40,10 +34,10 @@ func (f *File) Close() error {
 	return nil
 }
 
-func (f *File) Eof() int {
-	return int(C.feof((*C.FILE)(f)))
+func (f *CFile) Eof() int {
+	return int(CFEOF((*CFile)(f)))
 }
 
-func (f *File) Error() int {
-	return int(C.ferror((*C.FILE)(f)))
+func (f *CFile) Error() int {
+	return int(CFError((*CFile)(f)))
 }

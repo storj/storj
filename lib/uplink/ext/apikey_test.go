@@ -13,12 +13,12 @@ import (
 )
 
 func TestParseAPIKey(t *testing.T) {
-	var cErr Cchar
+	var cErr CCharPtr
 	apikeyString := "testapikey123"
 	cAPIKeyRef := ParseAPIKey(stringToCCharPtr(apikeyString), &cErr)
 	require.Empty(t, cCharToGoString(cErr))
 
-	apikey, ok := structRefMap.Get(token(cAPIKeyRef)).(uplink.APIKey)
+	apikey, ok := structRefMap.Get(Token(cAPIKeyRef)).(uplink.APIKey)
 	require.True(t, ok)
 	require.NotEmpty(t, apikey)
 

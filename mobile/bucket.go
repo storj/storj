@@ -185,7 +185,7 @@ func newStorjEncryptionParameters(ec *EncryptionParameters) storj.EncryptionPara
 	}
 }
 
-// ListOptions options for listing objects
+// ObjectListOptions options for listing objects
 type ListOptions struct {
 	Prefix    string
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor

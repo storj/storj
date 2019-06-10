@@ -33,7 +33,7 @@ func TestOpenObject(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, _ := openTestProject(t, ctx, planet)
 
@@ -67,7 +67,7 @@ func TestUploadObject(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, _ := openTestProject(t, ctx, planet)
 
@@ -117,7 +117,7 @@ func TestListObjects(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, _ := openTestProject(t, ctx, planet)
 
@@ -173,7 +173,7 @@ func TestCloseBucket(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, _ := openTestProject(t, ctx, planet)
 
@@ -191,12 +191,12 @@ func TestCloseBucket(t *testing.T) {
 	})
 }
 
-func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *Cchar) {
+func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *CCharPtr) {
 
 	data := []byte("test data for path " + obj.Path)
-	cbytes := new(CBytes_t)
+	cbytes := new(CBytes)
 	bytesToCbytes(data, len(data), cbytes)
-	file := MemoryFile(cbytes.bytes, Csize_t(cbytes.length))
+	file := MemoryFile(cbytes.bytes, CSize(cbytes.length))
 	defer file.Close()
 
 	cOpts := newCUploadOpts(&obj.UploadOpts)

@@ -12,7 +12,7 @@ import (
 
 // TODO: Start up test planet and call these from bash instead
 func TestNewUplink(t *testing.T) {
-	var cErr Cchar
+	var cErr CCharPtr
 
 	cUplinkRef := NewUplink(&cErr)
 	require.Empty(t, cCharToGoString(cErr))
@@ -20,7 +20,7 @@ func TestNewUplink(t *testing.T) {
 }
 
 func TestNewUplinkInsecure(t *testing.T) {
-	var cErr Cchar
+	var cErr CCharPtr
 
 	cUplinkRef := NewUplinkInsecure(&cErr)
 	require.Empty(t, cCharToGoString(cErr))
@@ -31,7 +31,7 @@ func TestOpenProject(t *testing.T) {
 	ctx := testcontext.New(t)
 	planet := startTestPlanet(t, ctx)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	satelliteAddr := planet.Satellites[0].Addr()
 	apikeyStr := "testapikey123"
 
@@ -51,7 +51,7 @@ func TestOpenProject(t *testing.T) {
 
 func TestCloseUplink(t *testing.T) {
 	ctx := testcontext.New(t)
-	var cErr Cchar
+	var cErr CCharPtr
 
 	// TODO: test other config values?
 	goUplink, err := uplink.NewUplink(ctx, nil)

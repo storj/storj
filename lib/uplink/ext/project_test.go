@@ -25,7 +25,7 @@ func TestCreateBucket(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
@@ -56,7 +56,7 @@ func TestOpenBucket(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
@@ -73,7 +73,7 @@ func TestOpenBucket(t *testing.T) {
 		require.Empty(t, cCharToGoString(cErr))
 		require.NotEmpty(t, cBucketRef)
 
-		goBucket, ok := structRefMap.Get(token(cBucketRef)).(*uplink.Bucket)
+		goBucket, ok := structRefMap.Get(Token(cBucketRef)).(*uplink.Bucket)
 		require.True(t, ok)
 		require.NotNil(t, goBucket)
 
@@ -88,7 +88,7 @@ func TestDeleteBucket(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
@@ -109,7 +109,7 @@ func TestListBuckets(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
 	bucketCount := 15
@@ -155,7 +155,7 @@ func TestGetBucketInfo(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	project, cProjectRef := openTestProject(t, ctx, planet)
 
 	bucketCount := 15
@@ -191,7 +191,7 @@ func TestCloseProject(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	_, cProjectRef := openTestProject(t, ctx, planet)
 
 	CloseProject(cProjectRef, &cErr)

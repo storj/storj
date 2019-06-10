@@ -15,7 +15,7 @@ func TestObjectMeta(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, _ := openTestProject(t, ctx, planet)
 
@@ -54,7 +54,7 @@ func TestDownloadRange(t *testing.T) {
 	planet := startTestPlanet(t, ctx)
 	defer ctx.Check(planet.Shutdown)
 
-	var cErr Cchar
+	var cErr CCharPtr
 	bucketName := "TestBucket"
 	project, _ := openTestProject(t, ctx, planet)
 
@@ -80,20 +80,20 @@ func TestDownloadRange(t *testing.T) {
 			objectMeta := ObjectMeta(objectRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			reader := DownloadRange(objectRef, 0, Cint64(objectMeta.Size), &cErr)
+			reader := DownloadRange(objectRef, 0, CInt64(objectMeta.Size), &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
 			var downloadedData []byte
 
 			for {
-				bytes := new(CBytes_t)
+				bytes := new(CBytes)
 				readSize := Download(reader, bytes, &cErr)
 				if readSize == CEOF {
 					break
 				}
 				require.Empty(t, cCharToGoString(cErr))
 
-				data := CGoBytes(unsafe.Pointer(bytes.bytes), Cint(bytes.length))
+				data := CGoBytes(unsafe.Pointer(bytes.bytes), CInt(bytes.length))
 
 				downloadedData = append(downloadedData, data...)
 			}

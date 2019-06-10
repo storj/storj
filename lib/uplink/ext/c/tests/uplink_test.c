@@ -3,7 +3,6 @@
 
 #include <string.h>
 #include "unity.h"
-#include "../../uplink-cgo.h"
 
 void TestUplink(void)
 {

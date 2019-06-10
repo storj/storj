@@ -1,66 +1,32 @@
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdlib.h>
-// #include <stdio.h>
-// #ifndef STORJ_HEADERS
-//   #define STORJ_HEADERS
-//   #include "c/headers/main.h"
-// #endif
-import "C"
 import (
 	"context"
 	"fmt"
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"testing"
-	"time"
-	"unsafe"
-
-	"github.com/skyrings/skyring-common/tools/uuid"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	"testing"
+	"time"
+	"unsafe"
 )
-
-// C types
-type Cchar = *C.char
-type CUint = C.uint
-type Cint = C.int
-type CUint8 = C.uint8_t
-type Cint64 = C.int64_t
-type Csize_t = C.size_t
-type CBytes_t = C.Bytes_t
-
-const CEOF = C.EOF
-
-// Ref types
-type CAPIKeyRef = C.APIKeyRef_t
-type CUplinkRef = C.UplinkRef_t
-type CProjectRef = C.ProjectRef_t
-type CBucketRef = C.BucketRef_t
-type CBufferRef = C.BufferRef_t
-type CObjectRef = C.ObjectRef_t
-
-// Struct types
-type CBucket = C.Bucket_t
-type CObject = C.Object_t
-type CUploadOptions = C.UploadOptions_t
 
 var (
 	CLibDir, CSrcDir, CTestsDir, LibuplinkSO string
 
-	testConfig = new(uplink.Config)
-	ciphers    = []storj.CipherSuite{storj.EncNull, storj.EncAESGCM, storj.EncSecretBox}
+	testConfig   = new(uplink.Config)
+	ciphers      = []storj.CipherSuite{storj.EncNull, storj.EncAESGCM, storj.EncSecretBox}
 )
 
 func init() {
@@ -74,8 +40,8 @@ func init() {
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
 
-func MemoryFile(data *C.uint8_t, data_len C.size_t) *File {
-	return (*File)(C.fmemopen(unsafe.Pointer(data), data_len, C.CString("r")))
+func MemoryFile(data *CUint8, data_len CSize) *CFile {
+	return (*CFile)(CFMemOpen(unsafe.Pointer(data), data_len, CCString("r")))
 }
 
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
@@ -83,7 +49,7 @@ func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlob
 		LibuplinkSO,
 		filepath.Join(CTestsDir, "unity.c"),
 		filepath.Join(CTestsDir, "helpers.c"),
-		filepath.Join(CSrcDir, "*.c"),
+		//filepath.Join(CSrcDir, "*.c"),
 	}, srcGlobs...)
 	testBinPath := ctx.CompileC(srcGlobs...)
 
@@ -119,7 +85,7 @@ func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars .
 
 func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet {
 	planet, err := testplanet.NewCustom(
-		zaptest.NewLogger(t),
+		zap.NewNop(),
 		testplanet.Config{
 			SatelliteCount:   1,
 			StorageNodeCount: 8,
@@ -185,7 +151,7 @@ func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *uplink.Uplink {
 	return goUplink
 }
 
-func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) (*uplink.Project, C.ProjectRef_t) {
+func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) (*uplink.Project, CProjectRef) {
 	consoleProject := newProject(t, planet)
 	consoleAPIKey := newAPIKey(t, ctx, planet, consoleProject.ID)
 	satelliteAddr := planet.Satellites[0].Addr()
@@ -204,12 +170,12 @@ func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	return project, CProjectRef(structRefMap.Add(project))
 }
 
-func stringToCCharPtr(str string) *C.char {
-	return (*C.char)(unsafe.Pointer(C.CString(str)))
+func stringToCCharPtr(str string) CCharPtr {
+	return (CCharPtr)(unsafe.Pointer(CCString(str)))
 }
 
-func cCharToGoString(cchar *C.char) string {
-	return C.GoString(cchar)
+func cCharToGoString(cchar CCharPtr) string {
+	return CGoString(cchar)
 }
 
 func testEachBucketConfig(t *testing.T, f func(*uplink.BucketConfig)) {
@@ -239,14 +205,14 @@ func newGoBucket(cBucket *CBucket) storj.Bucket {
 	return storj.Bucket{
 		EncryptionParameters: newGoEncryptionParams(&params),
 		RedundancyScheme:     newGoRedundancyScheme(&scheme),
-		Name:                 C.GoString(cBucket.name),
+		Name:                 CGoString(cBucket.name),
 		Created:              time.Unix(int64(cBucket.created), 0).UTC(),
 		PathCipher:           storj.Cipher(cBucket.path_cipher),
 		SegmentsSize:         int64(cBucket.segment_size),
 	}
 }
 
-func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) uplink.BucketConfig {
+func newGoBucketConfig(cBucketConfig *CBucketConfig) uplink.BucketConfig {
 	params := cBucketConfig.encryption_parameters
 
 	return uplink.BucketConfig{
@@ -255,14 +221,14 @@ func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) uplink.BucketConfig {
 	}
 }
 
-func newGoEncryptionParams(cParams *C.EncryptionParameters_t) storj.EncryptionParameters {
+func newGoEncryptionParams(cParams *CEncryptionParameters) storj.EncryptionParameters {
 	return storj.EncryptionParameters{
 		CipherSuite: storj.CipherSuite(cParams.cipher_suite),
 		BlockSize:   int32(cParams.block_size),
 	}
 }
 
-func newGoRedundancyScheme(cScheme *C.RedundancyScheme_t) storj.RedundancyScheme {
+func newGoRedundancyScheme(cScheme *CRedundancyScheme) storj.RedundancyScheme {
 	return storj.RedundancyScheme{
 		Algorithm:      storj.RedundancyAlgorithm(cScheme.algorithm),
 		ShareSize:      int32(cScheme.share_size),
@@ -273,11 +239,11 @@ func newGoRedundancyScheme(cScheme *C.RedundancyScheme_t) storj.RedundancyScheme
 	}
 }
 
-func newGoObject(t *testing.T, cObj *C.Object_t) *storj.Object {
+func newGoObject(t *testing.T, cObj *CObject) *storj.Object {
 	var metadata map[string]string
 	if uintptr(cObj.metadata) != 0 {
 		var ok bool
-		metadata, ok = structRefMap.Get(token(cObj.metadata)).(map[string]string)
+		metadata, ok = structRefMap.Get(Token(cObj.metadata)).(map[string]string)
 		require.True(t, ok)
 		require.NotEmpty(t, metadata)
 	}
@@ -286,25 +252,22 @@ func newGoObject(t *testing.T, cObj *C.Object_t) *storj.Object {
 	return &storj.Object{
 		Version:     uint32(cObj.version),
 		Bucket:      newGoBucket(&cBucket),
-		Path:        C.GoString(cObj.path),
+		Path:        CGoString(cObj.path),
 		IsPrefix:    bool(cObj.is_prefix),
 		Metadata:    metadata,
-		ContentType: C.GoString(cObj.content_type),
+		ContentType: CGoString(cObj.content_type),
 		Created:     time.Unix(int64(cObj.created), 0),
 		Modified:    time.Unix(int64(cObj.modified), 0),
 		Expires:     time.Unix(int64(cObj.expires), 0),
 	}
 }
 
-func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
-	metadataRef := C.MapRef_t(structRefMap.Add(opts.Metadata))
-	return &C.UploadOptions_t{
-		content_type: C.CString(opts.ContentType),
+func newCUploadOpts(opts *uplink.UploadOptions) *CUploadOptions {
+	metadataRef := CMapRef(structRefMap.Add(opts.Metadata))
+	ts := opts.Expires.Unix()
+	return &CUploadOptions{
+		content_type: CCString(opts.ContentType),
 		metadata:     metadataRef,
-		expires:      C.time_t(opts.Expires.Unix()),
+		expires:      CNewTime((*CTime)(&ts)),
 	}
-}
-
-func CGoBytes(ptr unsafe.Pointer, n C.int) []byte {
-	return C.GoBytes(ptr, n)
 }

@@ -3,11 +3,6 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #ifndef STORJ_HEADERS
-//   #define STORJ_HEADERS
-//   #include "c/headers/main.h"
-// #endif
 import "C"
 import (
 	"sync"
@@ -17,122 +12,122 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-var structRefMap = newMapping()
+var structRefMap = NewMapping()
 
-//CMalloc allocates C memory
-func CMalloc(size uintptr) uintptr {
-	CMem := C.malloc(C.size_t(size))
+//GoCMalloc allocates C memory
+func GoCMalloc(size uintptr) uintptr {
+	CMem := CMalloc(CSize(size))
 	return uintptr(CMem)
 }
 
 //export GetIDVersion
-func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
+func GetIDVersion(number CUint, cErr *CCharPtr) (cIDVersion CIDVersion) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cIDVersion
 	}
 
-	return C.IDVersion_t{
-		number: C.uint16_t(goIDVersion.Number),
+	return CIDVersion{
+		number: CUint16(goIDVersion.Number),
 	}
 }
 
-type MapRef struct {
+type GoMap struct {
 	mtx sync.Mutex
 	m map[string]string
 }
 
 //export NewMapRef
-func NewMapRef() C.MapRef_t {
-	return C.MapRef_t(structRefMap.Add(&MapRef{}))
+func NewMapRef() CMapRef {
+	return CMapRef(structRefMap.Add(&GoMap{}))
 }
 //export MapRefSet
-func MapRefSet(metaDataRef C.MapRef_t, key *C.char, value *C.char, cErr **C.char) {
-	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)
+func MapRefSet(metaDataRef CMapRef, key CCharPtr, value CCharPtr, cErr *CCharPtr) {
+	metaData, ok := structRefMap.Get(Token(metaDataRef)).(*GoMap)
 	if !ok {
-		*cErr = C.CString("invalid map")
+		*cErr = CCString("invalid map")
 		return
 	}
 
 	metaData.mtx.Lock()
-	metaData.m[C.GoString(key)] = C.GoString(value)
+	metaData.m[CGoString(key)] = CGoString(value)
 	metaData.mtx.Unlock()
 }
 
 
 //export MapRefGet
-func MapRefGet(metaDataRef C.MapRef_t, key *C.char, cErr **C.char) (cValue *C.char) {
-	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)
+func MapRefGet(metaDataRef CMapRef, key CCharPtr, cErr *CCharPtr) (cValue CCharPtr) {
+	metaData, ok := structRefMap.Get(Token(metaDataRef)).(*GoMap)
 	if !ok {
-		*cErr = C.CString("invalid map")
+		*cErr = CCString("invalid map")
 		return cValue
 	}
 
 	metaData.mtx.Lock()
-	value := metaData.m[C.GoString(key)]
+	value := metaData.m[CGoString(key)]
 	metaData.mtx.Unlock()
 
-	return C.CString(value)
+	return CCString(value)
 }
 
-// bytesToCbytes creates a C.Bytes_t struct from a go bytes array
-func bytesToCbytes(bytes []byte, lenOfBytes int, cData *C.Bytes_t) {
-	ptr := CMalloc(uintptr(lenOfBytes))
+// bytesToCbytes creates a CBytes_t struct from a go bytes array
+func bytesToCbytes(bytes []byte, lenOfBytes int, cData *CBytes) {
+	ptr := GoCMalloc(uintptr(lenOfBytes))
 	mem := unsafe.Pointer(ptr)
 	for i := 0; i < lenOfBytes; i++ {
 		nextAddress := uintptr(int(ptr) + i)
 		*(*uint8)(unsafe.Pointer(nextAddress)) = bytes[i]
 	}
 
-	cData.length = C.int32_t(lenOfBytes)
-	cData.bytes = (*C.uint8_t)(mem)
+	cData.length = CInt32(lenOfBytes)
+	cData.bytes = (*CUint8)(mem)
 }
 
-func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
+func NewCBucket(bucket *storj.Bucket) CBucket {
 	encParamsPtr := NewCEncryptionParamsPtr(&bucket.EncryptionParameters)
 	redundancySchemePtr := NewCRedundancySchemePtr(&bucket.RedundancyScheme)
 
-	return C.Bucket_t{
+	return CBucket{
 		encryption_parameters: encParamsPtr,
 		redundancy_scheme:     redundancySchemePtr,
-		name:                  C.CString(bucket.Name),
+		name:                  CCString(bucket.Name),
 		// TODO: use `UnixNano()`?
-		created:      C.int64_t(bucket.Created.Unix()),
-		path_cipher:  C.uint8_t(bucket.PathCipher),
-		segment_size: C.int64_t(bucket.SegmentsSize),
+		created:      CInt64(bucket.Created.Unix()),
+		path_cipher:  CUint8(bucket.PathCipher),
+		segment_size: CInt64(bucket.SegmentsSize),
 	}
 }
 
-func NewCBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
-	return C.BucketConfig_t{
+func NewCBucketConfig(bucketCfg *uplink.BucketConfig) CBucketConfig {
+	return CBucketConfig{
 		encryption_parameters: NewCEncryptionParamsPtr(&bucketCfg.EncryptionParameters),
-		redundancy_scheme: NewCRedundancySchemePtr(&bucketCfg.Volatile.RedundancyScheme),
+		redundancy_scheme:     NewCRedundancySchemePtr(&bucketCfg.Volatile.RedundancyScheme),
 		path_cipher:           CUint8(bucketCfg.PathCipher),
 	}
 }
 
 // NB: caller is responsible for freeing memory at `ptr`
-func NewCEncryptionParamsPtr(goParams *storj.EncryptionParameters) C.EncryptionParameters_t {
-	return C.EncryptionParameters_t{
-		cipher_suite: C.uint8_t(goParams.CipherSuite),
-		block_size:   C.int32_t(goParams.BlockSize),
+func NewCEncryptionParamsPtr(goParams *storj.EncryptionParameters) CEncryptionParameters {
+	return CEncryptionParameters{
+		cipher_suite: CUint8(goParams.CipherSuite),
+		block_size:   CInt32(goParams.BlockSize),
 	}
 }
 
 // NB: caller is responsible for freeing memory at `ptr`
-func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) C.RedundancyScheme_t {
-	return C.RedundancyScheme_t{
-		algorithm:       C.uint8_t(goScheme.Algorithm),
-		share_size:      C.int32_t(goScheme.ShareSize),
-		required_shares: C.int16_t(goScheme.RequiredShares),
-		repair_shares:   C.int16_t(goScheme.RepairShares),
-		optimal_shares:  C.int16_t(goScheme.OptimalShares),
-		total_shares:    C.int16_t(goScheme.TotalShares),
+func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) CRedundancyScheme {
+	return CRedundancyScheme{
+		algorithm:       CUint8(goScheme.Algorithm),
+		share_size:      CInt32(goScheme.ShareSize),
+		required_shares: CInt16(goScheme.RequiredShares),
+		repair_shares:   CInt16(goScheme.RepairShares),
+		optimal_shares:  CInt16(goScheme.OptimalShares),
+		total_shares:    CInt16(goScheme.TotalShares),
 	}
 }
 
 //export FreeReference
-func FreeReference(reference token) {
+func FreeReference(reference Token) {
 	structRefMap.Del(reference)
 }

@@ -3,82 +3,76 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #ifndef STORJ_HEADERS
-//   #define STORJ_HEADERS
-//   #include "c/headers/main.h"
-// #endif
 import "C"
 import (
 	"context"
 	"gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/lib/uplink"
 )
 
 var mon = monkit.Package()
 
 //export NewUplink
-func NewUplink(cErr **C.char) (cUplink C.UplinkRef_t) {
+func NewUplink(cErr *CCharPtr) (cUplink CUplinkRef) {
 	goUplink, err := uplink.NewUplink(context.Background(), &uplink.Config{})
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cUplink
 	}
 
-	return C.UplinkRef_t(structRefMap.Add(goUplink))
+	return CUplinkRef(structRefMap.Add(goUplink))
 }
 
 //export NewUplinkInsecure
-func NewUplinkInsecure(cErr **C.char) (cUplink C.UplinkRef_t) {
+func NewUplinkInsecure(cErr *CCharPtr) (cUplink CUplinkRef) {
 	insecureConfig := &uplink.Config{}
 	insecureConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 	goUplink, err := uplink.NewUplink(context.Background(), insecureConfig)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cUplink
 	}
 
-	return C.UplinkRef_t(structRefMap.Add(goUplink))
+	return CUplinkRef(structRefMap.Add(goUplink))
 }
 
 //export OpenProject
-func OpenProject(cUplink C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyRef_t, cErr **C.char) (cProject C.ProjectRef_t) {
+func OpenProject(cUplink CUplinkRef, satelliteAddr CCharPtr, cAPIKey CAPIKeyRef, cErr *CCharPtr) (cProject CProjectRef) {
 	var err error
 	ctx := context.Background()
 	defer mon.Task()(&ctx)(&err)
 
-	goUplink, ok := structRefMap.Get(token(cUplink)).(*uplink.Uplink)
+	goUplink, ok := structRefMap.Get(Token(cUplink)).(*uplink.Uplink)
 	if !ok {
-		*cErr = C.CString("invalid uplink")
+		*cErr = CCString("invalid uplink")
 		return cProject
 	}
 
-	apiKey, ok := structRefMap.Get(token(cAPIKey)).(uplink.APIKey)
+	apiKey, ok := structRefMap.Get(Token(cAPIKey)).(uplink.APIKey)
 	if !ok {
-		*cErr = C.CString("invalid API Key")
+		*cErr = CCString("invalid API Key")
 		return cProject
 	}
 
 	// TODO: add project options argument
-	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, nil)
+	project, err := goUplink.OpenProject(ctx, CGoString(satelliteAddr), apiKey, nil)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return cProject
 	}
-	return C.ProjectRef_t(structRefMap.Add(project))
+	return CProjectRef(structRefMap.Add(project))
 }
 
 //export CloseUplink
-func CloseUplink(cUplink C.UplinkRef_t, cErr **C.char) {
-	goUplink, ok := structRefMap.Get(token(cUplink)).(*uplink.Uplink)
+func CloseUplink(cUplink CUplinkRef, cErr *CCharPtr) {
+	goUplink, ok := structRefMap.Get(Token(cUplink)).(*uplink.Uplink)
 	if !ok {
-		*cErr = C.CString("invalid uplink")
+		*cErr = CCString("invalid uplink")
 		return
 	}
 
 	if err := goUplink.Close(); err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return
 	}
 }

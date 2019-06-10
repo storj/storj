@@ -10,21 +10,21 @@ import (
 // #include <stdlib.h>
 import "C"
 
-type mapping struct {
+type Token uintptr
+
+type Mapping struct {
 	lock   sync.Mutex
-	values map[token]interface{}
+	values map[Token]interface{}
 }
 
-func newMapping() *mapping {
-	return &mapping{
-		values: make(map[token]interface{}),
+func NewMapping() *Mapping {
+	return &Mapping{
+		values: make(map[Token]interface{}),
 	}
 }
 
-type token uintptr
-
-func (m *mapping) Add(x interface{}) token {
-	res := token(C.malloc(1))
+func (m *Mapping) Add(x interface{}) Token {
+	res := Token(C.malloc(1))
 
 	m.lock.Lock()
 	m.values[res] = x
@@ -33,7 +33,7 @@ func (m *mapping) Add(x interface{}) token {
 	return res
 }
 
-func (m *mapping) Get(x token) interface{} {
+func (m *Mapping) Get(x Token) interface{} {
 	m.lock.Lock()
 	res := m.values[x]
 	m.lock.Unlock()
@@ -41,7 +41,7 @@ func (m *mapping) Get(x token) interface{} {
 	return res
 }
 
-func (m *mapping) Del(x token) {
+func (m *Mapping) Del(x Token) {
 	m.lock.Lock()
 	delete(m.values, x)
 	m.lock.Unlock()

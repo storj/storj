@@ -3,11 +3,6 @@
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #ifndef STORJ_HEADERS
-//   #define STORJ_HEADERS
-//   #include "c/headers/main.h"
-// #endif
 import "C"
 import (
 	"context"
@@ -17,46 +12,46 @@ import (
 )
 
 //export CloseObject
-func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
-	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
+func CloseObject(cObject CObjectRef, cErr *CCharPtr) {
+	object, ok := structRefMap.Get(Token(cObject)).(*uplink.Object)
 	if !ok {
-		*cErr = C.CString("invalid object")
+		*cErr = CCString("invalid object")
 		return
 	}
 
 	if err := object.Close(); err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return
 	}
 
-	structRefMap.Del(token(cObject))
+	structRefMap.Del(Token(cObject))
 }
 
 //export DownloadRange
-func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloadReaderRef_t) {
+func DownloadRange(cObject CObjectRef, offset CInt64, length CInt64, cErr *CCharPtr) (downloader CDownloadReaderRef) {
 	ctx := context.Background()
 
-	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
+	object, ok := structRefMap.Get(Token(cObject)).(*uplink.Object)
 	if !ok {
-		*cErr = C.CString("invalid object")
+		*cErr = CCString("invalid object")
 		return downloader
 	}
 
 	rc, err := object.DownloadRange(ctx, int64(offset), int64(length))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = CCString(err.Error())
 		return downloader
 	}
 
-	return C.DownloadReaderRef_t(structRefMap.Add(rc))
+	return CDownloadReaderRef(structRefMap.Add(rc))
 }
 
 //export Download
-func Download(downloader C.DownloadReaderRef_t, bytes *C.Bytes_t, cErr **C.char) (readLength C.int){
-	readCloser, ok := structRefMap.Get(token(downloader)).(*readcloser.LimitedReadCloser)
+func Download(downloader CDownloadReaderRef, bytes *CBytes, cErr *CCharPtr) (readLength CInt) {
+	readCloser, ok := structRefMap.Get(Token(downloader)).(*readcloser.LimitedReadCloser)
 	if !ok {
-		*cErr = C.CString("invalid reader")
-		return C.int(0)
+		*cErr = CCString("invalid reader")
+		return CInt(0)
 	}
 
 	// TODO: This size could be optimized
@@ -65,35 +60,35 @@ func Download(downloader C.DownloadReaderRef_t, bytes *C.Bytes_t, cErr **C.char)
 	n, err := readCloser.Read(buf)
 	if err == io.EOF {
 		readCloser.Close()
-		return C.EOF
+		return CEOF
 	}
 
 	bytesToCbytes(buf, n, bytes)
 
-	return C.int(n)
+	return CInt(n)
 }
 
 //export ObjectMeta
-func ObjectMeta(cObject C.ObjectRef_t, cErr **C.char) (objectMeta C.ObjectMeta_t) {
-	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
+func ObjectMeta(cObject CObjectRef, cErr *CCharPtr) (objectMeta CObjectMeta) {
+	object, ok := structRefMap.Get(Token(cObject)).(*uplink.Object)
 	if !ok {
-		*cErr = C.CString("invalid object")
+		*cErr = CCString("invalid object")
 		return objectMeta
 	}
 
-	bytes := new(C.Bytes_t)
+	bytes := new(CBytes)
 	bytesToCbytes(object.Meta.Checksum, len(object.Meta.Checksum), bytes)
 
-	return C.ObjectMeta_t {
-		Bucket: C.CString(object.Meta.Bucket),
-		Path:  C.CString(object.Meta.Path),
-		IsPrefix: C.bool(object.Meta.IsPrefix),
-		ContentType:  C.CString(object.Meta.ContentType),
-		MetaData: NewMapRef(),
-		Created: C.uint64_t(object.Meta.Created.Unix()),
-		Modified: C.uint64_t(object.Meta.Modified.Unix()),
-		Expires: C.uint64_t(object.Meta.Expires.Unix()),
-		Size: C.uint64_t(object.Meta.Size),
-		Checksum: *bytes,
+	return CObjectMeta{
+		Bucket:      CCString(object.Meta.Bucket),
+		Path:        CCString(object.Meta.Path),
+		IsPrefix:    CBool(object.Meta.IsPrefix),
+		ContentType: CCString(object.Meta.ContentType),
+		MetaData:    NewMapRef(),
+		Created:     CUint64(object.Meta.Created.Unix()),
+		Modified:    CUint64(object.Meta.Modified.Unix()),
+		Expires:     CUint64(object.Meta.Expires.Unix()),
+		Size:        CUint64(object.Meta.Size),
+		Checksum:    *bytes,
 	}
 }

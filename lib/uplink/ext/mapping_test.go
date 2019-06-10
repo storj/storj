@@ -12,7 +12,7 @@ import (
 func TestMapping_Add(t *testing.T) {
 	{
 		t.Log("string")
-		testMap := newMapping()
+		testMap := NewMapping()
 
 		str := "testing 123"
 		strToken := testMap.Add(str)
@@ -24,7 +24,7 @@ func TestMapping_Add(t *testing.T) {
 
 	{
 		t.Log("pointer")
-		testMap := newMapping()
+		testMap := NewMapping()
 
 		str := "testing 123"
 		strToken := testMap.Add(&str)
@@ -38,10 +38,10 @@ func TestMapping_Add(t *testing.T) {
 func TestMapping_Get(t *testing.T) {
 	{
 		t.Log("string")
-		testMap := newMapping()
+		testMap := NewMapping()
 
 		str := "testing 123"
-		strToken := token(1)
+		strToken := Token(1)
 		testMap.values[strToken] = str
 
 		gotStr := testMap.Get(strToken)
@@ -50,10 +50,10 @@ func TestMapping_Get(t *testing.T) {
 
 	{
 		t.Log("pointer")
-		testMap := newMapping()
+		testMap := NewMapping()
 
 		str := "testing 123"
-		strToken := token(1)
+		strToken := Token(1)
 		testMap.values[strToken] = &str
 
 		gotStr := testMap.Get(strToken)
