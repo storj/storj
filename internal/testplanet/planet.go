@@ -621,8 +621,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Timeout:  time.Hour,
 				},
 				Monitor: monitor.Config{
-					MinimumBandwidth: memory.MB * 100,
-					MinimumDiskSpace: memory.MB * 100,
+					MinimumBandwidth: 100 * memory.MB,
+					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
 			Version: planet.NewVersionConfig(),
