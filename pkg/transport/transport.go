@@ -70,7 +70,7 @@ func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...O
 // DialAddress. The connection will be established successfully only if the
 // target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
@@ -104,12 +104,6 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		alertFail(timedCtx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
-
-	ipAddr, err := getIP(conn.Target())
-	if err != nil {
-		return nil, err
-	}
-	node.LastIp = ipAddr
 
 	alertSuccess(timedCtx, transport.observers, node)
 
@@ -158,18 +152,6 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 	tr.observers = append(tr.observers, transport.observers...)
 	tr.observers = append(tr.observers, obs...)
 	return tr
-}
-
-func getIP(target string) (string, error) {
-	host, _, err := net.SplitHostPort(target)
-	if err != nil {
-		return "", err
-	}
-	ipAddr, err := net.ResolveIPAddr("ip", host)
-	if err != nil {
-		return "", err
-	}
-	return ipAddr.String(), nil
 }
 
 func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {

@@ -22,7 +22,6 @@ import (
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
-	t.Skip()
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -100,7 +99,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put("fake-piece-id", pointer)
+		err := metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -132,10 +131,33 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		// check if repair attempt count was incremented
 		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
+
+		// make the  pointer repairable
+		pointer = &pb.Pointer{
+			Remote: &pb.RemoteSegment{
+				Redundancy: &pb.RedundancyScheme{
+					MinReq:          int32(3),
+					RepairThreshold: int32(8),
+				},
+				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
+				RemotePieces: pieces,
+			},
+		}
+		// put test pointer to db
+		metainfo = planet.Satellites[0].Metainfo.Service
+		err = metainfo.Put(ctx, "fake-piece-id", pointer)
+		require.NoError(t, err)
+
+		err = checker.IdentifyInjuredSegments(ctx)
+		require.NoError(t, err)
+
+		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		require.Error(t, err)
 	})
 }
 
 func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
+	ctx := context.TODO()
 	numOfStorageNodes := len(planet.StorageNodes)
 	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
 	// use online nodes
@@ -170,7 +192,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(pieceID, pointer)
+	err := pointerdb.Put(ctx, pieceID, pointer)
 	require.NoError(t, err)
 }
 
@@ -179,7 +201,8 @@ func TestCheckerResume(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := &mockRepairQueue{}
-		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, nil, 0, nil, 1*time.Second)
+		irrepairQueue := planet.Satellites[0].DB.Irreparable()
+		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, 30*time.Second, 15*time.Second)
 
 		// create pointer that needs repair
 		makePointer(t, planet, "a", true)

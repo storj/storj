@@ -25,7 +25,7 @@
 				return (this as any).bucket.egress.toFixed(4);
 			},
 			objectCount: function (): string {
-				return (this as any).bucket.objectCount.toFixed(4);
+				return (this as any).bucket.objectCount.toString();
 			}
 		}
 	})

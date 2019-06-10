@@ -1,89 +1,95 @@
 {
   "definitions": [
     {
-      "protopath": "pkg:/:pb:/:bandwidth.proto",
+      "protopath": "pkg:/:macaroon:/:types.proto",
       "def": {
-        "enums": [
-          {
-            "name": "AgreementsSummary.Status",
-            "enum_fields": [
-              {
-                "name": "FAIL"
-              },
-              {
-                "name": "OK",
-                "integer": 1
-              },
-              {
-                "name": "REJECTED",
-                "integer": 2
-              }
-            ]
-          }
-        ],
         "messages": [
           {
-            "name": "AgreementsSummary",
+            "name": "Caveat",
             "fields": [
               {
                 "id": 1,
-                "name": "status",
-                "type": "Status"
-              }
-            ]
-          },
-          {
-            "name": "BandwidthSettlementRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "allocation",
-                "type": "piecestoreroutes.RenterBandwidthAllocation"
-              }
-            ]
-          },
-          {
-            "name": "BandwidthSettlementResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "serial_number",
-                "type": "string"
+                "name": "disallow_reads",
+                "type": "bool"
               },
               {
                 "id": 2,
-                "name": "status",
-                "type": "AgreementsSummary.Status"
-              }
-            ]
-          }
-        ],
-        "services": [
-          {
-            "name": "Bandwidth",
-            "rpcs": [
-              {
-                "name": "BandwidthAgreements",
-                "in_type": "piecestoreroutes.RenterBandwidthAllocation",
-                "out_type": "AgreementsSummary"
+                "name": "disallow_writes",
+                "type": "bool"
               },
               {
-                "name": "Settlement",
-                "in_type": "BandwidthSettlementRequest",
-                "out_type": "BandwidthSettlementResponse",
-                "in_streamed": true,
-                "out_streamed": true
+                "id": 3,
+                "name": "disallow_lists",
+                "type": "bool"
+              },
+              {
+                "id": 4,
+                "name": "disallow_deletes",
+                "type": "bool"
+              },
+              {
+                "id": 10,
+                "name": "allowed_paths",
+                "type": "Path",
+                "is_repeated": true
+              },
+              {
+                "id": 20,
+                "name": "not_after",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 21,
+                "name": "not_before",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 30,
+                "name": "nonce",
+                "type": "bytes"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Path",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bucket",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "encrypted_path_prefix",
+                    "type": "bytes"
+                  }
+                ]
               }
             ]
           }
         ],
         "imports": [
           {
-            "path": "piecestore.proto"
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
-          "name": "bandwidth"
+          "name": "macaroon"
         }
       }
     },
@@ -137,7 +143,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -163,7 +175,13 @@
         ],
         "package": {
           "name": "repair"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -583,7 +601,21 @@
         ],
         "package": {
           "name": "gogoproto"
-        }
+        },
+        "options": [
+          {
+            "name": "java_package",
+            "value": "com.google.protobuf"
+          },
+          {
+            "name": "java_outer_classname",
+            "value": "GoGoProtos"
+          },
+          {
+            "name": "go_package",
+            "value": "github.com/gogo/protobuf/gogoproto"
+          }
+        ]
       }
     },
     {
@@ -1402,7 +1434,13 @@
         ],
         "package": {
           "name": "inspector"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1432,7 +1470,13 @@
         ],
         "package": {
           "name": "objects"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1788,7 +1832,13 @@
         ],
         "package": {
           "name": "metainfo"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2061,7 +2111,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2348,7 +2404,13 @@
         ],
         "package": {
           "name": "orders"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2521,210 +2583,13 @@
         ],
         "package": {
           "name": "overlay"
-        }
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:piecestore.proto",
-      "def": {
-        "enums": [
+        },
+        "options": [
           {
-            "name": "BandwidthAction",
-            "enum_fields": [
-              {
-                "name": "PUT"
-              },
-              {
-                "name": "GET",
-                "integer": 1
-              },
-              {
-                "name": "GET_AUDIT",
-                "integer": 2
-              },
-              {
-                "name": "GET_REPAIR",
-                "integer": 3
-              },
-              {
-                "name": "PUT_REPAIR",
-                "integer": 4
-              }
-            ]
+            "name": "go_package",
+            "value": "pb"
           }
-        ],
-        "messages": [
-          {
-            "name": "PayerBandwidthAllocation",
-            "fields": [
-              {
-                "id": 1,
-                "name": "satellite_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "uplink_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 3,
-                "name": "max_size",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "expiration_unix_sec",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "serial_number",
-                "type": "string"
-              },
-              {
-                "id": 6,
-                "name": "action",
-                "type": "BandwidthAction"
-              },
-              {
-                "id": 7,
-                "name": "created_unix_sec",
-                "type": "int64"
-              },
-              {
-                "id": 8,
-                "name": "certs",
-                "type": "bytes",
-                "is_repeated": true
-              },
-              {
-                "id": 9,
-                "name": "signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "RenterBandwidthAllocation",
-            "fields": [
-              {
-                "id": 1,
-                "name": "payer_allocation",
-                "type": "PayerBandwidthAllocation",
-                "options": [
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "total",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "storage_node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 4,
-                "name": "certs",
-                "type": "bytes",
-                "is_repeated": true
-              },
-              {
-                "id": 5,
-                "name": "signature",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SignedMessage",
-            "fields": [
-              {
-                "id": 1,
-                "name": "data",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "signature",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "public_key",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "SignedHash",
-            "fields": [
-              {
-                "id": 1,
-                "name": "hash",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "certs",
-                "type": "bytes",
-                "is_repeated": true
-              },
-              {
-                "id": 3,
-                "name": "signature",
-                "type": "bytes"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/duration.proto"
-          }
-        ],
-        "package": {
-          "name": "piecestoreroutes"
-        }
+        ]
       }
     },
     {
@@ -2896,7 +2761,13 @@
         ],
         "package": {
           "name": "piecestore"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3116,15 +2987,18 @@
             "path": "node.proto"
           },
           {
-            "path": "piecestore.proto"
-          },
-          {
             "path": "orders.proto"
           }
         ],
         "package": {
           "name": "pointerdb"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3199,7 +3073,97 @@
         ],
         "package": {
           "name": "streams"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:vouchers.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Voucher",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "storage_node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "expiration",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 4,
+                "name": "satellite_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "VoucherRequest"
+          }
+        ],
+        "services": [
+          {
+            "name": "Vouchers",
+            "rpcs": [
+              {
+                "name": "Request",
+                "in_type": "VoucherRequest",
+                "out_type": "Voucher"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "vouchers"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     }
   ]

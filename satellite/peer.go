@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -28,7 +29,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -49,11 +49,18 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
+
+var mon = monkit.Package()
 
 // DB is the master database for the satellite
 type DB interface {
@@ -67,8 +74,6 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// BandwidthAgreement returns database for storing bandwidth agreements
-	BandwidthAgreement() bwagreement.DB
 	// CertDB returns database for storing uplink's public key & ID
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
@@ -83,6 +88,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	// Marketing returns database for marketing admin GUI
+	Marketing() marketing.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -100,8 +107,7 @@ type Config struct {
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	Metainfo    metainfo.Config
-	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
+	Metainfo metainfo.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -113,6 +119,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Vouchers vouchers.Config
 
 	Version version.Config
 }
@@ -159,10 +167,6 @@ type Peer struct {
 		Endpoint *inspector.Endpoint
 	}
 
-	Agreements struct {
-		Endpoint *bwagreement.Server
-	}
-
 	Orders struct {
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
@@ -189,6 +193,10 @@ type Peer struct {
 
 	Mail struct {
 		Service *mailservice.Service
+	}
+
+	Vouchers struct {
+		Service *vouchers.Service
 	}
 
 	Console struct {
@@ -227,7 +235,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
+		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
+		if sc.DebugLogTraffic {
+			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
+		}
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -313,6 +325,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
 	}
 
+	{ // setup vouchers
+		log.Debug("Setting up vouchers")
+		config := config.Vouchers
+		if config.Expiration < 0 {
+			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
+		}
+		expirationHours := config.Expiration * 24
+		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
+		if err != nil {
+			return nil, err
+		}
+		peer.Vouchers.Service = vouchers.NewService(
+			peer.Log.Named("vouchers"),
+			signing.SignerFromFullIdentity(peer.Identity),
+			peer.Overlay.Service,
+			duration,
+		)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+	}
+
 	{ // setup live accounting
 		log.Debug("Setting up live accounting")
 		config := config.LiveAccounting
@@ -375,13 +407,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
 
-	{ // setup agreements
-		log.Debug("Setting up agreements")
-		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
-		peer.Agreements.Endpoint = bwServer
-		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
-	}
-
 	{ // setup datarepair
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
@@ -390,7 +415,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval)
+			config.Checker.Interval,
+			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
@@ -467,7 +493,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				ClientSecret: mailConfig.ClientSecret,
 				TokenURI:     mailConfig.TokenURI,
 			}
-			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -523,10 +549,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
+		// TODO: change mock implementation to using mock stripe backend
+		var pmService payments.Service
+		if consoleConfig.StripeKey != "" {
+			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+		} else {
+			pmService = localpayments.NewService(nil)
+		}
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			pmService,
 			consoleConfig.PasswordCost,
 		)
 
@@ -546,8 +581,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	return peer, nil
 }
 
-// Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+// Run runs satellite until it's either closed or it errors.
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
@@ -619,10 +656,6 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Agreements.Endpoint != nil {
-		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
 	if peer.Metainfo.Database != nil {

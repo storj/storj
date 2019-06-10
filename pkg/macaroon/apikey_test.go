@@ -5,6 +5,7 @@ package macaroon
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -12,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 )
+
+var ctx = context.Background() // test context
 
 func TestSerializeParseRestrictAndCheck(t *testing.T) {
 	secret, err := NewSecret()
@@ -53,10 +56,10 @@ func TestSerializeParseRestrictAndCheck(t *testing.T) {
 		EncryptedPath: []byte("another-test-path"),
 	}
 
-	require.NoError(t, key.Check(secret, action1, nil))
-	require.NoError(t, key.Check(secret, action2, nil))
-	require.NoError(t, parsedKey.Check(secret, action1, nil))
-	err = parsedKey.Check(secret, action2, nil)
+	require.NoError(t, key.Check(ctx, secret, action1, nil))
+	require.NoError(t, key.Check(ctx, secret, action2, nil))
+	require.NoError(t, parsedKey.Check(ctx, secret, action1, nil))
+	err = parsedKey.Check(ctx, secret, action2, nil)
 	require.True(t, ErrUnauthorized.Has(err), err)
 }
 
@@ -77,11 +80,11 @@ func TestRevocation(t *testing.T) {
 		Time: now,
 	}
 
-	require.NoError(t, key.Check(secret, action, nil))
-	require.NoError(t, restricted.Check(secret, action, nil))
+	require.NoError(t, key.Check(ctx, secret, action, nil))
+	require.NoError(t, restricted.Check(ctx, secret, action, nil))
 
-	require.True(t, ErrRevoked.Has(key.Check(secret, action, [][]byte{restricted.Head()})))
-	require.True(t, ErrRevoked.Has(restricted.Check(secret, action, [][]byte{restricted.Head()})))
+	require.True(t, ErrRevoked.Has(key.Check(ctx, secret, action, [][]byte{restricted.Head()})))
+	require.True(t, ErrRevoked.Has(restricted.Check(ctx, secret, action, [][]byte{restricted.Head()})))
 }
 
 func TestExpiration(t *testing.T) {
@@ -126,7 +129,7 @@ func TestExpiration(t *testing.T) {
 		{notBeforeMinuteFromNow, twoMinutesFromNow, nil},
 		{notAfterMinuteAgo, twoMinutesFromNow, &ErrUnauthorized},
 	} {
-		err := test.keyToTest.Check(secret, Action{
+		err := test.keyToTest.Check(ctx, secret, Action{
 			Op:   ActionRead,
 			Time: test.timestampToTest,
 		}, nil)
