@@ -6714,12 +6714,12 @@ func (obj *postgresImpl) All_Offer(ctx context.Context) (
 
 }
 
-func (obj *postgresImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+func (obj *postgresImpl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 	rows []*UserCredit, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
 
 	var __values []interface{}
 	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
@@ -10009,12 +10009,12 @@ func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
 
 }
 
-func (obj *sqlite3Impl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+func (obj *sqlite3Impl) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 	rows []*UserCredit, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_credits.id, user_credits.user_id, user_credits.offer_id, user_credits.referred_by, user_credits.credits_earned_in_cents, user_credits.credits_used_in_cents, user_credits.expires_at, user_credits.created_at FROM user_credits WHERE user_credits.user_id = ? AND user_credits.expires_at > ? AND user_credits.credits_used_in_cents < user_credits.credits_earned_in_cents ORDER BY user_credits.expires_at")
 
 	var __values []interface{}
 	__values = append(__values, user_credit_user_id.value(), user_credit_expires_at_greater.value())
@@ -11967,7 +11967,7 @@ func (rx *Rx) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx 
 	return tx.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, storagenode_storage_tally_interval_end_time_greater_or_equal)
 }
 
-func (rx *Rx) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+func (rx *Rx) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
 	user_credit_user_id UserCredit_UserId_Field,
 	user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 	rows []*UserCredit, err error) {
@@ -11975,7 +11975,7 @@ func (rx *Rx) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCe
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx, user_credit_user_id, user_credit_expires_at_greater)
+	return tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx, user_credit_user_id, user_credit_expires_at_greater)
 }
 
 func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
@@ -12950,7 +12950,7 @@ type Methods interface {
 		storagenode_storage_tally_interval_end_time_greater_or_equal StoragenodeStorageTally_IntervalEndTime_Field) (
 		rows []*StoragenodeStorageTally, err error)
 
-	All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents(ctx context.Context,
+	All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx context.Context,
 		user_credit_user_id UserCredit_UserId_Field,
 		user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 		rows []*UserCredit, err error)

@@ -705,6 +705,7 @@ read all (
 	where user_credit.user_id = ?
     where user_credit.expires_at > ?
     where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
+    orderby asc user_credit.expires_at
 )
 
 read count (
