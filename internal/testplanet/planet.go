@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
@@ -51,8 +50,10 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -458,7 +459,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				GraveyardInterval: 1 * time.Second,
 				DiscoveryInterval: 1 * time.Second,
 				RefreshInterval:   1 * time.Second,
 				RefreshLimit:      100,
@@ -470,14 +470,14 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Overlay:              true,
 				BwExpiration:         45,
 			},
-			BwAgreement: bwagreement.Config{},
 			Checker: checker.Config{
-				Interval: 30 * time.Second,
+				Interval:            30 * time.Second,
+				IrreparableInterval: 15 * time.Second,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
-				Timeout:      2 * time.Second,
+				Timeout:      10 * time.Second, // Repairs can take up to 4 seconds. Leaving room for outliers
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
@@ -502,6 +502,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Address:         "127.0.0.1:0",
 				PasswordCost:    console.TestPasswordCost,
 				AuthTokenSecret: "my-suppa-secret-key",
+			},
+			Vouchers: vouchers.Config{
+				Expiration: 30,
 			},
 			Version: planet.NewVersionConfig(),
 		}
@@ -617,11 +620,23 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					Interval: time.Hour,
 					Timeout:  time.Hour,
 				},
+				Monitor: monitor.Config{
+					MinimumBandwidth: 100 * memory.MB,
+					MinimumDiskSpace: 100 * memory.MB,
+				},
 			},
 			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
 			planet.config.Reconfigure.StorageNode(i, &config)
+		}
+
+		newIPCount := planet.config.Reconfigure.NewIPCount
+		if newIPCount > 0 {
+			if i >= count-newIPCount {
+				config.Server.Address = fmt.Sprintf("127.0.0.%d:0", i+1)
+				config.Server.PrivateAddress = fmt.Sprintf("127.0.0.%d:0", i+1)
+			}
 		}
 
 		verInfo := planet.NewVersionInfo()

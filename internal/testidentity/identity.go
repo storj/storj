@@ -36,7 +36,7 @@ func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
 func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) {
 	return identity.NewCA(ctx, identity.NewCAOptions{
 		VersionNumber: storj.LatestIDVersion().Number,
-		Difficulty:    8,
+		Difficulty:    9,
 		Concurrency:   4,
 	})
 }

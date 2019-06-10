@@ -5,14 +5,15 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"sort"
 )
 
 // IteratorFunc implements basic iterator
-type IteratorFunc func(item *ListItem) bool
+type IteratorFunc func(ctx context.Context, item *ListItem) bool
 
 // Next returns the next item
-func (next IteratorFunc) Next(item *ListItem) bool { return next(item) }
+func (next IteratorFunc) Next(ctx context.Context, item *ListItem) bool { return next(ctx, item) }
 
 // SelectPrefixed keeps only items that have prefix
 // items will be reused and modified
@@ -86,7 +87,7 @@ type StaticIterator struct {
 }
 
 // Next returns the next item from the iterator
-func (it *StaticIterator) Next(item *ListItem) bool {
+func (it *StaticIterator) Next(ctx context.Context, item *ListItem) bool {
 	if it.Index >= len(it.Items) {
 		return false
 	}

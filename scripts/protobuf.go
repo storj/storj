@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/kylelemons/godebug/diff"
 )
 
 var ignoreProto = map[string]bool{
@@ -56,12 +59,14 @@ func run(command, root string) error {
 			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
 			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
 			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
-			"github.com/nilslice/protolock/cmd/protolock",
+			"github.com/nilslice/protolock/cmd/protolock@v0.12.0",
 		)
 	case "generate":
 		return walkdirs(root, generate)
 	case "lint":
 		return walkdirs(root, lint)
+	case "check-lock":
+		return walkdirs(root, checklock)
 	default:
 		return errors.New("unknown command " + command)
 	}
@@ -177,6 +182,57 @@ func lint(dir string, dirs []string, files []string) error {
 	return err
 }
 
+func checklock(dir string, dirs []string, files []string) error {
+	defer switchdir(dir)()
+
+	local, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	protolockdir := findProtolockDir(local)
+
+	tmpdir, err := ioutil.TempDir("", "protolock")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpdir)
+	}()
+
+	original, err := ioutil.ReadFile(filepath.Join(protolockdir, "proto.lock"))
+	if err != nil {
+		return fmt.Errorf("unable to read proto.lock: %v", err)
+	}
+
+	err = ioutil.WriteFile(filepath.Join(tmpdir, "proto.lock"), original, 0755)
+	if err != nil {
+		return fmt.Errorf("unable to read proto.lock: %v", err)
+	}
+
+	cmd := exec.Command("protolock", "commit", "-lockdir", tmpdir)
+	cmd.Dir = protolockdir
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		fmt.Println(string(out))
+	}
+	if err != nil {
+		return err
+	}
+
+	changed, err := ioutil.ReadFile(filepath.Join(tmpdir, "proto.lock"))
+	if err != nil {
+		return fmt.Errorf("unable to read new proto.lock: %v", err)
+	}
+
+	if !bytes.Equal(original, changed) {
+		diff, _ := difflines(string(original), string(changed))
+		return fmt.Errorf("protolock is not up to date: %v", diff)
+	}
+
+	return nil
+}
+
 func switchdir(to string) func() {
 	local, err := os.Getwd()
 	if err != nil {
@@ -258,4 +314,23 @@ func findProtolockDir(dir string) string {
 	}
 
 	return dir
+}
+
+func difflines(a, b string) (patch string, removed bool) {
+	alines, blines := strings.Split(a, "\n"), strings.Split(b, "\n")
+
+	chunks := diff.DiffChunks(alines, blines)
+
+	buf := new(bytes.Buffer)
+	for _, c := range chunks {
+		for _, line := range c.Added {
+			fmt.Fprintf(buf, "+%s\n", line)
+		}
+		for _, line := range c.Deleted {
+			fmt.Fprintf(buf, "-%s\n", line)
+			removed = true
+		}
+	}
+
+	return strings.TrimRight(buf.String(), "\n"), removed
 }

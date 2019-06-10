@@ -7,8 +7,8 @@ import (
 	"crypto/sha256"
 	"crypto/x509/pkix"
 	"database/sql/driver"
+	"encoding/json"
 	"math/bits"
-	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/zeebo/errs"
@@ -220,12 +220,26 @@ func (id *NodeID) Scan(src interface{}) (err error) {
 
 // UnmarshalJSON deserializes a json string (as bytes) to a node ID
 func (id *NodeID) UnmarshalJSON(data []byte) error {
-	var err error
-	*id, err = NodeIDFromString(strings.Trim(string(data), `"`))
+	var unquoted string
+	err := json.Unmarshal(data, &unquoted)
+	if err != nil {
+		return err
+	}
+
+	*id, err = NodeIDFromString(unquoted)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// Strings returns a string slice of the node IDs
+func (n NodeIDList) Strings() []string {
+	var strings []string
+	for _, nid := range n {
+		strings = append(strings, nid.String())
+	}
+	return strings
 }
 
 // Bytes returns a 2d byte slice of the node IDs

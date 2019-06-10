@@ -1,5 +1,14 @@
 // dbx.v1 golang satellitedb.dbx .
 
+//--- Value Attribution ---//
+model value_attribution (
+	key bucket_id
+
+	field bucket_id		blob
+	field partner_id	blob
+	field last_updated 	utimestamp
+)
+
 //--- containment ---//
 model pending_audits (
 	key node_id
@@ -19,21 +28,6 @@ read one (
 	select pending_audits
 	where  pending_audits.node_id = ?
 )
-
-//--- bwagreement ---//
-
-model bwagreement (
-	key serialnum
-
-	field serialnum       text
-	field storage_node_id blob
-	field uplink_id       blob
-	field action          int64
-	field total           int64
-	field created_at      timestamp ( autoinsert )
-	field expires_at      timestamp
-)
-
 
 //--- irreparableDB ---//
 
@@ -147,6 +141,7 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
+	field disqualified bool ( updatable )
 )
 
 create node ( )
@@ -185,16 +180,20 @@ model user (
     key id
 
     field id               blob
+    field email            text      ( updatable )
     field full_name        text      ( updatable )
     field short_name       text      ( updatable, nullable )
-
-    field email            text      ( updatable )
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
 
     field created_at       timestamp ( autoinsert )
 )
+
+create user ( )
+update user ( where user.id = ? )
+delete user ( where user.id = ? )
+
 read one (
     select user
     where user.email = ?
@@ -204,10 +203,24 @@ read one (
     select user
     where user.id = ?
 )
-create user ( )
-update user ( where user.id = ? )
-delete user ( where user.id = ? )
 
+// add payment method id to indentify if it has been set up
+model user_payment (
+    key    user_id
+    unique customer_id
+
+    field user_id       user.id   cascade
+    field customer_id   blob
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create user_payment ( )
+
+read one (
+    select user_payment
+    where  user_payment.user_id = ?
+)
 
 model project (
     key id
@@ -220,22 +233,78 @@ model project (
 
     field created_at     timestamp ( autoinsert )
 )
-read all ( select project)
+
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
 read one (
     select project
     where project.id = ?
 )
-
+read all (
+    select project
+)
+read all (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
 read all (
     select project
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
 )
-create project ( )
-update project ( where project.id = ? )
-delete project ( where project.id = ? )
 
+// add is default, make composite key
+model project_payment (
+    key project_id
+
+    field project_id        project.id              cascade
+    field payer_id          user_payment.user_id    cascade
+    field payment_method_id blob
+
+    field created_at        timestamp  ( autoinsert )
+)
+
+create project_payment ( )
+
+read one (
+    select project_payment
+    where project_payment.project_id = ?
+)
+read one (
+    select project_payment
+    where project_payment.payer_id = ?
+)
+
+model project_invoice_stamp (
+    key    project_id start_date end_date
+    unique invoice_id
+
+    field  project_id project.id  cascade
+    field  invoice_id blob
+
+    field  start_date timestamp
+    field  end_date   timestamp
+
+    field  created_at timestamp
+)
+
+create project_invoice_stamp ( )
+
+read one (
+    select project_invoice_stamp
+    where  project_invoice_stamp.project_id = ?
+    where  project_invoice_stamp.start_date = ?
+)
+// pagination ?
+read all (
+    select project_invoice_stamp
+    where  project_invoice_stamp.project_id = ?
+    orderby desc project_invoice_stamp.start_date
+)
 
 model project_member (
     key member_id project_id
@@ -246,17 +315,18 @@ model project_member (
     field created_at           timestamp ( autoinsert )
 )
 
+create project_member ( )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
 read all (
     select project_member
     where project_member.member_id = ?
 )
 read limitoffset (
     select project_member
-    where project_member.project_id = ?
-)
-create project_member ( )
-delete project_member (
-    where project_member.member_id = ?
     where project_member.project_id = ?
 )
 
@@ -324,7 +394,6 @@ read one (
     select bucket_usage
     where  bucket_usage.id = ?
 )
-
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
@@ -332,7 +401,6 @@ read limitoffset (
     where bucket_usage.rollup_end_time <= ?
     orderby asc bucket_usage.rollup_end_time
 )
-
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
@@ -579,22 +647,23 @@ model offer (
 	field id	serial 
 	field name text ( updatable )
 	field description text ( updatable )
-
-	// type has two possible value: FreeTier=1, Referral=2.
-	field type int ( updatable )
 	
-	field credit_in_cents int ( updatable ) 
+	field award_credit_in_cents int ( updatable ) 
+	field invitee_credit_in_cents int ( updatable )
+
 	field award_credit_duration_days int ( updatable )
 	field invitee_credit_duration_days int ( updatable )
 
 	field redeemable_cap int ( updatable )
 	field num_redeemed int ( updatable, autoinsert )
 
-	field expires_at timestamp ( updatable, autoinsert, nullable )
+	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, OnGoing=1, Expired=2.
-	field status int ( updatable, autoinsert )
+	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	field status int ( updatable )
+	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	field type int ( updatable )
 )
 
 read one (
@@ -602,21 +671,12 @@ read one (
     where offer.id = ?
 )
 
-read one (
+read all (
 	select offer
-	where offer.status = ?
-	where offer.type = ?
-	where offer.expires_at >= ?
 )
-
-read all ( select offer )
-
-create offer ( )
 
 update offer (
 	where offer.id = ?
-	where offer.status = 0
-	where offer.expires_at >= offer.created_at
 )
 
-delete offer ( where offer.id = ? )
+create offer ( )

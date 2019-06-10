@@ -54,7 +54,7 @@
             };
         }
     })
-    export default class SortBucketsHeader extends Vue {
+    export default class SortProjectBillingHeader extends Vue {
     }
 </script>
 

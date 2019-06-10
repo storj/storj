@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -27,7 +28,9 @@ var (
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
-	Interval time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Interval         time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
+	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
 }
 
 // Service which monitors disk usage and updates kademlia network as necessary.
@@ -40,12 +43,13 @@ type Service struct {
 	allocatedDiskSpace int64
 	allocatedBandwidth int64
 	Loop               sync2.Cycle
+	Config             Config
 }
 
 // TODO: should it be responsible for monitoring actual bandwidth as well?
 
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, pieceInfo pieces.DB, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration) *Service {
+func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pieces.Store, pieceInfo pieces.DB, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
 	return &Service{
 		log:                log,
 		routingTable:       routingTable,
@@ -55,6 +59,7 @@ func NewService(log *zap.Logger, routingTable *kademlia.RoutingTable, store *pie
 		allocatedDiskSpace: allocatedDiskSpace,
 		allocatedBandwidth: allocatedBandwidth,
 		Loop:               *sync2.NewCycle(interval),
+		Config:             config,
 	}
 }
 
@@ -64,7 +69,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	// get the disk space details
 	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-	storageStatus, err := service.store.StorageStatus()
+	storageStatus, err := service.store.StorageStatus(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -107,6 +112,18 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
+	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
+	if service.allocatedDiskSpace < service.Config.MinimumDiskSpace.Int64() {
+		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
+		return Error.New("disk space requirement not met")
+	}
+
+	// Ensure the bandwidth is at least 500GB
+	if service.allocatedBandwidth < service.Config.MinimumBandwidth.Int64() {
+		service.log.Error("Total Bandwidth available less than required minimum", zap.Int64("bytes", service.Config.MinimumBandwidth.Int64()))
+		return Error.New("bandwidth requirement not met")
+	}
+
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.updateNodeInformation(ctx)
 		if err != nil {
@@ -122,7 +139,9 @@ func (service *Service) Close() (err error) {
 	return nil
 }
 
-func (service *Service) updateNodeInformation(ctx context.Context) error {
+func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	usedSpace, err := service.usedSpace(ctx)
 	if err != nil {
 		return Error.Wrap(err)
@@ -141,7 +160,8 @@ func (service *Service) updateNodeInformation(ctx context.Context) error {
 	return nil
 }
 
-func (service *Service) usedSpace(ctx context.Context) (int64, error) {
+func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return 0, err
@@ -149,7 +169,8 @@ func (service *Service) usedSpace(ctx context.Context) (int64, error) {
 	return usedSpace, nil
 }
 
-func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
+func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
 	if err != nil {
 		return 0, err
@@ -158,7 +179,8 @@ func (service *Service) usedBandwidth(ctx context.Context) (int64, error) {
 }
 
 // AvailableSpace returns available disk space for upload
-func (service *Service) AvailableSpace(ctx context.Context) (int64, error) {
+func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
@@ -168,7 +190,8 @@ func (service *Service) AvailableSpace(ctx context.Context) (int64, error) {
 }
 
 // AvailableBandwidth returns available bandwidth for upload/download
-func (service *Service) AvailableBandwidth(ctx context.Context) (int64, error) {
+func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
 	if err != nil {
 		return 0, Error.Wrap(err)

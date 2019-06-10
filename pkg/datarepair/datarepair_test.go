@@ -19,7 +19,6 @@ import (
 )
 
 func TestDataRepair(t *testing.T) {
-	t.Skip()
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
@@ -31,7 +30,6 @@ func TestDataRepair(t *testing.T) {
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
-		satellite.Discovery.Service.Graveyard.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
@@ -50,14 +48,14 @@ func TestDataRepair(t *testing.T) {
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List("", "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = metainfo.Get(path)
+			pointer, err = metainfo.Get(ctx, path)
 			assert.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -122,7 +120,7 @@ func TestDataRepair(t *testing.T) {
 		assert.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
-		pointer, err = metainfo.Get(path)
+		pointer, err = metainfo.Get(ctx, path)
 		assert.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()

@@ -4,6 +4,8 @@
 package signing
 
 import (
+	"context"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -11,35 +13,38 @@ import (
 // Signee is able to verify that the data signature belongs to the signee.
 type Signee interface {
 	ID() storj.NodeID
-	HashAndVerifySignature(data, signature []byte) error
+	HashAndVerifySignature(ctx context.Context, data, signature []byte) error
 }
 
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
-func VerifyOrderLimitSignature(satellite Signee, signed *pb.OrderLimit2) error {
-	bytes, err := EncodeOrderLimit(signed)
+func VerifyOrderLimitSignature(ctx context.Context, satellite Signee, signed *pb.OrderLimit2) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeOrderLimit(ctx, signed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return satellite.HashAndVerifySignature(bytes, signed.SatelliteSignature)
+	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
 }
 
 // VerifyOrderSignature verifies that the signature inside order belongs to the uplink.
-func VerifyOrderSignature(uplink Signee, signed *pb.Order2) error {
-	bytes, err := EncodeOrder(signed)
+func VerifyOrderSignature(ctx context.Context, uplink Signee, signed *pb.Order2) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeOrder(ctx, signed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return uplink.HashAndVerifySignature(bytes, signed.UplinkSignature)
+	return uplink.HashAndVerifySignature(ctx, bytes, signed.UplinkSignature)
 }
 
 // VerifyPieceHashSignature verifies that the signature inside piece hash belongs to the signer, which is either uplink or storage node.
-func VerifyPieceHashSignature(signee Signee, signed *pb.PieceHash) error {
-	bytes, err := EncodePieceHash(signed)
+func VerifyPieceHashSignature(ctx context.Context, signee Signee, signed *pb.PieceHash) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodePieceHash(ctx, signed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return signee.HashAndVerifySignature(bytes, signed.Signature)
+	return signee.HashAndVerifySignature(ctx, bytes, signed.Signature)
 }
