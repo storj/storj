@@ -171,12 +171,12 @@ func TestAuthorizationDB_Get(t *testing.T) {
 		result Authorizations
 	}{
 		{
-			"Non-existant email",
+			"Non-existent email",
 			"nouser@example.com",
 			nil,
 		},
 		{
-			"Exising email",
+			"Existing email",
 			"user@example.com",
 			expectedAuths,
 		},
