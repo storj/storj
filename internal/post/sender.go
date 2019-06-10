@@ -46,7 +46,7 @@ func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err erro
 		return err
 	}
 	// close underlying connection
-	// if any unexpected error ouccured
+	// if any unexpected error occurred
 	defer func() {
 		if err != nil {
 			err = errs.Combine(err, client.Close())
