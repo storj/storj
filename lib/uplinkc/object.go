@@ -13,7 +13,7 @@ import (
 
 //export CloseObject
 func CloseObject(cObject CObjectRef, cErr *CCharPtr) {
-	object, ok := structRefMap.Get(Token(cObject)).(*uplink.Object)
+	object, ok := universe.Get(Token(cObject)).(*uplink.Object)
 	if !ok {
 		*cErr = CCString("invalid object")
 		return
@@ -24,14 +24,14 @@ func CloseObject(cObject CObjectRef, cErr *CCharPtr) {
 		return
 	}
 
-	structRefMap.Del(Token(cObject))
+	universe.Del(Token(cObject))
 }
 
 //export DownloadRange
 func DownloadRange(cObject CObjectRef, offset CInt64, length CInt64, cErr *CCharPtr) (downloader CDownloadReaderRef) {
 	ctx := context.Background()
 
-	object, ok := structRefMap.Get(Token(cObject)).(*uplink.Object)
+	object, ok := universe.Get(Token(cObject)).(*uplink.Object)
 	if !ok {
 		*cErr = CCString("invalid object")
 		return downloader
@@ -43,12 +43,12 @@ func DownloadRange(cObject CObjectRef, offset CInt64, length CInt64, cErr *CChar
 		return downloader
 	}
 
-	return CDownloadReaderRef(structRefMap.Add(rc))
+	return CDownloadReaderRef(universe.Add(rc))
 }
 
 //export Download
 func Download(downloader CDownloadReaderRef, bytes *CBytes, cErr *CCharPtr) (readLength CInt) {
-	readCloser, ok := structRefMap.Get(Token(downloader)).(*readcloser.LimitedReadCloser)
+	readCloser, ok := universe.Get(Token(downloader)).(*readcloser.LimitedReadCloser)
 	if !ok {
 		*cErr = CCString("invalid reader")
 		return CInt(0)
@@ -70,7 +70,7 @@ func Download(downloader CDownloadReaderRef, bytes *CBytes, cErr *CCharPtr) (rea
 
 //export ObjectMeta
 func ObjectMeta(cObject CObjectRef, cErr *CCharPtr) (objectMeta CObjectMeta) {
-	object, ok := structRefMap.Get(Token(cObject)).(*uplink.Object)
+	object, ok := universe.Get(Token(cObject)).(*uplink.Object)
 	if !ok {
 		*cErr = CCString("invalid object")
 		return objectMeta

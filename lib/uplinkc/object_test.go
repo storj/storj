@@ -1,3 +1,5 @@
+// +build ignore
+
 package main
 
 import (
@@ -28,7 +30,7 @@ func TestObjectMeta(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		cBucketRef := CBucketRef(universe.Add(openBucket))
 		for _, testObj := range testObjects {
 			testObj.goUpload(t, ctx, openBucket)
 
@@ -67,7 +69,7 @@ func TestDownloadRange(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		cBucketRef := CBucketRef(universe.Add(openBucket))
 		for _, testObj := range testObjects {
 			testObj.goUpload(t, ctx, openBucket)
 

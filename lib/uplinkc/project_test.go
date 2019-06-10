@@ -1,3 +1,5 @@
+// +build ignore
+
 package main
 
 import (
@@ -73,7 +75,7 @@ func TestOpenBucket(t *testing.T) {
 		require.Empty(t, cCharToGoString(cErr))
 		require.NotEmpty(t, cBucketRef)
 
-		goBucket, ok := structRefMap.Get(Token(cBucketRef)).(*uplink.Bucket)
+		goBucket, ok := universe.Get(Token(cBucketRef)).(*uplink.Bucket)
 		require.True(t, ok)
 		require.NotNil(t, goBucket)
 

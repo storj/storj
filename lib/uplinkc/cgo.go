@@ -4,16 +4,6 @@
 package main
 
 /*
-#cgo CFLAGS: -g -Wall
-#include <stdbool.h>
-#include <string.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <time.h>
-
-typedef __SIZE_TYPE__ GoUintptr;
-typedef int64_t Size;
-
 typedef GoUintptr APIKeyRef_t;
 typedef GoUintptr IDVersionRef_t;
 typedef GoUintptr UplinkRef_t;
@@ -140,93 +130,29 @@ typedef struct ObjectMeta {
 import "C"
 import "unsafe"
 
-/* C constants */
-const CEOF = C.EOF
-
-/* C types */
-type CCharPtr = *C.char
-type CBool = C.bool
-type CUint = C.uint
-type CInt = C.int
-type CUint8 = C.uint8_t
-type CUint16 = C.uint16_t
-type CUint32 = C.uint32_t
-type CUint64 = C.uint64_t
-type CInt16 = C.int16_t
-type CInt32 = C.int32_t
-type CInt64 = C.int64_t
-type CSize = C.size_t
-type CTime = C.time_t
-type CFile = C.FILE
-
 /* Ref types */
-type CAPIKeyRef = C.APIKeyRef_t
-type CUplinkRef = C.UplinkRef_t
-type CProjectRef = C.ProjectRef_t
-type CBucketRef = C.BucketRef_t
-type CBufferRef = C.BufferRef_t
-type CObjectRef = C.ObjectRef_t
-type CMapRef = C.MapRef_t
-type CBytes = C.Bytes_t
-type CDownloadReaderRef = C.DownloadReaderRef_t
+type cAPIKeyRef = C.APIKeyRef_t
+type cUplinkRef = C.UplinkRef_t
+type cProjectRef = C.ProjectRef_t
+type cBucketRef = C.BucketRef_t
+type cBufferRef = C.BufferRef_t
+type cObjectRef = C.ObjectRef_t
+type cMapRef = C.MapRef_t
+type cBytes = C.Bytes_t
+type cDownloadReaderRef = C.DownloadReaderRef_t
 
 /* Struct types */
-type CIDVersion = C.IDVersion_t
-type CEncryptionAccess = C.EncryptionAccess_t
-type CEncryptionParameters = C.EncryptionParameters_t
-type CRedundancyScheme = C.RedundancyScheme_t
-type CBucket = C.Bucket_t
-type CBucketInfo = C.BucketInfo_t
-type CBucketConfig = C.BucketConfig_t
-type CBucketListOptions = C.BucketListOptions_t
-type CBucketList = C.BucketList_t
-type CObject = C.Object_t
-type CObjectListOptions = C.ObjectListOptions_t
-type CObjectList = C.ObjectList_t
-type CObjectMeta = C.ObjectMeta_t
-type CUploadOptions = C.UploadOptions_t
-
-/* C functions */
-func CCString(goStr string) CCharPtr {
-	return C.CString(goStr)
-}
-
-func CGoString(cStr CCharPtr) string {
-	return C.GoString(cStr)
-}
-
-func CGoBytes(ptr unsafe.Pointer, length CInt) []byte {
-	return C.GoBytes(ptr, length)
-}
-
-func CMalloc(size CSize) unsafe.Pointer {
-	return C.malloc(size)
-}
-
-func CNewTime(second *CTime) CTime {
-	return C.time(second)
-}
-
-func CFRead(ptr unsafe.Pointer, size CSize, nmemb CSize, file *CFile) CSize {
-	return C.fread(ptr, size, nmemb, file)
-}
-
-func CStrError(errnum CInt) CCharPtr {
-	return C.strerror(errnum)
-}
-
-func CFClose(file *CFile) CInt {
-	return C.fclose(file)
-}
-
-func CFEOF(file *CFile) CInt {
-	return C.feof(file)
-}
-
-func CFMemOpen(buf unsafe.Pointer, size CSize, mode CCharPtr) *CFile {
-	return C.fmemopen(buf, size, mode)
-}
-
-func CFError(file *CFile) CInt {
-	return C.ferror(file)
-}
+type cIDVersion = C.IDVersion_t
+type cEncryptionAccess = C.EncryptionAccess_t
+type cEncryptionParameters = C.EncryptionParameters_t
+type cRedundancyScheme = C.RedundancyScheme_t
+type cBucket = C.Bucket_t
+type cBucketInfo = C.BucketInfo_t
+type cBucketConfig = C.BucketConfig_t
+type cBucketListOptions = C.BucketListOptions_t
+type cBucketList = C.BucketList_t
+type cObject = C.Object_t
+type cObjectListOptions = C.ObjectListOptions_t
+type cObjectList = C.ObjectList_t
+type cObjectMeta = C.ObjectMeta_t
+type cUploadOptions = C.UploadOptions_t

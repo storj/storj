@@ -1,3 +1,5 @@
+// +build ignore
+
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -18,7 +20,7 @@ func TestParseAPIKey(t *testing.T) {
 	cAPIKeyRef := ParseAPIKey(stringToCCharPtr(apikeyString), &cErr)
 	require.Empty(t, cCharToGoString(cErr))
 
-	apikey, ok := structRefMap.Get(Token(cAPIKeyRef)).(uplink.APIKey)
+	apikey, ok := universe.Get(Token(cAPIKeyRef)).(uplink.APIKey)
 	require.True(t, ok)
 	require.NotEmpty(t, apikey)
 
@@ -31,7 +33,7 @@ func TestSerialize(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, apikey)
 
-	cAPIKeyRef := CAPIKeyRef(structRefMap.Add(apikey))
+	cAPIKeyRef := CAPIKeyRef(universe.Add(apikey))
 	require.NotEmpty(t, cAPIKeyRef)
 
 	cAPIKey := Serialize(cAPIKeyRef)

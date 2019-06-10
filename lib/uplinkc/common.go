@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-var structRefMap = NewMapping()
+var universe = NewMapping()
 
 //GoCMalloc allocates C memory
 func GoCMalloc(size uintptr) uintptr {
@@ -40,11 +40,11 @@ type GoMap struct {
 
 //export NewMapRef
 func NewMapRef() CMapRef {
-	return CMapRef(structRefMap.Add(&GoMap{}))
+	return CMapRef(universe.Add(&GoMap{}))
 }
 //export MapRefSet
 func MapRefSet(metaDataRef CMapRef, key CCharPtr, value CCharPtr, cErr *CCharPtr) {
-	metaData, ok := structRefMap.Get(Token(metaDataRef)).(*GoMap)
+	metaData, ok := universe.Get(Token(metaDataRef)).(*GoMap)
 	if !ok {
 		*cErr = CCString("invalid map")
 		return
@@ -58,7 +58,7 @@ func MapRefSet(metaDataRef CMapRef, key CCharPtr, value CCharPtr, cErr *CCharPtr
 
 //export MapRefGet
 func MapRefGet(metaDataRef CMapRef, key CCharPtr, cErr *CCharPtr) (cValue CCharPtr) {
-	metaData, ok := structRefMap.Get(Token(metaDataRef)).(*GoMap)
+	metaData, ok := universe.Get(Token(metaDataRef)).(*GoMap)
 	if !ok {
 		*cErr = CCString("invalid map")
 		return cValue
@@ -129,5 +129,5 @@ func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) CRedundancyScheme
 
 //export FreeReference
 func FreeReference(reference Token) {
-	structRefMap.Del(reference)
+	universe.Del(reference)
 }

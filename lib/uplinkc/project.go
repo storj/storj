@@ -15,7 +15,7 @@ import (
 //export CreateBucket
 func CreateBucket(cProject CProjectRef, name CCharPtr, cBucketCfg *CBucketConfig, cErr *CCharPtr) (cBucket CBucket) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
+	project, ok := universe.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = CCString("invalid project")
 		return cBucket
@@ -52,7 +52,7 @@ func CreateBucket(cProject CProjectRef, name CCharPtr, cBucketCfg *CBucketConfig
 //export OpenBucket
 func OpenBucket(cProject CProjectRef, name CCharPtr, cAccess *CEncryptionAccess, cErr *CCharPtr) (bucketRef CBucketRef) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
+	project, ok := universe.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = CCString("invalid project")
 		return bucketRef
@@ -71,13 +71,13 @@ func OpenBucket(cProject CProjectRef, name CCharPtr, cAccess *CEncryptionAccess,
 		return bucketRef
 	}
 
-	return CBucketRef(structRefMap.Add(bucket))
+	return CBucketRef(universe.Add(bucket))
 }
 
 //export DeleteBucket
 func DeleteBucket(cProject CProjectRef, bucketName CCharPtr, cErr *CCharPtr) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
+	project, ok := universe.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = CCString("invalid project")
 		return
@@ -92,7 +92,7 @@ func DeleteBucket(cProject CProjectRef, bucketName CCharPtr, cErr *CCharPtr) {
 //export ListBuckets
 func ListBuckets(cProject CProjectRef, cOpts *CBucketListOptions, cErr *CCharPtr) (cBucketList CBucketList) {
 	ctx := context.Background()
-	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
+	project, ok := universe.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = CCString("invalid project")
 		return
@@ -135,7 +135,7 @@ func ListBuckets(cProject CProjectRef, cOpts *CBucketListOptions, cErr *CCharPtr
 func GetBucketInfo(cProject CProjectRef, bucketName CCharPtr, cErr *CCharPtr) (cBucketInfo CBucketInfo) {
 	ctx := context.Background()
 
-	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
+	project, ok := universe.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = CCString("invalid project")
 		return cBucketInfo
@@ -158,7 +158,7 @@ func GetBucketInfo(cProject CProjectRef, bucketName CCharPtr, cErr *CCharPtr) (c
 
 //export CloseProject
 func CloseProject(cProject CProjectRef, cErr *CCharPtr) {
-	project, ok := structRefMap.Get(Token(cProject)).(*uplink.Project)
+	project, ok := universe.Get(Token(cProject)).(*uplink.Project)
 	if !ok {
 		*cErr = CCString("invalid project")
 		return
@@ -169,5 +169,5 @@ func CloseProject(cProject CProjectRef, cErr *CCharPtr) {
 		return
 	}
 
-	structRefMap.Del(Token(cProject))
+	universe.Del(Token(cProject))
 }

@@ -1,3 +1,5 @@
+// +build ignore
+
 package main
 
 import (
@@ -167,7 +169,7 @@ func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	require.NoError(t, err)
 	require.NotNil(t, project)
 
-	return project, CProjectRef(structRefMap.Add(project))
+	return project, CProjectRef(universe.Add(project))
 }
 
 func stringToCCharPtr(str string) CCharPtr {
@@ -243,7 +245,7 @@ func newGoObject(t *testing.T, cObj *CObject) *storj.Object {
 	var metadata map[string]string
 	if uintptr(cObj.metadata) != 0 {
 		var ok bool
-		metadata, ok = structRefMap.Get(Token(cObj.metadata)).(map[string]string)
+		metadata, ok = universe.Get(Token(cObj.metadata)).(map[string]string)
 		require.True(t, ok)
 		require.NotEmpty(t, metadata)
 	}
@@ -263,7 +265,7 @@ func newGoObject(t *testing.T, cObj *CObject) *storj.Object {
 }
 
 func newCUploadOpts(opts *uplink.UploadOptions) *CUploadOptions {
-	metadataRef := CMapRef(structRefMap.Add(opts.Metadata))
+	metadataRef := CMapRef(universe.Add(opts.Metadata))
 	ts := opts.Expires.Unix()
 	return &CUploadOptions{
 		content_type: CCString(opts.ContentType),

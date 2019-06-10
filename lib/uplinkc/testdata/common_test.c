@@ -4,21 +4,22 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include "unity.h"
 
-void TestGetIDVersion(void)
+#include "uplink.h"
+
+void TestGetIDVersion()
 {
     char *_err = "";
     char **err = &_err;
     uint8_t id_version_number = 0;
 
     IDVersion_t id_version = GetIDVersion(id_version_number, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
-    TEST_ASSERT_EQUAL(0, id_version.number);
+    assert(0 == id_version.number);
 }
 
-void TestAPIKey(void)
+void TestAPIKey()
 {
     char *_err = "";
     char **err = &_err;
@@ -27,14 +28,13 @@ void TestAPIKey(void)
     APIKeyRef_t ref_apikey = ParseAPIKey(key_str, err);
     char *result_key = Serialize(ref_apikey);
 
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_EQUAL_STRING(key_str, result_key);
+    assert(strcmp("", *err) == 0);
+    assert(strcmp(key_str, result_key) == 0);
 }
 
 int main(int argc, char *argv[])
 {
-    UNITY_BEGIN();
-    RUN_TEST(TestAPIKey);
-    RUN_TEST(TestGetIDVersion);
-    return UNITY_END();
+    TestAPIKey();
+    TestGetIDVersion();
+    return 0;
 }

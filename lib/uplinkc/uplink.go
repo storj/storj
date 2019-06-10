@@ -20,7 +20,7 @@ func NewUplink(cErr *CCharPtr) (cUplink CUplinkRef) {
 		return cUplink
 	}
 
-	return CUplinkRef(structRefMap.Add(goUplink))
+	return CUplinkRef(universe.Add(goUplink))
 }
 
 //export NewUplinkInsecure
@@ -33,7 +33,7 @@ func NewUplinkInsecure(cErr *CCharPtr) (cUplink CUplinkRef) {
 		return cUplink
 	}
 
-	return CUplinkRef(structRefMap.Add(goUplink))
+	return CUplinkRef(universe.Add(goUplink))
 }
 
 //export OpenProject
@@ -42,13 +42,13 @@ func OpenProject(cUplink CUplinkRef, satelliteAddr CCharPtr, cAPIKey CAPIKeyRef,
 	ctx := context.Background()
 	defer mon.Task()(&ctx)(&err)
 
-	goUplink, ok := structRefMap.Get(Token(cUplink)).(*uplink.Uplink)
+	goUplink, ok := universe.Get(Token(cUplink)).(*uplink.Uplink)
 	if !ok {
 		*cErr = CCString("invalid uplink")
 		return cProject
 	}
 
-	apiKey, ok := structRefMap.Get(Token(cAPIKey)).(uplink.APIKey)
+	apiKey, ok := universe.Get(Token(cAPIKey)).(uplink.APIKey)
 	if !ok {
 		*cErr = CCString("invalid API Key")
 		return cProject
@@ -60,12 +60,12 @@ func OpenProject(cUplink CUplinkRef, satelliteAddr CCharPtr, cAPIKey CAPIKeyRef,
 		*cErr = CCString(err.Error())
 		return cProject
 	}
-	return CProjectRef(structRefMap.Add(project))
+	return CProjectRef(universe.Add(project))
 }
 
 //export CloseUplink
 func CloseUplink(cUplink CUplinkRef, cErr *CCharPtr) {
-	goUplink, ok := structRefMap.Get(Token(cUplink)).(*uplink.Uplink)
+	goUplink, ok := universe.Get(Token(cUplink)).(*uplink.Uplink)
 	if !ok {
 		*cErr = CCString("invalid uplink")
 		return

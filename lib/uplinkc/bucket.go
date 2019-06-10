@@ -17,7 +17,7 @@ import (
 func OpenObject(cBucket CBucketRef, cpath CCharPtr, cErr *CCharPtr) (objectRef CObjectRef) {
 	ctx := context.Background()
 
-	bucket, ok := structRefMap.Get(Token(cBucket)).(*uplink.Bucket)
+	bucket, ok := universe.Get(Token(cBucket)).(*uplink.Bucket)
 	if !ok {
 		*cErr = CCString("invalid bucket")
 		return objectRef
@@ -30,14 +30,14 @@ func OpenObject(cBucket CBucketRef, cpath CCharPtr, cErr *CCharPtr) (objectRef C
 		return objectRef
 	}
 
-	return CObjectRef(structRefMap.Add(object))
+	return CObjectRef(universe.Add(object))
 }
 
 //export UploadObject
 func UploadObject(cBucket CBucketRef, path CCharPtr, reader *CFile, cOpts *CUploadOptions, cErr *CCharPtr) {
 	ctx := context.Background()
 
-	bucket, ok := structRefMap.Get(Token(cBucket)).(*uplink.Bucket)
+	bucket, ok := universe.Get(Token(cBucket)).(*uplink.Bucket)
 	if !ok {
 		*cErr = CCString("invalid bucket")
 		return
@@ -47,7 +47,7 @@ func UploadObject(cBucket CBucketRef, path CCharPtr, reader *CFile, cOpts *CUplo
 	// TODO: fix ^
 	var metadata map[string]string
 	if uintptr(cOpts.metadata) != 0 {
-		metadata, ok = structRefMap.Get(Token(cOpts.metadata)).(map[string]string)
+		metadata, ok = universe.Get(Token(cOpts.metadata)).(map[string]string)
 		if !ok {
 			*cErr = CCString("invalid metadata in upload options")
 			return
@@ -73,7 +73,7 @@ func UploadObject(cBucket CBucketRef, path CCharPtr, reader *CFile, cOpts *CUplo
 func ListObjects(bucketRef CBucketRef, cListOpts *CObjectListOptions, cErr *CCharPtr) (cObjList CObjectList) {
 	ctx := context.Background()
 
-	bucket, ok := structRefMap.Get(Token(bucketRef)).(*uplink.Bucket)
+	bucket, ok := universe.Get(Token(bucketRef)).(*uplink.Bucket)
 	if !ok {
 		*cErr = CCString("invalid bucket")
 		return cObjList
@@ -118,7 +118,7 @@ func ListObjects(bucketRef CBucketRef, cListOpts *CObjectListOptions, cErr *CCha
 
 //export CloseBucket
 func CloseBucket(bucketRef CBucketRef, cErr *CCharPtr) {
-	bucket, ok := structRefMap.Get(Token(bucketRef)).(*uplink.Bucket)
+	bucket, ok := universe.Get(Token(bucketRef)).(*uplink.Bucket)
 	if !ok {
 		*cErr = CCString("invalid bucket")
 		return
@@ -129,7 +129,7 @@ func CloseBucket(bucketRef CBucketRef, cErr *CCharPtr) {
 		return
 	}
 
-	structRefMap.Del(Token(bucketRef))
+	universe.Del(Token(bucketRef))
 }
 
 func NewCObject(object *storj.Object) CObject {
@@ -138,7 +138,7 @@ func NewCObject(object *storj.Object) CObject {
 		bucket:       NewCBucket(&object.Bucket),
 		path:         CCString(object.Path),
 		is_prefix:    CBool(object.IsPrefix),
-		metadata:     CMapRef(structRefMap.Add(object.Metadata)),
+		metadata:     CMapRef(universe.Add(object.Metadata)),
 		content_type: CCString(object.ContentType),
 		// TODO: use `UnixNano()`?
 		created:  CTime(object.Created.Unix()),

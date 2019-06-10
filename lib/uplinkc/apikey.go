@@ -5,7 +5,6 @@ package main
 
 /*
 #cgo CFLAGS: -g -Wall
-typedef GoUintptr APIKeyRef_t;
 */
 import "C"
 import (
@@ -21,13 +20,13 @@ func ParseAPIKey(val CCharPtr, cErr *CCharPtr) (cApiKey CAPIKeyRef) {
 		return cApiKey
 	}
 
-	return CAPIKeyRef(structRefMap.Add(goApiKeyStruct))
+	return CAPIKeyRef(universe.Add(goApiKeyStruct))
 }
 
 //export Serialize
 // Serialize serializes the API Key to a string
 func Serialize(cApiKey CAPIKeyRef) CCharPtr {
-	goApiKey, ok := structRefMap.Get(Token(cApiKey)).(uplink.APIKey)
+	goApiKey, ok := universe.Get(Token(cApiKey)).(uplink.APIKey)
 	if !ok {
 		return CCString("")
 	}

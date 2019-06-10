@@ -9,24 +9,20 @@
 #include "../../uplink-cgo.h"
 #include "helpers.h"
 
-void callback(Bytes_t bytes, bool done) {
-    printf("Hi\n");
-}
-
-void TestObject(void)
+int main(int argc, char *argv[])
 {
     char *_err = "";
     char **err = &_err;
 
     // Open Project
     ProjectRef_t ref_project = OpenTestProject(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     char *bucket_name = "TestBucket1";
 
     // Create buckets
     Bucket_t *bucket = CreateTestBucket(ref_project, bucket_name, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
     free(bucket);
 
     uint8_t *enc_key = "abcdefghijklmnopqrstuvwxyzABCDEF";
@@ -34,7 +30,7 @@ void TestObject(void)
 
     // Open bucket
     BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     char *object_path = "TestObject1";
 
@@ -44,19 +40,19 @@ void TestObject(void)
     Bytes_t *data = BytesFromString(str_data);
 
     create_test_object(ref_bucket, object_path, object, data, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
     free(object);
 
     ObjectRef_t object_ref = OpenObject(ref_bucket, object_path, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     ObjectMeta_t object_meta = ObjectMeta(object_ref, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
-    TEST_ASSERT_EQUAL(data->length, object_meta.Size);
+    assert(strcmp("", *err) == 0);
+    assert(strcmp(object_path, object_meta.Path) == 0);
+    assert(data->length == object_meta.Size);
 
     DownloadReaderRef_t downloader = DownloadRange(object_ref, 0, object_meta.Size, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     char downloadedData[object_meta.Size];
     memset(downloadedData, '\0', object_meta.Size);
@@ -69,24 +65,17 @@ void TestObject(void)
             free(bytes);
             break;
         }
-        TEST_ASSERT_EQUAL_STRING("", *err);
+        assert(strcmp("", *err) == 0);
         memcpy(downloadedData+downloadedTotal, bytes->bytes, bytes->length);
         downloadedTotal += downloadedSize;
         free(bytes);
     }
 
-    TEST_ASSERT_EQUAL_STRING(str_data, downloadedData);
+    assert(strcmp(str_data, downloadedData) == 0);
 
     // Close Project
     CloseProject(ref_project, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     free(data);
-}
-
-int main(int argc, char *argv[])
-{
-    UNITY_BEGIN();
-    RUN_TEST(TestObject);
-    return UNITY_END();
 }

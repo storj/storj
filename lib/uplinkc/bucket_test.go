@@ -1,3 +1,5 @@
+// +build ignore
+
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -46,7 +48,7 @@ func TestOpenObject(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		cBucketRef := CBucketRef(universe.Add(openBucket))
 		for _, testObj := range testObjects {
 			testObj.goUpload(t, ctx, openBucket)
 
@@ -82,7 +84,7 @@ func TestUploadObject(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		cBucketRef := CBucketRef(universe.Add(openBucket))
 		for _, testObj := range testObjects {
 			testObj.cUpload(t, cBucketRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
@@ -132,7 +134,7 @@ func TestListObjects(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+		cBucketRef := CBucketRef(universe.Add(openBucket))
 
 		for _, testObj := range testObjects {
 			testObj.goUpload(t, ctx, openBucket)
@@ -185,7 +187,7 @@ func TestCloseBucket(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, bucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(bucket))
+		cBucketRef := CBucketRef(universe.Add(bucket))
 		CloseBucket(cBucketRef, &cErr)
 		require.Empty(t, cCharToGoString(cErr))
 	})

@@ -5,11 +5,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
-#include "unity.h"
-#include "../../uplink-cgo.h"
+#include "uplink.h"
 #include "helpers.h"
 
-void TestBucket(void)
+int main(int argc, char *argv[])
 {
     char *_err = "";
     char **err = &_err;
@@ -17,14 +16,14 @@ void TestBucket(void)
 
     // Open Project
     ProjectRef_t ref_project = OpenTestProject(err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     // TODO: test with different bucket configs
     CreateBucket(ref_project, bucket_name, NULL, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
     BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
 
 
     char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
@@ -37,7 +36,7 @@ void TestBucket(void)
         Bytes_t *data = BytesFromString(str_data);
 
         create_test_object(ref_bucket, object_paths[i], object, data, err);
-        TEST_ASSERT_EQUAL_STRING("", *err);
+        assert(strcmp("", *err) == 0);
         free(object);
         free(data);
     }
@@ -45,7 +44,7 @@ void TestBucket(void)
     // List objects
     // TODO: test list options
     ObjectList_t objects_list = ListObjects(ref_bucket, NULL, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
+    assert(strcmp("", *err) == 0);
     // TODO: add assertions
 
     // TODO: add assertions for metadata
@@ -53,7 +52,6 @@ void TestBucket(void)
     // TODO: Open Object
 }
 
-int main(int argc, char *argv[])
 {
     UNITY_BEGIN();
     RUN_TEST(TestBucket);
