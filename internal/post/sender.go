@@ -6,6 +6,7 @@ package post
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -45,8 +46,11 @@ func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err erro
 		return err
 	}
 	// close underlying connection
+	// if any unexpected error ouccured
 	defer func() {
-		err = errs.Combine(err, client.Close())
+		if err != nil {
+			err = errs.Combine(err, client.Close())
+		}
 	}()
 
 	// send smtp hello or ehlo msg and establish connection over tls
@@ -73,26 +77,31 @@ func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err erro
 		}
 	}
 
-	data, err := client.Data()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errs.Combine(err, data.Close())
-	}()
-
 	mess, err := msg.Bytes()
 	if err != nil {
 		return err
 	}
 
-	_, err = data.Write(mess)
+	data, err := client.Data()
 	if err != nil {
 		return err
 	}
 
-	// send quit msg to stop gracefully returns err on
-	// success but we don't really care about the result
-	_ = client.Quit()
-	return nil
+	err = writeData(data, mess)
+	if err != nil {
+		return
+	}
+
+	// send quit msg to stop gracefully
+	return client.Quit()
+}
+
+// writeData ensures that writer will be closed after data is written
+func writeData(writer io.WriteCloser, data []byte) (err error) {
+	defer func() {
+		err = errs.Combine(err, writer.Close())
+	}()
+
+	_, err = writer.Write(data)
+	return
 }
