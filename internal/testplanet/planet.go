@@ -53,6 +53,7 @@ import (
 	satVouchers "storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -477,7 +478,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
-				Timeout:      2 * time.Second,
+				Timeout:      10 * time.Second, // Repairs can take up to 4 seconds. Leaving room for outliers
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
@@ -619,6 +620,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
+				},
+				Monitor: monitor.Config{
+					MinimumBandwidth: 100 * memory.MB,
+					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
 			Vouchers: vouchers.Config{

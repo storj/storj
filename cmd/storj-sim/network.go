@@ -425,6 +425,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 
+				"--storage2.monitor.minimum-disk-space", "25GB",
+				"--storage2.monitor.minimum-bandwidth", "25GB",
+
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
 				"--storage.satellite-id-restriction=false",
