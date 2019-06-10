@@ -74,12 +74,15 @@ func init() {
 	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
 }
 
-func MemoryFile(data *C.uint8_t, data_len C.size_t) *File {
-	return (*File)(C.fmemopen(unsafe.Pointer(data), data_len, C.CString("r")))
-}
+func TempFile(data []byte) *File {
+	f := (*File)(C.tmpfile())
 
-func TempFile() *File {
-	return (*File)(C.tmpfile())
+	if len(data) > 0 {
+		f.Write(data)
+		f.Seek(0, 0)
+	}
+
+	return f
 }
 
 func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {

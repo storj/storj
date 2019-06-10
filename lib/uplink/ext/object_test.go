@@ -80,7 +80,7 @@ func TestDownloadRange(t *testing.T) {
 			objectMeta := ObjectMeta(objectRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			f := TempFile()
+			f := TempFile(nil)
 			defer f.Close()
 
 			DownloadRange(objectRef, 0, Cint64(objectMeta.Size), f, &cErr)
