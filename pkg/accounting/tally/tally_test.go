@@ -110,7 +110,45 @@ func TestOnlyInline(t *testing.T) {
 	})
 }
 
-func TestCalculateAtRestData(t *testing.T) {
+func TestCalculateNodeAtRestData(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		tallySvc := planet.Satellites[0].Accounting.Tally
+		uplink := planet.Uplinks[0]
+
+		// Setup: create 50KiB of data for the uplink to upload
+		expectedData := make([]byte, 50*memory.KiB)
+		_, err := rand.Read(expectedData)
+		require.NoError(t, err)
+
+		// Setup: get the expected size of the data that will be stored in pointer
+		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
+		require.NoError(t, err)
+
+		// Execute test: upload a file, then calculate at rest data
+		expectedBucketName := "testbucket"
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+
+		assert.NoError(t, err)
+		_, actualNodeData, _, err := tallySvc.CalculateAtRestData(ctx)
+		require.NoError(t, err)
+
+		// Confirm the correct number of shares were stored
+		uplinkRS := uplinkConfig.GetRedundancyScheme()
+		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
+			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
+		}
+
+		// Confirm the correct number of bytes were stored on each node
+		for _, actualTotalBytes := range actualNodeData {
+			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
+		}
+	})
+}
+
+func TestCalculateBucketAtRestData(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -145,19 +183,8 @@ func TestCalculateAtRestData(t *testing.T) {
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 
 		assert.NoError(t, err)
-		_, actualNodeData, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
+		_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 		require.NoError(t, err)
-
-		// Confirm the correct number of shares were stored
-		uplinkRS := uplinkConfig.GetRedundancyScheme()
-		if !correctRedundencyScheme(len(actualNodeData), uplinkRS) {
-			t.Fatalf("expected between: %d and %d, actual: %d", uplinkRS.RepairShares, uplinkRS.TotalShares, len(actualNodeData))
-		}
-
-		// Confirm the correct number of bytes were stored on each node
-		for _, actualTotalBytes := range actualNodeData {
-			assert.Equal(t, int64(actualTotalBytes), expectedTotalBytes)
-		}
 
 		// Confirm the correct bucket storage tally was created
 		assert.Equal(t, len(actualBucketData), 1)
