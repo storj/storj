@@ -89,7 +89,7 @@ func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err erro
 
 	err = writeData(data, mess)
 	if err != nil {
-		return
+		return err
 	}
 
 	// send quit msg to stop gracefully
