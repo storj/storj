@@ -192,10 +192,12 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 		// Execute test: upload a file, then calculate at rest data
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName1, "test/path1", expectedData)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path2", expectedData)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path3", expectedData)
-
 		assert.NoError(t, err)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path2", expectedData)
+		assert.NoError(t, err)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path3", expectedData)
+		assert.NoError(t, err)
+
 		_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 		require.NoError(t, err)
 
