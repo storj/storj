@@ -100,7 +100,7 @@ kademlia.external-address: ""
 # operator email address
 kademlia.operator.email: ""
 
-# operator wallet adress
+# operator wallet address
 kademlia.operator.wallet: ""
 
 # size of Kademlia replacement cache
