@@ -5,7 +5,6 @@ package vouchers
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -83,7 +82,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 func (service *Service) runOnce(ctx context.Context) (combinedErrs error) {
 	defer mon.Task()(&ctx)(&combinedErrs)
-	service.log.Debug("Requesting vouchers", zap.Duration("buffer", service.expirationBuffer))
+	service.log.Info("Checking vouchers")
 
 	// request vouchers for entries that are expired/about to expire
 	err := service.renewVouchers(ctx)
@@ -127,6 +126,7 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 
 func (service *Service) initialVouchers(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	service.log.Debug("Getting satellites without vouchers")
 
 	withoutVouchers, err := service.getWithoutVouchers(ctx)
 	if err != nil {
@@ -181,7 +181,7 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 	// TODO: separate status for disqualified nodes?
 	switch resp.GetStatus() {
 	case pb.VoucherResponse_REJECTED:
-		service.log.Debug("Voucher request denied. Node does not meet voucher requirements")
+		service.log.Info("Voucher request denied. Node does not meet voucher requirements")
 	case pb.VoucherResponse_ACCEPTED:
 		voucher := resp.GetVoucher()
 		// TODO: check voucher fields
@@ -189,9 +189,9 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		if err != nil {
 			return err
 		}
-		service.log.Debug(fmt.Sprintf("Voucher request approved. Voucher from satellite %v expires %v", voucher.SatelliteId.String(), voucher.GetExpiration()))
+		service.log.Info("Voucher received", zap.String("satellite", voucher.SatelliteId.String()))
 	default:
-		service.log.Debug("Unknown voucher response status")
+		service.log.Warn("Unknown voucher response status")
 	}
 
 	return nil
