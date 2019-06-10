@@ -1,7 +1,7 @@
-// +build ignore
-
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
+
+// +build ignore
 
 package main_test
 
