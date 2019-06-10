@@ -7,7 +7,7 @@ import ROUTES from '@/utils/constants/routerConstants';
 import Login from '@/views/login/Login.vue';
 import Register from '@/views/register/Register.vue';
 import ForgotPassword from '@/views/forgotPassword/ForgotPassword.vue';
-import Dashboard from '@/views/Dashboard.vue';
+import Dashboard from '@/views/DashboardTest.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import Profile from '@/components/account/Profile.vue';
 import AccountBillingHistory from '@/components/account/billing/BillingArea.vue';
