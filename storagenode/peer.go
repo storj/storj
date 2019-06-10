@@ -270,7 +270,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		if config.Vouchers.ExpirationBuffer <= 0 {
 			return nil, errs.New("voucher service expiration buffer (%d) must be > 0", config.Vouchers.ExpirationBuffer)
 		}
-		bufferHours := config.Vouchers.ExpirationBuffer
+		bufferHours := config.Vouchers.ExpirationBuffer * 24
 		bufferDuration, err := time.ParseDuration(fmt.Sprintf("%dh", bufferHours))
 		if err != nil {
 			return nil, err

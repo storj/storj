@@ -81,14 +81,17 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return service.Loop.Run(ctx, service.runOnce)
 }
 
-func (service *Service) runOnce(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (service *Service) runOnce(ctx context.Context) (combinedErrs error) {
+	defer mon.Task()(&ctx)(&combinedErrs)
+	service.log.Debug("Requesting vouchers", zap.Duration("buffer", service.expirationBuffer))
+
 	// request vouchers for entries that are expired/about to expire
-	err = service.renewVouchers(ctx)
+	err := service.renewVouchers(ctx)
+	combinedErrs = errs.Combine(combinedErrs, err)
 
 	// request first vouchers from new satellites which have no voucher
 	err = service.initialVouchers(ctx)
-	return err
+	return errs.Combine(combinedErrs, err)
 }
 
 func (service *Service) renewVouchers(ctx context.Context) (err error) {
@@ -115,10 +118,11 @@ func (service *Service) renewVouchers(ctx context.Context) (err error) {
 				return nil
 			})
 		}
+		_ = group.Wait() // doesn't return errors
 	} else {
 		service.log.Debug("No vouchers close to expiration")
 	}
-	return err
+	return nil
 }
 
 func (service *Service) initialVouchers(ctx context.Context) (err error) {
@@ -144,10 +148,11 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 				return nil
 			})
 		}
+		_ = group.Wait() // doesn't return errors
 	} else {
 		service.log.Debug("No satellites requiring initial vouchers")
 	}
-	return err
+	return nil
 }
 
 func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (err error) {
