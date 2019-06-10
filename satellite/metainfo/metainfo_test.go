@@ -455,9 +455,9 @@ func TestValueAttributeInfo(t *testing.T) {
 		assert.NoError(t, err)
 
 		keyInfo := console.ConnectorKeyInfo{
-			ID:        project.ID, //partner id
-			ProjectID: project.ID, //bucket id
-			Name:      fmt.Sprintf("connectorkey"),
+			PartnerID: []byte("PartnerID"),
+			BucketID:  []byte("BucketID"),
+			FullName:  fmt.Sprintf("connectorkey"),
 		}
 
 		// set the connector key in the context
@@ -474,7 +474,7 @@ func TestValueAttributeInfo(t *testing.T) {
 			require.Error(t, err)
 
 			// fix this
-			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1)
+			_, err = metainfo.ValueAttributeInfo(ctxConntectorKey, "bucket", "path", -1, keyInfo)
 			require.NoError(t, err)
 		}
 		// {
