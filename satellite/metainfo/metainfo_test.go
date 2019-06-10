@@ -436,7 +436,6 @@ func TestCommitSegmentPointer(t *testing.T) {
 	})
 }
 
-// @TODO: Test case development in progress.....
 func TestValueAttributeInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
@@ -456,7 +455,7 @@ func TestValueAttributeInfo(t *testing.T) {
 
 		keyInfo := console.ConnectorKeyInfo{
 			PartnerID: []byte("PartnerID"),
-			BucketID:  []byte("BucketID"),
+			BucketID:  []byte("myBucketName"),
 			FullName:  fmt.Sprintf("connectorkey"),
 		}
 
@@ -479,10 +478,10 @@ func TestValueAttributeInfo(t *testing.T) {
 		{
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, string(keyInfo.BucketID), "file/path", -1, pointer, limits)
 			require.NoError(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctx, "myBucketName", "file/path", -1, keyInfo)
+			_, err = metainfo.ValueAttributeInfo(ctx, string(keyInfo.BucketID), "file/path", -1, keyInfo)
 			require.Error(t, err)
 		}
 	})

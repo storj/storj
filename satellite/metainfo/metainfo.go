@@ -530,5 +530,5 @@ func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.Segmen
 		}
 	}
 
-	return resp, errors.New("BucketID  already exists")
+	return resp, errs.New("BucketID=%v already exists", string(req.GetConnectorKeyInfo().BucketId))
 }
