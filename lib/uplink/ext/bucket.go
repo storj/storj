@@ -103,7 +103,6 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 	objListLen := len(objectList.Items)
 
 	objectSize := int(unsafe.Sizeof(C.Object_t{}))
-	// TODO: use `calloc` instead?
 	cObjectsPtr := CMalloc(uintptr(objListLen * objectSize))
 
 	for i, object := range objectList.Items {
@@ -145,7 +144,6 @@ func NewCObject(object *storj.Object) C.Object_t {
 		is_prefix:    C.bool(object.IsPrefix),
 		metadata:     C.MapRef_t(structRefMap.Add(object.Metadata)),
 		content_type: C.CString(object.ContentType),
-		// TODO: use `UnixNano()`?
 		created: C.time_t(object.Created.Unix()),
 		modified: C.time_t(object.Modified.Unix()),
 		expires: C.time_t(object.Expires.Unix()),

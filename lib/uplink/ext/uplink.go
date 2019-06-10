@@ -60,7 +60,6 @@ func OpenProject(cUplink C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyR
 		return cProject
 	}
 
-	// TODO: add project options argument
 	project, err := goUplink.OpenProject(ctx, C.GoString(satelliteAddr), apiKey, nil)
 	if err != nil {
 		*cErr = C.CString(err.Error())

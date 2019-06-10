@@ -10,7 +10,6 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-// TODO: Start up test planet and call these from bash instead
 func TestNewUplink(t *testing.T) {
 	var cErr Cchar
 
@@ -53,7 +52,6 @@ func TestCloseUplink(t *testing.T) {
 	ctx := testcontext.New(t)
 	var cErr Cchar
 
-	// TODO: test other config values?
 	goUplink, err := uplink.NewUplink(ctx, nil)
 	require.NoError(t, err)
 	require.NotNil(t, goUplink)

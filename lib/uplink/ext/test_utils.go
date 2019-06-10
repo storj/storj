@@ -141,7 +141,6 @@ func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet 
 }
 
 func newProject(t *testing.T, planet *testplanet.Planet) *console.Project {
-	// TODO: support multiple satellites?
 	projectName := t.Name()
 	consoleDB := planet.Satellites[0].DB.Console()
 
@@ -158,7 +157,6 @@ func newProject(t *testing.T, planet *testplanet.Planet) *console.Project {
 }
 
 func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, id uuid.UUID) string {
-	// TODO: support multiple satellites?
 	APIKey, err := macaroon.NewAPIKey([]byte("testSecret"))
 	require.NoError(t, err)
 

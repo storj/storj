@@ -35,7 +35,6 @@ func TestCreateBucket(t *testing.T) {
 		require.Empty(t, cCharToGoString(cErr))
 		require.NotNil(t, cBucket)
 
-		// TODO: test with different options
 		bucketList, err := project.ListBuckets(ctx, nil)
 		require.NoError(t, err)
 

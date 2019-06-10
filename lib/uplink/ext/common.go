@@ -97,7 +97,6 @@ func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
 		encryption_parameters: encParamsPtr,
 		redundancy_scheme:     redundancySchemePtr,
 		name:                  C.CString(bucket.Name),
-		// TODO: use `UnixNano()`?
 		created:      C.int64_t(bucket.Created.Unix()),
 		path_cipher:  C.uint8_t(bucket.PathCipher),
 		segment_size: C.int64_t(bucket.SegmentsSize),
