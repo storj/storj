@@ -1,3 +1,5 @@
+// +build ignore
+
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
@@ -11,8 +13,6 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
-
-var universe = NewMapping()
 
 //GoCMalloc allocates C memory
 func GoCMalloc(size uintptr) uintptr {

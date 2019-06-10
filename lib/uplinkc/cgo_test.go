@@ -4,17 +4,14 @@
 package main_test
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/storj"
 )
 
 func TestC(t *testing.T) {
@@ -62,6 +59,7 @@ func TestC(t *testing.T) {
 	}
 }
 
+/*
 func TestGetIDVersion(t *testing.T) {
 	var cErr CCharPtr
 	idVersionNumber := storj.LatestIDVersion().Number
@@ -72,3 +70,4 @@ func TestGetIDVersion(t *testing.T) {
 
 	assert.Equal(t, idVersionNumber, storj.IDVersionNumber(cIDVersion.number))
 }
+*/

@@ -4,18 +4,21 @@
 package main
 
 /*
-typedef GoUintptr APIKeyRef_t;
-typedef GoUintptr IDVersionRef_t;
-typedef GoUintptr UplinkRef_t;
-typedef GoUintptr UplinkConfigRef_t;
-typedef GoUintptr ProjectRef_t;
-typedef GoUintptr BucketRef_t;
-typedef GoUintptr BucketConfigRef_t;
-typedef GoUintptr MapRef_t;
-typedef GoUintptr BufferRef_t;
-typedef GoUintptr ObjectRef_t;
-typedef GoUintptr DownloadReaderRef_t;
-typedef GoUintptr UploadReaderRef_t;
+#include <stdint.h>
+#include <stdbool.h>
+
+typedef __SIZE_TYPE__ APIKeyRef_t;
+typedef __SIZE_TYPE__ IDVersionRef_t;
+typedef __SIZE_TYPE__ UplinkRef_t;
+typedef __SIZE_TYPE__ UplinkConfigRef_t;
+typedef __SIZE_TYPE__ ProjectRef_t;
+typedef __SIZE_TYPE__ BucketRef_t;
+typedef __SIZE_TYPE__ BucketConfigRef_t;
+typedef __SIZE_TYPE__ MapRef_t;
+typedef __SIZE_TYPE__ BufferRef_t;
+typedef __SIZE_TYPE__ ObjectRef_t;
+typedef __SIZE_TYPE__ DownloadReaderRef_t;
+typedef __SIZE_TYPE__ UploadReaderRef_t;
 
 // TODO: Add free functions for each struct
 
@@ -128,7 +131,6 @@ typedef struct ObjectMeta {
 } ObjectMeta_t;
 */
 import "C"
-import "unsafe"
 
 /* Ref types */
 type cAPIKeyRef = C.APIKeyRef_t

@@ -25,7 +25,6 @@ int main(int argc, char *argv[])
     BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
     assert(strcmp("", *err) == 0);
 
-
     char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
     int num_of_objects = 4;
 
@@ -50,10 +49,4 @@ int main(int argc, char *argv[])
     // TODO: add assertions for metadata
 
     // TODO: Open Object
-}
-
-{
-    UNITY_BEGIN();
-    RUN_TEST(TestBucket);
-    return UNITY_END();
 }

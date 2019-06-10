@@ -3,33 +3,32 @@
 
 package main
 
-/*
-#cgo CFLAGS: -g -Wall
-*/
-import "C"
 import (
 	"storj.io/storj/lib/uplink"
 )
 
+// typedef __SIZE_TYPE__ APIKeyRef_t;
+import "C"
+
 //export ParseAPIKey
 // ParseAPIKey parses an API Key
-func ParseAPIKey(val CCharPtr, cErr *CCharPtr) (cApiKey CAPIKeyRef) {
-	goApiKeyStruct, err := uplink.ParseAPIKey(CGoString(val))
+func ParseAPIKey(val *C.char, cErr **C.char) (cAPIKey cAPIKeyRef) {
+	apikey, err := uplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
-		*cErr = CCString(err.Error())
-		return cApiKey
+		*cErr = C.CString(err.Error())
+		return cAPIKey
 	}
 
-	return CAPIKeyRef(universe.Add(goApiKeyStruct))
+	return cAPIKeyRef(universe.Add(apikey))
 }
 
 //export Serialize
 // Serialize serializes the API Key to a string
-func Serialize(cApiKey CAPIKeyRef) CCharPtr {
-	goApiKey, ok := universe.Get(Token(cApiKey)).(uplink.APIKey)
+func Serialize(cAPIKey cAPIKeyRef) *C.char {
+	goApiKey, ok := universe.Get(Ref(cAPIKey)).(uplink.APIKey)
 	if !ok {
-		return CCString("")
+		return C.CString("")
 	}
 
-	return CCString(goApiKey.Serialize())
+	return C.CString(goApiKey.Serialize())
 }
