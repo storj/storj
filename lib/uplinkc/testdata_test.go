@@ -33,6 +33,8 @@ func TestC(t *testing.T) {
 	for _, ctest := range ctests {
 		ctest := ctest
 		t.Run(filepath.Base(ctest), func(t *testing.T) {
+			t.Parallel()
+
 			testexe := ctx.CompileC(ctest, libuplink, definition)
 
 			planet, err := testplanet.NewCustom(
