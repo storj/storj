@@ -143,13 +143,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -175,13 +169,7 @@
         ],
         "package": {
           "name": "repair"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -601,21 +589,7 @@
         ],
         "package": {
           "name": "gogoproto"
-        },
-        "options": [
-          {
-            "name": "java_package",
-            "value": "com.google.protobuf"
-          },
-          {
-            "name": "java_outer_classname",
-            "value": "GoGoProtos"
-          },
-          {
-            "name": "go_package",
-            "value": "github.com/gogo/protobuf/gogoproto"
-          }
-        ]
+        }
       }
     },
     {
@@ -703,23 +677,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "audit_count",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "audit_ratio",
-                "type": "double"
-              },
-              {
-                "id": 3,
-                "name": "uptime_count",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "uptime_ratio",
-                "type": "double"
+                "name": "stats",
+                "type": "node.NodeStats"
               }
             ]
           },
@@ -728,38 +687,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "audit_count",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "audit_success_count",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "uptime_count",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "uptime_success_count",
-                "type": "int64"
+                "name": "stats",
+                "type": "node.NodeStats"
               }
             ]
           },
@@ -1434,13 +1363,7 @@
         ],
         "package": {
           "name": "inspector"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1470,13 +1393,7 @@
         ],
         "package": {
           "name": "objects"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1832,13 +1749,7 @@
         ],
         "package": {
           "name": "metainfo"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1975,32 +1886,32 @@
               },
               {
                 "id": 3,
-                "name": "audit_success_ratio",
+                "name": "audit_reputation_alpha",
                 "type": "double"
               },
               {
                 "id": 4,
-                "name": "uptime_ratio",
+                "name": "uptime_reputation_alpha",
                 "type": "double"
               },
               {
                 "id": 5,
+                "name": "audit_reputation_beta",
+                "type": "double"
+              },
+              {
+                "id": 6,
+                "name": "uptime_reputation_beta",
+                "type": "double"
+              },
+              {
+                "id": 7,
                 "name": "audit_count",
                 "type": "int64"
               },
               {
-                "id": 6,
-                "name": "audit_success_count",
-                "type": "int64"
-              },
-              {
-                "id": 7,
-                "name": "uptime_count",
-                "type": "int64"
-              },
-              {
                 "id": 8,
-                "name": "uptime_success_count",
+                "name": "uptime_count",
                 "type": "int64"
               },
               {
@@ -2012,6 +1923,11 @@
                 "id": 10,
                 "name": "last_contact_failure",
                 "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 11,
+                "name": "disqualified",
+                "type": "bool"
               }
             ]
           },
@@ -2111,13 +2027,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2404,13 +2314,7 @@
         ],
         "package": {
           "name": "orders"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2583,13 +2487,7 @@
         ],
         "package": {
           "name": "overlay"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2761,13 +2659,7 @@
         ],
         "package": {
           "name": "piecestore"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2992,13 +2884,7 @@
         ],
         "package": {
           "name": "pointerdb"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3073,13 +2959,7 @@
         ],
         "package": {
           "name": "streams"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3157,13 +3037,7 @@
         ],
         "package": {
           "name": "vouchers"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     }
   ]

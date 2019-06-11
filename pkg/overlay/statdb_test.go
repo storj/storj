@@ -45,7 +45,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		nodeStats := &overlay.NodeStats{
+		nodeStats := &pb.NodeStats{
 			AuditSuccessRatio:  auditSuccessRatio,
 			UptimeRatio:        uptimeRatio,
 			AuditCount:         currAuditCount,
@@ -98,13 +98,9 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01},     // bad audit success exactly one audit => bad
 			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0},  // impossible math, but good ratios => good
 		} {
-			nodeStats := &overlay.NodeStats{
-				AuditSuccessRatio:  tt.auditSuccessRatio,
-				UptimeRatio:        tt.uptimeRatio,
-				AuditCount:         tt.auditCount,
-				AuditSuccessCount:  tt.auditSuccessCount,
-				UptimeCount:        tt.uptimeCount,
-				UptimeSuccessCount: tt.uptimeSuccessCount,
+			nodeStats := &pb.NodeStats{
+				AuditCount:  tt.auditCount,
+				UptimeCount: tt.uptimeCount,
 			}
 
 			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})

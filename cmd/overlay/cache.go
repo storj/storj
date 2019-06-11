@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -20,8 +19,8 @@ type cacheConfig struct {
 	Database  string `help:"overlay database connection string" default:"sqlite3://$CONFDIR/master.db"`
 }
 
-func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose func(), err error) {
-	database, err := satellitedb.New(zap.L().Named("db"), c.Database)
+func (config cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose func(), err error) {
+	database, err := satellitedb.New(zap.L().Named("db"), config.Database)
 	if err != nil {
 		return nil, nil, errs.New("error connecting to database: %+v", err)
 	}
@@ -32,5 +31,5 @@ func (c cacheConfig) open(ctx context.Context) (cache *overlay.Cache, dbClose fu
 		}
 	}
 
-	return overlay.NewCache(zap.L(), database.OverlayCache(), overlay.NodeSelectionConfig{OnlineWindow: time.Hour}), dbClose, nil
+	return overlay.NewCache(zap.L(), database.OverlayCache(), config.NodeSelectionConfig), dbClose, nil
 }

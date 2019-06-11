@@ -352,8 +352,8 @@ func GetStats(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	fmt.Printf("Stats for ID %s:\n", nodeID)
-	fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
-		res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
+	fmt.Printf("AuditReputation: %f, AuditCount: %d, UptimeReputation: %f, UptimeCount: %d,\n",
+		auditReputation(res.Stats), res.Stats.AuditCount, uptimeReputation(res.Stats), res.Stats.UptimeCount)
 	return nil
 }
 
@@ -388,10 +388,18 @@ func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
 		}
 
 		fmt.Printf("Stats for ID %s:\n", nodeID)
-		fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
-			res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
+		fmt.Printf("AuditReputation: %f, AuditCount: %d, UptimeReputation: %f, UptimeCount: %d,\n",
+			auditReputation(res.Stats), res.Stats.AuditCount, uptimeReputation(res.Stats), res.Stats.UptimeCount)
 	}
 	return nil
+}
+
+func auditReputation(stats *pb.NodeStats) float64 {
+	return stats.AuditReputationAlpha / (stats.AuditReputationAlpha + stats.AuditReputationBeta)
+}
+
+func uptimeReputation(stats *pb.NodeStats) float64 {
+	return stats.UptimeReputationAlpha / (stats.UptimeReputationAlpha + stats.UptimeReputationBeta)
 }
 
 // CreateStats creates a node with stats in overlay
@@ -400,40 +408,15 @@ func CreateStats(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
-
-	nodeID, err := storj.NodeIDFromString(args[0])
+	nodeStats, err := readInStats(args)
 	if err != nil {
 		return err
 	}
-	auditCount, err := strconv.ParseInt(args[1], 10, 64)
-	if err != nil {
-		return ErrArgs.New("audit count must be an int")
-	}
-	auditSuccessCount, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		return ErrArgs.New("audit success count must be an int")
-	}
-	uptimeCount, err := strconv.ParseInt(args[3], 10, 64)
-	if err != nil {
-		return ErrArgs.New("uptime count must be an int")
-	}
-	uptimeSuccessCount, err := strconv.ParseInt(args[4], 10, 64)
-	if err != nil {
-		return ErrArgs.New("uptime success count must be an int")
-	}
-
-	_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
-		NodeId:             nodeID,
-		AuditCount:         auditCount,
-		AuditSuccessCount:  auditSuccessCount,
-		UptimeCount:        uptimeCount,
-		UptimeSuccessCount: uptimeSuccessCount,
-	})
+	_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{Stats: nodeStats})
 	if err != nil {
 		return ErrRequest.Wrap(err)
 	}
-
-	fmt.Printf("Created stats entry for ID %s\n", nodeID)
+	fmt.Printf("Created stats entry for ID %s\n", nodeStats.NodeId)
 	return nil
 }
 
@@ -455,42 +438,57 @@ func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
 		} else if err != nil {
 			return ErrArgs.Wrap(err)
 		}
-
-		nodeID, err := storj.NodeIDFromString(line[0])
+		nodeStats, err := readInStats(line)
 		if err != nil {
 			return err
 		}
-		auditCount, err := strconv.ParseInt(line[1], 10, 64)
-		if err != nil {
-			return ErrArgs.New("audit count must be an int")
-		}
-		auditSuccessCount, err := strconv.ParseInt(line[2], 10, 64)
-		if err != nil {
-			return ErrArgs.New("audit success count must be an int")
-		}
-		uptimeCount, err := strconv.ParseInt(line[3], 10, 64)
-		if err != nil {
-			return ErrArgs.New("uptime count must be an int")
-		}
-		uptimeSuccessCount, err := strconv.ParseInt(line[4], 10, 64)
-		if err != nil {
-			return ErrArgs.New("uptime success count must be an int")
-		}
-
-		_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
-			NodeId:             nodeID,
-			AuditCount:         auditCount,
-			AuditSuccessCount:  auditSuccessCount,
-			UptimeCount:        uptimeCount,
-			UptimeSuccessCount: uptimeSuccessCount,
-		})
+		_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{Stats: nodeStats})
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
-
-		fmt.Printf("Created stats entry for ID %s\n", nodeID)
+		fmt.Printf("Created stats entry for ID %s\n", nodeStats.NodeId)
 	}
 	return nil
+}
+
+func readInStats(input []string) (*pb.NodeStats, error) {
+	nodeID, err := storj.NodeIDFromString(input[0])
+	if err != nil {
+		return nil, err
+	}
+	auditCount, err := strconv.ParseInt(input[1], 10, 64)
+	if err != nil {
+		return nil, ErrArgs.New("audit count must be an int")
+	}
+	auditReputationAlpha, err := strconv.ParseFloat(input[2], 64)
+	if err != nil {
+		return nil, ErrArgs.New("audit reputation alpha must be a number")
+	}
+	auditReputationBeta, err := strconv.ParseFloat(input[3], 64)
+	if err != nil {
+		return nil, ErrArgs.New("audit reputation beta must be a number")
+	}
+	uptimeCount, err := strconv.ParseInt(input[4], 10, 64)
+	if err != nil {
+		return nil, ErrArgs.New("uptime count must be an int")
+	}
+	uptimeReputationAlpha, err := strconv.ParseFloat(input[5], 64)
+	if err != nil {
+		return nil, ErrArgs.New("uptime reputation alpha must be a number")
+	}
+	uptimeReputationBeta, err := strconv.ParseFloat(input[6], 64)
+	if err != nil {
+		return nil, ErrArgs.New("uptime reputation beta must be a number")
+	}
+	return &pb.NodeStats{
+		NodeId:                nodeID,
+		AuditCount:            auditCount,
+		UptimeCount:           uptimeCount,
+		AuditReputationAlpha:  auditReputationAlpha,
+		AuditReputationBeta:   auditReputationBeta,
+		UptimeReputationAlpha: uptimeReputationAlpha,
+		UptimeReputationBeta:  uptimeReputationBeta,
+	}, nil
 }
 
 // ObjectHealth gets information about the health of an object on the network

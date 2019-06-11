@@ -768,7 +768,7 @@ type lockedOverlayCache struct {
 }
 
 // CreateStats initializes the stats for node.
-func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *pb.NodeStats) (stats *pb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateStats(ctx, nodeID, initial)
@@ -831,14 +831,14 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 }
 
 // UpdateStats all parts of single storagenode's stats.
-func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *pb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateStats(ctx, request)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateUptime(ctx, nodeID, isUp)

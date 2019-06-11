@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -51,15 +52,15 @@ type DB interface {
 	// IsVetted returns whether or not the node reaches reputable thresholds
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// CreateStats initializes the stats for node.
-	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
+	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *pb.NodeStats) (stats *pb.NodeStats, err error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *pb.NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -100,23 +101,10 @@ type NodeDossier struct {
 	Type         pb.NodeType
 	Operator     pb.NodeOperator
 	Capacity     pb.NodeCapacity
-	Reputation   NodeStats
+	Reputation   pb.NodeStats
 	Version      pb.NodeVersion
 	Contained    bool
 	Disqualified bool
-}
-
-// NodeStats contains statistics about a node.
-type NodeStats struct {
-	Latency90          int64
-	AuditSuccessRatio  float64
-	AuditSuccessCount  int64
-	AuditCount         int64
-	UptimeRatio        float64
-	UptimeSuccessCount int64
-	UptimeCount        int64
-	LastContactSuccess time.Time
-	LastContactFailure time.Time
 }
 
 // Cache is used to store and handle node information
@@ -162,8 +150,16 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
-		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
+	lastContactSuccess, err := ptypes.Timestamp(node.Reputation.LastContactSuccess)
+	if err != nil {
+		return false
+	}
+	lastContactFailure, err := ptypes.Timestamp(node.Reputation.LastContactFailure)
+	if err != nil {
+		return false
+	}
+	return time.Now().Sub(lastContactSuccess) < cache.preferences.OnlineWindow &&
+		lastContactSuccess.After(lastContactFailure)
 }
 
 // FindStorageNodes searches the overlay network for nodes that meet the provided requirements
@@ -193,14 +189,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
 		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeBandwidth:     req.FreeBandwidth,
-			FreeDisk:          req.FreeDisk,
-			AuditCount:        preferences.AuditCount,
-			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			ExcludedNodes:     excludedNodes,
-			MinimumVersion:    preferences.MinimumVersion,
-			OnlineWindow:      preferences.OnlineWindow,
-			DistinctIP:        preferences.DistinctIP,
+			FreeBandwidth:  req.FreeBandwidth,
+			FreeDisk:       req.FreeDisk,
+			AuditCount:     preferences.AuditCount,
+			ExcludedNodes:  excludedNodes,
+			MinimumVersion: preferences.MinimumVersion,
+			OnlineWindow:   preferences.OnlineWindow,
+			DistinctIP:     preferences.DistinctIP,
 		})
 		if err != nil {
 			return nil, err
@@ -217,17 +212,15 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	criteria := NodeCriteria{
-		FreeBandwidth:      req.FreeBandwidth,
-		FreeDisk:           req.FreeDisk,
-		AuditCount:         preferences.AuditCount,
-		AuditSuccessRatio:  preferences.AuditSuccessRatio,
-		UptimeCount:        preferences.UptimeCount,
-		UptimeSuccessRatio: preferences.UptimeRatio,
-		ExcludedNodes:      excludedNodes,
-		ExcludedIPs:        excludedIPs,
-		MinimumVersion:     preferences.MinimumVersion,
-		OnlineWindow:       preferences.OnlineWindow,
-		DistinctIP:         preferences.DistinctIP,
+		FreeBandwidth:  req.FreeBandwidth,
+		FreeDisk:       req.FreeDisk,
+		AuditCount:     preferences.AuditCount,
+		UptimeCount:    preferences.UptimeCount,
+		ExcludedNodes:  excludedNodes,
+		ExcludedIPs:    excludedIPs,
+		MinimumVersion: preferences.MinimumVersion,
+		OnlineWindow:   preferences.OnlineWindow,
+		DistinctIP:     preferences.DistinctIP,
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
@@ -248,11 +241,9 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		OnlineWindow:       cache.preferences.OnlineWindow,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+		AuditCount:   cache.preferences.AuditCount,
+		OnlineWindow: cache.preferences.OnlineWindow,
+		UptimeCount:  cache.preferences.UptimeCount,
 	}
 	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
@@ -281,7 +272,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 }
 
 // Create adds a new stats entry for node.
-func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
+func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *pb.NodeStats) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
 }
@@ -290,10 +281,8 @@ func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *No
 func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+		AuditCount:  cache.preferences.AuditCount,
+		UptimeCount: cache.preferences.UptimeCount,
 	}
 	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
@@ -303,7 +292,7 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 }
 
 // UpdateStats all parts of single storagenode's stats.
-func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
+func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateStats(ctx, request)
 }
@@ -315,7 +304,7 @@ func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeI
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
+func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateUptime(ctx, nodeID, isUp)
 }

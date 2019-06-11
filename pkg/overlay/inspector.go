@@ -28,7 +28,6 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	if err != nil {
 		return nil, err
 	}
-
 	return &pb.CountNodesResponse{
 		Count: int64(len(overlayKeys)),
 	}, nil
@@ -47,29 +46,15 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ 
 	if err != nil {
 		return nil, err
 	}
-
-	return &pb.GetStatsResponse{
-		AuditCount:  node.Reputation.AuditCount,
-		AuditRatio:  node.Reputation.AuditSuccessRatio,
-		UptimeCount: node.Reputation.UptimeCount,
-		UptimeRatio: node.Reputation.UptimeRatio,
-	}, nil
+	return &pb.GetStatsResponse{Stats: &node.Reputation}, nil
 }
 
 // CreateStats creates a node with specified stats
 func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (_ *pb.CreateStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	stats := &NodeStats{
-		AuditCount:         req.AuditCount,
-		AuditSuccessCount:  req.AuditSuccessCount,
-		UptimeCount:        req.UptimeCount,
-		UptimeSuccessCount: req.UptimeSuccessCount,
-	}
-
-	_, err = srv.cache.Create(ctx, req.NodeId, stats)
+	_, err = srv.cache.Create(ctx, req.Stats.NodeId, req.Stats)
 	if err != nil {
 		return nil, err
 	}
-
 	return &pb.CreateStatsResponse{}, nil
 }
