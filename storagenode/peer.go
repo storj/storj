@@ -176,6 +176,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			},
 			Type: pb.NodeType_STORAGE,
 			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,

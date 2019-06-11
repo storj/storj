@@ -48,6 +48,7 @@ const (
 	publicGRPC  = 0
 	privateGRPC = 1
 	publicHTTP  = 2
+	privateHTTP = 3
 	debugHTTP   = 9
 )
 
@@ -268,6 +269,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
+				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
+				"--marketing.static-dir", filepath.Join(storjRoot, "satellite/marketing/marketingweb/static/"),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
@@ -279,7 +282,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
-
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
