@@ -5,6 +5,7 @@ package inspector_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"strings"
@@ -38,10 +39,10 @@ func TestInspectorStats(t *testing.T) {
 		healthEndpoint := planet.Satellites[0].Inspector.Endpoint
 
 		// Get path of random segment we just uploaded and check the health
-		_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{Recurse: true},
-			func(it storage.Iterator) error {
+		_ = planet.Satellites[0].Metainfo.Database.Iterate(ctx, storage.IterateOptions{Recurse: true},
+			func(ctx context.Context, it storage.Iterator) error {
 				var item storage.ListItem
-				for it.Next(&item) {
+				for it.Next(ctx, &item) {
 					if bytes.Contains(item.Key, []byte(fmt.Sprintf("%s/", bucket))) {
 						break
 					}

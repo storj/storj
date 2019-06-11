@@ -107,10 +107,10 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			emailKey := storage.Key(testCase.email)
 
 			if testCase.startCount == 0 {
-				_, err = authDB.DB.Get(emailKey)
+				_, err = authDB.DB.Get(ctx, emailKey)
 				assert.Error(t, err)
 			} else {
-				v, err := authDB.DB.Get(emailKey)
+				v, err := authDB.DB.Get(ctx, emailKey)
 				require.NoError(t, err)
 				require.NotEmpty(t, v)
 
@@ -132,7 +132,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			}
 			assert.Len(t, expectedAuths, testCase.newCount)
 
-			v, err := authDB.DB.Get(emailKey)
+			v, err := authDB.DB.Get(ctx, emailKey)
 			assert.NoError(t, err)
 			assert.NotEmpty(t, v)
 
@@ -162,7 +162,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.DB.Put(storage.Key("user@example.com"), authsBytes)
+	err = authDB.DB.Put(ctx, storage.Key("user@example.com"), authsBytes)
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -171,12 +171,12 @@ func TestAuthorizationDB_Get(t *testing.T) {
 		result Authorizations
 	}{
 		{
-			"Non-existant email",
+			"Non-existent email",
 			"nouser@example.com",
 			nil,
 		},
 		{
-			"Exising email",
+			"Existing email",
 			"user@example.com",
 			expectedAuths,
 		},
