@@ -20,7 +20,7 @@ func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketC
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return cBucket
+		return C.BucketInfo{}
 	}
 
 	var config *uplink.BucketConfig
@@ -45,10 +45,10 @@ func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketC
 	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return cBucket
+		return C.BucketInfo{}
 	}
 
-	return &C.BucketInfo{
+	return C.BucketInfo{
 		name: C.CString(bucket.Name),
 
 		created:      C.int64_t(bucket.Created.Unix()),
@@ -70,45 +70,70 @@ func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketC
 	}
 }
 
-// OpenBucket returns a Bucket handle with the given EncryptionAccess
-// information.
+// FreeBucketInfo frees bucket info.
+//export FreeBucketInfo
+func FreeBucketInfo(bucketInfo *C.BucketInfo) {
+	C.free(bucketInfo.name)
+	bucketInfo.name = nil
+}
+
+type Bucket struct {
+	scope
+	lib *libuplink.Bucket
+}
+
+// OpenBucket returns a Bucket handle with the given EncryptionAccess information.
 //export OpenBucket
-func OpenBucket(projectHandle C.Project, name *C.char, cAccess *C.EncryptionAccess, cerr **C.char) (bucketRef C.Bucket) {
+func OpenBucket(projectHandle C.Project, name *C.char, caccess C.EncryptionAccess, cerr **C.char) C.Bucket {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return cBucket
+		return C.Bucket{}
 	}
 
-	var access *uplink.EncryptionAccess
-	if cAccess != nil {
-		access.Key
-		bytes := C.GoBytes(unsafe.Pointer(cAccess.key.bytes), cAccess.key.length)
-		access = &uplink.EncryptionAccess{}
-		copy(access.Key[:], bytes)
-	}
+	var access uplink.EncryptionAccess
+	copy(access.Key[:], caccess.key[:])
 
-	bucket, err := project.OpenBucket(ctx, C.GoString(name), access)
+	scope := project.scope.child()
+
+	bucket, err := project.lib.OpenBucket(scope.ctx, C.GoString(name), access)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return bucketRef
+		return C.Bucket{}
 	}
 
-	return C.Bucket(structRefMap.Add(bucket))
+	return C.Bucket{universe.Add(Bucket{scope, bucket})}
+}
+
+// CloseBucket closes a Bucket handle.
+//export CloseBucket
+func CloseBucket(bucketHandle C.Bucket) {
+	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid bucket")
+		return
+	}
+
+	universe.Del(bucketHandle._handle)
+	defer bucket.cancel()
+
+	if err := bucket.lib.Close(); err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
 }
 
 // DeleteBucket deletes a bucket if authorized. If the bucket contains any
 // Objects at the time of deletion, they may be lost permanently.
 //export DeleteBucket
-func DeleteBucket(cProject C.Project, bucketName *C.char, cerr **C.char) {
-	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+func DeleteBucket(projectHandle C.Project, bucketName *C.char, cerr **C.char) {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
 		return
 	}
 
-	if err := project.DeleteBucket(ctx, C.GoString(bucketName)); err != nil {
+	if err := project.lib.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
 		*cerr = C.CString(err.Error())
 		return
 	}
@@ -116,42 +141,42 @@ func DeleteBucket(cProject C.Project, bucketName *C.char, cerr **C.char) {
 
 // ListBuckets will list authorized buckets.
 //export ListBuckets
-func ListBuckets(cProject C.Project, cOpts *C.BucketListOptions_t, cerr **C.char) (cBucketList C.BucketList_t) {
-	ctx := context.Background()
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions, cerr **C.char) C.BucketList {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return
+		return C.BucketList{}
 	}
 
 	var opts *uplink.BucketListOptions
-	if cOpts != nil {
+	if bucketListOptions != nil {
 		opts = &uplink.BucketListOptions{
-			Cursor:    C.GoString(cOpts.cursor),
-			Direction: storj.ListDirection(cOpts.direction),
-			Limit:     int(cOpts.limit),
+			Cursor:    C.GoString(bucketListOptions.cursor),
+			Direction: storj.ListDirection(bucketListOptions.direction),
+			Limit:     int(bucketListOptions.limit),
 		}
 	}
 
-	bucketList, err := project.ListBuckets(ctx, opts)
+	bucketList, err := project.ListBuckets(project.scope.ctx, opts)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return cBucketList
+		return C.BucketList{}
 	}
-	bucketListLen := len(bucketList.Items)
 
-	bucketSize := int(unsafe.Sizeof(C.Bucket_t{}))
-	cBucketsPtr := CMalloc(uintptr(bucketListLen * bucketSize))
+	bucketListLen := len(bucketList.Items)
+	bucketSize := int(unsafe.Sizeof(C.BucketInfo{}))
+
+	bucketInfosPointer := CMalloc(uintptr(bucketListLen * bucketSize))
 
 	for i, bucket := range bucketList.Items {
-		nextAddress := uintptr(int(cBucketsPtr) + (i * bucketSize))
-		cBucket := (*C.Bucket_t)(unsafe.Pointer(nextAddress))
+		nextAddress := uintptr(int(bucketInfosPointer) + (i * bucketSize))
+		cBucket := (*C.BucketInfo)(unsafe.Pointer(nextAddress))
 		*cBucket = NewCBucket(&bucket)
 	}
 
 	return C.BucketList_t{
 		more:   C.bool(bucketList.More),
-		items:  (*C.Bucket_t)(unsafe.Pointer(cBucketsPtr)),
+		items:  (*C.BucketInfo)(unsafe.Pointer(cBucketsPtr)),
 		length: C.int32_t(bucketListLen),
 	}
 }

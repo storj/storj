@@ -61,9 +61,9 @@ typedef struct BucketListOptions {
 } BucketListOptions;
 
 typedef struct BucketList {
-    bool      more;
-    Bucket_t *items;
-    int32_t   length;
+    bool       more;
+    BucketInfo *items;
+    int32_t    length;
 } BucketList;
 
 typedef struct Object {
