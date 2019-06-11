@@ -38,7 +38,7 @@ type Server struct {
 // This exists in order to limit handler verbosity
 func (s *Server) addPages(assets []string) []string {
 	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html"}
+	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html", rp + "logo.html"}
 	for _, page := range assets {
 		pages = append(pages, page)
 	}
@@ -53,11 +53,14 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 		listener: listener,
 	}
 
+
+	
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", server.listener.Addr().String())
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
+	s := http.StripPrefix("/static/", fs)
 	mux := mux.NewRouter()
 	if server.config.StaticDir != "" {
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.PathPrefix("/static/").Handler(s)
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 	}
 	server.server = http.Server{
