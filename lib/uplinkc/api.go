@@ -7,18 +7,18 @@ package main
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef long long APIKeyRef_t;
-typedef long long IDVersionRef_t;
-typedef long long UplinkRef_t;
-typedef long long UplinkConfigRef_t;
-typedef long long ProjectRef_t;
-typedef long long BucketRef_t;
-typedef long long BucketConfigRef_t;
-typedef long long MapRef_t;
-typedef long long BufferRef_t;
-typedef long long ObjectRef_t;
-typedef long long DownloadReaderRef_t;
-typedef long long UploadReaderRef_t;
+typedef long APIKeyRef_t;
+typedef long IDVersionRef_t;
+typedef long UplinkRef_t;
+typedef long UplinkConfigRef_t;
+typedef long ProjectRef_t;
+typedef long BucketRef_t;
+typedef long BucketConfigRef_t;
+typedef long MapRef_t;
+typedef long BufferRef_t;
+typedef long ObjectRef_t;
+typedef long DownloadReaderRef_t;
+typedef long UploadReaderRef_t;
 
 // TODO: Add free functions for each struct
 
@@ -282,4 +282,9 @@ func CloseUplink(uplinkref C.UplinkRef_t, cerr **C.char) {
 		*cerr = C.CString(err.Error())
 		return
 	}
+}
+
+//export internal_UniverseIsEmpty
+func internal_UniverseIsEmpty() bool {
+	return universe.Empty()
 }

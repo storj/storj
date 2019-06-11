@@ -26,4 +26,5 @@ int main(int argc, char *argv[])
     FreeAPIKey(apikey, err);
     require_noerror(*err);
 
+    require(internal_UniverseIsEmpty(), "universe is not empty\n");
 }

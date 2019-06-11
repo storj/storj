@@ -30,33 +30,33 @@ func TestC(t *testing.T) {
 		t.Run(filepath.Base(ctest), func(t *testing.T) {
 			testexe := ctx.CompileC(ctest, libuplink)
 
-				planet, err := testplanet.NewCustom(
-					zaptest.NewLogger(t),
-					testplanet.Config{
-						SatelliteCount:   1,
-						StorageNodeCount: 6,
-						UplinkCount:      1,
-						Reconfigure:      testplanet.DisablePeerCAWhitelist,
-					},
-				)
-				require.NoError(t, err)
+			planet, err := testplanet.NewCustom(
+				zaptest.NewLogger(t),
+				testplanet.Config{
+					SatelliteCount:   1,
+					StorageNodeCount: 6,
+					UplinkCount:      1,
+					Reconfigure:      testplanet.DisablePeerCAWhitelist,
+				},
+			)
+			require.NoError(t, err)
 
-				planet.Start(ctx)
-				defer ctx.Check(planet.Shutdown)
+			planet.Start(ctx)
+			defer ctx.Check(planet.Shutdown)
 
-				cmd := exec.Command(testexe)
-				cmd.Env = append(os.Environ(),
-					"SATELLITE_ADDR=" + planet.Satellites[0].Addr(),
-					"APIKEY=" + planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-				)
+			cmd := exec.Command(testexe)
+			cmd.Env = append(os.Environ(),
+				"SATELLITE_ADDR=" + planet.Satellites[0].Addr(),
+				"APIKEY=" + planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+			)
 
-				out, err := cmd.CombinedOutput()
-				if err != nil {
-					t.Error(string(out))
-					t.Fatal(err)
-				} else {
-					t.Log(out)
-				}
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Error(string(out))
+				t.Fatal(err)
+			} else {
+				t.Log(out)
+			}
 		})
 	}
 }

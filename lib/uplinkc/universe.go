@@ -9,7 +9,7 @@ import (
 
 var universe = NewUniverse()
 
-type Ref int64
+type Ref int32
 
 type Universe struct {
 	lock    sync.Mutex
@@ -42,4 +42,10 @@ func (m *Universe) Del(x Ref) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	delete(m.values, x)
+}
+
+func (m *Universe) Empty() bool {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return len(m.values) == 0
 }
