@@ -39,6 +39,7 @@ var (
 type Share struct {
 	Error    error
 	PieceNum int
+	NodeID   storj.NodeID
 	Data     []byte
 }
 
@@ -91,7 +92,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline)", zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
-	shares, nodes, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
+	shares, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
 		return nil, err
 	}
@@ -107,29 +108,29 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 				return err == context.DeadlineExceeded
 			}) {
 				// dial timeout
-				offlineNodes = append(offlineNodes, nodes[pieceNum])
-				verifier.log.Debug("Verify: dial timeout (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+				offlineNodes = append(offlineNodes, share.NodeID)
+				verifier.log.Debug("Verify: dial timeout (offline)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
 				continue
 			}
 			if errs.IsFunc(share.Error, func(err error) bool {
 				return status.Code(err) == codes.Unknown
 			}) {
 				// dial failed -- offline node
-				offlineNodes = append(offlineNodes, nodes[pieceNum])
-				verifier.log.Debug("Verify: dial failed (offline)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+				offlineNodes = append(offlineNodes, share.NodeID)
+				verifier.log.Debug("Verify: dial failed (offline)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
 				continue
 			}
 			// unknown transport error
-			containedNodes[pieceNum] = nodes[pieceNum]
-			verifier.log.Debug("Verify: unknown transport error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+			containedNodes[pieceNum] = share.NodeID
+			verifier.log.Debug("Verify: unknown transport error (contained)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
 		}
 
 		if errs.IsFunc(share.Error, func(err error) bool {
 			return status.Code(err) == codes.NotFound
 		}) {
 			// missing share
-			failedNodes = append(failedNodes, nodes[pieceNum])
-			verifier.log.Debug("Verify: piece not found (audit failed)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+			failedNodes = append(failedNodes, share.NodeID)
+			verifier.log.Debug("Verify: piece not found (audit failed)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
 			continue
 		}
 
@@ -137,14 +138,14 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			return status.Code(err) == codes.DeadlineExceeded
 		}) {
 			// dial successful, but download timed out
-			containedNodes[pieceNum] = nodes[pieceNum]
-			verifier.log.Debug("Verify: download timeout (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+			containedNodes[pieceNum] = share.NodeID
+			verifier.log.Debug("Verify: download timeout (contained)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
 			continue
 		}
 
 		// unknown error
-		containedNodes[pieceNum] = nodes[pieceNum]
-		verifier.log.Debug("Verify: unknown error (contained)", zap.String("Node ID", nodes[pieceNum].String()), zap.Error(share.Error))
+		containedNodes[pieceNum] = share.NodeID
+		verifier.log.Debug("Verify: unknown error (contained)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
@@ -166,10 +167,10 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	}
 
 	for _, pieceNum := range pieceNums {
-		failedNodes = append(failedNodes, nodes[pieceNum])
+		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
 
-	successNodes := getSuccessNodes(ctx, nodes, failedNodes, offlineNodes, containedNodes)
+	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
 
 	totalInPointer := len(stripe.Segment.GetRemote().GetRemotePieces())
 	numOffline := len(offlineNodes)
@@ -225,32 +226,40 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, nodes map[int]storj.NodeID, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
-	nodes = make(map[int]storj.NodeID, len(limits))
+	ch := make(chan *Share, len(limits))
 
 	for i, limit := range limits {
 		if limit == nil {
+			ch <- nil
 			continue
 		}
 
-		// TODO(kaloyan): execute in goroutine for better performance
-		share, err := verifier.GetShare(ctx, limit, stripeIndex, shareSize, i)
-		if err != nil {
-			share = Share{
-				Error:    err,
-				PieceNum: i,
-				Data:     nil,
+		go func(i int, limit *pb.AddressedOrderLimit) {
+			share, err := verifier.GetShare(ctx, limit, stripeIndex, shareSize, i)
+			if err != nil {
+				share = Share{
+					Error:    err,
+					PieceNum: i,
+					NodeID:   limit.GetLimit().StorageNodeId,
+					Data:     nil,
+				}
 			}
-		}
-
-		shares[share.PieceNum] = share
-		nodes[share.PieceNum] = limit.GetLimit().StorageNodeId
+			ch <- &share
+		}(i, limit)
 	}
 
-	return shares, nodes, nil
+	for range limits {
+		share := <-ch
+		if share != nil {
+			shares[share.PieceNum] = *share
+		}
+	}
+
+	return shares, nil
 }
 
 // Reverify reverifies the contained nodes in the stripe
@@ -440,6 +449,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	return Share{
 		Error:    nil,
 		PieceNum: pieceNum,
+		NodeID:   storageNodeID,
 		Data:     buf,
 	}, nil
 }
@@ -505,7 +515,7 @@ func getOfflineNodes(pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, skip
 }
 
 // getSuccessNodes uses the failed nodes, offline nodes and contained nodes arrays to determine which nodes passed the audit
-func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
+func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, offlineNodes storj.NodeIDList, containedNodes map[int]storj.NodeID) (successNodes storj.NodeIDList) {
 	defer mon.Task()(&ctx)(nil)
 	fails := make(map[storj.NodeID]bool)
 	for _, fail := range failedNodes {
@@ -518,9 +528,9 @@ func getSuccessNodes(ctx context.Context, nodes map[int]storj.NodeID, failedNode
 		fails[contained] = true
 	}
 
-	for _, node := range nodes {
-		if !fails[node] {
-			successNodes = append(successNodes, node)
+	for _, share := range shares {
+		if !fails[share.NodeID] {
+			successNodes = append(successNodes, share.NodeID)
 		}
 	}
 
