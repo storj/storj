@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <stdlib.h>
 
 #include "uplink.h"
 #include "helpers.h"

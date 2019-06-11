@@ -211,6 +211,11 @@ func NewUplinkInsecure(cerr **C.char) C.UplinkRef_t {
 	return C.UplinkRef_t(universe.Add(&Uplink{scope, lib}))
 }
 
+type Project struct {
+	scope
+	lib *libuplink.Project
+}
+
 //export OpenProject
 func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyRef_t, cerr **C.char) C.ProjectRef_t {
 	uplink, ok := universe.Get(Ref(uplinkref)).(*Uplink)
@@ -239,7 +244,23 @@ func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKe
 		return C.ProjectRef_t(0)
 	}
 
-	return C.ProjectRef_t(universe.Add(project))
+	return C.ProjectRef_t(universe.Add(&Project{scope, project}))
+}
+
+//export CloseProject
+func CloseProject(projectref C.ProjectRef_t, cerr **C.char) {
+	project, ok := universe.Get(Ref(projectref)).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid uplink")
+		return
+	}
+	universe.Del(Ref(projectref))
+	defer project.cancel()
+
+	if err := project.lib.Close(); err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
 }
 
 //export CloseUplink
