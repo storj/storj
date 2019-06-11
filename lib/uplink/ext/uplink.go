@@ -18,6 +18,8 @@ import (
 
 var mon = monkit.Package()
 
+// NewUplink creates a new Uplink. This is the first step to create an uplink
+// session with a user specified config or with default config, if nil config
 //export NewUplink
 func NewUplink(cErr **C.char) (cUplink C.UplinkRef_t) {
 	goUplink, err := uplink.NewUplink(context.Background(), &uplink.Config{})
@@ -42,6 +44,7 @@ func NewUplinkInsecure(cErr **C.char) (cUplink C.UplinkRef_t) {
 	return C.UplinkRef_t(structRefMap.Add(goUplink))
 }
 
+// OpenProject returns a Project handle with the given APIKey
 //export OpenProject
 func OpenProject(cUplink C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyRef_t, cErr **C.char) (cProject C.ProjectRef_t) {
 	var err error

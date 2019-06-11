@@ -62,6 +62,7 @@ func (cfg *BucketConfig) clone() *BucketConfig {
 	return &clone
 }
 
+// TODO: is this the best way to do this?
 func (cfg *BucketConfig) setDefaults() {
 	if cfg.PathCipher == storj.EncUnspecified {
 		cfg.PathCipher = defaultCipher

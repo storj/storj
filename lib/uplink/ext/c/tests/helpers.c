@@ -28,7 +28,6 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
     enc_param.cipher_suite = 1;
     enc_param.block_size = 1024;
 
-    // NB: release defaults (maybe factor out into a lib helper)
     RedundancyScheme_t scheme;
     scheme.algorithm = 1;
     scheme.share_size = 1024;

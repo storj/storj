@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// CreateBucket creates a new bucket if authorized.
 //export CreateBucket
 func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketConfig_t, cErr **C.char) (cBucket C.Bucket_t) {
 	ctx := context.Background()
@@ -54,6 +55,8 @@ func CreateBucket(cProject C.ProjectRef_t, name *C.char, cBucketCfg *C.BucketCon
 	return NewCBucket(&bucket)
 }
 
+// OpenBucket returns a Bucket handle with the given EncryptionAccess
+// information.
 //export OpenBucket
 func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAccess_t, cErr **C.char) (bucketRef C.BucketRef_t) {
 	ctx := context.Background()
@@ -79,6 +82,8 @@ func OpenBucket(cProject C.ProjectRef_t, name *C.char, cAccess *C.EncryptionAcce
 	return C.BucketRef_t(structRefMap.Add(bucket))
 }
 
+// DeleteBucket deletes a bucket if authorized. If the bucket contains any
+// Objects at the time of deletion, they may be lost permanently.
 //export DeleteBucket
 func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
 	ctx := context.Background()
@@ -94,6 +99,7 @@ func DeleteBucket(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) {
 	}
 }
 
+// ListBuckets will list authorized buckets.
 //export ListBuckets
 func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C.char) (cBucketList C.BucketList_t) {
 	ctx := context.Background()
@@ -135,6 +141,7 @@ func ListBuckets(cProject C.ProjectRef_t, cOpts *C.BucketListOptions_t, cErr **C
 	}
 }
 
+// GetBucketInfo returns info about the requested bucket if authorized.
 //export GetBucketInfo
 func GetBucketInfo(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) (cBucketInfo C.BucketInfo_t) {
 	ctx := context.Background()
@@ -155,11 +162,12 @@ func GetBucketInfo(cProject C.ProjectRef_t, bucketName *C.char, cErr **C.char) (
 		bucket: NewCBucket(&bucket),
 		config: C.BucketConfig_t{
 			path_cipher:           C.uint8_t(cfg.PathCipher),
-			encryption_parameters: NewCEncryptionParamsPtr(&cfg.EncryptionParameters),
+			encryption_parameters: NewCEncryptionParams(&cfg.EncryptionParameters),
 		},
 	}
 }
 
+// CloseProject closes the Project.
 //export CloseProject
 func CloseProject(cProject C.ProjectRef_t, cErr **C.char) {
 	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)

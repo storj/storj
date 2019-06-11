@@ -261,7 +261,7 @@ func (obj *TestObject) goUpload(t *testing.T, ctx *testcontext.Context, bucket *
 func newTestObjects(count int) (objects []TestObject) {
 	rand.Seed(time.Now().UnixNano())
 	randPath := make([]byte, 15)
-	copy(randPath[:], randSeq(15))
+	copy(randPath, randSeq(15))
 
 	objectPath := string(randPath)
 

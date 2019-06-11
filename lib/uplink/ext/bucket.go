@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
+// OpenObject returns an Object handle, if authorized.
 //export OpenObject
 func OpenObject(cBucket C.BucketRef_t, cpath *C.char, cErr **C.char) (objectRef C.ObjectRef_t) {
 	ctx := context.Background()
@@ -39,6 +40,7 @@ func OpenObject(cBucket C.BucketRef_t, cpath *C.char, cErr **C.char) (objectRef 
 	return C.ObjectRef_t(structRefMap.Add(object))
 }
 
+// UploadObject uploads a new object, if authorized.
 //export UploadObject
 func UploadObject(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.UploadOptions_t, cErr **C.char) {
 	ctx := context.Background()
@@ -73,6 +75,7 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.Up
 	}
 }
 
+// ListObjects lists objects a user is authorized to see.
 //export ListObjects
 func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.char) (cObjList C.ObjectList_t) {
 	ctx := context.Background()
@@ -119,6 +122,7 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 	}
 }
 
+// CloseBucket closes the Bucket session.
 //export CloseBucket
 func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 	bucket, ok := structRefMap.Get(token(bucketRef)).(*uplink.Bucket)
@@ -136,6 +140,7 @@ func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 	structRefMap.Del(token(bucketRef))
 }
 
+// NewCObject returns a C object struct converted from a go object struct.
 func NewCObject(object *storj.Object) C.Object_t {
 	return C.Object_t {
 		version:      C.uint32_t(object.Version),

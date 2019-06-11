@@ -132,45 +132,90 @@ extern APIKeyRef_t ParseAPIKey(char* p0, char** p1);
 
 extern char* Serialize(APIKeyRef_t p0);
 
+// OpenObject returns an Object handle, if authorized.
+
 extern ObjectRef_t OpenObject(BucketRef_t p0, char* p1, char** p2);
+
+// UploadObject uploads a new object, if authorized.
 
 extern void UploadObject(BucketRef_t p0, char* p1, FILE* p2, UploadOptions_t* p3, char** p4);
 
+// ListObjects lists objects a user is authorized to see.
+
 extern ObjectList_t ListObjects(BucketRef_t p0, ListOptions_t* p1, char** p2);
+
+// CloseBucket closes the Bucket session.
 
 extern void CloseBucket(BucketRef_t p0, char** p1);
 
+// GetIDVersion looks up the given version number in the map of registered
+// versions, returning an error if none is found.
+
 extern IDVersion_t GetIDVersion(unsigned int p0, char** p1);
+
+// NewMapRef returns a new ref/handle to a go map[string]string.
 
 extern MapRef_t NewMapRef();
 
+// MapRefSet sets the passed key to the passed value in the go map that the passed ref refers to.
+
 extern void MapRefSet(MapRef_t p0, char* p1, char* p2, char** p3);
+
+// MapRefGet gets the value of the passed key in the go map that the passed ref refers to.
 
 extern char* MapRefGet(MapRef_t p0, char* p1, char** p2);
 
+// FreeReference deletes the passed reference from the struct map.
+
 extern void FreeReference(GoUintptr p0);
+
+// CloseObject closes the Object.
 
 extern void CloseObject(ObjectRef_t p0, char** p1);
 
+// DownloadRange returns an Object's data. A length of -1 will mean
+// (Object.Size - offset).
+
 extern void DownloadRange(ObjectRef_t p0, int64_t p1, int64_t p2, FILE* p3, char** p4);
+
+// ObjectMeta returns the object meta which contains metadata about a specific Object.
 
 extern ObjectMeta_t ObjectMeta(ObjectRef_t p0, char** p1);
 
+// CreateBucket creates a new bucket if authorized.
+
 extern Bucket_t CreateBucket(ProjectRef_t p0, char* p1, BucketConfig_t* p2, char** p3);
+
+// OpenBucket returns a Bucket handle with the given EncryptionAccess
+// information.
 
 extern BucketRef_t OpenBucket(ProjectRef_t p0, char* p1, EncryptionAccess_t* p2, char** p3);
 
+// DeleteBucket deletes a bucket if authorized. If the bucket contains any
+// Objects at the time of deletion, they may be lost permanently.
+
 extern void DeleteBucket(ProjectRef_t p0, char* p1, char** p2);
+
+// ListBuckets will list authorized buckets.
 
 extern BucketList_t ListBuckets(ProjectRef_t p0, BucketListOptions_t* p1, char** p2);
 
+// GetBucketInfo returns info about the requested bucket if authorized.
+
 extern BucketInfo_t GetBucketInfo(ProjectRef_t p0, char* p1, char** p2);
 
+// CloseProject closes the Project.
+
 extern void CloseProject(ProjectRef_t p0, char** p1);
+
+// NewUplink creates a new Uplink. This is the first step to create an uplink
+// session with a user specified config or with default config, if nil config
 
 extern UplinkRef_t NewUplink(char** p0);
 
 extern UplinkRef_t NewUplinkInsecure(char** p0);
+
+// OpenProject returns a Project handle with the given APIKey
 
 extern ProjectRef_t OpenProject(UplinkRef_t p0, char* p1, APIKeyRef_t p2, char** p3);
 

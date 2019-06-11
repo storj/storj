@@ -21,6 +21,7 @@ func TestCTests(t *testing.T) {
 
 	t.Run("all", func(t *testing.T) {
 		for _, ctest := range ctests {
+			ctest := ctest
 			t.Run(ctest, func(t *testing.T) {
 				t.Parallel()
 

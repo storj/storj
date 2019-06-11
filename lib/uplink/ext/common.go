@@ -25,6 +25,8 @@ func CMalloc(size uintptr) uintptr {
 	return uintptr(CMem)
 }
 
+// GetIDVersion looks up the given version number in the map of registered
+// versions, returning an error if none is found.
 //export GetIDVersion
 func GetIDVersion(number C.uint, cErr **C.char) (cIDVersion C.IDVersion_t) {
 	goIDVersion, err := storj.GetIDVersion(storj.IDVersionNumber(number))
@@ -43,6 +45,7 @@ type MapRef struct {
 	m map[string]string
 }
 
+// NewMapRef returns a new ref/handle to a go map[string]string.
 //export NewMapRef
 func NewMapRef() C.MapRef_t {
 	mapref := &MapRef{}
@@ -50,6 +53,7 @@ func NewMapRef() C.MapRef_t {
 	return C.MapRef_t(structRefMap.Add(mapref))
 }
 
+// MapRefSet sets the passed key to the passed value in the go map that the passed ref refers to.
 //export MapRefSet
 func MapRefSet(metaDataRef C.MapRef_t, key *C.char, value *C.char, cErr **C.char) {
 	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)
@@ -63,7 +67,7 @@ func MapRefSet(metaDataRef C.MapRef_t, key *C.char, value *C.char, cErr **C.char
 	metaData.mtx.Unlock()
 }
 
-
+// MapRefGet gets the value of the passed key in the go map that the passed ref refers to.
 //export MapRefGet
 func MapRefGet(metaDataRef C.MapRef_t, key *C.char, cErr **C.char) (cValue *C.char) {
 	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)
@@ -92,9 +96,10 @@ func bytesToCbytes(bytes []byte, lenOfBytes int, cData *C.Bytes_t) {
 	cData.bytes = (*C.uint8_t)(mem)
 }
 
+// NewCBucket returns a C bucket struct converted from a go bucket struct.
 func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
-	encParamsPtr := NewCEncryptionParamsPtr(&bucket.EncryptionParameters)
-	redundancySchemePtr := NewCRedundancySchemePtr(&bucket.RedundancyScheme)
+	encParamsPtr := NewCEncryptionParams(&bucket.EncryptionParameters)
+	redundancySchemePtr := NewCRedundancyScheme(&bucket.RedundancyScheme)
 
 	return C.Bucket_t{
 		encryption_parameters: encParamsPtr,
@@ -106,24 +111,27 @@ func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
 	}
 }
 
+// NewCBucketConfig returns a C bucket config struct converted from a go bucket config struct.
 func NewCBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
 	return C.BucketConfig_t{
-		encryption_parameters: NewCEncryptionParamsPtr(&bucketCfg.EncryptionParameters),
-		redundancy_scheme: NewCRedundancySchemePtr(&bucketCfg.Volatile.RedundancyScheme),
+		encryption_parameters: NewCEncryptionParams(&bucketCfg.EncryptionParameters),
+		redundancy_scheme:     NewCRedundancyScheme(&bucketCfg.Volatile.RedundancyScheme),
 		path_cipher:           CUint8(bucketCfg.PathCipher),
 	}
 }
 
-// NB: caller is responsible for freeing memory at `ptr`
-func NewCEncryptionParamsPtr(goParams *storj.EncryptionParameters) C.EncryptionParameters_t {
+// NewCEncryptionParams returns a C encryption parameters struct converted from a
+// go encryption parameters struct.
+func NewCEncryptionParams(goParams *storj.EncryptionParameters) C.EncryptionParameters_t {
 	return C.EncryptionParameters_t{
 		cipher_suite: C.uint8_t(goParams.CipherSuite),
 		block_size:   C.int32_t(goParams.BlockSize),
 	}
 }
 
-// NB: caller is responsible for freeing memory at `ptr`
-func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) C.RedundancyScheme_t {
+// NewCRedundancyScheme returns a C redundancy scheme struct converted from a
+// go redundancy scheme struct.
+func NewCRedundancyScheme(goScheme *storj.RedundancyScheme) C.RedundancyScheme_t {
 	return C.RedundancyScheme_t{
 		algorithm:       C.uint8_t(goScheme.Algorithm),
 		share_size:      C.int32_t(goScheme.ShareSize),
@@ -134,6 +142,7 @@ func NewCRedundancySchemePtr(goScheme *storj.RedundancyScheme) C.RedundancySchem
 	}
 }
 
+// FreeReference deletes the passed reference from the struct map.
 //export FreeReference
 func FreeReference(reference token) {
 	structRefMap.Del(reference)

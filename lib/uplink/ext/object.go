@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
+// CloseObject closes the Object.
 //export CloseObject
 func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
 	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
@@ -31,6 +32,8 @@ func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
 	structRefMap.Del(token(cObject))
 }
 
+// DownloadRange returns an Object's data. A length of -1 will mean
+// (Object.Size - offset).
 //export DownloadRange
 func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
 	ctx := context.Background()
@@ -55,6 +58,7 @@ func DownloadRange(cObject C.ObjectRef_t, offset C.int64_t, length C.int64_t, fi
 	}
 }
 
+// ObjectMeta returns the object meta which contains metadata about a specific Object.
 //export ObjectMeta
 func ObjectMeta(cObject C.ObjectRef_t, cErr **C.char) (objectMeta C.ObjectMeta_t) {
 	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
