@@ -18,31 +18,20 @@ int main(int argc, char *argv[])
 
     {
         // New uplink
-        Uplink uplink = NewUplink(err);
+        Uplink uplink = NewUplinkInsecure(err); // TODO: replace with NewUplink
         require_noerror(*err);
         require(uplink._ref != 0, "got empty uplink\n");
 
-        // Close uplinks
-        CloseUplink(uplink, err);
-        require_noerror(*err);
-    }
-
-    {
-        // New insecure uplink (test network requires this)
-        Uplink insecure_uplink = NewUplinkInsecure(err);
-        require_noerror(*err);
-        require(insecure_uplink._ref != 0, "got empty uplink\n");
-
         // open a project
-        Project project = OpenProject(insecure_uplink, satellite_addr, apikey, err);
+        Project project = OpenProject(uplink, satellite_addr, apikey, err);
         require_noerror(*err);
 
         // close project
         CloseProject(project, err);
         require_noerror(*err);
 
-        // close uplink
-        CloseUplink(insecure_uplink, err);
+        // Close uplinks
+        CloseUplink(uplink, err);
         require_noerror(*err);
     }
 

@@ -40,6 +40,7 @@ func NewUplink(cerr **C.char) C.Uplink {
 }
 
 //export NewUplinkInsecure
+ // TODO: remove
 func NewUplinkInsecure(cerr **C.char) C.Uplink {
 	scope := rootScope("inmemory") // TODO: pass in as argument
 
