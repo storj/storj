@@ -61,7 +61,7 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 	exe := ctx.File("build", filepath.Base(file)+".exe")
 
 	var args = []string{}
-	args = append(args, "-ggdb")
+	args = append(args, "-ggdb", "-Wall")
 	args = append(args, "-o", exe)
 	for _, inc := range includes {
 		if inc.Header != "" {
