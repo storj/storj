@@ -26,7 +26,7 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
 
     EncryptionParameters_t enc_param;
     enc_param.cipher_suite = 1;
-    enc_param.block_size = 1024;
+    enc_param.block_size = 4 * 1024;
 
     RedundancyScheme_t scheme;
     scheme.algorithm = 1;

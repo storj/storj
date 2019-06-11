@@ -109,7 +109,8 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 	cObjectsPtr := CMalloc(uintptr(objListLen * objectSize))
 
 	for i, object := range objectList.Items {
-		cObject := (*C.Object_t)(unsafe.Pointer(uintptr(int(cObjectsPtr) + (i * objectSize))))
+		nextAddress := uintptr(int(cObjectsPtr) + (i * objectSize))
+		cObject := (*C.Object_t)(unsafe.Pointer(nextAddress))
 		*cObject = NewCObject(&object)
 	}
 
