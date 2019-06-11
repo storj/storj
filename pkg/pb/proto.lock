@@ -50,7 +50,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -76,7 +82,13 @@
         ],
         "package": {
           "name": "repair"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -496,7 +508,21 @@
         ],
         "package": {
           "name": "gogoproto"
-        }
+        },
+        "options": [
+          {
+            "name": "java_package",
+            "value": "com.google.protobuf"
+          },
+          {
+            "name": "java_outer_classname",
+            "value": "GoGoProtos"
+          },
+          {
+            "name": "go_package",
+            "value": "github.com/gogo/protobuf/gogoproto"
+          }
+        ]
       }
     },
     {
@@ -1315,7 +1341,13 @@
         ],
         "package": {
           "name": "inspector"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1345,30 +1377,18 @@
         ],
         "package": {
           "name": "objects"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
       "protopath": "metainfo.proto",
       "def": {
-        "enums": [
-          {
-            "name": "ConnectorKeyInfo.UserStatus",
-            "enum_fields": [
-              {
-                "name": "INACTIVE"
-              },
-              {
-                "name": "ACTIVE",
-                "integer": 1
-              },
-              {
-                "name": "DELETED",
-                "integer": 2
-              }
-            ]
-          }
-        ],
         "messages": [
           {
             "name": "AddressedOrderLimit",
@@ -1540,11 +1560,6 @@
                 "id": 3,
                 "name": "segment",
                 "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "connector_key_info",
-                "type": "ConnectorKeyInfo"
               }
             ]
           },
@@ -1668,33 +1683,20 @@
             ]
           },
           {
-<<<<<<< HEAD:pkg/pb/proto.lock
             "name": "ValueAttributionRequest",
             "fields": [
               {
                 "id": 1,
                 "name": "bucket_id",
-=======
-            "name": "ConnectorKeyInfo",
-            "fields": [
-              {
-                "id": 1,
-                "name": "partner_id",
->>>>>>> updated the proto.lock file after the protobuf changes:proto.lock
                 "type": "bytes"
               },
               {
                 "id": 2,
-<<<<<<< HEAD:pkg/pb/proto.lock
                 "name": "user_id",
-=======
-                "name": "bucket_id",
->>>>>>> updated the proto.lock file after the protobuf changes:proto.lock
                 "type": "bytes"
               },
               {
                 "id": 3,
-<<<<<<< HEAD:pkg/pb/proto.lock
                 "name": "partner_id",
                 "type": "bytes"
               },
@@ -1712,30 +1714,6 @@
                 "id": 1,
                 "name": "value_attribution",
                 "type": "bool"
-=======
-                "name": "full_name",
-                "type": "string"
-              },
-              {
-                "id": 4,
-                "name": "short_name",
-                "type": "string"
-              },
-              {
-                "id": 5,
-                "name": "email",
-                "type": "string"
-              },
-              {
-                "id": 6,
-                "name": "status",
-                "type": "UserStatus"
-              },
-              {
-                "id": 7,
-                "name": "created_at",
-                "type": "google.protobuf.Timestamp"
->>>>>>> updated the proto.lock file after the protobuf changes:proto.lock
               }
             ]
           }
@@ -1776,13 +1754,8 @@
               },
               {
                 "name": "ValueAttributeInfo",
-<<<<<<< HEAD:pkg/pb/proto.lock
                 "in_type": "ValueAttributionRequest",
                 "out_type": "ValueAttributionResponse"
-=======
-                "in_type": "SegmentInfoRequest",
-                "out_type": "SegmentInfoResponse"
->>>>>>> updated the proto.lock file after the protobuf changes:proto.lock
               }
             ]
           }
@@ -1806,7 +1779,13 @@
         ],
         "package": {
           "name": "metainfo"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2079,7 +2058,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2366,7 +2351,13 @@
         ],
         "package": {
           "name": "orders"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2539,7 +2530,13 @@
         ],
         "package": {
           "name": "overlay"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2711,7 +2708,13 @@
         ],
         "package": {
           "name": "piecestore"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2936,7 +2939,13 @@
         ],
         "package": {
           "name": "pointerdb"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3011,7 +3020,13 @@
         ],
         "package": {
           "name": "streams"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3089,7 +3104,13 @@
         ],
         "package": {
           "name": "vouchers"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     }
   ]

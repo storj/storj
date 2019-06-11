@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
@@ -98,14 +97,6 @@ func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
 }
 
-<<<<<<< HEAD
-=======
-// ValueAttribution is a getter for valueattribution repository
-func (db *DB) ValueAttribution() valueattribution.DB {
-	return &valueattributionDB{db: db.db}
-}
-
->>>>>>> added value attribution DB related interface functions, renamed, and refactored
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}

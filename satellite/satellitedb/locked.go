@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
@@ -654,10 +653,10 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) Finish(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Finish(ctx, offerId)
+	return m.db.Finish(ctx, offerID)
 }
 
 func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
@@ -672,10 +671,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Redeem(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Redeem(ctx, offerId)
+	return m.db.Redeem(ctx, offerID)
 }
 
 // Orders returns database for orders
@@ -1007,38 +1006,4 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
-}
-
-// ValueAttribution returns database for partner keys information
-func (m *locked) ValueAttribution() valueattribution.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedValueAttribution{m.Locker, m.db.ValueAttribution()}
-}
-
-// lockedValueAttribution implements locking wrapper for valueattribution.DB
-type lockedValueAttribution struct {
-	sync.Locker
-	db valueattribution.DB
-}
-
-// Create creates and stores new ConnectorKeyInfo
-func (m *lockedValueAttribution) Create(ctx context.Context, info *pb.ConnectorKeyInfo) (*pb.ConnectorKeyInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-// Delete deletes ConnectorKeyInfo from store
-func (m *lockedValueAttribution) Delete(ctx context.Context, id uuid.UUID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, id)
-}
-
-// GetByProjectID retrieves list of ConnectorKey for given projectID
-func (m *lockedValueAttribution) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*pb.ConnectorKeyInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID)
 }

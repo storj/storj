@@ -69,7 +69,6 @@ message SegmentInfoRequest {
     bytes bucket = 1; 
     bytes path = 2;
     int64 segment = 3;
-    ConnectorKeyInfo connector_key_info = 4;
 }
 
 message SegmentInfoResponse {
