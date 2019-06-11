@@ -14,13 +14,9 @@ typedef struct Project      { long _ref; } Project;
 import "C"
 
 import (
-	"gopkg.in/spacemonkeygo/monkit.v2"
-
 	libuplink "storj.io/storj/lib/uplink"
 	// "storj.io/storj/pkg/storj"
 )
-
-var mon = monkit.Package()
 
 func main() {}
 
@@ -31,7 +27,7 @@ type Uplink struct {
 
 //export NewUplink
 func NewUplink(cerr **C.char) C.Uplink {
-	scope := rootScope("inmemory")
+	scope := rootScope("inmemory") // TODO: pass in as argument
 
 	cfg := &libuplink.Config{}
 	lib, err := libuplink.NewUplink(scope.ctx, cfg)
@@ -45,7 +41,7 @@ func NewUplink(cerr **C.char) C.Uplink {
 
 //export NewUplinkInsecure
 func NewUplinkInsecure(cerr **C.char) C.Uplink {
-	scope := rootScope("inmemory")
+	scope := rootScope("inmemory") // TODO: pass in as argument
 
 	cfg := &libuplink.Config{}
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
@@ -72,7 +68,6 @@ func OpenProject(uplinkref C.Uplink, satelliteAddr *C.char, apikeystr *C.char, c
 	}
 
 	var err error
-	defer mon.Task()(&uplink.scope.ctx)(&err)
 
 	apikey, err := libuplink.ParseAPIKey(C.GoString(apikeystr))
 	if err != nil {
