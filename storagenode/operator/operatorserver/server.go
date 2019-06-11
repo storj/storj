@@ -64,38 +64,6 @@ func NewServer(logger *zap.Logger, config Config, service *operator.Service, lis
 	return &server
 }
 
-// appHandler is web app http handler function
-func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := Asset(s.staticDir + "dist/public/index.html")
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
-	_, err = w.Write(data)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-}
-
-// appHandler is web app http handler function
-func (s *Server) appStaticHandler(w http.ResponseWriter, req *http.Request) {
-	resourceName := strings.TrimPrefix(req.RequestURI, "/static/")
-
-	data, err := Asset(s.staticDir + resourceName)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
-	_, err = w.Write(data)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-}
-
 // Run starts the server that host webapp and api endpoints
 func (s *Server) Run(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
@@ -115,4 +83,36 @@ func (s *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener
 func (s *Server) Close() error {
 	return s.server.Close()
+}
+
+// appHandler is an entry point for storagenode operator web interface
+func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+	data, err := Asset(s.staticDir + "dist/public/index.html")
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+}
+
+// appStaticHandler is needed to return static resources
+func (s *Server) appStaticHandler(w http.ResponseWriter, req *http.Request) {
+	resourceName := strings.TrimPrefix(req.RequestURI, "/static/")
+
+	data, err := Asset(s.staticDir + resourceName)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	_, err = w.Write(data)
+	if err != nil {
+		log.Error(err)
+		return
+	}
 }

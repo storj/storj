@@ -269,7 +269,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.Operator.Service, err = operator.NewService(
 			peer.Log.Named("operator:service"),
 			peer.DB.Bandwidth(),
-			peer.Storage2.Monitor)
+			peer.Storage2.Monitor,
+			peer.DB.PieceInfo(),
+			config.Kademlia.Operator.Wallet)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

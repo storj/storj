@@ -3,19 +3,26 @@
 
 package operator
 
-import "storj.io/storj/storagenode/bandwidth"
+import (
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/storagenode/bandwidth"
+)
 
 // BandwidthInfo stores all info about storage node bandwidth usage
 type BandwidthInfo struct {
-	Egress    Egress
-	Ingress   Ingress
-	Used      int64
-	Remaining int64
+	Egress    Egress  `json:"egress"`
+	Ingress   Ingress `json:"ingress"`
+	Used      int64   `json:"used"`
+	Remaining int64   `json:"remaining"`
 }
 
 // FromUsage used to create BandwidthInfo instance from Usage object
-func FromUsage(usage *bandwidth.Usage, avaiableBandwidth int64) *BandwidthInfo {
-	// TODO: used is not calculated
+func FromUsage(usage *bandwidth.Usage, avaiableBandwidth int64) (*BandwidthInfo, error) {
+	if usage == nil {
+		return nil, errs.New("usage is nil")
+	}
+
 	return &BandwidthInfo{
 		Ingress: Ingress{
 			Usage:  usage.Put,
@@ -27,19 +34,19 @@ func FromUsage(usage *bandwidth.Usage, avaiableBandwidth int64) *BandwidthInfo {
 			Audit:  usage.GetAudit,
 		},
 		Remaining: avaiableBandwidth,
-		Used:      0,
-	}
+		Used:      usage.Total(),
+	}, nil
 }
 
 // Egress stores info about storage node egress usage
 type Egress struct {
-	Repair int64
-	Audit  int64
-	Usage  int64
+	Repair int64 `json:"repair"`
+	Audit  int64 `json:"audit"`
+	Usage  int64 `json:"usage"`
 }
 
 // Ingress stores info about storage node ingress usage
 type Ingress struct {
-	Repair int64
-	Usage  int64
+	Repair int64 `json:"repair"`
+	Usage  int64 `json:"usage"`
 }
