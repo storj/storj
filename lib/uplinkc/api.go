@@ -10,64 +10,19 @@ package main
 typedef struct APIKey       { long _ref; } APIKey;
 typedef struct Uplink       { long _ref; } Uplink;
 typedef struct Project      { long _ref; } Project;
-
-typedef struct IDVersion {
-	uint16_t number;
-} IDVersion;
 */
 import "C"
 
 import (
-	"errors"
-
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
+	// "storj.io/storj/pkg/storj"
 )
 
 var mon = monkit.Package()
 
 func main() {}
-
-//export GetIDVersion
-func GetIDVersion(number C.uint8_t, cerr **C.char) C.IDVersion {
-	version, err := storj.GetIDVersion(storj.IDVersionNumber(number))
-	if err != nil {
-		*cerr = C.CString(err.Error())
-		return C.IDVersion{}
-	}
-
-	return C.IDVersion{
-		number: C.uint16_t(version.Number),
-	}
-}
-
-//export ParseAPIKey
-func ParseAPIKey(val *C.char, cerr **C.char) C.APIKey {
-	apikey, err := libuplink.ParseAPIKey(C.GoString(val))
-	if err != nil {
-		*cerr = C.CString(err.Error())
-		return C.APIKey{}
-	}
-
-	return C.APIKey{universe.Add(apikey)}
-}
-
-//export FreeAPIKey
-func FreeAPIKey(apikeyref C.APIKey, cerr **C.char) {
-	universe.Del(apikeyref._ref)
-}
-
-//export SerializeAPIKey
-func SerializeAPIKey(cAPIKey C.APIKey, cerr **C.char) *C.char {
-	apikey, ok := universe.Get(cAPIKey._ref).(libuplink.APIKey)
-	if !ok {
-		return C.CString("")
-	}
-
-	return C.CString(apikey.Serialize())
-}
 
 type Uplink struct {
 	scope
@@ -109,7 +64,7 @@ type Project struct {
 }
 
 //export OpenProject
-func OpenProject(uplinkref C.Uplink, satelliteAddr *C.char, cAPIKey C.APIKey, cerr **C.char) C.Project {
+func OpenProject(uplinkref C.Uplink, satelliteAddr *C.char, apikeystr *C.char, cerr **C.char) C.Project {
 	uplink, ok := universe.Get(uplinkref._ref).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -119,9 +74,8 @@ func OpenProject(uplinkref C.Uplink, satelliteAddr *C.char, cAPIKey C.APIKey, ce
 	var err error
 	defer mon.Task()(&uplink.scope.ctx)(&err)
 
-	apikey, ok := universe.Get(cAPIKey._ref).(libuplink.APIKey)
-	if !ok {
-		err = errors.New("missing API Key")
+	apikey, err := libuplink.ParseAPIKey(C.GoString(apikeystr))
+	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.Project{}
 	}
