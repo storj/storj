@@ -124,7 +124,7 @@ type BucketListOptions = storj.BucketListOptions
 func (p *Project) ListBuckets(ctx context.Context, opts *BucketListOptions) (bl storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts == nil {
-		opts = &BucketListOptions{}
+		opts = &BucketListOptions{Direction: storj.Forward}
 	}
 	return p.project.ListBuckets(ctx, *opts)
 }
