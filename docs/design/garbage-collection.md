@@ -98,8 +98,15 @@ The probability of having a false positive depends on the size of the Bloom filt
 - **n**: number of elements in the set
 - **m**: size of the Bloom filter array
 - **k**: number of hash functions used
-- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(kn/m))^k.
+- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(-kn/m))^k.
 
+So the optimal number of bits per element is
+
+    m n = − log 2 ⁡ p ln ⁡ 2 ≈ − 1.44 log 2 ⁡ p {\displaystyle {\frac {m}{n}}=-{\frac {\log _{2}p}{\ln 2}}\approx -1.44{\log _{2}p}} {\displaystyle {\frac {m}{n}}=-{\frac {\log _{2}p}{\ln 2}}\approx -1.44{\log _{2}p}}
+
+with the corresponding number of hash functions k (ignoring integrality):
+
+    k = − ln ⁡ p ln ⁡ 2 = − log 2 ⁡ p . {\displaystyle k=-{\frac {\ln p}{\ln 2}}=-{\log _{2}p}.} {\displaystyle k=-{\frac {\ln p}{\ln 2}}=-{\log _{2}p}.}
 | m/n|k|k=1	|k=2	|k=3	|k=4	|k=5	|k=6	|k=7	|k=8
 |---|---|---|---|---|---|---|---|---|---|
 |2	|1.39	|0.393	|0.400	|	 	 |	 |	| |	| 
@@ -145,3 +152,35 @@ see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node
     - Storage node should be able to receive a Delete request from a Satellite
 - Storage node should use the filter from the Delete request to decide which pieces to delete, then delete them
 - Eventually, this service should iterate over a db snapshot instead of being integrated with the data repair checker
+
+## Bloom filters benchmark
+
+Three Bloom filter implementations are considered:
+- **BF1**: Zeebo's bloom filters (github.com/zeebo/sbloom)
+- **BF2**: Willf's Bloom filters (github.com/zeebo/sbloom)
+- **BF3**: Steakknife's Bloom filters (github.com/golang/leveldb/bloom)
+
+### Zeebo's bloom filters
+-Parameters:
+    - **k**: The Bloom filter will be built such that the probability of a false positive is less than (1/2)**k
+    - **h**: hash functions
+- Serialization available
+- hash functions are to be given as a parameter to the constructor
+### Willf's bloom filters
+- Parameters:
+    - **m**: max size in bits
+    - **k**: number of hash functions
+- No serialization available
+- hash functions not configurable
+
+### Steakknife's bloom filters
+- Parameters:
+    - **maxElements**: max number of elements in the set
+    - **p**: probability of false positive
+- Serialization available
+- murmur3 has function
+
+### Benchmark
+We assume a typical storage nodes has 2 TB capacity, and a typical piece is ~2 MB, so we are testing the behavior with 1 million pieces.
+
+We create a list of 1 million piece ids and add 95% of them to the Bloom filter. We then check if the 95% are contained in the set (there should be no false negative) and we evaluate the false positive rate by checking the remaining 5% piece ids.

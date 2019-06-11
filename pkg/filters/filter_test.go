@@ -1,6 +1,8 @@
 package filters
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"storj.io/storj/pkg/storj"
@@ -24,7 +26,7 @@ func Init() {
 		nbPiecesInFilter = 950000
 		pieceIDs = GenerateIDs(totalNbPieces)
 		initDone = true
-		falsePositiveProbability = 0.01
+		falsePositiveProbability = 0.1
 	}
 }
 
@@ -44,12 +46,15 @@ func benchmarkContains(filter Filter, pieceIDs [][]byte, b *testing.B) (nbPieces
 	return
 }
 
-func benchmarkFilter(filter Filter, pieceIDs [][]byte, b *testing.B) {
+func benchmarkFilter(filter Filter, pieceIDs [][]byte, b *testing.B) (p float64) {
 	b.ReportAllocs()
+	Init()
+
 	benchmarkAdd(filter, pieceIDs[0:nbPiecesInFilter], b)
 	nbIn := benchmarkContains(filter, pieceIDs[0:nbPiecesInFilter], b)
 	if nbIn < nbPiecesInFilter {
 		// we have a false negative - it should not happen
+		b.Log("nbIn = ", nbIn)
 		b.Fail()
 	}
 	nbIn = benchmarkContains(filter, pieceIDs[nbPiecesInFilter:], b)
@@ -57,20 +62,23 @@ func benchmarkFilter(filter Filter, pieceIDs [][]byte, b *testing.B) {
 	if falsePositiveP > falsePositiveProbability {
 		b.Log("False positive ratio: ", falsePositiveP, " - greater than expected :", falsePositiveProbability)
 	}
+	b.Log("False positive ratio: ", falsePositiveP)
+	return falsePositiveP
 }
 
-func BenchmarkFilter1(b *testing.B) {
-	b.ReportAllocs()
+func BenchmarkInit(b *testing.B) {
 	Init()
 }
-
-/*func BenchmarkFilterNaive(b *testing.B) {
-	benchmarkFilter(NewPerfectSet(nbPiecesInFilter), pieceIDs, b)
-}*/
+func BenchmarkCustomFilter(b *testing.B) {
+	Init()
+	filter := NewCustomFilter(len(pieceIDs), falsePositiveProbability)
+	benchmarkFilter(filter, pieceIDs, b)
+}
 
 func BenchmarkFilterZeebo(b *testing.B) {
 	Init()
-	benchmarkFilter(NewZeeboBloomFilter(uint(len(pieceIDs)), falsePositiveProbability), pieceIDs, b)
+	filter := NewZeeboBloomFilter(uint(len(pieceIDs)), falsePositiveProbability)
+	benchmarkFilter(filter, pieceIDs, b)
 }
 
 func BenchmarkFilterWillf(b *testing.B) {
@@ -88,17 +96,54 @@ func BenchmarkFilterCuckoo(b *testing.B) {
 	benchmarkFilter(NewCuckooFilter(len(pieceIDs)), pieceIDs, b)
 }
 
+func benchmarkEncode(filter Filter, pieceIDs [][]byte, b *testing.B) int {
+	benchmarkAdd(filter, pieceIDs[0:nbPiecesInFilter], b)
+	filterAsBytes := filter.Encode()
+	return len(filterAsBytes)
+}
+
+func BenchmarkEncodedSize(b *testing.B) {
+	file, err := os.Create("test.txt")
+	if err != nil {
+		fmt.Println(err)
+		b.Fail()
+	}
+	defer file.Close()
+	Init()
+
+	names := []string{"Zeebo", "Willf", "Steakknife", "Custom"}
+
+	file.WriteString("# p\t")
+	for _, name := range names {
+		file.WriteString(name)
+		file.WriteString("\t")
+	}
+	file.WriteString("\n")
+	p := 0.01
+	for p <= 0.21 {
+		file.WriteString(fmt.Sprintf("%.2f\t", p))
+		filters := make([]Filter, 4)
+		filters[0] = NewZeeboBloomFilter(uint(len(pieceIDs)), p)
+		filters[1] = NewWillfBloomFilter(uint(len(pieceIDs)), p)
+		filters[2] = NewSteakknifeBloomFilter(uint64(len(pieceIDs)), p)
+		filters[3] = NewCustomFilter(len(pieceIDs), p)
+
+		for i, f := range filters {
+			size := benchmarkEncode(f, pieceIDs, b)
+			fmt.Println(names[i], " ", p, " ", size)
+			file.WriteString(fmt.Sprintf("%d\t", size))
+		}
+		file.WriteString("\n")
+		p += 0.01
+	}
+}
+
 // GenerateIDs generates nbPieces piece ids
 func GenerateIDs(nbPieces int) [][]byte {
 	toReturnBytes := make([][]byte, nbPieces)
 	currentNbPieces := 0
 	for currentNbPieces < nbPieces {
 		newPiece := storj.NewPieceID()
-		// make sure we don't add the piece id twice
-		/*for ArrayContains(newPiece.Bytes(), toReturnBytes) {
-			newPiece = storj.NewPieceID()
-		}*/
-		//toReturnPieces[currentNbPieces] = newPiece
 		toReturnBytes[currentNbPieces] = newPiece.Bytes()
 		currentNbPieces = currentNbPieces + 1
 	}

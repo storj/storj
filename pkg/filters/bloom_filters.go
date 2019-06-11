@@ -2,8 +2,10 @@ package filters
 
 import (
 	"encoding/binary"
+	"fmt"
+	"hash/fnv"
+	"math"
 
-	"github.com/spaolacci/murmur3"
 	steakknife "github.com/steakknife/bloomfilter"
 	willf "github.com/willf/bloom"
 	zeebo "github.com/zeebo/sbloom"
@@ -27,8 +29,7 @@ type SteakknifeBloomFilter struct {
 // NewZeeboBloomFilter returns a zeebo bloom filter
 func NewZeeboBloomFilter(maxElements uint, p float64) *ZeeboBloomFilter {
 	var zbf ZeeboBloomFilter
-	m := steakknife.OptimalM(uint64(maxElements), p)
-	zbf.filter = zeebo.NewFilter(murmur3.New64(), int(m/uint64(maxElements)))
+	zbf.filter = zeebo.NewFilter(fnv.New64(), int(-math.Log(p)/math.Log(2)))
 	return &zbf
 }
 
@@ -42,11 +43,20 @@ func (zbf *ZeeboBloomFilter) Contains(pieceID []byte) bool {
 	return zbf.filter.Lookup(pieceID)
 }
 
+// Encode returns an array of bytes representing the filter
+func (zbf *ZeeboBloomFilter) Encode() []byte {
+	toReturn, err := zbf.filter.GobEncode()
+	if err != nil {
+		fmt.Println(err.Error())
+		panic("error in gobencode")
+	}
+	return toReturn
+}
+
 // NewWillfBloomFilter returns a bloom filter of size size
 func NewWillfBloomFilter(maxElements uint, p float64) *WillfBloomFilter {
 	var wbf WillfBloomFilter
-	m := steakknife.OptimalM(uint64(maxElements), p)
-	wbf.filter = willf.New(uint(m), uint(steakknife.OptimalK(uint64(m), uint64(maxElements))))
+	wbf.filter = willf.NewWithEstimates(maxElements, p)
 	return &wbf
 }
 
@@ -60,14 +70,16 @@ func (wbf *WillfBloomFilter) Contains(pieceID []byte) bool {
 	return wbf.filter.Test(pieceID)
 }
 
+// Encode returns an array of bytes representing the filter
+func (wbf *WillfBloomFilter) Encode() []byte {
+	toReturn, _ := wbf.filter.GobEncode()
+	return toReturn
+}
+
 // NewSteakknifeBloomFilter creates a new SteakknifeBloomFilter
 func NewSteakknifeBloomFilter(maxElements uint64, p float64) *SteakknifeBloomFilter {
 	var sbf SteakknifeBloomFilter
-	var err error
-	sbf.filter, err = steakknife.NewOptimal(maxElements, p)
-	if err != nil {
-
-	}
+	sbf.filter, _ = steakknife.NewOptimal(maxElements, p)
 	return &sbf
 }
 
@@ -105,4 +117,10 @@ func (sbf *SteakknifeBloomFilter) Add(pieceID []byte) {
 // Contains return true if pieceID may be in the set
 func (sbf *SteakknifeBloomFilter) Contains(pieceID []byte) bool {
 	return sbf.filter.Contains(hashableByteArray(pieceID))
+}
+
+// Encode returns an array of bytes representing the filter
+func (sbf *SteakknifeBloomFilter) Encode() []byte {
+	toReturn, _ := sbf.filter.GobEncode()
+	return toReturn
 }
