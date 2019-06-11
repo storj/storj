@@ -9,7 +9,7 @@ import (
 
 var universe = NewUniverse()
 
-type Ref uint64
+type Ref int64
 
 type Universe struct {
 	lock    sync.Mutex

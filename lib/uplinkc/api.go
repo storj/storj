@@ -7,18 +7,18 @@ package main
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef __SIZE_TYPE__ APIKeyRef_t;
-typedef __SIZE_TYPE__ IDVersionRef_t;
-typedef __SIZE_TYPE__ UplinkRef_t;
-typedef __SIZE_TYPE__ UplinkConfigRef_t;
-typedef __SIZE_TYPE__ ProjectRef_t;
-typedef __SIZE_TYPE__ BucketRef_t;
-typedef __SIZE_TYPE__ BucketConfigRef_t;
-typedef __SIZE_TYPE__ MapRef_t;
-typedef __SIZE_TYPE__ BufferRef_t;
-typedef __SIZE_TYPE__ ObjectRef_t;
-typedef __SIZE_TYPE__ DownloadReaderRef_t;
-typedef __SIZE_TYPE__ UploadReaderRef_t;
+typedef long long APIKeyRef_t;
+typedef long long IDVersionRef_t;
+typedef long long UplinkRef_t;
+typedef long long UplinkConfigRef_t;
+typedef long long ProjectRef_t;
+typedef long long BucketRef_t;
+typedef long long BucketConfigRef_t;
+typedef long long MapRef_t;
+typedef long long BufferRef_t;
+typedef long long ObjectRef_t;
+typedef long long DownloadReaderRef_t;
+typedef long long UploadReaderRef_t;
 
 // TODO: Add free functions for each struct
 
@@ -48,7 +48,7 @@ typedef struct RedundancyScheme {
 typedef struct Bucket {
 	EncryptionParameters_t encryption_parameters;
 	RedundancyScheme_t redundancy_scheme;
-char *name;
+	char *name;
 	int64_t created;
 	uint8_t path_cipher;
 	int64_t segment_size;
