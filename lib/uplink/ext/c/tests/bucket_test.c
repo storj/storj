@@ -23,9 +23,9 @@ void TestBucket(void)
     CreateBucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
+    // TODO: Encryption access
     BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-
 
     char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
     int num_of_objects = 4;
@@ -46,11 +46,15 @@ void TestBucket(void)
     // TODO: test list options
     ObjectList_t objects_list = ListObjects(ref_bucket, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
-    // TODO: add assertions
+    TEST_ASSERT_EQUAL_STRING(bucket_name, objects_list.bucket);
+    TEST_ASSERT_EQUAL_STRING("", objects_list.prefix);
+    TEST_ASSERT_EQUAL(false, objects_list.more);
+    TEST_ASSERT_EQUAL(num_of_objects, objects_list.length);
 
-    // TODO: add assertions for metadata
-
-    // TODO: Open Object
+    for (int i=0; i < objects_list.length; i++) {
+        Object_t *object = objects_list.items[i];
+        TEST_ASSERT_EQUAL_STRING(object_paths[i], object->path);
+    }
 }
 
 int main(int argc, char *argv[])
