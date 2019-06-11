@@ -26,6 +26,8 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
@@ -230,7 +232,17 @@ func testEachBucketConfig(t *testing.T, f func(*uplink.BucketConfig)) {
 				PathCipher: suite1,
 				EncryptionParameters: storj.EncryptionParameters{
 					CipherSuite: suite2,
+					BlockSize:   (4 * memory.KiB).Int32(),
 				},
+			}
+			// TODO: we shouldn't have to do this
+			bucketCfg.Volatile.RedundancyScheme = storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      1024,
+				RequiredShares: 4,
+				RepairShares:   6,
+				OptimalShares:  8,
+				TotalShares:    10,
 			}
 			f(&bucketCfg)
 		}
@@ -238,7 +250,6 @@ func testEachBucketConfig(t *testing.T, f func(*uplink.BucketConfig)) {
 }
 
 func newGoBucket(cBucket *CBucket) storj.Bucket {
-
 	// NB: static code analysis tools can't dereference dynamic types
 	params := cBucket.encryption_parameters
 	scheme := cBucket.redundancy_scheme
@@ -330,15 +341,15 @@ func newGoObjectMeta(t *testing.T, cObj *C.ObjectMeta_t) uplink.ObjectMeta {
 	}
 
 	return uplink.ObjectMeta{
-		Bucket: C.GoString(cObj.Bucket),
-		Path: C.GoString(cObj.Path),
-		IsPrefix: bool(cObj.IsPrefix),
+		Bucket:      C.GoString(cObj.Bucket),
+		Path:        C.GoString(cObj.Path),
+		IsPrefix:    bool(cObj.IsPrefix),
 		ContentType: C.GoString(cObj.ContentType),
-		Metadata: metadata.m,
-		Created: time.Unix(0, int64(cObj.Created)).UTC(),
-		Modified: time.Unix(0, int64(cObj.Modified)).UTC(),
-		Expires: time.Unix(0, int64(cObj.Expires)).UTC(),
-		Size: int64(cObj.Size),
-		Checksum: checksum,
+		Metadata:    metadata.m,
+		Created:     time.Unix(0, int64(cObj.Created)).UTC(),
+		Modified:    time.Unix(0, int64(cObj.Modified)).UTC(),
+		Expires:     time.Unix(0, int64(cObj.Expires)).UTC(),
+		Size:        int64(cObj.Size),
+		Checksum:    checksum,
 	}
 }
