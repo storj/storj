@@ -7,13 +7,11 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
-
-// TODO(kaloyan): Make this configurable
-const maxReverifyCount = 3
 
 type reporter interface {
 	RecordAudits(ctx context.Context, req *Report) (failed *Report, err error)
@@ -21,9 +19,11 @@ type reporter interface {
 
 // Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
-	overlay     *overlay.Cache
-	containment Containment
-	maxRetries  int
+	log              *zap.Logger
+	overlay          *overlay.Cache
+	containment      Containment
+	maxRetries       int
+	maxReverifyCount int32
 }
 
 // Report contains audit result lists for nodes that succeeded, failed, were offline, or have pending audits
@@ -35,12 +35,18 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(overlay *overlay.Cache, containment Containment, maxRetries int) *Reporter {
-	return &Reporter{overlay: overlay, containment: containment, maxRetries: maxRetries}
+func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
+	return &Reporter{
+		log:              log,
+		overlay:          overlay,
+		containment:      containment,
+		maxRetries:       maxRetries,
+		maxReverifyCount: maxReverifyCount}
 }
 
 // RecordAudits saves audit details to overlay
 func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if req == nil {
 		return nil, nil
 	}
@@ -50,11 +56,18 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
 
+	reporter.log.Debug("Reporting audits",
+		zap.Int("successes", len(successes)),
+		zap.Int("failures", len(fails)),
+		zap.Int("offlines", len(offlines)),
+		zap.Int("pending", len(pendingAudits)),
+	)
+
 	var errlist errs.Group
 
 	retries := 0
 	for retries < reporter.maxRetries {
-		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 {
+		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
 			return nil, nil
 		}
 
@@ -102,6 +115,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range failedAuditNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -129,6 +143,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 
 // recordOfflineStatus updates nodeIDs in overlay with isup=false
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range offlineNodeIDs {
 		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
@@ -145,6 +160,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range successNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -172,9 +188,10 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 
 // recordPendingAudits updates the containment status of nodes with pending audits
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, pendingAudit := range pendingAudits {
-		if pendingAudit.ReverifyCount < maxReverifyCount {
+		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {
 			err := reporter.containment.IncrementPending(ctx, pendingAudit)
 			if err != nil {
 				failed = append(failed, pendingAudit)

@@ -4,10 +4,16 @@
 # max number of times to attempt updating a statdb batch
 # audit.max-retries-stat-db: 3
 
+# limit above which we consider an audit is failed
+# audit.max-reverify-count: 3
+
 # the minimum acceptable bytes that storage nodes can transfer per second to the satellite
 # audit.min-bytes-per-second: 128 B
 
-# how frequently checker should audit segments
+# the minimum duration for downloading a share from storage nodes before timing out
+# audit.min-download-timeout: 5s
+
+# how frequently checker should check for bad segments
 # checker.interval: 30s
 
 # how frequently irrepairable checker should check for lost pieces
@@ -28,8 +34,20 @@
 # path to static resources
 # console.static-dir: ""
 
+# stripe api key
+# console.stripe-key: ""
+
 # satellite database connection string
 # database: "postgres://"
+
+# Maximum Database Connection Lifetime, -1ns means the stdlib default
+# db.conn_max_lifetime: -1ns
+
+# Maximum Amount of Idle Database connections, -1 means the stdlib default
+# db.max_idle_conns: 20
+
+# Maximum Amount of Open Database connections, -1 means the stdlib default
+# db.max_open_conns: 25
 
 # address to listen on for debug endpoints
 # debug.addr: "127.0.0.1:0"
@@ -42,9 +60,6 @@ defaults: "release"
 
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
-
-# the interval at which the the graveyard tries to resurrect nodes
-# discovery.graveyard-interval: 30s
 
 # the interval at which the cache refreshes itself in seconds
 # discovery.refresh-interval: 1s
@@ -85,7 +100,7 @@ kademlia.external-address: ""
 # operator email address
 kademlia.operator.email: ""
 
-# operator wallet adress
+# operator wallet address
 kademlia.operator.wallet: ""
 
 # size of Kademlia replacement cache
@@ -164,7 +179,7 @@ kademlia.operator.wallet: ""
 # metrics.app: "satellite"
 
 # application suffix
-# metrics.app-suffix: "-dev"
+# metrics.app-suffix: "-release"
 
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
@@ -190,13 +205,49 @@ kademlia.operator.wallet: ""
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 1h0m0s
 
+# the initial shape 'alpha' used to calculate audit SNs reputation
+# overlay.node.reputation-audit-alpha0: 1
+
+# the initial shape 'beta' value used to calculate audit SNs reputation
+# overlay.node.reputation-audit-beta0: 0
+
+# the forgetting factor used to calculate the audit SNs reputation
+# overlay.node.reputation-audit-lambda: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# overlay.node.reputation-audit-omega: 1
+
+# weight to apply to audit reputation for total repair reputation calculation
+# overlay.node.reputation-audit-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# overlay.node.reputation-audit-uplink-weight: 1
+
+# the initial shape 'alpha' used to calculate uptime SNs reputation
+# overlay.node.reputation-uptime-alpha0: 1
+
+# the initial shape 'beta' value used to calculate uptime SNs reputation
+# overlay.node.reputation-uptime-beta0: 0
+
+# the forgetting factor used to calculate the uptime SNs reputation
+# overlay.node.reputation-uptime-lambda: 1
+
+# the normalization weight used to calculate the uptime SNs reputation
+# overlay.node.reputation-uptime-omega: 1
+
+# weight to apply to uptime reputation for total repair reputation calculation
+# overlay.node.reputation-uptime-repair-weight: 1
+
+# weight to apply to uptime reputation for total uplink reputation calculation
+# overlay.node.reputation-uptime-uplink-weight: 1
+
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 500
 
 # a node's ratio of being up/online vs. down/offline
 # overlay.node.uptime-ratio: 0.9
 
-# how frequently checker should audit segments
+# how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
@@ -219,6 +270,9 @@ kademlia.operator.wallet: ""
 
 # public address to listen on
 server.address: ":7777"
+
+# log all GRPC traffic to zap logger
+server.debug-log-traffic: false
 
 # if true, client leaves may contain the most recent certificate revocation for the current certificate
 # server.extensions.revocation: true

@@ -45,7 +45,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.16.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.0
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -90,11 +90,6 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
-.PHONY: test-satellite-cfg-change
-test-satellite-cfg-change: ## Test if the satellite config file has changed (jenkins)
-	@echo "Running ${@}"
-	@cd scripts; ./test-satellite-cfg-change.sh
-
 .PHONY: test-certificate-signing
 test-certificate-signing: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"
@@ -104,6 +99,11 @@ test-certificate-signing: ## Test certificate signing service and storagenode se
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
+
+.PHONY: check-satellite-config-lock
+check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
+	@echo "Running ${@}"
+	@cd scripts; ./check-satellite-config-lock.sh
 
 .PHONY: all-in-one
 all-in-one: ## Deploy docker images with one storagenode locally
@@ -284,8 +284,8 @@ test-docker-clean: ## Clean up Docker environment used in test-docker target
 
 ##@ Tooling
 
-.PHONY: update-satellite-cfg-lock
-update-satellite-cfg-lock: ## Update the satellite config lock file
+.PHONY: update-satellite-config-lock
+update-satellite-config-lock: ## Update the satellite config lock file
 	@docker run -ti --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
 		-v $(shell pwd):/storj \
@@ -293,4 +293,4 @@ update-satellite-cfg-lock: ## Update the satellite config lock file
 		-e "GOCACHE=/go-cache" \
 		-u root:root \
 		golang:${GO_VERSION} \
-		/bin/bash -c "cd /storj/scripts; ./update-satellite-cfg-lock.sh"
+		/bin/bash -c "cd /storj/scripts; ./update-satellite-config-lock.sh"

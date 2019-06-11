@@ -53,8 +53,8 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accountin
 
 // Run the tally service loop
 func (t *Service) Run(ctx context.Context) (err error) {
-	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+	t.logger.Info("Tally service starting up")
 
 	for {
 		if err = t.Tally(ctx); err != nil {
@@ -69,7 +69,8 @@ func (t *Service) Run(ctx context.Context) (err error) {
 }
 
 // Tally calculates data-at-rest usage once
-func (t *Service) Tally(ctx context.Context) error {
+func (t *Service) Tally(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// The live accounting store will only keep a delta to space used relative
 	// to the latest tally. Since a new tally is beginning, we will zero it out
 	// now. There is a window between this call and the point where the tally DB
@@ -116,10 +117,10 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	var bucketCount int64
 	var totalTallies, currentBucketTally accounting.BucketTally
 
-	err = t.metainfo.Iterate("", "", true, false,
-		func(it storage.Iterator) error {
+	err = t.metainfo.Iterate(ctx, "", "", true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)

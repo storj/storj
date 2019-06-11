@@ -6,6 +6,12 @@ package auth
 import (
 	"context"
 	"crypto/subtle"
+
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // The key type is unexported to prevent collisions with context keys defined in
@@ -27,13 +33,14 @@ func GetAPIKey(ctx context.Context) ([]byte, bool) {
 }
 
 // ValidateAPIKey compares the context api key with the key passed in as an argument
-func ValidateAPIKey(ctx context.Context, actualKey []byte) error {
+func ValidateAPIKey(ctx context.Context, actualKey []byte) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	expectedKey, ok := GetAPIKey(ctx)
 	if !ok {
 		return Error.New("Could not get api key from context")
 	}
 
-	matches := (1 == subtle.ConstantTimeCompare(actualKey, expectedKey))
+	matches := 1 == subtle.ConstantTimeCompare(actualKey, expectedKey)
 	if !matches {
 		return Error.New("Invalid API credential")
 	}

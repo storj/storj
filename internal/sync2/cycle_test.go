@@ -155,3 +155,29 @@ func TestCycle_Close_NotStarted(t *testing.T) {
 	cycle := sync2.NewCycle(time.Second)
 	cycle.Close()
 }
+
+func TestCycle_Stop_EnsureLoopIsFinished(t *testing.T) {
+	t.Parallel()
+
+	cycle := sync2.NewCycle(time.Second)
+	defer cycle.Close()
+
+	ctx := context.Background()
+
+	var completed int64
+	started := make(chan int)
+
+	go func() {
+		_ = cycle.Run(ctx, func(_ context.Context) error {
+			close(started)
+			time.Sleep(1 * time.Second)
+			atomic.StoreInt64(&completed, 1)
+			return nil
+		})
+	}()
+
+	<-started
+	cycle.Stop()
+
+	require.Equal(t, atomic.LoadInt64(&completed), int64(1))
+}

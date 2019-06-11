@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
@@ -30,6 +31,11 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/storagenode/vouchers"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // DB is the master database for Storage Node
@@ -46,6 +52,7 @@ type DB interface {
 	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
+	Vouchers() vouchers.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
@@ -206,6 +213,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			config.Storage.AllocatedBandwidth.Int64(),
 			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
+			config.Storage2.Monitor,
 		)
 
 		peer.Storage2.Endpoint, err = piecestore.NewEndpoint(
@@ -243,13 +251,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 	}
 
-	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), config.Collector)
+	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
 	return peer, nil
 }
 
 // Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {

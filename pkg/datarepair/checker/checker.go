@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
@@ -30,7 +31,7 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval            time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"15s" devDefault:"0h0m5s"`
 }
 
@@ -53,6 +54,7 @@ type Checker struct {
 	logger          *zap.Logger
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
+	monStats        durabilityStats
 }
 
 // NewChecker creates a new instance of checker
@@ -67,6 +69,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		logger:          logger,
 		Loop:            *sync2.NewCycle(repairInterval),
 		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
+		monStats:        durabilityStats{},
 	}
 	return checker
 }
@@ -75,34 +78,17 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	c := make(chan error)
+	group, ctx := errgroup.WithContext(ctx)
 
-	go func() {
-		c <- checker.Loop.Run(ctx, func(ctx context.Context) error {
-			err := checker.IdentifyInjuredSegments(ctx)
-			if err != nil {
-				checker.logger.Error("error with injured segments identification: ", zap.Error(err))
-			}
-			return nil
-		})
-	}()
+	group.Go(func() error {
+		return checker.Loop.Run(ctx, checker.IdentifyInjuredSegments)
+	})
 
-	go func() {
-		c <- checker.IrreparableLoop.Run(ctx, func(ctx context.Context) error {
-			err := checker.IrreparableProcess(ctx)
-			if err != nil {
-				checker.logger.Error("error with irreparable segments identification", zap.Error(err))
-			}
-			return nil
-		})
-	}()
+	group.Go(func() error {
+		return checker.IrreparableLoop.Run(ctx, checker.IrreparableProcess)
+	})
 
-	for err := range c {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	return group.Wait()
 }
 
 // Close halts the Checker loop
@@ -115,29 +101,30 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var monStats durabilityStats
-
-	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
-		func(it storage.Iterator) error {
+	err = checker.metainfo.Iterate(ctx, "", checker.lastChecked, true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
 			defer func() {
 				var nextItem storage.ListItem
-				it.Next(&nextItem)
+				it.Next(ctx, &nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
 				// if we have finished iterating, send and reset durability stats
 				if checker.lastChecked == "" {
 					// send durability stats
-					mon.IntVal("remote_files_checked").Observe(monStats.remoteFilesChecked)
-					mon.IntVal("remote_segments_checked").Observe(monStats.remoteSegmentsChecked)
-					mon.IntVal("remote_segments_needing_repair").Observe(monStats.remoteSegmentsNeedingRepair)
-					mon.IntVal("remote_segments_lost").Observe(monStats.remoteSegmentsLost)
-					mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
+					mon.IntVal("remote_files_checked").Observe(checker.monStats.remoteFilesChecked)
+					mon.IntVal("remote_segments_checked").Observe(checker.monStats.remoteSegmentsChecked)
+					mon.IntVal("remote_segments_needing_repair").Observe(checker.monStats.remoteSegmentsNeedingRepair)
+					mon.IntVal("remote_segments_lost").Observe(checker.monStats.remoteSegmentsLost)
+					mon.IntVal("remote_files_lost").Observe(int64(len(checker.monStats.remoteSegmentInfo)))
+
+					// reset durability stats for next iteration
+					checker.monStats = durabilityStats{}
 				}
 			}()
 
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -145,7 +132,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &monStats)
+				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
 					return err
 				}
@@ -171,6 +158,7 @@ func contains(a []string, x string) bool {
 }
 
 func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
 	if remote == nil {
 		return nil
@@ -253,7 +241,6 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 
 	limit := 1
 	var offset int64
-	var monStats durabilityStats
 
 	for {
 		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
@@ -266,18 +253,12 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &monStats)
+		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
 		if err != nil {
 			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 		}
 		offset++
 	}
-	// send durability stats
-	mon.IntVal("remote_files_checked").Observe(monStats.remoteFilesChecked)
-	mon.IntVal("remote_segments_checked").Observe(monStats.remoteSegmentsChecked)
-	mon.IntVal("remote_segments_needing_repair").Observe(monStats.remoteSegmentsNeedingRepair)
-	mon.IntVal("remote_segments_lost").Observe(monStats.remoteSegmentsLost)
-	mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
 
 	return nil
 }

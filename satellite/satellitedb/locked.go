@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -37,54 +37,6 @@ type locked struct {
 // newLocked returns database wrapped with locker.
 func newLocked(db satellite.DB) satellite.DB {
 	return &locked{&sync.Mutex{}, db}
-}
-
-// BandwidthAgreement returns database for storing bandwidth agreements
-func (m *locked) BandwidthAgreement() bwagreement.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedBandwidthAgreement{m.Locker, m.db.BandwidthAgreement()}
-}
-
-// lockedBandwidthAgreement implements locking wrapper for bwagreement.DB
-type lockedBandwidthAgreement struct {
-	sync.Locker
-	db bwagreement.DB
-}
-
-// DeleteExpired deletes orders that are expired and were created before some time
-func (m *lockedBandwidthAgreement) DeleteExpired(ctx context.Context, a1 time.Time, a2 time.Time) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.DeleteExpired(ctx, a1, a2)
-}
-
-// GetExpired gets orders that are expired and were created before some time
-func (m *lockedBandwidthAgreement) GetExpired(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.SavedOrder, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetExpired(ctx, a1, a2)
-}
-
-// GetTotalsSince returns the sum of each bandwidth type after (exluding) a given date range
-func (m *lockedBandwidthAgreement) GetTotals(ctx context.Context, a1 time.Time, a2 time.Time) (map[storj.NodeID][]int64, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetTotals(ctx, a1, a2)
-}
-
-// GetTotals returns stats about an uplink
-func (m *lockedBandwidthAgreement) GetUplinkStats(ctx context.Context, a1 time.Time, a2 time.Time) ([]bwagreement.UplinkStat, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetUplinkStats(ctx, a1, a2)
-}
-
-// SaveOrder saves an order for accounting
-func (m *lockedBandwidthAgreement) SaveOrder(ctx context.Context, a1 *pb.RenterBandwidthAllocation) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.SaveOrder(ctx, a1)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -226,6 +178,37 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
+// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
+func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
+}
+
+// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
+type lockedProjectInvoiceStamps struct {
+	sync.Locker
+	db console.ProjectInvoiceStamps
+}
+
+func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, stamp)
+}
+
+func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAll(ctx, projectID)
+}
+
+func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
+}
+
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -267,6 +250,37 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	return m.db.Insert(ctx, memberID, projectID)
 }
 
+// ProjectPayments is a getter for ProjectPayments repository
+func (m *lockedConsole) ProjectPayments() console.ProjectPayments {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
+}
+
+// lockedProjectPayments implements locking wrapper for console.ProjectPayments
+type lockedProjectPayments struct {
+	sync.Locker
+	db console.ProjectPayments
+}
+
+func (m *lockedProjectPayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByPayerID(ctx, payerID)
+}
+
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectID(ctx, projectID)
+}
+
 // Projects is a getter for Projects repository
 func (m *lockedConsole) Projects() console.Projects {
 	m.Lock()
@@ -306,6 +320,13 @@ func (m *lockedProjects) GetByUserID(ctx context.Context, userID uuid.UUID) ([]c
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByUserID(ctx, userID)
+}
+
+// GetCreatedBefore retrieves all projects created before provided date
+func (m *lockedProjects) GetCreatedBefore(ctx context.Context, before time.Time) ([]console.Project, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCreatedBefore(ctx, before)
 }
 
 // Insert is a method for inserting project into the database.
@@ -433,6 +454,31 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
+}
+
+// UserPayments is a getter for UserPayments repository
+func (m *lockedConsole) UserPayments() console.UserPayments {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
+}
+
+// lockedUserPayments implements locking wrapper for console.UserPayments
+type lockedUserPayments struct {
+	sync.Locker
+	db console.UserPayments
+}
+
+func (m *lockedUserPayments) Create(ctx context.Context, info console.UserPayment) (*console.UserPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, userID)
 }
 
 // Users is a getter for Users repository
@@ -576,6 +622,55 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
+// Marketing returns database for marketing admin GUI
+func (m *locked) Marketing() marketing.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedMarketing{m.Locker, m.db.Marketing()}
+}
+
+// lockedMarketing implements locking wrapper for marketing.DB
+type lockedMarketing struct {
+	sync.Locker
+	db marketing.DB
+}
+
+func (m *lockedMarketing) Offers() marketing.Offers {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedOffers{m.Locker, m.db.Offers()}
+}
+
+// lockedOffers implements locking wrapper for marketing.Offers
+type lockedOffers struct {
+	sync.Locker
+	db marketing.Offers
+}
+
+func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, offer)
+}
+
+func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCurrentByType(ctx, offerType)
+}
+
+func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListAll(ctx)
+}
+
+func (m *lockedOffers) Update(ctx context.Context, offer *marketing.UpdateOffer) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, offer)
+}
+
 // Orders returns database for orders
 func (m *locked) Orders() orders.DB {
 	m.Lock()
@@ -638,11 +733,11 @@ func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID
 	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
 }
 
-// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount, intervalStart)
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNodes, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
@@ -686,6 +781,13 @@ func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*ove
 	return m.db.Get(ctx, nodeID)
 }
 
+// IsVetted returns whether or not the node reaches reputable thresholds
+func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.IsVetted(ctx, id, criteria)
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
@@ -698,13 +800,6 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
-}
-
-// VetNode returns whether or not the node reaches reputable thresholds
-func (m *lockedOverlayCache) VetNode(ctx context.Context, id storj.NodeID, criteria *overlay.NodeCriteria) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.VetNode(ctx, id, criteria)
 }
 
 // SelectNewStorageNodes looks up nodes based on new node criteria

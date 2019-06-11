@@ -246,14 +246,27 @@ func cleanup(cmd *cobra.Command) {
 			}
 		}
 
-		// Filter the missing keys by removing ones that were used and ones that are flags.
-		for key := range usedKeys {
-			delete(missingKeys, key)
-		}
 		for key := range missingKeys {
-			if cmd.Flags().Lookup(key) != nil {
+			// A key is only missing if it was missing from every single config struct, so
+			// remove all of the used keys from it.
+			if _, ok := usedKeys[key]; ok {
 				delete(missingKeys, key)
+				continue
 			}
+
+			// Attempt to set through the flags any keys that were missing from all of the
+			// config structs.
+			flag := cmd.Flags().Lookup(key)
+			if flag == nil {
+				continue
+			}
+
+			changed := flag.Changed
+			if err := flag.Value.Set(vip.GetString(key)); err != nil {
+				brokenKeys[key] = struct{}{}
+			}
+			flag.Changed = changed
+			delete(missingKeys, key)
 		}
 
 		logger, err := newLogger()
