@@ -25,22 +25,26 @@ int main(int argc, char *argv[])
         require_noerror(*err);
         require(uplink._handle != 0, "got empty uplink\n");
 
-        // parse api key
-        APIKey apikey = ParseAPIKey(apikeyStr, err);
-        require_noerror(*err);
-        require(apikey._handle != 0, "got empty apikey\n");
+        {
+            // parse api key
+            APIKey apikey = ParseAPIKey(apikeyStr, err);
+            require_noerror(*err);
+            require(apikey._handle != 0, "got empty apikey\n");
 
-        // open a project
-        Project project = OpenProject(uplink, satellite_addr, apikey, err);
-        require_noerror(*err);
-        require(project._handle != 0, "got empty project\n");
+            {
+                // open a project
+                Project project = OpenProject(uplink, satellite_addr, apikey, err);
+                require_noerror(*err);
+                require(project._handle != 0, "got empty project\n");
 
-        // free api key
-        FreeAPIKey(apikey);
+                // close project
+                CloseProject(project, err);
+                require_noerror(*err);
+            }
 
-        // close project
-        CloseProject(project, err);
-        require_noerror(*err);
+            // free api key
+            FreeAPIKey(apikey);
+        }
 
         // Close uplinks
         CloseUplink(uplink, err);
