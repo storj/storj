@@ -7,17 +7,9 @@ package main
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct APIKey { long _ref; } APIKey;
-typedef struct Uplink { long _ref; } Uplink;
-typedef struct UplinkConfig { long _ref; } UplinkConfig;
-typedef struct Project { long _ref; } Project;
-
-// TODO: Add free functions for each struct
-
-typedef struct Bytes {
-	uint8_t *bytes;
-	int32_t length;
-} Bytes;
+typedef struct APIKey       { long _ref; } APIKey;
+typedef struct Uplink       { long _ref; } Uplink;
+typedef struct Project      { long _ref; } Project;
 
 typedef struct IDVersion {
 	uint16_t number;
