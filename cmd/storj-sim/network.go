@@ -48,6 +48,7 @@ const (
 	publicGRPC  = 0
 	privateGRPC = 1
 	publicHTTP  = 2
+	privateHTTP = 3
 	debugHTTP   = 9
 )
 
@@ -268,6 +269,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				// TODO: remove console.auth-token after vanguard release
 				"--console.auth-token", consoleAuthToken,
+				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
+				"--marketing.static-dir", filepath.Join(storjRoot, "satellite/marketing/marketingweb/static/"),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateGRPC)),
 
@@ -279,7 +282,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--mail.smtp-server-address", "smtp.gmail.com:587",
 				"--mail.from", "Storj <yaroslav-satellite-test@storj.io>",
 				"--mail.template-path", filepath.Join(storjRoot, "web/satellite/static/emails"),
-
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)),
 			},
@@ -313,7 +315,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.WaitForStart(satellite)
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
-				"--non-interactive=true",
+				"--non-interactive",
+
+				"--enc.encryption-key=TestEncryptionKey",
+
 				"--identity-dir", process.Directory,
 				"--satellite-addr", satellite.Address,
 
@@ -331,9 +336,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
-			"run": {
-				"--enc.encryption-key=TestEncryptionKey",
-			},
+			"run": {},
 		})
 
 		process.ExecBefore["run"] = func(process *Process) error {
@@ -423,6 +426,9 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--kademlia.bootstrap-addr", bootstrap.Address,
 				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
+
+				"--storage2.monitor.minimum-disk-space", "25GB",
+				"--storage2.monitor.minimum-bandwidth", "25GB",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
