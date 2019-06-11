@@ -36,36 +36,34 @@ typedef struct RedundancyScheme {
     int16_t total_shares;
 } RedundancyScheme;
 
-typedef struct Bucket {
-    EncryptionParameters_t encryption_parameters;
-    RedundancyScheme_t redundancy_scheme;
+typedef struct BucketInfo {
     char    *name;
+
     int64_t created;
     uint8_t path_cipher;
     int64_t segment_size;
-} Bucket;
 
-typedef struct BucketConfig {
-    EncryptionParameters_t encryption_parameters;
-    RedundancyScheme_t redundancy_scheme;
-    uint8_t path_cipher;
-} BucketConfig;
-
-typedef struct BucketInfo {
-    Bucket_t bucket;
-    BucketConfig_t config;
+    EncryptionParameters encryption_parameters;
+    RedundancyScheme     redundancy_scheme;
 } BucketInfo;
 
+typedef struct BucketConfig {
+    uint8_t path_cipher;
+
+    EncryptionParameters encryption_parameters;
+    RedundancyScheme     redundancy_scheme;
+} BucketConfig;
+
 typedef struct BucketListOptions {
-    char *cursor;
-    int8_t direction;
+    char    *cursor;
+    int8_t  direction;
     int64_t limit;
 } BucketListOptions;
 
 typedef struct BucketList {
-    bool more;
+    bool      more;
     Bucket_t *items;
-    int32_t length;
+    int32_t   length;
 } BucketList;
 
 typedef struct Object {
@@ -90,7 +88,7 @@ typedef struct ObjectList {
 } ObjectList;
 
 typedef struct EncryptionAccess {
-    Bytes_t *key;
+    char key[32];
 } EncryptionAccess;
 
 typedef struct UploadOptions {
@@ -118,5 +116,5 @@ typedef struct ObjectMeta {
     uint64_t Modified;
     uint64_t Expires;
     uint64_t Size;
-    Bytes_t Checksum;
+    Bytes    Checksum;
 } ObjectMeta;
