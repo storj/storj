@@ -9,12 +9,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
 
-func newBucketStore(bucket string, key storj.Key) *Store {
+func newStore(key storj.Key) *Store {
 	store := NewStore()
-	store.Add(storj.NewUnencryptedPath("").WithBucket(bucket), storj.NewEncryptedPath(""), key)
+	store.Add(paths.NewUnencrypted(""), paths.NewEncrypted(""), key)
 	return store
 }
 
@@ -34,20 +35,20 @@ func TestEncryption(t *testing.T) {
 
 			var key storj.Key
 			copy(key[:], randData(storj.KeySize))
-			store := newBucketStore("b", key)
-			bucketPath := storj.NewUnencryptedPath(rawPath).WithBucket("b")
+			store := newStore(key)
+			path := paths.NewUnencrypted(rawPath)
 
-			encBucketPath, err := EncryptBucketPath(bucketPath, cipher, store)
+			encPath, err := EncryptPath(path, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			decBucketPath, err := DecryptBucketPath(encBucketPath, cipher, store)
+			decPath, err := DecryptPath(encPath, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			assert.Equal(t, rawPath, decBucketPath.Path().Raw(), errTag)
+			assert.Equal(t, rawPath, decPath.Raw(), errTag)
 		}
 	})
 }

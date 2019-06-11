@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/paths"
 )
 
 var (
@@ -37,7 +38,7 @@ type Bucket struct {
 type Object struct {
 	Version  uint32
 	Bucket   Bucket
-	Path     UnencryptedPath
+	Path     paths.Unencrypted
 	IsPrefix bool
 
 	Metadata map[string]string

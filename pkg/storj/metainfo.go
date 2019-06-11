@@ -6,6 +6,8 @@ package storj
 import (
 	"context"
 	"time"
+
+	"storj.io/storj/pkg/paths"
 )
 
 // Metainfo represents a database for storing meta-info about objects
@@ -24,21 +26,21 @@ type Metainfo interface {
 	ListBuckets(ctx context.Context, options BucketListOptions) (BucketList, error)
 
 	// GetObject returns information about an object
-	GetObject(ctx context.Context, bucketPath UnencryptedBucketPath) (Object, error)
+	GetObject(ctx context.Context, bucket string, path paths.Unencrypted) (Object, error)
 	// GetObjectStream returns interface for reading the object stream
-	GetObjectStream(ctx context.Context, bucketPath UnencryptedBucketPath) (ReadOnlyStream, error)
+	GetObjectStream(ctx context.Context, bucket string, path paths.Unencrypted) (ReadOnlyStream, error)
 
 	// CreateObject creates a mutable object for uploading stream info
-	CreateObject(ctx context.Context, bucketPath UnencryptedBucketPath, info *CreateObject) (MutableObject, error)
+	CreateObject(ctx context.Context, bucket string, path paths.Unencrypted, info *CreateObject) (MutableObject, error)
 	// ModifyObject creates a mutable object for updating a partially uploaded object
-	ModifyObject(ctx context.Context, bucketPath UnencryptedBucketPath) (MutableObject, error)
+	ModifyObject(ctx context.Context, bucket string, path paths.Unencrypted) (MutableObject, error)
 	// DeleteObject deletes an object from database
-	DeleteObject(ctx context.Context, bucketPath UnencryptedBucketPath) error
+	DeleteObject(ctx context.Context, bucket string, path paths.Unencrypted) error
 	// ListObjects lists objects in bucket based on the ListOptions
 	ListObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 
 	// ModifyPendingObject creates a mutable object for updating a partially uploaded object
-	ModifyPendingObject(ctx context.Context, bucketPath UnencryptedBucketPath) (MutableObject, error)
+	ModifyPendingObject(ctx context.Context, bucket string, path paths.Unencrypted) (MutableObject, error)
 	// ListPendingObjects lists pending objects in bucket based on the ListOptions
 	ListPendingObjects(ctx context.Context, bucket string, options ListOptions) (ObjectList, error)
 }
@@ -54,7 +56,7 @@ type CreateObject struct {
 }
 
 // Object converts the CreateObject to an object with unitialized values
-func (create CreateObject) Object(bucket Bucket, path UnencryptedPath) Object {
+func (create CreateObject) Object(bucket Bucket, path paths.Unencrypted) Object {
 	return Object{
 		Bucket:      bucket,
 		Path:        path,

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storj
+package paths
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPathIterator(t *testing.T) {
+func TestIterator(t *testing.T) {
 	for i, tt := range []struct {
 		path  string
 		comps []string
@@ -25,11 +25,10 @@ func TestPathIterator(t *testing.T) {
 		{"///a//b////c/d///", []string{"", "", "", "a", "", "b", "", "", "", "c", "d", "", "", ""}},
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
-		iter, got := PathIterator{raw: tt.path}, make([]string, 0, len(tt.comps))
+		iter, got := Iterator{raw: tt.path}, make([]string, 0, len(tt.comps))
 		for !iter.Done() {
 			got = append(got, iter.Next())
 		}
 		assert.Equal(t, tt.comps, got, errTag)
 	}
 }
-

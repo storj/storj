@@ -5,6 +5,7 @@ package encryption
 
 import (
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -14,23 +15,21 @@ import (
 //
 // For example, if the Store contains the mappings
 //
-//    b1, u1/u2/u3    => <e1/e2/e3, k3>
-//    b1, u1/u2/u3/u4 => <e1/e2/e3/e4, k4>
-//    b1, u1/u5       => <e1/e5, k5>
-//    b1, u6          => <e6, k6>
-//    b1, u6/u7/u8    => <e6/e7/e8, k8>
-//    b2, u1          => <e1, k1>
+//    u1/u2/u3    => <e1/e2/e3, k3>
+//    u1/u2/u3/u4 => <e1/e2/e3/e4, k4>
+//    u1/u5       => <e1/e5, k5>
+//    u6          => <e6, k6>
+//    u6/u7/u8    => <e6/e7/e8, k8>
 //
 // Then the following lookups have outputs
 //
-//    b1, u1          => <{e2:u2, e5:u5}, u1, nil>
-//    b1, u1/u2/u3    => <{e4:u4}, u1/u2/u3, <e1/e2/e3, k3>>
-//    b1, u1/u2/u3/u6 => <{}, u1/u2/u3/, <e1/e2/e3, k3>>
-//    b1, u1/u2/u3/u4 => <{}, u1/u2/u3/u4, <e1/e2/e3/e4, k4>>
-//    b1, u6/u7       => <{e8:u8}, u6/, <e6, k6>>
-//    b2, u1          => <{}, u1, <e1, k1>>
+//    u1          => <{e2:u2, e5:u5}, u1, nil>
+//    u1/u2/u3    => <{e4:u4}, u1/u2/u3, <e1/e2/e3, k3>>
+//    u1/u2/u3/u6 => <{}, u1/u2/u3/, <e1/e2/e3, k3>>
+//    u1/u2/u3/u4 => <{}, u1/u2/u3/u4, <e1/e2/e3/e4, k4>>
+//    u6/u7       => <{e8:u8}, u6/, <e6, k6>>
 type Store struct {
-	nodes map[string]*node
+	root *node
 }
 
 // node is a node in the Store graph. It may contain an encryption key and encrypted path,
@@ -46,8 +45,8 @@ type node struct {
 
 // Base represents a key with which to derive further keys at some encrypted/unencrypted path.
 type Base struct {
-	Unencrypted storj.UnencryptedPath
-	Encrypted   storj.EncryptedPath
+	Unencrypted paths.Unencrypted
+	Encrypted   paths.Encrypted
 	Key         storj.Key
 }
 
@@ -63,9 +62,7 @@ func (b *Base) clone() *Base {
 
 // NewStore constructs a Store.
 func NewStore() *Store {
-	return &Store{
-		nodes: make(map[string]*node),
-	}
+	return &Store{root: newNode()}
 }
 
 // newNode constructs a node.
@@ -79,23 +76,16 @@ func newNode() *node {
 }
 
 // Add creates a mapping from the unencrypted path to the encrypted path and key.
-func (s *Store) Add(bucketPath storj.UnencryptedBucketPath, enc storj.EncryptedPath, key storj.Key) error {
-	bucket := bucketPath.Bucket()
-	root, ok := s.nodes[bucket]
-	if !ok {
-		root = newNode()
-		s.nodes[bucket] = root
-	}
-
-	return root.add(bucketPath.Path().Iterator(), enc.Iterator(), &Base{
-		Unencrypted: bucketPath.Path(),
+func (s *Store) Add(unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
+	return s.root.add(unenc.Iterator(), enc.Iterator(), &Base{
+		Unencrypted: unenc,
 		Encrypted:   enc,
 		Key:         key,
 	})
 }
 
 // add places the paths and base into the node tree structure.
-func (n *node) add(unenc, enc storj.PathIterator, base *Base) error {
+func (n *node) add(unenc, enc paths.Iterator, base *Base) error {
 	if unenc.Done() != enc.Done() {
 		return errs.New("encrypted and unencrypted paths had different number of components")
 	}
@@ -134,35 +124,25 @@ func (n *node) add(unenc, enc storj.PathIterator, base *Base) error {
 // LookupUnencrypted finds the matching most unencrypted path added to the Store, reports how
 // much of the path matched, any known unencrypted paths at the requested path, and if a key
 // and encrypted path exists for some prefix of the unencrypted path.
-func (s *Store) LookupUnencrypted(bucketPath storj.UnencryptedBucketPath) (
-	revealed map[string]string, consumed storj.UnencryptedPath, base *Base) {
+func (s *Store) LookupUnencrypted(path paths.Unencrypted) (
+	revealed map[string]string, consumed paths.Unencrypted, base *Base) {
 
-	root, ok := s.nodes[bucketPath.Bucket()]
-	if !ok {
-		return nil, storj.UnencryptedPath{}, nil
-	}
-
-	revealed, rawConsumed, base := root.lookup(bucketPath.Path().Iterator(), "", nil, true)
-	return revealed, storj.NewUnencryptedPath(rawConsumed), base.clone()
+	revealed, rawConsumed, base := s.root.lookup(path.Iterator(), "", nil, true)
+	return revealed, paths.NewUnencrypted(rawConsumed), base.clone()
 }
 
 // LookupEncrypted finds the matching most encrypted path added to the Store, reports how
 // much of the path matched, any known encrypted paths at the requested path, and if a key
 // an encrypted path exists for some prefix of the encrypted path.
-func (s *Store) LookupEncrypted(bucketPath storj.EncryptedBucketPath) (
-	revealed map[string]string, consumed storj.EncryptedPath, base *Base) {
+func (s *Store) LookupEncrypted(path paths.Encrypted) (
+	revealed map[string]string, consumed paths.Encrypted, base *Base) {
 
-	root, ok := s.nodes[bucketPath.Bucket()]
-	if !ok {
-		return nil, storj.EncryptedPath{}, nil
-	}
-
-	revealed, rawConsumed, base := root.lookup(bucketPath.Path().Iterator(), "", nil, false)
-	return revealed, storj.NewEncryptedPath(rawConsumed), base.clone()
+	revealed, rawConsumed, base := s.root.lookup(path.Iterator(), "", nil, false)
+	return revealed, paths.NewEncrypted(rawConsumed), base.clone()
 }
 
 // lookup searches for the path in the node tree structure.
-func (n *node) lookup(path storj.PathIterator, bestConsumed string, bestBase *Base, unenc bool) (
+func (n *node) lookup(path paths.Iterator, bestConsumed string, bestBase *Base, unenc bool) (
 	map[string]string, string, *Base) {
 
 	// Keep track of the best match so far.
