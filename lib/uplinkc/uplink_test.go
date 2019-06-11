@@ -14,7 +14,7 @@ import (
 )
 
 func TestUplink(t *testing.T) {
-	var cerr CPChar
+	var cerr Cpchar
 
 	var config CUplinkConfig
 	config.Volatile.TLS.SkipPeerCAWhitelist = 1
@@ -44,7 +44,7 @@ func TestProject(t *testing.T) {
 		var config CUplinkConfig
 		config.Volatile.TLS.SkipPeerCAWhitelist = 1
 
-		var cerr CPChar
+		var cerr Cpchar
 		uplink := NewUplink(config, &cerr)
 		require.Nil(t, cerr)
 		require.NotEmpty(t, uplink)

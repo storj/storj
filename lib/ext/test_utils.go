@@ -36,97 +36,6 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-// C types
-type Cchar = *C.char
-type CUint = C.uint
-type Cint = C.int
-type CUint8 = C.uint8_t
-type Cint64 = C.int64_t
-type Csize_t = C.size_t
-type CBytes_t = C.Bytes_t
-
-const CEOF = C.EOF
-
-// Ref types
-type CAPIKeyRef = C.APIKeyRef_t
-type CUplinkRef = C.UplinkRef_t
-type CProjectRef = C.ProjectRef_t
-type CBucketRef = C.BucketRef_t
-type CBufferRef = C.BufferRef_t
-type CObjectRef = C.ObjectRef_t
-
-// Struct types
-type CBucket = C.Bucket_t
-type CObject = C.Object_t
-type CUploadOptions = C.UploadOptions_t
-
-var (
-	CLibDir, CSrcDir, CTestsDir, LibuplinkSO string
-
-	testConfig = new(uplink.Config)
-	ciphers    = []storj.CipherSuite{storj.EncNull, storj.EncAESGCM, storj.EncSecretBox}
-)
-
-func init() {
-	// TODO: is there a cleaner way to do this?
-	_, thisFile, _, _ := runtime.Caller(0)
-	CLibDir = filepath.Join(filepath.Dir(thisFile), "c")
-	CSrcDir = filepath.Join(CLibDir, "src")
-	CTestsDir = filepath.Join(CLibDir, "tests")
-	LibuplinkSO = filepath.Join(CLibDir, "..", "uplink-cgo.so")
-
-	testConfig.Volatile.TLS.SkipPeerCAWhitelist = true
-}
-
-func TempFile(data []byte) *File {
-	f := (*File)(C.tmpfile())
-
-	if len(data) > 0 {
-		f.Write(data)
-		f.Seek(0, 0)
-	}
-
-	return f
-}
-
-func runCTests(t *testing.T, ctx *testcontext.Context, envVars []string, srcGlobs ...string) {
-	srcGlobs = append([]string{
-		LibuplinkSO,
-		filepath.Join(CTestsDir, "unity.c"),
-		filepath.Join(CTestsDir, "helpers.c"),
-		filepath.Join(CSrcDir, "*.c"),
-	}, srcGlobs...)
-	testBinPath := ctx.CompileC(srcGlobs...)
-
-	if dir, ok := os.LookupEnv("STORJ_C_TEST_BIN_DIR"); ok {
-		err := copyFile(testBinPath, filepath.Join(dir, t.Name()))
-		require.NoError(t, err)
-	}
-
-	cmd := exec.Command(testBinPath)
-	cmd.Env = append(os.Environ(), envVars...)
-
-	out, err := cmd.CombinedOutput()
-	t.Log(string(out))
-	require.NoError(t, err)
-}
-
-func copyFile(src, dest string) error {
-	input, err := ioutil.ReadFile(src)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(dest, input, 0755)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars ...string) {
-	runCTests(t, ctx, envVars, filename)
-}
 
 func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet {
 	planet, err := testplanet.NewCustom(
@@ -321,10 +230,6 @@ func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
 		metadata:     metadataRef,
 		expires:      C.time_t(opts.Expires.Unix()),
 	}
-}
-
-func CGoBytes(ptr unsafe.Pointer, n C.int) []byte {
-	return C.GoBytes(ptr, n)
 }
 
 func newGoObjectMeta(t *testing.T, cObj *C.ObjectMeta_t) uplink.ObjectMeta {

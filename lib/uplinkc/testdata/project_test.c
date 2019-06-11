@@ -1,12 +1,71 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-#include <stdio.h>
-#include <unistd.h>
 #include <string.h>
-#include "unity.h"
-#include "../../uplink-cgo.h"
-#include "helpers.h"
+#include <stdlib.h>
+
+#include "require.h"
+
+#include "uplink.h"
+
+int main(int argc, char *argv[])
+{
+    char *_err = "";
+    char **err = &_err;
+
+    char *satellite_addr = getenv("SATELLITE_0_ADDR");
+    char *apikeyStr = getenv("GATEWAY_0_APIKEY");
+
+    {
+        UplinkConfig cfg = {};
+        cfg.Volatile.TLS.SkipPeerCAWhitelist = 1; // TODO: add CA Whitelist
+
+        // New uplink
+        Uplink uplink = NewUplink(cfg, err);
+        require_noerror(*err);
+        require(uplink._handle != 0, "got empty uplink\n");
+
+        {
+            // parse api key
+            APIKey apikey = ParseAPIKey(apikeyStr, err);
+            require_noerror(*err);
+            require(apikey._handle != 0, "got empty apikey\n");
+
+            {
+                // open a project
+                Project project = OpenProject(uplink, satellite_addr, apikey, err);
+                require_noerror(*err);
+                require(project._handle != 0, "got empty project\n");
+
+                HandleProject(project);
+
+                // close project
+                CloseProject(project, err);
+                require_noerror(*err);
+            }
+
+            // free api key
+            FreeAPIKey(apikey);
+        }
+
+        // Close uplinks
+        CloseUplink(uplink, err);
+        require_noerror(*err);
+    }
+
+    require(internal_UniverseIsEmpty(), "universe is not empty\n");
+}
+
+void HandleProject(Project project) {
+    char *bucket_names[] = {"TestBucket1", "TestBucket2", "TestBucket3", "TestBucket4"};
+    int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
+
+    // Create buckets
+    for (int i=0; i < num_of_buckets; i++) {
+        Bucket *bucket = CreateTestBucket(ref_project, bucket_names[i], err);
+        free(bucket);
+    }
+}
 
 void TestProject(void)
 {
