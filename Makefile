@@ -100,10 +100,6 @@ test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
 
-.PHONY: test-bindings
-test-bindings: libuplink ## Run language binding tests
-	go generate lib/uplink/ext/tests.go
-
 .PHONY: check-satellite-config-lock
 check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
 	@echo "Running ${@}"
@@ -236,7 +232,8 @@ binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspe
 
 .PHONY: libuplink
 libuplink:
-	go generate lib/uplink/ext/main.go
+	go build -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
+	cp storj.io/storj/lib/uplinkc/uplink_definitions.h uplink_definitions.h 
 
 ##@ Deploy
 
