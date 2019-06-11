@@ -100,13 +100,7 @@ The probability of having a false positive depends on the size of the Bloom filt
 - **k**: number of hash functions used
 - **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(-kn/m))^k.
 
-So the optimal number of bits per element is
 
-    m n = − log 2 ⁡ p ln ⁡ 2 ≈ − 1.44 log 2 ⁡ p {\displaystyle {\frac {m}{n}}=-{\frac {\log _{2}p}{\ln 2}}\approx -1.44{\log _{2}p}} {\displaystyle {\frac {m}{n}}=-{\frac {\log _{2}p}{\ln 2}}\approx -1.44{\log _{2}p}}
-
-with the corresponding number of hash functions k (ignoring integrality):
-
-    k = − ln ⁡ p ln ⁡ 2 = − log 2 ⁡ p . {\displaystyle k=-{\frac {\ln p}{\ln 2}}=-{\log _{2}p}.} {\displaystyle k=-{\frac {\ln p}{\ln 2}}=-{\log _{2}p}.}
 | m/n|k|k=1	|k=2	|k=3	|k=4	|k=5	|k=6	|k=7	|k=8
 |---|---|---|---|---|---|---|---|---|---|
 |2	|1.39	|0.393	|0.400	|	 	 |	 |	| |	| 
@@ -159,6 +153,7 @@ Three Bloom filter implementations are considered:
 - **BF1**: Zeebo's bloom filters (github.com/zeebo/sbloom)
 - **BF2**: Willf's Bloom filters (github.com/zeebo/sbloom)
 - **BF3**: Steakknife's Bloom filters (github.com/golang/leveldb/bloom)
+- **BF4**: Custom bloom filter
 
 ### Zeebo's bloom filters
 -Parameters:
@@ -170,7 +165,6 @@ Three Bloom filter implementations are considered:
 - Parameters:
     - **m**: max size in bits
     - **k**: number of hash functions
-- No serialization available
 - hash functions not configurable
 
 ### Steakknife's bloom filters
@@ -178,9 +172,42 @@ Three Bloom filter implementations are considered:
     - **maxElements**: max number of elements in the set
     - **p**: probability of false positive
 - Serialization available
-- murmur3 has function
+- murmur3 hash function
+
+### Custom bloom filter
+- Parameters:
+    - **maxElements**: max number of elements in the set
+    - **p**: probability of false positive
+- The piece id is used as a hash function.
+
 
 ### Benchmark
 We assume a typical storage nodes has 2 TB capacity, and a typical piece is ~2 MB, so we are testing the behavior with 1 million pieces.
 
 We create a list of 1 million piece ids and add 95% of them to the Bloom filter. We then check if the 95% are contained in the set (there should be no false negative) and we evaluate the false positive rate by checking the remaining 5% piece ids.
+
+For each target false positive probability between 1% and 20% and each bloom filter type, we measure the size (in bytes) of the encoded bloom filter and the observed false positive rate.
+
+
+|p|	BF1 size|BF1 real_p| BF2 size|BF2 real_p|BF3 size|BF3 real_p| BF4 size|BF4 real_p|
+|---|	---|	---|	---|	---|	---|	---|	---|	---|
+|0.01|	9437456|	0.01|	1198160|	0.01|	1198264|	0.01|	1250012|	0.01|
+|0.02|	8913247|	0.02|	1017824|	0.02|	1017920|	0.02|	1125012|	0.01|
+|0.03|	8913247|	0.02|	912336|	    0.03|	912432|	0.03|	1000012|	0.02	|
+|0.04|	8389038|	0.03|	837488|	    0.04|	837576|	0.03|	875012|	0.03|
+|0.05|	8389038|	0.03|	779432|	    0.04|	779520|	0.04|	875012|	0.03|
+|0.06|	8389038|	0.03|	732000|	    0.06|	732088|	0.05|	750012|	0.05|
+|0.07|	7864829|	0.06|	691888|	    0.06|	691968|	0.06|	750012|	0.05|
+|0.08|	7864829|	0.06|	657152|	    0.07|	657232|	0.07|	750012|	0.05|
+|0.09|	7864829|	0.06|	626504|	    0.08|	626584|	0.08|	750012|	0.05|
+|0.10|	7864829|	0.06|	599096|	    0.09|	599176|	0.09|	625012|	0.08|
+|0.11|	7864829|	0.06|	574296|	    0.10|	574376|	0.10|	625012|	0.08|
+|0.12|	7864829|	0.06|	551656|	    0.11|	551736|	0.11|	625012|	0.08|
+|0.13|	7340620|	0.12|	530832|	    0.11|	530904|	0.12|	625012|	0.08|
+|0.14|	7340620|	0.12|	511552|	    0.12|	511624|	0.13|	625012|	0.08|
+|0.15|	7340620|	0.12|	493600|	    0.14|	493672|	0.14|	500012|	0.16|
+|0.16|	7340620|	0.12|	476816|	    0.15|	476888|	0.15|	500012|	0.16|
+|0.17|	7340620|	0.12|	461040|	    0.15|	461112|	0.16|	500012|	0.16|
+|0.18|	7340620|	0.12|	446168|	    0.17|	446240|	0.17|	500012|	0.16|
+|0.19|	7340620|    0.12|	432104|	    0.18|	432176|	0.18|	500012|	0.16|
+|0.20|	7340620|	0.12|	418760|	    0.19|	418832|	0.19|	500012|	0.16|

@@ -2,7 +2,6 @@ package filters
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 	"math/big"
 )
@@ -19,9 +18,8 @@ type CustomFilter struct {
 func NewCustomFilter(nbElements int, p float64) *CustomFilter {
 	var cf CustomFilter
 	cf.seed = 8 // TODO allow another seed value
-	cf.nbBitsPerElements = int(-1.44 * math.Log2(p))
+	cf.nbBitsPerElements = int(-1.44*math.Log2(p)) + 1
 	cf.k = int(float64(cf.nbBitsPerElements)*math.Log(2)) + 1
-	fmt.Println(cf.nbBitsPerElements, " ", cf.k)
 	m := (nbElements * cf.nbBitsPerElements) // total number of bits in the array
 	cf.table = make([]byte, m/8)
 	return &cf

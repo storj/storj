@@ -116,9 +116,15 @@ func BenchmarkEncodedSize(b *testing.B) {
 	file.WriteString("# p\t")
 	for _, name := range names {
 		file.WriteString(name)
-		file.WriteString("\t")
+		file.WriteString("\t\t\t")
 	}
 	file.WriteString("\n")
+
+	for range names {
+		file.WriteString("\t\tsize\treal_p\t")
+	}
+	file.WriteString("\n")
+
 	p := 0.01
 	for p <= 0.21 {
 		file.WriteString(fmt.Sprintf("%.2f\t", p))
@@ -129,9 +135,10 @@ func BenchmarkEncodedSize(b *testing.B) {
 		filters[3] = NewCustomFilter(len(pieceIDs), p)
 
 		for i, f := range filters {
+			realP := benchmarkFilter(f, pieceIDs, b)
 			size := benchmarkEncode(f, pieceIDs, b)
 			fmt.Println(names[i], " ", p, " ", size)
-			file.WriteString(fmt.Sprintf("%d\t", size))
+			file.WriteString(fmt.Sprintf("%d\t%.2f\t", size, realP))
 		}
 		file.WriteString("\n")
 		p += 0.01

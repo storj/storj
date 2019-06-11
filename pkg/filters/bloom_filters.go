@@ -29,7 +29,7 @@ type SteakknifeBloomFilter struct {
 // NewZeeboBloomFilter returns a zeebo bloom filter
 func NewZeeboBloomFilter(maxElements uint, p float64) *ZeeboBloomFilter {
 	var zbf ZeeboBloomFilter
-	zbf.filter = zeebo.NewFilter(fnv.New64(), int(-math.Log(p)/math.Log(2)))
+	zbf.filter = zeebo.NewFilter(fnv.New64(), int(-math.Log(p)/math.Log(2))+1)
 	return &zbf
 }
 
