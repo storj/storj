@@ -4,7 +4,7 @@
 package main
 
 /*
-#include "definition.h"
+#include "uplink_definitions.h"
 */
 import "C"
 

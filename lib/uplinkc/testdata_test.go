@@ -18,14 +18,14 @@ import (
 
 func TestC(t *testing.T) {
 	ctx := testcontext.New(t)
-	//defer ctx.Cleanup()
+	defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
 	
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
 
-	definition := testcontext.Include{Header: filepath.Join(currentdir, "definition.h")}
+	definition := testcontext.Include{Header: filepath.Join(currentdir, "uplink_definitions.h")}
 
 	ctests, err := filepath.Glob(filepath.Join("testdata", "*_test.c"))
 	require.NoError(t, err)

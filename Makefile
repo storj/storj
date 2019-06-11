@@ -233,6 +233,7 @@ binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspe
 .PHONY: libuplink
 libuplink:
 	go build -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
+	cp storj.io/storj/lib/uplinkc/uplink_definitions.h uplink_definitions.h 
 
 ##@ Deploy
 
