@@ -45,12 +45,11 @@ func (m *Universe) Get(x Handle) interface{} {
 	return m.values[x]
 }
 
-// Del deletes the value and clears the handle.
-func (m *Universe) Del(x *Handle) {
+// Del deletes the value
+func (m *Universe) Del(x Handle) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	delete(m.values, *x)
-	*x = 0
+	delete(m.values, x)
 }
 
 // Empty returns whether the universe is empty.

@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 typedef struct APIKey  { long _handle; } APIKey;
 typedef struct Uplink  { long _handle; } Uplink;

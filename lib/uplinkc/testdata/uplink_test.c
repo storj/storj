@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     char **err = &_err;
 
     char *satellite_addr = getenv("SATELLITE_0_ADDR");
-    char *apikey = getenv("GATEWAY_0_APIKEY");
+    char *apikeyStr = getenv("GATEWAY_0_APIKEY");
 
     {
         UplinkConfig cfg = {};
@@ -25,10 +25,18 @@ int main(int argc, char *argv[])
         require_noerror(*err);
         require(uplink._handle != 0, "got empty uplink\n");
 
+        // parse api key
+        APIKey apikey = ParseAPIKey(apikeyStr, err);
+        require_noerror(*err);
+        require(apikey._handle != 0, "got empty apikey\n");
+
         // open a project
         Project project = OpenProject(uplink, satellite_addr, apikey, err);
         require_noerror(*err);
         require(project._handle != 0, "got empty project\n");
+
+        // free api key
+        FreeAPIKey(apikey);
 
         // close project
         CloseProject(project, err);

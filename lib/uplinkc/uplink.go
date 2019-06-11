@@ -46,7 +46,7 @@ func CloseUplink(uplinkHandle C.Uplink, cerr **C.char) {
 		*cerr = C.CString("invalid uplink")
 		return
 	}
-	universe.Del(&uplinkHandle._handle)
+	universe.Del(uplinkHandle._handle)
 	defer uplink.cancel()
 
 	if err := uplink.lib.Close(); err != nil {
@@ -62,7 +62,8 @@ type Project struct {
 }
 
 //export OpenProject
-func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeystr *C.char, cerr **C.char) C.Project {
+// OpenProject opens project using uplink
+func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
 	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -71,9 +72,9 @@ func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeystr *C.char
 
 	var err error
 
-	apikey, err := libuplink.ParseAPIKey(C.GoString(apikeystr))
-	if err != nil {
-		*cerr = C.CString(err.Error())
+	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
+	if !ok {
+		*cerr = C.CString("invalid apikey")
 		return C.Project{}
 	}
 
@@ -91,22 +92,18 @@ func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeystr *C.char
 }
 
 //export CloseProject
+// CloseProject closes the project.
 func CloseProject(projectHandle C.Project, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
 		return
 	}
-	universe.Del(&projectHandle._handle)
+	universe.Del(projectHandle._handle)
 	defer project.cancel()
 
 	if err := project.lib.Close(); err != nil {
 		*cerr = C.CString(err.Error())
 		return
 	}
-}
-
-//export internal_UniverseIsEmpty
-func internal_UniverseIsEmpty() bool {
-	return universe.Empty()
 }

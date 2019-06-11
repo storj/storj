@@ -18,6 +18,9 @@ func TestUniverse(t *testing.T) {
 
 		got := universe.Get(handle)
 		assert.Equal(t, str, got)
+
+		universe.Del(handle)
+		assert.True(t, universe.Empty())
 	}
 
 	{
@@ -29,10 +32,8 @@ func TestUniverse(t *testing.T) {
 		got := universe.Get(handle)
 		assert.Equal(t, str, *got.(*string))
 
-		universe.Del(&handle)
-		assert.Zero(t, handle)
-
-		got = universe.Get(handle)
-		assert.Nil(t, got)
+		universe.Del(handle)
+		assert.True(t, universe.Empty())
+		assert.Nil(t, universe.Get(handle))
 	}
 }
