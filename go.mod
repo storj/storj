@@ -36,17 +36,18 @@ require (
 	github.com/go-redis/redis v6.14.1+incompatible
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang-migrate/migrate/v3 v3.5.2
-	github.com/golang/mock v1.2.0
-	github.com/golang/protobuf v1.2.0
+	github.com/golang/mock v1.3.1
+	github.com/golang/protobuf v1.3.1
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible // indirect
-	github.com/google/go-cmp v0.2.0
+	github.com/google/go-cmp v0.3.0
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/gorilla/mux v1.7.0 // indirect
 	github.com/gorilla/rpc v1.1.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
+	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/hashicorp/raft v1.0.0 // indirect
 	github.com/howeyc/gopass v0.0.0-20170109162249-bf9dde6d0d2c // indirect
 	github.com/inconshreveable/go-update v0.0.0-20160112193335-8152e7eb6ccf // indirect
@@ -84,6 +85,8 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/pkg/profile v1.2.1 // indirect
+	github.com/prometheus/client_golang v0.9.3 // indirect
+	github.com/prometheus/procfs v0.0.0-20190517135640-51af30a78b0e // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/rs/cors v1.5.0 // indirect
 	github.com/sirupsen/logrus v1.3.0 // indirect
@@ -94,7 +97,7 @@ require (
 	github.com/spf13/viper v1.2.1
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/stripe/stripe-go v61.0.1+incompatible
+	github.com/stripe/stripe-go v60.17.0+incompatible
 	github.com/tidwall/gjson v1.1.3 // indirect
 	github.com/tidwall/match v0.0.0-20171002075945-1731857f09b1 // indirect
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
@@ -107,21 +110,20 @@ require (
 	go.etcd.io/bbolt v1.3.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
-	go.uber.org/zap v1.9.1
-	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c
-	golang.org/x/net v0.0.0-20190328230028-74de082e2cca // indirect
-	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
-	golang.org/x/sys v0.0.0-20190402142545-baf5eb976a8c
+	go.uber.org/zap v1.10.0
+	golang.org/x/crypto v0.0.0-20190530122614-20be4c3c3ed5
+	golang.org/x/net v0.0.0-20190603091049-60506f45cf65 // indirect
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
+	golang.org/x/sys v0.0.0-20190602015325-4c4f7f33c9ed
+	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190402153018-b7e8f894e31a
-	google.golang.org/appengine v1.4.0 // indirect
-	google.golang.org/genproto v0.0.0-20190219182410-082222b4a5c5 // indirect
-	google.golang.org/grpc v1.19.0
+	golang.org/x/tools v0.0.0-20190602112858-2de7f9bf822c
+	google.golang.org/appengine v1.6.0 // indirect
+	google.golang.org/genproto v0.0.0-20190530194941-fb225487d101 // indirect
+	google.golang.org/grpc v1.21.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
-
-go 1.13
