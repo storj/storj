@@ -428,6 +428,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
 					PeerIDVersions:      "latest",
 					Extensions: extensions.Config{
@@ -583,6 +584,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
 					PeerIDVersions:      "*",
 					Extensions: extensions.Config{
@@ -691,6 +693,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 
 			Config: tlsopts.Config{
 				RevocationDBURL:     "bolt://" + filepath.Join(dbDir, "revocation.db"),
+				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
 				PeerIDVersions:      "latest",
 				Extensions: extensions.Config{

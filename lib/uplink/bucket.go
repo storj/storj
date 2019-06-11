@@ -112,11 +112,11 @@ func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) 
 	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
 }
 
-// ObjectListOptions controls options for the ListObjects() call.
-type ObjectListOptions = storj.ListOptions
+// ListOptions controls options for the ListObjects() call.
+type ListOptions = storj.ListOptions
 
 // ListObjects lists objects a user is authorized to see.
-func (b *Bucket) ListObjects(ctx context.Context, cfg *ObjectListOptions) (list storj.ObjectList, err error) {
+func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &storj.ListOptions{Direction: storj.Forward}
