@@ -34,6 +34,10 @@ func (pt *PeekThresholdReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
+func (pt *PeekThresholdReader) Buf() []byte {
+	return pt.thresholdBuf
+}
+
 // IsLargerThan returns a bool to determine whether a reader's size
 // is larger than the given threshold or not.
 func (pt *PeekThresholdReader) IsLargerThan(thresholdSize int) (bool, error) {

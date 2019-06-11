@@ -47,7 +47,8 @@ type ListItem struct {
 type Store interface {
 	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
 	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
-	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
+	PutInline(ctx context.Context, data []byte, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
+	PutRemote(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
@@ -56,17 +57,15 @@ type segmentStore struct {
 	metainfo                metainfo.Client
 	ec                      ecclient.Client
 	rs                      eestream.RedundancyStrategy
-	thresholdSize           int
 	maxEncryptedSegmentSize int64
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
 		metainfo:                metainfo,
 		ec:                      ec,
 		rs:                      rs,
-		thresholdSize:           threshold,
 		maxEncryptedSegmentSize: maxEncryptedSegmentSize,
 	}
 }
@@ -89,7 +88,49 @@ func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, er
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
+func (s *segmentStore) PutInline(ctx context.Context, data []byte, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var path storj.Path
+	var pointer *pb.Pointer
+
+	p, metadata, err := segmentInfo()
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
+	path = p
+
+	var exp *timestamp.Timestamp
+	if !expiration.IsZero() {
+		exp, err = ptypes.TimestampProto(expiration)
+		if err != nil {
+			return Meta{}, Error.Wrap(err)
+		}
+	}
+
+	pointer = &pb.Pointer{
+		Type:           pb.Pointer_INLINE,
+		InlineSegment:  data,
+		SegmentSize:    int64(len(data)),
+		ExpirationDate: exp,
+		Metadata:       metadata,
+	}
+
+	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	if err != nil {
+		return Meta{}, err
+	}
+
+	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, objectPath, segmentIndex, pointer, nil)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
+
+	return convertMeta(savedPointer), nil
+}
+
+// Put uploads a segment to an erasure code client
+func (s *segmentStore) PutRemote(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy := &pb.RedundancyScheme{
@@ -109,68 +150,47 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	}
 
-	peekReader := NewPeekThresholdReader(data)
-	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
+	var path storj.Path
+	var pointer *pb.Pointer
+	var originalLimits []*pb.OrderLimit2
+
+	// early call to get bucket name, rest of the path cannot be determine yet
+	p, _, err := segmentInfo()
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
+	bucket, _, _, err := splitPathFragments(p)
 	if err != nil {
 		return Meta{}, err
 	}
 
-	var path storj.Path
-	var pointer *pb.Pointer
-	var originalLimits []*pb.OrderLimit2
-	if !remoteSized {
-		p, metadata, err := segmentInfo()
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-		path = p
+	// path and segment index are not known at this point
+	limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, "", -1, redundancy, s.maxEncryptedSegmentSize, expiration)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
 
-		pointer = &pb.Pointer{
-			Type:           pb.Pointer_INLINE,
-			InlineSegment:  peekReader.thresholdBuf,
-			SegmentSize:    int64(len(peekReader.thresholdBuf)),
-			ExpirationDate: exp,
-			Metadata:       metadata,
-		}
-	} else {
-		// early call to get bucket name, rest of the path cannot be determine yet
-		p, _, err := segmentInfo()
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-		bucket, _, _, err := splitPathFragments(p)
-		if err != nil {
-			return Meta{}, err
-		}
+	sizedReader := SizeReader(data)
 
-		// path and segment index are not known at this point
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, "", -1, redundancy, s.maxEncryptedSegmentSize, expiration)
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
+	successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, s.rs, sizedReader, expiration)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
 
-		sizedReader := SizeReader(peekReader)
+	p, metadata, err := segmentInfo()
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
+	path = p
 
-		successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, s.rs, sizedReader, expiration)
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
+	pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
+	if err != nil {
+		return Meta{}, Error.Wrap(err)
+	}
 
-		p, metadata, err := segmentInfo()
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-		path = p
-
-		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-
-		originalLimits = make([]*pb.OrderLimit2, len(limits))
-		for i, addressedLimit := range limits {
-			originalLimits[i] = addressedLimit.GetLimit()
-		}
+	originalLimits = make([]*pb.OrderLimit2, len(limits))
+	for i, addressedLimit := range limits {
+		originalLimits[i] = addressedLimit.GetLimit()
 	}
 
 	bucket, objectPath, segmentIndex, err := splitPathFragments(path)

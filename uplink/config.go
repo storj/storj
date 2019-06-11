@@ -113,7 +113,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
 	}
-	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
+	segments := segments.NewSegmentStore(metainfo, ec, rs, maxEncryptedSegmentSize)
 
 	blockSize := c.GetEncryptionScheme().BlockSize
 	if int(blockSize)%c.RS.ErasureShareSize.Int()*c.RS.MinThreshold != 0 {
@@ -126,7 +126,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, int(blockSize), storj.Cipher(c.Enc.DataType))
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), c.Client.MaxInlineSize.Int(), key, int(blockSize), storj.Cipher(c.Enc.DataType))
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
