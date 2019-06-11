@@ -14,12 +14,6 @@ type Filter interface {
 	Encode() []byte
 }
 
-// FilterConfig is a filter configuration
-type FilterConfig struct {
-	nbElements      int
-	nbHashFunctions int
-}
-
 // CuckooFilter is a cuckoo filter
 type CuckooFilter struct {
 	filter *cuckoo.Filter
