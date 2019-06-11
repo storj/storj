@@ -95,6 +95,9 @@ func TestReverifySuccess(t *testing.T) {
 		report, err := verifier.Reverify(ctx, stripe)
 		require.NoError(t, err)
 
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Successes, 1)
 		require.Equal(t, report.Successes[0], pieces[0].NodeId)
 	})
@@ -255,6 +258,9 @@ func TestReverifyFailBadData(t *testing.T) {
 		report, err := verifier.Reverify(ctx, stripe)
 		require.NoError(t, err)
 
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], pieces[0].NodeId)
 	})
@@ -328,6 +334,9 @@ func TestReverifyOffline(t *testing.T) {
 		report, err := verifier.Reverify(ctx, stripe)
 		require.NoError(t, err)
 
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pieces[0].NodeId)
 	})
@@ -417,6 +426,9 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		report, err := verifier.Reverify(ctx, stripe)
 		require.NoError(t, err)
 
+		require.Len(t, report.Successes, 0)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pending.NodeID)
 	})
