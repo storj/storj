@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 // #cgo CFLAGS: -g -Wall
@@ -11,6 +14,7 @@ import "C"
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -22,8 +26,6 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/lib/uplink"
@@ -126,7 +128,7 @@ func runCTest(t *testing.T, ctx *testcontext.Context, filename string, envVars .
 
 func startTestPlanet(t *testing.T, ctx *testcontext.Context) *testplanet.Planet {
 	planet, err := testplanet.NewCustom(
-		zaptest.NewLogger(t),
+		zap.NewNop(),
 		testplanet.Config{
 			SatelliteCount:   1,
 			StorageNodeCount: 8,
