@@ -71,6 +71,7 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 
 			current, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
+			require.NoError(t, err)
 			if new.Status == marketing.Default {
 				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
 			} else {
