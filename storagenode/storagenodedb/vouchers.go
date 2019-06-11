@@ -56,35 +56,26 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 	return err
 }
 
-// GetExpiring retrieves all vouchers that are expired or about to expire
-func (db *vouchersdb) GetExpiring(ctx context.Context, expirationBuffer time.Duration) (satellites []storj.NodeID, err error) {
+// NeedVoucher returns whether a voucher request is needed for a satellite
+func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID, expirationBuffer time.Duration) (need bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	expiresBefore := time.Now().UTC().Add(expirationBuffer)
-	rows, err := db.db.Query(`
+	row := db.db.QueryRow(`
 		SELECT satellite_id
 		FROM vouchers
-		WHERE expiration < ?
-	`, expiresBefore)
+		WHERE satellite_id = ? AND expiration < ?
+	`, satelliteID, expiresBefore)
+
+	var bytes []byte
+	err = row.Scan(&bytes)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return true, nil
 		}
-		return nil, ErrInfo.Wrap(err)
+		return false, ErrInfo.Wrap(err)
 	}
-
-	for rows.Next() {
-		var id storj.NodeID
-
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, ErrInfo.Wrap(err)
-		}
-		satellites = append(satellites, id)
-	}
-
-	return satellites, ErrInfo.Wrap(rows.Err())
+	return true, nil
 }
 
 // GetValid returns one valid voucher from the list of approved satellites

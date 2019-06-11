@@ -53,11 +53,11 @@ func TestVouchersDB(t *testing.T) {
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
 
-		// basic GetExpiring test
+		// basic NeedVoucher test
 		expirationBuffer := 48 * time.Hour
-		expiring, err := vdb.GetExpiring(ctx, expirationBuffer)
+		need, err := vdb.NeedVoucher(ctx, satellite.ID, expirationBuffer)
 		require.NoError(t, err)
-		require.Equal(t, satellite.ID, expiring[0])
+		require.True(t, need)
 
 		// basic GetValid test
 		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})

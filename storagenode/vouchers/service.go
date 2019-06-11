@@ -31,10 +31,10 @@ var (
 type DB interface {
 	// Put inserts or updates a voucher from a satellite
 	Put(context.Context, *pb.Voucher) error
-	// GetExpiring retrieves all vouchers that are expired or about to expire
-	GetExpiring(context.Context, time.Duration) ([]storj.NodeID, error)
 	// GetValid returns one valid voucher from the list of approved satellites
 	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
+	// NeedVoucher
+	NeedVoucher(context.Context, storj.NodeID, time.Duration) (bool, error)
 	// ListSatellites returns all satellites from the vouchersDB
 	ListSatellites(context.Context) ([]storj.NodeID, error)
 }
@@ -62,7 +62,6 @@ type Service struct {
 
 // NewService creates a new voucher service
 func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vdb DB, archive orders.DB, interval, expirationBuffer time.Duration) *Service {
-
 	return &Service{
 		log:              log,
 		kademlia:         kad,
@@ -81,74 +80,37 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 // RunOnce runs one iteration of the voucher request service
-func (service *Service) RunOnce(ctx context.Context) (combinedErrs error) {
-	defer mon.Task()(&ctx)(&combinedErrs)
+func (service *Service) RunOnce(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Checking vouchers")
 
-	// request vouchers for entries that are expired/about to expire
-	err := service.renewVouchers(ctx)
-	combinedErrs = errs.Combine(combinedErrs, err)
-
-	// request first vouchers from new satellites which have no voucher
-	err = service.initialVouchers(ctx)
-	return errs.Combine(combinedErrs, err)
-}
-
-func (service *Service) renewVouchers(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	service.log.Debug("Getting vouchers close to expiration")
-
-	expired, err := service.vdb.GetExpiring(ctx, service.expirationBuffer)
+	allSatellites, err := service.archive.ListSatellites(ctx)
 	if err != nil {
-		return err
+		service.log.Error("listing satellites", zap.Error(err))
+		return nil
 	}
 
-	if len(expired) > 0 {
+	if len(allSatellites) > 0 {
 		var group errgroup.Group
 		ctx, cancel := context.WithTimeout(ctx, time.Hour)
 		defer cancel()
-
-		for _, satelliteID := range expired {
-			satelliteID := satelliteID
-			group.Go(func() error {
-				err = service.request(ctx, satelliteID)
-				if err != nil {
-					service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
-				}
+		for _, sat := range allSatellites {
+			sat := sat
+			need, err := service.vdb.NeedVoucher(ctx, sat, service.expirationBuffer)
+			if err != nil {
+				service.log.Error("getting voucher status", zap.Error(err))
 				return nil
-			})
+			}
+			if need {
+				group.Go(func() error {
+					service.Request(ctx, sat)
+					return nil
+				})
+			}
 		}
 		_ = group.Wait() // doesn't return errors
 	} else {
-		service.log.Debug("No vouchers close to expiration")
-	}
-	return nil
-}
-
-func (service *Service) initialVouchers(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	service.log.Debug("Getting satellites without vouchers")
-
-	withoutVouchers, err := service.getWithoutVouchers(ctx)
-	if err != nil {
-		return err
-	}
-
-	if len(withoutVouchers) > 0 {
-		var group errgroup.Group
-		ctx, cancel := context.WithTimeout(ctx, time.Hour)
-		defer cancel()
-
-		for _, satelliteID := range withoutVouchers {
-			satelliteID := satelliteID
-			group.Go(func() error {
-				service.Request(ctx, satelliteID)
-				return nil
-			})
-		}
-		_ = group.Wait() // doesn't return errors
-	} else {
-		service.log.Debug("No satellites requiring initial vouchers")
+		service.log.Debug("No voucher requests to send")
 	}
 	return nil
 }
@@ -202,39 +164,6 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 	}
 
 	return nil
-}
-
-func (service *Service) getWithoutVouchers(ctx context.Context) (withoutVouchers []storj.NodeID, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// get all satellite IDs from archive
-	allSatellites, err := service.archive.ListSatellites(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if len(allSatellites) == 0 {
-		return withoutVouchers, nil
-	}
-
-	// get all satellites with vouchers
-	withVouchers, err := service.vdb.ListSatellites(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// insert all satellites with vouchers into a map for easy filtering
-	voucherMap := make(map[storj.NodeID]bool)
-	for _, sat := range withVouchers {
-		voucherMap[sat] = true
-	}
-
-	// filter out satellites with vouchers
-	for _, sat := range allSatellites {
-		if voucherMap[sat] == false {
-			withoutVouchers = append(withoutVouchers, sat)
-		}
-	}
-	return withoutVouchers, nil
 }
 
 // Close stops the voucher service
