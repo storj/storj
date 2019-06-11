@@ -7,9 +7,11 @@ import (
 	"sync"
 )
 
+import "C"
+
 var universe = NewUniverse()
 
-type Ref int32
+type Ref = C.long
 
 type Universe struct {
 	lock    sync.Mutex

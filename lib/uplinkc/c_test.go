@@ -18,7 +18,7 @@ import (
 
 func TestC(t *testing.T) {
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	//defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
 
