@@ -60,8 +60,8 @@ func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketC
 			block_size: int32_t(bucket.EncryptionParameters.BlockSize),
 		},
 		redundancy_scheme: C.RedundancyScheme{
-			algorithm: C.uint16_t(bucket.RedundancyScheme.Algorithm)
-			share_size: C.uint16_t(bucket.RedundancyScheme.ShareSize)
+			algorithm: C.uint8_t(bucket.RedundancyScheme.Algorithm)
+			share_size: C.int32_t(bucket.RedundancyScheme.ShareSize)
 			required_shares: C.uint16_t(bucket.RedundancyScheme.RequiredShares)
 			repair_shares: C.uint16_t(bucket.RedundancyScheme.RepairShares)
 			optimal_shares: C.uint16_t(bucket.RedundancyScheme.OptimalShares)
