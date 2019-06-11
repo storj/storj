@@ -21,6 +21,7 @@ func (ctx *Context) Compile(pkg string) string {
 	} else {
 		cmd = exec.Command("go", "build", "-o", exe, pkg)
 	}
+	ctx.test.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -43,6 +44,7 @@ func (ctx *Context) CompileShared(name string, pkg string) Include {
 	} else {
 		cmd = exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
 	}
+	ctx.test.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -69,14 +71,17 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 		}
 		if inc.Library != "" {
 			args = append(args,
-				"-L="+filepath.Dir(inc.Library),
+				"-L"+filepath.Dir(inc.Library),
 				"-l:"+filepath.Base(inc.Library),
 			)
 		}
 	}
 	args = append(args, file)
 
-	out, err := exec.Command("gcc", args...).CombinedOutput()
+	cmd := exec.Command("gcc", args...)
+	ctx.test.Log("exec:", cmd.Args)
+
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		ctx.test.Error(string(out))
 		ctx.test.Fatal(err)
