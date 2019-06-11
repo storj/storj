@@ -60,16 +60,3 @@ func TestC(t *testing.T) {
 		})
 	}
 }
-
-/*
-func TestGetIDVersion(t *testing.T) {
-	var cErr CCharPtr
-	idVersionNumber := storj.LatestIDVersion().Number
-
-	cIDVersion := GetIDVersion(CUint(idVersionNumber), &cErr)
-	require.Empty(t, cCharToGoString(cErr))
-	require.NotNil(t, cIDVersion)
-
-	assert.Equal(t, idVersionNumber, storj.IDVersionNumber(cIDVersion.number))
-}
-*/

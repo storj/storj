@@ -26,5 +26,9 @@ int main(int argc, char *argv[])
     FreeAPIKey(apikey, err);
     require_noerror(*err);
 
+    IDVersion_t version = GetIDVersion(0, err);
+    require_noerror(*err);
+    require(version.number == 0, "invalid version number, got %d\n", version.number);
+
     require(internal_UniverseIsEmpty(), "universe is not empty\n");
 }
