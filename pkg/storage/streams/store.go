@@ -168,25 +168,12 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 		sizeReader := NewSizeReader(eofReader)
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
-		largeData, err := peekReader.IsLargerThan(encrypter.InBlockSize())
 		if err != nil {
 			return Meta{}, currentSegment, err
 		}
 		var transformedReader io.Reader
-		if largeData {
-			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
-			transformedReader = encryption.TransformReader(paddedReader, encrypter, 0)
-		} else {
-			data, err := ioutil.ReadAll(peekReader)
-			if err != nil {
-				return Meta{}, currentSegment, err
-			}
-			cipherData, err := encryption.Encrypt(data, s.cipher, &contentKey, &contentNonce)
-			if err != nil {
-				return Meta{}, currentSegment, err
-			}
-			transformedReader = bytes.NewReader(cipherData)
-		}
+		paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
+		transformedReader = encryption.TransformReader(paddedReader, encrypter, 0)
 
 		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (storj.Path, []byte, error) {
 			encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
