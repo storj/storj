@@ -171,13 +171,13 @@ func GetBucketInfo(cProject C.Project, bucketName *C.char, cerr **C.char) C.Buck
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return C.BucketList{}
+		return C.BucketInfo{}
 	}
 
 	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return cBucketInfo
+		return C.BucketInfo{}
 	}
 
 	return newBucketInfo(bucket)
