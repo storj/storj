@@ -48,33 +48,7 @@ func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketC
 		return C.BucketInfo{}
 	}
 
-	return C.BucketInfo{
-		name: C.CString(bucket.Name),
-
-		created:      C.int64_t(bucket.Created.Unix()),
-		path_cipher:  C.uint8_t(bucket.PathCipher),
-		segment_size: C.int64_t(bucket.SegmentsSize),
-
-		encryption_parameters: C.EncryptionParameters{
-			cipher_suite: uint8_t(bucket.EncryptionParameters.CipherSuite),
-			block_size: int32_t(bucket.EncryptionParameters.BlockSize),
-		},
-		redundancy_scheme: C.RedundancyScheme{
-			algorithm: C.uint8_t(bucket.RedundancyScheme.Algorithm)
-			share_size: C.int32_t(bucket.RedundancyScheme.ShareSize)
-			required_shares: C.uint16_t(bucket.RedundancyScheme.RequiredShares)
-			repair_shares: C.uint16_t(bucket.RedundancyScheme.RepairShares)
-			optimal_shares: C.uint16_t(bucket.RedundancyScheme.OptimalShares)
-			total_shares: C.uint16_t(bucket.RedundancyScheme.TotalShares)
-		},
-	}
-}
-
-// FreeBucketInfo frees bucket info.
-//export FreeBucketInfo
-func FreeBucketInfo(bucketInfo *C.BucketInfo) {
-	C.free(bucketInfo.name)
-	bucketInfo.name = nil
+	return newBucketInfo(bucket)
 }
 
 type Bucket struct {
@@ -163,46 +137,48 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 		return C.BucketList{}
 	}
 
-	bucketListLen := len(bucketList.Items)
-	bucketSize := int(unsafe.Sizeof(C.BucketInfo{}))
+	listLen := len(bucketList.Items)
+	infoSize := int(unsafe.Sizeof(C.BucketInfo{}))
 
-	bucketInfosPointer := CMalloc(uintptr(bucketListLen * bucketSize))
+	itemsPtr := C.malloc(uintptr(listLen * infoSize))
+	items := (*[1<<32-1]C.BucketInfo)(unsafe.Pointer(itemsPtr))
 
 	for i, bucket := range bucketList.Items {
-		nextAddress := uintptr(int(bucketInfosPointer) + (i * bucketSize))
-		cBucket := (*C.BucketInfo)(unsafe.Pointer(nextAddress))
-		*cBucket = NewCBucket(&bucket)
+		items[i] = newBucketInfo(&bucket)
 	}
 
-	return C.BucketList_t{
+	return C.BucketList{
 		more:   C.bool(bucketList.More),
-		items:  (*C.BucketInfo)(unsafe.Pointer(cBucketsPtr)),
-		length: C.int32_t(bucketListLen),
+		items:  &items[0],
+		length: C.int32_t(listLen),
 	}
+}
+
+// FreeBucketList will free a list of buckets
+//export FreeBucketList
+func FreeBucketList(bucketlist *C.BucketList) {
+	items := (*[1<<32-1]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
+	for i := 0; i < int(bucketlist.length); i++ {
+		FreeBucketInfo(&items[0])
+	}
+	C.free(unsafe.Pointer(bucketlist.items))
+	bucketlist.items = nil
 }
 
 // GetBucketInfo returns info about the requested bucket if authorized.
 //export GetBucketInfo
-func GetBucketInfo(cProject C.Project, bucketName *C.char, cerr **C.char) (cBucketInfo C.BucketInfo_t) {
-	ctx := context.Background()
-
-	project, ok := structRefMap.Get(token(cProject)).(*uplink.Project)
+func GetBucketInfo(cProject C.Project, bucketName *C.char, cerr **C.char) C.BucketInfo {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return cBucketInfo
+		return C.BucketList{}
 	}
 
-	bucket, cfg, err := project.GetBucketInfo(ctx, C.GoString(bucketName))
+	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return cBucketInfo
 	}
 
-	return C.BucketInfo_t{
-		bucket: NewCBucket(&bucket),
-		config: C.BucketConfig{
-			path_cipher:           C.uint8_t(cfg.PathCipher),
-			encryption_parameters: NewCEncryptionParams(&cfg.EncryptionParameters),
-		},
-	}
+	return newBucketInfo(bucket)
 }

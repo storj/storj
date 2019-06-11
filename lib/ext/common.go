@@ -96,19 +96,24 @@ func bytesToCbytes(bytes []byte, lenOfBytes int, cData *C.Bytes_t) {
 	cData.bytes = (*C.uint8_t)(mem)
 }
 
-// NewCBucket returns a C bucket struct converted from a go bucket struct.
-func NewCBucket(bucket *storj.Bucket) C.Bucket_t {
-	encParamsPtr := NewCEncryptionParams(&bucket.EncryptionParameters)
-	redundancySchemePtr := NewCRedundancyScheme(&bucket.RedundancyScheme)
-
-	return C.Bucket_t{
-		encryption_parameters: encParamsPtr,
-		redundancy_scheme:     redundancySchemePtr,
-		name:                  C.CString(bucket.Name),
+// newBucketInfo returns a C bucket struct converted from a go bucket struct.
+func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
+	return C.BucketInfo{
+		name:         C.CString(bucket.Name),
 		created:      C.int64_t(bucket.Created.Unix()),
 		path_cipher:  C.uint8_t(bucket.PathCipher),
 		segment_size: C.int64_t(bucket.SegmentsSize),
+
+		encryption_parameters: NewCEncryptionParams(&bucket.EncryptionParameters),
+		redundancy_scheme:     NewCRedundancyScheme(&bucket.RedundancyScheme),
 	}
+}
+
+// FreeBucketInfo frees bucket info.
+//export FreeBucketInfo
+func FreeBucketInfo(bucketInfo *C.BucketInfo) {
+	C.free(bucketInfo.name)
+	bucketInfo.name = nil
 }
 
 // NewCBucketConfig returns a C bucket config struct converted from a go bucket config struct.
