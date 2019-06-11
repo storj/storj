@@ -154,6 +154,9 @@ func (c Config) GetPathCipherSuite() storj.CipherSuite {
 }
 
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
+// Blocksize should align with the stripe size therefore multiples of stripes
+// should fit in every encryption block. Instead of lettings users configure this
+// multiple value, we hardcode stripesPerBlock as 2 for simplicity.
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
 	const stripesPerBlock = 2
 	return storj.EncryptionScheme{

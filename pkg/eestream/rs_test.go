@@ -110,7 +110,9 @@ func TestRSRanger(t *testing.T) {
 	}
 	encKey := storj.Key(sha256.Sum256([]byte("the secret key")))
 	var firstNonce storj.Nonce
-	encrypter, err := encryption.NewEncrypter(storj.AESGCM, &encKey, &firstNonce, rs.StripeSize())
+	const stripesPerBlock = 2
+	blockSize := stripesPerBlock * rs.StripeSize()
+	encrypter, err := encryption.NewEncrypter(storj.AESGCM, &encKey, &firstNonce, blockSize)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +129,7 @@ func TestRSRanger(t *testing.T) {
 	for i, piece := range pieces {
 		rrs[i] = ranger.ByteRanger(piece)
 	}
-	decrypter, err := encryption.NewDecrypter(storj.AESGCM, &encKey, &firstNonce, rs.StripeSize())
+	decrypter, err := encryption.NewDecrypter(storj.AESGCM, &encKey, &firstNonce, blockSize)
 	if err != nil {
 		t.Fatal(err)
 	}
