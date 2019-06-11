@@ -142,10 +142,7 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 		for _, satelliteID := range withoutVouchers {
 			satelliteID := satelliteID
 			group.Go(func() error {
-				err = service.request(ctx, satelliteID)
-				if err != nil {
-					service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
-				}
+				service.Request(ctx, satelliteID)
 				return nil
 			})
 		}
@@ -154,6 +151,15 @@ func (service *Service) initialVouchers(ctx context.Context) (err error) {
 		service.log.Debug("No satellites requiring initial vouchers")
 	}
 	return nil
+}
+
+// Request makes a voucher request to a satellite
+func (service *Service) Request(ctx context.Context, satelliteID storj.NodeID) {
+	service.log.Info("Requesting voucher", zap.String("satellite", satelliteID.String()))
+	err := service.request(ctx, satelliteID)
+	if err != nil {
+		service.log.Error("Error requesting voucher", zap.String("satellite", satelliteID.String()), zap.Error(err))
+	}
 }
 
 func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (err error) {
