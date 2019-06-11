@@ -68,7 +68,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, _, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -128,11 +128,11 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		shares, nodes, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
-		for i, share := range shares {
-			if nodes[i] == stoppedNodeID {
+		for _, share := range shares {
+			if share.NodeID == stoppedNodeID {
 				assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 				assert.False(t, errs.IsFunc(share.Error, func(err error) bool {
 					return err == context.DeadlineExceeded
@@ -194,7 +194,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, _, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -271,7 +271,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, _, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -351,7 +351,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, _, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
