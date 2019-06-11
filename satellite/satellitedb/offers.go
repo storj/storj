@@ -104,7 +104,7 @@ func (offers *offers) Create(ctx context.Context, o *marketing.NewOffer) (*marke
 	return newOffer, marketing.OffersErr.Wrap(tx.Commit())
 }
 
-// Update modifies an offer entry's status and amount of offers redeemed based on offer id
+// Redeem adds 1 to the amount of offers redeemed based on offer id
 func (offers *offers) Redeem(ctx context.Context, oID int) error {
 	statement := offers.db.Rebind(
 		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
@@ -118,6 +118,7 @@ func (offers *offers) Redeem(ctx context.Context, oID int) error {
 	return nil
 }
 
+// Finish changes the offer status to be Done and its expiration date to be now based on offer id
 func (offers *offers) Finish(ctx context.Context, oID int) error {
 	updateFields := dbx.Offer_Update_Fields{
 		Status:    dbx.Offer_Status(int(marketing.Done)),

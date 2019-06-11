@@ -63,11 +63,20 @@ func TestOffer_Database(t *testing.T) {
 				Status:    marketing.Done,
 				ExpiresAt: time.Now(),
 			}
+
 			err = planet.Satellites[0].DB.Marketing().Offers().Redeem(ctx, update.ID)
 			require.NoError(t, err)
 
 			err = planet.Satellites[0].DB.Marketing().Offers().Finish(ctx, update.ID)
 			require.NoError(t, err)
+
+			current, err := planet.Satellites[0].DB.Marketing().Offers().ListAll(ctx)
+			if new.Status == marketing.Default {
+				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
+			} else {
+				require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
+			}
+			require.Equal(t, marketing.Done, current[i].Status)
 		}
 
 		// create with expired offer
