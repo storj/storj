@@ -81,8 +81,9 @@ func prometheus(w http.ResponseWriter, r *http.Request) {
 	// TODO(jt): deeper monkit integration so we can expose prometheus types
 	// (https://prometheus.io/docs/concepts/metric_types/)
 	monkit.Default.Stats(func(name string, val float64) {
-		_, _ = fmt.Fprintf(w, "# HELP %s\n%s %g\n",
-			strings.ReplaceAll(name, "\n", " "),
-			sanitize(name), val)
+		metric := sanitize(name)
+		_, _ = fmt.Fprintf(w, "# HELP %s %s\n%s %g\n",
+			metric, strings.ReplaceAll(name, "\n", " "),
+			metric, val)
 	})
 }
