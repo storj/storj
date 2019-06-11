@@ -49,6 +49,7 @@ func (ctx *Context) CompileShared(name string, pkg string) Include {
 		ctx.test.Error(string(out))
 		ctx.test.Fatal(err)
 	}
+	ctx.test.Log(string(out))
 
 	return Include{Header: base + ".h", Library: base + ".so"}
 }
@@ -80,6 +81,7 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 		ctx.test.Error(string(out))
 		ctx.test.Fatal(err)
 	}
+	ctx.test.Log(string(out))
 
 	return exe
 }

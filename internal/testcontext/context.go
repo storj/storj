@@ -52,6 +52,7 @@ type caller struct {
 type TB interface {
 	Name() string
 	Helper()
+	Log(args ...interface{})
 	Error(args ...interface{})
 	Fatal(args ...interface{})
 }
