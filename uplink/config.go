@@ -32,7 +32,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"1KiB"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`

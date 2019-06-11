@@ -1,6 +1,3 @@
-// Copyright (C) 2019 Storj Labs, Inc.
-// See LICENSE for copying information.
-
 package eestream
 
 import (
@@ -18,26 +15,19 @@ const (
 	uint32Size = 4
 )
 
-// makePadding creates a slice of bytes of padding used to fill an encrytpion block.
+// makePadding calculates how many bytes of padding are needed to fill
+// an encryption block then creates a slice of zero bytes that size.
 // The last byte of the padding slice contains the count of the total padding bytes added.
-func makePadding(paddingSize int) []byte {
-	paddingBytes := bytes.Repeat([]byte{0}, paddingSize)
-	binary.BigEndian.PutUint32(paddingBytes[paddingSize-uint32Size:], uint32(paddingSize))
-	return paddingBytes
-}
-
-// calculatePaddingSize calculates how many bytes of padding are needed to fill
-// an encryption block. Where dataLen is the number of bytes being encrypted,
-// blocksize is the size of chunks that will be encrypted, and uint32Size is the amount
-// of space needed to indicate how many total bytes of padding are added.
-func calculatePaddingSize(dataLen int64, blockSize int) int {
+func makePadding(dataLen int64, blockSize int) []byte {
 	amount := dataLen + uint32Size
 	r := amount % int64(blockSize)
 	padding := uint32Size
 	if r > 0 {
 		padding += blockSize - int(r)
 	}
-	return padding
+	paddingBytes := bytes.Repeat([]byte{0}, padding)
+	binary.BigEndian.PutUint32(paddingBytes[padding-uint32Size:], uint32(padding))
+	return paddingBytes
 }
 
 // Pad takes a Ranger and returns another Ranger that is a multiple of
@@ -45,8 +35,7 @@ func calculatePaddingSize(dataLen int64, blockSize int) int {
 // much padding was added.
 func Pad(data ranger.Ranger, blockSize int) (
 	rr ranger.Ranger, padding int) {
-	paddingSize := calculatePaddingSize(data.Size(), blockSize)
-	paddingBytes := makePadding(paddingSize)
+	paddingBytes := makePadding(data.Size(), blockSize)
 	return ranger.Concat(data, ranger.ByteRanger(paddingBytes)), len(paddingBytes)
 }
 
@@ -76,12 +65,9 @@ func UnpadSlow(ctx context.Context, data ranger.Ranger) (_ ranger.Ranger, err er
 // PadReader is like Pad but works on a basic Reader instead of a Ranger.
 func PadReader(data io.ReadCloser, blockSize int) io.ReadCloser {
 	cr := newCountingReader(data)
-	paddingSize := calculatePaddingSize(cr.N, blockSize)
-	paddingBytes := makePadding(paddingSize)
-
 	return readcloser.MultiReadCloser(cr,
 		readcloser.LazyReadCloser(func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewReader(paddingBytes)), nil
+			return ioutil.NopCloser(bytes.NewReader(makePadding(cr.N, blockSize))), nil
 		}))
 }
 
