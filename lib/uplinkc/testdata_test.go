@@ -21,7 +21,7 @@ func TestC(t *testing.T) {
 	defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
-	
+
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
 
@@ -51,8 +51,8 @@ func TestC(t *testing.T) {
 
 			cmd := exec.Command(testexe)
 			cmd.Env = append(os.Environ(),
-				"SATELLITE_0_ADDR=" + planet.Satellites[0].Addr(),
-				"GATEWAY_0_API_KEY=" + planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+				"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
+				"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
 			)
 
 			out, err := cmd.CombinedOutput()

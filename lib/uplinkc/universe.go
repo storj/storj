@@ -16,9 +16,9 @@ type Handle = C.long
 
 // Universe stores different Go values that need to be accessed from Go side.
 type Universe struct {
-	lock    sync.Mutex
-	nextid  Handle
-	values  map[Handle]interface{}
+	lock   sync.Mutex
+	nextid Handle
+	values map[Handle]interface{}
 }
 
 // NewUniverse creates a place to store go files by handle.

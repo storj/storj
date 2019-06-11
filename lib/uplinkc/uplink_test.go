@@ -8,7 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/stretchr/testify/require"
-	
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 )
@@ -48,8 +48,8 @@ func TestProject(t *testing.T) {
 		uplink := NewUplink(config, &cerr)
 		require.Nil(t, cerr)
 		require.NotEmpty(t, uplink)
-		
-		defer func(){
+
+		defer func() {
 			CloseUplink(uplink, &cerr)
 			require.Nil(t, cerr)
 		}()

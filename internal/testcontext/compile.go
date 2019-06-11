@@ -50,7 +50,7 @@ func (ctx *Context) CompileShared(name string, pkg string) Include {
 		ctx.test.Fatal(err)
 	}
 
-	return Include{Header: base +".h", Library: base + ".so"}
+	return Include{Header: base + ".h", Library: base + ".so"}
 }
 
 // CompileC compiles file as with gcc and adds the includes.

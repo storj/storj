@@ -5,14 +5,18 @@ package main
 
 // #include "uplink_definitions.h"
 import "C"
+
 import "unsafe"
 
 // CPChar exposing C for testing
 type CPChar = *C.char
+
 // CUplinkConfig exposing C for testing
 type CUplinkConfig = C.UplinkConfig
+
 // CString exposes C.String for testing
 func CString(s string) *C.char { return C.CString(s) }
+
 // CFree exposes C.free for testing
 func CFree(ptr unsafe.Pointer) { C.free(ptr) }
 
