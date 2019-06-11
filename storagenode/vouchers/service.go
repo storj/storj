@@ -77,10 +77,11 @@ func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Cli
 // Run sends requests to satellites for vouchers
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.Loop.Run(ctx, service.runOnce)
+	return service.Loop.Run(ctx, service.RunOnce)
 }
 
-func (service *Service) runOnce(ctx context.Context) (combinedErrs error) {
+// RunOnce runs one iteration of the voucher request service
+func (service *Service) RunOnce(ctx context.Context) (combinedErrs error) {
 	defer mon.Task()(&ctx)(&combinedErrs)
 	service.log.Info("Checking vouchers")
 
