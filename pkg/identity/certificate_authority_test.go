@@ -23,7 +23,7 @@ import (
 )
 
 func TestNewCA(t *testing.T) {
-	const expectedDifficulty = 4
+	const expectedDifficulty = 8
 
 	for _, version := range storj.IDVersions {
 		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
@@ -43,6 +43,22 @@ func TestNewCA(t *testing.T) {
 		actualDifficulty, err := ca.ID.Difficulty()
 		require.NoError(t, err)
 		assert.True(t, actualDifficulty >= expectedDifficulty)
+	}
+}
+
+func TestNewCA_DifficultyError(t *testing.T) {
+	const expectedDifficulty = 7
+
+	for _, version := range storj.IDVersions {
+		ca, err := identity.NewCA(context.Background(), identity.NewCAOptions{
+			VersionNumber: version.Number,
+			Difficulty:    expectedDifficulty,
+			Concurrency:   4,
+		})
+		require.Error(t, err)
+		require.Nil(t, ca)
+
+		assert.True(t, identity.Error.Has(err))
 	}
 }
 
@@ -109,6 +125,7 @@ func TestFullCAConfig_Load_extensions(t *testing.T) {
 	for versionNumber, version := range storj.IDVersions {
 		caCfg := identity.CASetupConfig{
 			VersionNumber: uint(versionNumber),
+			Difficulty:    8,
 			CertPath:      ctx.File("ca.cert"),
 			KeyPath:       ctx.File("ca.key"),
 		}

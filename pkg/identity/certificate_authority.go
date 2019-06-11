@@ -89,6 +89,11 @@ type FullCAConfig struct {
 // NewCA creates a new full identity with the given difficulty
 func NewCA(ctx context.Context, opts NewCAOptions) (_ *FullCertificateAuthority, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if opts.Difficulty < 8 {
+		return nil, Error.New("difficulty must be greater than 8")
+	}
+
 	var (
 		highscore = new(uint32)
 		i         = new(uint32)
