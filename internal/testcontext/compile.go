@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 )
 
 // Compile compiles the specified package and returns the executable name.
@@ -38,12 +39,8 @@ func (ctx *Context) CompileShared(name string, pkg string) Include {
 
 	base := ctx.File("build", name)
 
-	var cmd *exec.Cmd
-	if raceEnabled {
-		cmd = exec.Command("go", "build", "-buildmode", "c-shared", "-race", "-o", base+".so", pkg)
-	} else {
-		cmd = exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
-	}
+	// not using race detector for c-shared
+	cmd := exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
 	ctx.test.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
@@ -70,7 +67,14 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 			args = append(args, "-I", filepath.Dir(inc.Header))
 		}
 		if inc.Library != "" {
-			args = append(args, inc.Library)
+			if runtime.GOOS == "windows" {
+				args = append(args, 
+					"-L" + filepath.Dir(inc.Library),
+					"-l:" + filepath.Base(inc.Library),
+				)
+			} else {
+				args = append(args, inc.Library)
+			}
 		}
 	}
 	args = append(args, file)
