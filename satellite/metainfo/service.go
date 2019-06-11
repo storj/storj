@@ -27,8 +27,8 @@ func NewService(logger *zap.Logger, db storage.KeyValueStore) *Service {
 	return &Service{logger: logger, DB: db}
 }
 
-// Put puts pointer to db under specific path
-func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
+// Put puts pointer to db under specific key
+func (s *Service) Put(ctx context.Context, key Key, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Update the pointer with the creation date
@@ -42,7 +42,7 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
 	// In such case we should delete the pieces of the old segment if it was
 	// a remote one.
-	if err = s.DB.Put(ctx, []byte(path), pointerBytes); err != nil {
+	if err = s.DB.Put(ctx, key.Raw(), pointerBytes); err != nil {
 		return err
 	}
 
@@ -50,9 +50,10 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 }
 
 // Get gets pointer from db
-func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, err error) {
+func (s *Service) Get(ctx context.Context, key Key) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-	pointerBytes, err := s.DB.Get(ctx, []byte(path))
+
+	pointerBytes, err := s.DB.Get(ctx, key.Raw())
 	if err != nil {
 		return nil, err
 	}
@@ -67,22 +68,23 @@ func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, er
 }
 
 // List returns all Path keys in the pointers bucket
-func (s *Service) List(ctx context.Context, prefix string, startAfter string, endBefore string, recursive bool, limit int32,
+func (s *Service) List(ctx context.Context, prefix Key, startAfter Key, endBefore Key, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	rawPrefix := prefix.Raw()
 	var prefixKey storage.Key
-	if prefix != "" {
-		prefixKey = storage.Key(prefix)
-		if prefix[len(prefix)-1] != storage.Delimiter {
+	if len(rawPrefix) > 0 {
+		prefixKey = storage.Key(rawPrefix)
+		if rawPrefix[len(rawPrefix)-1] != storage.Delimiter {
 			prefixKey = append(prefixKey, storage.Delimiter)
 		}
 	}
 
 	rawItems, more, err := storage.ListV2(ctx, s.DB, storage.ListOptions{
 		Prefix:       prefixKey,
-		StartAfter:   storage.Key(startAfter),
-		EndBefore:    storage.Key(endBefore),
+		StartAfter:   storage.Key(startAfter.Raw()),
+		EndBefore:    storage.Key(endBefore.Raw()),
 		Recursive:    recursive,
 		Limit:        int(limit),
 		IncludeValue: metaFlags != meta.None,
@@ -149,17 +151,19 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 }
 
 // Delete deletes from item from db
-func (s *Service) Delete(ctx context.Context, path string) (err error) {
+func (s *Service) Delete(ctx context.Context, key Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.DB.Delete(ctx, []byte(path))
+
+	return s.DB.Delete(ctx, key.Raw())
 }
 
 // Iterate iterates over items in db
-func (s *Service) Iterate(ctx context.Context, prefix string, first string, recurse bool, reverse bool, f func(context.Context, storage.Iterator) error) (err error) {
+func (s *Service) Iterate(ctx context.Context, prefix Key, first Key, recurse bool, reverse bool, f func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	opts := storage.IterateOptions{
-		Prefix:  storage.Key(prefix),
-		First:   storage.Key(first),
+		Prefix:  storage.Key(prefix.Raw()),
+		First:   storage.Key(first.Raw()),
 		Recurse: recurse,
 		Reverse: reverse,
 	}

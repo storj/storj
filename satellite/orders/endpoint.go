@@ -25,18 +25,18 @@ import (
 // DB implements saving order after receiving from storage node
 type DB interface {
 	// CreateSerialInfo creates serial number entry in database
-	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
+	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID BucketID, limitExpiration time.Time) error
 	// UseSerialNumber creates serial number entry in database
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
 
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateBucketBandwidthAllocation(ctx context.Context, bucketID BucketID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-	UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateBucketBandwidthSettle(ctx context.Context, bucketID BucketID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	UpdateBucketBandwidthInline(ctx context.Context, bucketID BucketID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
 	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
 	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -44,7 +44,7 @@ type DB interface {
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
 	// GetBucketBandwidth gets total bucket bandwidth from period of time
-	GetBucketBandwidth(ctx context.Context, bucketID []byte, from, to time.Time) (int64, error)
+	GetBucketBandwidth(ctx context.Context, bucketID BucketID, from, to time.Time) (int64, error)
 	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
 }
@@ -190,7 +190,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			continue
 		}
 
-		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
+		rawBucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
 		if err != nil {
 			log.Warn("unable to use serial number", zap.Error(err))
 			if ErrUsingSerialNumber.Has(err) {
@@ -205,6 +205,16 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 			return err
 		}
+
+		// TODO(jeff): i need to figure out what errors here should do
+		bucketID, err := ParseBucketID(rawBucketID)
+		if err != nil {
+			log.Error("cannot parse raw bucket id",
+				zap.Error(err),
+				zap.ByteString("bucketID", rawBucketID))
+			continue
+		}
+
 		now := time.Now().UTC()
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 

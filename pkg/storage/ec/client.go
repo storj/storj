@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -30,7 +31,7 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
-	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
+	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, metainfoKey metainfo.Key) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
 	WithForceErrorDetection(force bool) Client
@@ -186,7 +187,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, metainfoKey metainfo.Key) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != rs.TotalCount() {
@@ -228,11 +229,11 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
 
 	zap.S().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
-		timeout, path, optimalCount, rs.OptimalThreshold())
+		timeout, metainfoKey, optimalCount, rs.OptimalThreshold())
 
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			zap.S().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
+			zap.S().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", metainfoKey, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
@@ -245,7 +246,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		if info.err != nil {
-			zap.S().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
+			zap.S().Debugf("Repair %s to storage node %s failed: %v", metainfoKey, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
 
@@ -276,10 +277,10 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	}()
 
 	if atomic.LoadInt32(&successfulCount) == 0 {
-		return nil, nil, Error.New("repair %v to all nodes failed", path)
+		return nil, nil, Error.New("repair %v to all nodes failed", metainfoKey)
 	}
 
-	zap.S().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
+	zap.S().Infof("Successfully repaired %s to %d nodes.", metainfoKey, atomic.LoadInt32(&successfulCount))
 
 	return successfulNodes, successfulHashes, nil
 }

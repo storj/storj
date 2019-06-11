@@ -42,7 +42,7 @@ func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cach
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
+func (repairer *Repairer) Repair(ctx context.Context, path metainfo.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment pointer from the metainfo
