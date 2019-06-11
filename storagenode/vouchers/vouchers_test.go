@@ -44,6 +44,11 @@ func TestVouchersDB(t *testing.T) {
 			Expiration:    expiration,
 		}
 
+		// GetValid with no entry
+		result, err := vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
+		require.NoError(t, err)
+		assert.Nil(t, result)
+
 		// basic Put test
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
@@ -55,7 +60,7 @@ func TestVouchersDB(t *testing.T) {
 		require.Equal(t, satellite.ID, expiring[0])
 
 		// basic GetValid test
-		result, err := vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
+		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 		require.Equal(t, voucher.SatelliteId, result.SatelliteId)
 		require.Equal(t, voucher.StorageNodeId, result.StorageNodeId)

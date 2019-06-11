@@ -114,6 +114,9 @@ func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (
 	var bytes []byte
 	err = row.Scan(&bytes)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
 		return nil, ErrInfo.Wrap(err)
 	}
 
