@@ -275,7 +275,6 @@ func newTestObjects(count int) (objects []TestObject) {
 	opts := &uplink.UploadOptions{
 		ContentType: "text/plain",
 		Expires:     expiration,
-		// TODO: randomize
 		Metadata: map[string]string{
 			"key_one":   "value_one",
 			"key_two":   "value_two",

@@ -66,7 +66,7 @@ void TestObject(void)
     memset(downloadedData, '\0', object_meta.Size);
 
     while (!feof(f)){
-        fread(downloadedData, sizeof(downloadedData), 1, f);
+        fread(downloadedData, 1, object_meta.Size, f);
     }
 
     fclose(f);
