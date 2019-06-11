@@ -1,0 +1,16 @@
+{{define "main"}}
+<div class="container">
+    <div class="row mt-4 mb-4 d-flex justify-content-between">
+        <h3 class="mt-4">Referral Credit Offers</h3>
+        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#roModal">+ Create Referral Credit</button>
+    </div>
+    {{template "refOffers" .}}
+    {{template "roModal" .}}
+    <div class="row mt-4 mb-4 d-flex justify-content-between">
+        <h3 class="mt-4">Free Credit Offers</h3>
+        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#foModal">+ Create Free Credit</button>
+    </div>
+    {{template "freeOffers" .}}
+    {{template "foModal" .}}
+</div>
+{{end}}

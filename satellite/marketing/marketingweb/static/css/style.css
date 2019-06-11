@@ -1,0 +1,177 @@
+html{
+    height:100vh;
+    width:100vw;
+}
+
+body{
+    height:100%;
+    width:100%;
+    background-color:#E5E5E5;
+}
+
+.home-link:hover,
+.home-link p:hover{
+    text-decoration: none;
+}
+
+.btn{
+    height:48px;
+}
+
+hr{
+    margin-top:-5px;
+    margin-left: -15px;
+    margin-bottom: 0px;
+    width: 1102px !important;
+}
+
+.offers-table{
+    width: 1110px !important;
+    margin-left: -15px;
+    background: #FFFFFF;
+    border: 1.5px solid #DFDFDF;
+    border-radius: 6px;
+    width: 1106px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+.offer-heading{
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    margin-top:-5px;
+    width: 1103px !important;
+    color: #656565;
+    background: #F2F3F5;
+    border: 1px solid #DADDE5;
+    height:42px;
+}
+
+.offer-heading p{
+    margin-top:-5px;
+}
+
+.offer-heading, 
+.data-row, 
+.col-heading {
+    font-family: 'Roboto';
+    font-style: normal;
+}
+
+.data-row{
+    font-weight: normal;
+    font-size: 14px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #656565;
+}
+
+.data-row:hover{
+    background-color: #F9FAFB;
+}
+
+.col-heading{
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 49px;
+    align-items: center;
+    letter-spacing: -0.100741px;
+    color: #96989E;
+}
+
+.ref-admin,h3{
+    font-family: 'Poppins';
+    font-style: normal;
+}
+
+.ref-admin{
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 130.02%;
+    color: #96989E;
+    margin-top:30px;
+}
+
+h3{
+    font-weight: bold;
+    font-size: 24px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #494949;
+}
+
+.banner{
+    height: 80px;
+    overflow: hidden;
+}
+
+.banner-txt, 
+.offer-label{
+    font-family: 'Inter';
+}
+.banner-txt{
+    font-size: 18px;
+    color:white;
+}
+
+.offer-label{
+    font-size: 11px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #656565;
+}
+
+.toggler{
+    margin-top: -15px;
+}
+
+.toggler:hover{
+    cursor:pointer;
+}
+
+#foModalLabel, 
+#roModalLabel{
+    font-family: 'Poppins' !important;
+    font-style: normal !important;
+    font-weight: 600 !important;
+    font-size: 24px !important;
+    line-height: 49px !important;
+    letter-spacing: -0.100741px !important;
+    color: #494949 !important;
+}
+
+label,
+input{
+    font-family: 'Roboto' !important;
+    font-style: normal !important;
+    font-weight: normal !important;
+}
+
+label{
+    font-size: 15px !important;
+    line-height: 19px !important;
+    color: #848484 !important;
+}
+
+input{
+    font-size: 16px;
+    line-height: 131.56%;
+    letter-spacing: 0.01em;
+    text-indent: 15px;
+    color: #D0D0D0;
+}
+
+.offer-type{
+    margin-left:35px;
+}
+
+.edit-offer{
+    color:white;
+}
+
+.edit-offer:hover{
+    text-decoration: underline;
+    color: #656565;
+}
