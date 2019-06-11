@@ -20,7 +20,7 @@ service Metainfo {
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
     rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
-    rpc ValueAttributeInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
+    rpc ValueAttributeInfo(ValueAttributionRequest) returns (ValueAttributionResponse);
 }
 
 message AddressedOrderLimit {
@@ -69,7 +69,6 @@ message SegmentInfoRequest {
     bytes bucket = 1; 
     bytes path = 2;
     int64 segment = 3;
-    ConnectorKeyInfo connector_key_info = 4;
 }
 
 message SegmentInfoResponse {
@@ -107,19 +106,16 @@ message ListSegmentsResponse {
     bool more = 2;
 }
 
-message ConnectorKeyInfo{
-    // UserStatus - is used to indicate status of the users account
-    enum UserStatus {
-        INACTIVE = 0; 
-        ACTIVE = 1;
-        DELETED = 2;
-    }
+message ValueAttributionRequest{
+    bytes bucket_id = 1;
+    bytes user_id = 2;
+    bytes partner_id = 3;
+    SegmentInfoRequest segment_info_request = 4;
+}
 
-    bytes partner_id = 1;
-    bytes bucket_id = 2;
-    string full_name = 3;
-    string short_name = 4;
-    string email = 5;
-    UserStatus status = 6;
-    google.protobuf.Timestamp created_at = 7;
+message ValueAttributionResponse {
+    bytes bucket_id = 1;
+    bytes user_id = 2;
+    bytes partner_id = 3;
+    SegmentInfoResponse segment_info_response = 4;
 }

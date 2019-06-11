@@ -5,7 +5,6 @@ package metainfo_test
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -453,14 +452,10 @@ func TestValueAttributeInfo(t *testing.T) {
 		assert.NotNil(t, project)
 		assert.NoError(t, err)
 
-		createdAt, err := ptypes.TimestampProto(time.Now().UTC())
-		require.NoError(t, err)
-
-		keyInfo := pb.ConnectorKeyInfo{
+		keyInfo := pb.ValueAttributionRequest{
 			PartnerId: []byte("PartnerID"),
+			UserId:    []byte("userID"),
 			BucketId:  []byte("myBucketName"),
-			FullName:  fmt.Sprintf("connectorkey"),
-			CreatedAt: createdAt,
 		}
 
 		{
@@ -468,7 +463,7 @@ func TestValueAttributeInfo(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
 			require.Error(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1, &keyInfo)
+			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
 			require.NoError(t, err)
 		}
 		{
@@ -477,8 +472,8 @@ func TestValueAttributeInfo(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, string(keyInfo.BucketId), "file/path", -1, pointer, limits)
 			require.NoError(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctx, string(keyInfo.BucketId), "file/path", -1, &keyInfo)
-			require.Error(t, err)
+			_, err = metainfo.ValueAttributeInfo(ctx, string(keyInfo.BucketId), "file/path", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			require.NoError(t, err)
 		}
 	})
 }

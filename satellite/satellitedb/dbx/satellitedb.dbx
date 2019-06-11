@@ -9,19 +9,6 @@ model value_attribution (
 	field last_updated 	utimestamp
 )
 
-create value_attribution ()
-delete value_attribution ( where value_attribution.bucket_id = ? )
-
-read one (
-    select value_attribution
-    where value_attribution.bucket_id = ?
-)
-
-read all (
-    select value_attribution
-)
-
-
 
 //--- containment ---//
 model pending_audits (

@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
@@ -1007,38 +1006,4 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
-}
-
-// ValueAttribution returns database for partner keys information
-func (m *locked) ValueAttribution() valueattribution.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedValueAttribution{m.Locker, m.db.ValueAttribution()}
-}
-
-// lockedValueAttribution implements locking wrapper for valueattribution.DB
-type lockedValueAttribution struct {
-	sync.Locker
-	db valueattribution.DB
-}
-
-// Create creates and stores new ConnectorKeyInfo
-func (m *lockedValueAttribution) Create(ctx context.Context, info *pb.ConnectorKeyInfo) (*pb.ConnectorKeyInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-// Delete deletes ConnectorKeyInfo from store
-func (m *lockedValueAttribution) Delete(ctx context.Context, id uuid.UUID) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Delete(ctx, id)
-}
-
-// GetByProjectID retrieves list of ConnectorKey for given projectID
-func (m *lockedValueAttribution) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*pb.ConnectorKeyInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID)
 }

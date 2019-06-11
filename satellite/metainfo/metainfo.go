@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
@@ -56,7 +55,6 @@ type Endpoint struct {
 	metainfo       *Service
 	orders         *orders.Service
 	cache          *overlay.Cache
-	partnerinfo    valueattribution.DB
 	projectUsage   *accounting.ProjectUsage
 	containment    Containment
 	apiKeys        APIKeys
@@ -64,15 +62,14 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo valueattribution.DB,
-	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
+	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
 		metainfo:       metainfo,
 		orders:         orders,
 		cache:          cache,
-		partnerinfo:    partnerinfo,
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
@@ -511,32 +508,19 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 }
 
 // checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SegmentInfoRequest) (*pb.SegmentInfoResponse, error) {
-	// not_found error indicates connectory id set but no entry exists
-	resp, err := endpoint.SegmentInfo(ctx, req)
-	return resp, err
+func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
+	//TODO: Logic of checking if bucket exists will be added in new PR.
+	return &pb.ValueAttributionResponse{}, nil
 }
 
 // ValueAttributeInfo commits segment metadata
-func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.SegmentInfoRequest) (*pb.SegmentInfoResponse, error) {
+func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
 	resp, err := endpoint.checkBucketPointers(ctx, req)
 	if err != nil {
-		switch status.Code(err) {
-		case codes.NotFound:
-			endpoint.log.Sugar().Info("Value attribution entry made\n")
-
-			_, err := endpoint.partnerinfo.Create(ctx, req.GetConnectorKeyInfo())
-			if err != nil {
-				endpoint.log.Sugar().Errorf("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
-				return &pb.SegmentInfoResponse{}, err
-			}
-			return &pb.SegmentInfoResponse{}, nil
-		default:
-			// no entry made into value attribution table
-			endpoint.log.Sugar().Info("Value attribution entry not made: \tpath=", string(req.Path), "\tbucket=", string(req.Bucket), "\terror=", err, "\n")
-			return &pb.SegmentInfoResponse{}, err
-		}
+		endpoint.log.Sugar().Info("No Value attribution related bucket id found \n")
+		return &pb.ValueAttributionResponse{}, err
 	}
 
-	return resp, errs.New("BucketID=%v already exists", string(req.GetConnectorKeyInfo().BucketId))
+	// TODO: add valueattribution DB access functions added in new PR.
+	return resp, nil
 }

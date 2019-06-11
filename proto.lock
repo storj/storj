@@ -1444,24 +1444,6 @@
     {
       "protopath": "pkg:/:pb:/:metainfo.proto",
       "def": {
-        "enums": [
-          {
-            "name": "ConnectorKeyInfo.UserStatus",
-            "enum_fields": [
-              {
-                "name": "INACTIVE"
-              },
-              {
-                "name": "ACTIVE",
-                "integer": 1
-              },
-              {
-                "name": "DELETED",
-                "integer": 2
-              }
-            ]
-          }
-        ],
         "messages": [
           {
             "name": "AddressedOrderLimit",
@@ -1633,11 +1615,6 @@
                 "id": 3,
                 "name": "segment",
                 "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "connector_key_info",
-                "type": "ConnectorKeyInfo"
               }
             ]
           },
@@ -1761,42 +1738,52 @@
             ]
           },
           {
-            "name": "ConnectorKeyInfo",
+            "name": "ValueAttributionRequest",
             "fields": [
               {
                 "id": 1,
-                "name": "partner_id",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
                 "name": "bucket_id",
                 "type": "bytes"
               },
               {
+                "id": 2,
+                "name": "user_id",
+                "type": "bytes"
+              },
+              {
                 "id": 3,
-                "name": "full_name",
-                "type": "string"
+                "name": "partner_id",
+                "type": "bytes"
               },
               {
                 "id": 4,
-                "name": "short_name",
-                "type": "string"
+                "name": "segment_info_request",
+                "type": "SegmentInfoRequest"
+              }
+            ]
+          },
+          {
+            "name": "ValueAttributionResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket_id",
+                "type": "bytes"
               },
               {
-                "id": 5,
-                "name": "email",
-                "type": "string"
+                "id": 2,
+                "name": "user_id",
+                "type": "bytes"
               },
               {
-                "id": 6,
-                "name": "status",
-                "type": "UserStatus"
+                "id": 3,
+                "name": "partner_id",
+                "type": "bytes"
               },
               {
-                "id": 7,
-                "name": "created_at",
-                "type": "google.protobuf.Timestamp"
+                "id": 4,
+                "name": "segment_info_response",
+                "type": "SegmentInfoResponse"
               }
             ]
           }
@@ -1837,8 +1824,8 @@
               },
               {
                 "name": "ValueAttributeInfo",
-                "in_type": "SegmentInfoRequest",
-                "out_type": "SegmentInfoResponse"
+                "in_type": "ValueAttributionRequest",
+                "out_type": "ValueAttributionResponse"
               }
             ]
           }
