@@ -18,9 +18,14 @@ import (
 
 func TestC(t *testing.T) {
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	//defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
+	
+	currentdir, err := os.Getwd()
+	require.NoError(t, err)
+
+	definition := testcontext.Include{Header: filepath.Join(currentdir, "definition.h")}
 
 	ctests, err := filepath.Glob(filepath.Join("testdata", "*_test.c"))
 	require.NoError(t, err)
@@ -28,7 +33,7 @@ func TestC(t *testing.T) {
 	for _, ctest := range ctests {
 		ctest := ctest
 		t.Run(filepath.Base(ctest), func(t *testing.T) {
-			testexe := ctx.CompileC(ctest, libuplink)
+			testexe := ctx.CompileC(ctest, libuplink, definition)
 
 			planet, err := testplanet.NewCustom(
 				zaptest.NewLogger(t),

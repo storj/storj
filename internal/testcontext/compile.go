@@ -63,11 +63,15 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 	args = append(args, "-ggdb")
 	args = append(args, "-o", exe)
 	for _, inc := range includes {
-		args = append(args,
-			"-I", filepath.Dir(inc.Header),
-			"-L="+filepath.Dir(inc.Library),
-			"-l:"+filepath.Base(inc.Library),
-		)
+		if inc.Header != "" {
+			args = append(args, "-I", filepath.Dir(inc.Header))
+		}
+		if inc.Library != "" {
+			args = append(args,
+				"-L="+filepath.Dir(inc.Library),
+				"-l:"+filepath.Base(inc.Library),
+			)
+		}
 	}
 	args = append(args, file)
 
