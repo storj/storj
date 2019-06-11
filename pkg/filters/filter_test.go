@@ -11,7 +11,6 @@ import (
 )
 
 var pieceIDs [][]byte
-var piecesBytes [][]byte
 var initDone bool
 var nbPiecesInFilter int
 var totalNbPieces int
@@ -110,39 +109,70 @@ func BenchmarkEncodedSize(b *testing.B) {
 		fmt.Println(err)
 		b.Fail()
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			b.Fail()
+		}
+	}()
 	Init()
 
 	names := []string{"Zeebo", "Willf", "Steakknife", "Custom"}
 
-	file.WriteString("# p\t")
+	_, err = file.WriteString("# p\t")
+	if err != nil {
+		b.Log(err.Error())
+		b.Fail()
+	}
 	for _, name := range names {
-		file.WriteString(name)
-		file.WriteString("\t\t\t")
+		_, err = file.WriteString(fmt.Sprintf("%s\t\t\t", name))
+		if err != nil {
+			b.Log(err.Error())
+			b.Fail()
+		}
 	}
 	file.WriteString("\n")
 
 	for range names {
-		file.WriteString("\t\tsize\treal_p\t")
+		_, err = file.WriteString("\t\tsize\treal_p\t")
+		if err != nil {
+			b.Log(err.Error())
+			b.Fail()
+		}
 	}
-	file.WriteString("\n")
+	_, err = file.WriteString("\n")
+	if err != nil {
+		b.Log(err.Error())
+		b.Fail()
+	}
 
 	p := 0.01
 	for p <= 0.21 {
-		file.WriteString(fmt.Sprintf("%.2f\t", p))
+		_, err = file.WriteString(fmt.Sprintf("%.2f\t", p))
+		if err != nil {
+			b.Log(err.Error())
+			b.Fail()
+		}
 		filters := make([]Filter, 4)
 		filters[0] = NewZeeboBloomFilter(uint(len(pieceIDs)), p)
 		filters[1] = NewWillfBloomFilter(uint(len(pieceIDs)), p)
 		filters[2] = NewSteakknifeBloomFilter(uint64(len(pieceIDs)), p)
 		filters[3] = NewCustomFilter(len(pieceIDs), p)
 
-		for i, f := range filters {
+		for _, f := range filters {
 			realP := benchmarkFilter(f, pieceIDs, b)
 			size := benchmarkEncode(f, pieceIDs, b)
-			fmt.Println(names[i], " ", p, " ", size)
-			file.WriteString(fmt.Sprintf("%d\t%.2f\t", size, realP))
+			_, err = file.WriteString(fmt.Sprintf("%d\t%.2f\t", size, realP))
+			if err != nil {
+				b.Log(err.Error())
+				b.Fail()
+			}
 		}
-		file.WriteString("\n")
+		_, err = file.WriteString("\n")
+		if err != nil {
+			b.Log(err.Error())
+			b.Fail()
+		}
 		p += 0.01
 	}
 }
@@ -154,7 +184,7 @@ func GenerateIDs(nbPieces int) [][]byte {
 	for currentNbPieces < nbPieces {
 		newPiece := storj.NewPieceID()
 		toReturnBytes[currentNbPieces] = newPiece.Bytes()
-		currentNbPieces = currentNbPieces + 1
+		currentNbPieces++
 	}
 	return toReturnBytes
 }
