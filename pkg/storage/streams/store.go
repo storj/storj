@@ -80,11 +80,12 @@ func NewStreamStore(segments segments.Store, segmentSize int64, inlineThreshold 
 	}
 
 	return &streamStore{
-		segments:     segments,
-		segmentSize:  segmentSize,
-		rootKey:      rootKey,
-		encBlockSize: encBlockSize,
-		cipher:       cipher,
+		segments:        segments,
+		segmentSize:     segmentSize,
+		inlineThreshold: inlineThreshold,
+		rootKey:         rootKey,
+		encBlockSize:    encBlockSize,
+		cipher:          cipher,
 	}, nil
 }
 

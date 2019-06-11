@@ -70,9 +70,11 @@ func TestOnlyInline(t *testing.T) {
 		require.NoError(t, err)
 
 		// Setup: get the expected size of the data that will be stored in pointer
-		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
-		require.NoError(t, err)
+		// Since the data is small enough to be stored inline, when it is encrypted, we only
+		// add 16 bytes of encryption authentication overhead.  No encryption block
+		// padding will be added since we are not chunking data that we store inline.
+		const encryptionAuthOverhead = 16 // bytes
+		expectedTotalBytes := len(expectedData) + encryptionAuthOverhead
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		expectedTally := accounting.BucketTally{
@@ -80,8 +82,8 @@ func TestOnlyInline(t *testing.T) {
 			InlineSegments: 1,
 			Files:          1,
 			InlineFiles:    1,
-			Bytes:          expectedTotalBytes,
-			InlineBytes:    expectedTotalBytes,
+			Bytes:          int64(expectedTotalBytes),
+			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   111, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
 
