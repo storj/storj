@@ -18,6 +18,9 @@ const (
 	uint32Size = 4
 )
 
+// makePadding calculates how many bytes of padding are needed to fill
+// an encryption block then creates a slice of zero bytes that size.
+// The last byte of the padding slice contains the count of the total padding bytes added.
 func makePadding(dataLen int64, blockSize int) []byte {
 	amount := dataLen + uint32Size
 	r := amount % int64(blockSize)
