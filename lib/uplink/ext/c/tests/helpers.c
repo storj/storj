@@ -115,8 +115,6 @@ void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, By
     UploadOptions_t opts = {
         "text/plain",
         0,
-        // TODO: Set expiration and assert on it
-
         time(NULL),
     };
 
