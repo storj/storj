@@ -24,9 +24,9 @@ func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int
 	return totalReferred, nil
 }
 
-func (c *usercredits) AvailableCredits(ctx context.Context, id uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+func (c *usercredits) AvailableCredits(ctx context.Context, referrerID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
 	availableCredits, err := c.db.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
-		dbx.UserCredit_UserId(id[:]),
+		dbx.UserCredit_UserId(referrerID[:]),
 		dbx.UserCredit_ExpiresAt(expirationEndDate),
 	)
 	if err != nil {
@@ -36,8 +36,8 @@ func (c *usercredits) AvailableCredits(ctx context.Context, id uuid.UUID, expira
 	return fromDBX(availableCredits)
 }
 
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) error {
-	_, err := c.db.Create_UserCredit(ctx,
+func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+	createdUser, err := c.db.Create_UserCredit(ctx,
 		dbx.UserCredit_UserId(userCredit.UserID[:]),
 		dbx.UserCredit_OfferId(userCredit.OfferID),
 		dbx.UserCredit_CreditsEarnedInCents(userCredit.CreditsEarnedInCents),
@@ -47,10 +47,10 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		},
 	)
 	if err != nil {
-		return errs.Wrap(err)
+		return nil, errs.Wrap(err)
 	}
 
-	return nil
+	return convertDBX(createdUser)
 }
 
 func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, expirationEndDate time.Time) error {
@@ -99,7 +99,7 @@ func fromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
 			errList.Add(err)
 			continue
 		}
-		userCredits = append(userCredits, uc)
+		userCredits = append(userCredits, *uc)
 	}
 
 	return userCredits, errList.Err()
