@@ -10,7 +10,6 @@ import "C"
 
 import (
 	libuplink "storj.io/storj/lib/uplink"
-	// "storj.io/storj/pkg/storj"
 )
 
 func main() {}
