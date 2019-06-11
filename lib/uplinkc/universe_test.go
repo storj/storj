@@ -14,9 +14,9 @@ func TestUniverse(t *testing.T) {
 		universe := NewUniverse()
 
 		str := "testing 123"
-		ref := universe.Add(str)
+		handle := universe.Add(str)
 
-		got := universe.Get(ref)
+		got := universe.Get(handle)
 		assert.Equal(t, str, got)
 	}
 
@@ -24,14 +24,15 @@ func TestUniverse(t *testing.T) {
 		universe := NewUniverse()
 
 		str := "testing 123"
-		ref := universe.Add(&str)
+		handle := universe.Add(&str)
 
-		got := universe.Get(ref)
+		got := universe.Get(handle)
 		assert.Equal(t, str, *got.(*string))
 
-		universe.Del(ref)
+		universe.Del(&handle)
+		assert.Zero(t, handle)
 
-		got = universe.Get(ref)
+		got = universe.Get(handle)
 		assert.Nil(t, got)
 	}
 }

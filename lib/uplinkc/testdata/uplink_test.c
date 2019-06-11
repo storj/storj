@@ -17,14 +17,18 @@ int main(int argc, char *argv[])
     char *apikey = getenv("GATEWAY_0_APIKEY");
 
     {
+        UplinkConfig cfg = {};
+        cfg.Volatile.TLS.SkipPeerCAWhitelist = 1; // TODO: add CA Whitelist
+
         // New uplink
-        Uplink uplink = NewUplinkInsecure(err); // TODO: replace with NewUplink
+        Uplink uplink = NewUplink(cfg, err);
         require_noerror(*err);
-        require(uplink._ref != 0, "got empty uplink\n");
+        require(uplink._handle != 0, "got empty uplink\n");
 
         // open a project
         Project project = OpenProject(uplink, satellite_addr, apikey, err);
         require_noerror(*err);
+        require(project._handle != 0, "got empty project\n");
 
         // close project
         CloseProject(project, err);

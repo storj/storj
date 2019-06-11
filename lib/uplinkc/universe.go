@@ -11,21 +11,25 @@ import "C"
 
 var universe = NewUniverse()
 
-type Ref = C.long
+// Handle is a generic handle.
+type Handle = C.long
 
+// Universe stores different Go values that need to be accessed from Go side.
 type Universe struct {
 	lock    sync.Mutex
-	nextid  Ref
-	values  map[Ref]interface{}
+	nextid  Handle
+	values  map[Handle]interface{}
 }
 
+// NewUniverse creates a place to store go files by handle.
 func NewUniverse() *Universe {
 	return &Universe{
-		values: make(map[Ref]interface{}),
+		values: make(map[Handle]interface{}),
 	}
 }
 
-func (m *Universe) Add(x interface{}) Ref {
+// Add adds a value to the table.
+func (m *Universe) Add(x interface{}) Handle {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -34,18 +38,22 @@ func (m *Universe) Add(x interface{}) Ref {
 	return m.nextid
 }
 
-func (m *Universe) Get(x Ref) interface{} {
+// Get gets a value.
+func (m *Universe) Get(x Handle) interface{} {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.values[x]
 }
 
-func (m *Universe) Del(x Ref) {
+// Del deletes the value and clears the handle.
+func (m *Universe) Del(x *Handle) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-	delete(m.values, x)
+	delete(m.values, *x)
+	*x = 0
 }
 
+// Empty returns whether the universe is empty.
 func (m *Universe) Empty() bool {
 	m.lock.Lock()
 	defer m.lock.Unlock()
