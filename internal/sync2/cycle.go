@@ -88,6 +88,19 @@ func (cycle *Cycle) Run(ctx context.Context, fn func(ctx context.Context) error)
 		return err
 	}
 	for {
+		// prioritize stopping messages
+		select {
+		case <-cycle.stopping:
+			return nil
+
+		case <-ctx.Done():
+			// handle control messages
+			return ctx.Err()
+
+		default:
+		}
+
+		// handle other messages as well
 		select {
 
 		case message := <-cycle.control:
@@ -165,6 +178,10 @@ func (cycle *Cycle) Stop() {
 	cycle.initialize()
 	if atomic.CompareAndSwapInt32(&cycle.stopsent, 0, 1) {
 		close(cycle.stopping)
+	}
+
+	if atomic.LoadInt32(&cycle.runexec) == 1 {
+		<-cycle.stopped
 	}
 }
 

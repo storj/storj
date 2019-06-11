@@ -11,13 +11,13 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -53,7 +53,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db.DB, mon)
 
 	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
@@ -90,11 +90,6 @@ func (db *DB) DropSchema(schema string) error {
 		return pgutil.DropSchema(db.db, schema)
 	}
 	return nil
-}
-
-// BandwidthAgreement is a getter for bandwidth agreement repository
-func (db *DB) BandwidthAgreement() bwagreement.DB {
-	return &bandwidthagreement{db: db.db}
 }
 
 // CertDB is a getter for uplink's specific info like public key, id, etc...
@@ -135,6 +130,14 @@ func (db *DB) Irreparable() irreparable.DB {
 // Console returns database for storing users, projects and api keys
 func (db *DB) Console() console.DB {
 	return &ConsoleDB{
+		db:      db.db,
+		methods: db.db,
+	}
+}
+
+// Marketing returns database for storing offers and credits
+func (db *DB) Marketing() marketing.DB {
+	return &MarketingDB{
 		db:      db.db,
 		methods: db.db,
 	}

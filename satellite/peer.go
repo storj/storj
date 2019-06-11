@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -50,6 +49,8 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/marketing"
+	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
@@ -74,8 +75,6 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// BandwidthAgreement returns database for storing bandwidth agreements
-	BandwidthAgreement() bwagreement.DB
 	// CertDB returns database for storing uplink's public key & ID
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
@@ -90,6 +89,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	// Marketing returns database for marketing admin GUI
+	Marketing() marketing.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -107,8 +108,7 @@ type Config struct {
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	Metainfo    metainfo.Config
-	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
+	Metainfo metainfo.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -120,6 +120,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Marketing marketingweb.Config
 
 	Vouchers vouchers.Config
 
@@ -168,10 +170,6 @@ type Peer struct {
 		Endpoint *inspector.Endpoint
 	}
 
-	Agreements struct {
-		Endpoint *bwagreement.Server
-	}
-
 	Orders struct {
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
@@ -208,6 +206,11 @@ type Peer struct {
 		Listener net.Listener
 		Service  *console.Service
 		Endpoint *consoleweb.Server
+	}
+
+	Marketing struct {
+		Listener net.Listener
+		Endpoint *marketingweb.Server
 	}
 }
 
@@ -283,6 +286,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			},
 			Type: pb.NodeType_SATELLITE,
 			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,
@@ -412,13 +416,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
 	}
 
-	{ // setup agreements
-		log.Debug("Setting up agreements")
-		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
-		peer.Agreements.Endpoint = bwServer
-		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
-	}
-
 	{ // setup datarepair
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
@@ -505,7 +502,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				ClientSecret: mailConfig.ClientSecret,
 				TokenURI:     mailConfig.TokenURI,
 			}
-			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -590,10 +587,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 	}
 
+	{ // setup marketing portal
+		log.Debug("Setting up marketing server")
+		marketingConfig := config.Marketing
+
+		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			marketingConfig,
+			peer.Marketing.Listener,
+		)
+	}
+
 	return peer, nil
 }
 
-// Run runs storage node until it's either closed or it errors.
+// Run runs satellite until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -637,6 +650,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -662,16 +678,18 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Mail.Service.Close())
 	}
 
+	if peer.Marketing.Endpoint != nil {
+		errlist.Add(peer.Marketing.Endpoint.Close())
+	} else if peer.Marketing.Listener != nil {
+		errlist.Add(peer.Marketing.Listener.Close())
+	}
+
 	// close services in reverse initialization order
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Agreements.Endpoint != nil {
-		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
 	if peer.Metainfo.Database != nil {

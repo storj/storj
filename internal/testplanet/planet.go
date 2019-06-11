@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/pkg/accounting/rollup"
 	"storj.io/storj/pkg/accounting/tally"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
@@ -54,6 +53,7 @@ import (
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -458,7 +458,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				GraveyardInterval: 1 * time.Second,
 				DiscoveryInterval: 1 * time.Second,
 				RefreshInterval:   1 * time.Second,
 				RefreshLimit:      100,
@@ -470,7 +469,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Overlay:              true,
 				BwExpiration:         45,
 			},
-			BwAgreement: bwagreement.Config{},
 			Checker: checker.Config{
 				Interval:            30 * time.Second,
 				IrreparableInterval: 15 * time.Second,
@@ -478,7 +476,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
-				Timeout:      2 * time.Second,
+				Timeout:      10 * time.Second, // Repairs can take up to 4 seconds. Leaving room for outliers
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
@@ -619,6 +617,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
+				},
+				Monitor: monitor.Config{
+					MinimumBandwidth: 100 * memory.MB,
+					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
 			Version: planet.NewVersionConfig(),

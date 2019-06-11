@@ -82,7 +82,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,8 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(reader)
 	}
@@ -134,7 +135,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,8 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(rc)
 	} else {
@@ -212,7 +214,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
 	if err != nil {
 		return err
 	}

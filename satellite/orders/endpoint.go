@@ -38,8 +38,8 @@ type DB interface {
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
-	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
+	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
@@ -76,6 +76,24 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, certdb 
 	}
 }
 
+func monitoredSettlementStreamReceive(ctx context.Context, stream pb.Orders_SettlementServer) (_ *pb.SettlementRequest, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return stream.Recv()
+}
+
+func monitoredSettlementStreamSend(ctx context.Context, stream pb.Orders_SettlementServer, resp *pb.SettlementResponse) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	switch resp.Status {
+	case pb.SettlementResponse_ACCEPTED:
+		mon.Event("settlement_response_accepted")
+	case pb.SettlementResponse_REJECTED:
+		mon.Event("settlement_response_rejected")
+	default:
+		mon.Event("settlement_response_unknown")
+	}
+	return stream.Send(resp)
+}
+
 // Settlement receives and handles orders.
 func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err error) {
 	ctx := stream.Context()
@@ -96,7 +114,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("Settlement")
 	for {
-		request, err := stream.Recv()
+		request, err := monitoredSettlementStreamReceive(ctx, stream)
 		if err != nil {
 			return formatError(err)
 		}
@@ -141,11 +159,11 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		}
 
 		rejectErr := func() error {
-			if err := signing.VerifyOrderLimitSignature(endpoint.satelliteSignee, orderLimit); err != nil {
+			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
 
-			if err := signing.VerifyOrderSignature(uplinkSignee, order); err != nil {
+			if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
 				return Error.New("unable to verify order")
 			}
 
@@ -161,7 +179,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		}()
 		if rejectErr != err {
 			log.Debug("order limit/order verification failed", zap.String("serial", orderLimit.SerialNumber.String()), zap.Error(err))
-			err := stream.Send(&pb.SettlementResponse{
+			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_REJECTED,
 			})
@@ -174,7 +192,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		if err != nil {
 			log.Warn("unable to use serial number", zap.Error(err))
 			if ErrUsingSerialNumber.Has(err) {
-				err := stream.Send(&pb.SettlementResponse{
+				err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 					SerialNumber: orderLimit.SerialNumber,
 					Status:       pb.SettlementResponse_REJECTED,
 				})
@@ -206,7 +224,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return err
 		}
 
-		err = stream.Send(&pb.SettlementResponse{
+		err = monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 			SerialNumber: orderLimit.SerialNumber,
 			Status:       pb.SettlementResponse_ACCEPTED,
 		})

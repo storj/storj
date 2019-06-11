@@ -62,13 +62,17 @@ func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
 // check that bucket attributes are stored and retrieved correctly.
 func TestBucketAttrs(t *testing.T) {
 	var (
-		access         = simpleEncryptionAccess("voxmachina")
-		bucketName     = "mightynein"
-		inBucketConfig = BucketConfig{
+		access          = simpleEncryptionAccess("voxmachina")
+		bucketName      = "mightynein"
+		shareSize       = memory.KiB.Int32()
+		requiredShares  = 2
+		stripeSize      = shareSize * int32(requiredShares)
+		stripesPerBlock = 2
+		inBucketConfig  = BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
-				BlockSize:   512,
+				BlockSize:   int32(stripesPerBlock) * stripeSize,
 			},
 			Volatile: struct {
 				RedundancyScheme storj.RedundancyScheme
@@ -76,8 +80,8 @@ func TestBucketAttrs(t *testing.T) {
 			}{
 				RedundancyScheme: storj.RedundancyScheme{
 					Algorithm:      storj.ReedSolomon,
-					ShareSize:      memory.KiB.Int32(),
-					RequiredShares: 2,
+					ShareSize:      shareSize,
+					RequiredShares: int16(requiredShares),
 					RepairShares:   3,
 					OptimalShares:  4,
 					TotalShares:    5,
@@ -116,15 +120,19 @@ func TestBucketAttrs(t *testing.T) {
 // specific config, the specific config applies and not the bucket attrs.
 func TestBucketAttrsApply(t *testing.T) {
 	var (
-		access         = simpleEncryptionAccess("howdoyouwanttodothis")
-		bucketName     = "dodecahedron"
-		objectPath1    = "vax/vex/vox"
-		objectContents = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
-		inBucketConfig = BucketConfig{
+		access          = simpleEncryptionAccess("howdoyouwanttodothis")
+		bucketName      = "dodecahedron"
+		objectPath1     = "vax/vex/vox"
+		objectContents  = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
+		shareSize       = 3 * memory.KiB.Int32()
+		requiredShares  = 3
+		stripeSize      = shareSize * int32(requiredShares)
+		stripesPerBlock = 2
+		inBucketConfig  = BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncSecretBox,
-				BlockSize:   768,
+				BlockSize:   int32(stripesPerBlock) * stripeSize,
 			},
 			Volatile: struct {
 				RedundancyScheme storj.RedundancyScheme
@@ -132,8 +140,8 @@ func TestBucketAttrsApply(t *testing.T) {
 			}{
 				RedundancyScheme: storj.RedundancyScheme{
 					Algorithm:      storj.ReedSolomon,
-					ShareSize:      (3 * memory.KiB).Int32(),
-					RequiredShares: 3,
+					ShareSize:      shareSize,
+					RequiredShares: int16(requiredShares),
 					RepairShares:   4,
 					OptimalShares:  5,
 					TotalShares:    5,

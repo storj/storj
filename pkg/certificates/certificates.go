@@ -303,7 +303,7 @@ func (authDB *AuthorizationDB) Create(ctx context.Context, userID string, count 
 // Get retrieves authorizations by user ID.
 func (authDB *AuthorizationDB) Get(ctx context.Context, userID string) (_ Authorizations, err error) {
 	defer mon.Task()(&ctx)(&err)
-	authsBytes, err := authDB.DB.Get(storage.Key(userID))
+	authsBytes, err := authDB.DB.Get(ctx, storage.Key(userID))
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return nil, ErrAuthorizationDB.Wrap(err)
 	}
@@ -321,11 +321,11 @@ func (authDB *AuthorizationDB) Get(ctx context.Context, userID string) (_ Author
 // UserIDs returns a list of all userIDs present in the authorization database.
 func (authDB *AuthorizationDB) UserIDs(ctx context.Context) (userIDs []string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.DB.Iterate(storage.IterateOptions{
+	err = authDB.DB.Iterate(ctx, storage.IterateOptions{
 		Recurse: true,
-	}, func(iterator storage.Iterator) error {
+	}, func(ctx context.Context, iterator storage.Iterator) error {
 		var listItem storage.ListItem
-		for iterator.Next(&listItem) {
+		for iterator.Next(ctx, &listItem) {
 			userIDs = append(userIDs, listItem.Key.String())
 		}
 		return nil
@@ -336,12 +336,12 @@ func (authDB *AuthorizationDB) UserIDs(ctx context.Context) (userIDs []string, e
 // List returns all authorizations in the database.
 func (authDB *AuthorizationDB) List(ctx context.Context) (auths Authorizations, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = authDB.DB.Iterate(storage.IterateOptions{
+	err = authDB.DB.Iterate(ctx, storage.IterateOptions{
 		Recurse: true,
-	}, func(iterator storage.Iterator) error {
+	}, func(ctx context.Context, iterator storage.Iterator) error {
 		var listErrs errs.Group
 		var listItem storage.ListItem
-		for iterator.Next(&listItem) {
+		for iterator.Next(ctx, &listItem) {
 			var nextAuths Authorizations
 			if err := nextAuths.Unmarshal(listItem.Value); err != nil {
 				listErrs.Add(err)
@@ -450,7 +450,7 @@ func (authDB *AuthorizationDB) put(ctx context.Context, userID string, auths Aut
 		return ErrAuthorizationDB.Wrap(err)
 	}
 
-	if err := authDB.DB.Put(storage.Key(userID), authsBytes); err != nil {
+	if err := authDB.DB.Put(ctx, storage.Key(userID), authsBytes); err != nil {
 		return ErrAuthorizationDB.Wrap(err)
 	}
 	return nil

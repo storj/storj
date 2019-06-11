@@ -46,11 +46,6 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	diagCmd = &cobra.Command{
-		Use:   "diag",
-		Short: "Diagnostic Tool support",
-		RunE:  cmdDiag,
-	}
 	qdiagCmd = &cobra.Command{
 		Use:   "qdiag",
 		Short: "Repair Queue Diagnostic Tool support",
@@ -71,9 +66,6 @@ var (
 	runCfg   Satellite
 	setupCfg Satellite
 
-	diagCfg struct {
-		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
-	}
 	qdiagCfg struct {
 		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
@@ -94,13 +86,11 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
-	process.Bind(diagCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
@@ -168,39 +158,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
-}
-
-func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	database, err := satellitedb.New(zap.L().Named("db"), diagCfg.Database)
-	if err != nil {
-		return errs.New("error connecting to master database on satellite: %+v", err)
-	}
-	defer func() {
-		err := database.Close()
-		if err != nil {
-			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
-		}
-	}()
-
-	//get all bandwidth agreements rows already ordered
-	stats, err := database.BandwidthAgreement().GetUplinkStats(context.Background(), time.Time{}, time.Now())
-	if err != nil {
-		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
-		return err
-	}
-
-	// initialize the table header (fields)
-	const padding = 3
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
-
-	// populate the row fields
-	for _, s := range stats {
-		fmt.Fprint(w, s.NodeID, "\t", s.TotalBytes, "\t", s.TotalTransactions, "\t", s.PutActionCount, "\t", s.GetActionCount, "\t\n")
-	}
-
-	// display the data
-	return w.Flush()
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
