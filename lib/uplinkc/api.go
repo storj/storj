@@ -167,8 +167,13 @@ func ParseAPIKey(val *C.char, cerr **C.char) C.APIKeyRef_t {
 	return C.APIKeyRef_t(universe.Add(apikey))
 }
 
-//export Serialize
-func Serialize(cAPIKey C.APIKeyRef_t) *C.char {
+//export FreeAPIKey
+func FreeAPIKey(apikeyref C.APIKeyRef_t, cerr **C.char) {
+	universe.Del(Ref(apikeyref))
+}
+
+//export SerializeAPIKey
+func SerializeAPIKey(cAPIKey C.APIKeyRef_t, cerr **C.char) *C.char {
 	apikey, ok := universe.Get(Ref(cAPIKey)).(libuplink.APIKey)
 	if !ok {
 		return C.CString("")
@@ -229,7 +234,7 @@ func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKe
 
 	apikey, ok := universe.Get(Ref(cAPIKey)).(libuplink.APIKey)
 	if !ok {
-		err = errors.New("invalid API Key")
+		err = errors.New("missing API Key")
 		*cerr = C.CString(err.Error())
 		return C.ProjectRef_t(0)
 	}
