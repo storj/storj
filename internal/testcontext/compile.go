@@ -70,10 +70,7 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 			args = append(args, "-I", filepath.Dir(inc.Header))
 		}
 		if inc.Library != "" {
-			args = append(args,
-				"-L"+filepath.Dir(inc.Library),
-				"-l:"+filepath.Base(inc.Library),
-			)
+			args = append(args, inc.Library)
 		}
 	}
 	args = append(args, file)
