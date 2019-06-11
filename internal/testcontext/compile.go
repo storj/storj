@@ -68,9 +68,9 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 		}
 		if inc.Library != "" {
 			if runtime.GOOS == "windows" {
-				args = append(args, 
-					"-L" + filepath.Dir(inc.Library),
-					"-l:" + filepath.Base(inc.Library),
+				args = append(args,
+					"-L"+filepath.Dir(inc.Library),
+					"-l:"+filepath.Base(inc.Library),
 				)
 			} else {
 				args = append(args, inc.Library)
