@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     char *_err = "";
     char **err = &_err;
 
-    APIKeyRef_t apikey = ParseAPIKey("testapikey123", err);
+    APIKey apikey = ParseAPIKey("testapikey123", err);
     require_noerror(*err);
 
     char *apikeyserialized = SerializeAPIKey(apikey, err);

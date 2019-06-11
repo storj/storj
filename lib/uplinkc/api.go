@@ -7,10 +7,10 @@ package main
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct __APIKeyRef_t { long ref; } APIKeyRef_t;
-typedef struct __UplinkRef_t { long ref; } UplinkRef_t;
-typedef struct __UplinkConfigRef_t { long ref; } UplinkConfigRef_t;
-typedef struct __ProjectRef_t { long ref; } ProjectRef_t;
+typedef struct __APIKey { long ref; } APIKey;
+typedef struct __Uplink { long ref; } Uplink;
+typedef struct __UplinkConfig { long ref; } UplinkConfig;
+typedef struct __Project { long ref; } Project;
 
 // TODO: Add free functions for each struct
 
@@ -52,23 +52,23 @@ func GetIDVersion(number C.uint8_t, cerr **C.char) C.IDVersion_t {
 }
 
 //export ParseAPIKey
-func ParseAPIKey(val *C.char, cerr **C.char) C.APIKeyRef_t {
+func ParseAPIKey(val *C.char, cerr **C.char) C.APIKey {
 	apikey, err := libuplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.APIKeyRef_t{}
+		return C.APIKey{}
 	}
 
-	return C.APIKeyRef_t{universe.Add(apikey)}
+	return C.APIKey{universe.Add(apikey)}
 }
 
 //export FreeAPIKey
-func FreeAPIKey(apikeyref C.APIKeyRef_t, cerr **C.char) {
+func FreeAPIKey(apikeyref C.APIKey, cerr **C.char) {
 	universe.Del(apikeyref.ref)
 }
 
 //export SerializeAPIKey
-func SerializeAPIKey(cAPIKey C.APIKeyRef_t, cerr **C.char) *C.char {
+func SerializeAPIKey(cAPIKey C.APIKey, cerr **C.char) *C.char {
 	apikey, ok := universe.Get(cAPIKey.ref).(libuplink.APIKey)
 	if !ok {
 		return C.CString("")
@@ -83,21 +83,21 @@ type Uplink struct {
 }
 
 //export NewUplink
-func NewUplink(cerr **C.char) C.UplinkRef_t {
+func NewUplink(cerr **C.char) C.Uplink {
 	scope := rootScope("inmemory")
 
 	cfg := &libuplink.Config{}
 	lib, err := libuplink.NewUplink(scope.ctx, cfg)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.UplinkRef_t{}
+		return C.Uplink{}
 	}
 
-	return C.UplinkRef_t{universe.Add(&Uplink{scope, lib})}
+	return C.Uplink{universe.Add(&Uplink{scope, lib})}
 }
 
 //export NewUplinkInsecure
-func NewUplinkInsecure(cerr **C.char) C.UplinkRef_t {
+func NewUplinkInsecure(cerr **C.char) C.Uplink {
 	scope := rootScope("inmemory")
 
 	cfg := &libuplink.Config{}
@@ -105,10 +105,10 @@ func NewUplinkInsecure(cerr **C.char) C.UplinkRef_t {
 	lib, err := libuplink.NewUplink(scope.ctx, cfg)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.UplinkRef_t{}
+		return C.Uplink{}
 	}
 
-	return C.UplinkRef_t{universe.Add(&Uplink{scope, lib})}
+	return C.Uplink{universe.Add(&Uplink{scope, lib})}
 }
 
 type Project struct {
@@ -117,11 +117,11 @@ type Project struct {
 }
 
 //export OpenProject
-func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKeyRef_t, cerr **C.char) C.ProjectRef_t {
+func OpenProject(uplinkref C.Uplink, satelliteAddr *C.char, cAPIKey C.APIKey, cerr **C.char) C.Project {
 	uplink, ok := universe.Get(uplinkref.ref).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
-		return C.ProjectRef_t{}
+		return C.Project{}
 	}
 
 	var err error
@@ -131,7 +131,7 @@ func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKe
 	if !ok {
 		err = errors.New("missing API Key")
 		*cerr = C.CString(err.Error())
-		return C.ProjectRef_t{}
+		return C.Project{}
 	}
 
 	scope := uplink.scope.child()
@@ -141,14 +141,14 @@ func OpenProject(uplinkref C.UplinkRef_t, satelliteAddr *C.char, cAPIKey C.APIKe
 	project, err = uplink.lib.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.ProjectRef_t{}
+		return C.Project{}
 	}
 
-	return C.ProjectRef_t{universe.Add(&Project{scope, project})}
+	return C.Project{universe.Add(&Project{scope, project})}
 }
 
 //export CloseProject
-func CloseProject(projectref C.ProjectRef_t, cerr **C.char) {
+func CloseProject(projectref C.Project, cerr **C.char) {
 	project, ok := universe.Get(projectref.ref).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -164,7 +164,7 @@ func CloseProject(projectref C.ProjectRef_t, cerr **C.char) {
 }
 
 //export CloseUplink
-func CloseUplink(uplinkref C.UplinkRef_t, cerr **C.char) {
+func CloseUplink(uplinkref C.Uplink, cerr **C.char) {
 	uplink, ok := universe.Get(uplinkref.ref).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
