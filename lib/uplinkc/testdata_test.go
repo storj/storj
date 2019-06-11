@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,10 +31,14 @@ func TestC(t *testing.T) {
 	ctests, err := filepath.Glob(filepath.Join("testdata", "*_test.c"))
 	require.NoError(t, err)
 
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	for _, ctest := range ctests {
+		wg.Add(1)
+
 		ctest := ctest
 		t.Run(filepath.Base(ctest), func(t *testing.T) {
-			t.Parallel()
+			defer wg.Done()
 
 			testexe := ctx.CompileC(ctest, libuplink, definition)
 
