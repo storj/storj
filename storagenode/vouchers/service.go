@@ -163,7 +163,7 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		service.log.Warn("Unknown voucher response status")
 	}
 
-	return nil
+	return service.vdb.Put(ctx, voucher)
 }
 
 // Close stops the voucher service
