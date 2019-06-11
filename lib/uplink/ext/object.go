@@ -66,15 +66,23 @@ func ObjectMeta(cObject C.ObjectRef_t, cErr **C.char) (objectMeta C.ObjectMeta_t
 	bytes := new(C.Bytes_t)
 	bytesToCbytes(object.Meta.Checksum, len(object.Meta.Checksum), bytes)
 
+	mapRef := NewMapRef()
+	for k, v := range object.Meta.Metadata {
+		MapRefSet(mapRef, C.CString(k), C.CString(v), cErr)
+		if C.GoString(*cErr) != "" {
+			return objectMeta
+		}
+	}
+
 	return C.ObjectMeta_t {
 		Bucket: C.CString(object.Meta.Bucket),
 		Path:  C.CString(object.Meta.Path),
 		IsPrefix: C.bool(object.Meta.IsPrefix),
 		ContentType:  C.CString(object.Meta.ContentType),
-		MetaData: NewMapRef(),
-		Created: C.uint64_t(object.Meta.Created.Unix()),
-		Modified: C.uint64_t(object.Meta.Modified.Unix()),
-		Expires: C.uint64_t(object.Meta.Expires.Unix()),
+		MetaData: mapRef,
+		Created: C.uint64_t(object.Meta.Created.UnixNano()),
+		Modified: C.uint64_t(object.Meta.Modified.UnixNano()),
+		Expires: C.uint64_t(object.Meta.Expires.UnixNano()),
 		Size: C.uint64_t(object.Meta.Size),
 		Checksum: *bytes,
 	}

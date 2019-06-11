@@ -169,9 +169,9 @@ func TestGetBucketInfo(t *testing.T) {
 			require.NotEmpty(t, bucket)
 			require.NotEmpty(t, bucketConfig)
 
-			// NB (workaround): should we use nano precision in c bucket?
+			// NB (workaround): timezones are different
 			bucket.Created = time.Unix(bucket.Created.Unix(), 0).UTC()
-			// TODO: c structs ignore `Volatile` fields; set to zero value for comparison
+			// NB: c structs ignore `Volatile` fields; set to zero value for comparison
 			bucketConfig.Volatile = uplink.BucketConfig{}.Volatile
 
 			cBucketInfo := GetBucketInfo(cProjectRef, stringToCCharPtr(bucketName), &cErr)

@@ -295,9 +295,9 @@ func newGoObject(t *testing.T, cObj *C.Object_t) *storj.Object {
 		IsPrefix:    bool(cObj.is_prefix),
 		Metadata:    metadata,
 		ContentType: C.GoString(cObj.content_type),
-		Created:     time.Unix(int64(cObj.created), 0),
-		Modified:    time.Unix(int64(cObj.modified), 0),
-		Expires:     time.Unix(int64(cObj.expires), 0),
+		Created:     time.Unix(int64(cObj.created), 0).UTC(),
+		Modified:    time.Unix(int64(cObj.modified), 0).UTC(),
+		Expires:     time.Unix(int64(cObj.expires), 0).UTC(),
 	}
 }
 
@@ -312,4 +312,31 @@ func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
 
 func CGoBytes(ptr unsafe.Pointer, n C.int) []byte {
 	return C.GoBytes(ptr, n)
+}
+
+func newGoObjectMeta(t *testing.T, cObj *C.ObjectMeta_t) uplink.ObjectMeta {
+	var metadata *MapRef
+	if uintptr(cObj.MetaData) != 0 {
+		var ok bool
+		metadata, ok = structRefMap.Get(token(cObj.MetaData)).(*MapRef)
+		require.True(t, ok)
+	}
+
+	var checksum []byte
+	if cObj.Checksum.length > 0 {
+		checksum = C.GoBytes(unsafe.Pointer(cObj.Checksum.bytes), cObj.Checksum.length)
+	}
+
+	return uplink.ObjectMeta{
+		Bucket: C.GoString(cObj.Bucket),
+		Path: C.GoString(cObj.Path),
+		IsPrefix: bool(cObj.IsPrefix),
+		ContentType: C.GoString(cObj.ContentType),
+		Metadata: metadata.m,
+		Created: time.Unix(0, int64(cObj.Created)).UTC(),
+		Modified: time.Unix(0, int64(cObj.Modified)).UTC(),
+		Expires: time.Unix(0, int64(cObj.Expires)).UTC(),
+		Size: int64(cObj.Size),
+		Checksum: checksum,
+	}
 }

@@ -45,8 +45,11 @@ type MapRef struct {
 
 //export NewMapRef
 func NewMapRef() C.MapRef_t {
-	return C.MapRef_t(structRefMap.Add(&MapRef{}))
+	mapref := &MapRef{}
+	mapref.m = make(map[string]string)
+	return C.MapRef_t(structRefMap.Add(mapref))
 }
+
 //export MapRefSet
 func MapRefSet(metaDataRef C.MapRef_t, key *C.char, value *C.char, cErr **C.char) {
 	metaData, ok := structRefMap.Get(token(metaDataRef)).(*MapRef)

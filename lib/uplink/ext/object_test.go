@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	"reflect"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/lib/uplink"
 	"testing"
@@ -28,20 +29,25 @@ func TestObjectMeta(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, openBucket)
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
 		for _, testObj := range testObjects {
 			testObj.goUpload(t, ctx, openBucket)
 
 			require.Empty(t, cCharToGoString(cErr))
 
-			path := stringToCCharPtr(string(testObj.Path))
-			objectRef := OpenObject(cBucketRef, path, &cErr)
+			object, err := openBucket.OpenObject(ctx, testObj.Path)
+			require.NoError(t, err)
+			require.NotNil(t, object)
+
+			cObjectRef := CObjectRef(structRefMap.Add(object))
+
+			cObjectMeta := ObjectMeta(cObjectRef, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 
-			objectMeta := ObjectMeta(objectRef, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
-			require.Equal(t, objectMeta.Path, path)
-			// TODO: Check other objectMeta Fields
+			actualObjectMeta := newGoObjectMeta(t, &cObjectMeta)
+			// NB: c structs ignore `Volatile` fields; set to zero value for comparison
+			object.Meta.Volatile = uplink.ObjectMeta{}.Volatile
+
+			require.True(t, reflect.DeepEqual(object.Meta, actualObjectMeta))
 		}
 
 	})
