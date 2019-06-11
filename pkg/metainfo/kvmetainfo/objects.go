@@ -40,9 +40,10 @@ var DefaultRS = storj.RedundancyScheme{
 }
 
 // DefaultES default values for EncryptionScheme
+// BlockSize should default to the size of a stripe
 var DefaultES = storj.EncryptionScheme{
 	Cipher:    storj.AESGCM,
-	BlockSize: 1 * memory.KiB.Int32(),
+	BlockSize: DefaultRS.StripeSize(),
 }
 
 // GetObject returns information about an object
@@ -105,14 +106,20 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.RedundancyScheme.IsZero() {
-		info.RedundancyScheme = DefaultRS
-	}
-
 	if info.EncryptionScheme.IsZero() {
 		info.EncryptionScheme = storj.EncryptionScheme{
 			Cipher:    DefaultES.Cipher,
-			BlockSize: info.RedundancyScheme.ShareSize,
+			BlockSize: DefaultES.BlockSize,
+		}
+	}
+
+	if info.RedundancyScheme.IsZero() {
+		info.RedundancyScheme = DefaultRS
+
+		// If the provided EncryptionScheme.BlockSize isn't a multiple of the
+		// DefaultRS stripeSize, then overwrite the EncryptionScheme with the DefaultES values
+		if err := validateBlockSize(DefaultRS, info.EncryptionScheme.BlockSize); err != nil {
+			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
 		}
 	}
 

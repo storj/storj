@@ -93,23 +93,21 @@ func (cfg *BucketConfig) setDefaults() {
 }
 
 // CreateBucket creates a new bucket if authorized.
-func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConfig) (b storj.Bucket, err error) {
+func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConfig) (bucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
 		cfg = &BucketConfig{}
 	}
 	cfg = cfg.clone()
 	cfg.setDefaults()
-	if cfg.Volatile.RedundancyScheme.ShareSize*int32(cfg.Volatile.RedundancyScheme.RequiredShares)%cfg.EncryptionParameters.BlockSize != 0 {
-		return b, Error.New("EncryptionParameters.BlockSize must be a multiple of RS ShareSize * RS RequiredShares")
-	}
-	b = storj.Bucket{
+
+	bucket = storj.Bucket{
 		PathCipher:           cfg.PathCipher.ToCipher(),
 		EncryptionParameters: cfg.EncryptionParameters,
 		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
 		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
-	return p.project.CreateBucket(ctx, name, &b)
+	return p.project.CreateBucket(ctx, name, &bucket)
 }
 
 // DeleteBucket deletes a bucket if authorized. If the bucket contains any

@@ -5,12 +5,13 @@ package boltdb
 
 import (
 	"bytes"
+	"context"
 	"sync/atomic"
 	"time"
 
 	"github.com/boltdb/bolt"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
@@ -126,13 +127,14 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 // Ref: https://github.com/boltdb/bolt/blob/master/db.go#L160
 // Note: when using this method, check if it need to be executed asynchronously
 // since it blocks for the duration db.MaxBatchDelay.
-func (client *Client) Put(key storage.Key, value storage.Value) error {
+func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	start := time.Now()
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	err := client.batch(func(bucket *bolt.Bucket) error {
+	err = client.batch(func(bucket *bolt.Bucket) error {
 		return bucket.Put(key, value)
 	})
 	mon.IntVal("boltdb_batch_time_elapsed").Observe(int64(time.Since(start)))
@@ -140,7 +142,8 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // PutAndCommit adds a key/value to BoltDB and writes it to disk.
-func (client *Client) PutAndCommit(key storage.Key, value storage.Value) error {
+func (client *Client) PutAndCommit(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
@@ -151,13 +154,14 @@ func (client *Client) PutAndCommit(key storage.Key, value storage.Value) error {
 }
 
 // Get looks up the provided key from boltdb returning either an error or the result.
-func (client *Client) Get(key storage.Key) (storage.Value, error) {
+func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return nil, storage.ErrEmptyKey.New("")
 	}
 
 	var value storage.Value
-	err := client.view(func(bucket *bolt.Bucket) error {
+	err = client.view(func(bucket *bolt.Bucket) error {
 		data := bucket.Get([]byte(key))
 		if len(data) == 0 {
 			return storage.ErrKeyNotFound.New(key.String())
@@ -169,7 +173,8 @@ func (client *Client) Get(key storage.Key) (storage.Value, error) {
 }
 
 // Delete deletes a key/value pair from boltdb, for a given the key
-func (client *Client) Delete(key storage.Key) error {
+func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
@@ -180,13 +185,14 @@ func (client *Client) Delete(key storage.Key) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
-	rv, err := storage.ListKeys(client, first, limit)
+func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
+	rv, err := storage.ListKeys(ctx, client, first, limit)
 	return rv, Error.Wrap(err)
 }
 
 // Close closes a BoltDB client
-func (client *Client) Close() error {
+func (client *Client) Close() (err error) {
 	if atomic.AddInt32(client.referenceCount, -1) == 0 {
 		return Error.Wrap(client.db.Close())
 	}
@@ -195,13 +201,14 @@ func (client *Client) Close() error {
 
 // GetAll finds all values for the provided keys (up to storage.LookupLimit).
 // If more keys are provided than the maximum, an error will be returned.
-func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
+func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(keys) > storage.LookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
 
 	vals := make(storage.Values, 0, len(keys))
-	err := client.view(func(bucket *bolt.Bucket) error {
+	err = client.view(func(bucket *bolt.Bucket) error {
 		for _, key := range keys {
 			val := bucket.Get([]byte(key))
 			if val == nil {
@@ -216,7 +223,8 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 // Iterate iterates over items based on opts
-func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Iterator) error) error {
+func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return client.view(func(bucket *bolt.Bucket) error {
 		var cursor advancer
 		if !opts.Reverse {
@@ -229,7 +237,7 @@ func (client *Client) Iterate(opts storage.IterateOptions, fn func(storage.Itera
 		lastPrefix := []byte{}
 		wasPrefix := false
 
-		return fn(storage.IteratorFunc(func(item *storage.ListItem) bool {
+		return fn(ctx, storage.IteratorFunc(func(ctx context.Context, item *storage.ListItem) bool {
 			var key, value []byte
 			if start {
 				key, value = cursor.PositionToFirst(opts.Prefix, opts.First)

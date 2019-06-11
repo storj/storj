@@ -40,6 +40,15 @@
 # satellite database connection string
 # database: "postgres://"
 
+# Maximum Database Connection Lifetime, -1ns means the stdlib default
+# db.conn_max_lifetime: -1ns
+
+# Maximum Amount of Idle Database connections, -1 means the stdlib default
+# db.max_idle_conns: 20
+
+# Maximum Amount of Open Database connections, -1 means the stdlib default
+# db.max_open_conns: 25
+
 # address to listen on for debug endpoints
 # debug.addr: "127.0.0.1:0"
 
@@ -51,9 +60,6 @@ defaults: "release"
 
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
-
-# the interval at which the the graveyard tries to resurrect nodes
-# discovery.graveyard-interval: 30s
 
 # the interval at which the cache refreshes itself in seconds
 # discovery.refresh-interval: 1s
@@ -94,7 +100,7 @@ kademlia.external-address: ""
 # operator email address
 kademlia.operator.email: ""
 
-# operator wallet adress
+# operator wallet address
 kademlia.operator.wallet: ""
 
 # size of Kademlia replacement cache
