@@ -791,10 +791,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE value_attributions DROP CONSTRAINT value_attributions_pkey;`,
 					`ALTER TABLE value_attributions ADD project_id bytea;`,
-					`UPDATE value_attributions SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					//`UPDATE value_attributions SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
 					`ALTER TABLE value_attributions ALTER COLUMN project_id SET NOT NULL;`,
 					`ALTER TABLE value_attributions RENAME COLUMN bucket_id TO bucket_name;`,
-					`UPDATE value_attributions SET bucket_name=SUBSTRING(bucket_name from 18);`,
+					//`UPDATE value_attributions SET bucket_name=SUBSTRING(bucket_name from 18);`,
 					`ALTER TABLE value_attributions ADD PRIMARY KEY (project_id, bucket_name);`,
 				},
 			},

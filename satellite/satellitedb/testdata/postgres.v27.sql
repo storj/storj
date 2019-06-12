@@ -281,4 +281,4 @@ INSERT INTO "api_keys" ("id", "project_id", "head", "name", "secret", "created_a
 
 -- NEW DATA --
 
-INSERT INTO "value_attributions" ("bucket_id", "partner_id", "last_updated") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea,'2019-02-14 08:07:31.028103+00');
+INSERT INTO "value_attributions" ("bucket_id", "partner_id", "last_updated") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea,'2019-02-14 08:07:31.028103+00');
