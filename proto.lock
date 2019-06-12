@@ -1,7 +1,100 @@
 {
   "definitions": [
     {
-      "protopath": "certificate.proto",
+      "protopath": "pkg:/:macaroon:/:types.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Caveat",
+            "fields": [
+              {
+                "id": 1,
+                "name": "disallow_reads",
+                "type": "bool"
+              },
+              {
+                "id": 2,
+                "name": "disallow_writes",
+                "type": "bool"
+              },
+              {
+                "id": 3,
+                "name": "disallow_lists",
+                "type": "bool"
+              },
+              {
+                "id": 4,
+                "name": "disallow_deletes",
+                "type": "bool"
+              },
+              {
+                "id": 10,
+                "name": "allowed_paths",
+                "type": "Path",
+                "is_repeated": true
+              },
+              {
+                "id": 20,
+                "name": "not_after",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 21,
+                "name": "not_before",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
+              },
+              {
+                "id": 30,
+                "name": "nonce",
+                "type": "bytes"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Path",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bucket",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "encrypted_path_prefix",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "macaroon"
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:certificate.proto",
       "def": {
         "messages": [
           {
@@ -60,7 +153,7 @@
       }
     },
     {
-      "protopath": "datarepair.proto",
+      "protopath": "pkg:/:pb:/:datarepair.proto",
       "def": {
         "messages": [
           {
@@ -92,7 +185,7 @@
       }
     },
     {
-      "protopath": "gogo.proto",
+      "protopath": "pkg:/:pb:/:gogo.proto",
       "def": {
         "messages": [
           {
@@ -526,7 +619,7 @@
       }
     },
     {
-      "protopath": "inspector.proto",
+      "protopath": "pkg:/:pb:/:inspector.proto",
       "def": {
         "messages": [
           {
@@ -1351,7 +1444,7 @@
       }
     },
     {
-      "protopath": "meta.proto",
+      "protopath": "pkg:/:pb:/:meta.proto",
       "def": {
         "messages": [
           {
@@ -1387,7 +1480,7 @@
       }
     },
     {
-      "protopath": "metainfo.proto",
+      "protopath": "pkg:/:pb:/:metainfo.proto",
       "def": {
         "messages": [
           {
@@ -1789,7 +1882,7 @@
       }
     },
     {
-      "protopath": "node.proto",
+      "protopath": "pkg:/:pb:/:node.proto",
       "def": {
         "enums": [
           {
@@ -2068,7 +2161,7 @@
       }
     },
     {
-      "protopath": "orders.proto",
+      "protopath": "pkg:/:pb:/:orders.proto",
       "def": {
         "enums": [
           {
@@ -2361,7 +2454,7 @@
       }
     },
     {
-      "protopath": "overlay.proto",
+      "protopath": "pkg:/:pb:/:overlay.proto",
       "def": {
         "enums": [
           {
@@ -2540,7 +2633,7 @@
       }
     },
     {
-      "protopath": "piecestore2.proto",
+      "protopath": "pkg:/:pb:/:piecestore2.proto",
       "def": {
         "messages": [
           {
@@ -2718,7 +2811,7 @@
       }
     },
     {
-      "protopath": "pointerdb.proto",
+      "protopath": "pkg:/:pb:/:pointerdb.proto",
       "def": {
         "enums": [
           {
@@ -2949,7 +3042,7 @@
       }
     },
     {
-      "protopath": "streams.proto",
+      "protopath": "pkg:/:pb:/:streams.proto",
       "def": {
         "messages": [
           {
@@ -3030,7 +3123,7 @@
       }
     },
     {
-      "protopath": "vouchers.proto",
+      "protopath": "pkg:/:pb:/:vouchers.proto",
       "def": {
         "messages": [
           {
