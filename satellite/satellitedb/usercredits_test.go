@@ -39,8 +39,9 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 		OfferID:              offer.ID,
 		ReferredBy:           referrer.ID,
 		CreditsEarnedInCents: 100,
-		ExpiresAt:            time.Now().UTC().AddDate(0, 0, 1),
+		ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 	}
+	chargedCredits := 100
 
 	_, err = consoleDB.UserCredits().Create(ctx, userCredit)
 	require.NoError(t, err)
@@ -52,24 +53,24 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 	}
 
 	{
+		err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, chargedCredits, user.ID, time.Now().UTC())
+		require.NoError(t, err)
+	}
+
+	{
 		availableCredits, err := consoleDB.UserCredits().AvailableCredits(ctx, user.ID, time.Now().UTC())
 		require.NoError(t, err)
 		var sum int
 		for i := range availableCredits {
-			sum += (availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents)
+			sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
 		}
 
-		require.Equal(t, userCredit.CreditsEarnedInCents, sum)
-	}
-
-	{
-
+		require.Equal(t, 0, sum)
 	}
 
 }
 
 func setupData(ctx context.Context, store satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer, err error) {
-
 	consoleDB := store.Console()
 	marketingDB := store.Marketing()
 	// create user

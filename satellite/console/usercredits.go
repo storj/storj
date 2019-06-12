@@ -11,7 +11,7 @@ type UserCredits interface {
 	TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error)
 	AvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]UserCredit, error)
 	Create(ctx context.Context, userCredit UserCredit) (*UserCredit, error)
-	UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, expirationEndDate time.Time) error
+	UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) error
 }
 
 type UserCredit struct {
