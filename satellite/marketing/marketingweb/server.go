@@ -29,7 +29,7 @@ type Server struct {
 	log *zap.Logger
 
 	config Config
-	
+
 	listener net.Listener
 	server   http.Server
 
