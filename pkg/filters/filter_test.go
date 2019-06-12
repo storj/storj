@@ -131,7 +131,11 @@ func BenchmarkEncodedSize(b *testing.B) {
 			b.Fail()
 		}
 	}
-	file.WriteString("\n")
+	_, err = file.WriteString("\n")
+	if err != nil {
+		b.Log(err.Error())
+		b.Fail()
+	}
 
 	for range names {
 		_, err = file.WriteString("\t\tsize\treal_p\t")
