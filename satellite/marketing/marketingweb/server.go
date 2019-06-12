@@ -85,7 +85,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	err = home.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		s.serveError(w, req)
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
@@ -101,7 +101,7 @@ func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
 
 	err = unavailable.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		s.serveError(w, req)
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
