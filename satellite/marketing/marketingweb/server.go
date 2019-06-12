@@ -36,10 +36,6 @@ type Server struct {
 	templateDir string
 }
 
-func (s *Server) templateFilePath(name string) string {
-	return filepath.Join(s.config.StaticDir, "pages", name)
-}
-
 // commonPages returns templates that are required for everything.
 func (s *Server) commonPages() []string {
 	return []string{
@@ -75,7 +71,7 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 // ServeHTTP handles index request
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
-		s.serveInternalError(w, req)
+		s.serveNotFound(w, req)
 		return
 	}
 
@@ -99,6 +95,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "page-not-found.html"),
+	)
+
+	unavailable, err := template.New("page-not-found").ParseFiles(files...)
+	if err != nil {
+		s.serveInternalError(w, req)
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+
+	err = unavailable.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
+	}
+}
+
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request) {
 	files := append(s.commonPages(),
 		filepath.Join(s.templateDir, "internal-server-error.html"),
@@ -106,12 +121,12 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request) {
 
 	unavailable, err := template.New("internal-server-error").ParseFiles(files...)
 	if err != nil {
-		s.serveInternalError(w, req)
+		w.WriteHeader(http.StatusInternalServerError)
+		s.log.Error("failed to parse internal server error", zap.Error(err))
 		return
 	}
 
 	w.WriteHeader(http.StatusInternalServerError)
-
 	err = unavailable.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
