@@ -55,7 +55,7 @@ void HandleProject(Project project) {
 
         for(int i = 0; i < bucket_list.length; i++) {
             BucketInfo *info = &bucket_list.items[i];
-            require(strcmp(info->name, bucket_names[0]) == 0);
+            require(strcmp(info->name, bucket_names[i]) == 0);
             require(info->created != 0);
         }
 

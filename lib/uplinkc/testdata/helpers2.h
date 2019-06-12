@@ -26,7 +26,10 @@ void WithTestProject(void (*handleProject)(Project)) {
     char **err = &_err;
 
     char *satellite_addr = getenv("SATELLITE_0_ADDR");
-    char *apikeyStr = getenv("GATEWAY_0_APIKEY");
+    char *apikeyStr = getenv("GATEWAY_0_API_KEY");
+
+    printf("using SATELLITE_0_ADDR: %s\n", satellite_addr);
+    printf("using GATEWAY_0_API_KEY: %s\n", apikeyStr);
 
     {
         UplinkConfig cfg = {};
