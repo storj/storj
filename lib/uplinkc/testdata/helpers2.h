@@ -42,7 +42,7 @@ void WithTestProject(void (*handleProject)(Project)) {
 
         {
             // parse api key
-            APIKey apikey = ParseAPIKey(apikeyStr, err);
+            APIKey apikey = parse_api_key(apikeyStr, err);
             require_noerror(*err);
             requiref(apikey._handle != 0, "got empty apikey\n");
 

@@ -10,9 +10,9 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 )
 
-//export ParseAPIKey
-// ParseAPIKey parses an API Key
-func ParseAPIKey(val *C.char, cerr **C.char) (apikeyHandle C.APIKey) {
+//export parse_api_key
+// parse_api_key parses an API Key
+func parse_api_key(val *C.char, cerr **C.char) (apikeyHandle C.APIKey) {
 	apikey, err := libuplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
 		*cerr = C.CString(err.Error())
@@ -22,9 +22,9 @@ func ParseAPIKey(val *C.char, cerr **C.char) (apikeyHandle C.APIKey) {
 	return C.APIKey{universe.Add(apikey)}
 }
 
-//export SerializeAPIKey
-// SerializeAPIKey serializes the API Key to a string
-func SerializeAPIKey(apikeyHandle C.APIKey) *C.char {
+//export serialize_api_key
+// serialize_api_key serializes the API Key to a string
+func serialize_api_key(apikeyHandle C.APIKey) *C.char {
 	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
 	if !ok {
 		return C.CString("")

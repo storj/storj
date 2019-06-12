@@ -17,11 +17,6 @@ import (
 	"context"
 	"fmt"
 	"go.uber.org/zap"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 	"unsafe"
@@ -32,7 +27,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/lib/uplink"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
@@ -94,18 +89,18 @@ func newAPIKey(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet
 	return APIKey.Serialize()
 }
 
-func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *uplink.Uplink {
-	cfg := uplink.Config{}
+func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *libuplink.Uplink {
+	cfg := libuplink.Config{}
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-	goUplink, err := uplink.NewUplink(ctx, &cfg)
+	goUplink, err := libuplink.NewUplink(ctx, &cfg)
 	require.NoError(t, err)
 	require.NotEmpty(t, goUplink)
 
 	return goUplink
 }
 
-func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) (*uplink.Project, C.ProjectRef_t) {
+func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) (*libuplink.Project, C.ProjectRef_t) {
 	consoleProject := newProject(t, planet)
 	consoleAPIKey := newAPIKey(t, ctx, planet, consoleProject.ID)
 	satelliteAddr := planet.Satellites[0].Addr()
@@ -113,7 +108,7 @@ func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	goUplink := newUplinkInsecure(t, ctx)
 	defer ctx.Check(goUplink.Close)
 
-	apikey, err := uplink.ParseAPIKey(consoleAPIKey)
+	apikey, err := libuplink.ParseAPIKey(consoleAPIKey)
 	require.NoError(t, err)
 	require.NotEmpty(t, apikey)
 
@@ -132,14 +127,14 @@ func cCharToGoString(cchar *C.char) string {
 	return C.GoString(cchar)
 }
 
-func testEachBucketConfig(t *testing.T, f func(*uplink.BucketConfig)) {
+func testEachBucketConfig(t *testing.T, f func(*libuplink.BucketConfig)) {
 	for _, suite1 := range ciphers {
 		for _, suite2 := range ciphers {
 			t.Log(fmt.Sprintf(
 				"path cipher: %v; enc params cipher suite: %v",
 				suite1, suite2,
 			))
-			bucketCfg := uplink.BucketConfig{
+			bucketCfg := libuplink.BucketConfig{
 				PathCipher: suite1,
 				EncryptionParameters: storj.EncryptionParameters{
 					CipherSuite: suite2,
@@ -175,10 +170,10 @@ func newGoBucket(cBucket *CBucket) storj.Bucket {
 	}
 }
 
-func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) uplink.BucketConfig {
+func newGoBucketConfig(cBucketConfig *C.BucketConfig_t) libuplink.BucketConfig {
 	params := cBucketConfig.encryption_parameters
 
-	return uplink.BucketConfig{
+	return libuplink.BucketConfig{
 		EncryptionParameters: newGoEncryptionParams(&params),
 		PathCipher:           storj.CipherSuite(cBucketConfig.path_cipher),
 	}
@@ -225,7 +220,7 @@ func newGoObject(t *testing.T, cObj *C.Object_t) *storj.Object {
 	}
 }
 
-func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
+func newCUploadOpts(opts *libuplink.UploadOptions) *C.UploadOptions_t {
 	metadataRef := C.MapRef_t(structRefMap.Add(opts.Metadata))
 	return &C.UploadOptions_t{
 		content_type: C.CString(opts.ContentType),
@@ -234,7 +229,7 @@ func newCUploadOpts(opts *uplink.UploadOptions) *C.UploadOptions_t {
 	}
 }
 
-func newGoObjectMeta(t *testing.T, cObj *C.ObjectMeta_t) uplink.ObjectMeta {
+func newGoObjectMeta(t *testing.T, cObj *C.ObjectMeta_t) libuplink.ObjectMeta {
 	var metadata *MapRef
 	if uintptr(cObj.MetaData) != 0 {
 		var ok bool
@@ -247,7 +242,7 @@ func newGoObjectMeta(t *testing.T, cObj *C.ObjectMeta_t) uplink.ObjectMeta {
 		checksum = C.GoBytes(unsafe.Pointer(cObj.Checksum.bytes), cObj.Checksum.length)
 	}
 
-	return uplink.ObjectMeta{
+	return libuplink.ObjectMeta{
 		Bucket:      C.GoString(cObj.Bucket),
 		Path:        C.GoString(cObj.Path),
 		IsPrefix:    bool(cObj.IsPrefix),

@@ -77,6 +77,7 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 	itemsPtr := C.malloc(C.size_t(listLen * infoSize))
 	items := (*[1<<30]C.BucketInfo)(unsafe.Pointer(itemsPtr))
 	for i, bucket := range bucketList.Items {
+		bucket := bucket
 		items[i] = newBucketInfo(&bucket)
 	}
 

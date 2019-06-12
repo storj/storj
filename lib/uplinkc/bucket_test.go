@@ -29,220 +29,199 @@ type TestObject struct {
 }
 
 func TestOpenObject(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
+		testObjects := newTestObjects(15)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+			require.NoError(t, err)
 
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
+			openBucket, err := project.OpenBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+			require.NotNil(t, openBucket)
 
-	testObjects := newTestObjects(15)
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
+			cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+			for _, testObj := range testObjects {
+				testObj.goUpload(t, ctx, openBucket)
 
-		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, openBucket)
+				require.Empty(t, cCharToGoString(cErr))
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
-		for _, testObj := range testObjects {
-			testObj.goUpload(t, ctx, openBucket)
-
-			require.Empty(t, cCharToGoString(cErr))
-
-			path := stringToCCharPtr(string(testObj.Path))
-			OpenObject(cBucketRef, path, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
-			// TODO: Test only checks for no error right now
-		}
+				path := stringToCCharPtr(string(testObj.Path))
+				OpenObject(cBucketRef, path, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
+				// TODO: Test only checks for no error right now
+			}
+		})
 	})
 }
 
 func TestUploadObject(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
-
-	testObjects := newTestObjects(15)
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
-
-		// TODO: test with EncryptionAccess
-		// TODO: test with different content types
-		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, openBucket)
-
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
-		for _, testObj := range testObjects {
-			testObj.cUpload(t, cBucketRef, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
-
-			objectList, err := openBucket.ListObjects(ctx, nil)
+		testObjects := newTestObjects(15)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 			require.NoError(t, err)
-			require.NotEmpty(t, objectList)
-			require.Len(t, objectList.Items, 1)
 
-			object := objectList.Items[0]
-
-			assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
-			assert.Equal(t, object.Path, testObj.Path)
-			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
-			assert.Equal(t, object.Created, object.Modified)
-			assert.Equal(t, object.Expires.Unix(), testObj.UploadOpts.Expires.Unix())
-			assert.Equal(t, object.ContentType, testObj.UploadOpts.ContentType)
-			assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
-			// TODO: test with `IsPrefix` == true
-			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
-
-			err = openBucket.DeleteObject(ctx, object.Path)
+			// TODO: test with EncryptionAccess
+			// TODO: test with different content types
+			openBucket, err := project.OpenBucket(ctx, bucketName, nil)
 			require.NoError(t, err)
-		}
+			require.NotNil(t, openBucket)
+
+			cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+			for _, testObj := range testObjects {
+				testObj.cUpload(t, cBucketRef, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
+
+				objectList, err := openBucket.ListObjects(ctx, nil)
+				require.NoError(t, err)
+				require.NotEmpty(t, objectList)
+				require.Len(t, objectList.Items, 1)
+
+				object := objectList.Items[0]
+
+				assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
+				assert.Equal(t, object.Path, testObj.Path)
+				assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
+				assert.Equal(t, object.Created, object.Modified)
+				assert.Equal(t, object.Expires.Unix(), testObj.UploadOpts.Expires.Unix())
+				assert.Equal(t, object.ContentType, testObj.UploadOpts.ContentType)
+				assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
+				// TODO: test with `IsPrefix` == true
+				assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
+
+				err = openBucket.DeleteObject(ctx, object.Path)
+				require.NoError(t, err)
+			}
+		})
 	})
 }
 
 func TestUploadObject_NilOptions(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
-
-	testObjects := newTestObjects(15)
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
-
-		// TODO: test with EncryptionAccess
-		// TODO: test with different content types
-		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, openBucket)
-
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
-		for _, testObj := range testObjects {
-			testObj.UploadOpts = nil
-			testObj.cUpload(t, cBucketRef, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
-
-			objectList, err := openBucket.ListObjects(ctx, nil)
+		testObjects := newTestObjects(15)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 			require.NoError(t, err)
-			require.NotEmpty(t, objectList)
-			require.Len(t, objectList.Items, 1)
 
-			object := objectList.Items[0]
-
-			assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
-			assert.Equal(t, object.Path, testObj.Path)
-			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
-			assert.Equal(t, object.Created, object.Modified)
-			// TODO: test with `IsPrefix` == true
-			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
-
-			err = openBucket.DeleteObject(ctx, object.Path)
+			// TODO: test with EncryptionAccess
+			// TODO: test with different content types
+			openBucket, err := project.OpenBucket(ctx, bucketName, nil)
 			require.NoError(t, err)
-		}
+			require.NotNil(t, openBucket)
+
+			cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+			for _, testObj := range testObjects {
+				testObj.UploadOpts = nil
+				testObj.cUpload(t, cBucketRef, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
+
+				objectList, err := openBucket.ListObjects(ctx, nil)
+				require.NoError(t, err)
+				require.NotEmpty(t, objectList)
+				require.Len(t, objectList.Items, 1)
+
+				object := objectList.Items[0]
+
+				assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
+				assert.Equal(t, object.Path, testObj.Path)
+				assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
+				assert.Equal(t, object.Created, object.Modified)
+				// TODO: test with `IsPrefix` == true
+				assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
+
+				err = openBucket.DeleteObject(ctx, object.Path)
+				require.NoError(t, err)
+			}
+		})
 	})
 }
 
 func TestListObjects(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
-
-	testObjects := newTestObjects(15)
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
-
-		// TODO: test with EncryptionAccess
-		// TODO: test with different content types
-		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, openBucket)
-
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
-
-		for _, testObj := range testObjects {
-			testObj.goUpload(t, ctx, openBucket)
-			require.Empty(t, cCharToGoString(cErr))
-
-			// TODO: test with different list options
-			cObjectList := ListObjects(cBucketRef, nil, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
-
-			assert.Equal(t, 1, int(cObjectList.length))
-			assert.Equal(t, bucket.Name,  cCharToGoString(cObjectList.bucket))
-
-			object := newGoObject(t, (*CObject)(unsafe.Pointer(cObjectList.items)))
-
-			// NB (workaround): should we use nano precision in c bucket?
-			bucket.Created = time.Unix(bucket.Created.Unix(), 0).UTC()
-			assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
-
-			assert.Equal(t, object.Path, testObj.Path)
-			assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
-			assert.Equal(t, object.Created, object.Modified)
-			assert.Equal(t, object.Expires.Unix(), testObj.UploadOpts.Expires.Unix())
-			assert.Equal(t, object.ContentType, testObj.UploadOpts.ContentType)
-			assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
-			// TODO: test with `IsPrefix` == true
-			assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
-
-			err = openBucket.DeleteObject(ctx, object.Path)
+		testObjects := newTestObjects(15)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			bucket, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 			require.NoError(t, err)
-		}
+
+			// TODO: test with EncryptionAccess
+			// TODO: test with different content types
+			openBucket, err := project.OpenBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+			require.NotNil(t, openBucket)
+
+			cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+
+			for _, testObj := range testObjects {
+				testObj.goUpload(t, ctx, openBucket)
+				require.Empty(t, cCharToGoString(cErr))
+
+				// TODO: test with different list options
+				cObjectList := ListObjects(cBucketRef, nil, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
+
+				assert.Equal(t, 1, int(cObjectList.length))
+				assert.Equal(t, bucket.Name, cCharToGoString(cObjectList.bucket))
+
+				object := newGoObject(t, (*CObject)(unsafe.Pointer(cObjectList.items)))
+
+				// NB (workaround): should we use nano precision in c bucket?
+				bucket.Created = time.Unix(bucket.Created.Unix(), 0).UTC()
+				assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
+
+				assert.Equal(t, object.Path, testObj.Path)
+				assert.True(t, object.Created.Sub(time.Now()).Seconds() < 2)
+				assert.Equal(t, object.Created, object.Modified)
+				assert.Equal(t, object.Expires.Unix(), testObj.UploadOpts.Expires.Unix())
+				assert.Equal(t, object.ContentType, testObj.UploadOpts.ContentType)
+				assert.Equal(t, object.Metadata, testObj.UploadOpts.Metadata)
+				// TODO: test with `IsPrefix` == true
+				assert.Equal(t, object.IsPrefix, testObj.IsPrefix)
+
+				err = openBucket.DeleteObject(ctx, object.Path)
+				require.NoError(t, err)
+			}
+		})
 	})
 }
 
 func TestCloseBucket(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+			require.NoError(t, err)
 
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
+			bucket, err := project.OpenBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+			require.NotNil(t, bucket)
 
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
-
-		bucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, bucket)
-
-		cBucketRef := CBucketRef(structRefMap.Add(bucket))
-		CloseBucket(cBucketRef, &cErr)
-		require.Empty(t, cCharToGoString(cErr))
+			cBucketRef := CBucketRef(structRefMap.Add(bucket))
+			CloseBucket(cBucketRef, &cErr)
+			require.Empty(t, cCharToGoString(cErr))
+		})
 	})
 }
 
 func (obj *TestObject) cUpload(t *testing.T, cBucketRef CBucketRef, cErr *Cchar) {
-
 	file := TempFile([]byte("test data for path " + obj.Path))
 	defer file.Close()
 
@@ -288,7 +267,7 @@ func newTestObjects(count int) (objects []TestObject) {
 		objects = append(objects, TestObject{
 			Object:     obj,
 			UploadOpts: opts,
-			Data: []byte("test data for path " + objectPath),
+			Data:       []byte("test data for path " + objectPath),
 		})
 	}
 

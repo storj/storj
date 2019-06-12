@@ -10,7 +10,7 @@
 ProjectRef_t OpenTestProject(char **err)
 {
     char *satellite_addr = getenv("SATELLITE_ADDR");
-    APIKeyRef_t ref_apikey = ParseAPIKey(getenv("APIKEY"), err);
+    APIKeyRef_t ref_apikey = parse_api_key(getenv("APIKEY"), err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     UplinkRef_t ref_uplink = NewUplinkInsecure(err);

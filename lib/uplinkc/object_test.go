@@ -15,94 +15,85 @@ import (
 )
 
 func TestObjectMeta(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
-
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
-
-	testObjects := newTestObjects(1)
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
-
-		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, openBucket)
-
-		for _, testObj := range testObjects {
-			testObj.goUpload(t, ctx, openBucket)
-
-			require.Empty(t, cCharToGoString(cErr))
-
-			object, err := openBucket.OpenObject(ctx, testObj.Path)
+		testObjects := newTestObjects(1)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 			require.NoError(t, err)
-			require.NotNil(t, object)
 
-			cObjectRef := CObjectRef(structRefMap.Add(object))
+			openBucket, err := project.OpenBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+			require.NotNil(t, openBucket)
 
-			cObjectMeta := ObjectMeta(cObjectRef, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
+			for _, testObj := range testObjects {
+				testObj.goUpload(t, ctx, openBucket)
 
-			actualObjectMeta := newGoObjectMeta(t, &cObjectMeta)
-			// NB: c structs ignore `Volatile` fields; set to zero value for comparison
-			object.Meta.Volatile = uplink.ObjectMeta{}.Volatile
+				require.Empty(t, cCharToGoString(cErr))
 
-			require.True(t, reflect.DeepEqual(object.Meta, actualObjectMeta))
-		}
+				object, err := openBucket.OpenObject(ctx, testObj.Path)
+				require.NoError(t, err)
+				require.NotNil(t, object)
 
+				cObjectRef := CObjectRef(structRefMap.Add(object))
+
+				cObjectMeta := ObjectMeta(cObjectRef, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
+
+				actualObjectMeta := newGoObjectMeta(t, &cObjectMeta)
+				// NB: c structs ignore `Volatile` fields; set to zero value for comparison
+				object.Meta.Volatile = uplink.ObjectMeta{}.Volatile
+
+				require.True(t, reflect.DeepEqual(object.Meta, actualObjectMeta))
+			}
+		})
 	})
 }
 
 func TestDownloadRange(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		var cErr Cchar
+		bucketName := "TestBucket"
+		project, _ := openTestProject(t, ctx, planet)
 
-	planet := startTestPlanet(t, ctx)
-	defer ctx.Check(planet.Shutdown)
+		testObjects := newTestObjects(1)
+		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
+			_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
+			require.NoError(t, err)
 
-	var cErr Cchar
-	bucketName := "TestBucket"
-	project, _ := openTestProject(t, ctx, planet)
+			openBucket, err := project.OpenBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+			require.NotNil(t, openBucket)
 
-	testObjects := newTestObjects(1)
-	testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
-		_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
-		require.NoError(t, err)
+			cBucketRef := CBucketRef(structRefMap.Add(openBucket))
+			for _, testObj := range testObjects {
+				testObj.goUpload(t, ctx, openBucket)
 
-		openBucket, err := project.OpenBucket(ctx, bucketName, nil)
-		require.NoError(t, err)
-		require.NotNil(t, openBucket)
+				require.Empty(t, cCharToGoString(cErr))
 
-		cBucketRef := CBucketRef(structRefMap.Add(openBucket))
-		for _, testObj := range testObjects {
-			testObj.goUpload(t, ctx, openBucket)
+				path := stringToCCharPtr(string(testObj.Path))
+				objectRef := OpenObject(cBucketRef, path, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
 
-			require.Empty(t, cCharToGoString(cErr))
+				objectMeta := ObjectMeta(objectRef, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
 
-			path := stringToCCharPtr(string(testObj.Path))
-			objectRef := OpenObject(cBucketRef, path, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
+				f := TempFile(nil)
+				defer f.Close()
 
-			objectMeta := ObjectMeta(objectRef, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
+				DownloadRange(objectRef, 0, Cint64(objectMeta.Size), f, &cErr)
+				require.Empty(t, cCharToGoString(cErr))
 
-			f := TempFile(nil)
-			defer f.Close()
+				f.Seek(0, 0)
+				b, err := ioutil.ReadAll(f)
+				require.Empty(t, err)
 
-			DownloadRange(objectRef, 0, Cint64(objectMeta.Size), f, &cErr)
-			require.Empty(t, cCharToGoString(cErr))
-
-			f.Seek(0, 0)
-			b, err := ioutil.ReadAll(f)
-			require.Empty(t, err)
-
-			require.Equal(t, len(testObj.Data), len(b))
-			require.Equal(t, testObj.Data, b)
-		}
+				require.Equal(t, len(testObj.Data), len(b))
+				require.Equal(t, testObj.Data, b)
+			}
+		})
 	})
 }
