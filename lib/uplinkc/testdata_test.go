@@ -17,14 +17,16 @@ import (
 
 func TestC(t *testing.T) {
 	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	//	defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
 
-	definition := testcontext.Include{Header: filepath.Join(currentdir, "uplink_definitions.h")}
+	definition := testcontext.Include{
+		Header: filepath.Join(currentdir, "uplink_definitions.h"),
+	}
 
 	ctests, err := filepath.Glob(filepath.Join("testdata", "*_test.c"))
 	require.NoError(t, err)
@@ -39,6 +41,7 @@ func TestC(t *testing.T) {
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)
+					cmd.Dir = filepath.Dir(testexe)
 					cmd.Env = append(os.Environ(),
 						"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 						"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
