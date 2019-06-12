@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -54,6 +55,7 @@ type Service struct {
 
 	vdb     DB
 	archive orders.DB
+	trust   *trust.Pool
 
 	expirationBuffer time.Duration
 
@@ -61,13 +63,14 @@ type Service struct {
 }
 
 // NewService creates a new voucher service
-func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vdb DB, archive orders.DB, interval, expirationBuffer time.Duration) *Service {
+func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vdb DB, archive orders.DB, trust *trust.Pool, interval, expirationBuffer time.Duration) *Service {
 	return &Service{
 		log:              log,
 		kademlia:         kad,
 		transport:        transport,
 		vdb:              vdb,
 		archive:          archive,
+		trust:            trust,
 		expirationBuffer: expirationBuffer,
 		Loop:             *sync2.NewCycle(interval),
 	}
