@@ -20,7 +20,28 @@ void TestBucket(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: test with different bucket configs
+<<<<<<< HEAD:lib/uplinkc/testdata/bucket_test_ignore.c
     create_bucket(ref_project, bucket_name, NULL, err);
+=======
+    EncryptionParameters_t enc_param;
+    enc_param.cipher_suite = 1;
+    enc_param.block_size = 4 * 1024;
+
+    RedundancyScheme_t scheme;
+    scheme.algorithm = 1;
+    scheme.share_size = 1024;
+    scheme.required_shares = 4;
+    scheme.repair_shares = 6;
+    scheme.optimal_shares = 8;
+    scheme.total_shares = 10;
+
+    BucketConfig_t bucket_cfg;
+    bucket_cfg.path_cipher = 0;
+    bucket_cfg.encryption_parameters = enc_param;
+    bucket_cfg.redundancy_scheme = scheme;
+
+    CreateBucket(ref_project, bucket_name, &bucket_cfg, err);
+>>>>>>> cbindings:lib/uplink/ext/c/tests/bucket_test.c
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: Encryption access
@@ -51,8 +72,9 @@ void TestBucket(void)
     TEST_ASSERT_EQUAL(false, objects_list.more);
     TEST_ASSERT_EQUAL(num_of_objects, objects_list.length);
 
+    Object_t *object;
     for (int i=0; i < objects_list.length; i++) {
-        Object_t *object = objects_list.items[i];
+        object = &objects_list.items[i];
         TEST_ASSERT_EQUAL_STRING(object_paths[i], object->path);
     }
 }

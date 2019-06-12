@@ -50,6 +50,7 @@ void TestObject(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
     TEST_ASSERT_EQUAL(data->length, object_meta.Size);
+    // TODO: finish up
     printf("Time diff: %d\n", (time(NULL) - object_meta.Expires));
     TEST_ASSERT_EQUAL(false, ((time(NULL) - object_meta.Expires) <= 2000));
 
