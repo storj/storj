@@ -123,3 +123,5 @@ require (
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
+
+go 1.13

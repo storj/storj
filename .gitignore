@@ -39,13 +39,6 @@ protos/google/*
 
 /release/
 *.swp
-satellite_*
-storagenode_*
-uplink_*
 *.svg
-big-upload-testfile
-big-download-testfile
-small-upload-testfile
-small-download-testfile
 /bin
 resource.syso

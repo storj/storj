@@ -156,8 +156,11 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	if access == nil {
-		access = &EncryptionAccess{Key: storj.Key{}}
+	if access == nil || access.Key == (storj.Key{}) {
+		return nil, Error.New("No encryption key chosen")
+	}
+	if err != nil {
+		return nil, err
 	}
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
