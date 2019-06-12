@@ -64,6 +64,13 @@ func TestOnlyInline(t *testing.T) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
 		uplink := planet.Uplinks[0]
 
+		ps, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		if err1 != nil {
+			assert.NoError(t, err1)
+		}
+		project := ps[0]
+		projectID := []byte(project.ID.String())
+
 		// Setup: create data for the uplink to upload
 		expectedData := make([]byte, 1*memory.KiB)
 		_, err := rand.Read(expectedData)
@@ -78,6 +85,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedBucketName := "testbucket"
 		expectedTally := accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
+			ProjectID:      projectID,
 			Segments:       1,
 			InlineSegments: 1,
 			Files:          1,
@@ -155,6 +163,13 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
 		uplink := planet.Uplinks[0]
 
+		ps, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		if err1 != nil {
+			assert.NoError(t, err1)
+		}
+		project := ps[0]
+		projectID := []byte(project.ID.String())
+
 		// Setup: create 50KiB of data for the uplink to upload
 		expectedData := make([]byte, 50*memory.KiB)
 		_, err := rand.Read(expectedData)
@@ -169,6 +184,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		expectedBucketName1 := "testbucket1"
 		expectedTally1 := accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName1),
+			ProjectID:      projectID,
 			Segments:       1,
 			RemoteSegments: 1,
 			Files:          1,
@@ -181,6 +197,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		expectedBucketName2 := "testbucket2"
 		expectedTally2 := accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName2),
+			ProjectID:      projectID,
 			Segments:       2,
 			RemoteSegments: 2,
 			Files:          2,
