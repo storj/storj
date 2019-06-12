@@ -67,9 +67,9 @@ func main() {
 	defer encoder.EncodeToken(xml.EndElement{Name: xml.Name{Local: "testsuites"}})
 
 	for _, pkg := range pkgs {
-		failed := pkg.TestsByAction(parse.ActionFail)
-		skipped := pkg.TestsByAction(parse.ActionSkip)
-		passed := pkg.TestsByAction(parse.ActionPass)
+		failed := TestsByAction(pkg, parse.ActionFail)
+		skipped := TestsByAction(pkg, parse.ActionSkip)
+		passed := TestsByAction(pkg, parse.ActionPass)
 
 		skipped = withoutEmptyName(skipped)
 
@@ -128,7 +128,7 @@ func main() {
 					encoder.EncodeToken(xml.CharData(eventOutput(t.Events)))
 					encoder.EncodeToken(xml.EndElement{xml.Name{Local: "system-out"}})
 
-					switch t.Status() {
+					switch TestStatus(t) {
 					case parse.ActionSkip:
 						encoder.EncodeToken(xml.StartElement{
 							Name: xml.Name{Local: "skipped"},
@@ -294,3 +294,46 @@ var (
 		"=== CONT  ",
 	}
 )
+
+// Status reports the outcome of the test represented as a single Action: pass, fail or skip.
+//
+// Custom status to check packages properly.
+func TestStatus(t *parse.Test) parse.Action {
+
+	// sort by time and scan for an action in reverse order.
+	// The first action we come across (in reverse order) is
+	// the outcome of the test, which will be one of pass|fail|skip.
+	t.SortEvents()
+
+	for i := len(t.Events) - 1; i >= 0; i-- {
+		switch t.Events[i].Action {
+		case parse.ActionPass:
+			return parse.ActionPass
+		case parse.ActionSkip:
+			return parse.ActionSkip
+		case parse.ActionFail:
+			return parse.ActionFail
+		}
+	}
+
+	if t.Name == "" {
+		return parse.ActionPass
+	}
+	return parse.ActionFail
+}
+
+// TestsByAction returns all tests that identify as one of the following
+// actions: pass, skip or fail.
+//
+// An empty slice if returned if there are no tests.
+func TestsByAction(p *parse.Package, action parse.Action) []*parse.Test {
+	tests := []*parse.Test{}
+
+	for _, t := range p.Tests {
+		if TestStatus(t) == action {
+			tests = append(tests, t)
+		}
+	}
+
+	return tests
+}
