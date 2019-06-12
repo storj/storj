@@ -75,8 +75,7 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 	infoSize := int(unsafe.Sizeof(C.BucketInfo{}))
 
 	itemsPtr := C.malloc(C.size_t(listLen * infoSize))
-	items := (*[1<<32 - 1]C.BucketInfo)(unsafe.Pointer(itemsPtr))
-
+	items := (*[1<<30]C.BucketInfo)(unsafe.Pointer(itemsPtr))
 	for i, bucket := range bucketList.Items {
 		items[i] = newBucketInfo(&bucket)
 	}
@@ -91,7 +90,7 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 // FreeBucketList will free a list of buckets
 //export FreeBucketList
 func FreeBucketList(bucketlist *C.BucketList) {
-	items := (*[1<<32 - 1]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
+	items := (*[1<<30]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
 	for i := 0; i < int(bucketlist.length); i++ {
 		FreeBucketInfo(&items[0])
 	}
