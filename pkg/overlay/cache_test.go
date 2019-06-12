@@ -221,3 +221,25 @@ func TestIsVetted(t *testing.T) {
 		assert.False(t, reputable)
 	})
 }
+
+func TestNodeInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		planet.StorageNodes[0].Storage2.Monitor.Loop.Pause()
+		planet.Satellites[0].Discovery.Service.Refresh.Pause()
+
+		node, err := planet.Satellites[0].Overlay.Service.Get(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+
+		assert.Equal(t, pb.NodeType_STORAGE, node.Type)
+		assert.NotEmpty(t, node.Operator.Email)
+		assert.NotEmpty(t, node.Operator.Wallet)
+		assert.Equal(t, planet.StorageNodes[0].Local().Operator, node.Operator)
+		assert.NotEmpty(t, node.Capacity.FreeBandwidth)
+		assert.NotEmpty(t, node.Capacity.FreeDisk)
+		assert.Equal(t, planet.StorageNodes[0].Local().Capacity, node.Capacity)
+		assert.NotEmpty(t, node.Version.Version)
+		assert.Equal(t, planet.StorageNodes[0].Local().Version.Version, node.Version.Version)
+	})
+}
