@@ -24,12 +24,6 @@ type Config struct {
 	StaticDir string `help:"path to static resources" default:""`
 }
 
-type customTemplate struct {
-	home          *template.Template
-	pageNotFound  *template.Template
-	internalError *template.Template
-}
-
 // Server represents marketing offersweb server
 type Server struct {
 	log *zap.Logger
@@ -40,7 +34,11 @@ type Server struct {
 	server   http.Server
 
 	templateDir string
-	templates   customTemplate
+	templates   struct {
+		home          *template.Template
+		pageNotFound  *template.Template
+		internalError *template.Template
+	}
 }
 
 // commonPages returns templates that are required for everything.
