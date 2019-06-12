@@ -32,17 +32,21 @@ type Server struct {
 	
 	listener net.Listener
 	server   http.Server
+
+	templateDir string
 }
 
-// The three pages contained in addPages are pages all templates require
-// This exists in order to limit handler verbosity
-func (s *Server) addPages(assets []string) []string {
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html"}
-	for _, page := range assets {
-		pages = append(pages, page)
+func (s *Server) templateFilePath(name string) string {
+	return filepath.Join(s.config.StaticDir, "pages", name)
+}
+
+// commonPages returns templates that are required for everything.
+func (s *Server) commonPages() []string {
+	return []string{
+		filepath.Join(s.templateDir, "base.html"),
+		filepath.Join(s.templateDir, "index.html"),
+		filepath.Join(s.templateDir, "banner.html"),
 	}
-	return pages
 }
 
 // NewServer creates new instance of offersweb server
@@ -63,6 +67,8 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 	}
 	s.server.Handler = mux
 
+	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
+
 	return s
 }
 
@@ -73,9 +79,13 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
-	files := s.addPages(pages)
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "home.html"),
+		filepath.Join(s.templateDir, "refOffers.html"),
+		filepath.Join(s.templateDir, "freeOffers.html"),
+		filepath.Join(s.templateDir, "roModal.html"),
+		filepath.Join(s.templateDir, "foModal.html"),
+	)
 
 	home, err := template.New("landingPage").ParseFiles(files...)
 	if err != nil {
@@ -90,8 +100,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request) {
-	rp := s.config.StaticDir + "/pages/"
-	files := s.addPages([]string{rp + "internal-server-error.html"})
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "internal-server-error.html"),
+	)
 
 	unavailable, err := template.New("internal-server-error").ParseFiles(files...)
 	if err != nil {
