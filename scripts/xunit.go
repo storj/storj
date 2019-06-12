@@ -255,7 +255,12 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 			pkg.Coverage = cover
 		}
 
-		if !event.Discard() {
+		// special case for tooling checking
+		if event.Action == parse.ActionOutput && strings.HasPrefix(event.Output, "FAIL\t") {
+			event.Action = parse.ActionFail
+		}
+
+		if !Discard(event) {
 			pkg.AddEvent(event)
 		}
 	}
@@ -272,3 +277,20 @@ func ProcessWithEcho(r io.Reader) (parse.Packages, error) {
 
 	return pkgs, nil
 }
+
+func Discard(e *parse.Event) bool {
+	for i := range updates {
+		if strings.HasPrefix(e.Output, updates[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+var (
+	updates = []string{
+		"=== RUN   ",
+		"=== PAUSE ",
+		"=== CONT  ",
+	}
+)
