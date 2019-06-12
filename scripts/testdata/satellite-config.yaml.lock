@@ -157,6 +157,12 @@ kademlia.operator.wallet: ""
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
+# server address of the marketing Admin GUI
+# marketing.address: "127.0.0.1:8090"
+
+# path to static resources
+# marketing.static-dir: ""
+
 # lifespan of bandwidth agreements in days
 # metainfo.bw-expiration: 45
 

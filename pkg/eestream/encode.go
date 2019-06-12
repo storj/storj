@@ -43,7 +43,7 @@ type ErasureScheme interface {
 	// from Decode.
 	StripeSize() int
 
-	// Encode will generate this many pieces
+	// Encode will generate this many erasure shares and therefore this many pieces
 	TotalCount() int
 
 	// Decode requires at least this many pieces
