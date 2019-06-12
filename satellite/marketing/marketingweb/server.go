@@ -32,22 +32,25 @@ type Server struct {
 	
 	listener net.Listener
 	server   http.Server
+}
 
-	templates *template.Template
+// The three pages contained in addPages are pages all templates require
+// This exists in order to limit handler verbosity
+func (s *Server) addPages(assets []string) []string {
+	rp := s.config.StaticDir + "/pages/"
+	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html"}
+	for _, page := range assets {
+		pages = append(pages, page)
+	}
+	return pages
 }
 
 // NewServer creates new instance of offersweb server
-func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Server, error) {
+func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server {
 	s := &Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
-	}
-
-	var err error
-	s.templates, err = template.ParseGlob(filepath.Join(config.StaticDir, "pages", "*.html"))
-	if err != nil {
-		return nil, err
 	}
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
@@ -63,23 +66,30 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Serve
 	return s, nil
 }
 
-// ServeHTTP is handles 
+// ServeHTTP handles index request
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		s.serveError(w, req)
 		return
 	}
 
-	err := s.templates.ExecuteTemplate(w, "base", nil)
+	rp := s.config.StaticDir + "/pages/"
+	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
+	files := s.addPages(pages)
+	home := template.Must(template.New("landingPage").ParseFiles(files...))
+	err := home.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		s.log.Error("failed to execute template", zap.Error(err))
+		s.serveError(w, req)
 	}
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	err := s.templates.ExecuteTemplate(w, "404", nil)
+	rp := s.config.StaticDir + "/pages/"
+	files := s.addPages([]string{rp + "404.html"})
+	unavailable := template.Must(template.New("404").ParseFiles(files...))
+	err := unavailable.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		s.log.Error("failed to execute template", zap.Error(err))
+		s.serveError(w, req)
 	}
 }
 
