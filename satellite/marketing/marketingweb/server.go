@@ -8,8 +8,8 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"path/filepath"
 
-	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -20,7 +20,7 @@ var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketing offersweb server
 type Config struct {
-	Address   string `help:"server address of the marketing Admin GUI" default:"0.0.0.0:8090"`
+	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 
@@ -29,68 +29,57 @@ type Server struct {
 	log *zap.Logger
 
 	config Config
-
+	
 	listener net.Listener
 	server   http.Server
-}
 
-// The three pages contained in addPages are pages all templates require
-// This exists in order to limit handler verbosity
-func (s *Server) addPages(assets []string) []string {
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html"}
-	for _, page := range assets {
-		pages = append(pages, page)
-	}
-	return pages
+	templates *template.Template
 }
 
 // NewServer creates new instance of offersweb server
-func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server {
-	server := Server{
+func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Server, error) {
+	s := &Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
 	}
 
-	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", server.listener.Addr().String())
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
-	mux := mux.NewRouter()
-	if server.config.StaticDir != "" {
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
-	}
-	server.server = http.Server{
-		Handler: mux,
+	var err error
+	s.templates, err = template.ParseGlob(filepath.Join(config.StaticDir, "pages", "*.html"))
+	if err != nil {
+		return nil, err
 	}
 
-	return &server
+	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
+
+	fs := http.FileServer(http.Dir(s.config.StaticDir))
+	mux := http.NewServeMux()
+	if s.config.StaticDir != "" {
+		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/", s)
+	}
+	s.server.Handler = mux
+
+	return s, nil
 }
 
-// appHandler is web app http handler function
-func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+// ServeHTTP is handles 
+func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		s.serveError(w, req)
 		return
 	}
 
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
-	files := s.addPages(pages)
-	home := template.Must(template.New("landingPage").ParseFiles(files...))
-	err := home.ExecuteTemplate(w, "base", nil)
+	err := s.templates.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		s.serveError(w, req)
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	rp := s.config.StaticDir + "/pages/"
-	files := s.addPages([]string{rp + "404.html"})
-	unavailable := template.Must(template.New("404").ParseFiles(files...))
-	err := unavailable.ExecuteTemplate(w, "base", nil)
+	err := s.templates.ExecuteTemplate(w, "404", nil)
 	if err != nil {
-		s.serveError(w, req)
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
