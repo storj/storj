@@ -111,6 +111,8 @@ func (s *streamStore) Put(ctx context.Context, path storj.Path, pathCipher storj
 	return m, err
 }
 
+// segmentEncrypter contains all the keys, nonces, and encrypter that are
+// needed to encrypt segments
 type segmentEncrypter struct {
 	contentKey   storj.Key
 	contentNonce storj.Nonce
@@ -119,7 +121,7 @@ type segmentEncrypter struct {
 	encrypter    encryption.Transformer
 }
 
-func createSegmentEncrypter(derivedKey *storj.Key, cipher storj.Cipher, currentSegmentIndex int64, blockSize int) (se segmentEncrypter, err error) {
+func newSegmentEncrypter(derivedKey *storj.Key, cipher storj.Cipher, currentSegmentIndex int64, blockSize int) (se *segmentEncrypter, err error) {
 	// generate random key for encrypting the segment's content
 	var contentKey storj.Key
 	_, err = rand.Read(contentKey[:])
@@ -148,12 +150,13 @@ func createSegmentEncrypter(derivedKey *storj.Key, cipher storj.Cipher, currentS
 		return se, err
 	}
 
+	// encrypt the contentKey so that we can store it alongside the segment metainfo
 	encryptedKey, err := encryption.EncryptKey(&contentKey, cipher, derivedKey, &keyNonce)
 	if err != nil {
 		return se, err
 	}
 
-	return segmentEncrypter{
+	return &segmentEncrypter{
 		contentKey:   contentKey,
 		contentNonce: contentNonce,
 		keyNonce:     keyNonce,
@@ -172,6 +175,7 @@ func (s *streamStore) generateSegmentInfoFunc(ctx context.Context, path storj.Pa
 			return "", nil, err
 		}
 
+		// If we aren't at the last segment, then only create segment metadata
 		if !isLast() {
 			segmentPath := getSegmentPath(encPath, segmentIndex)
 
@@ -190,8 +194,9 @@ func (s *streamStore) generateSegmentInfoFunc(ctx context.Context, path storj.Pa
 			return segmentPath, segmentMeta, nil
 		}
 
+		// If we are at the last segment, then create the stream metadata with
+		// last segment metadata
 		lastSegmentPath := storj.JoinPaths("l", encPath)
-
 		streamInfo, err := proto.Marshal(&pb.StreamInfo{
 			NumberOfSegments: segmentIndex + 1,
 			SegmentsSize:     s.segmentSize,
@@ -254,7 +259,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 
 	for !eofReader.isEOF() && !eofReader.hasError() {
 
-		segmentEncrypter, err := createSegmentEncrypter(derivedKey, s.cipher, currentSegmentIndex, s.encBlockSize)
+		segmentEncrypter, err := newSegmentEncrypter(derivedKey, s.cipher, currentSegmentIndex, s.encBlockSize)
 		if err != nil {
 			return Meta{}, currentSegmentIndex, err
 		}
@@ -263,6 +268,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
 
+		// If the data is larger than the inline threshold size, then it will be a remote segment
 		isRemote, err := peekReader.IsLargerThan(s.inlineThreshold)
 		if err != nil {
 			return Meta{}, currentSegmentIndex, err
@@ -275,14 +281,16 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 			if err != nil {
 				return Meta{}, currentSegmentIndex, err
 			}
-			putMeta, err = s.segments.PutInline(ctx, cipherData, expiration, s.generateSegmentInfoFunc(ctx, path, pathCipher, currentSegmentIndex, &segmentEncrypter, eofReader.isEOF, sizeReader.Size(), metadata))
+			segmentInfo := s.generateSegmentInfoFunc(ctx, path, pathCipher, currentSegmentIndex, segmentEncrypter, eofReader.isEOF, sizeReader.Size(), metadata)
+			putMeta, err = s.segments.PutInline(ctx, cipherData, expiration, segmentInfo)
 			if err != nil {
 				return Meta{}, currentSegmentIndex, err
 			}
 		} else {
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), segmentEncrypter.encrypter.InBlockSize())
 			transformedReader := encryption.TransformReader(paddedReader, segmentEncrypter.encrypter, 0)
-			putMeta, err = s.segments.PutRemote(ctx, transformedReader, expiration, s.generateSegmentInfoFunc(ctx, path, pathCipher, currentSegmentIndex, &segmentEncrypter, eofReader.isEOF, sizeReader.Size(), metadata))
+			segmentInfo := s.generateSegmentInfoFunc(ctx, path, pathCipher, currentSegmentIndex, segmentEncrypter, eofReader.isEOF, sizeReader.Size(), metadata)
+			putMeta, err = s.segments.PutRemote(ctx, transformedReader, expiration, segmentInfo)
 			if err != nil {
 				return Meta{}, currentSegmentIndex, err
 			}

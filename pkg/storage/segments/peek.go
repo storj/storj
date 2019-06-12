@@ -34,6 +34,8 @@ func (pt *PeekThresholdReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
+// Buf returns the PeekThresholdReader buffer. If this method is called after
+// a call to IsLargerThan, the buffer will contain thresholdSize bytes.
 func (pt *PeekThresholdReader) Buf() []byte {
 	return pt.thresholdBuf
 }
