@@ -5,7 +5,6 @@ package tally
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -94,9 +93,6 @@ func (t *Service) Tally(ctx context.Context) (err error) {
 		}
 
 		if len(bucketData) > 0 {
-			for bucketID, info := range bucketData {
-				fmt.Printf("EEEE TALLY A: %s %d\n", bucketID, info.RemoteBytes)
-			}
 			_, err = t.projectAccountingDB.SaveTallies(ctx, latestTally, bucketData)
 			if err != nil {
 				errBucketInfo = errs.New("Saving bucket storage data failed")
@@ -144,8 +140,6 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
 
 					bucketID := storj.JoinPaths(project, bucketName)
-
-					fmt.Printf("EEEE TALLY 1: %s\n", bucketID)
 
 					bucketTally := bucketTallies[bucketID]
 					if bucketTally == nil {
