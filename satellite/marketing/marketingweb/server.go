@@ -63,7 +63,7 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 	}
 	s.server.Handler = mux
 
-	return s, nil
+	return s
 }
 
 // ServeHTTP handles index request
@@ -76,8 +76,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	rp := s.config.StaticDir + "/pages/"
 	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
 	files := s.addPages(pages)
-	home := template.Must(template.New("landingPage").ParseFiles(files...))
-	err := home.ExecuteTemplate(w, "base", nil)
+
+	home, err := template.New("landingPage").ParseFiles(files...)
+	if err != nil {
+		s.serveError(w, req)
+		return
+	}
+
+	err = home.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.serveError(w, req)
 	}
@@ -86,8 +92,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
 	rp := s.config.StaticDir + "/pages/"
 	files := s.addPages([]string{rp + "404.html"})
-	unavailable := template.Must(template.New("404").ParseFiles(files...))
-	err := unavailable.ExecuteTemplate(w, "base", nil)
+
+	unavailable, err := template.New("404").ParseFiles(files...)
+	if err != nil {
+		s.serveError(w, req)
+		return
+	}
+
+	err = unavailable.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.serveError(w, req)
 	}
