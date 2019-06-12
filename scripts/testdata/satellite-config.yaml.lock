@@ -158,7 +158,7 @@ kademlia.operator.wallet: ""
 # mail.token-uri: ""
 
 # server address of the marketing Admin GUI
-# marketing.address: "0.0.0.0:8090"
+# marketing.address: "127.0.0.1:8090"
 
 # path to static resources
 # marketing.static-dir: ""
