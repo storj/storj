@@ -1780,35 +1780,18 @@
             "fields": [
               {
                 "id": 1,
-                "name": "bucket_id",
+                "name": "bucket_name",
                 "type": "bytes"
               },
               {
                 "id": 2,
-                "name": "user_id",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
                 "name": "partner_id",
                 "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "segment_info_request",
-                "type": "SegmentInfoRequest"
               }
             ]
           },
           {
-            "name": "ValueAttributionResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "value_attribution",
-                "type": "bool"
-              }
-            ]
+            "name": "ValueAttributionResponse"
           }
         ],
         "services": [

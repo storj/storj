@@ -4,9 +4,8 @@
 package metainfo_test
 
 import (
-	"bytes"
 	"context"
-	"io"
+	"crypto/rand"
 	"sort"
 	"testing"
 	"time"
@@ -23,9 +22,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/stream"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -446,7 +443,7 @@ func TestValueAttributeInfo(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
+		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 		require.NoError(t, err)
 		redScheme := config.GetRedundancyScheme()
 		encScheme := config.GetEncryptionScheme()
@@ -457,18 +454,17 @@ func TestValueAttributeInfo(t *testing.T) {
 		require.NoError(t, err)
 
 		keyInfo := pb.ValueAttributionRequest{
-			PartnerId: []byte("PartnerID"),
-			UserId:    []byte("userID"),
-			BucketId:  []byte("myBucketName"),
+			PartnerId:  []byte("PartnerID"),
+			BucketName: []byte("myBucketName"),
 		}
 
 		{
 			// bucket with no items
-			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
 			require.NoError(t, err)
 
 			// no bucket exists
-			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId))
 			require.NoError(t, err)
 		}
 		{
@@ -476,31 +472,22 @@ func TestValueAttributeInfo(t *testing.T) {
 				RedundancyScheme: redScheme,
 				EncryptionScheme: encScheme,
 			}
-			obj, err := metainfo.CreateObject(ctx, "myBucket", "path", &createInfo)
+
+			_, err := metainfo.CreateObject(ctx, "myBucket", "path", &createInfo)
 			require.NoError(t, err)
 
-			reader := bytes.NewReader([]byte("one fish two fish red fish blue fish"))
-			err = uploadStream(ctx, streams, obj, reader)
-			require.NoError(t, err)
-			// time.Sleep(2 * time.Second)
+			expectedData := make([]byte, 1*memory.MiB)
+			_, err = rand.Read(expectedData)
+			assert.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "myBucket", "path", expectedData)
+			assert.NoError(t, err)
+
 			// bucket with items
-			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
 			require.Error(t, err)
 		}
 	})
-}
-
-func uploadStream(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
-	mutableStream, err := mutableObject.CreateStream(ctx)
-	if err != nil {
-		return err
-	}
-
-	upload := stream.NewUpload(ctx, mutableStream, streams)
-
-	_, err = io.Copy(upload, reader)
-
-	return errs.Combine(err, upload.Close())
 }
 
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {

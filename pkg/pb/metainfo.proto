@@ -107,12 +107,9 @@ message ListSegmentsResponse {
 }
 
 message ValueAttributionRequest{
-    bytes bucket_id = 1;
-    bytes user_id = 2;
-    bytes partner_id = 3;
-    SegmentInfoRequest segment_info_request = 4;
+    bytes bucket_name = 1;
+    bytes partner_id = 2;
 }
 
 message ValueAttributionResponse {
-    bool value_attribution = 1; 
 }

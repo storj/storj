@@ -515,15 +515,15 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.Value
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
-		Bucket:        req.BucketId,
-		EncryptedPath: req.SegmentInfoRequest.Path,
+		Bucket:        req.BucketName,
+		EncryptedPath: []byte(""),
 		Time:          time.Now(),
 	})
 	if err != nil {
 		return false, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketId, req.SegmentInfoRequest.Path)
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
 	if err != nil {
 		return false, err
 	}
@@ -542,7 +542,7 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.Value
 
 // ValueAttributeInfo commits segment metadata
 func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
-	resp, err := endpoint.checkBucketPointers(ctx, req)
+	_, err := endpoint.checkBucketPointers(ctx, req)
 	if err != nil {
 		endpoint.log.Sugar().Info("related bucket id already attributed \n")
 		return &pb.ValueAttributionResponse{}, err
@@ -550,7 +550,5 @@ func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.ValueA
 
 	// TODO: add valueattribution DB access functions added in new PR.
 
-	return &pb.ValueAttributionResponse{
-		ValueAttribution: resp,
-	}, nil
+	return &pb.ValueAttributionResponse{}, nil
 }
