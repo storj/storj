@@ -31,6 +31,6 @@ RUN go get github.com/axw/gocov/gocov
 RUN go get github.com/AlekSi/gocov-xml
 RUN go get gopkg.in/matm/v1/gocov-html
 
-RUN go get github.com/loov/leakcheck
+RUN go get github.com/loov/leakcheck@4bdba0cc702cb92b4b6b32dcf5e88f00b748bac0
 
 RUN go version
