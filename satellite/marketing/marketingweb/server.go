@@ -8,18 +8,19 @@ import (
 	"html/template"
 	"net"
 	"net/http"
-	"fmt"
 	"time"
 	"reflect"
+	"path/filepath"
 
-	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"github.com/gorilla/schema"
 	"storj.io/storj/satellite/marketing"
+	"github.com/gorilla/mux"
 )
 
+// Time converter is used by decoder to format expiration date field from form input
 var (
 	Error       = errs.Class("satellite marketing error")
 	decoder     = schema.NewDecoder()
@@ -33,8 +34,8 @@ var (
 )
 
 type Config struct {
-	Address		string `help:"server address of the marketing Admin GUI" default:"0.0.0.0:8090"`
-	StaticDir	string `help:"path to static resources" default:""`
+	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
+	StaticDir string `help:"path to static resources" default:""`
 }
 
 // Server represents marketing offersweb server
@@ -44,23 +45,16 @@ type Server struct {
 	listener net.Listener
 	server   http.Server
 	service  *marketing.Service
+	templateDir string
 }
 
+// Struct used to render each offer table
 type offerSet struct {
-	RefOffers,FreeCredits				[]marketing.Offer
+	RefOffers,FreeCredits []marketing.Offer
 }
 
-// The three pages contained in addPages are pages all templates require
-// This exists in order to limit handler verbosity
-func (s *Server) addPages(assets []string) []string {
-	rp :=  s.config.StaticDir + "/pages/"
-	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html", rp + "logo.html"}
-	for _, page := range assets {
-		pages = append(pages, page)
-	}
-	return pages
-}
-
+// Takes db result of get offers, organizes them by type and returns them
+// Used by the index handler to build render the tables
 func organizeOffers(offers []marketing.Offer) offerSet{
 	os := new(offerSet)
 	for _,offer := range offers {
@@ -73,54 +67,74 @@ func organizeOffers(offers []marketing.Offer) offerSet{
 	return *os
 }
 
+// CommonPages returns templates that are required for everything.
+func (s *Server) commonPages() []string {
+	return []string{
+		filepath.Join(s.templateDir, "base.html"),
+		filepath.Join(s.templateDir, "index.html"),
+		filepath.Join(s.templateDir, "banner.html"),
+		filepath.Join(s.templateDir, "logo.html"),
+	}
+}
+
+// NewServer creates new instance of offersweb server
 func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) *Server {
-	server := Server{
+	s := &Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
 		service:  service,
 	}
 
-	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", server.listener.Addr().String())
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
-	s := http.StripPrefix("/static/", fs)
+	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
-
-	if server.config.StaticDir != "" {
-		mux.HandleFunc("/", server.getOffers)
-		mux.PathPrefix("/static/").Handler(s)
-		mux.HandleFunc("/createFreeCredit", server.createOffer)
-		mux.HandleFunc("/createRefOffer", server.createOffer)
+	if s.config.StaticDir != "" {
+		mux.HandleFunc("/", s.getOffers)
+		mux.PathPrefix("/static/").Handler(fs)
+		mux.HandleFunc("/createFreeCredit", s.createOffer)
+		mux.HandleFunc("/createRefOffer", s.createOffer)
 	}
-	server.server = http.Server{
-		Handler: mux,
-	}
+	s.server.Handler = mux
 
-	return &server
+	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
+
+	return s
 }
 
+// Serves index page and renders offer and credits tables
 func (s *Server) getOffers(w http.ResponseWriter, req *http.Request){
+	if req.URL.Path != "/" {
+		s.serveNotFound(w, req)
+		return
+	}
+
 	offers, err := s.service.ListAllOffers(context.Background())
 	if err != nil {
 		s.log.Error("app handler error", zap.Error(err))
-		s.serveError(w, req)
+		s.serveInternalError(w,req,err)
 		return
 	}
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
-	files := s.addPages(pages)
+
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "home.html"),
+		filepath.Join(s.templateDir, "refOffers.html"),
+		filepath.Join(s.templateDir, "freeOffers.html"),
+		filepath.Join(s.templateDir, "roModal.html"),
+		filepath.Join(s.templateDir, "foModal.html"),
+	)
 	home := template.Must(template.New("landingPage").ParseFiles(files...))
 	err = home.ExecuteTemplate(w, "base", organizeOffers(offers))
 	if err != nil {
-		fmt.Println(err)
-		s.serveError(w, req)
+		s.serveInternalError(w,req,err)
+		return
 	}
 }
 
+// Helper function used by createOffer to turn post form input into a new offer
 func (s *Server) formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
 	err := req.ParseForm()
 	if err != nil {
-		fmt.Printf("err parsing form : %v\n", err)
 		return o, err
 	}
 	defer req.Body.Close()
@@ -137,7 +151,8 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 	o, err := s.formToStruct(w,req)
 	if err != nil{
 		s.log.Error("err from createFreeCredit Handler", zap.Error(err))
-		s.serveError(w, req)
+		s.serveInternalError(w,req,err)
+		return
 	}
 
 	o.Status = marketing.Active
@@ -150,23 +165,50 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 
 	if _, err := s.service.InsertNewOffer(context.Background(), &o); err != nil {
 		s.log.Error("createdHandler error", zap.Error(err))
-		rp := s.config.StaticDir + "/pages/"
-		files := s.addPages([]string{rp + "err.html"})
-		errPage := template.Must(template.New("err").ParseFiles(files...))
-		errPage.ExecuteTemplate(w, "base", err)
+		s.serveInternalError(w,req,err)
 		return
 	}
 	req.Method = "GET"
 	http.Redirect(w,req,"/",http.StatusFound)
 }
 
-func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	rp := s.config.StaticDir + "/pages/"
-	files := s.addPages([]string{rp + "404.html"})
-	unavailable := template.Must(template.New("404").ParseFiles(files...))
-	err := unavailable.ExecuteTemplate(w, "base", nil)
+func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "page-not-found.html"),
+	)
+
+	unavailable, err := template.New("page-not-found").ParseFiles(files...)
 	if err != nil {
-		s.serveError(w, req)
+		s.serveInternalError(w, req, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+
+	err = unavailable.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
+	}
+}
+
+func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, err error) {
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "internal-server-error.html"),
+	)
+
+	unavailable, err := template.New("internal-server-error").ParseFiles(files...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		s.log.Error("failed to parse internal server error", zap.Error(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusInternalServerError)
+	err = unavailable.ExecuteTemplate(w, "base", err)
+	if err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
