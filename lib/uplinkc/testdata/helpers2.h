@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// TestBucketConfig returns test bucket configuration.
-BucketConfig TestBucketConfig() {
+// test_bucket_config returns test bucket configuration.
+BucketConfig test_bucket_config() {
     BucketConfig config = {};
 
     config.path_cipher = 0;
@@ -20,8 +20,8 @@ BucketConfig TestBucketConfig() {
     return config;
 }
 
-// WithTestProject opens default test project and calls handleProject callback.
-void WithTestProject(void (*handleProject)(Project)) {
+// with_test_project opens default test project and calls handleProject callback.
+void with_test_project(void (*handleProject)(Project)) {
     char *_err = "";
     char **err = &_err;
 

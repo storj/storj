@@ -13,9 +13,77 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// CloseBucket closes a Bucket handle.
-//export CloseBucket
-func CloseBucket(bucketHandle C.Bucket, cerr **C.char) {
+// Bucket is a scoped uplink.Bucket
+type Bucket struct {
+	scope
+	*uplink.Bucket
+}
+
+// create_bucket creates a new bucket if authorized.
+//export create_bucket
+func create_bucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return C.BucketInfo{}
+	}
+
+	var config *uplink.BucketConfig
+	if bucketConfig != nil {
+		config = &uplink.BucketConfig{
+			PathCipher: storj.CipherSuite(bucketConfig.path_cipher),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(bucketConfig.encryption_parameters.cipher_suite),
+				BlockSize:   int32(bucketConfig.encryption_parameters.block_size),
+			},
+		}
+		config.Volatile.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(bucketConfig.redundancy_scheme.algorithm),
+			ShareSize:      int32(bucketConfig.redundancy_scheme.share_size),
+			RequiredShares: int16(bucketConfig.redundancy_scheme.required_shares),
+			RepairShares:   int16(bucketConfig.redundancy_scheme.repair_shares),
+			OptimalShares:  int16(bucketConfig.redundancy_scheme.optimal_shares),
+			TotalShares:    int16(bucketConfig.redundancy_scheme.total_shares),
+		}
+	}
+
+	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.BucketInfo{}
+	}
+
+	return newBucketInfo(&bucket)
+}
+
+// open_bucket returns a Bucket handle with the given EncryptionAccess information.
+//export open_bucket
+func open_bucket(projectHandle C.Project, name *C.char, encryptionAccess C.EncryptionAccess, cerr **C.char) C.Bucket {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return C.Bucket{}
+	}
+
+	var access uplink.EncryptionAccess
+	for i := range access.Key {
+		access.Key[i] = byte(encryptionAccess.key[0])
+	}
+
+	scope := project.scope.child()
+
+	bucket, err := project.OpenBucket(scope.ctx, C.GoString(name), &access)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.Bucket{}
+	}
+
+	return C.Bucket{universe.Add(&Bucket{scope, bucket})}
+}
+
+// close_bucket closes a Bucket handle.
+//export close_bucket
+func close_bucket(bucketHandle C.Bucket, cerr **C.char) {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid bucket")
@@ -25,31 +93,31 @@ func CloseBucket(bucketHandle C.Bucket, cerr **C.char) {
 	universe.Del(bucketHandle._handle)
 	defer bucket.cancel()
 
-	if err := bucket.lib.Close(); err != nil {
+	if err := bucket.Close(); err != nil {
 		*cerr = C.CString(err.Error())
 		return
 	}
 }
 
-// DeleteBucket deletes a bucket if authorized. If the bucket contains any
+// delete_bucket deletes a bucket if authorized. If the bucket contains any
 // Objects at the time of deletion, they may be lost permanently.
-//export DeleteBucket
-func DeleteBucket(projectHandle C.Project, bucketName *C.char, cerr **C.char) {
+//export delete_bucket
+func delete_bucket(projectHandle C.Project, bucketName *C.char, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
 		return
 	}
 
-	if err := project.lib.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
+	if err := project.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
 		*cerr = C.CString(err.Error())
 		return
 	}
 }
 
-// ListBuckets will list authorized buckets.
-//export ListBuckets
-func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions, cerr **C.char) C.BucketList {
+// list_buckets will list authorized buckets.
+//export list_buckets
+func list_buckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions, cerr **C.char) C.BucketList {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
@@ -65,7 +133,7 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 		}
 	}
 
-	bucketList, err := project.lib.ListBuckets(project.scope.ctx, opts)
+	bucketList, err := project.ListBuckets(project.scope.ctx, opts)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketList{}
@@ -88,75 +156,31 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 	}
 }
 
-// FreeBucketList will free a list of buckets
-//export FreeBucketList
-func FreeBucketList(bucketlist *C.BucketList) {
+// free_bucket_list will free a list of buckets
+//export free_bucket_list
+func free_bucket_list(bucketlist *C.BucketList) {
 	items := (*[1<<30]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
 	for i := 0; i < int(bucketlist.length); i++ {
-		FreeBucketInfo(&items[0])
+		free_bucket_info(&items[i])
 	}
 	C.free(unsafe.Pointer(bucketlist.items))
 	bucketlist.items = nil
 }
 
-// GetBucketInfo returns info about the requested bucket if authorized.
-//export GetBucketInfo
-func GetBucketInfo(projectHandle C.Project, bucketName *C.char, cerr **C.char) C.BucketInfo {
+// get_bucket_info returns info about the requested bucket if authorized.
+//export get_bucket_info
+func get_bucket_info(projectHandle C.Project, bucketName *C.char, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
 		return C.BucketInfo{}
 	}
 
-	bucket, _, err := project.lib.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
+	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketInfo{}
 	}
 
 	return newBucketInfo(&bucket)
-}
-
-// Object is a scoped uplink.Object
-type Object struct {
-	scope
-	lib *uplink.Object
-}
-
-// OpenObject returns an Object handle, if authorized.
-//export OpenObject
-func OpenObject(bucketHandle C.Bucket, objectPath *C.char, cerr **C.char) C.Object {
-	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
-	if !ok {
-		*cerr = C.CString("invalid bucket")
-		return C.Object{}
-	}
-
-	scope := bucket.scope.child()
-
-	object, err := bucket.lib.OpenObject(scope.ctx, C.GoString(objectPath))
-	if err != nil {
-		*cerr = C.CString(err.Error())
-		return C.Object{}
-	}
-
-	return C.Object{universe.Add(&Object{scope, object})}
-}
-
-// CloseObject closes the object.
-//export CloseObject
-func CloseObject(objectHandle C.Object, cerr **C.char) {
-	object, ok := universe.Get(objectHandle._handle).(*Bucket)
-	if !ok {
-		*cerr = C.CString("invalid object")
-		return
-	}
-
-	universe.Del(objectHandle._handle)
-	defer object.cancel()
-
-	if err := object.lib.Close(); err != nil {
-		*cerr = C.CString(err.Error())
-		return
-	}
 }

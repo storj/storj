@@ -24,9 +24,9 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 	}
 }
 
-// FreeBucketInfo frees bucket info.
-//export FreeBucketInfo
-func FreeBucketInfo(bucketInfo *C.BucketInfo) {
+// free_bucket_info frees bucket info.
+//export free_bucket_info
+func free_bucket_info(bucketInfo *C.BucketInfo) {
 	C.free(unsafe.Pointer(bucketInfo.name))
 	bucketInfo.name = nil
 }

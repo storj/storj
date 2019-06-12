@@ -8,13 +8,13 @@
 #include "uplink.h"
 #include "helpers2.h"
 
-void HandleProject(Project project);
+void handle_project(Project project);
 
 int main(int argc, char *argv[]) {
-    WithTestProject(&HandleProject);
+    with_test_project(&handle_project);
 }
 
-void HandleProject(Project project) {
+void handle_project(Project project) {
     char *_err = "";
     char **err = &_err;
 
@@ -25,7 +25,7 @@ void HandleProject(Project project) {
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
 
-            BucketConfig config = TestBucketConfig();
+            BucketConfig config = test_bucket_config();
             BucketInfo info = create_bucket(project, bucket_name, &config, err);
             require_noerror(*err);
 
@@ -42,12 +42,12 @@ void HandleProject(Project project) {
             require(config.redundancy_scheme.optimal_shares   == info.redundancy_scheme.optimal_shares);
             require(config.redundancy_scheme.total_shares     == info.redundancy_scheme.total_shares);
 
-            FreeBucketInfo(&info);
+            free_bucket_info(&info);
         }
     }
 
     { // listing buckets
-        BucketList bucket_list = ListBuckets(project, NULL, err);
+        BucketList bucket_list = list_buckets(project, NULL, err);
         require_noerror(*err);
         require(bucket_list.more == 0);
         require(bucket_list.length == num_of_buckets);
@@ -59,18 +59,18 @@ void HandleProject(Project project) {
             require(info->created != 0);
         }
 
-        FreeBucketList(&bucket_list);
+        free_bucket_list(&bucket_list);
     }
 
     { // getting bucket infos
         for(int i = 0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
-            BucketInfo info = GetBucketInfo(project, bucket_name, err);
+            BucketInfo info = get_bucket_info(project, bucket_name, err);
             require_noerror(*err);
             require(strcmp(info.name, bucket_names[i]) == 0);
             require(info.created != 0);
 
-            FreeBucketInfo(&info);
+            free_bucket_info(&info);
         }
     }
 
@@ -83,13 +83,13 @@ void HandleProject(Project project) {
         requiref(bucket._handle != 0, "got empty bucket\n");
 
         // TODO: exercise functions that operate on an open bucket to add assertions
-        CloseBucket(bucket, err);
+        close_bucket(bucket, err);
         require_noerror(*err);
     }
 
     { // deleting buckets
         for(int i = 0; i < num_of_buckets; i++) {
-            DeleteBucket(project, bucket_names[i], err);
+            delete_bucket(project, bucket_names[i], err);
             require_noerror(*err);
         }
     }
