@@ -117,16 +117,18 @@ func TestVouchersService(t *testing.T) {
 		require.NoError(t, err)
 
 		time.Sleep(time.Second)
-		for i, _ := range planet.Satellites {
-			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[i], "testbucket", "testpath", data)
+		for _, sat := range planet.Satellites {
+			err := planet.Uplinks[0].Upload(ctx, sat, "testbucket", "testpath", data)
 			require.NoError(t, err)
 		}
 
 		// archive orders
 		orderInfo, err := node.DB.Orders().ListUnsent(ctx, 5)
+		require.NoError(t, err)
 		assert.Len(t, orderInfo, 5)
 		for _, o := range orderInfo {
-			node.DB.Orders().Archive(ctx, o.Limit.SatelliteId, o.Limit.SerialNumber, orders.StatusAccepted)
+			err = node.DB.Orders().Archive(ctx, o.Limit.SatelliteId, o.Limit.SerialNumber, orders.StatusAccepted)
+			require.NoError(t, err)
 		}
 
 		// run service and check vouchers have been received
