@@ -14,12 +14,12 @@ type Uplink struct {
 	lib *libuplink.Uplink
 }
 
-//export NewUplink
-// NewUplink creates the uplink with the specified configuration and returns
+//export new_uplink
+// new_uplink creates the uplink with the specified configuration and returns
 // an error in cerr, when there is one.
 //
-// Caller must call CloseUplink to close associated resources.
-func NewUplink(cfg C.UplinkConfig, cerr **C.char) C.Uplink {
+// Caller must call close_uplink to close associated resources.
+func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.Uplink {
 	scope := rootScope("inmemory") // TODO: pass in as argument
 
 	libcfg := &libuplink.Config{} // TODO: figure out a better name
@@ -34,9 +34,9 @@ func NewUplink(cfg C.UplinkConfig, cerr **C.char) C.Uplink {
 	return C.Uplink{universe.Add(&Uplink{scope, lib})}
 }
 
-//export CloseUplink
-// CloseUplink closes and frees the resources associated with uplink
-func CloseUplink(uplinkHandle C.Uplink, cerr **C.char) {
+//export close_uplink
+// close_uplink closes and frees the resources associated with uplink
+func close_uplink(uplinkHandle C.Uplink, cerr **C.char) {
 	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -51,9 +51,9 @@ func CloseUplink(uplinkHandle C.Uplink, cerr **C.char) {
 	}
 }
 
-//export OpenProject
-// OpenProject opens project using uplink
-func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
+//export open_project
+// open_project opens project using uplink
+func open_project(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
 	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")

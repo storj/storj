@@ -18,9 +18,9 @@ type Project struct {
 	lib *libuplink.Project
 }
 
-//export CloseProject
-// CloseProject closes the project.
-func CloseProject(projectHandle C.Project, cerr **C.char) {
+//export close_project
+// close_project closes the project.
+func close_project(projectHandle C.Project, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -35,9 +35,9 @@ func CloseProject(projectHandle C.Project, cerr **C.char) {
 	}
 }
 
-// CreateBucket creates a new bucket if authorized.
-//export CreateBucket
-func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
+// create_bucket creates a new bucket if authorized.
+//export create_bucket
+func create_bucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
@@ -78,9 +78,9 @@ type Bucket struct {
 	lib *libuplink.Bucket
 }
 
-// OpenBucket returns a Bucket handle with the given EncryptionAccess information.
-//export OpenBucket
-func OpenBucket(projectHandle C.Project, name *C.char, encryptionAccess C.EncryptionAccess, cerr **C.char) C.Bucket {
+// open_bucket returns a Bucket handle with the given EncryptionAccess information.
+//export open_bucket
+func open_bucket(projectHandle C.Project, name *C.char, encryptionAccess C.EncryptionAccess, cerr **C.char) C.Bucket {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")

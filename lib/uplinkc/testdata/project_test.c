@@ -26,7 +26,7 @@ void HandleProject(Project project) {
             char *bucket_name = bucket_names[i];
 
             BucketConfig config = TestBucketConfig();
-            BucketInfo info = CreateBucket(project, bucket_name, &config, err);
+            BucketInfo info = create_bucket(project, bucket_name, &config, err);
             require_noerror(*err);
 
             require(strcmp(bucket_name, info.name) == 0);
@@ -78,7 +78,7 @@ void HandleProject(Project project) {
         EncryptionAccess access = {};
         memcpy(&access.key[0], "abcdefghijklmnopqrstuvwxyzABCDEF", 32);
 
-        Bucket bucket = OpenBucket(project, bucket_names[0], access, err);
+        Bucket bucket = open_bucket(project, bucket_names[0], access, err);
         require_noerror(*err);
         requiref(bucket._handle != 0, "got empty bucket\n");
 

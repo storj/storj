@@ -20,11 +20,11 @@ void TestBucket(void)
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: test with different bucket configs
-    CreateBucket(ref_project, bucket_name, NULL, err);
+    create_bucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: Encryption access
-    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
+    BucketRef_t ref_bucket = open_bucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};

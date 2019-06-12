@@ -17,7 +17,7 @@ ProjectRef_t OpenTestProject(char **err)
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_NOT_EQUAL(0, ref_uplink);
 
-    return OpenProject(ref_uplink, satellite_addr, ref_apikey, err);
+    return open_project(ref_uplink, satellite_addr, ref_apikey, err);
 }
 
 Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **err)
@@ -41,7 +41,7 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
     bucket_cfg.encryption_parameters = enc_param;
     bucket_cfg.redundancy_scheme = scheme;
 
-    *bucket = CreateBucket(ref_project, bucket_name, &bucket_cfg, err);
+    *bucket = create_bucket(ref_project, bucket_name, &bucket_cfg, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     TEST_ASSERT_EQUAL(enc_param.cipher_suite, bucket->encryption_parameters.cipher_suite);

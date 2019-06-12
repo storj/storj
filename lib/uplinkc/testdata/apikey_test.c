@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         free(apikeySerialized);
 
         // free api key
-        FreeAPIKey(apikey);
+        free_api_key(apikey);
     }
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");

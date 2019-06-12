@@ -29,7 +29,7 @@ void TestObject(void)
     EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
 
     // Open bucket
-    BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
+    BucketRef_t ref_bucket = open_bucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     char *object_path = "TestObject1";
@@ -72,7 +72,7 @@ void TestObject(void)
     TEST_ASSERT_EQUAL_STRING(str_data, downloadedData);
 
     // Close Project
-    CloseProject(ref_project, err);
+    close_project(ref_project, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     free(data);

@@ -33,8 +33,8 @@ func serialize_api_key(apikeyHandle C.APIKey) *C.char {
 	return C.CString(apikey.Serialize())
 }
 
-//export FreeAPIKey
-// FreeAPIKey frees an api key
-func FreeAPIKey(apikeyHandle C.APIKey) {
+//export free_api_key
+// free_api_key frees an api key
+func free_api_key(apikeyHandle C.APIKey) {
 	universe.Del(apikeyHandle._handle)
 }

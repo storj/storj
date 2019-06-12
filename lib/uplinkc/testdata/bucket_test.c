@@ -21,13 +21,13 @@ void HandleProject(Project project) {
     char *bucket_name = "TestBucket";
 
     BucketConfig config = TestBucketConfig();
-    BucketInfo info = CreateBucket(project, bucket_name, &config, err);
+    BucketInfo info = create_bucket(project, bucket_name, &config, err);
     require_noerror(*err);
     FreeBucketInfo(&info);
 
     EncryptionAccess access = {};
     memcpy(&access.key[0], "hello", 5);
-    Bucket bucket = OpenBucket(project, bucket_name, access, err);
+    Bucket bucket = open_bucket(project, bucket_name, access, err);
     require_noerror(*err);
     {
         char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};

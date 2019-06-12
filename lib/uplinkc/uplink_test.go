@@ -19,11 +19,11 @@ func TestUplink(t *testing.T) {
 	var config CUplinkConfig
 	config.Volatile.TLS.SkipPeerCAWhitelist = 1
 
-	uplink := NewUplink(config, &cerr)
+	uplink := new_uplink(config, &cerr)
 	require.Nil(t, cerr)
 	require.NotEmpty(t, uplink)
 
-	CloseUplink(uplink, &cerr)
+	close_uplink(uplink, &cerr)
 	require.Nil(t, cerr)
 }
 
@@ -37,12 +37,12 @@ func TestProject(t *testing.T) {
 			config.Volatile.TLS.SkipPeerCAWhitelist = 1
 
 			var cerr Cpchar
-			uplink := NewUplink(config, &cerr)
+			uplink := new_uplink(config, &cerr)
 			require.Nil(t, cerr)
 			require.NotEmpty(t, uplink)
 
 			defer func() {
-				CloseUplink(uplink, &cerr)
+				close_uplink(uplink, &cerr)
 				require.Nil(t, cerr)
 			}()
 
@@ -53,17 +53,17 @@ func TestProject(t *testing.T) {
 				apikey := parse_api_key(capikeyStr, &cerr)
 				require.Nil(t, cerr)
 				require.NotEmpty(t, apikey)
-				defer FreeAPIKey(apikey)
+				defer free_api_key(apikey)
 
 				cSatelliteAddr := CString(satelliteAddr)
 				defer CFree(unsafe.Pointer(cSatelliteAddr))
 
-				project := OpenProject(uplink, cSatelliteAddr, apikey, &cerr)
+				project := open_project(uplink, cSatelliteAddr, apikey, &cerr)
 				require.Nil(t, cerr)
 				require.NotEmpty(t, uplink)
 
 				defer func() {
-					CloseProject(project, &cerr)
+					close_project(project, &cerr)
 					require.Nil(t, cerr)
 				}()
 			}

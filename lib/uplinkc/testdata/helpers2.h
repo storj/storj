@@ -36,7 +36,7 @@ void WithTestProject(void (*handleProject)(Project)) {
         cfg.Volatile.TLS.SkipPeerCAWhitelist = 1; // TODO: add CA Whitelist
 
         // New uplink
-        Uplink uplink = NewUplink(cfg, err);
+        Uplink uplink = new_uplink(cfg, err);
         require_noerror(*err);
         requiref(uplink._handle != 0, "got empty uplink\n");
 
@@ -48,23 +48,23 @@ void WithTestProject(void (*handleProject)(Project)) {
 
             {
                 // open a project
-                Project project = OpenProject(uplink, satellite_addr, apikey, err);
+                Project project = open_project(uplink, satellite_addr, apikey, err);
                 require_noerror(*err);
                 requiref(project._handle != 0, "got empty project\n");
 
                 handleProject(project);
 
                 // close project
-                CloseProject(project, err);
+                close_project(project, err);
                 require_noerror(*err);
             }
 
             // free api key
-            FreeAPIKey(apikey);
+            free_api_key(apikey);
         }
 
         // Close uplinks
-        CloseUplink(uplink, err);
+        close_uplink(uplink, err);
         require_noerror(*err);
     }
 

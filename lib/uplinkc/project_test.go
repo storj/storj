@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func TestCreateBucket(t *testing.T) {
+func Testcreate_bucket(t *testing.T) {
 	// TODO: figure this out (there may be other inconsistencies as well)
 	t.Log("listed bucket *always* has `PathCipher` = `AESGCM`; is this expected behavior?")
 	t.SkipNow()
@@ -31,7 +31,7 @@ func TestCreateBucket(t *testing.T) {
 
 		testEachBucketConfig(t, func(bucketCfg *uplink.BucketConfig) {
 			cBucketConfig := NewCBucketConfig(bucketCfg)
-			cBucket := CreateBucket(cProjectRef, stringToCCharPtr(bucketName), &cBucketConfig, &cErr)
+			cBucket := create_bucket(cProjectRef, stringToCCharPtr(bucketName), &cBucketConfig, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 			require.NotNil(t, cBucket)
 
@@ -49,7 +49,7 @@ func TestCreateBucket(t *testing.T) {
 	})
 }
 
-func TestOpenBucket(t *testing.T) {
+func Testopen_bucket(t *testing.T) {
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 		var cErr Cchar
 		bucketName := "TestBucket"
@@ -64,7 +64,7 @@ func TestOpenBucket(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, expectedBucket)
 
-			cBucketRef := OpenBucket(cProjectRef, stringToCCharPtr(bucketName), nil, &cErr)
+			cBucketRef := open_bucket(cProjectRef, stringToCCharPtr(bucketName), nil, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 			require.NotEmpty(t, cBucketRef)
 
@@ -168,12 +168,12 @@ func TestGetBucketInfo(t *testing.T) {
 	})
 }
 
-func TestCloseProject(t *testing.T) {
+func Testclose_project(t *testing.T) {
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 		var cErr Cchar
 		_, cProjectRef := openTestProject(t, ctx, planet)
 
-		CloseProject(cProjectRef, &cErr)
+		close_project(cProjectRef, &cErr)
 		require.Empty(t, cCharToGoString(cErr))
 	})
 }

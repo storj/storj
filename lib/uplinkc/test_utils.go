@@ -95,9 +95,9 @@ func newUplinkInsecure(t *testing.T, ctx *testcontext.Context) *libuplink.Uplink
 
 	goUplink, err := libuplink.NewUplink(ctx, &cfg)
 	require.NoError(t, err)
-	require.NotEmpty(t, goUplink)
+	require.NotEmpty(t, uplink)
 
-	return goUplink
+	return uplink
 }
 
 func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) (*libuplink.Project, C.ProjectRef_t) {
@@ -112,7 +112,7 @@ func openTestProject(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	require.NoError(t, err)
 	require.NotEmpty(t, apikey)
 
-	project, err := goUplink.OpenProject(ctx, satelliteAddr, apikey, nil)
+	project, err := goUplink.open_project(ctx, satelliteAddr, apikey, nil)
 	require.NoError(t, err)
 	require.NotNil(t, project)
 
