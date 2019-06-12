@@ -211,6 +211,7 @@ type Peer struct {
 	Marketing struct {
 		Listener net.Listener
 		Endpoint *marketingweb.Server
+		Service  *marketing.Service
 	}
 }
 
@@ -596,9 +597,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Marketing.Service, err = marketing.NewService(
+			peer.Log.Named("marketing:service"),
+			peer.DB.Marketing(),
+		)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
 		peer.Marketing.Endpoint = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
+			peer.Marketing.Service,
 			peer.Marketing.Listener,
 		)
 	}
