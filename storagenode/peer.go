@@ -266,11 +266,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	// Storage Node Operator Dashboard
 	{
+
 		peer.Operator.Service, err = operator.NewService(
 			peer.Log.Named("operator:service"),
 			peer.DB.Bandwidth(),
-			peer.Storage2.Monitor,
 			peer.DB.PieceInfo(),
+			config.Storage.AllocatedBandwidth,
+			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet)
 
 		if err != nil {
@@ -332,8 +334,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		var err = errs2.IgnoreCanceled(peer.Operator.Endpoint.Run(ctx))
-		return err
+		return errs2.IgnoreCanceled(peer.Operator.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()

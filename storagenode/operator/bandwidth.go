@@ -18,10 +18,12 @@ type BandwidthInfo struct {
 }
 
 // FromUsage used to create BandwidthInfo instance from Usage object
-func FromUsage(usage *bandwidth.Usage, avaiableBandwidth int64) (*BandwidthInfo, error) {
+func FromUsage(usage *bandwidth.Usage, allocatedBandwidth int64) (*BandwidthInfo, error) {
 	if usage == nil {
 		return nil, errs.New("usage is nil")
 	}
+
+	used := usage.Total()
 
 	return &BandwidthInfo{
 		Ingress: Ingress{
@@ -33,8 +35,8 @@ func FromUsage(usage *bandwidth.Usage, avaiableBandwidth int64) (*BandwidthInfo,
 			Usage:  usage.Get,
 			Audit:  usage.GetAudit,
 		},
-		Remaining: avaiableBandwidth,
-		Used:      usage.Total(),
+		Remaining: allocatedBandwidth - used,
+		Used:      used,
 	}, nil
 }
 
