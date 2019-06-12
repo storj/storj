@@ -86,19 +86,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if s.templates.home == nil {
-		s.serveInternalError(w, req)
-		return
-	}
-
 	err := s.templates.home.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
+// parseTemplates parses and stores all templates in server
 func (s *Server) parseTemplates() (err error) {
-
 	homeFiles := append(s.commonPages(),
 		filepath.Join(s.templateDir, "home.html"),
 		filepath.Join(s.templateDir, "refOffers.html"),
