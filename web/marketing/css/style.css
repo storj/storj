@@ -22,18 +22,18 @@ hr{
     margin-top:-5px;
     margin-left: -15px;
     margin-bottom: 0px;
-    width: 1102px !important;
+    width: 1102px;
 }
 
 .offers-table{
-    width: 1110px !important;
+    width: 1110px;
     margin-left: -15px;
     background: #FFFFFF;
     border: 1.5px solid #DFDFDF;
     border-radius: 6px;
-    width: 1106px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+    width: 1106px;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .offer-heading{
@@ -42,7 +42,7 @@ hr{
     line-height: 49px;
     letter-spacing: -0.100741px;
     margin-top:-5px;
-    width: 1103px !important;
+    width: 1103px;
     color: #656565;
     background: #F2F3F5;
     border: 1px solid #DADDE5;
@@ -89,7 +89,7 @@ hr{
 .ref-admin{
     font-weight: 500;
     font-size: 18px;
-    line-height: 130.02%;
+    line-height: 19px;
     color: #96989E;
     margin-top:30px;
 }
@@ -133,26 +133,26 @@ h3{
 
 #foModalLabel, 
 #roModalLabel{
-    font-family: 'Poppins' !important;
-    font-style: normal !important;
-    font-weight: 600 !important;
-    font-size: 24px !important;
-    line-height: 49px !important;
-    letter-spacing: -0.100741px !important;
-    color: #494949 !important;
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #494949;
 }
 
 label,
 input{
-    font-family: 'Roboto' !important;
-    font-style: normal !important;
-    font-weight: normal !important;
+    font-family: 'Roboto';
+    font-style: normal;
+    font-weight: normal;
 }
 
 label{
-    font-size: 15px !important;
-    line-height: 19px !important;
-    color: #848484 !important;
+    font-size: 15px;
+    line-height: 19px;
+    color: #848484;
 }
 
 input{
