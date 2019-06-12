@@ -133,7 +133,7 @@ func newSegmentEncrypter(derivedKey *storj.Key, cipher storj.Cipher, currentSegm
 	// The increment by 1 is to avoid nonce reuse with the metadata encryption,
 	// which is encrypted with the zero nonce.
 	var contentNonce storj.Nonce
-	_, err = encryption.Increment(&contentNonce, currentSegmentIndex)
+	_, err = encryption.Increment(&contentNonce, currentSegmentIndex+1)
 	if err != nil {
 		return se, err
 	}

@@ -112,7 +112,7 @@ func TestStreamStorePut(t *testing.T) {
 	const (
 		encBlockSize = 10
 		segSize      = 10
-		inlineSize   = 5
+		inlineSize   = 0
 		pathCipher   = storj.AESGCM
 		dataCipher   = storj.Unencrypted
 	)
@@ -150,7 +150,7 @@ func TestStreamStorePut(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockSegmentStore.EXPECT().
-			PutInline(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			PutRemote(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError).
 			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (storj.Path, []byte, error)) {
 				for {
