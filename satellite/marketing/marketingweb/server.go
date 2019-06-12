@@ -5,6 +5,7 @@ package marketingweb
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -16,7 +17,10 @@ import (
 )
 
 // Error is satellite marketing error type
-var Error = errs.Class("satellite marketing error")
+var (
+	Error     = errs.Class("satellite marketing error")
+	templates *template.Template
+)
 
 // Config contains configuration for marketing offersweb server
 type Config struct {
@@ -55,6 +59,8 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
 
+	fmt.Printf("value: %v", templates)
+
 	fs := http.FileServer(http.Dir(s.config.StaticDir))
 	mux := http.NewServeMux()
 	if s.config.StaticDir != "" {
@@ -74,22 +80,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		s.serveNotFound(w, req)
 		return
 	}
+	var err error
 
-	files := append(s.commonPages(),
-		filepath.Join(s.templateDir, "home.html"),
-		filepath.Join(s.templateDir, "refOffers.html"),
-		filepath.Join(s.templateDir, "freeOffers.html"),
-		filepath.Join(s.templateDir, "roModal.html"),
-		filepath.Join(s.templateDir, "foModal.html"),
-	)
+	if templates == nil {
+		files := append(s.commonPages(),
+			filepath.Join(s.templateDir, "home.html"),
+			filepath.Join(s.templateDir, "refOffers.html"),
+			filepath.Join(s.templateDir, "freeOffers.html"),
+			filepath.Join(s.templateDir, "roModal.html"),
+			filepath.Join(s.templateDir, "foModal.html"),
+		)
 
-	home, err := template.New("landingPage").ParseFiles(files...)
-	if err != nil {
-		s.serveInternalError(w, req)
-		return
+		templates, err = template.New("landingPage").ParseFiles(files...)
+		if err != nil {
+			s.serveInternalError(w, req)
+			return
+		}
 	}
 
-	err = home.ExecuteTemplate(w, "base", nil)
+	err = templates.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
