@@ -172,7 +172,7 @@ func TestListObjects(t *testing.T) {
 				require.Empty(t, cCharToGoString(cErr))
 
 				// TODO: test with different list options
-				cObjectList := ListObjects(cBucketRef, nil, &cErr)
+				cObjectList := list_objects(cBucketRef, nil, &cErr)
 				require.Empty(t, cCharToGoString(cErr))
 
 				assert.Equal(t, 1, int(cObjectList.length))
@@ -180,7 +180,7 @@ func TestListObjects(t *testing.T) {
 
 				object := newGoObject(t, (*CObject)(unsafe.Pointer(cObjectList.items)))
 
-				// NB (workaround): should we use nano precision in c bucket?
+				// NB (workaround): wall time is different for some reason
 				bucket.Created = time.Unix(bucket.Created.Unix(), 0).UTC()
 				assert.True(t, reflect.DeepEqual(bucket, object.Bucket))
 

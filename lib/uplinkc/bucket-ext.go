@@ -77,8 +77,6 @@ func UploadObject(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.Up
 	}
 }
 
-<<<<<<< HEAD:lib/uplinkc/bucket-ext.go
-=======
 // ListObjects lists objects a user is authorized to see.
 //export ListObjects
 func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.char) (cObjList C.ObjectList_t) {
@@ -145,7 +143,6 @@ func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 	structRefMap.Del(token(bucketRef))
 }
 
->>>>>>> cbindings:lib/uplink/ext/bucket.go
 // NewCObject returns a C object struct converted from a go object struct.
 func NewCObject(object *storj.Object) C.Object_t {
 	return C.Object_t {
