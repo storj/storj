@@ -25,7 +25,9 @@ void HandleProject(Project project) {
     require_noerror(*err);
     FreeBucketInfo(&info);
 
-    Bucket bucket = OpenBucket(project, bucket_name, NULL, err);
+    EncryptionAccess access = {};
+    memcpy(&access.key[0], "hello", 5);
+    Bucket bucket = OpenBucket(project, bucket_name, access, err);
     require_noerror(*err);
     {
         char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};

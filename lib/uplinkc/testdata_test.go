@@ -67,7 +67,7 @@ func TestC(t *testing.T) {
 				t.Error(string(out))
 				t.Fatal(err)
 			} else {
-				t.Log(out)
+				t.Log(string(out))
 			}
 		})
 	}

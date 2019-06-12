@@ -17,23 +17,6 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-// CloseObject closes the Object.
-//export CloseObject
-func CloseObject(cObject C.ObjectRef_t, cErr **C.char) {
-	object, ok := structRefMap.Get(token(cObject)).(*uplink.Object)
-	if !ok {
-		*cErr = C.CString("invalid object")
-		return
-	}
-
-	if err := object.Close(); err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-
-	structRefMap.Del(token(cObject))
-}
-
 // DownloadRange returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
 //export DownloadRange

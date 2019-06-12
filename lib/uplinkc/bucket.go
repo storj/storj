@@ -115,3 +115,47 @@ func GetBucketInfo(projectHandle C.Project, bucketName *C.char, cerr **C.char) C
 
 	return newBucketInfo(&bucket)
 }
+
+// Object is a scoped uplink.Object
+type Object struct {
+	scope
+	lib *uplink.Object
+}
+
+// OpenObject returns an Object handle, if authorized.
+//export OpenObject
+func OpenObject(bucketHandle C.Bucket, objectPath *C.char, cerr **C.char) C.Object {
+	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid bucket")
+		return C.Object{}
+	}
+
+	scope := bucket.scope.child()
+
+	object, err := bucket.lib.OpenObject(scope.ctx, C.GoString(objectPath))
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.Object{}
+	}
+
+	return C.Object{universe.Add(&Object{scope, object})}
+}
+
+// CloseObject closes the object.
+//export CloseObject
+func CloseObject(objectHandle C.Object, cerr **C.char) {
+	object, ok := universe.Get(objectHandle._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid object")
+		return
+	}
+
+	universe.Del(objectHandle._handle)
+	defer object.cancel()
+
+	if err := object.lib.Close(); err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
+}
