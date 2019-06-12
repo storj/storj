@@ -156,8 +156,8 @@ Three Bloom filter implementations are considered:
 - **BF4**: Custom bloom filter
 
 ### Zeebo's bloom filters
--Parameters:
-    - **k**: The Bloom filter will be built such that the probability of a false positive is less than (1/2)**k
+- Parameters:
+    - **k**: The Bloom filter will be built such that the probability of a false positive is less than (1/2)^k
     - **h**: hash functions
 - Serialization available
 - hash functions are to be given as a parameter to the constructor
