@@ -55,8 +55,7 @@ func benchmarkFilter(filter Filter, pieceIDs [][]byte, b *testing.B) (p float64)
 	nbIn := benchmarkContains(filter, pieceIDs[0:nbPiecesInFilter], b)
 	if nbIn < nbPiecesInFilter {
 		// we have a false negative - it should not happen
-		b.Log("nbIn = ", nbIn)
-		b.Fail()
+		b.Fatal("False negative!")
 	}
 	nbIn = benchmarkContains(filter, pieceIDs[nbPiecesInFilter:], b)
 	falsePositiveP := float64(nbIn) / float64(len(pieceIDs[nbPiecesInFilter:]))
@@ -112,7 +111,7 @@ func BenchmarkEncodedSize(b *testing.B) {
 	defer func() {
 		err := file.Close()
 		if err != nil {
-			b.Fail()
+			b.Fatal(err.Error())
 		}
 	}()
 	Init()
@@ -121,41 +120,35 @@ func BenchmarkEncodedSize(b *testing.B) {
 
 	_, err = file.WriteString("# p\t")
 	if err != nil {
-		b.Log(err.Error())
-		b.Fail()
+		b.Fatal(err.Error())
 	}
 	for _, name := range names {
 		_, err = file.WriteString(fmt.Sprintf("%s\t\t\t", name))
 		if err != nil {
-			b.Log(err.Error())
-			b.Fail()
+			b.Fatal(err.Error())
 		}
 	}
 	_, err = file.WriteString("\n")
 	if err != nil {
-		b.Log(err.Error())
-		b.Fail()
+		b.Fatal(err.Error())
 	}
 
 	for range names {
 		_, err = file.WriteString("\t\tsize\treal_p\t")
 		if err != nil {
-			b.Log(err.Error())
-			b.Fail()
+			b.Fatal(err.Error())
 		}
 	}
 	_, err = file.WriteString("\n")
 	if err != nil {
-		b.Log(err.Error())
-		b.Fail()
+		b.Fatal(err.Error())
 	}
 
 	p := 0.01
 	for p <= 0.21 {
 		_, err = file.WriteString(fmt.Sprintf("%.2f\t", p))
 		if err != nil {
-			b.Log(err.Error())
-			b.Fail()
+			b.Fatal(err.Error())
 		}
 		filters := make([]Filter, 4)
 		filters[0] = NewZeeboBloomFilter(uint(len(pieceIDs)), p)
@@ -168,14 +161,12 @@ func BenchmarkEncodedSize(b *testing.B) {
 			size := benchmarkEncode(f, pieceIDs, b)
 			_, err = file.WriteString(fmt.Sprintf("%d\t%.2f\t", size, realP))
 			if err != nil {
-				b.Log(err.Error())
-				b.Fail()
+				b.Fatal(err.Error())
 			}
 		}
 		_, err = file.WriteString("\n")
 		if err != nil {
-			b.Log(err.Error())
-			b.Fail()
+			b.Fatal(err.Error())
 		}
 		p += 0.01
 	}
