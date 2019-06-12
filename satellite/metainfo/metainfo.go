@@ -508,19 +508,49 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 }
 
 // checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
+func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.ValueAttributionRequest) (resp bool, err error) {
 	//TODO: Logic of checking if bucket exists will be added in new PR.
-	return &pb.ValueAttributionResponse{}, nil
+	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.BucketId,
+		EncryptedPath: req.SegmentInfoRequest.Path,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return false, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketId, req.SegmentInfoRequest.Path)
+	if err != nil {
+		return false, err
+	}
+
+	items, _, err := endpoint.metainfo.List(ctx, prefix, string(""), string(""), true, 1, 0)
+	if err != nil {
+		return false, err
+	}
+
+	if len(items) > 0 {
+		return false, errors.New("already attributed")
+	}
+
+	return true, nil
 }
 
 // ValueAttributeInfo commits segment metadata
 func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
 	resp, err := endpoint.checkBucketPointers(ctx, req)
 	if err != nil {
-		endpoint.log.Sugar().Info("No Value attribution related bucket id found \n")
+		endpoint.log.Sugar().Info("related bucket id already attributed \n")
 		return &pb.ValueAttributionResponse{}, err
 	}
 
 	// TODO: add valueattribution DB access functions added in new PR.
-	return resp, nil
+
+	return &pb.ValueAttributionResponse{
+		ValueAttribution: resp,
+	}, nil
 }

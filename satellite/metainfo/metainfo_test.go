@@ -4,7 +4,10 @@
 package metainfo_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"sort"
 	"testing"
 	"time"
@@ -21,7 +24,9 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/stream"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -440,17 +445,17 @@ func TestValueAttributeInfo(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-
-		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		uplink := planet.Uplinks[0]
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 		require.NoError(t, err)
-		projects := planet.Satellites[0].DB.Console().Projects()
+		redScheme := config.GetRedundancyScheme()
+		encScheme := config.GetEncryptionScheme()
+		_, err = metainfo.CreateBucket(ctx, "myBucket", &storj.Bucket{PathCipher: encScheme.Cipher})
+		require.NoError(t, err)
 
-		project, err := projects.Insert(ctx, &console.Project{
-			Name:        "ProjectName",
-			Description: "projects description",
-		})
-		assert.NotNil(t, project)
-		assert.NoError(t, err)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
 
 		keyInfo := pb.ValueAttributionRequest{
 			PartnerId: []byte("PartnerID"),
@@ -459,23 +464,45 @@ func TestValueAttributeInfo(t *testing.T) {
 		}
 
 		{
-			// error if pointer is nil
-			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
-			require.Error(t, err)
+			// bucket with no items
+			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			require.NoError(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctx, "bucket", "path", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			// no bucket exists
+			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
 			require.NoError(t, err)
 		}
 		{
-			pointer, limits := runCreateSegment(ctx, t, metainfo)
-
-			_, err = metainfo.CommitSegment(ctx, string(keyInfo.BucketId), "file/path", -1, pointer, limits)
+			createInfo := storj.CreateObject{
+				RedundancyScheme: redScheme,
+				EncryptionScheme: encScheme,
+			}
+			obj, err := metainfo.CreateObject(ctx, "myBucket", "path", &createInfo)
 			require.NoError(t, err)
 
-			_, err = metainfo.ValueAttributeInfo(ctx, string(keyInfo.BucketId), "file/path", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			reader := bytes.NewReader([]byte("one fish two fish red fish blue fish"))
+			err = uploadStream(ctx, streams, obj, reader)
 			require.NoError(t, err)
+			// time.Sleep(2 * time.Second)
+			// bucket with items
+			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
+			fmt.Println("KISHORE KISHORE --> err=", err)
+			require.Error(t, err)
 		}
 	})
+}
+
+func uploadStream(ctx context.Context, streams streams.Store, mutableObject storj.MutableObject, reader io.Reader) error {
+	mutableStream, err := mutableObject.CreateStream(ctx)
+	if err != nil {
+		return err
+	}
+
+	upload := stream.NewUpload(ctx, mutableStream, streams)
+
+	_, err = io.Copy(upload, reader)
+
+	return errs.Combine(err, upload.Close())
 }
 
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {

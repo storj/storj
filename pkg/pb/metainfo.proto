@@ -114,8 +114,5 @@ message ValueAttributionRequest{
 }
 
 message ValueAttributionResponse {
-    bytes bucket_id = 1;
-    bytes user_id = 2;
-    bytes partner_id = 3;
-    SegmentInfoResponse segment_info_response = 4;
+    bool value_attribution = 1; 
 }
