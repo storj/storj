@@ -131,7 +131,7 @@ func (s *segmentStore) PutInline(ctx context.Context, data []byte, expiration ti
 }
 
 // PutRemote gets a list of storage nodes from the Satellite then stores the the objet data pieces
-//
+// on those storage nodes.
 func (s *segmentStore) PutRemote(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
