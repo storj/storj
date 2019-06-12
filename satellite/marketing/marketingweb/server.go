@@ -69,7 +69,7 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server
 // ServeHTTP handles index request
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
-		s.serveError(w, req)
+		s.serveInternalError(w, req)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	home, err := template.New("landingPage").ParseFiles(files...)
 	if err != nil {
-		s.serveError(w, req)
+		s.serveInternalError(w, req)
 		return
 	}
 
@@ -89,15 +89,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
+func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request) {
 	rp := s.config.StaticDir + "/pages/"
-	files := s.addPages([]string{rp + "404.html"})
+	files := s.addPages([]string{rp + "internal-server-error.html"})
 
-	unavailable, err := template.New("404").ParseFiles(files...)
+	unavailable, err := template.New("internal-server-error").ParseFiles(files...)
 	if err != nil {
-		s.serveError(w, req)
+		s.serveInternalError(w, req)
 		return
 	}
+
+	w.WriteHeader(http.StatusInternalServerError)
 
 	err = unavailable.ExecuteTemplate(w, "base", nil)
 	if err != nil {
