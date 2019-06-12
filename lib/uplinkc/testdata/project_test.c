@@ -80,6 +80,7 @@ void HandleProject(Project project) {
 
         Bucket bucket = OpenBucket(project, bucket_names[0], access, err);
         require_noerror(*err);
+        requiref(bucket._handle != 0, "got empty bucket\n");
 
         // TODO: exercise functions that operate on an open bucket to add assertions
         CloseBucket(bucket, err);

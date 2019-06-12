@@ -100,5 +100,5 @@ func OpenBucket(projectHandle C.Project, name *C.char, encryptionAccess C.Encryp
 		return C.Bucket{}
 	}
 
-	return C.Bucket{universe.Add(Bucket{scope, bucket})}
+	return C.Bucket{universe.Add(&Bucket{scope, bucket})}
 }
