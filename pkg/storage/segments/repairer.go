@@ -42,17 +42,17 @@ func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cach
 }
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
-func (repairer *Repairer) Repair(ctx context.Context, path metainfo.Key) (err error) {
+func (repairer *Repairer) Repair(ctx context.Context, metainfoPath metainfo.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Read the segment pointer from the metainfo
-	pointer, err := repairer.metainfo.Get(ctx, path)
+	pointer, err := repairer.metainfo.Get(ctx, metainfoPath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	if pointer.GetType() != pb.Pointer_REMOTE {
-		return Error.New("cannot repair inline segment %s", path)
+		return Error.New("cannot repair inline segment %s", metainfoPath)
 	}
 
 	mon.Meter("repair_attempts").Mark(1)
@@ -78,13 +78,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path metainfo.Key) (err er
 	// irreparable piece, we need k+1 to detect corrupted pieces
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return Error.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1)
+		return Error.New("segment %v cannot be repaired: only %d healthy pieces, %d required", metainfoPath, numHealthy, pointer.Remote.Redundancy.MinReq+1)
 	}
 
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		return Error.New("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return Error.New("segment %v with %d pieces above repair threshold %d", metainfoPath, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
 
 	healthyRatioBeforeRepair := 0.0
@@ -103,10 +103,11 @@ func (repairer *Repairer) Repair(ctx context.Context, path metainfo.Key) (err er
 		}
 	}
 
-	bucketID, err := createBucketID(path)
-	if err != nil {
-		return Error.Wrap(err)
+	bucket, ok := metainfoPath.Bucket()
+	if !ok {
+		return Error.New("meta key does not contain bucket: %q", metainfoPath)
 	}
+	bucketID := orders.NewBucketID(metainfoPath.ProjectID(), bucket)
 
 	// Create the order limits for the GET_REPAIR action
 	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)
@@ -145,7 +146,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path metainfo.Key) (err er
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout, metainfoPath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -182,7 +183,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path metainfo.Key) (err er
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
 	// Update the segment pointer in the metainfo
-	return repairer.metainfo.Put(ctx, path, pointer)
+	return repairer.metainfo.Put(ctx, metainfoPath, pointer)
 }
 
 // sliceToSet converts the given slice to a set
@@ -192,12 +193,4 @@ func sliceToSet(slice []int32) map[int32]struct{} {
 		set[value] = struct{}{}
 	}
 	return set
-}
-
-func createBucketID(path storj.Path) ([]byte, error) {
-	comps := storj.SplitPath(path)
-	if len(comps) < 3 {
-		return nil, Error.New("no bucket component in path: %s", path)
-	}
-	return []byte(storj.JoinPaths(comps[0], comps[2])), nil
 }

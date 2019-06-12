@@ -7,8 +7,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -17,6 +15,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	ecclient "storj.io/storj/pkg/storage/ec"
@@ -38,18 +37,18 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     storj.Path
+	Path     paths.Encrypted
 	Meta     Meta
 	IsPrefix bool
 }
 
 // Store for segments
 type Store interface {
-	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
-	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
-	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
-	Delete(ctx context.Context, path storj.Path) (err error)
-	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Meta(ctx context.Context, path Path) (meta Meta, err error)
+	Get(ctx context.Context, path Path) (rr ranger.Ranger, meta Meta, err error)
+	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (Path, []byte, error)) (meta Meta, err error)
+	Delete(ctx context.Context, path Path) (err error)
+	List(ctx context.Context, prefix Path, startAfter, endBefore paths.Encrypted, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type segmentStore struct {
@@ -72,15 +71,10 @@ func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.R
 }
 
 // Meta retrieves the metadata of the segment
-func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
+func (s *segmentStore) Meta(ctx context.Context, path Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	pointer, err := s.metainfo.SegmentInfo(ctx, bucket, objectPath, segmentIndex)
+	pointer, err := s.metainfo.SegmentInfo(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex())
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -89,7 +83,7 @@ func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, er
 }
 
 // Put uploads a segment to an erasure code client
-func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
+func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy := &pb.RedundancyScheme{
@@ -115,7 +109,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		return Meta{}, err
 	}
 
-	var path storj.Path
+	var path Path
 	var pointer *pb.Pointer
 	var originalLimits []*pb.OrderLimit2
 	if !remoteSized {
@@ -138,13 +132,9 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		bucket, _, _, err := splitPathFragments(p)
-		if err != nil {
-			return Meta{}, err
-		}
 
 		// path and segment index are not known at this point
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, "", -1, redundancy, s.maxEncryptedSegmentSize, expiration)
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, p.Bucket(), paths.NewEncrypted(""), -1, redundancy, s.maxEncryptedSegmentSize, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -173,12 +163,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	}
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
-	if err != nil {
-		return Meta{}, err
-	}
-
-	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, objectPath, segmentIndex, pointer, originalLimits)
+	savedPointer, err := s.metainfo.CommitSegment(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex(), pointer, originalLimits)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -187,15 +172,10 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
-func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
+func (s *segmentStore) Get(ctx context.Context, path Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
-	if err != nil {
-		return nil, Meta{}, err
-	}
-
-	pointer, limits, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
+	pointer, limits, err := s.metainfo.ReadSegment(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex())
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -278,15 +258,10 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 
 // Delete requests the satellite to delete a segment and tells storage nodes
 // to delete the segment's pieces.
-func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) {
+func (s *segmentStore) Delete(ctx context.Context, path Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
-	if err != nil {
-		return err
-	}
-
-	limits, err := s.metainfo.DeleteSegment(ctx, bucket, objectPath, segmentIndex)
+	limits, err := s.metainfo.DeleteSegment(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -306,15 +281,10 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 }
 
 // List retrieves paths to segments and their metadata stored in the metainfo
-func (s *segmentStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (s *segmentStore) List(ctx context.Context, prefix Path, startAfter, endBefore paths.Encrypted, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, strippedPrefix, _, err := splitPathFragments(prefix)
-	if err != nil {
-		return nil, false, Error.Wrap(err)
-	}
-
-	list, more, err := s.metainfo.ListSegments(ctx, bucket, strippedPrefix, startAfter, endBefore, recursive, int32(limit), metaFlags)
+	list, more, err := s.metainfo.ListSegments(ctx, prefix.Bucket(), prefix.EncryptedPath(), startAfter, endBefore, recursive, int32(limit), metaFlags)
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}
@@ -373,38 +343,4 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
 	}
 	return t
-}
-
-func splitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
-	components := storj.SplitPath(path)
-	if len(components) < 1 {
-		return "", "", -2, Error.New("empty path")
-	}
-
-	segmentIndex, err = convertSegmentIndex(components[0])
-	if err != nil {
-		return "", "", -2, err
-	}
-
-	if len(components) > 1 {
-		bucket = components[1]
-		objectPath = storj.JoinPaths(components[2:]...)
-	}
-
-	return bucket, objectPath, segmentIndex, nil
-}
-
-func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {
-	switch {
-	case segmentComp == "l":
-		return -1, nil
-	case strings.HasPrefix(segmentComp, "s"):
-		num, err := strconv.Atoi(segmentComp[1:])
-		if err != nil {
-			return -2, Error.Wrap(err)
-		}
-		return int64(num), nil
-	default:
-		return -2, Error.New("invalid segment component: %s", segmentComp)
-	}
 }

@@ -6,14 +6,12 @@ package segments
 
 import (
 	context "context"
+	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
-	time "time"
-
-	gomock "github.com/golang/mock/gomock"
-
+	paths "storj.io/storj/pkg/paths"
 	ranger "storj.io/storj/pkg/ranger"
-	storj "storj.io/storj/pkg/storj"
+	time "time"
 )
 
 // MockStore is a mock of Store interface
@@ -40,7 +38,8 @@ func (m *MockStore) EXPECT() *MockStoreMockRecorder {
 }
 
 // Meta mocks base method
-func (m *MockStore) Meta(ctx context.Context, path storj.Path) (Meta, error) {
+func (m *MockStore) Meta(ctx context.Context, path Path) (Meta, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Meta", ctx, path)
 	ret0, _ := ret[0].(Meta)
 	ret1, _ := ret[1].(error)
@@ -49,11 +48,13 @@ func (m *MockStore) Meta(ctx context.Context, path storj.Path) (Meta, error) {
 
 // Meta indicates an expected call of Meta
 func (mr *MockStoreMockRecorder) Meta(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockStore)(nil).Meta), ctx, path)
 }
 
 // Get mocks base method
-func (m *MockStore) Get(ctx context.Context, path storj.Path) (ranger.Ranger, Meta, error) {
+func (m *MockStore) Get(ctx context.Context, path Path) (ranger.Ranger, Meta, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, path)
 	ret0, _ := ret[0].(ranger.Ranger)
 	ret1, _ := ret[1].(Meta)
@@ -63,23 +64,13 @@ func (m *MockStore) Get(ctx context.Context, path storj.Path) (ranger.Ranger, Me
 
 // Get indicates an expected call of Get
 func (mr *MockStoreMockRecorder) Get(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStore)(nil).Get), ctx, path)
 }
 
-// Repair mocks base method
-func (m *MockStore) Repair(ctx context.Context, path storj.Path, lostPieces []int32) error {
-	ret := m.ctrl.Call(m, "Repair", ctx, path, lostPieces)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Repair indicates an expected call of Repair
-func (mr *MockStoreMockRecorder) Repair(ctx, path, lostPieces interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Repair", reflect.TypeOf((*MockStore)(nil).Repair), ctx, path, lostPieces)
-}
-
 // Put mocks base method
-func (m *MockStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (Meta, error) {
+func (m *MockStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (Path, []byte, error)) (Meta, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", ctx, data, expiration, segmentInfo)
 	ret0, _ := ret[0].(Meta)
 	ret1, _ := ret[1].(error)
@@ -88,11 +79,13 @@ func (m *MockStore) Put(ctx context.Context, data io.Reader, expiration time.Tim
 
 // Put indicates an expected call of Put
 func (mr *MockStoreMockRecorder) Put(ctx, data, expiration, segmentInfo interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), ctx, data, expiration, segmentInfo)
 }
 
 // Delete mocks base method
-func (m *MockStore) Delete(ctx context.Context, path storj.Path) error {
+func (m *MockStore) Delete(ctx context.Context, path Path) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, path)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -100,11 +93,13 @@ func (m *MockStore) Delete(ctx context.Context, path storj.Path) error {
 
 // Delete indicates an expected call of Delete
 func (mr *MockStoreMockRecorder) Delete(ctx, path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockStore)(nil).Delete), ctx, path)
 }
 
 // List mocks base method
-func (m *MockStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) ([]ListItem, bool, error) {
+func (m *MockStore) List(ctx context.Context, prefix Path, startAfter, endBefore paths.Encrypted, recursive bool, limit int, metaFlags uint32) ([]ListItem, bool, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 	ret0, _ := ret[0].([]ListItem)
 	ret1, _ := ret[1].(bool)
@@ -114,5 +109,6 @@ func (m *MockStore) List(ctx context.Context, prefix, startAfter, endBefore stor
 
 // List indicates an expected call of List
 func (mr *MockStoreMockRecorder) List(ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockStore)(nil).List), ctx, prefix, startAfter, endBefore, recursive, limit, metaFlags)
 }
