@@ -3,6 +3,14 @@
 
 package main
 
+// #include "uplink_definitions.h"
+import "C"
+import (
+	"unsafe"
+
+	"storj.io/storj/pkg/storj"
+)
+
 // newBucketInfo returns a C bucket struct converted from a go bucket struct.
 func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 	return C.BucketInfo{
@@ -19,7 +27,7 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 // FreeBucketInfo frees bucket info.
 //export FreeBucketInfo
 func FreeBucketInfo(bucketInfo *C.BucketInfo) {
-	C.free(bucketInfo.name)
+	C.free(unsafe.Pointer(bucketInfo.name))
 	bucketInfo.name = nil
 }
 

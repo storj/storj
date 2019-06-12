@@ -7,16 +7,15 @@ package main
 import "C"
 
 import (
-	"context"
 	"unsafe"
 
-	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
 
 // CloseBucket closes a Bucket handle.
 //export CloseBucket
-func CloseBucket(bucketHandle C.Bucket) {
+func CloseBucket(bucketHandle C.Bucket, cerr **C.char) {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid bucket")
@@ -66,7 +65,7 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 		}
 	}
 
-	bucketList, err := project.ListBuckets(project.scope.ctx, opts)
+	bucketList, err := project.lib.ListBuckets(project.scope.ctx, opts)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketList{}
@@ -75,8 +74,8 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 	listLen := len(bucketList.Items)
 	infoSize := int(unsafe.Sizeof(C.BucketInfo{}))
 
-	itemsPtr := C.malloc(uintptr(listLen * infoSize))
-	items := (*[1<<32-1]C.BucketInfo)(unsafe.Pointer(itemsPtr))
+	itemsPtr := C.malloc(C.size_t(listLen * infoSize))
+	items := (*[1<<32 - 1]C.BucketInfo)(unsafe.Pointer(itemsPtr))
 
 	for i, bucket := range bucketList.Items {
 		items[i] = newBucketInfo(&bucket)
@@ -92,7 +91,7 @@ func ListBuckets(projectHandle C.Project, bucketListOptions *C.BucketListOptions
 // FreeBucketList will free a list of buckets
 //export FreeBucketList
 func FreeBucketList(bucketlist *C.BucketList) {
-	items := (*[1<<32-1]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
+	items := (*[1<<32 - 1]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
 	for i := 0; i < int(bucketlist.length); i++ {
 		FreeBucketInfo(&items[0])
 	}
@@ -102,18 +101,18 @@ func FreeBucketList(bucketlist *C.BucketList) {
 
 // GetBucketInfo returns info about the requested bucket if authorized.
 //export GetBucketInfo
-func GetBucketInfo(cProject C.Project, bucketName *C.char, cerr **C.char) C.BucketInfo {
+func GetBucketInfo(projectHandle C.Project, bucketName *C.char, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
 		return C.BucketInfo{}
 	}
 
-	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
+	bucket, _, err := project.lib.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketInfo{}
 	}
 
-	return newBucketInfo(bucket)
+	return newBucketInfo(&bucket)
 }

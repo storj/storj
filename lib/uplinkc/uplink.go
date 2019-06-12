@@ -6,11 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 
-import (
-	libuplink "storj.io/storj/lib/uplink"
-)
-
-func main() {}
+import libuplink "storj.io/storj/lib/uplink"
 
 // Uplink is a scoped libuplink.Uplink.
 type Uplink struct {

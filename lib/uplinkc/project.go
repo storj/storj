@@ -7,9 +7,7 @@ package main
 import "C"
 
 import (
-	"context"
-	"unsafe"
-
+	"storj.io/storj/lib/uplink"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
@@ -37,7 +35,6 @@ func CloseProject(projectHandle C.Project, cerr **C.char) {
 	}
 }
 
-
 // CreateBucket creates a new bucket if authorized.
 //export CreateBucket
 func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
@@ -57,22 +54,22 @@ func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketC
 			},
 		}
 		config.Volatile.RedundancyScheme = storj.RedundancyScheme{
-			Algorithm: storj.RedundancyAlgorithm(bucketConfig.redundancy_scheme.algorithm),
-			ShareSize: int32(bucketConfig.redundancy_scheme.share_size),
+			Algorithm:      storj.RedundancyAlgorithm(bucketConfig.redundancy_scheme.algorithm),
+			ShareSize:      int32(bucketConfig.redundancy_scheme.share_size),
 			RequiredShares: int16(bucketConfig.redundancy_scheme.required_shares),
-			RepairShares: int16(bucketConfig.redundancy_scheme.repair_shares),
-			OptimalShares: int16(bucketConfig.redundancy_scheme.optimal_shares),
-			TotalShares: int16(bucketConfig.redundancy_scheme.total_shares),
+			RepairShares:   int16(bucketConfig.redundancy_scheme.repair_shares),
+			OptimalShares:  int16(bucketConfig.redundancy_scheme.optimal_shares),
+			TotalShares:    int16(bucketConfig.redundancy_scheme.total_shares),
 		}
 	}
 
-	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
+	bucket, err := project.lib.CreateBucket(project.scope.ctx, C.GoString(name), config)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketInfo{}
 	}
 
-	return newBucketInfo(bucket)
+	return newBucketInfo(&bucket)
 }
 
 // Bucket is a scoped libuplink.Bucket
@@ -83,7 +80,7 @@ type Bucket struct {
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess information.
 //export OpenBucket
-func OpenBucket(projectHandle C.Project, name *C.char, caccess C.EncryptionAccess, cerr **C.char) C.Bucket {
+func OpenBucket(projectHandle C.Project, name *C.char, encryptionAccess C.EncryptionAccess, cerr **C.char) C.Bucket {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
@@ -91,11 +88,13 @@ func OpenBucket(projectHandle C.Project, name *C.char, caccess C.EncryptionAcces
 	}
 
 	var access uplink.EncryptionAccess
-	copy(access.Key[:], caccess.key[:])
+	for i := range access.Key {
+		access.Key[i] = byte(encryptionAccess.key[0])
+	}
 
 	scope := project.scope.child()
 
-	bucket, err := project.lib.OpenBucket(scope.ctx, C.GoString(name), access)
+	bucket, err := project.lib.OpenBucket(scope.ctx, C.GoString(name), &access)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.Bucket{}

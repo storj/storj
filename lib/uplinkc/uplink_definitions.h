@@ -66,16 +66,21 @@ typedef struct BucketList {
     int32_t    length;
 } BucketList;
 
+typedef struct EncryptionAccess {
+    char key[32];
+} EncryptionAccess;
+
+/*
 typedef struct Object {
-    uint32_t version;
-    Bucket_t bucket;
-    char *path;
-    bool is_prefix;
-    MapRef_t metadata;
-    char *content_type;
-    time_t created;
-    time_t modified;
-    time_t expires;
+    uint32_t   version;
+    BucketInfo bucket;
+    char       *path;
+    bool       is_prefix;
+    Map        metadata;
+    char       *content_type;
+    time_t     created;
+    time_t     modified;
+    time_t     expires;
 } Object;
 
 typedef struct ObjectList {
@@ -93,7 +98,7 @@ typedef struct EncryptionAccess {
 
 typedef struct UploadOptions {
     char *content_type;
-    MapRef_t metadata;
+    Map    metadata;
     time_t expires;
 } UploadOptions;
 
@@ -111,10 +116,11 @@ typedef struct ObjectMeta {
     char *Path;
     bool IsPrefix;
     char *ContentType;
-    MapRef_t MetaData;
+    Map    MetaData;
     uint64_t Created;
     uint64_t Modified;
     uint64_t Expires;
     uint64_t Size;
     Bytes    Checksum;
 } ObjectMeta;
+ */

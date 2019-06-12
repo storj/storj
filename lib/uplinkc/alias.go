@@ -27,7 +27,7 @@ type Cuint8_t = C.uint8_t
 type Cint64_t = C.int64_t
 type Csize_t = C.size_t
 
-const CEOF = C.EOF
+//const CEOF = C.EOF
 
 // Ref types
 type CAPIKey = C.APIKey
@@ -39,14 +39,14 @@ type CObject = C.Object
 
 // Struct types
 type CUplinkConfig = C.UplinkConfig
-type CBucket = C.Bucket
-type CObject = C.Object
-type CUploadOptions = C.UploadOptions
-type CBytes = C.Bytes
+type CBucketInfo = C.BucketInfo
+
+//type CObject = C.Object
+//type CUploadOptions = C.UploadOptions
+//type CBytes = C.Bytes
 
 //export internal_UniverseIsEmpty
 // internal_UniverseIsEmpty returns true if nothing is stored in the global map.
 func internal_UniverseIsEmpty() bool {
 	return universe.Empty()
 }
-

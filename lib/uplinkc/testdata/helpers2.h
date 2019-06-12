@@ -1,15 +1,27 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-#include <string.h>
-#include <stdlib.h>
+// TestBucketConfig returns test bucket configuration.
+BucketConfig TestBucketConfig() {
+    BucketConfig config = {};
 
-#include "require.h"
+    config.path_cipher = 0;
 
-#include "uplink.h"
+    config.encryption_parameters.cipher_suite = 1; // TODO: make a named const
+    config.encryption_parameters.block_size = 4096;
 
-int main(int argc, char *argv[])
-{
+    config.redundancy_scheme.algorithm = 1; // TODO: make a named const
+    config.redundancy_scheme.share_size = 1024;
+    config.redundancy_scheme.required_shares = 2;
+    config.redundancy_scheme.repair_shares = 4;
+    config.redundancy_scheme.optimal_shares = 5;
+    config.redundancy_scheme.total_shares = 6;
+
+    return config;
+}
+
+// WithTestProject opens default test project and calls handleProject callback.
+void WithTestProject(void (*handleProject)(Project)) {
     char *_err = "";
     char **err = &_err;
 
@@ -36,6 +48,8 @@ int main(int argc, char *argv[])
                 Project project = OpenProject(uplink, satellite_addr, apikey, err);
                 require_noerror(*err);
                 requiref(project._handle != 0, "got empty project\n");
+
+                handleProject(project);
 
                 // close project
                 CloseProject(project, err);

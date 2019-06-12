@@ -19,10 +19,10 @@ int main(int argc, char *argv[])
         // parse api key
         APIKey apikey = ParseAPIKey(apikeyStr, err);
         require_noerror(*err);
-        require(apikey._handle != 0, "got empty apikey\n");
+        requiref(apikey._handle != 0, "got empty apikey\n");
 
         char *apikeySerialized = SerializeAPIKey(apikey);
-        require(strcmp(apikeySerialized, apikeyStr) == 0,
+        requiref(strcmp(apikeySerialized, apikeyStr) == 0,
             "got invalid serialized %s expected %s\n", apikeySerialized, apikeyStr);
         free(apikeySerialized);
 
@@ -30,5 +30,5 @@ int main(int argc, char *argv[])
         FreeAPIKey(apikey);
     }
 
-    require(internal_UniverseIsEmpty(), "universe is not empty\n");
+    requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
 }
