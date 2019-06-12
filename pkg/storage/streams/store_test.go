@@ -89,7 +89,7 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, storj.AESGCM)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, 4, new(storj.Key), 10, storj.AESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,6 +112,7 @@ func TestStreamStorePut(t *testing.T) {
 	const (
 		encBlockSize = 10
 		segSize      = 10
+		inlineSize   = 5
 		pathCipher   = storj.AESGCM
 		dataCipher   = storj.Unencrypted
 	)
@@ -149,7 +150,7 @@ func TestStreamStorePut(t *testing.T) {
 		errTag := fmt.Sprintf("Test case #%d", i)
 
 		mockSegmentStore.EXPECT().
-			Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			PutInline(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError).
 			Do(func(ctx context.Context, data io.Reader, expiration time.Time, info func() (storj.Path, []byte, error)) {
 				for {
@@ -168,7 +169,7 @@ func TestStreamStorePut(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, inlineSize, new(storj.Key), encBlockSize, dataCipher)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -205,6 +206,7 @@ func TestStreamStoreGet(t *testing.T) {
 
 	const (
 		segSize      = 10
+		inlineSize   = 5
 		encBlockSize = 10
 		dataCipher   = storj.Unencrypted
 		pathCipher   = storj.AESGCM
@@ -277,7 +279,7 @@ func TestStreamStoreGet(t *testing.T) {
 
 		gomock.InOrder(calls...)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, inlineSize, new(storj.Key), encBlockSize, dataCipher)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -326,7 +328,7 @@ func TestStreamStoreDelete(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, 5, new(storj.Key), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -370,7 +372,7 @@ func TestStreamStoreList(t *testing.T) {
 			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segments, test.segmentMore, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, 5, new(storj.Key), 10, 0)
 		if err != nil {
 			t.Fatal(err)
 		}

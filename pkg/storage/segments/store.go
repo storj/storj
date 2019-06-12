@@ -87,7 +87,8 @@ func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, er
 	return convertMeta(pointer), nil
 }
 
-// Put uploads a segment to an erasure code client
+// PutInline creates a pointer and stores the object data in that pointer then
+// commits that segment to the Satellite to save in PointerDB
 func (s *segmentStore) PutInline(ctx context.Context, data []byte, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -129,7 +130,8 @@ func (s *segmentStore) PutInline(ctx context.Context, data []byte, expiration ti
 	return convertMeta(savedPointer), nil
 }
 
-// Put uploads a segment to an erasure code client
+// PutRemote gets a list of storage nodes from the Satellite then stores the the objet data pieces
+//
 func (s *segmentStore) PutRemote(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -164,6 +166,8 @@ func (s *segmentStore) PutRemote(ctx context.Context, data io.Reader, expiration
 		return Meta{}, err
 	}
 
+	// createSegment makes a call to the Satellite and returns a list of "limits" which
+	// contain a list of storage nodes where the object data will be stored.
 	// path and segment index are not known at this point
 	limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, "", -1, redundancy, s.maxEncryptedSegmentSize, expiration)
 	if err != nil {
@@ -172,6 +176,7 @@ func (s *segmentStore) PutRemote(ctx context.Context, data io.Reader, expiration
 
 	sizedReader := SizeReader(data)
 
+	// Put the data on the storage nodes
 	successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, s.rs, sizedReader, expiration)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
@@ -183,6 +188,8 @@ func (s *segmentStore) PutRemote(ctx context.Context, data io.Reader, expiration
 	}
 	path = p
 
+	// after the data has been successfully saved on the storage nodes, make a pointer with the details about
+	// where the data is being stored and save the pointer on the satellite
 	pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)

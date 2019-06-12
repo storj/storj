@@ -700,13 +700,13 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segments := segments.NewSegmentStore(metainfo, ec, rs, 8*memory.MiB.Int64())
 
 	encKey := new(storj.Key)
 	copy(encKey[:], TestEncKey)
 
 	blockSize := rs.StripeSize()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), 4*memory.KiB.Int(), encKey, blockSize, storj.AESGCM)
 	if err != nil {
 		return nil, nil, nil, err
 	}
