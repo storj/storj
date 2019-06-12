@@ -20,36 +20,6 @@ type Project struct {
 	lib *libuplink.Project
 }
 
-//export OpenProject
-// OpenProject opens project using uplink
-func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
-	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
-	if !ok {
-		*cerr = C.CString("invalid uplink")
-		return C.Project{}
-	}
-
-	var err error
-
-	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
-	if !ok {
-		*cerr = C.CString("invalid apikey")
-		return C.Project{}
-	}
-
-	scope := uplink.scope.child()
-
-	// TODO: add project options argument
-	var project *libuplink.Project
-	project, err = uplink.lib.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
-	if err != nil {
-		*cerr = C.CString(err.Error())
-		return C.Project{}
-	}
-
-	return C.Project{universe.Add(&Project{scope, project})}
-}
-
 //export CloseProject
 // CloseProject closes the project.
 func CloseProject(projectHandle C.Project, cerr **C.char) {
@@ -65,4 +35,71 @@ func CloseProject(projectHandle C.Project, cerr **C.char) {
 		*cerr = C.CString(err.Error())
 		return
 	}
+}
+
+
+// CreateBucket creates a new bucket if authorized.
+//export CreateBucket
+func CreateBucket(projectHandle C.Project, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return C.BucketInfo{}
+	}
+
+	var config *uplink.BucketConfig
+	if bucketConfig != nil {
+		config = &uplink.BucketConfig{
+			PathCipher: storj.CipherSuite(bucketConfig.path_cipher),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(bucketConfig.encryption_parameters.cipher_suite),
+				BlockSize:   int32(bucketConfig.encryption_parameters.block_size),
+			},
+		}
+		config.Volatile.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm: storj.RedundancyAlgorithm(bucketConfig.redundancy_scheme.algorithm),
+			ShareSize: int32(bucketConfig.redundancy_scheme.share_size),
+			RequiredShares: int16(bucketConfig.redundancy_scheme.required_shares),
+			RepairShares: int16(bucketConfig.redundancy_scheme.repair_shares),
+			OptimalShares: int16(bucketConfig.redundancy_scheme.optimal_shares),
+			TotalShares: int16(bucketConfig.redundancy_scheme.total_shares),
+		}
+	}
+
+	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.BucketInfo{}
+	}
+
+	return newBucketInfo(bucket)
+}
+
+// Bucket is a scoped libuplink.Bucket
+type Bucket struct {
+	scope
+	lib *libuplink.Bucket
+}
+
+// OpenBucket returns a Bucket handle with the given EncryptionAccess information.
+//export OpenBucket
+func OpenBucket(projectHandle C.Project, name *C.char, caccess C.EncryptionAccess, cerr **C.char) C.Bucket {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return C.Bucket{}
+	}
+
+	var access uplink.EncryptionAccess
+	copy(access.Key[:], caccess.key[:])
+
+	scope := project.scope.child()
+
+	bucket, err := project.lib.OpenBucket(scope.ctx, C.GoString(name), access)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.Bucket{}
+	}
+
+	return C.Bucket{universe.Add(Bucket{scope, bucket})}
 }

@@ -54,3 +54,33 @@ func CloseUplink(uplinkHandle C.Uplink, cerr **C.char) {
 		return
 	}
 }
+
+//export OpenProject
+// OpenProject opens project using uplink
+func OpenProject(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
+	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
+	if !ok {
+		*cerr = C.CString("invalid uplink")
+		return C.Project{}
+	}
+
+	var err error
+
+	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
+	if !ok {
+		*cerr = C.CString("invalid apikey")
+		return C.Project{}
+	}
+
+	scope := uplink.scope.child()
+
+	// TODO: add project options argument
+	var project *libuplink.Project
+	project, err = uplink.lib.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.Project{}
+	}
+
+	return C.Project{universe.Add(&Project{scope, project})}
+}
