@@ -6,7 +6,6 @@ package metainfo_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"sort"
 	"testing"
@@ -486,7 +485,7 @@ func TestValueAttributeInfo(t *testing.T) {
 			// time.Sleep(2 * time.Second)
 			// bucket with items
 			_, err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId), string(keyInfo.UserId))
-			fmt.Println("KISHORE KISHORE --> err=", err)
+			require.Error(t, err)
 		}
 	})
 }
