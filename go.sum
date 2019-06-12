@@ -113,8 +113,6 @@ github.com/golang-migrate/migrate/v3 v3.5.2 h1:SUWSv6PD8Lr2TGx1lmVW7W2lRoQiVny3s
 github.com/golang-migrate/migrate/v3 v3.5.2/go.mod h1:QDa9JH6Bdwbi+1jIEpOIWnTNoYRbtaVgByErXU0844E=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
-github.com/golang/leveldb v0.0.0-20170107010102-259d9253d719 h1:yahFtfWlyALYDkXw2ETowZqG4vi8hiE0yOEBOkpaXl0=
-github.com/golang/leveldb v0.0.0-20170107010102-259d9253d719/go.mod h1:etEpE0xVqxA0N3WNUa5wic5HCNSsQvYm+PFNmOnx2iU=
 github.com/golang/lint v0.0.0-20180702182130-06c8688daad7/go.mod h1:tluoj9z5200jBnyusfRPU2LqT6J+DAorxEvtC7LHB+E=
 github.com/golang/mock v1.1.1 h1:G5FRp8JnTd7RQH5kemVNlMeyXQAztQ3mOWV95KxsXH8=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
