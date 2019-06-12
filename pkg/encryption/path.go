@@ -14,16 +14,16 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// EncryptPath encrypts the bucketPath using the provided cipher and looking up
-// keys from the provided store.
-func EncryptPath(path paths.Unencrypted, cipher storj.Cipher, store *Store) (
+// EncryptPath encrypts the path using the provided cipher and looking up
+// keys from the provided store and bucket.
+func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, store *Store) (
 	paths.Encrypted, error) {
 
 	if cipher == storj.Unencrypted {
 		return paths.NewEncrypted(path.Raw()), nil
 	}
 
-	_, consumed, base := store.LookupUnencrypted(path)
+	_, consumed, base := store.LookupUnencrypted(bucket, path)
 	if base == nil {
 		return paths.Encrypted{}, errs.New("unable to find encryption base for: %q", path)
 	}
@@ -58,16 +58,16 @@ func EncryptPath(path paths.Unencrypted, cipher storj.Cipher, store *Store) (
 	return paths.NewEncrypted(builder.String()), nil
 }
 
-// DecryptPath decrypts the bucketPath using the provided cipher and looking up
-// keys from the provided store.
-func DecryptPath(path paths.Encrypted, cipher storj.Cipher, store *Store) (
+// DecryptPath decrypts the path using the provided cipher and looking up
+// keys from the provided store and bucket.
+func DecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store *Store) (
 	paths.Unencrypted, error) {
 
 	if cipher == storj.Unencrypted {
 		return paths.NewUnencrypted(path.Raw()), nil
 	}
 
-	_, consumed, base := store.LookupEncrypted(path)
+	_, consumed, base := store.LookupEncrypted(bucket, path)
 	if base == nil {
 		return paths.Unencrypted{}, errs.New("unable to find encryption base for: %q", path)
 	}
@@ -102,10 +102,10 @@ func DecryptPath(path paths.Encrypted, cipher storj.Cipher, store *Store) (
 	return paths.NewUnencrypted(builder.String()), nil
 }
 
-// DeriveContentKey returns the content key for the passed in bucketPath by looking up
-// the appropriate base key from the store and deriving the rest.
-func DeriveContentKey(path paths.Unencrypted, store *Store) (key *storj.Key, err error) {
-	key, err = DerivePathKey(path, store)
+// DeriveContentKey returns the content key for the passed in path by looking up
+// the appropriate base key from the store and bucket and deriving the rest.
+func DeriveContentKey(bucket string, path paths.Unencrypted, store *Store) (key *storj.Key, err error) {
+	key, err = DerivePathKey(bucket, path, store)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -113,10 +113,10 @@ func DeriveContentKey(path paths.Unencrypted, store *Store) (key *storj.Key, err
 	return key, errs.Wrap(err)
 }
 
-// DerivePathKey returns the path key for the passed in bucketPath by looking up the
-// appropriate base key from the store and deriving the rest.
-func DerivePathKey(path paths.Unencrypted, store *Store) (key *storj.Key, err error) {
-	_, consumed, base := store.LookupUnencrypted(path)
+// DerivePathKey returns the path key for the passed in path by looking up the
+// appropriate base key from the store and bucket and deriving the rest.
+func DerivePathKey(bucket string, path paths.Unencrypted, store *Store) (key *storj.Key, err error) {
+	_, consumed, base := store.LookupUnencrypted(bucket, path)
 	if base == nil {
 		return nil, errs.New("unable to find encryption base for: %q", path)
 	}

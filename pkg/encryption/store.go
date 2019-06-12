@@ -15,21 +15,23 @@ import (
 //
 // For example, if the Store contains the mappings
 //
-//    u1/u2/u3    => <e1/e2/e3, k3>
-//    u1/u2/u3/u4 => <e1/e2/e3/e4, k4>
-//    u1/u5       => <e1/e5, k5>
-//    u6          => <e6, k6>
-//    u6/u7/u8    => <e6/e7/e8, k8>
+//    b1, u1/u2/u3    => <e1/e2/e3, k3>
+//    b1, u1/u2/u3/u4 => <e1/e2/e3/e4, k4>
+//    b1, u1/u5       => <e1/e5, k5>
+//    b1, u6          => <e6, k6>
+//    b1, u6/u7/u8    => <e6/e7/e8, k8>
+//    b2, u1          => <e1', k1'>
 //
 // Then the following lookups have outputs
 //
-//    u1          => <{e2:u2, e5:u5}, u1, nil>
-//    u1/u2/u3    => <{e4:u4}, u1/u2/u3, <e1/e2/e3, k3>>
-//    u1/u2/u3/u6 => <{}, u1/u2/u3/, <e1/e2/e3, k3>>
-//    u1/u2/u3/u4 => <{}, u1/u2/u3/u4, <e1/e2/e3/e4, k4>>
-//    u6/u7       => <{e8:u8}, u6/, <e6, k6>>
+//    b1, u1          => <{e2:u2, e5:u5}, u1, nil>
+//    b1, u1/u2/u3    => <{e4:u4}, u1/u2/u3, <u1/u2/u3, e1/e2/e3, k3>>
+//    b1, u1/u2/u3/u6 => <{}, u1/u2/u3/, <u1/u2/u3, e1/e2/e3, k3>>
+//    b1, u1/u2/u3/u4 => <{}, u1/u2/u3/u4, <u1/u2/u3/u4, e1/e2/e3/e4, k4>>
+//    b1, u6/u7       => <{e8:u8}, u6/, <u6, e6, k6>>
+//    b2, u1          => <{}, u1, <u1, e1', k1'>>
 type Store struct {
-	root *node
+	roots map[string]*node
 }
 
 // node is a node in the Store graph. It may contain an encryption key and encrypted path,
@@ -62,7 +64,7 @@ func (b *Base) clone() *Base {
 
 // NewStore constructs a Store.
 func NewStore() *Store {
-	return &Store{root: newNode()}
+	return &Store{roots: make(map[string]*node)}
 }
 
 // newNode constructs a node.
@@ -76,8 +78,14 @@ func newNode() *node {
 }
 
 // Add creates a mapping from the unencrypted path to the encrypted path and key.
-func (s *Store) Add(unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
-	return s.root.add(unenc.Iterator(), enc.Iterator(), &Base{
+func (s *Store) Add(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
+	root, ok := s.roots[bucket]
+	if !ok {
+		root = newNode()
+		s.roots[bucket] = root
+	}
+
+	return root.add(unenc.Iterator(), enc.Iterator(), &Base{
 		Unencrypted: unenc,
 		Encrypted:   enc,
 		Key:         key,
@@ -124,20 +132,30 @@ func (n *node) add(unenc, enc paths.Iterator, base *Base) error {
 // LookupUnencrypted finds the matching most unencrypted path added to the Store, reports how
 // much of the path matched, any known unencrypted paths at the requested path, and if a key
 // and encrypted path exists for some prefix of the unencrypted path.
-func (s *Store) LookupUnencrypted(path paths.Unencrypted) (
+func (s *Store) LookupUnencrypted(bucket string, path paths.Unencrypted) (
 	revealed map[string]string, consumed paths.Unencrypted, base *Base) {
 
-	revealed, rawConsumed, base := s.root.lookup(path.Iterator(), "", nil, true)
+	root, ok := s.roots[bucket]
+	if !ok {
+		return nil, paths.Unencrypted{}, nil
+	}
+
+	revealed, rawConsumed, base := root.lookup(path.Iterator(), "", nil, true)
 	return revealed, paths.NewUnencrypted(rawConsumed), base.clone()
 }
 
 // LookupEncrypted finds the matching most encrypted path added to the Store, reports how
 // much of the path matched, any known encrypted paths at the requested path, and if a key
 // an encrypted path exists for some prefix of the encrypted path.
-func (s *Store) LookupEncrypted(path paths.Encrypted) (
+func (s *Store) LookupEncrypted(bucket string, path paths.Encrypted) (
 	revealed map[string]string, consumed paths.Encrypted, base *Base) {
 
-	revealed, rawConsumed, base := s.root.lookup(path.Iterator(), "", nil, false)
+	root, ok := s.roots[bucket]
+	if !ok {
+		return nil, paths.Encrypted{}, nil
+	}
+
+	revealed, rawConsumed, base := root.lookup(path.Iterator(), "", nil, false)
 	return revealed, paths.NewEncrypted(rawConsumed), base.clone()
 }
 

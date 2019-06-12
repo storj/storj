@@ -13,6 +13,7 @@ import (
 )
 
 func Example() {
+	var bucket = "someBucket"
 	var path = paths.NewUnencrypted("fold1/fold2/fold3/file.txt")
 
 	// Create a "random" key.
@@ -24,10 +25,10 @@ func Example() {
 
 	// Create a store and add some base keys.
 	store := encryption.NewStore()
-	store.Add(paths.NewUnencrypted(""), paths.NewEncrypted(""), key)
+	store.Add(bucket, paths.NewUnencrypted(""), paths.NewEncrypted(""), key)
 
 	// Encrypt some path the store knows how to encrypt.
-	encPath, err := encryption.EncryptPath(path, storj.AESGCM, store)
+	encPath, err := encryption.EncryptPath(bucket, path, storj.AESGCM, store)
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +36,7 @@ func Example() {
 	fmt.Println("encrypted path: ", encPath)
 
 	// Decrypt the same path.
-	decPath, err := encryption.DecryptPath(encPath, storj.AESGCM, store)
+	decPath, err := encryption.DecryptPath(bucket, encPath, storj.AESGCM, store)
 	if err != nil {
 		panic(err)
 	}
