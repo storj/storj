@@ -8,11 +8,12 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"path/filepath"
 
-	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"github.com/gorilla/mux"
 )
 
 // Error is satellite marketing error type
@@ -20,7 +21,7 @@ var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketing offersweb server
 type Config struct {
-	Address   string `help:"server address of the marketing Admin GUI" default:"0.0.0.0:8090"`
+	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 
@@ -32,68 +33,105 @@ type Server struct {
 
 	listener net.Listener
 	server   http.Server
+
+	templateDir string
 }
 
-// The three pages contained in addPages are pages all templates require
-// This exists in order to limit handler verbosity
-func (s *Server) addPages(assets []string) []string {
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "base.html", rp + "index.html", rp + "banner.html", rp + "logo.html"}
-	for _, page := range assets {
-		pages = append(pages, page)
+// commonPages returns templates that are required for everything.
+func (s *Server) commonPages() []string {
+	return []string{
+		filepath.Join(s.templateDir, "base.html"),
+		filepath.Join(s.templateDir, "index.html"),
+		filepath.Join(s.templateDir, "banner.html"),
+		filepath.Join(s.templateDir, "logo.html"),
 	}
-	return pages
 }
 
 // NewServer creates new instance of offersweb server
 func NewServer(logger *zap.Logger, config Config, listener net.Listener) *Server {
-	server := Server{
+	s := &Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
 	}
 
+	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
 
-	
-	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", server.listener.Addr().String())
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
-	s := http.StripPrefix("/static/", fs)
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
-	if server.config.StaticDir != "" {
-		mux.PathPrefix("/static/").Handler(s)
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
+	if s.config.StaticDir != "" {
+		mux.PathPrefix("/static/").Handler(fs)
+		mux.Handle("/", s)
 	}
-	server.server = http.Server{
-		Handler: mux,
-	}
+	s.server.Handler = mux
 
-	return &server
+	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
+
+	return s
 }
 
-// appHandler is web app http handler function
-func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
+// ServeHTTP handles index request
+func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
-		s.serveError(w, req)
+		s.serveNotFound(w, req)
 		return
 	}
 
-	rp := s.config.StaticDir + "/pages/"
-	pages := []string{rp + "home.html", rp + "refOffers.html", rp + "freeOffers.html", rp + "roModal.html", rp + "foModal.html"}
-	files := s.addPages(pages)
-	home := template.Must(template.New("landingPage").ParseFiles(files...))
-	err := home.ExecuteTemplate(w, "base", nil)
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "home.html"),
+		filepath.Join(s.templateDir, "refOffers.html"),
+		filepath.Join(s.templateDir, "freeOffers.html"),
+		filepath.Join(s.templateDir, "roModal.html"),
+		filepath.Join(s.templateDir, "foModal.html"),
+	)
+
+	home, err := template.New("landingPage").ParseFiles(files...)
 	if err != nil {
-		s.serveError(w, req)
+		s.serveInternalError(w, req)
+		return
+	}
+
+	err = home.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
-func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
-	rp := s.config.StaticDir + "/pages/"
-	files := s.addPages([]string{rp + "404.html"})
-	unavailable := template.Must(template.New("404").ParseFiles(files...))
-	err := unavailable.ExecuteTemplate(w, "base", nil)
+func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "page-not-found.html"),
+	)
+
+	unavailable, err := template.New("page-not-found").ParseFiles(files...)
 	if err != nil {
-		s.serveError(w, req)
+		s.serveInternalError(w, req)
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+
+	err = unavailable.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
+	}
+}
+
+func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request) {
+	files := append(s.commonPages(),
+		filepath.Join(s.templateDir, "internal-server-error.html"),
+	)
+
+	unavailable, err := template.New("internal-server-error").ParseFiles(files...)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		s.log.Error("failed to parse internal server error", zap.Error(err))
+		return
+	}
+
+	w.WriteHeader(http.StatusInternalServerError)
+	err = unavailable.ExecuteTemplate(w, "base", nil)
+	if err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
