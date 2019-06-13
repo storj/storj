@@ -20,7 +20,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var Error = errs.Class("satellite marketing error")
+var (
+	Error = errs.Class("satellite marketing error")
+	decoder = schema.NewDecoder()
+)
 
 type Config struct {
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
@@ -79,6 +82,8 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 		service:  service,
 	}
 
+	decoder.RegisterConverter(time.Time{}, timeConverter)
+
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
 	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
@@ -86,7 +91,7 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
 		mux.HandleFunc("/create-free-credit", s.createOffer)
-		mux.HandleFunc("/create-ref-offer", s.createOffer)
+		mux.HandleFunc("/create-referral-offer", s.createOffer)
 	}
 	s.server.Handler = mux
 
@@ -172,9 +177,6 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffe
 	}
 	defer req.Body.Close()
 
-	decoder := schema.NewDecoder()
-	decoder.RegisterConverter(time.Time{}, timeConverter)
-
 	if err := decoder.Decode(&o, req.PostForm);err != nil {
 		return o, err
 	}
@@ -192,7 +194,7 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 
 	o.Status = marketing.Active
 
-	if req.URL.Path == "/create-ref-offer" {
+	if req.URL.Path == "/create-referral-offer" {
 		o.Type = marketing.Referral
 	}else{
 		o.Type = marketing.FreeCredit
