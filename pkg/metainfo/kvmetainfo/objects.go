@@ -320,7 +320,11 @@ func objectFromMeta(bucket storj.Bucket, path storj.Path, isPrefix bool, meta ob
 
 func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segments.Meta, stream pb.StreamInfo, streamMeta pb.StreamMeta, redundancyScheme *pb.RedundancyScheme) (storj.Object, error) {
 	var nonce storj.Nonce
-	copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
+	var encryptedKey storj.EncryptedPrivateKey
+	if streamMeta.LastSegmentMeta != nil {
+		copy(nonce[:], streamMeta.LastSegmentMeta.KeyNonce)
+		encryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
+	}
 
 	serMetaInfo := pb.SerializableMeta{}
 	err := proto.Unmarshal(stream.Metadata, &serMetaInfo)
@@ -363,7 +367,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 			LastSegment: storj.LastSegment{
 				Size:              stream.LastSegmentSize,
 				EncryptedKeyNonce: nonce,
-				EncryptedKey:      streamMeta.LastSegmentMeta.EncryptedKey,
+				EncryptedKey:      encryptedKey,
 			},
 		},
 	}, nil
