@@ -1,14 +1,18 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package operator
+package console
 
 import (
 	"context"
+	"time"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
 )
@@ -19,14 +23,17 @@ type Service struct {
 
 	bandwidth bandwidth.DB
 	pieceInfo pieces.DB
+	kademlia  *kademlia.Kademlia
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
 	walletNumber       string
+	upTime             time.Time
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceInfo pieces.DB, allocatedBandwidth, allocatedDiskSpace memory.Size, walletNumber string) (*Service, error) {
+func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceInfo pieces.DB, kademlia *kademlia.Kademlia,
+	allocatedBandwidth, allocatedDiskSpace memory.Size, walletNumber string) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -39,13 +46,19 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceInfo pieces.DB, al
 		return nil, errs.New("pieceInfo can't be nil")
 	}
 
+	if kademlia == nil {
+		return nil, errs.New("kademlia can't be nil")
+	}
+
 	service := Service{
 		log:                log,
 		bandwidth:          bandwidth,
 		pieceInfo:          pieceInfo,
+		kademlia:           kademlia,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
 		walletNumber:       walletNumber,
+		upTime:             time.Now(),
 	}
 
 	return &service, nil
@@ -69,4 +82,19 @@ func (s *Service) GetUsedStorage(ctx context.Context) (*DiskSpaceInfo, error) {
 	}
 
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
+}
+
+// GetWalletNumber return wallet number of node operator
+func (s *Service) GetWalletNumber() string {
+	return s.walletNumber
+}
+
+// GetUptime return wallet number of node operator
+func (s *Service) GetUptime() string {
+	return s.walletNumber
+}
+
+// GetNodeID return current node id
+func (s *Service) GetNodeID() storj.NodeID {
+	return s.kademlia.Local().Id
 }

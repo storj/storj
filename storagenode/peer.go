@@ -26,10 +26,10 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/operator"
-	"storj.io/storj/storagenode/operator/operatorserver"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -73,7 +73,7 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
-	Operator operatorserver.Config
+	Console consoleserver.Config
 
 	Version version.Config
 }
@@ -118,10 +118,10 @@ type Peer struct {
 	Collector *collector.Service
 
 	// Web server with web UI
-	Operator struct {
+	Console struct {
 		Listener net.Listener
-		Service  *operator.Service
-		Endpoint *operatorserver.Server
+		Service  *console.Service
+		Endpoint *consoleserver.Server
 	}
 }
 
@@ -267,10 +267,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	// Storage Node Operator Dashboard
 	{
 
-		peer.Operator.Service, err = operator.NewService(
+		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("operator:service"),
 			peer.DB.Bandwidth(),
 			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet)
@@ -279,16 +280,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Operator.Listener, err = net.Listen("tcp", config.Operator.Address)
+		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Operator.Endpoint = operatorserver.NewServer(
+		peer.Console.Endpoint = consoleserver.NewServer(
 			peer.Log.Named("operator:endpoint"),
-			config.Operator,
-			peer.Operator.Service,
-			peer.Operator.Listener,
+			config.Console,
+			peer.Console.Service,
+			peer.Console.Listener,
 		)
 	}
 
@@ -334,7 +335,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Operator.Endpoint.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()

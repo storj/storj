@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package operator
+package console
 
 import (
 	"github.com/zeebo/errs"

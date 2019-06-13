@@ -420,7 +420,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
-				"--operator.address", net.JoinHostPort(host, port(storagenodePeer, i, publicHTTP)),
+				"--console.address", net.JoinHostPort(host, port(storagenodePeer, i, publicHTTP)),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateGRPC)),
 

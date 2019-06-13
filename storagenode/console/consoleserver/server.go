@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package operatorserver
+package consoleserver
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/storagenode/operator"
+	"storj.io/storj/storagenode/console"
 )
 
 // TODO: improve embedded resources generation
@@ -33,7 +33,7 @@ type Server struct {
 	log *zap.Logger
 
 	config   Config
-	service  *operator.Service
+	service  *console.Service
 	listener net.Listener
 
 	server http.Server
@@ -42,7 +42,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of storagenode operator web server
-func NewServer(logger *zap.Logger, config Config, service *operator.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
 		service:  service,
