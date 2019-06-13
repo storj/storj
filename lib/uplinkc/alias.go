@@ -14,11 +14,6 @@ func CString(s string) *C.char { return C.CString(s) }
 // CFree exposes C.free for testing
 func CFree(ptr unsafe.Pointer) { C.free(ptr) }
 
-// CGoBytes converts ptr of n bytes to Go bytes.
-func CGoBytes(ptr unsafe.Pointer, n C.int) []byte {
-	return C.GoBytes(ptr, n)
-}
-
 // C types
 type Cpchar = *C.char
 

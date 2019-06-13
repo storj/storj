@@ -4,13 +4,13 @@
 package main
 
 import (
-	"storj.io/storj/internal/testplanet"
 	"testing"
 	"unsafe"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 )
 
 func TestUplink(t *testing.T) {
