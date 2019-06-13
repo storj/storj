@@ -625,10 +625,6 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// if err := printNodeIDTables(w, resp.GetHealth()); err != nil {
-	// 	return err
-	// }
-
 	return nil
 }
 
