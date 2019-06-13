@@ -48,11 +48,13 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
@@ -476,7 +478,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
-				Timeout:      2 * time.Second,
+				Timeout:      10 * time.Second, // Repairs can take up to 4 seconds. Leaving room for outliers
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
@@ -502,6 +504,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				PasswordCost:    console.TestPasswordCost,
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
+			Marketing: marketingweb.Config{
+				Address: "127.0.0.1:0",
+			},
 			Vouchers: vouchers.Config{
 				Expiration: 30,
 			},
@@ -519,6 +524,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		storjRoot := strings.TrimSuffix(filename, "/internal/testplanet/planet.go")
 
 		// TODO: for development only
+		config.Marketing.StaticDir = filepath.Join(storjRoot, "web/marketing")
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
@@ -618,6 +624,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
+				},
+				Monitor: monitor.Config{
+					MinimumBandwidth: 100 * memory.MB,
+					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
 			Version: planet.NewVersionConfig(),

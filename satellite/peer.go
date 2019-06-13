@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketing"
+	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
@@ -121,6 +122,8 @@ type Config struct {
 
 	Mail    mailservice.Config
 	Console consoleweb.Config
+
+	Marketing marketingweb.Config
 
 	Vouchers vouchers.Config
 
@@ -210,6 +213,11 @@ type Peer struct {
 		Service  *console.Service
 		Endpoint *consoleweb.Server
 	}
+
+	Marketing struct {
+		Listener net.Listener
+		Endpoint *marketingweb.Server
+	}
 }
 
 // New creates a new satellite
@@ -284,6 +292,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			},
 			Type: pb.NodeType_SATELLITE,
 			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,
@@ -589,6 +598,25 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 	}
 
+	{ // setup marketing portal
+		log.Debug("Setting up marketing server")
+		marketingConfig := config.Marketing
+
+		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			marketingConfig,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
 	return peer, nil
 }
 
@@ -636,6 +664,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -659,6 +690,12 @@ func (peer *Peer) Close() error {
 
 	if peer.Mail.Service != nil {
 		errlist.Add(peer.Mail.Service.Close())
+	}
+
+	if peer.Marketing.Endpoint != nil {
+		errlist.Add(peer.Marketing.Endpoint.Close())
+	} else if peer.Marketing.Listener != nil {
+		errlist.Add(peer.Marketing.Listener.Close())
 	}
 
 	// close services in reverse initialization order

@@ -680,6 +680,12 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
+func (m *lockedOffers) Finish(ctx context.Context, offerId int) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Finish(ctx, offerId)
+}
+
 func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -692,10 +698,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Update(ctx context.Context, offer *marketing.UpdateOffer) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerId int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Update(ctx, offer)
+	return m.db.Redeem(ctx, offerId)
 }
 
 // Orders returns database for orders
@@ -760,11 +766,11 @@ func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID
 	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
 }
 
-// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
+func (m *lockedOrders) UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNode, action, amount, intervalStart)
+	return m.db.UpdateStoragenodeBandwidthAllocation(ctx, storageNodes, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node

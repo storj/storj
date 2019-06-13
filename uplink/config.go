@@ -32,7 +32,7 @@ import (
 // redundancy strategy information
 type RSConfig struct {
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"1KiB"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
@@ -42,7 +42,7 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey string `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
+	EncryptionKey string `help:"the root key for encrypting the data which will be stored in KeyFilePath" setup:"true"`
 	KeyFilepath   string `help:"the path to the file which contains the root key for encrypting the data"`
 	DataType      int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
 	PathType      int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
@@ -121,7 +121,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, err
 	}
 
-	key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	key, err := LoadEncryptionKey(c.Enc.KeyFilepath)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
@@ -154,10 +154,14 @@ func (c Config) GetPathCipherSuite() storj.CipherSuite {
 }
 
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
+// Blocksize should align with the stripe size therefore multiples of stripes
+// should fit in every encryption block. Instead of lettings users configure this
+// multiple value, we hardcode stripesPerBlock as 2 for simplicity.
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
+	const stripesPerBlock = 2
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(c.Enc.DataType),
-		BlockSize: c.GetRedundancyScheme().StripeSize(),
+		BlockSize: c.GetRedundancyScheme().StripeSize() * stripesPerBlock,
 	}
 }
 
@@ -181,20 +185,4 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 	}
 
 	return storj.NewKey(rawKey)
-}
-
-// UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
-// it isn't empty otherwise try to load the key from the file pointed by
-// filepath calling LoadEncryptionKey function.
-func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
-	if humanReadableKey != "" {
-		key, err := storj.NewKey([]byte(humanReadableKey))
-		if err != nil {
-			return nil, err
-		}
-
-		return key, nil
-	}
-
-	return LoadEncryptionKey(filepath)
 }
