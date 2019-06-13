@@ -27,7 +27,7 @@ func parse_api_key(val *C.char, cerr **C.char) (apikeyHandle C.APIKeyRef_t) {
 func serialize_api_key(apikeyHandle C.APIKeyRef_t) *C.char {
 	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
 	if !ok {
-		return C.CString("")
+		return C.CString("invalid apikey")
 	}
 
 	return C.CString(apikey.Serialize())

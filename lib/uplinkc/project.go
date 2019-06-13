@@ -48,7 +48,7 @@ func open_project(uplinkHandle C.UplinkRef_t, satelliteAddr *C.char, apikeyHandl
 func close_project(projectHandle C.ProjectRef_t, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
-		*cerr = C.CString("invalid uplink")
+		*cerr = C.CString("invalid project")
 		return
 	}
 	universe.Del(projectHandle._handle)
