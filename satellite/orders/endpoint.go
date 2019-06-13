@@ -38,8 +38,8 @@ type DB interface {
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
-	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage node
-	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
+	UpdateStoragenodeBandwidthAllocation(ctx context.Context, storageNodes []storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
 
@@ -114,6 +114,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("Settlement")
 	for {
+		// TODO: batch these requests so we hit the db in batches
 		request, err := monitoredSettlementStreamReceive(ctx, stream)
 		if err != nil {
 			return formatError(err)
@@ -186,6 +187,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			if err != nil {
 				return formatError(err)
 			}
+			continue
 		}
 
 		bucketID, err := endpoint.DB.UseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId)
@@ -199,21 +201,22 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				if err != nil {
 					return formatError(err)
 				}
-			} else {
-				return err
+				continue
 			}
-			continue
+			return err
 		}
 		now := time.Now().UTC()
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 		if err := endpoint.DB.UpdateBucketBandwidthSettle(ctx, bucketID, orderLimit.Action, order.Amount, intervalStart); err != nil {
+			// TODO: we should use the serial number in the same transaction we settle the bandwidth? that way we don't need this undo in an error case?
 			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
 				log.Error("unable to unuse serial number", zap.Error(err))
 			}
 			return err
 		}
 
+		// TODO: whoa this should also be in the same transaction
 		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, orderLimit.StorageNodeId, orderLimit.Action, order.Amount, intervalStart); err != nil {
 			if err := endpoint.DB.UnuseSerialNumber(ctx, orderLimit.SerialNumber, orderLimit.StorageNodeId); err != nil {
 				log.Error("unable to unuse serial number", zap.Error(err))
@@ -231,5 +234,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 		if err != nil {
 			return formatError(err)
 		}
+
+		// TODO: in fact, why don't we batch these into group transactions as they come in from Recv() ?
 	}
 }

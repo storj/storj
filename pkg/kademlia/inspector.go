@@ -43,7 +43,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 // GetBuckets returns all kademlia buckets for current kademlia instance
 func (srv *Inspector) GetBuckets(ctx context.Context, req *pb.GetBucketsRequest) (_ *pb.GetBucketsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	b, err := srv.dht.GetBucketIds()
+	b, err := srv.dht.GetBucketIds(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (srv *Inspector) NodeInfo(ctx context.Context, req *pb.NodeInfoRequest) (_ 
 // GetBucketList returns the list of buckets with their routing nodes and their cached nodes
 func (srv *Inspector) GetBucketList(ctx context.Context, req *pb.GetBucketListRequest) (_ *pb.GetBucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	bucketIds, err := srv.dht.GetBucketIds()
+	bucketIds, err := srv.dht.GetBucketIds(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +151,7 @@ func (srv *Inspector) GetBucketList(ctx context.Context, req *pb.GetBucketListRe
 
 	for i, b := range bucketIds {
 		bucketID := keyToBucketID(b)
-		routingNodes, err := srv.dht.GetNodesWithinKBucket(bucketID)
+		routingNodes, err := srv.dht.GetNodesWithinKBucket(ctx, bucketID)
 		if err != nil {
 			return nil, err
 		}

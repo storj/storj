@@ -785,6 +785,36 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Alter value attribution table. Remove bucket_id. Add project_id and bucket_name as primary key",
+				Version:     30,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions DROP CONSTRAINT value_attributions_pkey;`,
+					`ALTER TABLE value_attributions ADD project_id bytea;`,
+					`UPDATE value_attributions SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE value_attributions ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE value_attributions RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE value_attributions SET bucket_name=SUBSTRING(bucket_name from 18);`,
+					`ALTER TABLE value_attributions ADD PRIMARY KEY (project_id, bucket_name);`,
+				},
+			},
+			{
+				Description: "Add user_credit table",
+				Version:     31,
+				Action: migrate.SQL{
+					`CREATE TABLE user_credits (
+						id serial NOT NULL,
+						user_id bytea NOT NULL REFERENCES users( id ),
+						offer_id integer NOT NULL REFERENCES offers( id ),
+						referred_by bytea REFERENCES users( id ),
+						credits_earned_in_cents integer NOT NULL,
+						credits_used_in_cents integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 		},
 	}
 }

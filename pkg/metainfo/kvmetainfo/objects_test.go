@@ -34,9 +34,10 @@ func TestCreateObject(t *testing.T) {
 		ShareSize:      2 * memory.KiB.Int32(),
 	}
 
+	const stripesPerBlock = 2
 	customES := storj.EncryptionScheme{
 		Cipher:    storj.Unencrypted,
-		BlockSize: customRS.StripeSize(),
+		BlockSize: stripesPerBlock * customRS.StripeSize(),
 	}
 
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {

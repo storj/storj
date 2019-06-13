@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
+
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
