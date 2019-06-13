@@ -100,6 +100,10 @@ pipeline {
                 }
             }
         }
+
+        stage('Satellite Image Verification') {
+            sh 'make satellite-image'
+        }
     }
 
     post {
