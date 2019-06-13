@@ -543,7 +543,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 }
 
 // CreateStats initializes the stats the provided storagenode
-func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *pb.NodeStats) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -591,7 +591,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 }
 
 // UpdateStats a single storagenode's stats in the db
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeID := updateReq.NodeID
@@ -698,7 +698,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -785,8 +785,8 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			FreeBandwidth: info.FreeBandwidth,
 			FreeDisk:      info.FreeDisk,
 		},
-		Reputation: overlay.NodeStats{
-			Latency90:          info.Latency90,
+		Reputation: pb.NodeStats{
+			Latency_90:         info.Latency90,
 			AuditSuccessRatio:  info.AuditSuccessRatio,
 			UptimeRatio:        info.UptimeRatio,
 			AuditCount:         info.TotalAuditCount,
@@ -809,9 +809,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	return node, nil
 }
 
-func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
-	nodeStats := &overlay.NodeStats{
-		Latency90:          dbNode.Latency90,
+func getNodeStats(dbNode *dbx.Node) *pb.NodeStats {
+	nodeStats := &pb.NodeStats{
+		Latency_90:         dbNode.Latency90,
 		AuditSuccessRatio:  dbNode.AuditSuccessRatio,
 		AuditSuccessCount:  dbNode.AuditSuccessCount,
 		AuditCount:         dbNode.TotalAuditCount,

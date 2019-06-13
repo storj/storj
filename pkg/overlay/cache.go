@@ -51,15 +51,15 @@ type DB interface {
 	// IsVetted returns whether or not the node reaches reputable thresholds
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// CreateStats initializes the stats for node.
-	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
+	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *pb.NodeStats) (stats *pb.NodeStats, err error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *pb.NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -100,29 +100,10 @@ type NodeDossier struct {
 	Type         pb.NodeType
 	Operator     pb.NodeOperator
 	Capacity     pb.NodeCapacity
-	Reputation   NodeStats
+	Reputation   pb.NodeStats
 	Version      pb.NodeVersion
 	Contained    bool
 	Disqualified bool
-}
-
-// NodeStats contains statistics about a node.
-type NodeStats struct {
-	Latency90          int64
-	AuditSuccessRatio  float64
-	AuditSuccessCount  int64
-	AuditCount         int64
-	UptimeRatio        float64
-	UptimeSuccessCount int64
-	UptimeCount        int64
-	LastContactSuccess time.Time
-	LastContactFailure time.Time
-	// new reputation and disqualification stuff
-	AuditReputationAlpha  float64
-	UptimeReputationAlpha float64
-	AuditReputationBeta   float64
-	UptimeReputationBeta  float64
-	Disqualified          bool
 }
 
 // Cache is used to store and handle node information
@@ -287,7 +268,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 }
 
 // Create adds a new stats entry for node.
-func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
+func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *pb.NodeStats) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.CreateStats(ctx, nodeID, initial)
 }
@@ -309,7 +290,7 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 }
 
 // UpdateStats all parts of single storagenode's stats.
-func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
+func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateStats(ctx, request)
 }
@@ -321,7 +302,7 @@ func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeI
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
+func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.UpdateUptime(ctx, nodeID, isUp)
 }

@@ -49,8 +49,8 @@ message NodeStats {
     int64 audit_success_count = 6;
     int64 uptime_count = 7;
     int64 uptime_success_count = 8;
-    google.protobuf.Timestamp last_contact_success = 9;
-    google.protobuf.Timestamp last_contact_failure = 10;
+    google.protobuf.Timestamp last_contact_success = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp last_contact_failure = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     //new reputation and disqualification stuff
     double audit_reputation_alpha = 11;
     double uptime_reputation_alpha = 12;
