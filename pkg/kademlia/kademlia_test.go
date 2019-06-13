@@ -66,7 +66,7 @@ func TestNewKademlia(t *testing.T) {
 	}
 
 	for i, v := range cases {
-		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, pb.NodeOperator{}, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
+		kad, err := newKademlia(ctx, zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, pb.NodeOperator{}, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -93,7 +93,7 @@ func TestPeerDiscovery(t *testing.T) {
 	operator := pb.NodeOperator{
 		Wallet: "OperatorWallet",
 	}
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, operator, testID, ctx.Dir("test"), defaultAlpha)
+	k, err := newKademlia(ctx, zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, operator, testID, ctx.Dir("test"), defaultAlpha)
 	require.NoError(t, err)
 	rt := k.routingTable
 	assert.Equal(t, rt.Local().Operator.Wallet, "OperatorWallet")
@@ -161,7 +161,7 @@ func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node)
 	// new kademlia
 
 	logger := zaptest.NewLogger(t)
-	k, err := newKademlia(logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir(name), defaultAlpha)
+	k, err := newKademlia(ctx, logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir(name), defaultAlpha)
 	require.NoError(t, err)
 
 	s := NewEndpoint(logger, k, k.routingTable)
@@ -200,18 +200,18 @@ func TestRefresh(t *testing.T) {
 	rt := k.routingTable
 	now := time.Now().UTC()
 	bID := firstBucketID //always exists
-	err := rt.SetBucketTimestamp(bID[:], now.Add(-2*time.Hour))
+	err := rt.SetBucketTimestamp(ctx, bID[:], now.Add(-2*time.Hour))
 	require.NoError(t, err)
 	//refresh should  call FindNode, updating the time
 	err = k.refresh(ctx, time.Minute)
 	require.NoError(t, err)
-	ts1, err := rt.GetBucketTimestamp(bID[:])
+	ts1, err := rt.GetBucketTimestamp(ctx, bID[:])
 	require.NoError(t, err)
 	assert.True(t, now.Add(-5*time.Minute).Before(ts1))
 	//refresh should not call FindNode, leaving the previous time
 	err = k.refresh(ctx, time.Minute)
 	require.NoError(t, err)
-	ts2, err := rt.GetBucketTimestamp(bID[:])
+	ts2, err := rt.GetBucketTimestamp(ctx, bID[:])
 	require.NoError(t, err)
 	assert.True(t, ts1.Equal(ts2))
 	s.GracefulStop()
@@ -243,7 +243,7 @@ func TestFindNear(t *testing.T) {
 	})
 
 	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
-	k, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
+	k, err := newKademlia(ctx, zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
 		lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir("kademlia"), defaultAlpha)
 	require.NoError(t, err)
 	defer ctx.Check(k.Close)
@@ -254,7 +254,7 @@ func TestFindNear(t *testing.T) {
 		nodeID := teststorj.NodeIDFromString(id)
 		n := &pb.Node{Id: nodeID}
 		nodes = append(nodes, n)
-		err = k.routingTable.ConnectionSuccess(n)
+		err = k.routingTable.ConnectionSuccess(ctx, n)
 		require.NoError(t, err)
 		return *n
 	}
@@ -408,7 +408,7 @@ func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest)
 }
 
 // newKademlia returns a newly configured Kademlia instance
-func newKademlia(log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, operator pb.NodeOperator, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
+func newKademlia(ctx context.Context, log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, operator pb.NodeOperator, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:      identity.ID,
