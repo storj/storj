@@ -7,7 +7,15 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp
+	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+)
+
+create value_attribution ()
+delete value_attribution ( where value_attribution.bucket_name = ? )
+
+read one (
+    select value_attribution
+    where value_attribution.bucket_name = ?
 )
 
 //--- containment ---//
