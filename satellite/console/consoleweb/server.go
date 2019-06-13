@@ -47,7 +47,7 @@ var (
 
 // Config contains configuration for console web server
 type Config struct {
-	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:"0.0.0.0:10100"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 	StripeKey       string `help:"stripe api key" default:""`
