@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func Testcreate_bucket(t *testing.T) {
+func Test_create_bucket(t *testing.T) {
 	// TODO: figure this out (there may be other inconsistencies as well)
 	t.Log("listed bucket *always* has `PathCipher` = `AESGCM`; is this expected behavior?")
 	t.SkipNow()
@@ -50,7 +50,7 @@ func Testcreate_bucket(t *testing.T) {
 	})
 }
 
-func Testopen_bucket(t *testing.T) {
+func Test_open_bucket(t *testing.T) {
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 		var cErr Cchar
 		bucketName := "TestBucket"
@@ -78,7 +78,7 @@ func Testopen_bucket(t *testing.T) {
 	})
 }
 
-func TestDeleteBucket(t *testing.T) {
+func Test_delete_bucket(t *testing.T) {
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 		var cErr Cchar
 		bucketName := "TestBucket"
@@ -89,13 +89,13 @@ func TestDeleteBucket(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, bucket)
 
-			DeleteBucket(cProjectRef, stringToCCharPtr(bucketName), &cErr)
+			delete_bucket(cProjectRef, stringToCCharPtr(bucketName), &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 		})
 	})
 }
 
-func TestListBuckets(t *testing.T) {
+func Test_list_buckets(t *testing.T) {
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 		var cErr Cchar
 		project, cProjectRef := openTestProject(t, ctx, planet)
@@ -109,7 +109,7 @@ func TestListBuckets(t *testing.T) {
 			}
 
 			// TODO: test with different list options
-			cBucketList := ListBuckets(cProjectRef, nil, &cErr)
+			cBucketList := list_buckets(cProjectRef, nil, &cErr)
 			require.Empty(t, cCharToGoString(cErr))
 			require.NotNil(t, cBucketList)
 			require.NotNil(t, cBucketList.items)
