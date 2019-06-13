@@ -1,14 +1,11 @@
-<!-- Copyright (C) 2019 Storj Labs, Inc.
-See LICENSE for copying information. -->
-
 {{define "main"}}
 <div class="container">
     <div class="row mt-4 mb-4 d-flex justify-content-between">
         <h3 class="mt-4">Referral Credit Offers</h3>
-        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#referral-offers-modal">+ Create Referral Credit</button>
+        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#ref-offers-modal">+ Create Referral Credit</button>
     </div>
-    {{template "referralOffers" .}}
-    {{template "referralOffersModal" .}}
+    {{template "refOffers" .}}
+    {{template "refOffersModal" .}}
     <div class="row mt-4 mb-4 d-flex justify-content-between">
         <h3 class="mt-4">Free Credit Offers</h3>
         <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#free-offers-modal">+ Create Free Credit</button>
