@@ -98,8 +98,8 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "home.html"),
 		filepath.Join(s.templateDir, "refOffers.html"),
 		filepath.Join(s.templateDir, "freeOffers.html"),
-		filepath.Join(s.templateDir, "roModal.html"),
-		filepath.Join(s.templateDir, "foModal.html"),
+		filepath.Join(s.templateDir, "ref-offers-modal.html"),
+		filepath.Join(s.templateDir, "free-offers-modal.html"),
 	)
 
 	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
