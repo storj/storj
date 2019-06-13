@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package satellitedb_test
 
 import (
@@ -87,7 +90,7 @@ func setupData(ctx context.Context, store satellite.DB) (user *console.User, ref
 		Status:       console.Active,
 	})
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
@@ -97,7 +100,7 @@ func setupData(ctx context.Context, store satellite.DB) (user *console.User, ref
 		Status:       console.Active,
 	})
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 
 	// create offer
@@ -114,8 +117,8 @@ func setupData(ctx context.Context, store satellite.DB) (user *console.User, ref
 		Type:                      marketing.Referral,
 	})
 	if err != nil {
-		return
+		return nil, nil, nil, err
 	}
 
-	return
+	return user, referrer, offer, nil
 }

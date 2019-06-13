@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package console
 
 import (
@@ -7,6 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
+// UserCredits holds information to interact with database
 type UserCredits interface {
 	TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error)
 	AvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]UserCredit, error)
@@ -14,6 +18,7 @@ type UserCredits interface {
 	UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) error
 }
 
+// UserCredit holds information about an user's credit
 type UserCredit struct {
 	ID                   int
 	UserID               uuid.UUID

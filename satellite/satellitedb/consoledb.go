@@ -61,6 +61,7 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 	return &usagerollups{db.db}
 }
 
+// UserCredits is a getter for console.UserCredits repository
 func (db *ConsoleDB) UserCredits() console.UserCredits {
 	return &usercredits{db: db.db}
 }

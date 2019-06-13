@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package satellitedb
 
 import (
@@ -82,7 +85,7 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits
 		if err != nil {
 			return errs.Wrap(errs.Combine(err, tx.Rollback()))
 		}
-		appliedCredits = appliedCredits - (credit.CreditsEarnedInCents - credit.CreditsUsedInCents)
+		appliedCredits -= (credit.CreditsEarnedInCents - credit.CreditsUsedInCents)
 	}
 
 	return errs.Wrap(tx.Commit())
