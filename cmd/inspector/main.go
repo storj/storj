@@ -649,6 +649,8 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	nodeIndices := make(map[storj.NodeID]int)
 	// Add each segment to the segmentTable
 	for _, segment := range segments {
+		// TODO(moby) change online/offline to healthy/unhealthy/offline
+		// healthy = online + not dqed, unhealthy = online + dqed, offline = offline
 		onlineNodes := segment.GoodIds                   // nodes with pieces currently online
 		offlineNodes := segment.BadIds                   // nodes that are offline/bad
 		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
@@ -687,6 +689,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	// Add online/offline info to the node table
 	for _, segment := range segments {
 		row := make([]string, numNodes+1)
+		// TODO(moby) "2" = healthy, "1" = unhealthy, "0" = offline
 		for _, id := range segment.GoodIds {
 			i := nodeIndices[id]
 			row[i] = "1"
