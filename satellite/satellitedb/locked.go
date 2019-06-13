@@ -469,10 +469,10 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) AvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.AvailableCredits(ctx, userID, expirationEndDate)
+	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
 }
 
 func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {

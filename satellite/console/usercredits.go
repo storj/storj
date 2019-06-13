@@ -13,7 +13,7 @@ import (
 // UserCredits holds information to interact with database
 type UserCredits interface {
 	TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error)
-	AvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]UserCredit, error)
+	GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]UserCredit, error)
 	Create(ctx context.Context, userCredit UserCredit) (*UserCredit, error)
 	UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) error
 }

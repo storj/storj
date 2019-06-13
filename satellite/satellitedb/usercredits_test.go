@@ -126,7 +126,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 		}
 
 		{
-			availableCredits, err := consoleDB.UserCredits().AvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
+			availableCredits, err := consoleDB.UserCredits().GetAvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
 			require.NoError(t, err)
 			var sum int
 			for i := range availableCredits {

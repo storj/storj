@@ -27,7 +27,7 @@ func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int
 	return totalReferred, nil
 }
 
-func (c *usercredits) AvailableCredits(ctx context.Context, referrerID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
 	availableCredits, err := c.db.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
 		dbx.UserCredit_UserId(referrerID[:]),
 		dbx.UserCredit_ExpiresAt(expirationEndDate),
