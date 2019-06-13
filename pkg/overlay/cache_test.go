@@ -69,7 +69,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, testNodeSelectionConfig(0, 0))
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, testNodeSelectionConfig(0, 0, false))
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
