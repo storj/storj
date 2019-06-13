@@ -79,11 +79,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// TODO(jeff): we have to have the server side of things expecting macaroons
-	// before we can change libuplink to use macaroons because of all the tests.
-	// For now, just use the raw macaroon library.
-
-	key, err := macaroon.ParseAPIKey(cfg.Client.APIKey)
+	key, err := libuplink.ParseAPIKey(cfg.Client.APIKey)
 	if err != nil {
 		return err
 	}
