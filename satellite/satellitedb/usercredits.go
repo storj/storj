@@ -18,6 +18,7 @@ type usercredits struct {
 	db *dbx.DB
 }
 
+// TotalReferredCount returns the total amount of referral a user has made based on user id
 func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int64, error) {
 	totalReferred, err := c.db.Count_UserCredit_By_ReferredBy(ctx, dbx.UserCredit_ReferredBy(id[:]))
 	if err != nil {
@@ -27,6 +28,7 @@ func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int
 	return totalReferred, nil
 }
 
+// GetAvailableCredits returns all records of user credit that are not expired or used
 func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
 	availableCredits, err := c.db.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
 		dbx.UserCredit_UserId(referrerID[:]),
@@ -39,6 +41,7 @@ func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.U
 	return fromDBX(availableCredits)
 }
 
+// Create insert a new record of user credit
 func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
 	createdUser, err := c.db.Create_UserCredit(ctx,
 		dbx.UserCredit_UserId(userCredit.UserID[:]),
@@ -56,6 +59,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 	return convertDBX(createdUser)
 }
 
+// UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
 func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, expirationEndDate time.Time) error {
 	tx, err := c.db.Open(ctx)
 	if err != nil {
@@ -85,7 +89,7 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits
 		if err != nil {
 			return errs.Wrap(errs.Combine(err, tx.Rollback()))
 		}
-		appliedCredits -= (credit.CreditsEarnedInCents - credit.CreditsUsedInCents)
+		appliedCredits -= credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 	}
 
 	return errs.Wrap(tx.Commit())
@@ -93,7 +97,7 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits
 
 func fromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
 	var userCredits []console.UserCredit
-	var errList errs.Group
+	errList := new(errs.Group)
 
 	for _, userCredit := range userCreditsDBX {
 

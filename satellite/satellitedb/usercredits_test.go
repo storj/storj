@@ -37,6 +37,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 	consoleDB := store.Console()
 
 	user, referrer, offer, err := setupData(ctx, store)
+	require.NoError(t, err)
 	randomID, err := uuid.New()
 	require.NoError(t, err)
 
