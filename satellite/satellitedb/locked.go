@@ -487,10 +487,10 @@ func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.
 	return m.db.TotalReferredCount(ctx, userID)
 }
 
-func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, expirationEndDate time.Time) error {
+func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateAvailableCredits(ctx, appliedCredits, id, expirationEndDate)
+	return m.db.UpdateAvailableCredits(ctx, appliedCredits, id, billingStartDate)
 }
 
 // UserPayments is a getter for UserPayments repository
@@ -690,10 +690,10 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) Finish(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Finish(ctx, offerId)
+	return m.db.Finish(ctx, offerID)
 }
 
 func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
@@ -708,10 +708,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Redeem(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Redeem(ctx, offerId)
+	return m.db.Redeem(ctx, offerID)
 }
 
 // Orders returns database for orders
