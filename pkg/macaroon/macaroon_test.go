@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	assert "github.com/stretchr/testify/require"
+
 	"storj.io/storj/pkg/macaroon"
 )
 
