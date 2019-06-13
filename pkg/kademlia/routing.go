@@ -68,7 +68,7 @@ type RoutingTable struct {
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (*RoutingTable, error) {
+func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (_ *RoutingTable, err error) {
 	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
 		// TODO: handle this more nicely
 		config = &RoutingTableConfig{
@@ -91,7 +91,7 @@ func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, nd
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
 	}
-	ok, err := rt.addNode(&localNode.Node)
+	ok, err := rt.addNode(context.TODO(), &localNode.Node)
 	if !ok || err != nil {
 		return nil, RoutingErr.New("could not add localNode to routing table: %s", err)
 	}
@@ -131,8 +131,7 @@ func (rt *RoutingTable) CacheSize() int {
 
 // GetNodes retrieves nodes within the same kbucket as the given node id
 // Note: id doesn't need to be stored at time of search
-func (rt *RoutingTable) GetNodes(id storj.NodeID) ([]*pb.Node, bool) {
-	ctx := context.TODO()
+func (rt *RoutingTable) GetNodes(ctx context.Context, id storj.NodeID) ([]*pb.Node, bool) {
 	defer mon.Task()(&ctx)(nil)
 	bID, err := rt.getKBucketID(ctx, id)
 	if err != nil {
@@ -141,7 +140,7 @@ func (rt *RoutingTable) GetNodes(id storj.NodeID) ([]*pb.Node, bool) {
 	if bID == (bucketID{}) {
 		return nil, false
 	}
-	unmarshaledNodes, err := rt.getUnmarshaledNodesFromBucket(bID)
+	unmarshaledNodes, err := rt.getUnmarshaledNodesFromBucket(ctx, bID)
 	if err != nil {
 		return nil, false
 	}
@@ -149,8 +148,7 @@ func (rt *RoutingTable) GetNodes(id storj.NodeID) ([]*pb.Node, bool) {
 }
 
 // GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
-func (rt *RoutingTable) GetBucketIds() (_ storage.Keys, err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) GetBucketIds(ctx context.Context) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	kbuckets, err := rt.kadBucketDB.List(ctx, nil, 0)
@@ -161,8 +159,7 @@ func (rt *RoutingTable) GetBucketIds() (_ storage.Keys, err error) {
 }
 
 // DumpNodes iterates through all nodes in the nodeBucketDB and marshals them to &pb.Nodes, then returns them
-func (rt *RoutingTable) DumpNodes() (_ []*pb.Node, err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) DumpNodes(ctx context.Context) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var nodes []*pb.Node
@@ -187,8 +184,7 @@ func (rt *RoutingTable) DumpNodes() (_ []*pb.Node, err error) {
 
 // FindNear returns the node corresponding to the provided nodeID
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
-func (rt *RoutingTable) FindNear(target storj.NodeID, limit int) (_ []*pb.Node, err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err = rt.iterateNodes(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
@@ -217,8 +213,7 @@ func (rt *RoutingTable) FindNear(target storj.NodeID, limit int) (_ []*pb.Node, 
 
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
-func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) (err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) ConnectionSuccess(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// valid to connect to node without ID but don't store connection
 	if node.Id == (storj.NodeID{}) {
@@ -230,13 +225,13 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) (err error) {
 		return RoutingErr.New("could not get node %s", err)
 	}
 	if v != nil {
-		err = rt.updateNode(node)
+		err = rt.updateNode(ctx, node)
 		if err != nil {
 			return RoutingErr.New("could not update node %s", err)
 		}
 		return nil
 	}
-	_, err = rt.addNode(node)
+	_, err = rt.addNode(ctx, node)
 	if err != nil {
 		return RoutingErr.New("could not add node %s", err)
 	}
@@ -246,10 +241,9 @@ func (rt *RoutingTable) ConnectionSuccess(node *pb.Node) (err error) {
 
 // ConnectionFailed removes a node from the routing table when
 // a connection fails for the node on the network
-func (rt *RoutingTable) ConnectionFailed(node *pb.Node) (err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) ConnectionFailed(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = rt.removeNode(node)
+	err = rt.removeNode(ctx, node)
 	if err != nil {
 		return RoutingErr.New("could not remove node %s", err)
 	}
@@ -257,8 +251,7 @@ func (rt *RoutingTable) ConnectionFailed(node *pb.Node) (err error) {
 }
 
 // SetBucketTimestamp records the time of the last node lookup for a bucket
-func (rt *RoutingTable) SetBucketTimestamp(bIDBytes []byte, now time.Time) (err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) SetBucketTimestamp(ctx context.Context, bIDBytes []byte, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
@@ -270,8 +263,7 @@ func (rt *RoutingTable) SetBucketTimestamp(bIDBytes []byte, now time.Time) (err 
 }
 
 // GetBucketTimestamp retrieves time of the last node lookup for a bucket
-func (rt *RoutingTable) GetBucketTimestamp(bIDBytes []byte) (_ time.Time, err error) {
-	ctx := context.TODO()
+func (rt *RoutingTable) GetBucketTimestamp(ctx context.Context, bIDBytes []byte) (_ time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	t, err := rt.kadBucketDB.Get(ctx, bIDBytes)
@@ -307,7 +299,7 @@ func (rt *RoutingTable) iterateNodes(ctx context.Context, start storj.NodeID, f 
 
 // ConnFailure implements the Transport failure function
 func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err error) {
-	err2 := rt.ConnectionFailed(node)
+	err2 := rt.ConnectionFailed(ctx, node)
 	if err2 != nil {
 		zap.L().Debug(fmt.Sprintf("error with ConnFailure hook  %+v : %+v", err, err2))
 	}
@@ -315,7 +307,7 @@ func (rt *RoutingTable) ConnFailure(ctx context.Context, node *pb.Node, err erro
 
 // ConnSuccess implements the Transport success function
 func (rt *RoutingTable) ConnSuccess(ctx context.Context, node *pb.Node) {
-	err := rt.ConnectionSuccess(node)
+	err := rt.ConnectionSuccess(ctx, node)
 	if err != nil {
 		zap.L().Debug("connection success error:", zap.Error(err))
 	}
