@@ -240,13 +240,14 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		for bucketID, actualTally := range actualBucketData {
 			var bucketName = string(actualTally.BucketName)
 			assert.True(t, bucketName == expectedBucketName1 || bucketName == expectedBucketName2 || bucketName == expectedBucketName3, "Test bucket names do not exist in results")
-			if bucketName == expectedBucketName1 {
+			switch bucketName {
+			case expectedBucketName1:
 				assert.Contains(t, bucketID, expectedBucketName1)
 				assert.Equal(t, expectedTally1, *actualTally)
-			} else if bucketName == expectedBucketName2 {
+			case expectedBucketName2:
 				assert.Contains(t, bucketID, expectedBucketName2)
 				assert.Equal(t, expectedTally2, *actualTally)
-			} else if bucketName == expectedBucketName3 {
+			case expectedBucketName3:
 				assert.Contains(t, bucketID, expectedBucketName3)
 				assert.Equal(t, expectedTally3, *actualTally)
 			}
