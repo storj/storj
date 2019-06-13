@@ -4,13 +4,10 @@
 package overlay
 
 import (
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
-	"storj.io/storj/pkg/storj"
 )
 
 var (
@@ -23,12 +20,6 @@ var (
 // Overlay cache responsibility.
 type Config struct {
 	Node NodeSelectionConfig
-}
-
-// LookupConfig is a configuration struct for querying the overlay cache with one or more node IDs
-type LookupConfig struct {
-	NodeIDsString string `help:"one or more string-encoded node IDs, delimited by Delimiter"`
-	Delimiter     string `help:"delimiter used for parsing node IDs" default:","`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum
@@ -55,22 +46,4 @@ type NodeSelectionConfig struct {
 	ReputationUptimeBeta0        float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
 	ReputationUptimeLambda       float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"1.0"`
 	ReputationUptimeOmega        float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
-}
-
-// ParseIDs converts the base58check encoded node ID strings from the config into node IDs
-func (c LookupConfig) ParseIDs() (ids storj.NodeIDList, err error) {
-	var idErrs []error
-	idStrs := strings.Split(c.NodeIDsString, c.Delimiter)
-	for _, s := range idStrs {
-		id, err := storj.NodeIDFromString(s)
-		if err != nil {
-			idErrs = append(idErrs, err)
-			continue
-		}
-		ids = append(ids, id)
-	}
-	if err := errs.Combine(idErrs...); err != nil {
-		return nil, err
-	}
-	return ids, nil
 }
