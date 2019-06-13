@@ -8,18 +8,20 @@ import (
 	"html/template"
 	"net"
 	"net/http"
+	"time"
+	"reflect"
 	"path/filepath"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"github.com/gorilla/schema"
+	"storj.io/storj/satellite/marketing"
 	"github.com/gorilla/mux"
 )
 
-// Error is satellite marketing error type
 var Error = errs.Class("satellite marketing error")
 
-// Config contains configuration for marketing offersweb server
 type Config struct {
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
 	StaticDir string `help:"path to static resources" default:""`
@@ -28,12 +30,10 @@ type Config struct {
 // Server represents marketing offersweb server
 type Server struct {
 	log *zap.Logger
-
 	config Config
-
 	listener net.Listener
 	server   http.Server
-
+	service  *marketing.Service
 	templateDir string
 	templates   struct {
 		home          *template.Template
@@ -42,7 +42,25 @@ type Server struct {
 	}
 }
 
-// commonPages returns templates that are required for everything.
+// Struct used to render each offer table
+type offerSet struct {
+	RefOffers,FreeCredits []marketing.Offer
+}
+
+// Organizes offers from database by type.
+func organizeOffers(offers []marketing.Offer) offerSet{
+	os := new(offerSet)
+	for _,offer := range offers {
+		if offer.Type == marketing.FreeCredit {
+			os.FreeCredits = append(os.FreeCredits,offer)
+		}else if offer.Type == marketing.Referral {
+			os.RefOffers = append(os.RefOffers,offer)
+		}
+	}
+	return *os
+}
+
+// CommonPages returns templates that are required for everything.
 func (s *Server) commonPages() []string {
 	return []string{
 		filepath.Join(s.templateDir, "base.html"),
@@ -53,20 +71,22 @@ func (s *Server) commonPages() []string {
 }
 
 // NewServer creates new instance of offersweb server
-func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Server, error) {
+func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
 		config:   config,
 		listener: listener,
+		service:  service,
 	}
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
-
 	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
 	if s.config.StaticDir != "" {
+		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
-		mux.Handle("/", s)
+		mux.HandleFunc("/create-free-credit", s.createOffer)
+		mux.HandleFunc("/create-ref-offer", s.createOffer)
 	}
 	s.server.Handler = mux
 
@@ -79,16 +99,23 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Serve
 	return s, nil
 }
 
-// ServeHTTP handles index request
-func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+// Serves index page and renders offer and credits tables
+func (s *Server) getOffers(w http.ResponseWriter, req *http.Request){
 	if req.URL.Path != "/" {
 		s.serveNotFound(w, req)
 		return
 	}
 
-	err := s.templates.home.ExecuteTemplate(w, "base", nil)
+	offers, err := s.service.ListAllOffers(context.Background())
 	if err != nil {
+		s.log.Error("app handler error", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
+	}
+
+	if err := s.templates.home.ExecuteTemplate(w, "base", organizeOffers(offers)); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
+		s.serveInternalError(w,req,err)
 	}
 }
 
@@ -102,23 +129,23 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "free-offers-modal.html"),
 	)
 
+	pageNotFoundFiles := append(s.commonPages(),
+		filepath.Join(s.templateDir, "page-not-found.html"),
+	)
+
+	internalErrorFiles := append(s.commonPages(),
+		filepath.Join(s.templateDir, "internal-server-error.html"),
+	)
+
 	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	pageNotFoundFiles := append(s.commonPages(),
-		filepath.Join(s.templateDir, "page-not-found.html"),
-	)
-
 	s.templates.pageNotFound, err = template.New("page-not-found").ParseFiles(pageNotFoundFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	internalErrorFiles := append(s.commonPages(),
-		filepath.Join(s.templateDir, "internal-server-error.html"),
-	)
 
 	s.templates.internalError, err = template.New("internal-server-error").ParseFiles(internalErrorFiles...)
 	if err != nil {
@@ -128,25 +155,81 @@ func (s *Server) parseTemplates() (err error) {
 	return nil
 }
 
+// Time converter is used by decoder in formToStruct to format expiration date field from form input.
+func timeConverter(value string) reflect.Value {
+	v, err := time.Parse("2006-01-02",value)
+	if err != nil {
+		return reflect.Value{}
+	}
+	return reflect.ValueOf(v)
+}
+
+// formToStruct is used by createOffer to format post form input into a newOffer.
+func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
+	err := req.ParseForm()
+	if err != nil {
+		return o, err
+	}
+	defer req.Body.Close()
+
+	decoder := schema.NewDecoder()
+	decoder.RegisterConverter(time.Time{}, timeConverter)
+
+	if err := decoder.Decode(&o, req.PostForm);err != nil {
+		return o, err
+	}
+	return o,nil
+}
+
+// Handler for POST requests to create, insert, and start a new offer or credit.
+func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
+	o, err := formToStruct(w,req)
+	if err != nil{
+		s.log.Error("err from createFreeCredit Handler", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
+	}
+
+	o.Status = marketing.Active
+
+	if req.URL.Path == "/create-ref-offer" {
+		o.Type = marketing.Referral
+	}else{
+		o.Type = marketing.FreeCredit
+	}
+
+	if _, err := s.service.InsertNewOffer(context.Background(), &o); err != nil {
+		s.log.Error("createdHandler error", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
+	}
+	req.Method = "GET"
+	http.Redirect(w,req,"/",http.StatusFound)
+}
+
+// Handler for 404 errors. Defaults to 500 if template fails parsing.
 func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
 	err := s.templates.pageNotFound.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
 	}
 }
 
-func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request) {
+// Handler for 500 errors and also renders err to the internalErr template.
+func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e error) {
+
 	w.WriteHeader(http.StatusInternalServerError)
 
-	err := s.templates.internalError.ExecuteTemplate(w, "base", nil)
-	if err != nil {
+	if err := s.templates.internalError.ExecuteTemplate(w, "base", e); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
 
-// Run starts the server that host admin web app and api endpoint
+
 func (s *Server) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
@@ -162,7 +245,6 @@ func (s *Server) Run(ctx context.Context) error {
 	return group.Wait()
 }
 
-// Close closes server and underlying listener
 func (s *Server) Close() error {
 	return Error.Wrap(s.server.Close())
 }
