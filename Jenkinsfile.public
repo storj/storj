@@ -102,7 +102,9 @@ pipeline {
         }
 
         stage('Satellite Image Verification') {
-            sh 'make satellite-image'
+            steps {
+                sh 'make satellite-image'
+            }
         }
     }
 
