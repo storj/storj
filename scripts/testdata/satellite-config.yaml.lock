@@ -157,6 +157,12 @@ kademlia.operator.wallet: ""
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
+# server address of the marketing Admin GUI
+# marketing.address: "127.0.0.1:8090"
+
+# path to static resources
+# marketing.static-dir: ""
+
 # lifespan of bandwidth agreements in days
 # metainfo.bw-expiration: 45
 
@@ -204,6 +210,42 @@ kademlia.operator.wallet: ""
 
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 1h0m0s
+
+# the initial shape 'alpha' used to calculate audit SNs reputation
+# overlay.node.reputation-audit-alpha0: 1
+
+# the initial shape 'beta' value used to calculate audit SNs reputation
+# overlay.node.reputation-audit-beta0: 0
+
+# the forgetting factor used to calculate the audit SNs reputation
+# overlay.node.reputation-audit-lambda: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# overlay.node.reputation-audit-omega: 1
+
+# weight to apply to audit reputation for total repair reputation calculation
+# overlay.node.reputation-audit-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# overlay.node.reputation-audit-uplink-weight: 1
+
+# the initial shape 'alpha' used to calculate uptime SNs reputation
+# overlay.node.reputation-uptime-alpha0: 1
+
+# the initial shape 'beta' value used to calculate uptime SNs reputation
+# overlay.node.reputation-uptime-beta0: 0
+
+# the forgetting factor used to calculate the uptime SNs reputation
+# overlay.node.reputation-uptime-lambda: 1
+
+# the normalization weight used to calculate the uptime SNs reputation
+# overlay.node.reputation-uptime-omega: 1
+
+# weight to apply to uptime reputation for total repair reputation calculation
+# overlay.node.reputation-uptime-repair-weight: 1
+
+# weight to apply to uptime reputation for total uplink reputation calculation
+# overlay.node.reputation-uptime-uplink-weight: 1
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 500

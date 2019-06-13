@@ -97,11 +97,6 @@ func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
 }
 
-// // PointerDB is a getter for PointerDB repository
-// func (db *DB) PointerDB() pointerdb.DB {
-// 	return &pointerDB{db: db.db}
-// }
-
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}

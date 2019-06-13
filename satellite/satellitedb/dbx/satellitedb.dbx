@@ -2,9 +2,10 @@
 
 //--- Value Attribution ---//
 model value_attribution (
-	key bucket_id
+	key project_id bucket_name
 
-	field bucket_id		blob
+	field project_id	blob
+	field bucket_name	blob
 	field partner_id	blob
 	field last_updated 	utimestamp
 )

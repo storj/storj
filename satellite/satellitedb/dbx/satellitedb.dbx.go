@@ -460,10 +460,11 @@ CREATE TABLE users (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
-	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
 	last_updated timestamp NOT NULL,
-	PRIMARY KEY ( bucket_id )
+	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
@@ -778,10 +779,11 @@ CREATE TABLE users (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
-	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
+	bucket_name BLOB NOT NULL,
 	partner_id BLOB NOT NULL,
 	last_updated TIMESTAMP NOT NULL,
-	PRIMARY KEY ( bucket_id )
+	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -3785,7 +3787,8 @@ func (f User_CreatedAt_Field) value() interface{} {
 func (User_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ValueAttribution struct {
-	BucketId    []byte
+	ProjectId   []byte
+	BucketName  []byte
 	PartnerId   []byte
 	LastUpdated time.Time
 }
@@ -3795,24 +3798,43 @@ func (ValueAttribution) _Table() string { return "value_attributions" }
 type ValueAttribution_Update_Fields struct {
 }
 
-type ValueAttribution_BucketId_Field struct {
+type ValueAttribution_ProjectId_Field struct {
 	_set   bool
 	_null  bool
 	_value []byte
 }
 
-func ValueAttribution_BucketId(v []byte) ValueAttribution_BucketId_Field {
-	return ValueAttribution_BucketId_Field{_set: true, _value: v}
+func ValueAttribution_ProjectId(v []byte) ValueAttribution_ProjectId_Field {
+	return ValueAttribution_ProjectId_Field{_set: true, _value: v}
 }
 
-func (f ValueAttribution_BucketId_Field) value() interface{} {
+func (f ValueAttribution_ProjectId_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (ValueAttribution_BucketId_Field) _Column() string { return "bucket_id" }
+func (ValueAttribution_ProjectId_Field) _Column() string { return "project_id" }
+
+type ValueAttribution_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ValueAttribution_BucketName(v []byte) ValueAttribution_BucketName_Field {
+	return ValueAttribution_BucketName_Field{_set: true, _value: v}
+}
+
+func (f ValueAttribution_BucketName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ValueAttribution_BucketName_Field) _Column() string { return "bucket_name" }
 
 type ValueAttribution_PartnerId_Field struct {
 	_set   bool
