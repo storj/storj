@@ -188,10 +188,11 @@ CREATE TABLE users (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
-	bucket_id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
 	partner_id bytea NOT NULL,
 	last_updated timestamp NOT NULL,
-	PRIMARY KEY ( bucket_id )
+	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
