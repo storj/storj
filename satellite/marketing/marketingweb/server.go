@@ -49,7 +49,7 @@ type offerSet struct {
 
 // Organizes offers from database by type.
 func organizeOffers(offers []marketing.Offer) offerSet{
-	os := new(offerSet)
+	var os offerSet
 	for _,offer := range offers {
 		if offer.Type == marketing.FreeCredit {
 			os.FreeCredits = append(os.FreeCredits,offer)
@@ -57,7 +57,7 @@ func organizeOffers(offers []marketing.Offer) offerSet{
 			os.RefOffers = append(os.RefOffers,offer)
 		}
 	}
-	return *os
+	return os
 }
 
 // CommonPages returns templates that are required for everything.
