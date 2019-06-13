@@ -606,12 +606,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Marketing.Endpoint = marketingweb.NewServer(
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
 			peer.Marketing.Service,
 			peer.Marketing.Listener,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	return peer, nil

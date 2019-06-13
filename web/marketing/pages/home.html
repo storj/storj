@@ -2,15 +2,15 @@
 <div class="container">
     <div class="row mt-4 mb-4 d-flex justify-content-between">
         <h3 class="mt-4">Referral Credit Offers</h3>
-        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#roModal">+ Create Referral Credit</button>
+        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#ref-offers-modal">+ Create Referral Credit</button>
     </div>
     {{template "refOffers" .}}
-    {{template "roModal" .}}
+    {{template "refOffersModal" .}}
     <div class="row mt-4 mb-4 d-flex justify-content-between">
         <h3 class="mt-4">Free Credit Offers</h3>
-        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#foModal">+ Create Free Credit</button>
+        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#free-offers-modal">+ Create Free Credit</button>
     </div>
     {{template "freeOffers" .}}
-    {{template "foModal" .}}
+    {{template "freeOffersModal" .}}
 </div>
 {{end}}

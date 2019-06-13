@@ -132,8 +132,8 @@ h3{
     cursor:pointer;
 }
 
-#foModalLabel, 
-#roModalLabel{
+#free-offers-modal-lbl, 
+#ref-offers-modal-lbl{
     font-family: 'Poppins';
     font-style: normal;
     font-weight: 600;

@@ -46,6 +46,11 @@ type Server struct {
 	server   http.Server
 	service  *marketing.Service
 	templateDir string
+	templates   struct {
+		home          *template.Template
+		pageNotFound  *template.Template
+		internalError *template.Template
+	}
 }
 
 // Struct used to render each offer table
@@ -78,7 +83,7 @@ func (s *Server) commonPages() []string {
 }
 
 // NewServer creates new instance of offersweb server
-func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
 		config:   config,
@@ -99,7 +104,11 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 
 	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
 
-	return s
+	if err := s.parseTemplates(); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return s, nil
 }
 
 // Serves index page and renders offer and credits tables
@@ -116,20 +125,49 @@ func (s *Server) getOffers(w http.ResponseWriter, req *http.Request){
 		return
 	}
 
-	files := append(s.commonPages(),
+	if err := s.templates.home.ExecuteTemplate(w, "base", organizeOffers(offers)); err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
+		s.serveInternalError(w,req,err)
+	}
+}
+
+// parseTemplates parses and stores all templates in server
+func (s *Server) parseTemplates() (err error) {
+	homeFiles := append(s.commonPages(),
 		filepath.Join(s.templateDir, "home.html"),
 		filepath.Join(s.templateDir, "refOffers.html"),
 		filepath.Join(s.templateDir, "freeOffers.html"),
-		filepath.Join(s.templateDir, "roModal.html"),
-		filepath.Join(s.templateDir, "foModal.html"),
+		filepath.Join(s.templateDir, "ref-offers-modal.html"),
+		filepath.Join(s.templateDir, "free-offers-modal.html"),
 	)
-	home := template.Must(template.New("landingPage").ParseFiles(files...))
-	err = home.ExecuteTemplate(w, "base", organizeOffers(offers))
+
+	pageNotFoundFiles := append(s.commonPages(),
+		filepath.Join(s.templateDir, "page-not-found.html"),
+	)
+
+	internalErrorFiles := append(s.commonPages(),
+		filepath.Join(s.templateDir, "internal-server-error.html"),
+	)
+
+	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
 	if err != nil {
-		s.serveInternalError(w,req,err)
-		return
+		return Error.Wrap(err)
 	}
+
+	s.templates.pageNotFound, err = template.New("page-not-found").ParseFiles(pageNotFoundFiles...)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	s.templates.internalError, err = template.New("internal-server-error").ParseFiles(internalErrorFiles...)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
+
+
 
 // Helper function used by createOffer to turn post form input into a new offer
 func (s *Server) formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
@@ -173,19 +211,9 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
-	files := append(s.commonPages(),
-		filepath.Join(s.templateDir, "page-not-found.html"),
-	)
-
-	unavailable, err := template.New("page-not-found").ParseFiles(files...)
-	if err != nil {
-		s.serveInternalError(w, req, err)
-		return
-	}
-
 	w.WriteHeader(http.StatusNotFound)
 
-	err = unavailable.ExecuteTemplate(w, "base", nil)
+	err := s.templates.pageNotFound.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 		s.serveInternalError(w,req,err)
@@ -193,21 +221,11 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, err error) {
-	files := append(s.commonPages(),
-		filepath.Join(s.templateDir, "internal-server-error.html"),
-	)
-
-	unavailable, err := template.New("internal-server-error").ParseFiles(files...)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		s.log.Error("failed to parse internal server error", zap.Error(err))
-		return
-	}
+func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e error) {
 
 	w.WriteHeader(http.StatusInternalServerError)
-	err = unavailable.ExecuteTemplate(w, "base", err)
-	if err != nil {
+
+	if err := s.templates.internalError.ExecuteTemplate(w, "base", e); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
