@@ -10,6 +10,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
