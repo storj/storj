@@ -131,8 +131,8 @@ h3{
     cursor:pointer;
 }
 
-#free-offers-modal-label, 
-#ref-offers-modal-label{
+#free-offers-modal-lbl, 
+#ref-offers-modal-lbl{
     font-family: 'Poppins';
     font-style: normal;
     font-weight: 600;
