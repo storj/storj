@@ -10,7 +10,7 @@ StorageNode B is added to StorageNode A's routing table only if StorageNode A tr
 While we’ve adopted the proof-of-work scheme S/Kademlia proposes to partially address Sybil attacks, we extend Kademlia with an application specific integration to further defend our network. 
 
 
-Given two storage nodes, A and B, storage node B is not allowed to enter storage node A’s routing table until storage node B can present a signed message from a Satellite C that storage node A trusts claiming that B has passed enough audits that C trusts it (sections 4.13 and 4.15). This ensures that only nodes with verified disk space have the opportunity to participate in the routing layer.
+Given two storage nodes, A and B, storage node B is not allowed to enter storage node A’s routing table until storage node B can present a signed message from a Satellite C, a satellite that node A trusts. This signed message must state that B has passed enough audits that C trusts it (sections 4.13 and 4.15). This ensures that only nodes with verified disk space have the opportunity to participate in the routing layer.
 
 
 A node that is allowed to enter routing tables is considered vetted and lookups only progress through vetted nodes. To make sure unvetted nodes can still be found, vetted nodes keep unbounded lists of their unvetted neighbors provided that the XOR distance to all unvetted neighbors is no farther than the farthest of the k-closest vetted neighbors. Unvetted nodes keep their k-nearest vetted nodes up-to-date.
