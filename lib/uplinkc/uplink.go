@@ -23,7 +23,7 @@ func new_uplink(cfg C.UplinkConfig_t, cerr **C.char) C.UplinkRef_t {
 	scope := rootScope("inmemory") // TODO: pass in as argument
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
-	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.TLS.SkipPeerCAWhitelist == Cbool(true)
+	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.TLS.SkipPeerCAWhitelist == C.bool(true)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {

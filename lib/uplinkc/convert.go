@@ -8,6 +8,7 @@ import "C"
 import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
+	"unsafe"
 )
 
 // newObjectInfo returns a C object struct converted from a go object struct.
@@ -29,9 +30,9 @@ func newObjectInfo (object *storj.Object) C.ObjectInfo_t {
 func newBucketInfo(bucket *storj.Bucket) C.BucketInfo_t {
 	return C.BucketInfo_t{
 		name:         C.CString(bucket.Name),
-		created:      C.int64_t(bucket.Created.Unix()),
+		created:      C.time_t(bucket.Created.Unix()),
 		path_cipher:  C.uint8_t(bucket.PathCipher),
-		segment_size: C.int64_t(bucket.SegmentsSize),
+		segment_size: C.uint64_t(bucket.SegmentsSize),
 
 		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
 		redundancy_scheme:     convertRedundancyScheme(&bucket.RedundancyScheme),
@@ -65,4 +66,19 @@ func newBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
 		redundancy_scheme:     convertRedundancyScheme(&bucketCfg.Volatile.RedundancyScheme),
 		path_cipher:           C.uint8_t(bucketCfg.PathCipher),
 	}
+}
+
+// bytes_to_cbytes converts a byte array to a C uint8_t array
+func bytes_to_cbytes(bytes []byte, lenOfBytes int) (data *C.uint8_t, len C.uint64_t) {
+	ptr := uintptr(C.malloc(C.size_t(lenOfBytes)))
+	mem := unsafe.Pointer(ptr)
+	for i := 0; i < lenOfBytes; i++ {
+		nextAddress := uintptr(int(ptr) + i)
+		*(*uint8)(unsafe.Pointer(nextAddress)) = bytes[i]
+	}
+
+	len = C.uint64_t(lenOfBytes)
+	data = (*C.uint8_t)(mem)
+
+	return data, len
 }

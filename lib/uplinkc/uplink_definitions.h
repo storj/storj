@@ -11,7 +11,7 @@ typedef struct Bucket   { long _handle; } BucketRef_t;
 typedef struct Map      { long _handle; } MapRef_t;
 typedef struct Object   { long _handle; } ObjectRef_t;
 
-typedef uint64_t time_t;
+typedef int64_t time_t;
 
 typedef struct UplinkConfig {
     struct {
@@ -40,7 +40,7 @@ typedef struct BucketInfo {
 
     int64_t created;
     uint8_t path_cipher;
-    int64_t segment_size;
+    uint64_t segment_size;
 
     EncryptionParameters_t encryption_parameters;
     RedundancyScheme_t     redundancy_scheme;
@@ -116,5 +116,5 @@ typedef struct ObjectMeta {
     time_t expires;
     uint64_t size;
     uint8_t *checksum_bytes;
-    uint8_t *checksum_length;
+    uint64_t checksum_length;
 } ObjectMeta_t;

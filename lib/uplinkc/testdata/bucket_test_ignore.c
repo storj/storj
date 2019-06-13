@@ -30,7 +30,7 @@ void TestBucket(void)
     RedundancyScheme_t scheme;
     scheme.algorithm = 1;
     scheme.share_size = 1024;
-    scheme.required_shares = 4;
+    scheme.required_shares = 4;``
     scheme.repair_shares = 6;
     scheme.optimal_shares = 8;
     scheme.total_shares = 10;
