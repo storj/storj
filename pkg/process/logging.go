@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
 	"storj.io/storj/pkg/cfgstruct"
 )
 
