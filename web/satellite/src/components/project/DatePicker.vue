@@ -850,5 +850,5 @@
         }
     })
 
-    export default class UsageReport extends Vue {}
+    export default class DatePicker extends Vue {}
 </script>

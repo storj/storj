@@ -3,9 +3,7 @@
 
 package testrouting
 
-import (
-	"storj.io/storj/pkg/storj"
-)
+import "storj.io/storj/pkg/storj"
 
 type nodeDataDistanceSorter struct {
 	self  storj.NodeID
