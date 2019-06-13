@@ -10,6 +10,21 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// newObjectInfo returns a C object struct converted from a go object struct.
+func newObjectInfo (object *storj.Object) C.ObjectInfo_t {
+	return C.ObjectInfo_t {
+		version:      C.uint32_t(object.Version),
+		bucket:       newBucketInfo(&object.Bucket),
+		path:         C.CString(object.Path),
+		is_prefix:    C.bool(object.IsPrefix),
+		metadata:     C.MapRef_t{universe.Add(object.Metadata)},
+		content_type: C.CString(object.ContentType),
+		created: C.time_t(object.Created.Unix()),
+		modified: C.time_t(object.Modified.Unix()),
+		expires: C.time_t(object.Expires.Unix()),
+	}
+}
+
 // newBucketInfo returns a C bucket struct converted from a go bucket struct.
 func newBucketInfo(bucket *storj.Bucket) C.BucketInfo_t {
 	return C.BucketInfo_t{

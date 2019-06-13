@@ -11,6 +11,8 @@ typedef struct Bucket   { long _handle; } BucketRef_t;
 typedef struct Map      { long _handle; } MapRef_t;
 typedef struct Object   { long _handle; } ObjectRef_t;
 
+typedef uint64_t time_t;
+
 typedef struct UplinkConfig {
     struct {
         struct {
@@ -67,31 +69,30 @@ typedef struct EncryptionAccess {
     char key[32];
 } EncryptionAccess_t;
 
-/*
-typedef struct Object {
+typedef struct ObjectInfo {
     uint32_t   version;
-    BucketInfo bucket;
+    BucketInfo_t bucket;
     char       *path;
     bool       is_prefix;
-    Map        metadata;
+    MapRef_t        metadata;
     char       *content_type;
     time_t     created;
     time_t     modified;
     time_t     expires;
-} Object_t;
+} ObjectInfo_t;
 
 typedef struct ObjectList {
     char *bucket;
     char *prefix;
     bool more;
     // TODO: use Slice_t{void *items; length int32;?
-    Object_t *items;
+    ObjectInfo_t *items;
     int32_t length;
 } ObjectList_t;
 
 typedef struct UploadOptions {
     char *content_type;
-    Map    metadata;
+    MapRef_t    metadata;
     time_t expires;
 } UploadOptions_t;
 
@@ -105,15 +106,15 @@ typedef struct ListOptions {
 } ListOptions_t;
 
 typedef struct ObjectMeta {
-    char *Bucket;
-    char *Path;
-    bool IsPrefix;
-    char *ContentType;
-    Map    MetaData;
-    uint64_t Created;
-    uint64_t Modified;
-    uint64_t Expires;
-    uint64_t Size;
-    Bytes    Checksum;
+    char *bucket;
+    char *path;
+    bool is_prefix;
+    char *content_type;
+    MapRef_t meta_data;
+    time_t created;
+    time_t modified;
+    time_t expires;
+    uint64_t size;
+    uint8_t *checksum_bytes;
+    uint8_t *checksum_length;
 } ObjectMeta_t;
- */

@@ -21,27 +21,6 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-// OpenObject returns an Object handle, if authorized.
-//export OpenObject
-func OpenObject(cBucket C.BucketRef_t, cpath *C.char, cErr **C.char) (objectRef C.ObjectRef_t) {
-	ctx := context.Background()
-
-	bucket, ok := structRefMap.Get(token(cBucket)).(*uplink.Bucket)
-	if !ok {
-		*cErr = C.CString("invalid bucket")
-		return objectRef
-	}
-
-	path := storj.JoinPaths(C.GoString(cpath))
-	object, err := bucket.OpenObject(ctx, path)
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return objectRef
-	}
-
-	return C.ObjectRef_t(structRefMap.Add(object))
-}
-
 // UploadObject uploads a new object, if authorized.
 //export UploadObject
 func UploadObject(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.UploadOptions_t, cErr **C.char) {
@@ -112,48 +91,15 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 
 	for i, object := range objectList.Items {
 		nextAddress := uintptr(int(cObjectsPtr) + (i * objectSize))
-		cObject := (*C.ObjectRef_t)(unsafe.Pointer(nextAddress))
-		*cObject = NewCObject(&object)
+		cObject := (*C.ObjectInfo_t)(unsafe.Pointer(nextAddress))
+		*cObject = newObjectInfo(&object)
 	}
 
 	return C.ObjectList_t{
 		bucket: C.CString(objectList.Bucket),
 		prefix: C.CString(objectList.Prefix),
 		more: C.bool(objectList.More),
-		items:  (*C.ObjectRef_t)(unsafe.Pointer(cObjectsPtr)),
+		items:  (*C.ObjectInfo_t)(unsafe.Pointer(cObjectsPtr)),
 		length: C.int32_t(objListLen),
-	}
-}
-
-// CloseBucket closes the Bucket session.
-//export CloseBucket
-func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
-	bucket, ok := structRefMap.Get(token(bucketRef)).(*uplink.Bucket)
-	if !ok {
-		*cErr = C.CString("invalid bucket")
-		return
-	}
-
-
-	if err := bucket.Close(); err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-
-	structRefMap.Del(token(bucketRef))
-}
-
-// NewCObject returns a C object struct converted from a go object struct.
-func NewCObject(object *storj.Object) C.ObjectRef_t {
-	return C.ObjectRef_t {
-		version:      C.uint32_t(object.Version),
-		bucket:       NewCBucket(&object.Bucket),
-		path:         C.CString(object.Path),
-		is_prefix:    C.bool(object.IsPrefix),
-		metadata:     C.MapRef_t(structRefMap.Add(object.Metadata)),
-		content_type: C.CString(object.ContentType),
-		created: C.time_t(object.Created.Unix()),
-		modified: C.time_t(object.Modified.Unix()),
-		expires: C.time_t(object.Expires.Unix()),
 	}
 }
