@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/satellite/marketing"
 
 	"github.com/stretchr/testify/require"
@@ -35,42 +37,106 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 	consoleDB := store.Console()
 
 	user, referrer, offer, err := setupData(ctx, store)
+	randomID, err := uuid.New()
 	require.NoError(t, err)
 
-	userCredit := console.UserCredit{
-		UserID:               user.ID,
-		OfferID:              offer.ID,
-		ReferredBy:           referrer.ID,
-		CreditsEarnedInCents: 100,
-		ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+	var inValidUserCredits = []struct {
+		userCredit console.UserCredit
+	}{
+		{
+			userCredit: console.UserCredit{
+				UserID:               *randomID,
+				OfferID:              offer.ID,
+				ReferredBy:           referrer.ID,
+				CreditsEarnedInCents: 100,
+				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+			},
+		},
+		{
+			userCredit: console.UserCredit{
+				UserID:               user.ID,
+				OfferID:              10,
+				ReferredBy:           referrer.ID,
+				CreditsEarnedInCents: 100,
+				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+			},
+		},
+		{
+			userCredit: console.UserCredit{
+				UserID:               user.ID,
+				OfferID:              offer.ID,
+				ReferredBy:           *randomID,
+				CreditsEarnedInCents: 100,
+				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+			},
+		},
 	}
-	chargedCredits := 100
 
-	_, err = consoleDB.UserCredits().Create(ctx, userCredit)
-	require.NoError(t, err)
-
-	{
-		referredCount, err := consoleDB.UserCredits().TotalReferredCount(ctx, referrer.ID)
-		require.NoError(t, err)
-		require.Equal(t, int64(1), referredCount)
+	for _, ivc := range inValidUserCredits {
+		_, err := consoleDB.UserCredits().Create(ctx, ivc.userCredit)
+		require.Error(t, err)
 	}
 
-	{
-		err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, chargedCredits, user.ID, time.Now().UTC())
-		require.NoError(t, err)
+	var validUserCredits = []struct {
+		userCredit     console.UserCredit
+		chargedCredits int
+		expected       int
+	}{
+		{
+			userCredit: console.UserCredit{
+				UserID:               user.ID,
+				OfferID:              offer.ID,
+				ReferredBy:           referrer.ID,
+				CreditsEarnedInCents: 100,
+				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+			},
+			chargedCredits: 100,
+			expected:       0,
+		},
+		{
+			userCredit: console.UserCredit{
+				UserID:               user.ID,
+				OfferID:              offer.ID,
+				ReferredBy:           referrer.ID,
+				CreditsEarnedInCents: 100,
+				ExpiresAt:            time.Now().UTC().AddDate(0, 0, -5),
+			},
+			chargedCredits: 60,
+			expected:       0,
+		},
 	}
 
-	{
-		availableCredits, err := consoleDB.UserCredits().AvailableCredits(ctx, user.ID, time.Now().UTC())
+	for i, vc := range validUserCredits {
+		_, err = consoleDB.UserCredits().Create(ctx, vc.userCredit)
 		require.NoError(t, err)
-		var sum int
-		for i := range availableCredits {
-			sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
+
+		{
+			referredCount, err := consoleDB.UserCredits().TotalReferredCount(ctx, vc.userCredit.ReferredBy)
+			if err != nil {
+				require.True(t, uuid.Equal(*randomID, vc.userCredit.ReferredBy))
+				continue
+			}
+			require.NoError(t, err)
+			require.Equal(t, int64(i+1), referredCount)
 		}
 
-		require.Equal(t, 0, sum)
-	}
+		{
+			err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
+			require.NoError(t, err)
+		}
 
+		{
+			availableCredits, err := consoleDB.UserCredits().AvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
+			require.NoError(t, err)
+			var sum int
+			for i := range availableCredits {
+				sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, vc.expected, sum)
+		}
+	}
 }
 
 func setupData(ctx context.Context, store satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer, err error) {
