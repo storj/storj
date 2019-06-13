@@ -96,9 +96,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (s *Server) parseTemplates() (err error) {
 	homeFiles := append(s.commonPages(),
 		filepath.Join(s.templateDir, "home.html"),
-		filepath.Join(s.templateDir, "refOffers.html"),
-		filepath.Join(s.templateDir, "freeOffers.html"),
-		filepath.Join(s.templateDir, "ref-offers-modal.html"),
+		filepath.Join(s.templateDir, "referral-offers.html"),
+		filepath.Join(s.templateDir, "referral-offers-modal.html"),
+		filepath.Join(s.templateDir, "free-offers.html"),
 		filepath.Join(s.templateDir, "free-offers-modal.html"),
 	)
 
