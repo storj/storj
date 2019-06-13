@@ -21,85 +21,38 @@ var falsePositiveProbability float64
 // and then checks all 1 million piece ids with the bloom filter
 // measure times, memory allocation, false positives
 
-func Init() {
-	if !initDone {
-		totalNbPieces = 1000000
-		nbPiecesInFilter = 950000
-		pieceIDs = GenerateIDs(totalNbPieces)
-		initDone = true
-		falsePositiveProbability = 0.1
-	}
+func TestMain(m *testing.M) {
+	totalNbPieces = 1000000
+	nbPiecesInFilter = 950000
+	pieceIDs = GenerateIDs(totalNbPieces)
+	initDone = true
+	falsePositiveProbability = 0.1
+	m.Run()
 }
 
-func benchmarkAdd(filter Filter, pieceIDs [][]byte, b *testing.B) {
-	for _, pieceID := range pieceIDs {
-		filter.Add(pieceID)
-	}
-}
-
-func benchmarkContains(filter Filter, pieceIDs [][]byte, b *testing.B) (nbPiecesIn int) {
-	nbPiecesIn = 0
-	for _, pieceID := range pieceIDs {
-		if filter.Contains(pieceID) {
-			nbPiecesIn++
-		}
-	}
-	return
-}
-
-func benchmarkFilter(filter Filter, pieceIDs [][]byte, b *testing.B) (p float64) {
-	b.ReportAllocs()
-	Init()
-
-	benchmarkAdd(filter, pieceIDs[0:nbPiecesInFilter], b)
-	nbIn := benchmarkContains(filter, pieceIDs[0:nbPiecesInFilter], b)
-	if nbIn < nbPiecesInFilter {
-		// we have a false negative - it should not happen
-		b.Fatal("False negative!")
-	}
-	nbIn = benchmarkContains(filter, pieceIDs[nbPiecesInFilter:], b)
-	falsePositiveP := float64(nbIn) / float64(len(pieceIDs[nbPiecesInFilter:]))
-	if falsePositiveP > falsePositiveProbability {
-		b.Log("False positive ratio: ", falsePositiveP, " - greater than expected :", falsePositiveProbability)
-	}
-	b.Log("False positive ratio: ", falsePositiveP)
-	return falsePositiveP
-}
-
-func BenchmarkInit(b *testing.B) {
-	Init()
-}
 func BenchmarkCustomFilter(b *testing.B) {
-	Init()
-	filter := NewCustomFilter(len(pieceIDs), falsePositiveProbability)
-	benchmarkFilter(filter, pieceIDs, b)
+	b.ReportAllocs()
+	benchmarkFilter(b, NewCustomFilter(len(pieceIDs), falsePositiveProbability), pieceIDs)
 }
 
 func BenchmarkFilterZeebo(b *testing.B) {
-	Init()
-	filter := NewZeeboBloomFilter(uint(len(pieceIDs)), falsePositiveProbability)
-	benchmarkFilter(filter, pieceIDs, b)
+	b.ReportAllocs()
+	benchmarkFilter(b, NewZeeboBloomFilter(uint(len(pieceIDs)), falsePositiveProbability), pieceIDs)
 }
 
 func BenchmarkFilterWillf(b *testing.B) {
-	Init()
-	benchmarkFilter(NewWillfBloomFilter(uint(len(pieceIDs)), falsePositiveProbability), pieceIDs, b)
+	b.ReportAllocs()
+	benchmarkFilter(b, NewWillfBloomFilter(uint(len(pieceIDs)), falsePositiveProbability), pieceIDs)
 }
 
 func BenchmarkFilterSteakknife(b *testing.B) {
-	Init()
-	benchmarkFilter(NewSteakknifeBloomFilter(uint64(len(pieceIDs)), falsePositiveProbability), pieceIDs, b)
+	b.ReportAllocs()
+	benchmarkFilter(b, NewSteakknifeBloomFilter(uint64(len(pieceIDs)), falsePositiveProbability), pieceIDs)
 }
 
 func BenchmarkFilterCuckoo(b *testing.B) {
-	Init()
-	benchmarkFilter(NewCuckooFilter(len(pieceIDs)), pieceIDs, b)
-}
-
-func benchmarkEncode(filter Filter, pieceIDs [][]byte, b *testing.B) int {
-	benchmarkAdd(filter, pieceIDs[0:nbPiecesInFilter], b)
-	filterAsBytes := filter.Encode()
-	return len(filterAsBytes)
+	b.ReportAllocs()
+	benchmarkFilter(b, NewCuckooFilter(len(pieceIDs)), pieceIDs)
 }
 
 func BenchmarkEncodedSize(b *testing.B) {
@@ -114,7 +67,6 @@ func BenchmarkEncodedSize(b *testing.B) {
 			b.Fatal(err.Error())
 		}
 	}()
-	Init()
 
 	names := []string{"Zeebo", "Willf", "Steakknife", "Custom"}
 
@@ -157,8 +109,8 @@ func BenchmarkEncodedSize(b *testing.B) {
 		filters[3] = NewCustomFilter(len(pieceIDs), p)
 
 		for _, f := range filters {
-			realP := benchmarkFilter(f, pieceIDs, b)
-			size := benchmarkEncode(f, pieceIDs, b)
+			realP := benchmarkFilter(b, f, pieceIDs)
+			size := benchmarkEncode(b, f, pieceIDs)
 			_, err = file.WriteString(fmt.Sprintf("%d\t%.2f\t", size, realP))
 			if err != nil {
 				b.Fatal(err.Error())
@@ -170,6 +122,49 @@ func BenchmarkEncodedSize(b *testing.B) {
 		}
 		p += 0.01
 	}
+}
+
+func benchmarkAdd(b *testing.B, filter Filter, pieceIDs [][]byte) {
+	b.Helper()
+	for _, pieceID := range pieceIDs {
+		filter.Add(pieceID)
+	}
+}
+
+func benchmarkContains(b *testing.B, filter Filter, pieceIDs [][]byte) (nbPiecesIn int) {
+	b.Helper()
+	nbPiecesIn = 0
+	for _, pieceID := range pieceIDs {
+		if filter.Contains(pieceID) {
+			nbPiecesIn++
+		}
+	}
+	return
+}
+
+func benchmarkFilter(b *testing.B, filter Filter, pieceIDs [][]byte) (p float64) {
+	b.Helper()
+	benchmarkAdd(b, filter, pieceIDs[0:nbPiecesInFilter])
+	nbIn := benchmarkContains(b, filter, pieceIDs[0:nbPiecesInFilter])
+	if nbIn < nbPiecesInFilter {
+		// we have a false negative - it should not happen
+		b.Fatal("False negative!")
+	}
+	nbIn = benchmarkContains(b, filter, pieceIDs[nbPiecesInFilter:])
+	falsePositiveP := float64(nbIn) / float64(len(pieceIDs[nbPiecesInFilter:]))
+	if falsePositiveP > falsePositiveProbability {
+		b.Log("False positive ratio: ", falsePositiveP, " - greater than expected :", falsePositiveProbability)
+	} else {
+		b.Log("False positive ratio: ", falsePositiveP)
+	}
+	return falsePositiveP
+}
+
+func benchmarkEncode(b *testing.B, filter Filter, pieceIDs [][]byte) int {
+	b.Helper()
+	benchmarkAdd(b, filter, pieceIDs[0:nbPiecesInFilter])
+	filterAsBytes := filter.Encode()
+	return len(filterAsBytes)
 }
 
 // GenerateIDs generates nbPieces piece ids

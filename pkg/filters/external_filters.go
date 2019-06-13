@@ -9,6 +9,7 @@ import (
 	"hash/fnv"
 	"math"
 
+	cuckoo "github.com/seiflotfy/cuckoofilter"
 	steakknife "github.com/steakknife/bloomfilter"
 	willf "github.com/willf/bloom"
 	zeebo "github.com/zeebo/sbloom"
@@ -27,6 +28,11 @@ type WillfBloomFilter struct {
 // SteakknifeBloomFilter is a bloom filter from steakknife
 type SteakknifeBloomFilter struct {
 	filter *steakknife.Filter
+}
+
+// CuckooFilter is a cuckoo filter
+type CuckooFilter struct {
+	filter *cuckoo.Filter
 }
 
 // NewZeeboBloomFilter returns a zeebo bloom filter
@@ -126,4 +132,27 @@ func (sbf *SteakknifeBloomFilter) Contains(pieceID []byte) bool {
 func (sbf *SteakknifeBloomFilter) Encode() []byte {
 	toReturn, _ := sbf.filter.GobEncode()
 	return toReturn
+}
+
+// Add adds
+func (cf *CuckooFilter) Add(pieceID []byte) {
+	cf.filter.Insert(pieceID)
+}
+
+// Contains returns true if it is contained
+func (cf *CuckooFilter) Contains(pieceID []byte) bool {
+	return cf.filter.Lookup(pieceID)
+}
+
+// Encode returns an array of bytes representing the filter
+func (cf *CuckooFilter) Encode() []byte {
+	return cf.filter.Encode()
+}
+
+// NewCuckooFilter returns a new cuckoo filter
+func NewCuckooFilter(maxSize int) *CuckooFilter {
+	var cf CuckooFilter
+
+	cf.filter = cuckoo.NewFilter(uint(maxSize))
+	return &cf
 }
