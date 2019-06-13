@@ -87,17 +87,13 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Checking vouchers")
 
-	allSatellites, err := service.archive.ListSatellites(ctx)
-	if err != nil {
-		service.log.Error("listing satellites", zap.Error(err))
-		return nil
-	}
+	satellites := service.trust.GetSatellites((ctx))
 
-	if len(allSatellites) > 0 {
+	if len(satellites) > 0 {
 		var group errgroup.Group
 		ctx, cancel := context.WithTimeout(ctx, time.Hour)
 		defer cancel()
-		for _, sat := range allSatellites {
+		for _, sat := range satellites {
 			sat := sat
 			need, err := service.vdb.NeedVoucher(ctx, sat, service.expirationBuffer)
 			if err != nil {
