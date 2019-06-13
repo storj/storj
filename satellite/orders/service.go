@@ -159,7 +159,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        uplink.ID,
 			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
+			PieceId:         rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:          pb.PieceAction_GET,
 			Limit:           pieceSize,
 			PieceExpiration: expiration,
@@ -221,7 +221,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        uplink.ID,
 			StorageNodeId:   node.Id,
-			PieceId:         rootPieceID.Derive(node.Id),
+			PieceId:         rootPieceID.Derive(node.Id, pieceNum),
 			Action:          pb.PieceAction_PUT,
 			Limit:           maxPieceSize,
 			PieceExpiration: expiration,
@@ -298,7 +298,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        uplink.ID,
 			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
+			PieceId:         rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:          pb.PieceAction_DELETE,
 			Limit:           0,
 			PieceExpiration: expiration,
@@ -383,7 +383,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        auditor.ID,
 			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
+			PieceId:         rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:          pb.PieceAction_GET_AUDIT,
 			Limit:           int64(shareSize),
 			PieceExpiration: expiration,
@@ -418,7 +418,8 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 }
 
 // CreateAuditOrderLimit creates an order limit for auditing a single the piece from a pointer.
-func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, nodeID storj.NodeID, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
+	// TODO reduce number of params ?
 	defer mon.Task()(&ctx)(&err)
 	// convert orderExpiration from duration to timestamp
 	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
@@ -450,7 +451,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		SatelliteId:     service.satellite.ID(),
 		UplinkId:        auditor.ID,
 		StorageNodeId:   nodeID,
-		PieceId:         rootPieceID.Derive(nodeID),
+		PieceId:         rootPieceID.Derive(nodeID, pieceNum),
 		Action:          pb.PieceAction_GET_AUDIT,
 		Limit:           int64(shareSize),
 		OrderExpiration: orderExpiration,
@@ -526,7 +527,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        repairer.ID,
 			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
+			PieceId:         rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:          pb.PieceAction_GET_REPAIR,
 			Limit:           pieceSize,
 			PieceExpiration: expiration,
@@ -585,13 +586,13 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	var pieceNum int
+	var pieceNum int32
 	for _, node := range newNodes {
-		for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {
+		for int(pieceNum) < totalPieces && getOrderLimits[pieceNum] != nil {
 			pieceNum++
 		}
 
-		if pieceNum >= totalPieces { // should not happen
+		if int(pieceNum) >= totalPieces { // should not happen
 			return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
 		}
 
@@ -600,7 +601,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			SatelliteId:     service.satellite.ID(),
 			UplinkId:        repairer.ID,
 			StorageNodeId:   node.Id,
-			PieceId:         rootPieceID.Derive(node.Id),
+			PieceId:         rootPieceID.Derive(node.Id, pieceNum),
 			Action:          pb.PieceAction_PUT_REPAIR,
 			Limit:           pieceSize,
 			PieceExpiration: expiration,

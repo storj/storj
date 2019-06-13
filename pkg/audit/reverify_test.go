@@ -74,7 +74,7 @@ func TestReverifySuccess(t *testing.T) {
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, rootPieceID, shareSize)
+		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(pieces[0].PieceNum))
@@ -156,7 +156,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, rootPieceID, shareSize)
+		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(pieces[0].PieceNum))
@@ -175,9 +175,9 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the piece from the first node
-		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
-		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
-		node := getStorageNode(planet, nodeID)
+		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
+		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
