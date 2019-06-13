@@ -7,34 +7,34 @@ package main
 import "C"
 
 import (
-	"storj.io/storj/lib/uplink"
+	libuplink "storj.io/storj/lib/uplink"
 )
 
 // Project is a scoped uplink.Project
 type Project struct {
 	scope
-	*uplink.Project
+	*libuplink.Project
 }
 
 //export open_project
 // open_project opens project using uplink
 func open_project(uplinkHandle C.UplinkRef_t, satelliteAddr *C.char, apikeyHandle C.APIKeyRef_t, cerr **C.char) C.ProjectRef_t {
-	up, ok := universe.Get(uplinkHandle._handle).(*Uplink)
+	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
 		return C.ProjectRef_t{}
 	}
 
-	apikey, ok := universe.Get(apikeyHandle._handle).(uplink.APIKey)
+	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
 	if !ok {
 		*cerr = C.CString("invalid apikey")
 		return C.ProjectRef_t{}
 	}
 
-	scope := up.scope.child()
+	scope := uplink.scope.child()
 
 	// TODO: add project options argument
-	project, err := up.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
+	project, err := uplink.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.ProjectRef_t{}

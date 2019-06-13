@@ -50,3 +50,4 @@ func close_uplink(uplinkHandle C.UplinkRef_t, cerr **C.char) {
 		return
 	}
 }
+

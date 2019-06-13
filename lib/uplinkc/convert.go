@@ -6,8 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
-	"unsafe"
-
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -22,13 +21,6 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo_t {
 		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
 		redundancy_scheme:     convertRedundancyScheme(&bucket.RedundancyScheme),
 	}
-}
-
-// free_bucket_info frees bucket info.
-//export free_bucket_info
-func free_bucket_info(bucketInfo *C.BucketInfo_t) {
-	C.free(unsafe.Pointer(bucketInfo.name))
-	bucketInfo.name = nil
 }
 
 // convertEncryptionParameters converts Go EncryptionParameters to C.
@@ -48,5 +40,14 @@ func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme_
 		repair_shares:   C.int16_t(scheme.RepairShares),
 		optimal_shares:  C.int16_t(scheme.OptimalShares),
 		total_shares:    C.int16_t(scheme.TotalShares),
+	}
+}
+
+// newBucketConfig returns a C bucket config struct converted from a go bucket config struct.
+func newBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
+	return C.BucketConfig_t{
+		encryption_parameters: convertEncryptionParameters(&bucketCfg.EncryptionParameters),
+		redundancy_scheme:     convertRedundancyScheme(&bucketCfg.Volatile.RedundancyScheme),
+		path_cipher:           C.uint8_t(bucketCfg.PathCipher),
 	}
 }

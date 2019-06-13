@@ -184,3 +184,10 @@ func get_bucket_info(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.
 
 	return newBucketInfo(&bucket)
 }
+
+// free_bucket_info frees bucket info.
+//export free_bucket_info
+func free_bucket_info(bucketInfo *C.BucketInfo_t) {
+	C.free(unsafe.Pointer(bucketInfo.name))
+	bucketInfo.name = nil
+}
