@@ -18,7 +18,7 @@ This process including the Storage nodes transferring their pieces to other node
 	- The sending of tokens will happen through our normal token payment process
 
 
-##SCENARIOS
+## SCENARIOS
 
 - A storage node successfully completes a graceful exit
 - A storage node cancels the graceful exit process
@@ -29,7 +29,7 @@ This process including the Storage nodes transferring their pieces to other node
 - A storage node wants to rejoin a satellite it previously exited
 
 
-##Business Requirements/ Job Stories
+## Business Requirements/ Job Stories
 
 - When a Storage Node runs the graceful exit command I want them to be prompted with a confirmation message so that we can avoid storage nodes running the command accidentally
 	- Something like “Are you sure you want to run graceful exit? Graceful exit sends the 1.2 TB of data you are storing to other storage nodes so you will no longer be paid for storing this data. This process can take several hours to complete please your storage node running until it is completed.”
@@ -41,7 +41,7 @@ This process including the Storage nodes transferring their pieces to other node
 	- The satellite must mark the storage node as ‘exited’ and the SN should update its satellite whitelist so that it rejects any future requests from that satellite.
 - When a Storage Node operator wants to reduce the amount of storage space they have allocated to the network I want them to have the ability to do a “partial graceful exit which would transfer some of the data they currently have onto other nodes so they have a way of reducing thier storage allocation without just deleting data and failing audits. 
 - When a Storage node triggers graceful exit for a satellite I want that node to be omitted from the node selection process so they are no longer selected to store data on the network
-- When a Storage node triggers graceful exit on a satellite but they do NOT have enough allocated bandwidth to send the data to other nodes I want the the SNO to be prompted about what action they would like to take. 
+- When a Storage node triggers graceful exit on a satellite but they do NOT have enough allocated bandwidth to send the data to other nodes I want the SNO to be prompted about what action they would like to take. 
 	- Continue the graceful exit and exceed the bandwidth allocation the SNO originally setup
 	- Wait until the SNO has enough available bandwidth
 	- Cancel the graceful exit 
@@ -52,6 +52,7 @@ This process including the Storage nodes transferring their pieces to other node
 		- NodeID
 		- Wallet address
 		- The date the node joined the network
+		- The date the node exited
 		- GB Transferred (amount of data the node transferred during exiting)
 - When a node exits the network gracefully I want the satellite to have the ability to track what egress they used for exiting so that we do not pay them for that bandwidth. 
 
@@ -59,4 +60,3 @@ This process including the Storage nodes transferring their pieces to other node
 ## DESIGN OVERVIEW
 
 - Receiving storage nodes should be uploaded to as if they were receiving any other upload (orders, etc)
-IMPLEMENTATION MILESTONES
