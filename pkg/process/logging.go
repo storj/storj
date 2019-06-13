@@ -21,9 +21,9 @@ var (
 
 	logLevel = zap.LevelFlag("log.level", func() zapcore.Level {
 		if isDev() {
-			return zapcore.InfoLevel
+			return zapcore.DebugLevel
 		}
-		return zapcore.DebugLevel
+		return zapcore.InfoLevel
 	}(), "the minimum log level to log")
 	logDev      = flag.Bool("log.development", isDev(), "if true, set logging to development mode")
 	logCaller   = flag.Bool("log.caller", isDev(), "if true, log function filename and line number")
