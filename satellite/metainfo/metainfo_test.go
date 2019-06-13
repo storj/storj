@@ -312,6 +312,7 @@ func TestCommitSegment(t *testing.T) {
 				pieces[i] = &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
+					Hash:     &pb.PieceHash{},
 				}
 			}
 
@@ -415,6 +416,29 @@ func TestCommitSegmentPointer(t *testing.T) {
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
+		{
+			// no piece hash removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash = nil
+			},
+			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+		},
+		{
+			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				oldTimestamp, err := ptypes.TimestampProto(time.Now().Add(-time.Hour * 24))
+				require.NoError(t, err)
+				pointer.Remote.RemotePieces[0].Hash.Timestamp = oldTimestamp
+			},
+			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+		},
+		{
+			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
+			},
+			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -490,12 +514,15 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Clien
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
-	pointer.Remote.RemotePieces[0].NodeId = addressedLimits[0].Limit.StorageNodeId
-	pointer.Remote.RemotePieces[1].NodeId = addressedLimits[1].Limit.StorageNodeId
 
 	limits := make([]*pb.OrderLimit2, len(addressedLimits))
 	for i, addressedLimit := range addressedLimits {
 		limits[i] = addressedLimit.Limit
+
+		if len(pointer.Remote.RemotePieces) > i {
+			pointer.Remote.RemotePieces[i].NodeId = addressedLimits[i].Limit.StorageNodeId
+			pointer.Remote.RemotePieces[i].Hash.PieceId = addressedLimits[i].Limit.PieceId
+		}
 	}
 
 	return pointer, limits
@@ -518,9 +545,15 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 			RemotePieces: []*pb.RemotePiece{
 				&pb.RemotePiece{
 					PieceNum: 0,
+					Hash: &pb.PieceHash{
+						Timestamp: ptypes.TimestampNow(),
+					},
 				},
 				&pb.RemotePiece{
 					PieceNum: 1,
+					Hash: &pb.PieceHash{
+						Timestamp: ptypes.TimestampNow(),
+					},
 				},
 			},
 		},

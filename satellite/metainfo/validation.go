@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -263,6 +264,28 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 	// TODO more validation, use validation from eestream.NewRedundancyStrategy
 	if redundancy.ErasureShareSize <= 0 {
 		return Error.New("erasure share size cannot be less than 0")
+	}
+	return nil
+}
+
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit2) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if piece.Hash == nil {
+		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+	}
+
+	timestamp, err := ptypes.Timestamp(piece.Hash.Timestamp)
+	if err != nil {
+		return errs.New("unable to read piece hash timestamp, removing from pointer %v (%v): %v", piece.NodeId, piece.PieceNum, err)
+	}
+	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
+		return errs.New("piece hash timestamp to old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+	}
+
+	limit := limits[piece.PieceNum]
+	if limit == nil || limit.PieceId != piece.Hash.PieceId {
+		return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
 	}
 	return nil
 }

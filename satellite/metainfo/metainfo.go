@@ -28,6 +28,9 @@ import (
 	"storj.io/storj/storage"
 )
 
+// TODO make it configurable ?
+const pieceHashExpiration = time.Hour * 2
+
 var (
 	mon = monkit.Package()
 	// Error general metainfo error
@@ -229,7 +232,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.filterValidPieces(ctx, req.Pointer)
+	err = endpoint.filterValidPieces(ctx, req.Pointer, req.OriginalLimits)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -448,7 +451,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer) (err error) {
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit2) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
@@ -466,6 +469,13 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			// 	// TODO satellite should send Delete request for piece that failed
 			// 	s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
 			// }
+
+			err = endpoint.validatePieceHash(ctx, piece, limits)
+			if err != nil {
+				// TODO should this be logged also to uplink somehow ?
+				endpoint.log.Sugar().Warn(err)
+				continue
+			}
 
 			remotePieces = append(remotePieces, piece)
 		}
