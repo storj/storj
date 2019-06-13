@@ -187,6 +187,9 @@ kademlia.operator.wallet: ""
 # application suffix
 # metrics.app-suffix: "-release"
 
+# instance id prefix
+# metrics.instance-prefix: ""
+
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
 
