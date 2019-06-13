@@ -11,6 +11,7 @@
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import { validateEmail } from '@/utils/validation';
+    import EVENTS from '@/utils/constants/analyticsEventNames';
 
     @Component(
         {
@@ -46,10 +47,12 @@
                     this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
                 },
                 onBackToLoginClick: function() {
+                    this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
                     this.$router.push(ROUTES.LOGIN.path);
                 },
                 onLogoClick: function () {
-                   location.reload();
+                    this.$segment.track(EVENTS.CLICKED_LOGO);
+                    location.reload();
                 },
                 validateFields: function (): boolean {
                     const isEmailValid = validateEmail(this.$data.email.trim());
@@ -60,7 +63,7 @@
 
                     return isEmailValid;
                 }
-            }
+            },
         })
 
     export default class ForgotPassword extends Vue {
