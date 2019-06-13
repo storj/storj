@@ -20,18 +20,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Time converter is used by decoder to format expiration date field from form input
-var (
-	Error       = errs.Class("satellite marketing error")
-	decoder     = schema.NewDecoder()
-	timeConverter = func(value string) reflect.Value {
-		v, err := time.Parse("2006-01-02",value)
-		if err != nil {
-			return reflect.Value{}
-		}
-		return reflect.ValueOf(v)
-	}
-)
+var Error = errs.Class("satellite marketing error")
 
 type Config struct {
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
@@ -58,8 +47,7 @@ type offerSet struct {
 	RefOffers,FreeCredits []marketing.Offer
 }
 
-// Takes db result of get offers, organizes them by type and returns them
-// Used by the index handler to build render the tables
+// Organizes offers from database by type.
 func organizeOffers(offers []marketing.Offer) offerSet{
 	os := new(offerSet)
 	for _,offer := range offers {
@@ -97,8 +85,8 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	if s.config.StaticDir != "" {
 		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
-		mux.HandleFunc("/createFreeCredit", s.createOffer)
-		mux.HandleFunc("/createRefOffer", s.createOffer)
+		mux.HandleFunc("/create-free-credit", s.createOffer)
+		mux.HandleFunc("/create-ref-offer", s.createOffer)
 	}
 	s.server.Handler = mux
 
@@ -167,16 +155,24 @@ func (s *Server) parseTemplates() (err error) {
 	return nil
 }
 
+// Time converter is used by decoder in formToStruct to format expiration date field from form input.
+func timeConverter(value string) reflect.Value {
+	v, err := time.Parse("2006-01-02",value)
+	if err != nil {
+		return reflect.Value{}
+	}
+	return reflect.ValueOf(v)
+}
 
-
-// Helper function used by createOffer to turn post form input into a new offer
-func (s *Server) formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
+// formToStruct is used by createOffer to format post form input into a newOffer.
+func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
 	err := req.ParseForm()
 	if err != nil {
 		return o, err
 	}
 	defer req.Body.Close()
 
+	decoder := schema.NewDecoder()
 	decoder.RegisterConverter(time.Time{}, timeConverter)
 
 	if err := decoder.Decode(&o, req.PostForm);err != nil {
@@ -185,8 +181,9 @@ func (s *Server) formToStruct(w http.ResponseWriter, req *http.Request) (o marke
 	return o,nil
 }
 
+// Handler for POST requests to create, insert, and start a new offer or credit.
 func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
-	o, err := s.formToStruct(w,req)
+	o, err := formToStruct(w,req)
 	if err != nil{
 		s.log.Error("err from createFreeCredit Handler", zap.Error(err))
 		s.serveInternalError(w,req,err)
@@ -195,7 +192,7 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 
 	o.Status = marketing.Active
 
-	if req.URL.Path == "/createRefOffer" {
+	if req.URL.Path == "/create-ref-offer" {
 		o.Type = marketing.Referral
 	}else{
 		o.Type = marketing.FreeCredit
@@ -210,6 +207,7 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w,req,"/",http.StatusFound)
 }
 
+// Handler for 404 errors. Defaults to 500 if template fails parsing.
 func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
@@ -221,6 +219,7 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// Handler for 500 errors and also renders err to the internalErr template.
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e error) {
 
 	w.WriteHeader(http.StatusInternalServerError)
@@ -229,6 +228,7 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e 
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
+
 
 func (s *Server) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
