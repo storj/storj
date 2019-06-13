@@ -10,7 +10,6 @@ import (
 	"database/sql/driver"
 	"encoding/base32"
 	"encoding/json"
-	"strconv"
 
 	"github.com/zeebo/errs"
 )
@@ -71,8 +70,13 @@ func (id PieceID) Bytes() []byte { return id[:] }
 func (id PieceID) Derive(storagenodeID NodeID, pieceNum int32) PieceID {
 	// TODO: should the secret / content be swapped?
 	mac := hmac.New(sha512.New, id.Bytes())
-	_, _ = mac.Write(storagenodeID.Bytes())               // on hash.Hash write never returns an error
-	_, _ = mac.Write([]byte(strconv.Itoa(int(pieceNum)))) // on hash.Hash write never returns an error
+	_, _ = mac.Write(storagenodeID.Bytes()) // on hash.Hash write never returns an error
+	_, _ = mac.Write([]byte{
+		byte(uint32(pieceNum) >> 0),
+		byte(uint32(pieceNum) >> 8),
+		byte(uint32(pieceNum) >> 16),
+		byte(uint32(pieceNum) >> 24),
+	}) // on hash.Hash write never returns an error
 	var derived PieceID
 	copy(derived[:], mac.Sum(nil))
 	return derived
