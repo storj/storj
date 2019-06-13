@@ -120,12 +120,13 @@ func (k *Kademlia) Queried() {
 // stored in the local routing table.
 func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return k.routingTable.FindNear(start, limit)
+	return k.routingTable.FindNear(ctx, start, limit)
 }
 
 // GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
-func (k *Kademlia) GetBucketIds() (storage.Keys, error) {
-	return k.routingTable.GetBucketIds()
+func (k *Kademlia) GetBucketIds(ctx context.Context) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return k.routingTable.GetBucketIds(ctx)
 }
 
 // Local returns the local node
@@ -141,8 +142,9 @@ func (k *Kademlia) SetBootstrapNodes(nodes []pb.Node) { k.bootstrapNodes = nodes
 func (k *Kademlia) GetBootstrapNodes() []pb.Node { return k.bootstrapNodes }
 
 // DumpNodes returns all the nodes in the node database
-func (k *Kademlia) DumpNodes(ctx context.Context) ([]*pb.Node, error) {
-	return k.routingTable.DumpNodes()
+func (k *Kademlia) DumpNodes(ctx context.Context) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return k.routingTable.DumpNodes(ctx)
 }
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
@@ -298,7 +300,7 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 		}
 	} else {
 		var err error
-		nodes, err = k.routingTable.FindNear(nodeID, kb)
+		nodes, err = k.routingTable.FindNear(ctx, nodeID, kb)
 		if err != nil {
 			return pb.Node{}, err
 		}
@@ -314,7 +316,7 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 	if err != nil {
 		k.log.Warn("Error getting getKBucketID in kad lookup")
 	} else {
-		err = k.routingTable.SetBucketTimestamp(bucket[:], time.Now())
+		err = k.routingTable.SetBucketTimestamp(ctx, bucket[:], time.Now())
 		if err != nil {
 			k.log.Warn("Error updating bucket timestamp in kad lookup")
 		}
@@ -329,8 +331,8 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, isBootstrap 
 }
 
 // GetNodesWithinKBucket returns all the routing nodes in the specified k-bucket
-func (k *Kademlia) GetNodesWithinKBucket(bID bucketID) ([]*pb.Node, error) {
-	return k.routingTable.getUnmarshaledNodesFromBucket(bID)
+func (k *Kademlia) GetNodesWithinKBucket(ctx context.Context, bID bucketID) (_ []*pb.Node, err error) {
+	return k.routingTable.getUnmarshaledNodesFromBucket(ctx, bID)
 }
 
 // GetCachedNodesWithinKBucket returns all the cached nodes in the specified k-bucket
@@ -366,7 +368,7 @@ func (k *Kademlia) Run(ctx context.Context) (err error) {
 // refresh updates each Kademlia bucket not contacted in the last hour
 func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	bIDs, err := k.routingTable.GetBucketIds()
+	bIDs, err := k.routingTable.GetBucketIds(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -375,7 +377,7 @@ func (k *Kademlia) refresh(ctx context.Context, threshold time.Duration) (err er
 	var errors errs.Group
 	for _, bID := range bIDs {
 		endID := keyToBucketID(bID)
-		ts, tErr := k.routingTable.GetBucketTimestamp(bID)
+		ts, tErr := k.routingTable.GetBucketTimestamp(ctx, bID)
 		if tErr != nil {
 			errors.Add(tErr)
 		} else if now.After(ts.Add(threshold)) {
