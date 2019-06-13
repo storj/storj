@@ -11,19 +11,27 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"storj.io/storj/pkg/cfgstruct"
 )
 
 var (
 	// Error is a process error class
 	Error = errs.Class("process error")
 
-	logLevel    = zap.LevelFlag("log.level", zapcore.WarnLevel, "the minimum log level to log")
-	logDev      = flag.Bool("log.development", false, "if true, set logging to development mode")
-	logCaller   = flag.Bool("log.caller", false, "if true, log function filename and line number")
-	logStack    = flag.Bool("log.stack", false, "if true, log stack traces")
+	logLevel = zap.LevelFlag("log.level", func() zapcore.Level {
+		if isDev() {
+			return zapcore.InfoLevel
+		}
+		return zapcore.DebugLevel
+	}(), "the minimum log level to log")
+	logDev      = flag.Bool("log.development", isDev(), "if true, set logging to development mode")
+	logCaller   = flag.Bool("log.caller", isDev(), "if true, log function filename and line number")
+	logStack    = flag.Bool("log.stack", isDev(), "if true, log stack traces")
 	logEncoding = flag.String("log.encoding", "console", "configures log encoding. can either be 'console' or 'json'")
 	logOutput   = flag.String("log.output", "stderr", "can be stdout, stderr, or a filename")
 )
+
+func isDev() bool { return cfgstruct.DefaultsType() != "release" }
 
 func newLogger() (*zap.Logger, error) {
 	levelEncoder := zapcore.CapitalColorLevelEncoder
