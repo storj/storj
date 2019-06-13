@@ -12,8 +12,8 @@ import (
 )
 
 // newBucketInfo returns a C bucket struct converted from a go bucket struct.
-func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
-	return C.BucketInfo{
+func newBucketInfo(bucket *storj.Bucket) C.BucketInfo_t {
+	return C.BucketInfo_t{
 		name:         C.CString(bucket.Name),
 		created:      C.int64_t(bucket.Created.Unix()),
 		path_cipher:  C.uint8_t(bucket.PathCipher),
@@ -26,22 +26,22 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 
 // free_bucket_info frees bucket info.
 //export free_bucket_info
-func free_bucket_info(bucketInfo *C.BucketInfo) {
+func free_bucket_info(bucketInfo *C.BucketInfo_t) {
 	C.free(unsafe.Pointer(bucketInfo.name))
 	bucketInfo.name = nil
 }
 
 // convertEncryptionParameters converts Go EncryptionParameters to C.
-func convertEncryptionParameters(goParams *storj.EncryptionParameters) C.EncryptionParameters {
-	return C.EncryptionParameters{
+func convertEncryptionParameters(goParams *storj.EncryptionParameters) C.EncryptionParameters_t {
+	return C.EncryptionParameters_t{
 		cipher_suite: C.uint8_t(goParams.CipherSuite),
 		block_size:   C.int32_t(goParams.BlockSize),
 	}
 }
 
 // convertRedundancyScheme converts Go RedundancyScheme to C.
-func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme {
-	return C.RedundancyScheme{
+func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme_t {
+	return C.RedundancyScheme_t{
 		algorithm:       C.uint8_t(scheme.Algorithm),
 		share_size:      C.int32_t(scheme.ShareSize),
 		required_shares: C.int16_t(scheme.RequiredShares),

@@ -4,28 +4,25 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef struct APIKey   { long _handle; } APIKey;
-typedef struct Uplink   { long _handle; } Uplink;
-typedef struct Project  { long _handle; } Project;
-typedef struct Bucket   { long _handle; } Bucket;
-typedef struct Map      { long _handle; } Map;
-typedef struct Buffer   { long _handle; } Buffer;
-typedef struct Object   { long _handle; } Object;
-typedef struct Download { long _handle; } Download;
-typedef struct Upload   { long _handle; } Upload;
+typedef struct APIKey   { long _handle; } APIKeyRef_t;
+typedef struct Uplink   { long _handle; } UplinkRef_t;
+typedef struct Project  { long _handle; } ProjectRef_t;
+typedef struct Bucket   { long _handle; } BucketRef_t;
+typedef struct Map      { long _handle; } MapRef_t;
+typedef struct Object   { long _handle; } ObjectRef_t;
 
 typedef struct UplinkConfig {
     struct {
         struct {
-            uint8_t SkipPeerCAWhitelist;
+            bool SkipPeerCAWhitelist;
         } TLS;
     } Volatile;
-} UplinkConfig;
+} UplinkConfig_t;
 
 typedef struct EncryptionParameters {
     uint8_t cipher_suite;
     int32_t block_size;
-} EncryptionParameters;
+} EncryptionParameters_t;
 
 typedef struct RedundancyScheme {
     uint8_t algorithm;
@@ -34,7 +31,7 @@ typedef struct RedundancyScheme {
     int16_t repair_shares;
     int16_t optimal_shares;
     int16_t total_shares;
-} RedundancyScheme;
+} RedundancyScheme_t;
 
 typedef struct BucketInfo {
     char    *name;
@@ -43,32 +40,32 @@ typedef struct BucketInfo {
     uint8_t path_cipher;
     int64_t segment_size;
 
-    EncryptionParameters encryption_parameters;
-    RedundancyScheme     redundancy_scheme;
-} BucketInfo;
+    EncryptionParameters_t encryption_parameters;
+    RedundancyScheme_t     redundancy_scheme;
+} BucketInfo_t;
 
 typedef struct BucketConfig {
     uint8_t path_cipher;
 
-    EncryptionParameters encryption_parameters;
-    RedundancyScheme     redundancy_scheme;
-} BucketConfig;
+    EncryptionParameters_t encryption_parameters;
+    RedundancyScheme_t     redundancy_scheme;
+} BucketConfig_t;
 
 typedef struct BucketListOptions {
     char    *cursor;
     int8_t  direction;
     int64_t limit;
-} BucketListOptions;
+} BucketListOptions_t;
 
 typedef struct BucketList {
     bool       more;
-    BucketInfo *items;
+    BucketInfo_t *items;
     int32_t    length;
-} BucketList;
+} BucketList_t;
 
 typedef struct EncryptionAccess {
     char key[32];
-} EncryptionAccess;
+} EncryptionAccess_t;
 
 /*
 typedef struct Object {
@@ -81,7 +78,7 @@ typedef struct Object {
     time_t     created;
     time_t     modified;
     time_t     expires;
-} Object;
+} Object_t;
 
 typedef struct ObjectList {
     char *bucket;
@@ -90,17 +87,13 @@ typedef struct ObjectList {
     // TODO: use Slice_t{void *items; length int32;?
     Object_t *items;
     int32_t length;
-} ObjectList;
-
-typedef struct EncryptionAccess {
-    char key[32];
-} EncryptionAccess;
+} ObjectList_t;
 
 typedef struct UploadOptions {
     char *content_type;
     Map    metadata;
     time_t expires;
-} UploadOptions;
+} UploadOptions_t;
 
 typedef struct ListOptions {
     char *prefix;
@@ -109,7 +102,7 @@ typedef struct ListOptions {
     bool recursive;
     int8_t direction;
     int64_t limit;
-} ListOptions;
+} ListOptions_t;
 
 typedef struct ObjectMeta {
     char *Bucket;
@@ -122,5 +115,5 @@ typedef struct ObjectMeta {
     uint64_t Expires;
     uint64_t Size;
     Bytes    Checksum;
-} ObjectMeta;
+} ObjectMeta_t;
  */

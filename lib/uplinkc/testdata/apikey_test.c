@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 
     {
         // parse api key
-        APIKey apikey = parse_api_key(apikeyStr, err);
+        APIKeyRef_t apikey = parse_api_key(apikeyStr, err);
         require_noerror(*err);
         requiref(apikey._handle != 0, "got empty apikey\n");
 

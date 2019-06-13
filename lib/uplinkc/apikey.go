@@ -12,19 +12,19 @@ import (
 
 //export parse_api_key
 // parse_api_key parses an API Key
-func parse_api_key(val *C.char, cerr **C.char) (apikeyHandle C.APIKey) {
+func parse_api_key(val *C.char, cerr **C.char) (apikeyHandle C.APIKeyRef_t) {
 	apikey, err := libuplink.ParseAPIKey(C.GoString(val))
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return apikeyHandle
 	}
 
-	return C.APIKey{universe.Add(apikey)}
+	return C.APIKeyRef_t{universe.Add(apikey)}
 }
 
 //export serialize_api_key
 // serialize_api_key serializes the API Key to a string
-func serialize_api_key(apikeyHandle C.APIKey) *C.char {
+func serialize_api_key(apikeyHandle C.APIKeyRef_t) *C.char {
 	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
 	if !ok {
 		return C.CString("")
@@ -35,6 +35,6 @@ func serialize_api_key(apikeyHandle C.APIKey) *C.char {
 
 //export free_api_key
 // free_api_key frees an api key
-func free_api_key(apikeyHandle C.APIKey) {
+func free_api_key(apikeyHandle C.APIKeyRef_t) {
 	universe.Del(apikeyHandle._handle)
 }

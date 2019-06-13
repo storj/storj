@@ -8,13 +8,13 @@
 #include "uplink.h"
 #include "helpers2.h"
 
-void handle_project(Project project);
+void handle_project(ProjectRef_t project);
 
 int main(int argc, char *argv[]) {
     with_test_project(&handle_project);
 }
 
-void handle_project(Project project) {
+void handle_project(ProjectRef_t project) {
     char *_err = "";
     char **err = &_err;
 
@@ -25,8 +25,8 @@ void handle_project(Project project) {
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
 
-            BucketConfig config = test_bucket_config();
-            BucketInfo info = create_bucket(project, bucket_name, &config, err);
+            BucketConfig_t config = test_bucket_config();
+            BucketInfo_t info = create_bucket(project, bucket_name, &config, err);
             require_noerror(*err);
 
             require(strcmp(bucket_name, info.name) == 0);
@@ -47,14 +47,14 @@ void handle_project(Project project) {
     }
 
     { // listing buckets
-        BucketList bucket_list = list_buckets(project, NULL, err);
+        BucketList_t bucket_list = list_buckets(project, NULL, err);
         require_noerror(*err);
         require(bucket_list.more == 0);
         require(bucket_list.length == num_of_buckets);
         require(bucket_list.items != NULL);
 
         for(int i = 0; i < bucket_list.length; i++) {
-            BucketInfo *info = &bucket_list.items[i];
+            BucketInfo_t *info = &bucket_list.items[i];
             require(strcmp(info->name, bucket_names[i]) == 0);
             require(info->created != 0);
         }
@@ -65,7 +65,7 @@ void handle_project(Project project) {
     { // getting bucket infos
         for(int i = 0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
-            BucketInfo info = get_bucket_info(project, bucket_name, err);
+            BucketInfo_t info = get_bucket_info(project, bucket_name, err);
             require_noerror(*err);
             require(strcmp(info.name, bucket_names[i]) == 0);
             require(info.created != 0);
@@ -75,10 +75,10 @@ void handle_project(Project project) {
     }
 
     { // encryption access handling
-        EncryptionAccess access = {};
+        EncryptionAccess_t access = {};
         memcpy(&access.key[0], "abcdefghijklmnopqrstuvwxyzABCDEF", 32);
 
-        Bucket bucket = open_bucket(project, bucket_names[0], access, err);
+        BucketRef_t bucket = open_bucket(project, bucket_names[0], access, err);
         require_noerror(*err);
         requiref(bucket._handle != 0, "got empty bucket\n");
 

@@ -109,12 +109,12 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 	}
 	objListLen := len(objectList.Items)
 
-	objectSize := int(unsafe.Sizeof(C.Object_t{}))
+	objectSize := int(unsafe.Sizeof(C.ObjectRef_t{}))
 	cObjectsPtr := CMalloc(uintptr(objListLen * objectSize))
 
 	for i, object := range objectList.Items {
 		nextAddress := uintptr(int(cObjectsPtr) + (i * objectSize))
-		cObject := (*C.Object_t)(unsafe.Pointer(nextAddress))
+		cObject := (*C.ObjectRef_t)(unsafe.Pointer(nextAddress))
 		*cObject = NewCObject(&object)
 	}
 
@@ -122,7 +122,7 @@ func ListObjects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.c
 		bucket: C.CString(objectList.Bucket),
 		prefix: C.CString(objectList.Prefix),
 		more: C.bool(objectList.More),
-		items:  (*C.Object_t)(unsafe.Pointer(cObjectsPtr)),
+		items:  (*C.ObjectRef_t)(unsafe.Pointer(cObjectsPtr)),
 		length: C.int32_t(objListLen),
 	}
 }
@@ -147,8 +147,8 @@ func CloseBucket(bucketRef C.BucketRef_t, cErr **C.char) {
 
 >>>>>>> cbindings:lib/uplink/ext/bucket.go
 // NewCObject returns a C object struct converted from a go object struct.
-func NewCObject(object *storj.Object) C.Object_t {
-	return C.Object_t {
+func NewCObject(object *storj.Object) C.ObjectRef_t {
+	return C.ObjectRef_t {
 		version:      C.uint32_t(object.Version),
 		bucket:       NewCBucket(&object.Bucket),
 		path:         C.CString(object.Path),

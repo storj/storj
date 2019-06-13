@@ -18,17 +18,17 @@ type Project struct {
 
 //export open_project
 // open_project opens project using uplink
-func open_project(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
+func open_project(uplinkHandle C.UplinkRef_t, satelliteAddr *C.char, apikeyHandle C.APIKeyRef_t, cerr **C.char) C.ProjectRef_t {
 	up, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
-		return C.Project{}
+		return C.ProjectRef_t{}
 	}
 
 	apikey, ok := universe.Get(apikeyHandle._handle).(uplink.APIKey)
 	if !ok {
 		*cerr = C.CString("invalid apikey")
-		return C.Project{}
+		return C.ProjectRef_t{}
 	}
 
 	scope := up.scope.child()
@@ -37,15 +37,15 @@ func open_project(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.A
 	project, err := up.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.Project{}
+		return C.ProjectRef_t{}
 	}
 
-	return C.Project{universe.Add(&Project{scope, project})}
+	return C.ProjectRef_t{universe.Add(&Project{scope, project})}
 }
 
 //export close_project
 // close_project closes the project.
-func close_project(projectHandle C.Project, cerr **C.char) {
+func close_project(projectHandle C.ProjectRef_t, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid uplink")

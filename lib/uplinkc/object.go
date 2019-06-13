@@ -18,11 +18,11 @@ type Object struct {
 
 // open_object returns an Object handle, if authorized.
 //export open_object
-func open_object(bucketHandle C.Bucket, objectPath *C.char, cerr **C.char) C.Object {
+func open_object(bucketHandle C.BucketRef_t, objectPath *C.char, cerr **C.char) C.ObjectRef_t {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid bucket")
-		return C.Object{}
+		return C.ObjectRef_t{}
 	}
 
 	scope := bucket.scope.child()
@@ -30,15 +30,15 @@ func open_object(bucketHandle C.Bucket, objectPath *C.char, cerr **C.char) C.Obj
 	object, err := bucket.OpenObject(scope.ctx, C.GoString(objectPath))
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.Object{}
+		return C.ObjectRef_t{}
 	}
 
-	return C.Object{universe.Add(&Object{scope, object})}
+	return C.ObjectRef_t{universe.Add(&Object{scope, object})}
 }
 
 // close_object closes the object.
 //export close_object
-func close_object(objectHandle C.Object, cerr **C.char) {
+func close_object(objectHandle C.ObjectRef_t, cerr **C.char) {
 	object, ok := universe.Get(objectHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid object")

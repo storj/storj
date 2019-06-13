@@ -8,6 +8,7 @@ package main
 import (
 	"fmt"
 	"reflect"
+	"storj.io/storj/internal/testplanet"
 	"testing"
 	"time"
 	"unsafe"

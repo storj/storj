@@ -26,24 +26,20 @@ type Cint = C.int
 type Cuint8_t = C.uint8_t
 type Cint64_t = C.int64_t
 type Csize_t = C.size_t
+type Cbool = C.bool
 
 //const CEOF = C.EOF
 
 // Ref types
-type CAPIKey = C.APIKey
-type CUplink = C.Uplink
-type CProject = C.Project
-type CBucket = C.Bucket
-type CBuffer = C.Buffer
-type CObject = C.Object
+type CAPIKeyRef = C.APIKeyRef_t
+type CUplinkRef = C.UplinkRef_t
+type CProjectRef = C.ProjectRef_t
+type CBucketRef = C.BucketRef_t
+type CObjectRef = C.ObjectRef_t
 
 // Struct types
-type CUplinkConfig = C.UplinkConfig
-type CBucketInfo = C.BucketInfo
-
-//type CObject = C.Object
-//type CUploadOptions = C.UploadOptions
-//type CBytes = C.Bytes
+type CUplinkConfig = C.UplinkConfig_t
+type CBucketInfo = C.BucketInfo_t
 
 //export internal_UniverseIsEmpty
 // internal_UniverseIsEmpty returns true if nothing is stored in the global map.

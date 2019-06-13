@@ -197,7 +197,7 @@ func newGoRedundancyScheme(cScheme *C.RedundancyScheme_t) storj.RedundancyScheme
 	}
 }
 
-func newGoObject(t *testing.T, cObj *C.Object_t) *storj.Object {
+func newGoObject(t *testing.T, cObj *C.ObjectRef_t) *storj.Object {
 	var metadata map[string]string
 	if uintptr(cObj.metadata) != 0 {
 		var ok bool
