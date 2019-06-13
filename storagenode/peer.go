@@ -286,7 +286,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 
 		peer.Console.Endpoint = consoleserver.NewServer(
-			peer.Log.Named("operator:endpoint"),
+			peer.Log.Named("console:endpoint"),
 			config.Console,
 			peer.Console.Service,
 			peer.Console.Listener,

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/prometheus/common/log"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -18,17 +17,17 @@ import (
 )
 
 // TODO: improve embedded resources generation
-//go-bindata -pkg operatorserver -o storagenode/operator/operatorserver/static.go web/operator/dist web/operator/dist/public/
+//go-bindata -pkg consoleserver -o storagenode/console/consoleserver/static.go web/operator/dist web/operator/dist/public/
 
-// Error is storagenode operator web error type
-var Error = errs.Class("storagenode operator web error")
+// Error is storagenode console web error type
+var Error = errs.Class("storagenode console web error")
 
-// Config contains configuration for storagenode operator web server
+// Config contains configuration for storagenode console web server
 type Config struct {
 	Address string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
 }
 
-// Server represents storagenode operator web server
+// Server represents storagenode console web server
 type Server struct {
 	log *zap.Logger
 
@@ -41,7 +40,7 @@ type Server struct {
 	staticDir string
 }
 
-// NewServer creates new instance of storagenode operator web server
+// NewServer creates new instance of storagenode console web server
 func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
 	server := Server{
 		log:      logger,
@@ -85,17 +84,17 @@ func (s *Server) Close() error {
 	return s.server.Close()
 }
 
-// appHandler is an entry point for storagenode operator web interface
+// appHandler is an entry point for storagenode console web interface
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	data, err := Asset(s.staticDir + "dist/public/index.html")
 	if err != nil {
-		log.Error(err)
+		s.log.Error("", zap.Error(err))
 		return
 	}
 
 	_, err = w.Write(data)
 	if err != nil {
-		log.Error(err)
+		s.log.Error("", zap.Error(err))
 		return
 	}
 }
@@ -106,13 +105,13 @@ func (s *Server) appStaticHandler(w http.ResponseWriter, req *http.Request) {
 
 	data, err := Asset(s.staticDir + resourceName)
 	if err != nil {
-		log.Error(err)
+		s.log.Error("", zap.Error(err))
 		return
 	}
 
 	_, err = w.Write(data)
 	if err != nil {
-		log.Error(err)
+		s.log.Error("", zap.Error(err))
 		return
 	}
 }
