@@ -445,7 +445,6 @@ func TestValueAttributeInfo(t *testing.T) {
 		config := uplink.GetConfig(planet.Satellites[0])
 		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 		require.NoError(t, err)
-		redScheme := config.GetRedundancyScheme()
 		encScheme := config.GetEncryptionScheme()
 		_, err = metainfo.CreateBucket(ctx, "myBucket", &storj.Bucket{PathCipher: encScheme.Cipher})
 		require.NoError(t, err)
@@ -468,14 +467,6 @@ func TestValueAttributeInfo(t *testing.T) {
 			require.NoError(t, err)
 		}
 		{
-			createInfo := storj.CreateObject{
-				RedundancyScheme: redScheme,
-				EncryptionScheme: encScheme,
-			}
-
-			_, err := metainfo.CreateObject(ctx, "myBucket", "path", &createInfo)
-			require.NoError(t, err)
-
 			expectedData := make([]byte, 1*memory.MiB)
 			_, err = rand.Read(expectedData)
 			assert.NoError(t, err)
