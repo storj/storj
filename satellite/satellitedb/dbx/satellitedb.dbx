@@ -2,9 +2,10 @@
 
 //--- Value Attribution ---//
 model value_attribution (
-	key bucket_id
+	key project_id bucket_name
 
-	field bucket_id		blob
+	field project_id	blob
+	field bucket_name	blob
 	field partner_id	blob
 	field last_updated 	utimestamp
 )
@@ -647,8 +648,8 @@ model offer (
 	field id	serial 
 	field name text ( updatable )
 	field description text ( updatable )
-	
-	field award_credit_in_cents int ( updatable ) 
+
+	field award_credit_in_cents int ( updatable )
 	field invitee_credit_in_cents int ( updatable )
 
 	field award_credit_duration_days int ( updatable )
@@ -680,3 +681,37 @@ update offer (
 )
 
 create offer ( )
+
+
+//--- user credit table ---//
+
+model user_credit (
+	key	id
+
+	field id				serial
+
+	field user_id user.id	restrict
+	field offer_id offer.id	restrict
+	field referred_by user.id	restrict ( nullable )
+
+	field credits_earned_in_cents	int
+	field credits_used_in_cents	int ( updatable, autoinsert )
+
+	field expires_at		timestamp	( updatable )
+	field created_at		timestamp	( autoinsert )
+)
+
+read all (
+	select user_credit
+	where user_credit.user_id = ?
+    where user_credit.expires_at > ?
+    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
+    orderby asc user_credit.expires_at
+)
+
+read count (
+    select user_credit
+    where user_credit.referred_by = ?
+)
+
+create user_credit ()
