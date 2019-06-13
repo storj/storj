@@ -1231,11 +1231,30 @@
             "fields": [
               {
                 "id": 1,
-                "name": "online_nodes",
-                "type": "int32"
+                "name": "good_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
               },
               {
                 "id": 2,
+                "name": "bad_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 3,
                 "name": "segment",
                 "type": "bytes"
               }

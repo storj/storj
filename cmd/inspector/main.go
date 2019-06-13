@@ -565,7 +565,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthTable(w, redundancy, resp.GetSegments()); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, resp.GetSegments()); err != nil {
 		return err
 	}
 
@@ -621,9 +621,13 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthTable(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
 		return err
 	}
+
+	// if err := printNodeIDTables(w, resp.GetHealth()); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
@@ -636,7 +640,7 @@ func csvOutput() (*os.File, error) {
 	return os.Create(CSVPath)
 }
 
-func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
+func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
 	segmentTableHeader := []string{
 		"Segment Index", "Online Nodes", "Offline Nodes",
 	}
@@ -645,20 +649,57 @@ func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrate
 		return fmt.Errorf("error writing record to csv: %s", err)
 	}
 
-	total := redundancy.TotalCount() // total amount of pieces we generated (n)
-
+	currentNodeIndex := 1 // start at index 1 to leave first column empty
+	nodeIndices := make(map[storj.NodeID]int)
 	// Add each segment to the segmentTable
 	for _, segment := range segments {
-		onlineNodes := segment.GetOnlineNodes()          // amount of nodes with pieces currently online
+		onlineNodes := segment.GoodIds                   // nodes with pieces currently online
+		offlineNodes := segment.BadIds                   // nodes that are offline/bad
 		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
-		offlineNodes := int32(total) - onlineNodes
 
 		row := []string{
 			segmentIndexPath,
-			strconv.FormatInt(int64(onlineNodes), 10),
-			strconv.FormatInt(int64(offlineNodes), 10),
+			strconv.FormatInt(int64(len(onlineNodes)), 10),
+			strconv.FormatInt(int64(len(offlineNodes)), 10),
 		}
 
+		if err := w.Write(row); err != nil {
+			return fmt.Errorf("error writing record to csv: %s", err)
+		}
+
+		for _, id := range append(onlineNodes, offlineNodes...) {
+			if nodeIndices[id] == 0 {
+				nodeIndices[id] = currentNodeIndex
+				currentNodeIndex++
+			}
+		}
+	}
+
+	if err := w.Write([]string{}); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
+	}
+
+	numNodes := len(nodeIndices)
+	nodeTableHeader := make([]string, numNodes+1)
+	for id, i := range nodeIndices {
+		nodeTableHeader[i] = id.String()
+	}
+	if err := w.Write(nodeTableHeader); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
+	}
+
+	// Add online/offline info to the node table
+	for _, segment := range segments {
+		row := make([]string, numNodes+1)
+		for _, id := range segment.GoodIds {
+			i := nodeIndices[id]
+			row[i] = "1"
+		}
+		for _, id := range segment.BadIds {
+			i := nodeIndices[id]
+			row[i] = "0"
+		}
+		row[0] = string(segment.GetSegment())
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("error writing record to csv: %s", err)
 		}

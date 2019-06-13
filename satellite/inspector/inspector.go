@@ -141,7 +141,19 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	health.OnlineNodes = int32(len(nodeIDs) - len(badNodes))
+
+	var goodNodes storj.NodeIDList
+	badMap := make(map[storj.NodeID]bool)
+	for _, id := range badNodes {
+		badMap[id] = true
+	}
+	for _, id := range nodeIDs {
+		if !badMap[id] {
+			goodNodes = append(goodNodes, id)
+		}
+	}
+	health.GoodIds = goodNodes
+	health.BadIds = badNodes
 
 	if in.GetSegmentIndex() > -1 {
 		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
