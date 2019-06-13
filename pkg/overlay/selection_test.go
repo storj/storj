@@ -204,7 +204,7 @@ func TestDistinctIPs(t *testing.T) {
 			{ // test distinct flag false allows duplicates
 				duplicateCount: 10,
 				requestCount:   5,
-				preferences:    testNodeSelectionConfig(1, 0.5, false),
+				preferences:    testNodeSelectionConfig(0, 0.5, false),
 			},
 		}
 
