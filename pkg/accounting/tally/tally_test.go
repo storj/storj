@@ -225,21 +225,38 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			MetadataSize:   0,
 		}
 
+		expectedBucketName4 := "testbucket4"
+		expectedTally4 := accounting.BucketTally{
+			BucketName:     []byte(expectedBucketName4),
+			ProjectID:      projectID,
+			Segments:       2,
+			RemoteSegments: 2,
+			Files:          2,
+			RemoteFiles:    2,
+			Bytes:          expectedTotalBytes + expectedTotalBytes2,
+			RemoteBytes:    expectedTotalBytes + expectedTotalBytes2,
+			MetadataSize:   224,
+		}
+
 		// Execute test: upload a file, then calculate at rest data
 
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path2", expectedData2)
 		assert.NoError(t, err)
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName1, "test/path1", expectedData)
 		assert.NoError(t, err)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, "test/path2", expectedData2)
+		assert.NoError(t, err)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, "test/path1", expectedData)
+		assert.NoError(t, err)
 
 		_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
 		require.NoError(t, err)
 
 		// Confirm the correct bucket storage tally was created
-		assert.Equal(t, len(actualBucketData), 2)
+		assert.Equal(t, len(actualBucketData), 3)
 		for bucketID, actualTally := range actualBucketData {
 			var bucketName = string(actualTally.BucketName)
-			assert.True(t, bucketName == expectedBucketName1 || bucketName == expectedBucketName2 || bucketName == expectedBucketName3, "Test bucket names do not exist in results")
+			assert.True(t, bucketName == expectedBucketName1 || bucketName == expectedBucketName2 || bucketName == expectedBucketName3 || bucketName == expectedBucketName4, "Test bucket names do not exist in results")
 			switch bucketName {
 			case expectedBucketName1:
 				assert.Contains(t, bucketID, expectedBucketName1)
@@ -250,6 +267,9 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			case expectedBucketName3:
 				assert.Contains(t, bucketID, expectedBucketName3)
 				assert.Equal(t, expectedTally3, *actualTally)
+			case expectedBucketName4:
+				assert.Contains(t, bucketID, expectedBucketName4)
+				assert.Equal(t, expectedTally4, *actualTally)
 			}
 		}
 	})
