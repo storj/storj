@@ -117,6 +117,12 @@ type NodeStats struct {
 	UptimeCount        int64
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
+	// new reputation and disqualification stuff
+	AuditReputationAlpha  float64
+	UptimeReputationAlpha float64
+	AuditReputationBeta   float64
+	UptimeReputationBeta  float64
+	Disqualified          bool
 }
 
 // Cache is used to store and handle node information

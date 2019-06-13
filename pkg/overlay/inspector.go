@@ -59,7 +59,7 @@ func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ 
 // CreateStats creates a node with specified stats
 func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (_ *pb.CreateStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	stats := &NodeStats{
+	stats := &pb.NodeStats{
 		AuditCount:         req.AuditCount,
 		AuditSuccessCount:  req.AuditSuccessCount,
 		UptimeCount:        req.UptimeCount,
