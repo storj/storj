@@ -205,7 +205,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
 		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
-		// except for the case when minumum and repair thresholds are the same (a case usually seen during testing)
+		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
 	} else if numHealthy <= redundancy.MinReq && redundancy.MinReq != redundancy.RepairThreshold {
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
