@@ -439,6 +439,13 @@ func TestCommitSegmentPointer(t *testing.T) {
 			},
 			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
 		},
+		{
+			// invalid piece size removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
+			},
+			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -449,13 +456,13 @@ func TestCommitSegmentPointer(t *testing.T) {
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 
-		for _, test := range tests {
+		for i, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
 			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), test.ErrorMessage)
+			require.Error(t, err, "Case #%v", i)
+			require.Contains(t, err.Error(), test.ErrorMessage, "Case #%v", i)
 		}
 	})
 }
@@ -522,6 +529,7 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Clien
 		if len(pointer.Remote.RemotePieces) > i {
 			pointer.Remote.RemotePieces[i].NodeId = addressedLimits[i].Limit.StorageNodeId
 			pointer.Remote.RemotePieces[i].Hash.PieceId = addressedLimits[i].Limit.PieceId
+			pointer.Remote.RemotePieces[i].Hash.PieceSize = 100
 		}
 	}
 

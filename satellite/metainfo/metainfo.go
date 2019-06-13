@@ -457,6 +457,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
+		lastSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 			// TODO enable verification
 
@@ -476,6 +477,13 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 				endpoint.log.Sugar().Warn(err)
 				continue
 			}
+
+			// TODO maybe minimal PieceSize should be bigger
+			if piece.Hash.PieceSize <= 0 || (lastSize > 0 && lastSize != piece.Hash.PieceSize) {
+				endpoint.log.Sugar().Warn("invalid piece size, removing from from pointer")
+				continue
+			}
+			lastSize = piece.Hash.PieceSize
 
 			remotePieces = append(remotePieces, piece)
 		}
