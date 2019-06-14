@@ -487,10 +487,10 @@ func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.
 	return m.db.TotalReferredCount(ctx, userID)
 }
 
-func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
+func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateAvailableCredits(ctx, appliedCredits, id, billingStartDate)
+	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
 }
 
 // UserPayments is a getter for UserPayments repository

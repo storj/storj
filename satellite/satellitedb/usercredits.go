@@ -66,10 +66,10 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 }
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
-func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits int, id uuid.UUID, expirationEndDate time.Time) (remainingCharge int, err error) {
+func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, expirationEndDate time.Time) (remainingCharge int, err error) {
 	tx, err := c.db.Open(ctx)
 	if err != nil {
-		return chargedCredits, errs.Wrap(err)
+		return creditsToCharge, errs.Wrap(err)
 	}
 
 	availableCredits, err := tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
@@ -77,23 +77,23 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 		dbx.UserCredit_ExpiresAt(expirationEndDate),
 	)
 	if err != nil {
-		return chargedCredits, errs.Wrap(errs.Combine(err, tx.Rollback()))
+		return creditsToCharge, errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 	if len(availableCredits) == 0 {
-		return chargedCredits, errs.Combine(errs.New("No available credits"), tx.Commit())
+		return creditsToCharge, errs.Combine(errs.New("No available credits"), tx.Commit())
 	}
 
 	var infos []updateInfo
-	var creditsToCharge = chargedCredits
+	remainingCharge = creditsToCharge
 	for _, credit := range availableCredits {
-		if creditsToCharge == 0 {
+		if remainingCharge == 0 {
 			break
 		}
 
 		creditsForUpdate := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 
-		if creditsToCharge < creditsForUpdate {
-			creditsForUpdate = creditsToCharge
+		if remainingCharge < creditsForUpdate {
+			creditsForUpdate = remainingCharge
 		}
 
 		infos = append(infos, updateInfo{
@@ -101,7 +101,7 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 			credits: creditsForUpdate,
 		})
 
-		creditsToCharge -= creditsForUpdate
+		remainingCharge -= creditsForUpdate
 	}
 
 	statement := `UPDATE user_credits SET
@@ -109,9 +109,9 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 
 	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(statement))
 	if err != nil {
-		return chargedCredits, errs.Wrap(errs.Combine(err, tx.Rollback()))
+		return creditsToCharge, errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}
-	return creditsToCharge, errs.Wrap(tx.Commit())
+	return remainingCharge, errs.Wrap(tx.Commit())
 }
 
 func convertToSQLFormat(updateInfo []updateInfo) (updateStr string) {

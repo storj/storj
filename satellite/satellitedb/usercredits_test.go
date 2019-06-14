@@ -40,7 +40,8 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 	randomID, err := uuid.New()
 	require.NoError(t, err)
 
-	var inValidUserCredits = []console.UserCredit{
+	// test foreign key constraint for inserting a new user credit entry with randomID
+	var invalidUserCredits = []console.UserCredit{
 		{
 			UserID:               *randomID,
 			OfferID:              offer.ID,
@@ -64,7 +65,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 		},
 	}
 
-	for _, ivc := range inValidUserCredits {
+	for _, ivc := range invalidUserCredits {
 		_, err := consoleDB.UserCredits().Create(ctx, ivc)
 		require.Error(t, err)
 	}
@@ -74,6 +75,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 		availableCredits int
 		hasErr           bool
 	}
+
 	var validUserCredits = []struct {
 		userCredit     console.UserCredit
 		chargedCredits int
@@ -96,6 +98,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 			},
 		},
 		{
+			// simulate a credit that's already expired
 			userCredit: console.UserCredit{
 				UserID:               user.ID,
 				OfferID:              offer.ID,
@@ -162,6 +165,7 @@ func setupData(ctx context.Context, t *testing.T, store satellite.DB) (user *con
 	_, err = rand.Read(referrerPassHash[:])
 	require.NoError(t, err)
 
+	// create an user
 	user, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "John Doe",
 		Email:        "john@example.com",
@@ -170,6 +174,7 @@ func setupData(ctx context.Context, t *testing.T, store satellite.DB) (user *con
 	})
 	require.NoError(t, err)
 
+	//create an user as referrer
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "referrer",
 		Email:        "referrer@example.com",
