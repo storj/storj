@@ -4,15 +4,22 @@
 package testrouting
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
+
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/dht"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 type nodeData struct {
@@ -63,7 +70,8 @@ func (t *Table) CacheSize() int { return t.cacheSize }
 
 // ConnectionSuccess should be called whenever a node is successfully connected
 // to. It will add or update the node's entry in the routing table.
-func (t *Table) ConnectionSuccess(node *pb.Node) error {
+func (t *Table) ConnectionSuccess(ctx context.Context, node *pb.Node) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -100,7 +108,8 @@ func (t *Table) ConnectionSuccess(node *pb.Node) error {
 // ConnectionFailed should be called whenever a node can't be contacted.
 // If a node fails more than allowedFailures times, it will be removed from
 // the routing table. The failure count is reset every successful connection.
-func (t *Table) ConnectionFailed(node *pb.Node) error {
+func (t *Table) ConnectionFailed(ctx context.Context, node *pb.Node) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -122,7 +131,8 @@ func (t *Table) ConnectionFailed(node *pb.Node) error {
 
 // FindNear will return up to limit nodes in the routing table ordered by
 // kademlia xor distance from the given id.
-func (t *Table) FindNear(id storj.NodeID, limit int) ([]*pb.Node, error) {
+func (t *Table) FindNear(ctx context.Context, id storj.NodeID, limit int) (_ []*pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -180,17 +190,17 @@ func (t *Table) GetNodes(id storj.NodeID) (nodes []*pb.Node, ok bool) {
 }
 
 // GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance
-func (t *Table) GetBucketIds() (storage.Keys, error) {
+func (t *Table) GetBucketIds(context.Context) (storage.Keys, error) {
 	panic("TODO")
 }
 
 // SetBucketTimestamp records the time of the last node lookup for a bucket
-func (t *Table) SetBucketTimestamp(id []byte, now time.Time) error {
+func (t *Table) SetBucketTimestamp(context.Context, []byte, time.Time) error {
 	panic("TODO")
 }
 
 // GetBucketTimestamp retrieves time of the last node lookup for a bucket
-func (t *Table) GetBucketTimestamp(id []byte) (time.Time, error) {
+func (t *Table) GetBucketTimestamp(context.Context, []byte) (time.Time, error) {
 	panic("TODO")
 }
 
