@@ -815,6 +815,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Change type of disqualified column of nodes table to timestamp",
+				Version:     32,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN disqualified TYPE timestamp with time zone`,
+				},
+			},
 		},
 	}
 }

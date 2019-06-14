@@ -103,7 +103,7 @@ CREATE TABLE nodes (
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
-	disqualified boolean NOT NULL,
+	disqualified timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
