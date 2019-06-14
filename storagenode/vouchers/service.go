@@ -152,7 +152,11 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		service.log.Info("Voucher request denied. Node does not meet voucher requirements")
 	case pb.VoucherResponse_ACCEPTED:
 		voucher := resp.GetVoucher()
-		// TODO: check voucher fields
+
+		if err := service.verifyVoucher(ctx, satelliteID, voucher); err != nil {
+			return err
+		}
+
 		err = service.vdb.Put(ctx, voucher)
 		if err != nil {
 			return err

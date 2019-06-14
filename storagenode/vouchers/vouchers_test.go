@@ -101,7 +101,7 @@ func TestVouchersService(t *testing.T) {
 		node.Vouchers.Loop.Pause()
 
 		// node needs time to find satellites
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(400 * time.Millisecond)
 
 		// assert no vouchers
 		satellites, err := node.DB.Vouchers().ListSatellites(ctx)
