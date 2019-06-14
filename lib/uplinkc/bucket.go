@@ -56,6 +56,24 @@ func create_bucket(projectHandle C.ProjectRef_t, name *C.char, bucketConfig *C.B
 	return newBucketInfo(&bucket)
 }
 
+// get_bucket_info returns info about the requested bucket if authorized.
+//export get_bucket_info
+func get_bucket_info(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.char) C.BucketInfo_t {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return C.BucketInfo_t{}
+	}
+
+	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return C.BucketInfo_t{}
+	}
+
+	return newBucketInfo(&bucket)
+}
+
 // open_bucket returns a Bucket handle with the given EncryptionAccess information.
 //export open_bucket
 func open_bucket(projectHandle C.ProjectRef_t, name *C.char, encryptionAccess C.EncryptionAccess_t, cerr **C.char) C.BucketRef_t {
@@ -79,40 +97,6 @@ func open_bucket(projectHandle C.ProjectRef_t, name *C.char, encryptionAccess C.
 	}
 
 	return C.BucketRef_t{universe.Add(&Bucket{scope, bucket})}
-}
-
-// close_bucket closes a Bucket handle.
-//export close_bucket
-func close_bucket(bucketHandle C.BucketRef_t, cerr **C.char) {
-	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
-	if !ok {
-		*cerr = C.CString("invalid bucket")
-		return
-	}
-
-	universe.Del(bucketHandle._handle)
-	defer bucket.cancel()
-
-	if err := bucket.Close(); err != nil {
-		*cerr = C.CString(err.Error())
-		return
-	}
-}
-
-// delete_bucket deletes a bucket if authorized. If the bucket contains any
-// Objects at the time of deletion, they may be lost permanently.
-//export delete_bucket
-func delete_bucket(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.char) {
-	project, ok := universe.Get(projectHandle._handle).(*Project)
-	if !ok {
-		*cerr = C.CString("invalid project")
-		return
-	}
-
-	if err := project.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
-		*cerr = C.CString(err.Error())
-		return
-	}
 }
 
 // list_buckets will list authorized buckets.
@@ -156,6 +140,47 @@ func list_buckets(projectHandle C.ProjectRef_t, bucketListOptions *C.BucketListO
 	}
 }
 
+// delete_bucket deletes a bucket if authorized. If the bucket contains any
+// Objects at the time of deletion, they may be lost permanently.
+//export delete_bucket
+func delete_bucket(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.char) {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return
+	}
+
+	if err := project.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
+}
+
+// close_bucket closes a Bucket handle.
+//export close_bucket
+func close_bucket(bucketHandle C.BucketRef_t, cerr **C.char) {
+	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid bucket")
+		return
+	}
+
+	universe.Del(bucketHandle._handle)
+	defer bucket.cancel()
+
+	if err := bucket.Close(); err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
+}
+
+// free_bucket_info frees bucket info.
+//export free_bucket_info
+func free_bucket_info(bucketInfo *C.BucketInfo_t) {
+	C.free(unsafe.Pointer(bucketInfo.name))
+	bucketInfo.name = nil
+}
+
 // free_bucket_list will free a list of buckets
 //export free_bucket_list
 func free_bucket_list(bucketlist *C.BucketList_t) {
@@ -165,29 +190,4 @@ func free_bucket_list(bucketlist *C.BucketList_t) {
 	}
 	C.free(unsafe.Pointer(bucketlist.items))
 	bucketlist.items = nil
-}
-
-// get_bucket_info returns info about the requested bucket if authorized.
-//export get_bucket_info
-func get_bucket_info(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.char) C.BucketInfo_t {
-	project, ok := universe.Get(projectHandle._handle).(*Project)
-	if !ok {
-		*cerr = C.CString("invalid project")
-		return C.BucketInfo_t{}
-	}
-
-	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
-	if err != nil {
-		*cerr = C.CString(err.Error())
-		return C.BucketInfo_t{}
-	}
-
-	return newBucketInfo(&bucket)
-}
-
-// free_bucket_info frees bucket info.
-//export free_bucket_info
-func free_bucket_info(bucketInfo *C.BucketInfo_t) {
-	C.free(unsafe.Pointer(bucketInfo.name))
-	bucketInfo.name = nil
 }
