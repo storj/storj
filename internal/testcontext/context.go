@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -115,9 +114,15 @@ func (ctx *Context) Dir(elem ...string) string {
 	ctx.test.Helper()
 
 	ctx.once.Do(func() {
+		sanitized := strings.Map(func(r rune) rune {
+			if ('a' <= r && r <= 'z') || ('A' <= r && r <= 'Z') || ('0' <= r && r <= '9') || r == '-' {
+				return r
+			}
+			return '_'
+		}, ctx.test.Name())
+
 		var err error
-		pattern := regexp.MustCompile(`[\\/]`)
-		ctx.directory, err = ioutil.TempDir("", pattern.ReplaceAllString(ctx.test.Name(), "_"))
+		ctx.directory, err = ioutil.TempDir("", sanitized)
 		if err != nil {
 			ctx.test.Fatal(err)
 		}

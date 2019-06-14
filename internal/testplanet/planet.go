@@ -456,6 +456,19 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					NewNodePercentage: 0,
 					OnlineWindow:      time.Hour,
 					DistinctIP:        false,
+
+					ReputationAuditRepairWeight:  1,
+					ReputationAuditUplinkWeight:  1,
+					ReputationAuditAlpha0:        1,
+					ReputationAuditBeta0:         0,
+					ReputationAuditLambda:        1,
+					ReputationAuditOmega:         1,
+					ReputationUptimeRepairWeight: 1,
+					ReputationUptimeUplinkWeight: 1,
+					ReputationUptimeAlpha0:       1,
+					ReputationUptimeBeta0:        0,
+					ReputationUptimeLambda:       1,
+					ReputationUptimeOmega:        1,
 				},
 			},
 			Discovery: discovery.Config{
@@ -504,7 +517,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
 			Marketing: marketingweb.Config{
-				Address:         "127.0.0.1:0",
+				Address: "127.0.0.1:0",
 			},
 			Vouchers: vouchers.Config{
 				Expiration: 30,
@@ -523,6 +536,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		storjRoot := strings.TrimSuffix(filename, "/internal/testplanet/planet.go")
 
 		// TODO: for development only
+		config.Marketing.StaticDir = filepath.Join(storjRoot, "web/marketing")
 		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
 		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 

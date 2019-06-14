@@ -45,6 +45,7 @@ void with_test_project(void (*handleProject)(ProjectRef_t)) {
             APIKeyRef_t apikey = parse_api_key(apikeyStr, err);
             require_noerror(*err);
             requiref(apikey._handle != 0, "got empty apikey\n");
+
             {
                 // open a project
                 ProjectRef_t project = open_project(uplink, satellite_addr, apikey, err);

@@ -119,7 +119,7 @@ kademlia.operator.wallet: ""
 # log.encoding: "console"
 
 # the minimum log level to log
-# log.level: warn
+# log.level: info
 
 # can be stdout, stderr, or a filename
 # log.output: "stderr"
@@ -158,7 +158,7 @@ kademlia.operator.wallet: ""
 # mail.token-uri: ""
 
 # server address of the marketing Admin GUI
-# marketing.address: "0.0.0.0:8090"
+# marketing.address: "127.0.0.1:8090"
 
 # path to static resources
 # marketing.static-dir: ""
