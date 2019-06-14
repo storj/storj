@@ -12,6 +12,7 @@ require (
 	github.com/josephspurrier/goversioninfo v0.0.0-20190209210621-63e6d1acd3dd
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mfridman/tparse v0.7.4
+	github.com/myitcv/gobin v0.0.10
 	github.com/nilslice/protolock v0.13.0
 	golang.org/x/tools v0.0.0-20190613204242-ed0dc450797f
 	gopkg.in/spacemonkeygo/dbx.v1 v1.0.0-20190212172312-3af5e1fc2659

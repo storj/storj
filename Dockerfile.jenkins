@@ -24,13 +24,13 @@ RUN curl -L https://github.com/google/protobuf/releases/download/v3.8.0/protoc-3
 RUN unzip /tmp/protoc.zip -d "$HOME"/protoc
 
 # setup go tooling
-RUN go get -u github.com/myitcv/gobin
-
 RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
 
 COPY ./scripts/go.mod scripts/go.mod
 
 WORKDIR ./scripts
+
+RUN go get -mod=readonly github.com/myitcv/gobin
 
 RUN gobin github.com/ckaznocha/protoc-gen-lint
 RUN gobin github.com/gogo/protobuf/protoc-gen-gogo
@@ -41,7 +41,7 @@ RUN gobin github.com/axw/gocov/gocov
 RUN gobin github.com/AlekSi/gocov-xml
 
 # need to use go get, because gobin doesn't work with it
-RUN go get gopkg.in/spacemonkeygo/dbx.v1
+RUN go get -mod=readonly gopkg.in/spacemonkeygo/dbx.v1
 
 WORKDIR ..
 

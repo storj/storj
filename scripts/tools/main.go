@@ -8,6 +8,7 @@ import (
 	_ "github.com/gogo/protobuf/protoc-gen-gogo"
 	_ "github.com/josephspurrier/goversioninfo"
 	_ "github.com/mfridman/tparse"
+	_ "github.com/myitcv/gobin"
 	_ "github.com/nilslice/protolock/cmd/protolock"
 
 	_ "github.com/AlekSi/gocov-xml"
