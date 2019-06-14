@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -42,23 +41,6 @@ func main() {
 
 func run(command, root string) error {
 	switch command {
-	case "install":
-		err := installGoBin()
-		if err != nil {
-			return err
-		}
-
-		gogoVersion, err := versionOf("github.com/gogo/protobuf")
-		if err != nil {
-			return err
-		}
-
-		return install(
-			"github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc",
-			// See https://github.com/gogo/protobuf#most-speed-and-most-customization
-			"github.com/gogo/protobuf/protoc-gen-gogo@"+gogoVersion,
-			"github.com/nilslice/protolock/cmd/protolock@a1aae3b900a57389af61fc78b5d603b52a927e59",
-		)
 	case "generate":
 		return walkdirs(root, generate)
 	case "lint":
@@ -68,52 +50,6 @@ func run(command, root string) error {
 	default:
 		return errors.New("unknown command " + command)
 	}
-
-	return nil
-}
-
-func installGoBin() error {
-	// already installed?
-	path, err := exec.LookPath("gobin")
-	if path != "" && err == nil {
-		return nil
-	}
-
-	cmd := exec.Command("go", "get", "-u", "github.com/myitcv/gobin")
-	fmt.Println(strings.Join(cmd.Args, " "))
-	cmd.Env = append(os.Environ(), "GO111MODULE=off")
-
-	out, err := cmd.CombinedOutput()
-	if len(out) > 0 {
-		fmt.Println(string(out))
-	}
-	return err
-}
-
-func versionOf(dep string) (string, error) {
-	moddata, err := ioutil.ReadFile("go.mod")
-	if err != nil {
-		return "", err
-	}
-
-	rxMatch := regexp.MustCompile(regexp.QuoteMeta(dep) + `\s+(.*)\n`)
-	matches := rxMatch.FindAllStringSubmatch(string(moddata), 1)
-	if len(matches) == 0 {
-		return "", errors.New("go.mod missing github.com/gogo/protobuf entry")
-	}
-
-	return matches[0][1], nil
-}
-
-func install(deps ...string) error {
-	cmd := exec.Command("gobin", deps...)
-	fmt.Println(strings.Join(cmd.Args, " "))
-
-	out, err := cmd.CombinedOutput()
-	if len(out) > 0 {
-		fmt.Println(string(out))
-	}
-	return err
 }
 
 func generate(dir string, dirs []string, files []string) error {
