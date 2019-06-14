@@ -90,18 +90,18 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 			break
 		}
 
-		updateCredit := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
+		creditsForUpdate := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 
-		if chargedCredits < updateCredit {
-			updateCredit = chargedCredits
+		if chargedCredits < creditsForUpdate {
+			creditsForUpdate = chargedCredits
 		}
 
 		infos = append(infos, updateInfo{
 			id:      credit.Id,
-			credits: updateCredit,
+			credits: creditsForUpdate,
 		})
 
-		chargedCredits -= updateCredit
+		chargedCredits -= creditsForUpdate
 	}
 
 	statement := `UPDATE user_credits SET
