@@ -37,7 +37,7 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     paths.Encrypted
+	Path     string
 	Meta     Meta
 	IsPrefix bool
 }
@@ -48,7 +48,7 @@ type Store interface {
 	Get(ctx context.Context, path Path) (rr ranger.Ranger, meta Meta, err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path Path) (err error)
-	List(ctx context.Context, prefix Path, startAfter, endBefore paths.Encrypted, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	List(ctx context.Context, prefix Path, startAfter, endBefore string, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type segmentStore struct {
@@ -74,7 +74,8 @@ func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.R
 func (s *segmentStore) Meta(ctx context.Context, path Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, err := s.metainfo.SegmentInfo(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex())
+	bucket, _ := path.Bucket()
+	pointer, err := s.metainfo.SegmentInfo(ctx, bucket, path.EncryptedPath(), path.SegmentIndex())
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -134,7 +135,8 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 
 		// path and segment index are not known at this point
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, p.Bucket(), paths.NewEncrypted(""), -1, redundancy, s.maxEncryptedSegmentSize, expiration)
+		bucket, _ := p.Bucket()
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, paths.Encrypted{}, -1, redundancy, s.maxEncryptedSegmentSize, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -163,7 +165,8 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 	}
 
-	savedPointer, err := s.metainfo.CommitSegment(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex(), pointer, originalLimits)
+	bucket, _ := path.Bucket()
+	savedPointer, err := s.metainfo.CommitSegment(ctx, bucket, path.EncryptedPath(), path.SegmentIndex(), pointer, originalLimits)
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
@@ -175,7 +178,8 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 func (s *segmentStore) Get(ctx context.Context, path Path) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, limits, err := s.metainfo.ReadSegment(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex())
+	bucket, _ := path.Bucket()
+	pointer, limits, err := s.metainfo.ReadSegment(ctx, bucket, path.EncryptedPath(), path.SegmentIndex())
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -261,7 +265,8 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 func (s *segmentStore) Delete(ctx context.Context, path Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	limits, err := s.metainfo.DeleteSegment(ctx, path.Bucket(), path.EncryptedPath(), path.SegmentIndex())
+	bucket, _ := path.Bucket()
+	limits, err := s.metainfo.DeleteSegment(ctx, bucket, path.EncryptedPath(), path.SegmentIndex())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -281,10 +286,11 @@ func (s *segmentStore) Delete(ctx context.Context, path Path) (err error) {
 }
 
 // List retrieves paths to segments and their metadata stored in the metainfo
-func (s *segmentStore) List(ctx context.Context, prefix Path, startAfter, endBefore paths.Encrypted, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (s *segmentStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	list, more, err := s.metainfo.ListSegments(ctx, prefix.Bucket(), prefix.EncryptedPath(), startAfter, endBefore, recursive, int32(limit), metaFlags)
+	bucket, _ := prefix.Bucket()
+	list, more, err := s.metainfo.ListSegments(ctx, bucket, prefix.EncryptedPath(), startAfter, endBefore, recursive, int32(limit), metaFlags)
 	if err != nil {
 		return nil, false, Error.Wrap(err)
 	}

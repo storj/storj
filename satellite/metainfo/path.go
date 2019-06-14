@@ -23,7 +23,6 @@ type Path struct {
 	raw []byte // raw byte representation of the path
 
 	hasBucket  bool // true if the bucket field is valid
-	hasEncPath bool // true if the path field is valid
 }
 
 // ProjectID returns the project id associated with the path.
@@ -35,8 +34,8 @@ func (p Path) SegmentIndex() int64 { return p.segmentIndex }
 // Bucket returns the bucket part of the path and a bool if it exists.
 func (p Path) Bucket() (string, bool) { return p.bucket, p.hasBucket }
 
-// EncryptedPath returns the encrypted path part of the path and a bool if it exists.
-func (p Path) EncryptedPath() (paths.Encrypted, bool) { return p.encPath, p.hasEncPath }
+// EncryptedPath returns the encrypted path part of the path.
+func (p Path) EncryptedPath() (paths.Encrypted) { return p.encPath }
 
 // Raw returns the raw data in the path.
 func (p Path) Raw() []byte { return p.raw }
@@ -81,7 +80,7 @@ func ParsePath(raw []byte) (path Path, err error) {
 	if len(parts) >= 3 {
 		path.bucket, path.hasBucket = string(parts[2]), true
 		if len(parts) == 4 {
-			path.encPath, path.hasEncPath = paths.NewEncrypted(string(parts[4])), true
+			path.encPath = paths.NewEncrypted(string(parts[4]))
 		}
 	}
 
@@ -118,10 +117,10 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 		path.raw = append(path.raw, '/')
 		path.bucket, path.hasBucket = bucket, true
 
-		if encPath.Raw() != "" {
+		if encPath.Valid() {
 			path.raw = append(path.raw, encPath.Raw()...)
 			path.raw = append(path.raw, '/')
-			path.encPath, path.hasEncPath = encPath, true
+			path.encPath = encPath
 		}
 	}
 

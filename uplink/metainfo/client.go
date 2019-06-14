@@ -46,7 +46,7 @@ var _ Client = (*Metainfo)(nil)
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     paths.Encrypted
+	Path     string
 	Pointer  *pb.Pointer
 	IsPrefix bool
 }
@@ -58,7 +58,7 @@ type Client interface {
 	SegmentInfo(ctx context.Context, bucket string, path paths.Encrypted, segmentIndex int64) (*pb.Pointer, error)
 	ReadSegment(ctx context.Context, bucket string, path paths.Encrypted, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path paths.Encrypted, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
-	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore paths.Encrypted, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
+	ListSegments(ctx context.Context, bucket string, prefix paths.Encrypted, startAfter, endBefore string, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
 	SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) error
 }
 
@@ -198,14 +198,14 @@ func (metainfo *Metainfo) DeleteSegment(ctx context.Context, bucket string, path
 }
 
 // ListSegments lists the available segments
-func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore paths.Encrypted, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefix paths.Encrypted, startAfter, endBefore string, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.ListSegments(ctx, &pb.ListSegmentsRequest{
 		Bucket:     []byte(bucket),
 		Prefix:     []byte(prefix.Raw()),
-		StartAfter: []byte(startAfter.Raw()),
-		EndBefore:  []byte(endBefore.Raw()),
+		StartAfter: []byte(startAfter),
+		EndBefore:  []byte(endBefore),
 		Recursive:  recursive,
 		Limit:      limit,
 		MetaFlags:  metaFlags,
@@ -218,7 +218,7 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 	items = make([]ListItem, len(list))
 	for i, item := range list {
 		items[i] = ListItem{
-			Path:     paths.NewEncrypted(string(item.GetPath())),
+			Path:     string(item.GetPath()),
 			Pointer:  item.GetPointer(),
 			IsPrefix: item.IsPrefix,
 		}

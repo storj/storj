@@ -7,10 +7,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -51,11 +49,11 @@ func convertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta
 
 // Store interface methods for streams to satisfy to be a store
 type Store interface {
-	Meta(ctx context.Context, path paths.Unencrypted, pathCipher storj.Cipher) (Meta, error)
-	Get(ctx context.Context, path paths.Unencrypted, pathCipher storj.Cipher) (ranger.Ranger, Meta, error)
-	Put(ctx context.Context, path paths.Unencrypted, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
-	Delete(ctx context.Context, path paths.Unencrypted, pathCipher storj.Cipher) error
-	List(ctx context.Context, prefix, startAfter, endBefore paths.Unencrypted, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Meta(ctx context.Context, path Path, pathCipher storj.Cipher) (Meta, error)
+	Get(ctx context.Context, path Path, pathCipher storj.Cipher) (ranger.Ranger, Meta, error)
+	Put(ctx context.Context, path Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
+	Delete(ctx context.Context, path Path, pathCipher storj.Cipher) error
+	List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 // streamStore is a store for streams
@@ -91,7 +89,7 @@ func NewStreamStore(segments segments.Store, segmentSize int64, encStore *encryp
 // store the first piece at s0/<path>, second piece at s1/<path>, and the
 // *last* piece at l/<path>. Store the given metadata, along with the number
 // of segments, in a new protobuf, in the metadata of l/<path>.
-func (s *streamStore) Put(ctx context.Context, path storj.Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
+func (s *streamStore) Put(ctx context.Context, path Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (m Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// previously file uploaded?
@@ -110,7 +108,7 @@ func (s *streamStore) Put(ctx context.Context, path storj.Path, pathCipher storj
 	return m, err
 }
 
-func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (m Meta, lastSegment int64, err error) {
+func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (m Meta, lastSegment int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var currentSegment int64
@@ -125,7 +123,11 @@ func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCi
 		}
 	}()
 
-	derivedKey, err := encryption.DeriveContentKey(path, s.encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
+	if err != nil {
+		return Meta{}, currentSegment, err
+	}
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return Meta{}, currentSegment, err
 	}
@@ -190,14 +192,12 @@ func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCi
 			transformedReader = bytes.NewReader(cipherData)
 		}
 
-		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (storj.Path, []byte, error) {
-			encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
-			if err != nil {
-				return "", nil, err
-			}
-
+		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (segments.Path, []byte, error) {
 			if !eofReader.isEOF() {
-				segmentPath := getSegmentPath(encPath, currentSegment)
+				segmentPath, err := segments.CreatePath(ctx, currentSegment, path.Bucket(), encPath)
+				if err != nil {
+					return segments.Path{}, nil, err
+				}
 
 				if s.cipher == storj.Unencrypted {
 					return segmentPath, nil, nil
@@ -208,13 +208,16 @@ func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCi
 					KeyNonce:     keyNonce[:],
 				})
 				if err != nil {
-					return "", nil, err
+					return segments.Path{}, nil, err
 				}
 
 				return segmentPath, segmentMeta, nil
 			}
 
-			lastSegmentPath := storj.JoinPaths("l", encPath)
+			lastSegmentPath, err := segments.CreatePath(ctx, -1, path.Bucket(), encPath)
+			if err != nil {
+				return segments.Path{}, nil, err
+			}
 
 			streamInfo, err := proto.Marshal(&pb.StreamInfo{
 				NumberOfSegments: currentSegment + 1,
@@ -223,13 +226,13 @@ func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCi
 				Metadata:         metadata,
 			})
 			if err != nil {
-				return "", nil, err
+				return segments.Path{}, nil, err
 			}
 
 			// encrypt metadata with the content encryption key and zero nonce
 			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
 			if err != nil {
-				return "", nil, err
+				return segments.Path{}, nil, err
 			}
 
 			streamMeta := pb.StreamMeta{
@@ -247,7 +250,7 @@ func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCi
 
 			lastSegmentMeta, err := proto.Marshal(&streamMeta)
 			if err != nil {
-				return "", nil, err
+				return segments.Path{}, nil, err
 			}
 
 			return lastSegmentPath, lastSegmentMeta, nil
@@ -274,28 +277,28 @@ func (s *streamStore) upload(ctx context.Context, path paths.Unencrypted, pathCi
 	return resultMeta, currentSegment, nil
 }
 
-// getSegmentPath returns the unique path for a particular segment
-func getSegmentPath(path storj.Path, segNum int64) storj.Path {
-	return storj.JoinPaths(fmt.Sprintf("s%d", segNum), path)
-}
-
 // Get returns a ranger that knows what the overall size is (from l/<path>)
 // and then returns the appropriate data from segments s0/<path>, s1/<path>,
 // ..., l/<path>.
-func (s *streamStore) Get(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (rr ranger.Ranger, meta Meta, err error) {
+func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Cipher) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
 
-	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, storj.JoinPaths("l", encPath))
+	segmentPath, err := segments.CreatePath(ctx, -1, path.Bucket(), encPath)
 	if err != nil {
 		return nil, Meta{}, err
 	}
 
-	streamInfo, streamMeta, err := DecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.rootKey)
+	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, segmentPath)
+	if err != nil {
+		return nil, Meta{}, err
+	}
+
+	streamInfo, streamMeta, err := DecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -306,30 +309,33 @@ func (s *streamStore) Get(ctx context.Context, path storj.Path, pathCipher storj
 		return nil, Meta{}, err
 	}
 
-	derivedKey, err := encryption.DeriveContentKey(path, s.rootKey)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
 
 	var rangers []ranger.Ranger
 	for i := int64(0); i < stream.NumberOfSegments-1; i++ {
-		currentPath := getSegmentPath(encPath, i)
-		size := stream.SegmentsSize
-		var contentNonce storj.Nonce
-		_, err := encryption.Increment(&contentNonce, i+1)
+		currentPath, err := segments.CreatePath(ctx, i, path.Bucket(), encPath)
 		if err != nil {
 			return nil, Meta{}, err
 		}
-		rr := &lazySegmentRanger{
+
+		var contentNonce storj.Nonce
+		_, err = encryption.Increment(&contentNonce, i+1)
+		if err != nil {
+			return nil, Meta{}, err
+		}
+
+		rangers = append(rangers, &lazySegmentRanger{
 			segments:      s.segments,
 			path:          currentPath,
-			size:          size,
+			size:          stream.SegmentsSize,
 			derivedKey:    derivedKey,
 			startingNonce: &contentNonce,
 			encBlockSize:  int(streamMeta.EncryptionBlockSize),
 			cipher:        storj.Cipher(streamMeta.EncryptionType),
-		}
-		rangers = append(rangers, rr)
+		})
 	}
 
 	var contentNonce storj.Nonce
@@ -337,6 +343,7 @@ func (s *streamStore) Get(ctx context.Context, path storj.Path, pathCipher storj
 	if err != nil {
 		return nil, Meta{}, err
 	}
+
 	encryptedKey, keyNonce := getEncryptedKeyAndNonce(streamMeta.LastSegmentMeta)
 	decryptedLastSegmentRanger, err := decryptRanger(
 		ctx,
@@ -360,23 +367,29 @@ func (s *streamStore) Get(ctx context.Context, path storj.Path, pathCipher storj
 }
 
 // Meta implements Store.Meta
-func (s *streamStore) Meta(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (meta Meta, err error) {
+func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Cipher) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return Meta{}, err
 	}
 
-	lastSegmentMeta, err := s.segments.Meta(ctx, storj.JoinPaths("l", encPath))
+	segmentPath, err := segments.CreatePath(ctx, -1, path.Bucket(), encPath)
 	if err != nil {
 		return Meta{}, err
 	}
 
-	streamInfo, streamMeta, err := DecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.rootKey)
+	lastSegmentMeta, err := s.segments.Meta(ctx, segmentPath)
 	if err != nil {
 		return Meta{}, err
 	}
+
+	streamInfo, streamMeta, err := DecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.encStore)
+	if err != nil {
+		return Meta{}, err
+	}
+
 	var stream pb.StreamInfo
 	if err := proto.Unmarshal(streamInfo, &stream); err != nil {
 		return Meta{}, err
@@ -386,19 +399,25 @@ func (s *streamStore) Meta(ctx context.Context, path storj.Path, pathCipher stor
 }
 
 // Delete all the segments, with the last one last
-func (s *streamStore) Delete(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (err error) {
+func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Cipher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
-	if err != nil {
-		return err
-	}
-	lastSegmentMeta, err := s.segments.Meta(ctx, storj.JoinPaths("l", encPath))
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return err
 	}
 
-	streamInfo, _, err := DecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.rootKey)
+	lastSegmentPath, err := segments.CreatePath(ctx, -1, path.Bucket(), encPath)
+	if err != nil {
+		return err
+	}
+
+	lastSegmentMeta, err := s.segments.Meta(ctx, lastSegmentPath)
+	if err != nil {
+		return err
+	}
+
+	streamInfo, _, err := DecryptStreamInfo(ctx, lastSegmentMeta.Data, path, s.encStore)
 	if err != nil {
 		return err
 	}
@@ -408,29 +427,29 @@ func (s *streamStore) Delete(ctx context.Context, path storj.Path, pathCipher st
 	}
 
 	for i := 0; i < int(stream.NumberOfSegments-1); i++ {
-		encPath, err = EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
+		currentPath, err := segments.CreatePath(ctx, int64(i), path.Bucket(), encPath)
 		if err != nil {
 			return err
 		}
-		currentPath := getSegmentPath(encPath, int64(i))
-		err := s.segments.Delete(ctx, currentPath)
+
+		err = s.segments.Delete(ctx, currentPath)
 		if err != nil {
 			return err
 		}
 	}
 
-	return s.segments.Delete(ctx, storj.JoinPaths("l", encPath))
+	return s.segments.Delete(ctx, lastSegmentPath)
 }
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     paths.Unencrypted
+	Path     string
 	Meta     Meta
 	IsPrefix bool
 }
 
 // List all the paths inside l/, stripping off the l/ prefix
-func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore paths.Unencrypted, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if metaFlags&meta.Size != 0 {
@@ -439,51 +458,74 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 		metaFlags |= meta.UserDefined
 	}
 
-	prefix = strings.TrimSuffix(prefix, "/")
-
-	encPrefix, err := EncryptAfterBucket(ctx, prefix, pathCipher, s.rootKey)
+	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
 
-	prefixKey, err := encryption.DerivePathKey(prefix, s.rootKey, len(storj.SplitPath(prefix)))
+	segmentPrefix, err := segments.CreatePath(ctx, -1, prefix.Bucket(), encPrefix)
 	if err != nil {
 		return nil, false, err
 	}
 
-	encStartAfter, err := s.encryptMarker(ctx, startAfter, pathCipher, prefixKey)
+	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), prefix.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
 
-	encEndBefore, err := s.encryptMarker(ctx, endBefore, pathCipher, prefixKey)
-	if err != nil {
-		return nil, false, err
+	// We have to encrypt startAfter and endBefore but only if they don't contain a bucket.
+	// They don't contain a bucket only if the unencrypted path is valid. This is why
+	// they are raw strings instead of a typed string: it's either a bucket or an unencrypted
+	// path component, and that isn't known at compile time.
+	needsEncryption := prefix.UnencryptedPath().Valid()
+	if needsEncryption {
+		startAfter, err = encryption.EncryptPathRaw(startAfter, pathCipher, prefixKey)
+		if err != nil {
+			return nil, false, err
+		}
+		endBefore, err = encryption.EncryptPathRaw(endBefore, pathCipher, prefixKey)
+		if err != nil {
+			return nil, false, err
+		}
 	}
 
-	segments, more, err := s.segments.List(ctx, storj.JoinPaths("l", encPrefix), encStartAfter, encEndBefore, recursive, limit, metaFlags)
+	segments, more, err := s.segments.List(ctx, segmentPrefix, startAfter, endBefore, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}
 
 	items = make([]ListItem, len(segments))
 	for i, item := range segments {
-		path, err := s.decryptMarker(ctx, item.Path, pathCipher, prefixKey)
+		var path Path
+		var itemPath string
+
+		if needsEncryption {
+			itemPath, err = encryption.DecryptPathRaw(item.Path, pathCipher, prefixKey)
+			if err != nil {
+				return nil, false, err
+			}
+			path = CreatePath(ctx, path.Bucket(), paths.NewUnencrypted(itemPath))
+		} else {
+			itemPath = item.Path
+			path = CreatePath(ctx, item.Path, paths.Unencrypted{})
+		}
+
+		streamInfo, streamMeta, err := DecryptStreamInfo(ctx, item.Meta.Data, path, s.encStore)
 		if err != nil {
 			return nil, false, err
 		}
 
-		streamInfo, streamMeta, err := DecryptStreamInfo(ctx, item.Meta.Data, storj.JoinPaths(prefix, path), s.rootKey)
-		if err != nil {
-			return nil, false, err
-		}
 		var stream pb.StreamInfo
 		if err := proto.Unmarshal(streamInfo, &stream); err != nil {
 			return nil, false, err
 		}
 
 		newMeta := convertMeta(item.Meta, stream, streamMeta)
-		items[i] = ListItem{Path: path, Meta: newMeta, IsPrefix: item.IsPrefix}
+		items[i] = ListItem{
+			Path:     itemPath,
+			Meta:     newMeta,
+			IsPrefix: item.IsPrefix,
+		}
 	}
 
 	return items, more, nil
@@ -492,7 +534,7 @@ func (s *streamStore) List(ctx context.Context, prefix, startAfter, endBefore pa
 type lazySegmentRanger struct {
 	ranger        ranger.Ranger
 	segments      segments.Store
-	path          paths.Unencrypted
+	path          segments.Path
 	size          int64
 	derivedKey    *storj.Key
 	startingNonce *storj.Nonce
@@ -566,20 +608,25 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 }
 
 // CancelHandler handles clean up of segments on receiving CTRL+C
-func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, path paths.Unencrypted, pathCipher storj.Cipher) {
+func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, path Path, pathCipher storj.Cipher) {
 	defer mon.Task()(&ctx)(nil)
 
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	if err != nil {
+		zap.S().Warnf("Failed deleting segments: %v", err)
+		return
+	}
+
 	for i := int64(0); i < totalSegments; i++ {
-		encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
+		currentPath, err := segments.CreatePath(ctx, i, path.Bucket(), encPath)
 		if err != nil {
-			zap.S().Warnf("Failed deleting a segment due to encryption path %v %v", i, err)
+			zap.S().Warnf("Failed deleting segment %d: %v", i, err)
 			continue
 		}
 
-		currentPath := getSegmentPath(encPath, i)
 		err = s.segments.Delete(ctx, currentPath)
 		if err != nil {
-			zap.S().Warnf("Failed deleting a segment %v %v", currentPath, err)
+			zap.S().Warnf("Failed deleting segment %v: %v", currentPath, err)
 			continue
 		}
 	}
@@ -597,7 +644,7 @@ func getEncryptedKeyAndNonce(m *pb.SegmentMeta) (storj.EncryptedPrivateKey, *sto
 }
 
 // DecryptStreamInfo decrypts stream info
-func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path paths.Unencrypted, encStore *encryption.Store) (
+func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Path, encStore *encryption.Store) (
 	streamInfo []byte, streamMeta pb.StreamMeta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -606,7 +653,7 @@ func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path paths.U
 		return nil, pb.StreamMeta{}, err
 	}
 
-	derivedKey, err := encryption.DeriveContentKey(path, rootKey)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), encStore)
 	if err != nil {
 		return nil, pb.StreamMeta{}, err
 	}

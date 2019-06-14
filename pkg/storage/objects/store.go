@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/streams"
@@ -32,39 +33,35 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     storj.Path
+	Path     string
 	Meta     Meta
 	IsPrefix bool
 }
 
 // Store for objects
 type Store interface {
-	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
-	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
-	Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
-	Delete(ctx context.Context, path storj.Path) (err error)
-	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
+	Meta(ctx context.Context, path paths.Unencrypted) (meta Meta, err error)
+	Get(ctx context.Context, path paths.Unencrypted) (rr ranger.Ranger, meta Meta, err error)
+	Put(ctx context.Context, path paths.Unencrypted, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error)
+	Delete(ctx context.Context, path paths.Unencrypted) (err error)
+	List(ctx context.Context, prefix paths.Unencrypted, startAfter, endBefore string, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
 type objStore struct {
 	store      streams.Store
+	bucket     string
 	pathCipher storj.Cipher
 }
 
 // NewStore for objects
-func NewStore(store streams.Store, pathCipher storj.Cipher) Store {
-	return &objStore{store: store, pathCipher: pathCipher}
+func NewStore(store streams.Store, bucket string, pathCipher storj.Cipher) Store {
+	return &objStore{store: store, bucket: bucket, pathCipher: pathCipher}
 }
 
-func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
+func (o *objStore) Meta(ctx context.Context, path paths.Unencrypted) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(path) == 0 {
-		return Meta{}, storj.ErrNoPath.New("")
-	}
-
-	m, err := o.store.Meta(ctx, path, o.pathCipher)
-
+	m, err := o.store.Meta(ctx, streams.CreatePath(ctx, o.bucket, path), o.pathCipher)
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
@@ -72,16 +69,11 @@ func (o *objStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err er
 	return convertMeta(m), err
 }
 
-func (o *objStore) Get(ctx context.Context, path storj.Path) (
+func (o *objStore) Get(ctx context.Context, path paths.Unencrypted) (
 	rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(path) == 0 {
-		return nil, Meta{}, storj.ErrNoPath.New("")
-	}
-
-	rr, m, err := o.store.Get(ctx, path, o.pathCipher)
-
+	rr, m, err := o.store.Get(ctx, streams.CreatePath(ctx, o.bucket, path), o.pathCipher)
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
@@ -89,12 +81,9 @@ func (o *objStore) Get(ctx context.Context, path storj.Path) (
 	return rr, convertMeta(m), err
 }
 
-func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error) {
+func (o *objStore) Put(ctx context.Context, path paths.Unencrypted, data io.Reader,
+	metadata pb.SerializableMeta, expiration time.Time) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	if len(path) == 0 {
-		return Meta{}, storj.ErrNoPath.New("")
-	}
 
 	// TODO(kaloyan): autodetect content type
 	// if metadata.GetContentType() == "" {}
@@ -103,19 +92,15 @@ func (o *objStore) Put(ctx context.Context, path storj.Path, data io.Reader, met
 	if err != nil {
 		return Meta{}, err
 	}
-	m, err := o.store.Put(ctx, path, o.pathCipher, data, b, expiration)
+
+	m, err := o.store.Put(ctx, streams.CreatePath(ctx, o.bucket, path), o.pathCipher, data, b, expiration)
 	return convertMeta(m), err
 }
 
-func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
+func (o *objStore) Delete(ctx context.Context, path paths.Unencrypted) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(path) == 0 {
-		return storj.ErrNoPath.New("")
-	}
-
-	err = o.store.Delete(ctx, path, o.pathCipher)
-
+	err = o.store.Delete(ctx, streams.CreatePath(ctx, o.bucket, path), o.pathCipher)
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrObjectNotFound.Wrap(err)
 	}
@@ -123,11 +108,13 @@ func (o *objStore) Delete(ctx context.Context, path storj.Path) (err error) {
 	return err
 }
 
-func (o *objStore) List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (
+func (o *objStore) List(ctx context.Context, prefix paths.Unencrypted, startAfter, endBefore string,
+	recursive bool, limit int, metaFlags uint32) (
 	items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	strItems, more, err := o.store.List(ctx, prefix, startAfter, endBefore, o.pathCipher, recursive, limit, metaFlags)
+	strItems, more, err := o.store.List(ctx, streams.CreatePath(ctx, o.bucket, prefix),
+		startAfter, endBefore, o.pathCipher, recursive, limit, metaFlags)
 	if err != nil {
 		return nil, false, err
 	}

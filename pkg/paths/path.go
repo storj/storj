@@ -5,36 +5,24 @@ package paths
 
 import (
 	"strings"
-
-	"github.com/zeebo/errs"
 )
 
 //
-// To avoid confusion about when paths are encrypted, unencrypted, or contain a
-// bucket prefix, we create some wrapper types so that the compiler will complain
+// To avoid confusion about when paths are encrypted, unencrypted, empty or
+// non existent, we create some wrapper types so that the compiler will complain
 // if someone attempts to use one in the wrong context.
 //
 
 // Unencrypted is an opaque type representing an unencrypted path.
 type Unencrypted struct {
-	raw string
+	raw   string
+	valid bool
 }
 
 // Encrypted is an opaque type representing an encrypted path.
 type Encrypted struct {
-	raw string
-}
-
-// UnencryptedBucket is an opaque type representing a bucket and unencrypted path.
-type UnencryptedBucket struct {
-	bucket string
-	path   Unencrypted
-}
-
-// EncryptedBucket is an opaque type representing a bucket and encrypted path.
-type EncryptedBucket struct {
-	bucket string
-	path   Encrypted
+	raw   string
+	valid bool
 }
 
 //
@@ -43,14 +31,26 @@ type EncryptedBucket struct {
 
 // NewUnencrypted takes a raw unencrypted path and returns it wrapped.
 func NewUnencrypted(raw string) Unencrypted {
-	return Unencrypted{raw: raw}
+	return Unencrypted{raw: raw, valid: true}
+}
+
+// Valid returns if the unencrypted path is valid, which is different from being empty.
+func (path Unencrypted) Valid() bool {
+	return path.valid
 }
 
 // Raw returns the original raw path for the Unencrypted.
-func (path Unencrypted) Raw() string { return path.raw }
+func (path Unencrypted) Raw() string {
+	return path.raw
+}
 
 // String returns a human readable form of the Unencrypted.
-func (path Unencrypted) String() string { return "up:" + path.Raw() }
+func (path Unencrypted) String() string {
+	if !path.valid {
+		return "<none>"
+	}
+	return "up:" + path.Raw()
+}
 
 // Consume attempts to remove the prefix from the Unencrypted, and reports true
 // if it was successful.
@@ -59,14 +59,6 @@ func (path Unencrypted) Consume(prefix Unencrypted) (Unencrypted, bool) {
 		return NewUnencrypted(path.raw[len(prefix.raw):]), true
 	}
 	return path, false
-}
-
-// WithBucket associates the bucket name with the Unencrypted.
-func (path Unencrypted) WithBucket(bucket string) UnencryptedBucket {
-	return UnencryptedBucket{
-		bucket: bucket,
-		path:   path,
-	}
 }
 
 // Iterator returns an iterator over the components of the Unencrypted.
@@ -80,14 +72,26 @@ func (path Unencrypted) Iterator() Iterator {
 
 // NewEncrypted takes a raw encrypted path and returns it wrapped.
 func NewEncrypted(raw string) Encrypted {
-	return Encrypted{raw: raw}
+	return Encrypted{raw: raw, valid: true}
+}
+
+// Valid returns if the encrypted path is valid, which is different from being empty.
+func (path Encrypted) Valid() bool {
+	return path.valid
 }
 
 // Raw returns the original path for the Encrypted.
-func (path Encrypted) Raw() string { return path.raw }
+func (path Encrypted) Raw() string {
+	return path.raw
+}
 
 // String returns a human readable form of the Encrypted.
-func (path Encrypted) String() string { return "ep:" + path.Raw() }
+func (path Encrypted) String() string {
+	if !path.valid {
+		return "<none>"
+	}
+	return "ep:" + path.Raw()
+}
 
 // Consume attempts to remove the prefix from the Encrypted, and reports true
 // if it was successful.
@@ -98,68 +102,10 @@ func (path Encrypted) Consume(prefix Encrypted) (Encrypted, bool) {
 	return path, false
 }
 
-// WithBucket associates the bucket name with the Encrypted.
-func (path Encrypted) WithBucket(bucket string) EncryptedBucket {
-	return EncryptedBucket{
-		bucket: bucket,
-		path:   path,
-	}
-}
-
 // Iterator returns an iterator over the components of the Encrypted.
 func (path Encrypted) Iterator() Iterator {
 	return Iterator{raw: path.raw}
 }
-
-//
-// unencrypted paths with bucket
-//
-
-// ParseUnencryptedBucket parses a raw string into a bucket and unencrypted path.
-func ParseUnencryptedBucket(raw string) (UnencryptedBucket, error) {
-	parts := strings.SplitN(raw, "/", 1)
-	if len(parts) != 2 {
-		return UnencryptedBucket{}, errs.New("invalid unencrypted bucket path: %q", raw)
-	}
-	return NewUnencrypted(parts[1]).WithBucket(parts[0]), nil
-}
-
-// Raw returns the original bucket path pair for the UnencryptedBucket.
-func (ubp UnencryptedBucket) Raw() string { return ubp.bucket + "/" + ubp.path.Raw() }
-
-// String returns a human readable form of the UnencryptedBucket.
-func (ubp UnencryptedBucket) String() string { return "ubp:" + ubp.Raw() }
-
-// Bucket returns the bucket associated with the UnencryptedBucket.
-func (ubp UnencryptedBucket) Bucket() string { return ubp.bucket }
-
-// Path returns the Unencrypted associated with the UnencryptedBucket.
-func (ubp UnencryptedBucket) Path() Unencrypted { return ubp.path }
-
-//
-// encrypted paths with bucket
-//
-
-// ParseEncryptedBucket parses a raw string into a bucket and encrypted path.
-func ParseEncryptedBucket(raw string) (EncryptedBucket, error) {
-	parts := strings.SplitN(raw, "/", 1)
-	if len(parts) != 2 {
-		return EncryptedBucket{}, errs.New("invalid encrypted bucket path: %q", raw)
-	}
-	return NewEncrypted(parts[1]).WithBucket(parts[0]), nil
-}
-
-// Raw returns the original bucket path pair for the EncryptedBucket.
-func (ebp EncryptedBucket) Raw() string { return ebp.bucket + "/" + ebp.path.Raw() }
-
-// String returns a human readable form of the UnencryptedBucket.
-func (ebp EncryptedBucket) String() string { return "ebp:" + ebp.Raw() }
-
-// Bucket returns the bucket associated with the EncryptedBucket.
-func (ebp EncryptedBucket) Bucket() string { return ebp.bucket }
-
-// Path returns the Encrypted associated with the EncryptedBucket.
-func (ebp EncryptedBucket) Path() Encrypted { return ebp.path }
 
 //
 // path component iteration
@@ -170,6 +116,11 @@ type Iterator struct {
 	raw       string
 	consumed  int
 	lastEmpty bool
+}
+
+// NewIterator returns an Iterator for components of the provided raw path.
+func NewIterator(raw string) Iterator {
+	return Iterator{raw: raw}
 }
 
 // Consumed reports how much of the path has been consumed.

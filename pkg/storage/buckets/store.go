@@ -9,10 +9,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -40,7 +43,6 @@ type ListItem struct {
 
 // BucketStore contains objects store
 type BucketStore struct {
-	store  objects.Store
 	stream streams.Store
 }
 
@@ -55,14 +57,13 @@ type Meta struct {
 
 // NewStore instantiates BucketStore
 func NewStore(stream streams.Store) Store {
-	// root object store for storing the buckets with unencrypted names
-	store := objects.NewStore(stream, storj.Unencrypted)
-	return &BucketStore{store: store, stream: stream}
+	return &BucketStore{stream: stream}
 }
 
 // GetObjectStore returns an implementation of objects.Store
 func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ objects.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	if bucket == "" {
 		return nil, storj.ErrNoBucket.New("")
 	}
@@ -74,11 +75,7 @@ func (b *BucketStore) GetObjectStore(ctx context.Context, bucket string) (_ obje
 		}
 		return nil, err
 	}
-	prefixed := prefixedObjStore{
-		store:  objects.NewStore(b.stream, m.PathEncryptionType),
-		prefix: bucket,
-	}
-	return &prefixed, nil
+	return objects.NewStore(b.stream, bucket, m.PathEncryptionType), nil
 }
 
 // Get calls objects store Get
@@ -89,7 +86,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
-	objMeta, err := b.store.Meta(ctx, bucket)
+	objMeta, err := b.stream.Meta(ctx, bucketPath(ctx, bucket), storj.Unencrypted)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrBucketNotFound.Wrap(err)
@@ -102,10 +99,10 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 
 // Put calls objects store Put and fills in some specific metadata to be used
 // in the bucket's object Pointer. Note that the Meta.Created field is ignored.
-func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (meta Meta, err error) {
+func (b *BucketStore) Put(ctx context.Context, bucket string, inMeta Meta) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if bucketName == "" {
+	if bucket == "" {
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
@@ -128,10 +125,17 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 	var exp time.Time
-	m, err := b.store.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
+
+	metadata, err := proto.Marshal(&pb.SerializableMeta{UserDefined: userMeta})
 	if err != nil {
 		return Meta{}, err
 	}
+
+	m, err := b.stream.Put(ctx, bucketPath(ctx, bucket), storj.Unencrypted, r, metadata, exp)
+	if err != nil {
+		return Meta{}, err
+	}
+
 	// we could use convertMeta() here, but that's a lot of int-parsing
 	// just to get back to what should be the same contents we already
 	// have. the only change ought to be the modified time.
@@ -147,8 +151,7 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 		return storj.ErrNoBucket.New("")
 	}
 
-	err = b.store.Delete(ctx, bucket)
-
+	err = b.stream.Delete(ctx, bucketPath(ctx, bucket), storj.Unencrypted)
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrBucketNotFound.Wrap(err)
 	}
@@ -160,7 +163,7 @@ func (b *BucketStore) Delete(ctx context.Context, bucket string) (err error) {
 func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, limit int) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	objItems, more, err := b.store.List(ctx, "", startAfter, endBefore, false, limit, meta.Modified)
+	objItems, more, err := b.stream.List(ctx, streams.Path{}, startAfter, endBefore, storj.Unencrypted, false, limit, meta.Modified)
 	if err != nil {
 		return items, more, err
 	}
@@ -183,8 +186,13 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 }
 
 // convertMeta converts stream metadata to object metadata
-func convertMeta(ctx context.Context, m objects.Meta) (out Meta, err error) {
+func convertMeta(ctx context.Context, m streams.Meta) (out Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	ser := pb.SerializableMeta{}
+	if err := proto.Unmarshal(m.Data, &ser); err != nil {
+		zap.S().Warnf("Failed deserializing metadata: %v", err)
+	}
 
 	out.Created = m.Modified
 	// backwards compatibility for old buckets
@@ -195,7 +203,7 @@ func convertMeta(ctx context.Context, m objects.Meta) (out Meta, err error) {
 		if err != nil {
 			return
 		}
-		if stringVal := m.UserDefined[nameInMap]; stringVal != "" {
+		if stringVal := ser.UserDefined[nameInMap]; stringVal != "" {
 			var intVal int64
 			intVal, err = strconv.ParseInt(stringVal, 10, bits)
 			if err != nil {
@@ -221,4 +229,8 @@ func convertMeta(ctx context.Context, m objects.Meta) (out Meta, err error) {
 	applySetting("default-rs-total", 16, func(v int64) { rs.TotalShares = int16(v) })
 
 	return out, err
+}
+
+func bucketPath(ctx context.Context, bucket string) streams.Path {
+	return streams.CreatePath(ctx, bucket, paths.Unencrypted{})
 }

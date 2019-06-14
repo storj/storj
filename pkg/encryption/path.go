@@ -19,6 +19,11 @@ import (
 func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, store *Store) (
 	paths.Encrypted, error) {
 
+	// Invalid paths map to invalid paths
+	if !path.Valid() {
+		return paths.Encrypted{}, nil
+	}
+
 	if cipher == storj.Unencrypted {
 		return paths.NewEncrypted(path.Raw()), nil
 	}
@@ -33,35 +38,59 @@ func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, sto
 		return paths.Encrypted{}, errs.New("unable to encrypt bucket path: %q", path)
 	}
 
+	encrypted, err := EncryptPathRaw(remaining.Raw(), cipher, &base.Key)
+	if err != nil {
+		return paths.Encrypted{}, errs.Wrap(err)
+	}
+
 	var builder strings.Builder
 	builder.WriteString(base.Encrypted.Raw())
 
-	key := &base.Key
-	for iter, i := remaining.Iterator(), 0; !iter.Done(); i++ {
-		component := iter.Next()
+	if len(encrypted) > 0 {
+		if builder.Len() > 0 {
+			builder.WriteByte('/')
+		}
+		builder.WriteString(encrypted)
+	}
 
+	return paths.NewEncrypted(builder.String()), nil
+}
+
+// EncryptPathRaw encrypts the path using the provided key directly. EncryptPath should be
+// preferred if possible.
+func EncryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, error) {
+	if cipher == storj.Unencrypted {
+		return raw, nil
+	}
+
+	var builder strings.Builder
+	for iter, i := paths.NewIterator(raw), 0; !iter.Done(); i++ {
+		component := iter.Next()
 		encComponent, err := encryptPathComponent(component, cipher, key)
 		if err != nil {
-			return paths.Encrypted{}, errs.Wrap(err)
+			return "", errs.Wrap(err)
 		}
 		key, err = DeriveKey(key, "path:"+component)
 		if err != nil {
-			return paths.Encrypted{}, errs.Wrap(err)
+			return "", errs.Wrap(err)
 		}
-
-		if builder.Len() > 0 || i > 0 {
+		if i > 0 {
 			builder.WriteByte('/')
 		}
 		builder.WriteString(encComponent)
 	}
-
-	return paths.NewEncrypted(builder.String()), nil
+	return builder.String(), nil
 }
 
 // DecryptPath decrypts the path using the provided cipher and looking up
 // keys from the provided store and bucket.
 func DecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store *Store) (
 	paths.Unencrypted, error) {
+
+	// Invalid paths map to invalid paths
+	if !path.Valid() {
+		return paths.Unencrypted{}, nil
+	}
 
 	if cipher == storj.Unencrypted {
 		return paths.NewUnencrypted(path.Raw()), nil
@@ -77,29 +106,48 @@ func DecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store
 		return paths.Unencrypted{}, errs.New("unable to encrpt bucket path: %q", path)
 	}
 
+	decrypted, err := DecryptPathRaw(remaining.Raw(), cipher, &base.Key)
+	if err != nil {
+		return paths.Unencrypted{}, errs.Wrap(err)
+	}
+
 	var builder strings.Builder
 	builder.WriteString(base.Unencrypted.Raw())
 
-	key := &base.Key
-	for iter, i := remaining.Iterator(), 0; !iter.Done(); i++ {
-		component := iter.Next()
+	if len(decrypted) > 0 {
+		if builder.Len() > 0 {
+			builder.WriteByte('/')
+		}
+		builder.WriteString(decrypted)
+	}
 
+	return paths.NewUnencrypted(builder.String()), nil
+}
+
+// DecryptPathRaw decrypts the path using the provided key directly. DecryptPath should be
+// preferred if possible.
+func DecryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, error) {
+	if cipher == storj.Unencrypted {
+		return raw, nil
+	}
+
+	var builder strings.Builder
+	for iter, i := paths.NewIterator(raw), 0; !iter.Done(); i++ {
+		component := iter.Next()
 		unencComponent, err := decryptPathComponent(component, cipher, key)
 		if err != nil {
-			return paths.Unencrypted{}, errs.Wrap(err)
+			return "", errs.Wrap(err)
 		}
 		key, err = DeriveKey(key, "path:"+unencComponent)
 		if err != nil {
-			return paths.Unencrypted{}, errs.Wrap(err)
+			return "", errs.Wrap(err)
 		}
-
-		if builder.Len() > 0 || i > 0 {
+		if i > 0 {
 			builder.WriteByte('/')
 		}
 		builder.WriteString(unencComponent)
 	}
-
-	return paths.NewUnencrypted(builder.String()), nil
+	return builder.String(), nil
 }
 
 // DeriveContentKey returns the content key for the passed in path by looking up
@@ -138,13 +186,12 @@ func DerivePathKey(bucket string, path paths.Unencrypted, store *Store) (key *st
 
 // encryptPathComponent encrypts a single path component with the provided cipher and key.
 func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
+	if comp == "" {
+		return "", nil
+	}
+
 	// derive the key for the next path component. this is so that
 	// every encrypted component has a unique nonce.
-	//
-	// TODO(jeff): could we have just written the path component into an
-	// hmac keyed by the current path key? that seems like it would be
-	// just as good for nonce generation, and wouldn't require deriving
-	// the path key multiple times.
 	derivedKey, err := DeriveKey(key, "path:"+comp)
 	if err != nil {
 		return "", err
@@ -177,6 +224,10 @@ func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 
 // decryptPathComponent decrypts a single path component with the provided cipher and key.
 func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
+	if comp == "" {
+		return "", nil
+	}
+
 	data, err := base64.RawURLEncoding.DecodeString(comp)
 	if err != nil {
 		return "", Error.Wrap(err)

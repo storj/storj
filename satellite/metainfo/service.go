@@ -72,14 +72,12 @@ func (s *Service) List(ctx context.Context, prefix Path, startAfter, endBefore s
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rawPrefix := prefix.Raw()
-	var prefixKey storage.Key
-	if len(rawPrefix) > 0 {
-		prefixKey = storage.Key(rawPrefix)
-		if rawPrefix[len(rawPrefix)-1] != storage.Delimiter {
-			prefixKey = append(prefixKey, storage.Delimiter)
-		}
-	}
+	// We always append the delimiter because a Path can never be empty, and
+	// always ends with a segment, bucket, or encrypted path, none of which
+	// can end with a `/` (except for an encrypted path that is using the null
+	// encryption cipher, but consider if you upload to `foo//bar` and list
+	// for `foo` vs list for `foo/`. They should contain distinct result sets.)
+	prefixKey := append(storage.Key(prefix.Raw()), storage.Delimiter)
 
 	rawItems, more, err := storage.ListV2(ctx, s.DB, storage.ListOptions{
 		Prefix:       prefixKey,
