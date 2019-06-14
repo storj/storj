@@ -64,7 +64,7 @@ func get_object_meta(cObject C.ObjectRef_t, cErr **C.char) C.ObjectMeta_t {
 		return C.ObjectMeta_t{}
 	}
 
-	checksum, checksumLen := bytes_to_cbytes(object.Meta.Checksum, len(object.Meta.Checksum))
+	checksum, checksumLen := bytes_to_cbytes(object.Meta.Checksum)
 
 	mapRef := new_map_ref()
 	for k, v := range object.Meta.Metadata {

@@ -15,13 +15,13 @@ void TestObject(void)
     char **err = &_err;
 
     // Open Project
-    ProjectRef_t ref_project = OpenTestProject(err);
+    ProjectRef_t ref_project = open_test_project(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     char *bucket_name = "TestBucket1";
 
     // Create buckets
-    Bucket_t *bucket = CreateTestBucket(ref_project, bucket_name, err);
+    Bucket_t *bucket = create_test_bucket(ref_project, bucket_name, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     free(bucket);
 

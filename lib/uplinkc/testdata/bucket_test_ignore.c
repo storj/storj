@@ -19,10 +19,6 @@ void TestBucket(void)
     ProjectRef_t ref_project = OpenTestProject(err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
-    // TODO: test with different bucket configs
-<<<<<<< HEAD:lib/uplinkc/testdata/bucket_test_ignore.c
-    create_bucket(ref_project, bucket_name, NULL, err);
-=======
     EncryptionParameters_t enc_param;
     enc_param.cipher_suite = 1;
     enc_param.block_size = 4 * 1024;
@@ -40,8 +36,7 @@ void TestBucket(void)
     bucket_cfg.encryption_parameters = enc_param;
     bucket_cfg.redundancy_scheme = scheme;
 
-    CreateBucket(ref_project, bucket_name, &bucket_cfg, err);
->>>>>>> cbindings:lib/uplink/ext/c/tests/bucket_test.c
+    create_bucket(ref_project, bucket_name, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
 
     // TODO: Encryption access
@@ -64,7 +59,6 @@ void TestBucket(void)
     }
 
     // List objects
-    // TODO: test list options
     ObjectList_t objects_list = ListObjects(ref_bucket, NULL, err);
     TEST_ASSERT_EQUAL_STRING("", *err);
     TEST_ASSERT_EQUAL_STRING(bucket_name, objects_list.bucket);

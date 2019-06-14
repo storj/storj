@@ -65,47 +65,6 @@ Bucket_t *CreateTestBucket(ProjectRef_t ref_project, char *bucket_name, char **e
     return bucket;
 }
 
-EncryptionAccess_t * NewEncryptionAccess(uint8_t *key, int key_len)
-{
-    EncryptionAccess_t *access = malloc(sizeof(EncryptionAccess_t));
-    access->key = malloc(sizeof(Bytes_t));
-    access->key->length = key_len;
-    access->key->bytes = calloc(key_len, sizeof(uint8_t));
-
-    memcpy(access->key->bytes, key, key_len);
-
-    return access;
-}
-
-void FreeEncryptionAccess(EncryptionAccess_t *access)
-{
-    if (access != NULL) {
-        if (access->key != NULL) {
-            if (access->key->bytes != NULL) {
-                free(access->key->bytes);
-            }
-            free(access->key);
-        }
-        free(access);
-    }
-}
-
-void FreeBucket(Bucket_t *bucket)
-{
-    if (bucket != NULL) {
-        free(bucket);
-    }
-}
-
-Bytes_t *BytesFromString(char *str_data)
-{
-    size_t length = strlen(str_data);
-    Bytes_t *data = malloc(length);
-    data->bytes = (uint8_t *)str_data;
-    data->length = strlen(str_data);
-    return data;
-}
-
 void create_test_object(BucketRef_t ref_bucket, char *path, Object_t *object, Bytes_t *data, char **err)
 {
 

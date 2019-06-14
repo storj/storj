@@ -24,10 +24,11 @@ func parse_api_key(val *C.char, cerr **C.char) (apikeyHandle C.APIKeyRef_t) {
 
 //export serialize_api_key
 // serialize_api_key serializes the API Key to a string
-func serialize_api_key(apikeyHandle C.APIKeyRef_t) *C.char {
+func serialize_api_key(apikeyHandle C.APIKeyRef_t, cerr **C.char) *C.char {
 	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
 	if !ok {
-		return C.CString("invalid apikey")
+		*cerr = C.CString("invalid apikey")
+		return C.CString("")
 	}
 
 	return C.CString(apikey.Serialize())

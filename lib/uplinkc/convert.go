@@ -11,18 +11,12 @@ import (
 	"unsafe"
 )
 
-// newObjectInfo returns a C object struct converted from a go object struct.
-func newObjectInfo (object *storj.Object) C.ObjectInfo_t {
-	return C.ObjectInfo_t {
-		version:      C.uint32_t(object.Version),
-		bucket:       newBucketInfo(&object.Bucket),
-		path:         C.CString(object.Path),
-		is_prefix:    C.bool(object.IsPrefix),
-		metadata:     C.MapRef_t{universe.Add(object.Metadata)},
-		content_type: C.CString(object.ContentType),
-		created: C.time_t(object.Created.Unix()),
-		modified: C.time_t(object.Modified.Unix()),
-		expires: C.time_t(object.Expires.Unix()),
+// newBucketConfig returns a C bucket config struct converted from a go bucket config struct.
+func newBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
+	return C.BucketConfig_t{
+		encryption_parameters: convertEncryptionParameters(&bucketCfg.EncryptionParameters),
+		redundancy_scheme:     convertRedundancyScheme(&bucketCfg.Volatile.RedundancyScheme),
+		path_cipher:           C.uint8_t(bucketCfg.PathCipher),
 	}
 }
 
@@ -36,6 +30,21 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo_t {
 
 		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
 		redundancy_scheme:     convertRedundancyScheme(&bucket.RedundancyScheme),
+	}
+}
+
+// newObjectInfo returns a C object struct converted from a go object struct.
+func newObjectInfo(object *storj.Object) C.ObjectInfo_t {
+	return C.ObjectInfo_t{
+		version:      C.uint32_t(object.Version),
+		bucket:       newBucketInfo(&object.Bucket),
+		path:         C.CString(object.Path),
+		is_prefix:    C.bool(object.IsPrefix),
+		metadata:     C.MapRef_t{universe.Add(object.Metadata)},
+		content_type: C.CString(object.ContentType),
+		created:      C.time_t(object.Created.Unix()),
+		modified:     C.time_t(object.Modified.Unix()),
+		expires:      C.time_t(object.Expires.Unix()),
 	}
 }
 
@@ -59,26 +68,12 @@ func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme_
 	}
 }
 
-// newBucketConfig returns a C bucket config struct converted from a go bucket config struct.
-func newBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
-	return C.BucketConfig_t{
-		encryption_parameters: convertEncryptionParameters(&bucketCfg.EncryptionParameters),
-		redundancy_scheme:     convertRedundancyScheme(&bucketCfg.Volatile.RedundancyScheme),
-		path_cipher:           C.uint8_t(bucketCfg.PathCipher),
-	}
-}
-
 // bytes_to_cbytes converts a byte array to a C uint8_t array
-func bytes_to_cbytes(bytes []byte, lenOfBytes int) (data *C.uint8_t, len C.uint64_t) {
-	ptr := uintptr(C.malloc(C.size_t(lenOfBytes)))
-	mem := unsafe.Pointer(ptr)
-	for i := 0; i < lenOfBytes; i++ {
-		nextAddress := uintptr(int(ptr) + i)
-		*(*uint8)(unsafe.Pointer(nextAddress)) = bytes[i]
-	}
+func bytes_to_cbytes(bytes []byte) (data *C.uint8_t, _ C.uint64_t) {
+	length := len(bytes)
+	ptr := uintptr(C.malloc(C.size_t(length)))
+	mem := (*[1 << 30]uint8)(unsafe.Pointer(ptr))
+	copy((*mem)[:], bytes)
 
-	len = C.uint64_t(lenOfBytes)
-	data = (*C.uint8_t)(mem)
-
-	return data, len
+	return data, C.uint64_t(length)
 }

@@ -21,6 +21,7 @@ void handle_project(ProjectRef_t project) {
     char *bucket_names[] = {"TestBucket1", "TestBucket2", "TestBucket3", "TestBucket4"};
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
+    // TODO: test with different bucket configs
     {// Create buckets
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
@@ -46,6 +47,7 @@ void handle_project(ProjectRef_t project) {
         }
     }
 
+    // TODO: test list options
     { // listing buckets
         BucketList_t bucket_list = list_buckets(project, NULL, err);
         require_noerror(*err);
