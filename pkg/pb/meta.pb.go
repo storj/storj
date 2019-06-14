@@ -3,9 +3,11 @@
 
 package pb
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/gogo/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -31,7 +33,7 @@ func (m *SerializableMeta) Reset()         { *m = SerializableMeta{} }
 func (m *SerializableMeta) String() string { return proto.CompactTextString(m) }
 func (*SerializableMeta) ProtoMessage()    {}
 func (*SerializableMeta) Descriptor() ([]byte, []int) {
-	return fileDescriptor_meta_d3a626c05679ee13, []int{0}
+	return fileDescriptor_3b5ea8fe65782bcc, []int{0}
 }
 func (m *SerializableMeta) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SerializableMeta.Unmarshal(m, b)
@@ -39,8 +41,8 @@ func (m *SerializableMeta) XXX_Unmarshal(b []byte) error {
 func (m *SerializableMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SerializableMeta.Marshal(b, m, deterministic)
 }
-func (dst *SerializableMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SerializableMeta.Merge(dst, src)
+func (m *SerializableMeta) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SerializableMeta.Merge(m, src)
 }
 func (m *SerializableMeta) XXX_Size() int {
 	return xxx_messageInfo_SerializableMeta.Size(m)
@@ -70,9 +72,9 @@ func init() {
 	proto.RegisterMapType((map[string]string)(nil), "objects.SerializableMeta.UserDefinedEntry")
 }
 
-func init() { proto.RegisterFile("meta.proto", fileDescriptor_meta_d3a626c05679ee13) }
+func init() { proto.RegisterFile("meta.proto", fileDescriptor_3b5ea8fe65782bcc) }
 
-var fileDescriptor_meta_d3a626c05679ee13 = []byte{
+var fileDescriptor_3b5ea8fe65782bcc = []byte{
 	// 191 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x4d, 0x2d, 0x49,
 	0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0xcf, 0x4f, 0xca, 0x4a, 0x4d, 0x2e, 0x29, 0x56,
