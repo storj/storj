@@ -501,12 +501,12 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAt
 		return false, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreateKey(ctx, keyInfo.ProjectID, -1, string(req.BucketName), paths.NewEncrypted(""))
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, string(req.BucketName), paths.Encrypted{})
 	if err != nil {
 		return false, err
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, Key{}, Key{}, true, 1, 0)
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
 	if err != nil {
 		return false, err
 	}
