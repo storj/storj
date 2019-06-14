@@ -48,12 +48,12 @@ This design may be refined in the future to prefer storage nodes based on speed,
 ```DBX
 model node (
 ...
-	field reputation_audit_α   float64   ( updatable )
-	field reputation_audit_β   float64   ( updatable )
-	field total_audit_count    int64     ( updatable )
-	field reputation_uptime_α  float64   ( updatable )
-	field reputation_uptime_β  float64   ( updatable )
-	field total_uptime_count   int64     ( updatable )
+	field reputation_audit_alpha  float64   ( updatable )
+	field reputation_audit_beta   float64   ( updatable )
+	field total_audit_count       int64     ( updatable )
+	field reputation_uptime_alpha float64   ( updatable )
+	field reputation_uptime_beta  float64   ( updatable )
+	field total_uptime_count      int64     ( updatable )
 ...
 )
 ```
@@ -72,10 +72,10 @@ Implementing α0 = β0 = 1 as described above would require some type of relaxat
 
 ## Implementation
 
-* Create configuration elements for audit_α0, audit_β0, audit_λ, audit_w, audit_repair_weight, and audit_uplink_weight
-* Create configuration elements for uptime_α0, uptime_β0, uptime_λ, uptime_w, uptime_repair_weight, and uptime_uplink_weight
+* Create configuration elements for audit_alpha0, audit_beta0, audit_λ, audit_w, audit_repair_weight, and audit_uplink_weight
+* Create configuration elements for uptime_alpha0, uptime_beta0, uptime_λ, uptime_w, uptime_repair_weight, and uptime_uplink_weight
 * Alter DBX model removing audit_success_count, audit_success_ratio, uptime_success_count, uptime_ratio
-* Alter DBX model adding reputation_audit_α, reputation_audit_β, reputation_uptime_α, reputation_uptime_β
+* Alter DBX model adding reputation_audit_alpha, reputation_audit_beta, reputation_uptime_alpha, reputation_uptime_beta
 * Create migration scripts for SQL table changes
 * Alter SQL node selection queries to consider new values
 * Alter SQL node selection queries to return 2x more nodes
