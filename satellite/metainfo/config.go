@@ -27,7 +27,7 @@ type RSConfig struct {
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
 	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10"`
-	Flag             bool        `default:"true" help:"toggle flag if rsconfig is enabled"`
+	Validate         bool        `default:"true" help:"toggle flag if rsconfig is enabled"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo

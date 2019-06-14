@@ -275,7 +275,7 @@ func TestServiceList(t *testing.T) {
 
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -295,11 +295,11 @@ func TestCommitSegment(t *testing.T) {
 		{
 			// error if number of remote pieces is lower then repair threshold
 			redundancy := &pb.RedundancyScheme{
-				MinReq:           1,
-				RepairThreshold:  2,
-				SuccessThreshold: 4,
-				Total:            6,
-				ErasureShareSize: 10,
+				MinReq:           4,
+				RepairThreshold:  6,
+				SuccessThreshold: 8,
+				Total:            10,
+				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now()
 			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
@@ -335,6 +335,30 @@ func TestCommitSegment(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "Number of valid pieces is less than or equal to the repair threshold")
+		}
+		{
+			// error if number of remote pieces is lower then repair threshold
+			redundancy := &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 4,
+				Total:            6,
+				ErasureShareSize: 10,
+			}
+			expirationDate := time.Now()
+			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			require.Error(t, err)
+
+			redundancy = &pb.RedundancyScheme{
+				MinReq:           4,
+				RepairThreshold:  6,
+				SuccessThreshold: 8,
+				Total:            10,
+				ErasureShareSize: 256,
+			}
+			expirationDate = time.Now()
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			require.NoError(t, err)
 		}
 	})
 }
