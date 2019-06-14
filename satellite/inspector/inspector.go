@@ -143,6 +143,9 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 	}
 
 	offlineNodes, err := endpoint.cache.KnownOffline(ctx, nodeIDs)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	offlineMap := make(map[storj.NodeID]bool)
 	for _, id := range offlineNodes {

@@ -653,10 +653,10 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) Finish(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Finish(ctx, offerId)
+	return m.db.Finish(ctx, offerID)
 }
 
 func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
@@ -671,10 +671,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Redeem(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Redeem(ctx, offerId)
+	return m.db.Redeem(ctx, offerID)
 }
 
 // Orders returns database for orders
@@ -792,6 +792,13 @@ func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, crit
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IsVetted(ctx, id, criteria)
+}
+
+// KnownOffline filters a set of nodes to offline nodes
+func (m *lockedOverlayCache) KnownOffline(ctx context.Context, a1 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.KnownOffline(ctx, a1)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new

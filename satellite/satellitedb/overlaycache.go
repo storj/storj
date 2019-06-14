@@ -420,7 +420,6 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, nodeIds storj.NodeI
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	offlineNodes := storj.NodeIDList
 	for rows.Next() {
 		var id storj.NodeID
 		err = rows.Scan(&id)
