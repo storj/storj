@@ -440,11 +440,10 @@ func TestCommitSegmentPointer(t *testing.T) {
 			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
 		},
 		{
-			// invalid piece size removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
 			},
-			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+			ErrorMessage: "all pieces needs to have the same size",
 		},
 	}
 
@@ -529,7 +528,6 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Clien
 		if len(pointer.Remote.RemotePieces) > i {
 			pointer.Remote.RemotePieces[i].NodeId = addressedLimits[i].Limit.StorageNodeId
 			pointer.Remote.RemotePieces[i].Hash.PieceId = addressedLimits[i].Limit.PieceId
-			pointer.Remote.RemotePieces[i].Hash.PieceSize = 100
 		}
 	}
 
@@ -547,7 +545,8 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 	}
 
 	pointer := &pb.Pointer{
-		Type: pb.Pointer_REMOTE,
+		Type:        pb.Pointer_REMOTE,
+		SegmentSize: 100,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
@@ -555,12 +554,14 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 					PieceNum: 0,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
+						PieceSize: 100,
 					},
 				},
 				&pb.RemotePiece{
 					PieceNum: 1,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
+						PieceSize: 100,
 					},
 				},
 			},

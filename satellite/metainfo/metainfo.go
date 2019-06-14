@@ -457,7 +457,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
-		lastSize := int64(0)
+		allSizesValid := true
+		maxSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 			// TODO enable verification
 
@@ -479,13 +480,33 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			}
 
 			// TODO maybe minimal PieceSize should be bigger
-			if piece.Hash.PieceSize <= 0 || (lastSize > 0 && lastSize != piece.Hash.PieceSize) {
-				endpoint.log.Sugar().Warn("invalid piece size, removing from from pointer")
-				continue
+			if piece.Hash.PieceSize <= 0 || (maxSize > 0 && maxSize != piece.Hash.PieceSize) {
+				allSizesValid = false
 			}
-			lastSize = piece.Hash.PieceSize
+			if maxSize < piece.Hash.PieceSize {
+				maxSize = piece.Hash.PieceSize
+			}
 
 			remotePieces = append(remotePieces, piece)
+		}
+
+		if allSizesValid {
+			minReq := int64(remote.Redundancy.MinReq)
+			uploadSize := maxSize * minReq
+			segmentSize := pointer.SegmentSize
+			erasureShareSize := int64(remote.Redundancy.ErasureShareSize)
+
+			if segmentSize < erasureShareSize {
+				segmentSize = erasureShareSize * minReq
+			}
+
+			diff := float64(uploadSize-segmentSize) / float64(segmentSize)
+			// if diff between calculation and reported segment size is greater than 10%
+			if diff > 0.1 {
+				return Error.New("difference between pointer segment size and uploaded pieces too big")
+			}
+		} else {
+			return Error.New("all pieces needs to have the same size")
 		}
 
 		// we repair when the number of healthy files is less than or equal to the repair threshold

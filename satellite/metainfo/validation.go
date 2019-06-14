@@ -245,13 +245,12 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 
 	// TODO does it all?
 	if pointer.Type == pb.Pointer_REMOTE {
-		if pointer.Remote == nil {
+		switch {
+		case pointer.Remote == nil:
 			return Error.New("no remote segment specified")
-		}
-		if pointer.Remote.RemotePieces == nil {
+		case pointer.Remote.RemotePieces == nil:
 			return Error.New("no remote segment pieces specified")
-		}
-		if pointer.Remote.Redundancy == nil {
+		case pointer.Remote.Redundancy == nil:
 			return Error.New("no redundancy scheme specified")
 		}
 	}
@@ -280,12 +279,17 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 		return errs.New("unable to read piece hash timestamp, removing from pointer %v (%v): %v", piece.NodeId, piece.PieceNum, err)
 	}
 	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
-		return errs.New("piece hash timestamp to old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+		return errs.New("piece hash timestamp is to old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
 	}
 
 	limit := limits[piece.PieceNum]
-	if limit == nil || limit.PieceId != piece.Hash.PieceId {
-		return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
+	if limit != nil {
+		switch {
+		case limit.PieceId != piece.Hash.PieceId:
+			return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
+		case limit.Limit < piece.Hash.PieceSize:
+			return errs.New("piece hash PieceSize is larger than order limit, removing from pointer (%v > %v)", piece.Hash.PieceSize, limit.Limit)
+		}
 	}
 	return nil
 }
