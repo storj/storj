@@ -33,7 +33,7 @@ import (
 // downloaded successfully.
 func TestDownloadSharesHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 // change that affects the audit service.
 func TestDownloadSharesOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 // change that affects the audit service.
 func TestDownloadSharesMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 // change that affects the audit service.
 func TestDownloadSharesDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -293,7 +293,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -365,7 +365,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 func TestVerifierHappyPath(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -403,7 +403,7 @@ func TestVerifierHappyPath(t *testing.T) {
 
 func TestVerifierOfflineNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Discovery.Service.Discovery.Pause()
 		err := planet.Satellites[0].Audit.Service.Close()
@@ -447,7 +447,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 
 func TestVerifierMissingPiece(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)

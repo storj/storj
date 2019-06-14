@@ -28,7 +28,7 @@ import (
 
 func TestUploadDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(expectedData)
@@ -46,7 +46,7 @@ func TestUploadDownload(t *testing.T) {
 
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -60,10 +60,10 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: 8,
+			MaxThreshold:     10,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -118,7 +118,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		dataToUpload := make([][]byte, 5)
 		for i := 0; i < len(dataToUpload); i++ {
@@ -162,7 +162,7 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 	numberOfUplinks := 5
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: numberOfUplinks,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: numberOfUplinks,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		dataToUpload := make([][]byte, numberOfUplinks)
 		for i := 0; i < len(dataToUpload); i++ {
@@ -225,7 +225,7 @@ func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRe
 
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		expectedData := make([]byte, 1*memory.MiB)
@@ -233,10 +233,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     5,
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: 8,
+			MaxThreshold:     10,
 		}, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
