@@ -293,7 +293,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 15, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -305,11 +305,11 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		// Upload with larger erasure share size to simulate longer download over slow transport client
 		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     4,
-			ErasureShareSize: 32 * memory.KiB,
+			MinThreshold:     4,
+			RepairThreshold:  6,
+			SuccessThreshold: 8,
+			MaxThreshold:     10,
+			ErasureShareSize: 256,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -492,7 +492,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 
 func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 15, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
