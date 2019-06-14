@@ -4,7 +4,6 @@
 package vouchers_test
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
@@ -21,7 +19,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -102,34 +99,14 @@ func TestVouchersService(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
 		node.Vouchers.Loop.Pause()
-		node.Storage2.Sender.Loop.Pause()
 
-		// run service and assert no satellites in voucherDB
-		err := node.Vouchers.RunOnce(ctx)
-		require.NoError(t, err)
+		// node needs time to find satellites
+		time.Sleep(300 * time.Millisecond)
+
+		// assert no vouchers
 		satellites, err := node.DB.Vouchers().ListSatellites(ctx)
 		require.NoError(t, err)
 		assert.Len(t, satellites, 0)
-
-		// upload to node to get orders
-		data := make([]byte, 5*memory.KiB)
-		_, err = rand.Read(data)
-		require.NoError(t, err)
-
-		time.Sleep(time.Second)
-		for _, sat := range planet.Satellites {
-			err := planet.Uplinks[0].Upload(ctx, sat, "testbucket", "testpath", data)
-			require.NoError(t, err)
-		}
-
-		// archive orders
-		orderInfo, err := node.DB.Orders().ListUnsent(ctx, 5)
-		require.NoError(t, err)
-		assert.Len(t, orderInfo, 5)
-		for _, o := range orderInfo {
-			err = node.DB.Orders().Archive(ctx, o.Limit.SatelliteId, o.Limit.SerialNumber, orders.StatusAccepted)
-			require.NoError(t, err)
-		}
 
 		// run service and check vouchers have been received
 		err = node.Vouchers.RunOnce(ctx)
