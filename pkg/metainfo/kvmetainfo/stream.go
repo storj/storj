@@ -10,7 +10,9 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -20,8 +22,9 @@ type readonlyStream struct {
 	db *DB
 
 	info          storj.Object
-	encryptedPath storj.Path
-	streamKey     *storj.Key // lazySegmentReader derivedKey
+	bucket        string
+	encryptedPath paths.Encrypted
+	contentKey    *storj.Key // lazySegmentReader derivedKey
 }
 
 func (stream *readonlyStream) Info() storj.Object { return stream.info }
@@ -44,10 +47,14 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		Index: index,
 	}
 
-	var segmentPath storj.Path
+	var segmentPath segments.Path
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		segmentPath = getSegmentPath(stream.encryptedPath, index)
+		segmentPath, err = segments.CreatePath(ctx, index, stream.bucket, stream.encryptedPath)
+		if err != nil {
+			return segment, err
+		}
+
 		_, meta, err := stream.db.segments.Get(ctx, segmentPath)
 		if err != nil {
 			return segment, err
@@ -68,7 +75,7 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		segment.EncryptedKey = stream.info.LastSegment.EncryptedKey
 	}
 
-	contentKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.streamKey, &segment.EncryptedKeyNonce)
+	encKey, err := encryption.DecryptKey(segment.EncryptedKey, stream.Info().EncryptionScheme.Cipher, stream.contentKey, &segment.EncryptedKeyNonce)
 	if err != nil {
 		return segment, err
 	}
@@ -79,21 +86,17 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pathComponents := storj.SplitPath(stream.encryptedPath)
-	bucket := pathComponents[0]
-	segmentPath = storj.JoinPaths(pathComponents[1:]...)
-
 	if isLastSegment {
 		index = -1
 	}
 
-	pointer, err := stream.db.metainfo.SegmentInfo(ctx, bucket, segmentPath, index)
+	pointer, err := stream.db.metainfo.SegmentInfo(ctx, stream.bucket, stream.encryptedPath, index)
 	if err != nil {
 		return segment, err
 	}
 
 	if pointer.GetType() == pb.Pointer_INLINE {
-		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, contentKey, nonce)
+		segment.Inline, err = encryption.Decrypt(pointer.InlineSegment, stream.info.EncryptionScheme.Cipher, encKey, nonce)
 	} else {
 		segment.PieceID = pointer.Remote.RootPieceId
 		segment.Pieces = make([]storj.Piece, 0, len(pointer.Remote.RemotePieces))

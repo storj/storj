@@ -33,7 +33,7 @@ type Meta struct {
 
 // ListItem is a single item in a listing
 type ListItem struct {
-	Path     string
+	Path     paths.Unencrypted
 	Meta     Meta
 	IsPrefix bool
 }
@@ -122,7 +122,7 @@ func (o *objStore) List(ctx context.Context, prefix paths.Unencrypted, startAfte
 	items = make([]ListItem, len(strItems))
 	for i, itm := range strItems {
 		items[i] = ListItem{
-			Path:     itm.Path,
+			Path:     paths.NewUnencrypted(itm.Path),
 			Meta:     convertMeta(itm.Meta),
 			IsPrefix: itm.IsPrefix,
 		}

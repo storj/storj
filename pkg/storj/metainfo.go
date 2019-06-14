@@ -91,7 +91,7 @@ const (
 
 // ListOptions lists objects
 type ListOptions struct {
-	Prefix    string
+	Prefix    paths.Unencrypted
 	Cursor    string // Cursor is relative to Prefix, full path is Prefix + Cursor
 	Delimiter rune
 	Recursive bool
@@ -102,9 +102,10 @@ type ListOptions struct {
 // ObjectList is a list of objects
 type ObjectList struct {
 	Bucket string
-	Prefix string
+	Prefix paths.Unencrypted
 	More   bool
 
+	// TODO(jeff): paths.Component and allow appending?
 	// Items paths are relative to Prefix
 	// To get the full path use list.Prefix + list.Items[0].Path
 	Items []Object
