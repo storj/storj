@@ -17,8 +17,8 @@ type PartnerInfo struct {
 
 // DB implements the database for value attribution table
 type DB interface {
-	// GetByBucketName retrieves partner id using bucket name
-	GetByBucketName(ctx context.Context, buckname []byte) (*PartnerInfo, error)
+	// Get retrieves partner id using bucket name
+	Get(ctx context.Context, buckname []byte) (*PartnerInfo, error)
 	// Insert creates and stores new ConnectorKeyInfo
 	Insert(ctx context.Context, info *PartnerInfo) (*PartnerInfo, error)
 }

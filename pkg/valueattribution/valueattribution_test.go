@@ -21,21 +21,43 @@ func TestValueAttribution(t *testing.T) {
 
 		valAttrdb := db.ValueAttribution()
 
-		// Create and insert test segment infos into DB
+		// unique partner and bucket
 		partnerInfo := &valueattribution.PartnerInfo{
 			PartnerID:  []byte("valueattribution testcase partnerID"),
 			BucketName: []byte("valueattribution testcase bucketname"),
 		}
 
+		// same partner and dfferent bucket
+		partnerInfo1 := &valueattribution.PartnerInfo{
+			PartnerID:  []byte("valueattribution testcase partnerID"),
+			BucketName: []byte("valueattribution testcase different bucketname"),
+		}
+
+		// different partner and existing bucket
+		partnerInfo2 := &valueattribution.PartnerInfo{
+			PartnerID:  []byte("valueattribution testcase different partnerID"),
+			BucketName: []byte("valueattribution testcase different bucketname"),
+		}
+
 		{ // Insert
 			_, err := valAttrdb.Insert(ctx, partnerInfo)
 			assert.NoError(t, err)
+
+			_, err = valAttrdb.Insert(ctx, partnerInfo1)
+			assert.NoError(t, err)
+
+			_, err = valAttrdb.Insert(ctx, partnerInfo2)
+			assert.Error(t, err)
 		}
 
-		{ // GetByBucketName
-			info, err := valAttrdb.GetByBucketName(ctx, partnerInfo.BucketName)
+		{ // Get
+			info, err := valAttrdb.Get(ctx, partnerInfo.BucketName)
 			assert.NoError(t, err)
 			assert.Equal(t, partnerInfo.PartnerID, info.PartnerID)
+
+			info, err = valAttrdb.Get(ctx, partnerInfo1.BucketName)
+			assert.NoError(t, err)
+			assert.Equal(t, partnerInfo1.PartnerID, info.PartnerID)
 		}
 	})
 }

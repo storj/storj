@@ -14,8 +14,8 @@ type valueattributionDB struct {
 	db *dbx.DB
 }
 
-// GetByBucketName reads the partner info
-func (keys *valueattributionDB) GetByBucketName(ctx context.Context, bucketname []byte) (info *valueattribution.PartnerInfo, err error) {
+// Get reads the partner info
+func (keys *valueattributionDB) Get(ctx context.Context, bucketname []byte) (info *valueattribution.PartnerInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxInfo, err := keys.db.Get_ValueAttribution_By_BucketName(ctx, dbx.ValueAttribution_BucketName(bucketname))

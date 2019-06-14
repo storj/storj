@@ -1022,11 +1022,11 @@ type lockedValueAttribution struct {
 	db valueattribution.DB
 }
 
-// GetByBucketName retrieves partner id using bucket name
-func (m *lockedValueAttribution) GetByBucketName(ctx context.Context, buckname []byte) (*valueattribution.PartnerInfo, error) {
+// Get retrieves partner id using bucket name
+func (m *lockedValueAttribution) Get(ctx context.Context, buckname []byte) (*valueattribution.PartnerInfo, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetByBucketName(ctx, buckname)
+	return m.db.Get(ctx, buckname)
 }
 
 // Insert creates and stores new ConnectorKeyInfo
