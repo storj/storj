@@ -66,10 +66,10 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 }
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
-func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits int, id uuid.UUID, expirationEndDate time.Time) error {
+func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits int, id uuid.UUID, expirationEndDate time.Time) (remainingCharge int, err error) {
 	tx, err := c.db.Open(ctx)
 	if err != nil {
-		return errs.Wrap(err)
+		return chargedCredits, errs.Wrap(err)
 	}
 
 	availableCredits, err := tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
@@ -77,23 +77,23 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 		dbx.UserCredit_ExpiresAt(expirationEndDate),
 	)
 	if err != nil {
-		return errs.Wrap(errs.Combine(err, tx.Rollback()))
+		return chargedCredits, errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 	if len(availableCredits) == 0 {
-		return errs.Wrap(tx.Commit())
+		return chargedCredits, errs.Combine(errs.New("No available credits"), tx.Commit())
 	}
 
 	var infos []updateInfo
-
+	var creditsToCharge = chargedCredits
 	for _, credit := range availableCredits {
-		if chargedCredits == 0 {
+		if creditsToCharge == 0 {
 			break
 		}
 
 		creditsForUpdate := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 
-		if chargedCredits < creditsForUpdate {
-			creditsForUpdate = chargedCredits
+		if creditsToCharge < creditsForUpdate {
+			creditsForUpdate = creditsToCharge
 		}
 
 		infos = append(infos, updateInfo{
@@ -101,7 +101,7 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 			credits: creditsForUpdate,
 		})
 
-		chargedCredits -= creditsForUpdate
+		creditsToCharge -= creditsForUpdate
 	}
 
 	statement := `UPDATE user_credits SET
@@ -109,9 +109,9 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits
 
 	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(statement))
 	if err != nil {
-		return errs.Wrap(errs.Combine(err, tx.Rollback()))
+		return chargedCredits, errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}
-	return errs.Wrap(tx.Commit())
+	return creditsToCharge, errs.Wrap(tx.Commit())
 }
 
 func convertToSQLFormat(updateInfo []updateInfo) (updateStr string) {

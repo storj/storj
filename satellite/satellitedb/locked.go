@@ -469,16 +469,16 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
-}
-
 func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
+}
+
+func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
 }
 
 func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error) {
@@ -487,7 +487,7 @@ func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.
 	return m.db.TotalReferredCount(ctx, userID)
 }
 
-func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) error {
+func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateAvailableCredits(ctx, appliedCredits, id, billingStartDate)

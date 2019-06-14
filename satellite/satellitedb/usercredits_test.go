@@ -69,10 +69,15 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 		require.Error(t, err)
 	}
 
+	type result struct {
+		remainingCharge  int
+		availableCredits int
+		hasErr           bool
+	}
 	var validUserCredits = []struct {
 		userCredit     console.UserCredit
 		chargedCredits int
-		expected       int
+		expected       result
 	}{
 		{
 			userCredit: console.UserCredit{
@@ -80,10 +85,15 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 				OfferID:              offer.ID,
 				ReferredBy:           referrer.ID,
 				CreditsEarnedInCents: 100,
+				CreditsUsedInCents:   0,
 				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
 			chargedCredits: 120,
-			expected:       0,
+			expected: result{
+				remainingCharge:  20,
+				availableCredits: 0,
+				hasErr:           false,
+			},
 		},
 		{
 			userCredit: console.UserCredit{
@@ -94,7 +104,11 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 				ExpiresAt:            time.Now().UTC().AddDate(0, 0, -5),
 			},
 			chargedCredits: 60,
-			expected:       0,
+			expected: result{
+				remainingCharge:  60,
+				availableCredits: 0,
+				hasErr:           true,
+			},
 		},
 	}
 
@@ -113,8 +127,13 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 		}
 
 		{
-			err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
-			require.NoError(t, err)
+			remainingCharge, err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
+			if vc.expected.hasErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, vc.expected.remainingCharge, remainingCharge)
 		}
 
 		{
@@ -126,7 +145,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 			}
 
 			require.NoError(t, err)
-			require.Equal(t, vc.expected, sum)
+			require.Equal(t, vc.expected.availableCredits, sum)
 		}
 	}
 }
