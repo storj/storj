@@ -19,33 +19,14 @@
 /.vscode
 debug
 
-# Binaries
-./main
-./storj
-
 # Jetbrains
 .idea/
-
-# vendor
-vendor
-protos/google/*
-
-# Test redis log and snapshot files
-*test_redis-server.log
-*dump.rdb
 
 *.coverprofile
 *.log
 
 /release/
 *.swp
-satellite_*
-storagenode_*
-uplink_*
 *.svg
-big-upload-testfile
-big-download-testfile
-small-upload-testfile
-small-download-testfile
 /bin
 resource.syso

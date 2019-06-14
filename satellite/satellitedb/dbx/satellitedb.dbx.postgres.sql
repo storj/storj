@@ -225,6 +225,17 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
+CREATE TABLE user_credits (
+	id serial NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	offer_id integer NOT NULL REFERENCES offers( id ),
+	referred_by bytea REFERENCES users( id ),
+	credits_earned_in_cents integer NOT NULL,
+	credits_used_in_cents integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_payments (
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	customer_id bytea NOT NULL,

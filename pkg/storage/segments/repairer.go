@@ -35,7 +35,7 @@ func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cach
 		metainfo: metainfo,
 		orders:   orders,
 		cache:    cache,
-		ec:       ec,
+		ec:       ec.WithForceErrorDetection(true),
 		identity: identity,
 		timeout:  timeout,
 	}
@@ -75,16 +75,16 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	numHealthy := len(pieces) - len(missingPieces)
-	// irreparable piece
-	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+	// irreparable piece, we need k+1 to detect corrupted pieces
+	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq+1 {
 		mon.Meter("repair_nodes_unavailable").Mark(1)
-		return Error.New("piece %v cannot be repaired", path)
+		return Error.New("segment %v cannot be repaired: only %d healthy pieces, %d required", path, numHealthy, pointer.Remote.Redundancy.MinReq+1)
 	}
 
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		return Error.New("piece %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return Error.New("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
 	}
 
 	healthyRatioBeforeRepair := 0.0
