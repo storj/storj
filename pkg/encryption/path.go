@@ -17,7 +17,7 @@ import (
 // EncryptPath encrypts the path using the provided cipher and looking up
 // keys from the provided store and bucket.
 func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, store *Store) (
-	paths.Encrypted, error) {
+	encPath paths.Encrypted, err error) {
 
 	// Invalid paths map to invalid paths
 	if !path.Valid() {
@@ -38,7 +38,17 @@ func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, sto
 		return paths.Encrypted{}, errs.New("unable to encrypt bucket path: %q", path)
 	}
 
-	encrypted, err := EncryptPathRaw(remaining.Raw(), cipher, &base.Key)
+	// if we didn't consume any path, we're at the root of the bucket, and so we have
+	// to fold the bucket name into the key.
+	key := &base.Key
+	if len(consumed.Raw()) == 0 {
+		key, err = DeriveKey(key, "path:"+bucket)
+		if err != nil {
+			return paths.Encrypted{}, errs.Wrap(err)
+		}
+	}
+
+	encrypted, err := EncryptPathRaw(remaining.Raw(), cipher, key)
 	if err != nil {
 		return paths.Encrypted{}, errs.Wrap(err)
 	}
@@ -85,7 +95,7 @@ func EncryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, er
 // DecryptPath decrypts the path using the provided cipher and looking up
 // keys from the provided store and bucket.
 func DecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store *Store) (
-	paths.Unencrypted, error) {
+	unencPath paths.Unencrypted, err error) {
 
 	// Invalid paths map to invalid paths
 	if !path.Valid() {
@@ -106,7 +116,17 @@ func DecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store
 		return paths.Unencrypted{}, errs.New("unable to encrpt bucket path: %q", path)
 	}
 
-	decrypted, err := DecryptPathRaw(remaining.Raw(), cipher, &base.Key)
+	// if we didn't consume any path, we're at the root of the bucket, and so we have
+	// to fold the bucket name into the key.
+	key := &base.Key
+	if len(consumed.Raw()) == 0 {
+		key, err = DeriveKey(key, "path:"+bucket)
+		if err != nil {
+			return paths.Unencrypted{}, errs.Wrap(err)
+		}
+	}
+
+	decrypted, err := DecryptPathRaw(remaining.Raw(), cipher, key)
 	if err != nil {
 		return paths.Unencrypted{}, errs.Wrap(err)
 	}

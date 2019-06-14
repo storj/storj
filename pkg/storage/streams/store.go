@@ -4,6 +4,7 @@
 package streams
 
 import (
+	"fmt"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -292,6 +293,9 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 	if err != nil {
 		return nil, Meta{}, err
 	}
+
+	fmt.Println("enc:", encPath)
+	fmt.Println("seg:", segmentPath)
 
 	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, segmentPath)
 	if err != nil {
