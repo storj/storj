@@ -11,7 +11,7 @@ import (
 	"time"
 	"reflect"
 	"path/filepath"
-	"fmt"
+
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -49,6 +49,10 @@ type Server struct {
 // Struct used to render each offer table
 type offerSet struct {
 	RefOffers,FreeCredits []marketing.Offer
+}
+
+func init(){
+	decoder.RegisterConverter(time.Time{}, timeConverter)
 }
 
 // Organizes offers from database by type.
