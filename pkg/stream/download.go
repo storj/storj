@@ -105,8 +105,9 @@ func (download *Download) resetReader(offset int64) error {
 	}
 
 	obj := download.stream.Info()
+	path := streams.CreatePath(download.ctx, obj.Bucket.Name, obj.Path)
 
-	rr, _, err := download.streams.Get(download.ctx, storj.JoinPaths(obj.Bucket.Name, obj.Path), obj.Bucket.PathCipher)
+	rr, _, err := download.streams.Get(download.ctx, path, obj.Bucket.PathCipher)
 	if err != nil {
 		return err
 	}

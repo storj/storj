@@ -27,18 +27,19 @@ type Upload struct {
 }
 
 // NewUpload creates new stream upload.
-func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.Store) *Upload {
+func NewUpload(ctx context.Context, stream storj.MutableStream, streamsStore streams.Store) *Upload {
 	reader, writer := io.Pipe()
 
 	upload := Upload{
 		ctx:     ctx,
 		stream:  stream,
-		streams: streams,
+		streams: streamsStore,
 		writer:  writer,
 	}
 
 	upload.errgroup.Go(func() error {
 		obj := stream.Info()
+		path := streams.CreatePath(ctx, obj.Bucket.Name, obj.Path)
 
 		serMetaInfo := pb.SerializableMeta{
 			ContentType: obj.ContentType,
@@ -49,7 +50,7 @@ func NewUpload(ctx context.Context, stream storj.MutableStream, streams streams.
 			return errs.Combine(err, reader.CloseWithError(err))
 		}
 
-		_, err = streams.Put(ctx, storj.JoinPaths(obj.Bucket.Name, obj.Path), obj.Bucket.PathCipher, reader, metadata, obj.Expires)
+		_, err = streamsStore.Put(ctx, path, obj.Bucket.PathCipher, reader, metadata, obj.Expires)
 		if err != nil {
 			return errs.Combine(err, reader.CloseWithError(err))
 		}
