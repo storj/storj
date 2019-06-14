@@ -211,3 +211,5 @@ For each target false positive probability between 1% and 20% and each bloom fil
 |0.18|	7340620|	0.12|	446168|	    0.17|	446240|	0.17|	500012|	0.16|
 |0.19|	7340620|    0.12|	432104|	    0.18|	432176|	0.18|	500012|	0.16|
 |0.20|	7340620|	0.12|	418760|	    0.19|	418832|	0.19|	500012|	0.16|
+
+The benchmark code is available as a gist [here](https://gist.github.com/Fadila82/9f54c61b5f91f6b1a6f9207dfbb5dd2d).
