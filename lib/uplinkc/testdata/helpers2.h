@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 // test_bucket_config returns test bucket configuration.
-BucketConfig test_bucket_config() {
-    BucketConfig config = {};
+BucketConfig_t test_bucket_config() {
+    BucketConfig_t config = {};
 
     config.path_cipher = 0;
 
