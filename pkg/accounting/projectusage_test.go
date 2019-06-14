@@ -36,7 +36,7 @@ func TestProjectUsageStorage(t *testing.T) {
 	}
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		saDB := planet.Satellites[0].DB
 		acctDB := saDB.ProjectAccounting()
@@ -95,7 +95,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		testCase := tt
 		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
-				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+				SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
@@ -258,7 +258,7 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 
 func TestProjectUsageCustomLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satDB := planet.Satellites[0].DB
 		acctDB := satDB.ProjectAccounting()
