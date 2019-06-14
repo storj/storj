@@ -4,14 +4,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef struct APIKey   { long _handle; } APIKey;
-typedef struct Uplink   { long _handle; } Uplink;
-typedef struct Project  { long _handle; } Project;
+typedef struct APIKey   { long _handle; } APIKeyRef_t;
+typedef struct Uplink   { long _handle; } UplinkRef_t;
+typedef struct Project  { long _handle; } ProjectRef_t;
 
 typedef struct UplinkConfig {
     struct {
         struct {
-            uint8_t SkipPeerCAWhitelist;
+            bool SkipPeerCAWhitelist;
         } TLS;
     } Volatile;
-} UplinkConfig;
+} UplinkConfig_t;

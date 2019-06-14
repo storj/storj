@@ -19,24 +19,24 @@ type Uplink struct {
 // an error in cerr, when there is one.
 //
 // Caller must call close_uplink to close associated resources.
-func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.Uplink {
+func new_uplink(cfg C.UplinkConfig_t, cerr **C.char) C.UplinkRef_t {
 	scope := rootScope("inmemory") // TODO: pass in as argument
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
-	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.TLS.SkipPeerCAWhitelist == 1
+	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.TLS.SkipPeerCAWhitelist == C.bool(true)
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.Uplink{}
+		return C.UplinkRef_t{}
 	}
 
-	return C.Uplink{universe.Add(&Uplink{scope, lib})}
+	return C.UplinkRef_t{universe.Add(&Uplink{scope, lib})}
 }
 
 //export close_uplink
 // close_uplink closes and frees the resources associated with uplink
-func close_uplink(uplinkHandle C.Uplink, cerr **C.char) {
+func close_uplink(uplinkHandle C.UplinkRef_t, cerr **C.char) {
 	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
