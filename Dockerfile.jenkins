@@ -32,16 +32,14 @@ COPY ./scripts/go.mod scripts/go.mod
 
 WORKDIR ./scripts
 
-RUN gobin github.com/ckaznocha/protoc-gen-lint
-RUN gobin github.com/gogo/protobuf/protoc-gen-gogo
-RUN gobin github.com/nilslice/protolock/cmd/protolock
-RUN gobin github.com/mfridman/tparse
-RUN gobin github.com/josephspurrier/goversioninfo/cmd/goversioninfo
-
-RUN gobin github.com/axw/gocov/gocov
-RUN gobin github.com/AlekSi/gocov-xml
-
-RUN gobin gopkg.in/spacemonkeygo/dbx.v1
+RUN gobin github.com/ckaznocha/protoc-gen-lint \
+	github.com/gogo/protobuf/protoc-gen-gogo \
+	github.com/nilslice/protolock/cmd/protolock \
+	github.com/mfridman/tparse \
+	github.com/josephspurrier/goversioninfo/cmd/goversioninfo \
+	gobin github.com/axw/gocov/gocov \
+	gobin github.com/AlekSi/gocov-xml \
+	gobin gopkg.in/spacemonkeygo/dbx.v1
 
 WORKDIR ..
 
