@@ -31,14 +31,14 @@ pipeline {
             parallel {
                 stage('Lint') {
                     steps {
-                        sh 'go run ./scripts/check-copyright'
-                        sh 'go run ./scripts/check-imports -race ./...'
-                        sh 'go run ./scripts/check-peer-constraints -race -fail=false'
-                        sh 'go run ./scripts/protobuf --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'go run ./scripts/protobuf --protoc=$HOME/protoc/bin/protoc check-lock'
+                        sh 'go run ./scripts/check-copyright/main.go'
+                        sh 'go run ./scripts/check-imports/main.go -race ./...'
+                        sh 'go run ./scripts/check-peer-constraints/main.go -race -fail=false'
+                        sh 'go run ./scripts/protobuf/main.go --protoc=$HOME/protoc/bin/protoc lint'
+                        sh 'go run ./scripts/protobuf/main.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
-                        sh 'go run scripts/check-mod-tidy -mod .build/go.mod.orig'
+                        sh 'go run scripts/check-mod-tidy/main.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }
                 }
@@ -50,9 +50,9 @@ pipeline {
                     }
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'go run scripts/use-ports -from 1024 -to 10000 &'
-                        sh 'go test -vet=off $COVERFLAGS -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit -out .build/tests.xml'
-                        sh 'go run scripts/check-clean-directory'
+                        sh 'go run scripts/use-ports/main.go -from 1024 -to 10000 &'
+                        sh 'go test -vet=off $COVERFLAGS -timeout 9m -json -race ./... 2>&1 | tee .build/tests.json | go run ./scripts/xunit/main.go -out .build/tests.xml'
+                        sh 'go run scripts/check-clean-directory/main.go'
                     }
 
                     post {
@@ -63,7 +63,7 @@ pipeline {
 
                             script {
                                 if(fileExists(".build/coverprofile")){
-                                    sh script: 'go run ./scripts/cover-remove-generated < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    sh script: 'go run ./scripts/cover-remove-generated/main.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
 
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true

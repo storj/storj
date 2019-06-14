@@ -55,7 +55,7 @@ lint: check-copyrights ## Analyze and find programs in source code
 .PHONY: check-copyrights
 check-copyrights: ## Check source files for copyright headers
 	@echo "Running ${@}"
-	@go run ./scripts/check-copyright.go
+	@go run ./scripts/check-copyright/main.go
 
 .PHONY: goimports-fix
 goimports-fix: ## Applies goimports to every go file (excluding vendored files)
@@ -68,8 +68,8 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 .PHONY: proto
 proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
-	go run scripts/protobuf install
-	go run scripts/protobuf generate
+	go run scripts/protobuf/main.go install
+	go run scripts/protobuf/main.go generate
 
 ##@ Simulator
 
