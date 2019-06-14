@@ -28,7 +28,7 @@ type Config struct {
 	MaxRetriesStatDB   int           `help:"max number of times to attempt updating a statdb batch" default:"3"`
 	Interval           time.Duration `help:"how frequently segments are audited" default:"30s"`
 	MinBytesPerSecond  memory.Size   `help:"the minimum acceptable bytes that storage nodes can transfer per second to the satellite" default:"128B"`
-	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"5s"`
+	MinDownloadTimeout time.Duration `help:"the minimum duration for downloading a share from storage nodes before timing out" default:"25s"`
 	MaxReverifyCount   int           `help:"limit above which we consider an audit is failed" default:"3"`
 }
 
