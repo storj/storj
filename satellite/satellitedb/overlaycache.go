@@ -769,11 +769,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		return nil, err
 	}
 
-	var disqualified time.Time
-	if info.Disqualified != nil {
-		disqualified = *info.Disqualified
-	}
-
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
@@ -810,7 +805,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Release:    info.Release,
 		},
 		Contained:    info.Contained,
-		Disqualified: disqualified,
+		Disqualified: info.Disqualified,
 	}
 
 	return node, nil

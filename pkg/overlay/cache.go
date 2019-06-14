@@ -103,7 +103,7 @@ type NodeDossier struct {
 	Reputation   NodeStats
 	Version      pb.NodeVersion
 	Contained    bool
-	Disqualified time.Time
+	Disqualified *time.Time
 }
 
 // NodeStats contains statistics about a node.
