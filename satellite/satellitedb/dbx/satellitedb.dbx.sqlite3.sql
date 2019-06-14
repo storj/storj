@@ -104,6 +104,10 @@ CREATE TABLE nodes (
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
 	disqualified INTEGER NOT NULL,
+	reputation_audit_alpha REAL NOT NULL,
+	reputation_audit_beta REAL NOT NULL,
+	reputation_uptime_alpha REAL NOT NULL,
+	reputation_uptime_beta REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
