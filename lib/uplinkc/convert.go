@@ -6,18 +6,8 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
-	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
-
-// newBucketConfig returns a C bucket config struct converted from a go bucket config struct.
-func newBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig_t {
-	return C.BucketConfig_t{
-		encryption_parameters: convertEncryptionParameters(&bucketCfg.EncryptionParameters),
-		redundancy_scheme:     convertRedundancyScheme(&bucketCfg.Volatile.RedundancyScheme),
-		path_cipher:           C.uint8_t(bucketCfg.PathCipher),
-	}
-}
 
 // newBucketInfo returns a C bucket struct converted from a go bucket struct.
 func newBucketInfo(bucket *storj.Bucket) C.BucketInfo_t {
