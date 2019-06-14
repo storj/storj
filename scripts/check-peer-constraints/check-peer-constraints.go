@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// +build ignore
+
 
 // check-peer-constraints checks that none of the core packages import peers directly.
 package main
