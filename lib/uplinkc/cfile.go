@@ -1,14 +1,9 @@
-// +build ignore
-
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package main
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
+// #include "uplink_definitions.h"
 import "C"
 import (
 	"errors"

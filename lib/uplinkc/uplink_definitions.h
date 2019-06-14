@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 typedef struct APIKey   { long _handle; } APIKeyRef_t;
 typedef struct Uplink   { long _handle; } UplinkRef_t;

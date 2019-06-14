@@ -7,7 +7,10 @@ package main
 import "C"
 
 import (
+	"io"
 	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
+	"time"
 	"unsafe"
 )
 
@@ -107,28 +110,110 @@ func free_object_meta(objectMeta *C.ObjectMeta_t) {
 	universe.Del(objectMeta.meta_data._handle)
 }
 
-//// download_range returns an Object's data. A length of -1 will mean
-//// (Object.Size - offset).
-////export download_range
-//func download_range(objectRef C.ObjectRef_t, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
-//	object, ok := universe.Get(objectRef._handle).(*Object)
-//	if !ok {
-//		*cErr = C.CString("invalid object")
-//		return
-//	}
-//
-//	scope := object.scope.child()
-//
-//	rc, err := object.DownloadRange(scope.ctx, int64(offset), int64(length))
-//	if err != nil {
-//		*cErr = C.CString(err.Error())
-//		return
-//	}
-//
-//	defer rc.Close()
-//	_, err = io.Copy(file, rc)
-//	if err != io.EOF && err != nil {
-//		*cErr = C.CString(err.Error())
-//		return
-//	}
-//}
+// download_range returns an Object's data. A length of -1 will mean
+// (Object.Size - offset).
+//export download_range
+func download_range(objectRef C.ObjectRef_t, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
+	object, ok := universe.Get(objectRef._handle).(*Object)
+	if !ok {
+		*cErr = C.CString("invalid object")
+		return
+	}
+
+	scope := object.scope.child()
+
+	rc, err := object.DownloadRange(scope.ctx, int64(offset), int64(length))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+
+	defer rc.Close()
+	_, err = io.Copy(file, rc)
+	if err != io.EOF && err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
+
+// upload_object uploads a new object, if authorized.
+//export upload_object
+func upload_object(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.UploadOptions_t, cErr **C.char) {
+	bucket, ok := universe.Get(cBucket._handle).(*Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return
+	}
+
+	scope := bucket.scope.child()
+
+	var opts *uplink.UploadOptions
+	if cOpts != nil {
+		var metadata map[string]string
+		if cOpts.metadata._handle != 0 {
+			metadata, ok = universe.Get(cOpts.metadata._handle).(map[string]string)
+			if !ok {
+				*cErr = C.CString("invalid metadata in upload options")
+				return
+			}
+		}
+
+		opts = &uplink.UploadOptions{
+			ContentType: C.GoString(cOpts.content_type),
+			Metadata:    metadata,
+			Expires:     time.Unix(int64(cOpts.expires), 0),
+		}
+	}
+
+	if err := bucket.UploadObject(scope.ctx, C.GoString(path), reader, opts); err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+}
+
+// list_objects lists objects a user is authorized to see.
+//export list_objects
+func list_objects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.char) (cObjList C.ObjectList_t) {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cErr = C.CString("invalid bucket")
+		return cObjList
+	}
+
+	scope := bucket.scope.child()
+
+	var opts *uplink.ListOptions
+	if unsafe.Pointer(cListOpts) != nil {
+		opts = &uplink.ListOptions{
+			Prefix: C.GoString(cListOpts.cursor),
+			Cursor: C.GoString(cListOpts.cursor),
+			Delimiter: rune(cListOpts.delimiter),
+			Recursive: bool(cListOpts.recursive),
+			Direction: storj.ListDirection(cListOpts.direction),
+			Limit: int(cListOpts.limit),
+		}
+	}
+
+	objectList, err := bucket.ListObjects(scope.ctx, opts)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return cObjList
+	}
+	objListLen := len(objectList.Items)
+
+	objectSize := int(unsafe.Sizeof(C.ObjectRef_t{}))
+	ptr := uintptr(C.malloc(C.size_t(objListLen * objectSize)))
+	cObjectsPtr := (*[1 << 30]C.ObjectInfo_t)(unsafe.Pointer(ptr))
+
+	for i, object := range objectList.Items {
+		(*cObjectsPtr)[i] = newObjectInfo(&object)
+	}
+
+	return C.ObjectList_t{
+		bucket: C.CString(objectList.Bucket),
+		prefix: C.CString(objectList.Prefix),
+		more: C.bool(objectList.More),
+		items:  (*C.ObjectInfo_t)(unsafe.Pointer(cObjectsPtr)),
+		length: C.int32_t(objListLen),
+	}
+}
