@@ -39,7 +39,9 @@ RUN gobin github.com/mfridman/tparse
 RUN gobin github.com/josephspurrier/goversioninfo/cmd/goversioninfo
 RUN gobin github.com/axw/gocov/gocov
 RUN gobin github.com/AlekSi/gocov-xml
-RUN gobin gopkg.in/spacemonkeygo/dbx.v1
+
+# need to use go get, because gobin doesn't work with it
+RUN go get gopkg.in/spacemonkeygo/dbx.v1
 
 WORKDIR ..
 
