@@ -815,6 +815,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Add alpha and beta columns for reputations",
+				Version:     32,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN reputation_audit_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN reputation_audit_beta double precision NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN reputation_uptime_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN reputation_uptime_beta double precision NOT NULL DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }
