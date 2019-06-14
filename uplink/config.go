@@ -126,7 +126,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key,
+	// TODO(jeff): we should be adding all the keys from the bucket shares
+	store := encryption.NewStore()
+	store.SetDefaultKey(key)
+
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), store,
 		int(blockSize), storj.Cipher(c.Enc.DataType), c.Client.MaxInlineSize.Int(),
 	)
 	if err != nil {
@@ -135,7 +139,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 
 	buckets := buckets.NewStore(streams)
 
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments, store, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
