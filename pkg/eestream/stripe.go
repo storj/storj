@@ -21,28 +21,30 @@ var (
 
 // StripeReader can read and decodes stripes from a set of readers
 type StripeReader struct {
-	scheme      ErasureScheme
-	cond        *sync.Cond
-	readerCount int
-	bufs        map[int]*PieceBuffer
-	inbufs      map[int][]byte
-	inmap       map[int][]byte
-	errmap      map[int]error
+	scheme              ErasureScheme
+	cond                *sync.Cond
+	readerCount         int
+	bufs                map[int]*PieceBuffer
+	inbufs              map[int][]byte
+	inmap               map[int][]byte
+	errmap              map[int]error
+	forceErrorDetection bool
 }
 
 // NewStripeReader creates a new StripeReader from the given readers, erasure
 // scheme and max buffer memory.
-func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *StripeReader {
+func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int, forceErrorDetection bool) *StripeReader {
 	readerCount := len(rs)
 
 	r := &StripeReader{
-		scheme:      es,
-		cond:        sync.NewCond(&sync.Mutex{}),
-		readerCount: readerCount,
-		bufs:        make(map[int]*PieceBuffer, readerCount),
-		inbufs:      make(map[int][]byte, readerCount),
-		inmap:       make(map[int][]byte, readerCount),
-		errmap:      make(map[int]error, readerCount),
+		scheme:              es,
+		cond:                sync.NewCond(&sync.Mutex{}),
+		readerCount:         readerCount,
+		bufs:                make(map[int]*PieceBuffer, readerCount),
+		inbufs:              make(map[int][]byte, readerCount),
+		inmap:               make(map[int][]byte, readerCount),
+		errmap:              make(map[int]error, readerCount),
+		forceErrorDetection: forceErrorDetection,
 	}
 
 	bufSize := mbm / readerCount
@@ -148,7 +150,7 @@ func (r *StripeReader) pendingReaders() bool {
 // a decode.
 func (r *StripeReader) hasEnoughShares() bool {
 	return len(r.inmap) >= r.scheme.RequiredCount()+1 ||
-		(len(r.inmap) == r.scheme.RequiredCount() && !r.pendingReaders())
+		(!r.forceErrorDetection && len(r.inmap) == r.scheme.RequiredCount() && !r.pendingReaders())
 }
 
 // shouldWaitForMore checks the returned decode error if it makes sense to wait
