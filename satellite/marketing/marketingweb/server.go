@@ -11,6 +11,7 @@ import (
 	"time"
 	"reflect"
 	"path/filepath"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -90,8 +91,7 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	if s.config.StaticDir != "" {
 		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
-		mux.HandleFunc("/create-free-credit", s.createOffer)
-		mux.HandleFunc("/create-referral-offer", s.createOffer)
+		mux.HandleFunc("/create/{offer_type}", s.createOffer)
 	}
 	s.server.Handler = mux
 
@@ -193,8 +193,9 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 	}
 
 	o.Status = marketing.Active
+	reqType := mux.Vars(req)["offer_type"]
 
-	if req.URL.Path == "/create-referral-offer" {
+	if reqType == "referral-offer" {
 		o.Type = marketing.Referral
 	}else{
 		o.Type = marketing.FreeCredit
@@ -231,7 +232,7 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e 
 	}
 }
 
-
+// Run starts the server that host admin web app and api endpoint
 func (s *Server) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
@@ -247,6 +248,7 @@ func (s *Server) Run(ctx context.Context) error {
 	return group.Wait()
 }
 
+// Close closes server and underlying listener
 func (s *Server) Close() error {
 	return Error.Wrap(s.server.Close())
 }
