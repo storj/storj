@@ -33,13 +33,15 @@ type Client interface {
 	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
+	WithForceErrorDetection(force bool) Client
 }
 
 type psClientHelper func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
-	transport   transport.Client
-	memoryLimit int
+	transport           transport.Client
+	memoryLimit         int
+	forceErrorDetection bool
 }
 
 // NewClient from the given identity and max buffer memory
@@ -48,6 +50,11 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 		transport:   tc,
 		memoryLimit: memoryLimit,
 	}
+}
+
+func (ec *ecClient) WithForceErrorDetection(force bool) Client {
+	ec.forceErrorDetection = force
+	return ec
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
@@ -362,7 +369,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.memoryLimit)
+	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
 		return nil, err
 	}
