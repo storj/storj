@@ -35,15 +35,28 @@ func TestCache_Database(t *testing.T) {
 }
 
 // returns a NodeSelectionConfig with sensible test values
-func testNodeSelectionConfig() overlay.NodeSelectionConfig {
+func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distinctIP bool) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
 		UptimeRatio:       0,
 		UptimeCount:       0,
 		AuditSuccessRatio: 0,
-		AuditCount:        0,
-		NewNodePercentage: 0,
+		AuditCount:        auditCount,
+		NewNodePercentage: newNodePercentage,
 		OnlineWindow:      time.Hour,
-		DistinctIP:        false,
+		DistinctIP:        distinctIP,
+
+		ReputationAuditRepairWeight:  1,
+		ReputationAuditUplinkWeight:  1,
+		ReputationAuditAlpha0:        1,
+		ReputationAuditBeta0:         0,
+		ReputationAuditLambda:        1,
+		ReputationAuditOmega:         1,
+		ReputationUptimeRepairWeight: 1,
+		ReputationUptimeUplinkWeight: 1,
+		ReputationUptimeAlpha0:       1,
+		ReputationUptimeBeta0:        0,
+		ReputationUptimeLambda:       1,
+		ReputationUptimeOmega:        1,
 	}
 }
 
@@ -57,7 +70,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, testNodeSelectionConfig())
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, testNodeSelectionConfig(0, 0, false))
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
