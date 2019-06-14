@@ -68,8 +68,8 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 .PHONY: proto
 proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
-	go run scripts/protobuf.go install
-	go run scripts/protobuf.go generate
+	go run scripts/protobuf install
+	go run scripts/protobuf generate
 
 ##@ Simulator
 

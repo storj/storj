@@ -27,15 +27,18 @@ RUN unzip /tmp/protoc.zip -d "$HOME"/protoc
 RUN go get -u github.com/myitcv/gobin
 
 RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
-RUN gobin github.com/ckaznocha/protoc-gen-lint@68a05858965b31eb872cbeb8d027507a94011acc
-RUN gobin github.com/gogo/protobuf/protoc-gen-gogo@ba06b47c162d49f2af050fb4c75bcbc86a159d5c
-RUN gobin github.com/nilslice/protolock/cmd/protolock@a1aae3b900a57389af61fc78b5d603b52a927e59
-RUN gobin github.com/mfridman/tparse@ee325f8c501d32fcb006b0c66ad82853a5cbfff0
-RUN gobin github.com/josephspurrier/goversioninfo@63e6d1acd3dd857ec6b8c54fbf52e10ce24a8786
 
-RUN gobin github.com/axw/gocov/gocov@3a69a0d2a4ef1f263e2d92b041a69593d6964fe8
-RUN gobin github.com/AlekSi/gocov-xml@3a14fb1c4737b3995174c5f4d6d08a348b9b4180
+COPY ./scripts/go.mod scripts/go.mod
 
-RUN gobin gopkg.in/spacemonkeygo/dbx.v1@3af5e1fc2659b99c349038e42138b85354323b0f
+RUN gobin -m scripts/go.mod github.com/ckaznocha/protoc-gen-lint
+RUN gobin -m scripts/go.mod github.com/gogo/protobuf/protoc-gen-gogo
+RUN gobin -m scripts/go.mod github.com/nilslice/protolock/cmd/protolock
+RUN gobin -m scripts/go.mod github.com/mfridman/tparse
+RUN gobin -m scripts/go.mod github.com/josephspurrier/goversioninfo
+
+RUN gobin -m scripts/go.mod github.com/axw/gocov/gocov
+RUN gobin -m scripts/go.mod github.com/AlekSi/gocov-xml
+
+RUN gobin -m scripts/go.mod gopkg.in/spacemonkeygo/dbx.v1
 
 RUN go version
