@@ -137,23 +137,37 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		nodeIDs = append(nodeIDs, piece.NodeId)
 	}
 
-	badNodes, err := endpoint.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
+	unreliableOrOfflineNodes, err := endpoint.cache.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	var goodNodes storj.NodeIDList
-	badMap := make(map[storj.NodeID]bool)
-	for _, id := range badNodes {
-		badMap[id] = true
+	offlineNodes, err := endpoint.cache.KnownOffline(ctx, nodeIDs)
+
+	offlineMap := make(map[storj.NodeID]bool)
+	for _, id := range offlineNodes {
+		offlineMap[id] = true
 	}
+	unreliableOfflineMap := make(map[storj.NodeID]bool)
+	for _, id := range unreliableOrOfflineNodes {
+		unreliableOfflineMap[id] = true
+	}
+
+	var healthyNodes storj.NodeIDList
+	var unhealthyNodes storj.NodeIDList
 	for _, id := range nodeIDs {
-		if !badMap[id] {
-			goodNodes = append(goodNodes, id)
+		if offlineMap[id] {
+			continue
+		}
+		if unreliableOfflineMap[id] {
+			unhealthyNodes = append(unhealthyNodes, id)
+		} else {
+			healthyNodes = append(healthyNodes, id)
 		}
 	}
-	health.GoodIds = goodNodes
-	health.BadIds = badNodes
+	health.HealthyIds = healthyNodes
+	health.UnhealthyIds = unhealthyNodes
+	health.OfflineIds = offlineNodes
 
 	if in.GetSegmentIndex() > -1 {
 		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))

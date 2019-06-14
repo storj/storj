@@ -638,26 +638,26 @@ func csvOutput() (*os.File, error) {
 
 func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
 	segmentTableHeader := []string{
-		"Segment Index", "Online Nodes", "Offline Nodes",
+		"Segment Index", "Healthy Nodes", "Unhealthy Nodes", "Offline Nodes",
 	}
 
 	if err := w.Write(segmentTableHeader); err != nil {
 		return fmt.Errorf("error writing record to csv: %s", err)
 	}
 
-	currentNodeIndex := 1 // start at index 1 to leave first column empty
-	nodeIndices := make(map[storj.NodeID]int)
+	currentNodeIndex := 1                     // start at index 1 to leave first column empty
+	nodeIndices := make(map[storj.NodeID]int) // to keep track of node positions for node table
 	// Add each segment to the segmentTable
 	for _, segment := range segments {
-		// TODO(moby) change online/offline to healthy/unhealthy/offline
-		// healthy = online + not dqed, unhealthy = online + dqed, offline = offline
-		onlineNodes := segment.GoodIds                   // nodes with pieces currently online
-		offlineNodes := segment.BadIds                   // nodes that are offline/bad
+		healthyNodes := segment.HealthyIds               // healthy nodes with pieces currently online
+		unhealthyNodes := segment.UnhealthyIds           // unhealthy nodes with pieces currently online
+		offlineNodes := segment.OfflineIds               // offline nodes
 		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
 
 		row := []string{
 			segmentIndexPath,
-			strconv.FormatInt(int64(len(onlineNodes)), 10),
+			strconv.FormatInt(int64(len(healthyNodes)), 10),
+			strconv.FormatInt(int64(len(unhealthyNodes)), 10),
 			strconv.FormatInt(int64(len(offlineNodes)), 10),
 		}
 
@@ -665,7 +665,9 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 			return fmt.Errorf("error writing record to csv: %s", err)
 		}
 
-		for _, id := range append(onlineNodes, offlineNodes...) {
+		allNodes := append(healthyNodes, unhealthyNodes...)
+		allNodes = append(allNodes, offlineNodes...)
+		for _, id := range allNodes {
 			if nodeIndices[id] == 0 {
 				nodeIndices[id] = currentNodeIndex
 				currentNodeIndex++
@@ -689,12 +691,16 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	// Add online/offline info to the node table
 	for _, segment := range segments {
 		row := make([]string, numNodes+1)
-		// TODO(moby) "2" = healthy, "1" = unhealthy, "0" = offline
-		for _, id := range segment.GoodIds {
+		// "2" = healthy, "1" = unhealthy, "0" = offline
+		for _, id := range segment.HealthyIds {
+			i := nodeIndices[id]
+			row[i] = "2"
+		}
+		for _, id := range segment.UnhealthyIds {
 			i := nodeIndices[id]
 			row[i] = "1"
 		}
-		for _, id := range segment.BadIds {
+		for _, id := range segment.OfflineIds {
 			i := nodeIndices[id]
 			row[i] = "0"
 		}
