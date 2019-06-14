@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testblobs"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
@@ -25,7 +26,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/uplink"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -254,8 +254,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NotNil(t, slowClient)
 
 		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
+		// data from storage nodes. This will cause context to cancel with timeout.
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
@@ -299,18 +298,12 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 32*memory.KiB)
+		testData := make([]byte, 8*memory.KiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
 		// Upload with larger erasure share size to simulate longer download over slow transport client
-		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     4,
-			ErasureShareSize: 32 * memory.KiB,
-		}, "testbucket", "test/path", testData)
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -322,24 +315,12 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
 
-		// set stripe index to 0 to ensure we are auditing large enough stripe
-		// instead of the last stripe, which could be smaller
-		stripe.Index = 0
-
-		network := &transport.SimulatedNetwork{
-			BytesPerSecond: 128 * memory.KiB,
-		}
-
-		slowClient := network.NewClient(planet.Satellites[0].Transport)
-		require.NotNil(t, slowClient)
-
 		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
-		minBytesPerSecond := 1 * memory.MiB
+		// data from storage nodes. This will cause context to cancel with timeout.
+		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
-			slowClient,
+			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
@@ -351,14 +332,23 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
+		// make the first node in the pointer to respond slowly
+		slowNodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		slowNode := getStorageNode(planet, slowNodeID)
+		slowNode.Storage2.Store.WithBlobs(testblobs.NewSlowBlobs(slowNode.DB.Pieces(), 110*time.Millisecond))
+
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
-				return status.Code(err) == codes.DeadlineExceeded
-			}), "unexpected error: %+v", share.Error)
-			assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
+			if share.NodeID == slowNodeID {
+				assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
+					return status.Code(err) == codes.DeadlineExceeded
+				}), "unexpected error: %+v", share.Error)
+				assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
+			} else {
+				assert.NoError(t, share.Error)
+			}
 		}
 	})
 }
@@ -525,8 +515,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		require.NotNil(t, slowClient)
 
 		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
+		// data from storage nodes. This will cause context to cancel with timeout.
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),

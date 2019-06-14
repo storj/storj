@@ -81,6 +81,12 @@ func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
 	}
 }
 
+// WithBlobs replaces the blob store with the provided blobs.
+func (store *Store) WithBlobs(blobs storage.Blobs) *Store {
+	store.blobs = blobs
+	return store
+}
+
 // Writer returns a new piece writer.
 func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Writer, err error) {
 	defer mon.Task()(&ctx)(&err)
