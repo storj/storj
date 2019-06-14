@@ -66,16 +66,6 @@ pipeline {
                                     sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
 
-                                    sh script: 'gocov-html < .build/cover.json > .build/cover.html', returnStatus: true
-                                    publishHTML target: [
-                                        allowMissing: false,
-                                        alwaysLinkToLastBuild: false,
-                                        keepAll: false,
-                                        reportDir: '.build',
-                                        reportFiles: 'cover.html',
-                                        reportName: 'Coverage Details'
-                                    ]
-
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml'
                                 }
