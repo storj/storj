@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -28,10 +29,10 @@ type Bucket struct {
 }
 
 // OpenObject returns an Object handle, if authorized.
-func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
+func (b *Bucket) OpenObject(ctx context.Context, path string) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := b.metainfo.GetObject(ctx, b.Name, path)
+	info, err := b.metainfo.GetObject(ctx, b.Name, paths.NewUnencrypted(path))
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 	return &Object{
 		Meta: ObjectMeta{
 			Bucket:      info.Bucket.Name,
-			Path:        info.Path,
+			Path:        info.Path.String(),
 			IsPrefix:    info.IsPrefix,
 			ContentType: info.ContentType,
 			Metadata:    info.Metadata,
@@ -93,7 +94,7 @@ type UploadOptions struct {
 }
 
 // UploadObject uploads a new object, if authorized.
-func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
+func (b *Bucket) UploadObject(ctx context.Context, path string, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	upload, err := b.NewWriter(ctx, path, opts)
@@ -107,9 +108,9 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 }
 
 // DeleteObject removes an object, if authorized.
-func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
+func (b *Bucket) DeleteObject(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
+	return b.metainfo.DeleteObject(ctx, b.bucket.Name, paths.NewUnencrypted(path))
 }
 
 // ListOptions controls options for the ListObjects() call.
@@ -125,7 +126,7 @@ func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.
 }
 
 // NewWriter creates a writer which uploads the object.
-func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOptions) (_ io.WriteCloser, err error) {
+func (b *Bucket) NewWriter(ctx context.Context, path string, opts *UploadOptions) (_ io.WriteCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if opts == nil {
@@ -164,7 +165,7 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
 	}
 
-	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
+	obj, err := b.metainfo.CreateObject(ctx, b.Name, paths.NewUnencrypted(path), &createInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +187,10 @@ type ReadSeekCloser interface {
 }
 
 // NewReader creates a new reader that downloads the object data.
-func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ ReadSeekCloser, err error) {
+func (b *Bucket) NewReader(ctx context.Context, path string) (_ ReadSeekCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, paths.NewUnencrypted(path))
 	if err != nil {
 		return nil, err
 	}

@@ -19,5 +19,5 @@ type EncryptionAccess struct {
 	// EncryptedPathPrefix is the (possibly empty) encrypted version of the
 	// path from the top of the storage Bucket to this point. This is
 	// necessary to have in order to derive further encryption keys.
-	EncryptedPathPrefix storj.Path
+	EncryptedPathPrefix string
 }

@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -184,7 +185,11 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	// TODO(jeff): do a better job making a store
+	store := encryption.NewStore()
+	store.Add(bucketName, paths.NewUnencrypted(""), paths.NewEncrypted(""), access.Key)
+
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +201,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, &access.Key, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
+		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, store, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
 		streams:      streamStore,
 	}, nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -21,7 +22,7 @@ type ObjectMeta struct {
 	Bucket string
 	// Path is the path of the Object within the Bucket. Path components are
 	// forward-slash-separated, like Unix file paths ("one/two/three").
-	Path storj.Path
+	Path string
 	// IsPrefix is true if this ObjectMeta does not refer to a specific
 	// Object, but to some arbitrary point in the path hierarchy. This would
 	// be called a "folder" or "directory" in a typical filesystem.
@@ -83,7 +84,7 @@ type Object struct {
 func (o *Object) DownloadRange(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	readOnlyStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, o.Meta.Path)
+	readOnlyStream, err := o.metainfoDB.GetObjectStream(ctx, o.Meta.Bucket, paths.NewUnencrypted(o.Meta.Path))
 	if err != nil {
 		return nil, err
 	}

@@ -31,7 +31,8 @@ import (
 //    b1, u6/u7       => <{e8:u8}, u6/, <u6, e6, k6>>
 //    b2, u1          => <{}, u1, <u1, e1', k1'>>
 type Store struct {
-	roots map[string]*node
+	roots      map[string]*node
+	defaultKey *storj.Key
 }
 
 // node is a node in the Store graph. It may contain an encryption key and encrypted path,
@@ -75,6 +76,13 @@ func newNode() *node {
 		enc:      make(map[string]*node),
 		encMap:   make(map[string]string),
 	}
+}
+
+// SetDefaultKey adds a default key to be returned for any lookup that does not match a bucket.
+// This is a temporary measure and should be removed when projects no longer require keys
+// to operate to encrypt buckets.
+func (s *Store) SetDefaultKey(defaultKey *storj.Key) {
+	s.defaultKey = defaultKey
 }
 
 // Add creates a mapping from the unencrypted path to the encrypted path and key.
@@ -137,6 +145,9 @@ func (s *Store) LookupUnencrypted(bucket string, path paths.Unencrypted) (
 
 	root, ok := s.roots[bucket]
 	if !ok {
+		if s.defaultKey != nil {
+			return nil, paths.Unencrypted{}, &Base{Key: *s.defaultKey}
+		}
 		return nil, paths.Unencrypted{}, nil
 	}
 
@@ -152,6 +163,9 @@ func (s *Store) LookupEncrypted(bucket string, path paths.Encrypted) (
 
 	root, ok := s.roots[bucket]
 	if !ok {
+		if s.defaultKey != nil {
+			return nil, paths.Encrypted{}, &Base{Key: *s.defaultKey}
+		}
 		return nil, paths.Encrypted{}, nil
 	}
 
