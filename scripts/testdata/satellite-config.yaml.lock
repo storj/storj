@@ -119,7 +119,7 @@ kademlia.operator.wallet: ""
 # log.encoding: "console"
 
 # the minimum log level to log
-# log.level: warn
+# log.level: info
 
 # can be stdout, stderr, or a filename
 # log.output: "stderr"
