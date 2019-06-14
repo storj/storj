@@ -230,9 +230,10 @@ message SegmentHealthRequest {
 }
 
 message SegmentHealth {
-  repeated bytes good_ids = 1 [(gogoproto.customtype) = "NodeID"];
-  repeated bytes bad_ids = 2 [(gogoproto.customtype) = "NodeID"];
-  bytes segment = 3;      // path formatted segment index
+  repeated bytes healthy_ids = 1 [(gogoproto.customtype) = "NodeID"];   // online + not disqualified
+  repeated bytes unhealthy_ids = 2 [(gogoproto.customtype) = "NodeID"]; // online + disqualified
+  repeated bytes offline_ids = 3 [(gogoproto.customtype) = "NodeID"];   // offline
+  bytes segment = 4;                                                    // path formatted segment index
 }
 
 message SegmentHealthResponse {

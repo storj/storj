@@ -1231,7 +1231,7 @@
             "fields": [
               {
                 "id": 1,
-                "name": "good_ids",
+                "name": "healthy_ids",
                 "type": "bytes",
                 "is_repeated": true,
                 "options": [
@@ -1243,7 +1243,7 @@
               },
               {
                 "id": 2,
-                "name": "bad_ids",
+                "name": "unhealthy_ids",
                 "type": "bytes",
                 "is_repeated": true,
                 "options": [
@@ -1255,6 +1255,18 @@
               },
               {
                 "id": 3,
+                "name": "offline_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 4,
                 "name": "segment",
                 "type": "bytes"
               }
