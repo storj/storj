@@ -521,7 +521,9 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
-			dbx.Node_Disqualified(false),
+			dbx.Node_Create_Fields{
+				Disqualified: dbx.Node_Disqualified_Null(),
+			},
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
@@ -767,6 +769,11 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		return nil, err
 	}
 
+	var disqualified time.Time
+	if info.Disqualified != nil {
+		disqualified = *info.Disqualified
+	}
+
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
@@ -803,7 +810,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			Release:    info.Release,
 		},
 		Contained:    info.Contained,
-		Disqualified: info.Disqualified,
+		Disqualified: disqualified,
 	}
 
 	return node, nil
