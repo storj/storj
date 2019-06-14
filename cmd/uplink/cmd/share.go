@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"storj.io/storj/pkg/paths"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -132,14 +134,18 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 			cache[p.Bucket()] = bi
 		}
 
-		encPath, err := encryption.EncryptPath(path, bi.PathCipher.ToCipher(), &access.Key)
+		// TODO(jeff): the store should already exist and be accessible somewhere
+		store := encryption.NewStore()
+		store.Add(p.Bucket(), paths.NewUnencrypted(""), paths.NewEncrypted(""), access.Key)
+
+		encPath, err := encryption.EncryptPath(p.Bucket(), paths.NewUnencrypted(path), bi.PathCipher.ToCipher(), store)
 		if err != nil {
 			return err
 		}
 
 		caveat.AllowedPaths = append(caveat.AllowedPaths, &macaroon.Caveat_Path{
 			Bucket:              []byte(p.Bucket()),
-			EncryptedPathPrefix: []byte(encPath),
+			EncryptedPathPrefix: []byte(encPath.Raw()),
 		})
 	}
 

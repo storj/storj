@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 )
@@ -137,7 +138,7 @@ func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath
 		list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 			Direction: storj.After,
 			Cursor:    startAfter,
-			Prefix:    prefix.Path(),
+			Prefix:    paths.NewUnencrypted(prefix.Path()),
 			Recursive: *recursiveFlag,
 		})
 		if err != nil {
@@ -145,7 +146,7 @@ func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath
 		}
 
 		for _, object := range list.Items {
-			path := object.Path
+			path := object.Path.String()
 			if prependBucket {
 				path = fmt.Sprintf("%s/%s", prefix.Bucket(), path)
 			}
@@ -160,7 +161,7 @@ func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath
 			break
 		}
 
-		startAfter = list.Items[len(list.Items)-1].Path
+		startAfter = list.Items[len(list.Items)-1].Path.String()
 	}
 
 	return nil
