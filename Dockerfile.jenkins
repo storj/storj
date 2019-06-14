@@ -30,15 +30,19 @@ RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.s
 
 COPY ./scripts/go.mod scripts/go.mod
 
-RUN gobin -m scripts/go.mod github.com/ckaznocha/protoc-gen-lint
-RUN gobin -m scripts/go.mod github.com/gogo/protobuf/protoc-gen-gogo
-RUN gobin -m scripts/go.mod github.com/nilslice/protolock/cmd/protolock
-RUN gobin -m scripts/go.mod github.com/mfridman/tparse
-RUN gobin -m scripts/go.mod github.com/josephspurrier/goversioninfo
+WORKDIR ./scripts
 
-RUN gobin -m scripts/go.mod github.com/axw/gocov/gocov
-RUN gobin -m scripts/go.mod github.com/AlekSi/gocov-xml
+RUN gobin github.com/ckaznocha/protoc-gen-lint
+RUN gobin github.com/gogo/protobuf/protoc-gen-gogo
+RUN gobin github.com/nilslice/protolock/cmd/protolock
+RUN gobin github.com/mfridman/tparse
+RUN gobin github.com/josephspurrier/goversioninfo
 
-RUN gobin -m scripts/go.mod gopkg.in/spacemonkeygo/dbx.v1
+RUN gobin github.com/axw/gocov/gocov
+RUN gobin github.com/AlekSi/gocov-xml
+
+RUN gobin gopkg.in/spacemonkeygo/dbx.v1
+
+WORKDIR ..
 
 RUN go version
