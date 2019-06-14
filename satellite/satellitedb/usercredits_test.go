@@ -36,45 +36,36 @@ func TestUsercredits(t *testing.T) {
 func test(ctx context.Context, t *testing.T, store satellite.DB) {
 	consoleDB := store.Console()
 
-	user, referrer, offer, err := setupData(ctx, store)
-	require.NoError(t, err)
+	user, referrer, offer := setupData(ctx, t, store)
 	randomID, err := uuid.New()
 	require.NoError(t, err)
 
-	var inValidUserCredits = []struct {
-		userCredit console.UserCredit
-	}{
+	var inValidUserCredits = []console.UserCredit{
 		{
-			userCredit: console.UserCredit{
-				UserID:               *randomID,
-				OfferID:              offer.ID,
-				ReferredBy:           referrer.ID,
-				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
-			},
+			UserID:               *randomID,
+			OfferID:              offer.ID,
+			ReferredBy:           referrer.ID,
+			CreditsEarnedInCents: 100,
+			ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 		},
 		{
-			userCredit: console.UserCredit{
-				UserID:               user.ID,
-				OfferID:              10,
-				ReferredBy:           referrer.ID,
-				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
-			},
+			UserID:               user.ID,
+			OfferID:              10,
+			ReferredBy:           referrer.ID,
+			CreditsEarnedInCents: 100,
+			ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 		},
 		{
-			userCredit: console.UserCredit{
-				UserID:               user.ID,
-				OfferID:              offer.ID,
-				ReferredBy:           *randomID,
-				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
-			},
+			UserID:               user.ID,
+			OfferID:              offer.ID,
+			ReferredBy:           *randomID,
+			CreditsEarnedInCents: 100,
+			ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 		},
 	}
 
 	for _, ivc := range inValidUserCredits {
-		_, err := consoleDB.UserCredits().Create(ctx, ivc.userCredit)
+		_, err := consoleDB.UserCredits().Create(ctx, ivc)
 		require.Error(t, err)
 	}
 
@@ -91,7 +82,7 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 				CreditsEarnedInCents: 100,
 				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
-			chargedCredits: 100,
+			chargedCredits: 120,
 			expected:       0,
 		},
 		{
@@ -140,15 +131,17 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 	}
 }
 
-func setupData(ctx context.Context, store satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer, err error) {
+func setupData(ctx context.Context, t *testing.T, store satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer) {
 	consoleDB := store.Console()
 	marketingDB := store.Marketing()
 	// create user
 	var userPassHash [8]byte
-	_, err = rand.Read(userPassHash[:])
+	_, err := rand.Read(userPassHash[:])
+	require.NoError(t, err)
 
 	var referrerPassHash [8]byte
 	_, err = rand.Read(referrerPassHash[:])
+	require.NoError(t, err)
 
 	user, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "John Doe",
@@ -156,9 +149,7 @@ func setupData(ctx context.Context, store satellite.DB) (user *console.User, ref
 		PasswordHash: userPassHash[:],
 		Status:       console.Active,
 	})
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	require.NoError(t, err)
 
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "referrer",
@@ -166,9 +157,7 @@ func setupData(ctx context.Context, store satellite.DB) (user *console.User, ref
 		PasswordHash: referrerPassHash[:],
 		Status:       console.Active,
 	})
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	require.NoError(t, err)
 
 	// create offer
 	offer, err = marketingDB.Offers().Create(ctx, &marketing.NewOffer{
@@ -183,9 +172,7 @@ func setupData(ctx context.Context, store satellite.DB) (user *console.User, ref
 		Status:                    marketing.Active,
 		Type:                      marketing.Referral,
 	})
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	require.NoError(t, err)
 
-	return user, referrer, offer, nil
+	return user, referrer, offer
 }
