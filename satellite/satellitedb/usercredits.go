@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -16,6 +17,11 @@ import (
 
 type usercredits struct {
 	db *dbx.DB
+}
+
+type updateInfo struct {
+	id      int
+	credits int
 }
 
 // TotalReferredCount returns the total amount of referral a user has made based on user id
@@ -60,7 +66,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 }
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
-func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits int, id uuid.UUID, expirationEndDate time.Time) error {
+func (c *usercredits) UpdateAvailableCredits(ctx context.Context, chargedCredits int, id uuid.UUID, expirationEndDate time.Time) error {
 	tx, err := c.db.Open(ctx)
 	if err != nil {
 		return errs.Wrap(err)
@@ -73,26 +79,52 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, appliedCredits
 	if err != nil {
 		return errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+	if len(availableCredits) == 0 {
+		return errs.Wrap(tx.Commit())
+	}
+
+	var infos []updateInfo
 
 	for _, credit := range availableCredits {
-		if appliedCredits == 0 {
+		if chargedCredits == 0 {
 			break
 		}
 
-		updatedUsedCredit := credit.CreditsEarnedInCents
+		updateCredit := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 
-		if appliedCredits < credit.CreditsEarnedInCents {
-			updatedUsedCredit = appliedCredits
+		if chargedCredits < updateCredit {
+			updateCredit = chargedCredits
 		}
 
-		_, err := tx.Tx.ExecContext(ctx, c.db.Rebind(`UPDATE user_credits SET credits_used_in_cents = ?`), updatedUsedCredit)
-		if err != nil {
-			return errs.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-		appliedCredits -= credit.CreditsEarnedInCents - credit.CreditsUsedInCents
+		infos = append(infos, updateInfo{
+			id:      credit.Id,
+			credits: updateCredit,
+		})
+
+		chargedCredits -= updateCredit
 	}
 
+	statement := `UPDATE user_credits SET
+		credits_used_in_cents = CASE id ` + convertToSQLFormat(infos)
+
+	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(statement))
+	if err != nil {
+		return errs.Wrap(errs.Combine(err, tx.Rollback()))
+	}
 	return errs.Wrap(tx.Commit())
+}
+
+func convertToSQLFormat(updateInfo []updateInfo) (updateStr string) {
+	for i, info := range updateInfo {
+		updateStr += `WHEN ` + strconv.Itoa(info.id) + ` THEN ` + strconv.Itoa(info.credits)
+		if i == len(updateInfo)-1 {
+			updateStr += ` END;`
+			break
+		}
+		updateStr += ` `
+	}
+
+	return updateStr
 }
 
 func fromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
@@ -127,7 +159,7 @@ func convertDBX(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
 		return nil, err
 	}
 
-	credit := console.UserCredit{
+	return &console.UserCredit{
 		ID:                   userCreditDBX.Id,
 		UserID:               userID,
 		OfferID:              userCreditDBX.OfferId,
@@ -136,7 +168,5 @@ func convertDBX(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
 		CreditsUsedInCents:   userCreditDBX.CreditsUsedInCents,
 		ExpiresAt:            userCreditDBX.ExpiresAt,
 		CreatedAt:            userCreditDBX.CreatedAt,
-	}
-
-	return &credit, nil
+	}, nil
 }
