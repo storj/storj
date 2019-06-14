@@ -56,7 +56,7 @@ message NodeStats {
     double uptime_reputation_alpha = 12;
     double audit_reputation_beta = 13;
     double uptime_reputation_beta = 14;
-	bool disqualified = 15;
+    bool disqualified = 15;
 }
 
 // NodeOperator contains info about the storage node operator
