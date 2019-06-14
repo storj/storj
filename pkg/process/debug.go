@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -37,6 +38,7 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 
 	mux.Handle("/version/", http.StripPrefix("/version", http.HandlerFunc(version.DebugHandler)))
 	mux.Handle("/mon/", http.StripPrefix("/mon", present.HTTP(r)))
+	mux.HandleFunc("/metrics", prometheus)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintln(w, "OK")
 	})
@@ -52,4 +54,36 @@ func initDebug(logger *zap.Logger, r *monkit.Registry) (err error) {
 		}
 	}()
 	return nil
+}
+
+func sanitize(val string) string {
+	// https://prometheus.io/docs/concepts/data_model/
+	// specifies all metric names must match [a-zA-Z_:][a-zA-Z0-9_:]*
+	// Note: The colons are reserved for user defined recording rules.
+	// They should not be used by exporters or direct instrumentation.
+	if '0' <= val[0] && val[0] <= '9' {
+		val = "_" + val
+	}
+	return strings.Map(func(r rune) rune {
+		switch {
+		case 'a' <= r && r <= 'z':
+			return r
+		case 'A' <= r && r <= 'Z':
+			return r
+		default:
+			return '_'
+		}
+	}, val)
+}
+
+func prometheus(w http.ResponseWriter, r *http.Request) {
+	// writes https://prometheus.io/docs/instrumenting/exposition_formats/
+	// TODO(jt): deeper monkit integration so we can expose prometheus types
+	// (https://prometheus.io/docs/concepts/metric_types/)
+	monkit.Default.Stats(func(name string, val float64) {
+		metric := sanitize(name)
+		_, _ = fmt.Fprintf(w, "# HELP %s %s\n%s %g\n",
+			metric, strings.ReplaceAll(name, "\n", " "),
+			metric, val)
+	})
 }
