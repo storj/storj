@@ -30,7 +30,6 @@ var (
 
 	setupCfg UplinkFlags
 	confDir  string
-	defaults cfgstruct.BindOpt
 
 	// Error is the default uplink setup errs class
 	Error = errs.Class("uplink setup error")
@@ -39,7 +38,6 @@ var (
 func init() {
 	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
 	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
-	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 }

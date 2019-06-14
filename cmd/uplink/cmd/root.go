@@ -28,6 +28,7 @@ type UplinkFlags struct {
 }
 
 var cfg UplinkFlags
+var defaults = cfgstruct.DefaultsFlag(RootCmd)
 
 var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
 var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
