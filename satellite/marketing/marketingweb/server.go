@@ -9,10 +9,11 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"github.com/gorilla/mux"
 )
 
 // Error is satellite marketing error type
