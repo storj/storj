@@ -62,6 +62,7 @@ func (cfg *BucketConfig) clone() *BucketConfig {
 	return &clone
 }
 
+// TODO: is this the best way to do this?
 func (cfg *BucketConfig) setDefaults() {
 	if cfg.PathCipher == storj.EncUnspecified {
 		cfg.PathCipher = defaultCipher
@@ -124,7 +125,7 @@ type BucketListOptions = storj.BucketListOptions
 func (p *Project) ListBuckets(ctx context.Context, opts *BucketListOptions) (bl storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts == nil {
-		opts = &BucketListOptions{}
+		opts = &BucketListOptions{Direction: storj.Forward}
 	}
 	return p.project.ListBuckets(ctx, *opts)
 }

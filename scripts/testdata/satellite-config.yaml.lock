@@ -11,7 +11,7 @@
 # audit.min-bytes-per-second: 128 B
 
 # the minimum duration for downloading a share from storage nodes before timing out
-# audit.min-download-timeout: 5s
+# audit.min-download-timeout: 25s
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
@@ -119,7 +119,7 @@ kademlia.operator.wallet: ""
 # log.encoding: "console"
 
 # the minimum log level to log
-# log.level: warn
+# log.level: info
 
 # can be stdout, stderr, or a filename
 # log.output: "stderr"
