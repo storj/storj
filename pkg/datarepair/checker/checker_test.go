@@ -89,7 +89,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointer := &pb.Pointer{
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(4),
+					MinReq:          int32(3),
 					RepairThreshold: int32(8),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
@@ -136,7 +136,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointer = &pb.Pointer{
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(3),
+					MinReq:          int32(2),
 					RepairThreshold: int32(8),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),

@@ -12,13 +12,12 @@ import (
 	"reflect"
 	"path/filepath"
 
-
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"github.com/gorilla/schema"
 	"storj.io/storj/satellite/marketing"
-	"github.com/gorilla/mux"
 )
 
 var (
