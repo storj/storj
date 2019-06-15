@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 // test_bucket_config returns test bucket configuration.
-BucketConfig_t test_bucket_config() {
-    BucketConfig_t config = {};
+BucketConfig test_bucket_config() {
+    BucketConfig config = {};
 
     config.path_cipher = 0;
 
@@ -21,7 +21,7 @@ BucketConfig_t test_bucket_config() {
 }
 
 // with_test_project opens default test project and calls handleProject callback.
-void with_test_project(void (*handleProject)(ProjectRef_t)) {
+void with_test_project(void (*handleProject)(ProjectRef)) {
     char *_err = "";
     char **err = &_err;
 
@@ -32,23 +32,23 @@ void with_test_project(void (*handleProject)(ProjectRef_t)) {
     printf("using GATEWAY_0_API_KEY: %s\n", apikeyStr);
 
     {
-        UplinkConfig_t cfg = {};
+        UplinkConfig cfg = {};
         cfg.Volatile.TLS.SkipPeerCAWhitelist = true; // TODO: add CA Whitelist
 
         // New uplink
-        UplinkRef_t uplink = new_uplink(cfg, err);
+        UplinkRef uplink = new_uplink(cfg, err);
         require_noerror(*err);
         requiref(uplink._handle != 0, "got empty uplink\n");
 
         {
             // parse api key
-            APIKeyRef_t apikey = parse_api_key(apikeyStr, err);
+            APIKeyRef apikey = parse_api_key(apikeyStr, err);
             require_noerror(*err);
             requiref(apikey._handle != 0, "got empty apikey\n");
 
             {
                 // open a project
-                ProjectRef_t project = open_project(uplink, satellite_addr, apikey, err);
+                ProjectRef project = open_project(uplink, satellite_addr, apikey, err);
                 require_noerror(*err);
                 requiref(project._handle != 0, "got empty project\n");
 

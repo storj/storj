@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef struct APIKey   { long _handle; } APIKeyRef_t;
-typedef struct Uplink   { long _handle; } UplinkRef_t;
-typedef struct Project  { long _handle; } ProjectRef_t;
-typedef struct Bucket   { long _handle; } BucketRef_t;
+typedef struct APIKey   { long _handle; } APIKeyRef;
+typedef struct Uplink   { long _handle; } UplinkRef;
+typedef struct Project  { long _handle; } ProjectRef;
+typedef struct Bucket   { long _handle; } BucketRef;
 
-typedef int64_t time_t;
+typedef int64_t time;
 
 typedef struct UplinkConfig {
     struct {
@@ -17,12 +17,12 @@ typedef struct UplinkConfig {
             bool SkipPeerCAWhitelist;
         } TLS;
     } Volatile;
-} UplinkConfig_t;
+} UplinkConfig;
 
 typedef struct EncryptionParameters {
     uint8_t cipher_suite;
     int32_t block_size;
-} EncryptionParameters_t;
+} EncryptionParameters;
 
 typedef struct RedundancyScheme {
     uint8_t algorithm;
@@ -31,7 +31,7 @@ typedef struct RedundancyScheme {
     int16_t repair_shares;
     int16_t optimal_shares;
     int16_t total_shares;
-} RedundancyScheme_t;
+} RedundancyScheme;
 
 typedef struct BucketInfo {
     char    *name;
@@ -40,29 +40,29 @@ typedef struct BucketInfo {
     uint8_t path_cipher;
     uint64_t segment_size;
 
-    EncryptionParameters_t encryption_parameters;
-    RedundancyScheme_t     redundancy_scheme;
-} BucketInfo_t;
+    EncryptionParameters encryption_parameters;
+    RedundancyScheme     redundancy_scheme;
+} BucketInfo;
 
 typedef struct BucketConfig {
     uint8_t path_cipher;
 
-    EncryptionParameters_t encryption_parameters;
-    RedundancyScheme_t     redundancy_scheme;
-} BucketConfig_t;
+    EncryptionParameters encryption_parameters;
+    RedundancyScheme     redundancy_scheme;
+} BucketConfig;
 
 typedef struct BucketListOptions {
     char    *cursor;
     int8_t  direction;
     int64_t limit;
-} BucketListOptions_t;
+} BucketListOptions;
 
 typedef struct BucketList {
     bool       more;
-    BucketInfo_t *items;
+    BucketInfo *items;
     int32_t    length;
-} BucketList_t;
+} BucketList;
 
 typedef struct EncryptionAccess {
     char key[32];
-} EncryptionAccess_t;
+} EncryptionAccess;
