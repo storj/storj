@@ -35,6 +35,8 @@ func (ctx *Context) Compile(pkg string) string {
 }
 
 // CompileShared compiles pkg as c-shared.
+// TODO: support inclusion from other directories
+//  (cgo header paths are currently relative to package root)
 func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include {
 	t.Helper()
 
