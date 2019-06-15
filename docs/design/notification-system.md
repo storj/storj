@@ -92,7 +92,7 @@ type Status struct {
 
 ### Rough workflow
 ```
-func (notify *NotificationService) InformNodeEmail( nodeID string, type int, value string ) (err error){
+func (notify *NotificationService) InformNodeEmail( nodeID string, message *mailservice.Message) (err error){
 	//Get NodeInformation
 	node, err := notify.cache.Get(ctx, nodeID)
 	if err != nil {
@@ -101,24 +101,11 @@ func (notify *NotificationService) InformNodeEmail( nodeID string, type int, val
 	// Checking, that we did not send to many emails already
 	allowed, err := compareStatusforAllowance(node.ID)
 	
-	switch type {
-	// Uptime Check Failure
-	case notification.uptime:
-		err = notify.mailservice.SendRendered(ctx, node.email,...)
-		if err != nil {
-			return err
-		}
-		return nil 
-	// Audit Check Failure
-	case notification.audit:
-	...
-	// Outdated Version
-	case notification.version:
-	...
-	// Other Announcement
-	case notification.announce:
-	...
+	err = notify.mailservice.SendRendered(ctx, node.email, message.Template...)
+	if err != nil {
+		return err
 	}
+	return nil
 }
 ```
 
