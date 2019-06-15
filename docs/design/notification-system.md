@@ -32,6 +32,8 @@ With the Notification System the SA is able to send an email to the SN advertise
 
 * No Push Notification System (getting updates to your mobile phone, etc.)
 
+* Not preventing Notifications from every satellite currently, meaning, that you get an offline notification from every satellite you are connected to. (Possible way to mitigate this, is to first check via GRPC, if the node accepts connections)
+
 ## SCENARIOS
 
 
@@ -52,6 +54,10 @@ With the Notification System the SA is able to send an email to the SN advertise
 	* Sends a notification to the SN with the current status (rather that it entered Containment Mode, or failed the final audit)
 	
 	* In the later of above cases, it will also send the current ratio and its distance to the _disqualification bar_
+	
+* The SN software is outdated
+
+	* The Satellite informs the SN about its outdated software and kindly reminds to update. This can be used to stage updates across the network once we have auto-updates in place.
 
 ## DESIGN
 ### Functionality
