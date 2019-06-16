@@ -19,7 +19,7 @@ type Uplink struct {
 // an error in cerr, when there is one.
 //
 // Caller must call close_uplink to close associated resources.
-func new_uplink(cfg C.UplinkConfig_t, cerr **C.char) C.UplinkRef_t {
+func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.UplinkRef {
 	scope := rootScope("inmemory") // TODO: pass in as argument
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
@@ -28,15 +28,15 @@ func new_uplink(cfg C.UplinkConfig_t, cerr **C.char) C.UplinkRef_t {
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.UplinkRef_t{}
+		return C.UplinkRef{}
 	}
 
-	return C.UplinkRef_t{universe.Add(&Uplink{scope, lib})}
+	return C.UplinkRef{universe.Add(&Uplink{scope, lib})}
 }
 
 //export close_uplink
 // close_uplink closes and frees the resources associated with uplink
-func close_uplink(uplinkHandle C.UplinkRef_t, cerr **C.char) {
+func close_uplink(uplinkHandle C.UplinkRef, cerr **C.char) {
 	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -50,4 +50,3 @@ func close_uplink(uplinkHandle C.UplinkRef_t, cerr **C.char) {
 		return
 	}
 }
-

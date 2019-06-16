@@ -21,11 +21,11 @@ type Bucket struct {
 
 // create_bucket creates a new bucket if authorized.
 //export create_bucket
-func create_bucket(projectHandle C.ProjectRef_t, name *C.char, bucketConfig *C.BucketConfig_t, cerr **C.char) C.BucketInfo_t {
+func create_bucket(projectHandle C.ProjectRef, name *C.char, bucketConfig *C.BucketConfig, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return C.BucketInfo_t{}
+		return C.BucketInfo{}
 	}
 
 	var config *uplink.BucketConfig
@@ -50,7 +50,7 @@ func create_bucket(projectHandle C.ProjectRef_t, name *C.char, bucketConfig *C.B
 	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.BucketInfo_t{}
+		return C.BucketInfo{}
 	}
 
 	return newBucketInfo(&bucket)
@@ -58,17 +58,17 @@ func create_bucket(projectHandle C.ProjectRef_t, name *C.char, bucketConfig *C.B
 
 // get_bucket_info returns info about the requested bucket if authorized.
 //export get_bucket_info
-func get_bucket_info(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.char) C.BucketInfo_t {
+func get_bucket_info(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.char) C.BucketInfo {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return C.BucketInfo_t{}
+		return C.BucketInfo{}
 	}
 
 	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.BucketInfo_t{}
+		return C.BucketInfo{}
 	}
 
 	return newBucketInfo(&bucket)
@@ -76,11 +76,11 @@ func get_bucket_info(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.
 
 // open_bucket returns a Bucket handle with the given EncryptionAccess information.
 //export open_bucket
-func open_bucket(projectHandle C.ProjectRef_t, name *C.char, encryptionAccess C.EncryptionAccess_t, cerr **C.char) C.BucketRef_t {
+func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess C.EncryptionAccess, cerr **C.char) C.BucketRef {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return C.BucketRef_t{}
+		return C.BucketRef{}
 	}
 
 	var access uplink.EncryptionAccess
@@ -93,19 +93,19 @@ func open_bucket(projectHandle C.ProjectRef_t, name *C.char, encryptionAccess C.
 	bucket, err := project.OpenBucket(scope.ctx, C.GoString(name), &access)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.BucketRef_t{}
+		return C.BucketRef{}
 	}
 
-	return C.BucketRef_t{universe.Add(&Bucket{scope, bucket})}
+	return C.BucketRef{universe.Add(&Bucket{scope, bucket})}
 }
 
 // list_buckets will list authorized buckets.
 //export list_buckets
-func list_buckets(projectHandle C.ProjectRef_t, bucketListOptions *C.BucketListOptions_t, cerr **C.char) C.BucketList_t {
+func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOptions, cerr **C.char) C.BucketList {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
-		return C.BucketList_t{}
+		return C.BucketList{}
 	}
 
 	var opts *uplink.BucketListOptions
@@ -120,20 +120,20 @@ func list_buckets(projectHandle C.ProjectRef_t, bucketListOptions *C.BucketListO
 	bucketList, err := project.ListBuckets(project.scope.ctx, opts)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.BucketList_t{}
+		return C.BucketList{}
 	}
 
 	listLen := len(bucketList.Items)
-	infoSize := int(unsafe.Sizeof(C.BucketInfo_t{}))
+	infoSize := int(unsafe.Sizeof(C.BucketInfo{}))
 
 	itemsPtr := C.malloc(C.size_t(listLen * infoSize))
-	items := (*[1<<30]C.BucketInfo_t)(unsafe.Pointer(itemsPtr))
+	items := (*[1 << 30]C.BucketInfo)(itemsPtr)
 	for i, bucket := range bucketList.Items {
 		bucket := bucket
 		items[i] = newBucketInfo(&bucket)
 	}
 
-	return C.BucketList_t{
+	return C.BucketList{
 		more:   C.bool(bucketList.More),
 		items:  &items[0],
 		length: C.int32_t(listLen),
@@ -143,7 +143,7 @@ func list_buckets(projectHandle C.ProjectRef_t, bucketListOptions *C.BucketListO
 // delete_bucket deletes a bucket if authorized. If the bucket contains any
 // Objects at the time of deletion, they may be lost permanently.
 //export delete_bucket
-func delete_bucket(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.char) {
+func delete_bucket(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
@@ -158,7 +158,7 @@ func delete_bucket(projectHandle C.ProjectRef_t, bucketName *C.char, cerr **C.ch
 
 // close_bucket closes a Bucket handle.
 //export close_bucket
-func close_bucket(bucketHandle C.BucketRef_t, cerr **C.char) {
+func close_bucket(bucketHandle C.BucketRef, cerr **C.char) {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid bucket")
@@ -176,15 +176,15 @@ func close_bucket(bucketHandle C.BucketRef_t, cerr **C.char) {
 
 // free_bucket_info frees bucket info.
 //export free_bucket_info
-func free_bucket_info(bucketInfo *C.BucketInfo_t) {
+func free_bucket_info(bucketInfo *C.BucketInfo) {
 	C.free(unsafe.Pointer(bucketInfo.name))
 	bucketInfo.name = nil
 }
 
 // free_bucket_list will free a list of buckets
 //export free_bucket_list
-func free_bucket_list(bucketlist *C.BucketList_t) {
-	items := (*[1<<30]C.BucketInfo_t)(unsafe.Pointer(bucketlist.items))
+func free_bucket_list(bucketlist *C.BucketList) {
+	items := (*[1 << 30]C.BucketInfo)(unsafe.Pointer(bucketlist.items))
 	for i := 0; i < int(bucketlist.length); i++ {
 		free_bucket_info(&items[i])
 	}

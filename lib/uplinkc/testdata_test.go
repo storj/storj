@@ -4,14 +4,14 @@
 package main
 
 import (
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -38,12 +38,11 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 	run(ctx, planet)
 }
 
-
 func TestC(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	libuplink := ctx.CompileShared("uplink", "storj.io/storj/lib/uplinkc")
+	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -61,7 +60,7 @@ func TestC(t *testing.T) {
 			t.Run(filepath.Base(ctest), func(t *testing.T) {
 				t.Parallel()
 
-				testexe := ctx.CompileC(ctest, libuplink, definition)
+				testexe := ctx.CompileC(t, ctest, libuplink, definition)
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)

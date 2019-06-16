@@ -19,20 +19,8 @@
 /.vscode
 debug
 
-# Binaries
-./main
-./storj
-
 # Jetbrains
 .idea/
-
-# vendor
-vendor
-protos/google/*
-
-# Test redis log and snapshot files
-*test_redis-server.log
-*dump.rdb
 
 *.coverprofile
 *.log

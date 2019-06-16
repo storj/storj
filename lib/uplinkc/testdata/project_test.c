@@ -8,7 +8,7 @@
 #include "uplink.h"
 #include "helpers2.h"
 
-void handle_project(ProjectRef_t project)
+void handle_project(ProjectRef project)
 {};
 
 int main(int argc, char *argv[]) {
