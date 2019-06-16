@@ -7,48 +7,48 @@ package main
 import "C"
 
 import (
-	"storj.io/storj/lib/uplink"
+	libuplink "storj.io/storj/lib/uplink"
 )
 
 // Project is a scoped uplink.Project
 type Project struct {
 	scope
-	*uplink.Project
+	*libuplink.Project
 }
 
 //export open_project
 // open_project opens project using uplink
-func open_project(uplinkHandle C.Uplink, satelliteAddr *C.char, apikeyHandle C.APIKey, cerr **C.char) C.Project {
-	up, ok := universe.Get(uplinkHandle._handle).(*Uplink)
+func open_project(uplinkHandle C.UplinkRef, satelliteAddr *C.char, apikeyHandle C.APIKeyRef, cerr **C.char) C.ProjectRef {
+	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
-		return C.Project{}
+		return C.ProjectRef{}
 	}
 
-	apikey, ok := universe.Get(apikeyHandle._handle).(uplink.APIKey)
+	apikey, ok := universe.Get(apikeyHandle._handle).(libuplink.APIKey)
 	if !ok {
 		*cerr = C.CString("invalid apikey")
-		return C.Project{}
+		return C.ProjectRef{}
 	}
 
-	scope := up.scope.child()
+	scope := uplink.scope.child()
 
 	// TODO: add project options argument
-	project, err := up.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
+	project, err := uplink.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, nil)
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.Project{}
+		return C.ProjectRef{}
 	}
 
-	return C.Project{universe.Add(&Project{scope, project})}
+	return C.ProjectRef{universe.Add(&Project{scope, project})}
 }
 
 //export close_project
 // close_project closes the project.
-func close_project(projectHandle C.Project, cerr **C.char) {
+func close_project(projectHandle C.ProjectRef, cerr **C.char) {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
-		*cerr = C.CString("invalid uplink")
+		*cerr = C.CString("invalid project")
 		return
 	}
 	universe.Del(projectHandle._handle)
