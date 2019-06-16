@@ -82,7 +82,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 	segment := segments.ConvertMeta(pointer)
 
 	streamInfo := pb.StreamInfo{
-		NumberOfSegments: 1,
+		NumberOfSegments: 0,
 		SegmentsSize:     segment.Size,
 		LastSegmentSize:  segment.Size,
 		Metadata:         segment.Data,

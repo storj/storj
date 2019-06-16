@@ -16,11 +16,11 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
-	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -141,10 +141,10 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-store := buckets.PrefixedObjStore{
-	Store: objects.NewStore(db.streams, db.streams.Cipher),
-	Prefix: bucket,
-}
+	store := buckets.PrefixedObjStore{
+		Store:  objects.NewStore(db.streams, db.streams.Cipher),
+		Prefix: bucket,
+	}
 	return store.Delete(ctx, path)
 }
 
@@ -170,7 +170,7 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 	}
 
 	objects := buckets.PrefixedObjStore{
-		Store: objects.NewStore(db.streams, db.streams.Cipher),
+		Store:  objects.NewStore(db.streams, db.streams.Cipher),
 		Prefix: bucket,
 	}
 

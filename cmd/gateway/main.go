@@ -265,7 +265,6 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	var opts libuplink.ProjectOptions
 	opts.Volatile.EncryptionKey = encKey
 
 	uplk, err := libuplink.NewUplink(ctx, &cfg)
@@ -273,7 +272,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	return uplk.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey, &opts)
+	return uplk.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey)
 }
 
 // interactive creates the configuration of the gateway interactively.
