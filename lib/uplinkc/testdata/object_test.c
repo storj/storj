@@ -8,26 +8,26 @@
 #include "uplink.h"
 #include "helpers2.h"
 
-void handle_project(ProjectRef_t project);
+void handle_project(ProjectRef project);
 
 int main(int argc, char *argv[]) {
     with_test_project(&handle_project);
 }
 
-void handle_project(ProjectRef_t project) {
+void handle_project(ProjectRef project) {
     char *_err = "";
     char **err = &_err;
 
     char *bucket_name = "TestBucket";
 
-    BucketConfig_t config = test_bucket_config();
-    BucketInfo_t info = create_bucket(project, bucket_name, &config, err);
+    BucketConfig config = test_bucket_config();
+    BucketInfo info = create_bucket(project, bucket_name, &config, err);
     require_noerror(*err);
     free_bucket_info(&info);
 
-    EncryptionAccess_t access = {};
+    EncryptionAccess access = {};
     memcpy(&access.key[0], "hello", 5);
-    BucketRef_t bucket = open_bucket(project, bucket_name, access, err);
+    BucketRef bucket = open_bucket(project, bucket_name, access, err);
     require_noerror(*err);
     {
         char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};

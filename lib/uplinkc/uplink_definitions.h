@@ -72,7 +72,7 @@ typedef struct EncryptionAccess {
 
 typedef struct ObjectInfo {
     uint32_t   version;
-    BucketInfo_t bucket;
+    BucketInfo bucket;
     char       *path;
     bool       is_prefix;
     MapRef        metadata;

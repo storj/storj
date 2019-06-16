@@ -22,11 +22,11 @@ type Object struct {
 
 // open_object returns an Object handle, if authorized.
 //export open_object
-func open_object(bucketHandle C.BucketRef_t, objectPath *C.char, cerr **C.char) C.ObjectRef_t {
+func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.ObjectRef {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid bucket")
-		return C.ObjectRef_t{}
+		return C.ObjectRef{}
 	}
 
 	scope := bucket.scope.child()
@@ -34,15 +34,15 @@ func open_object(bucketHandle C.BucketRef_t, objectPath *C.char, cerr **C.char) 
 	object, err := bucket.OpenObject(scope.ctx, C.GoString(objectPath))
 	if err != nil {
 		*cerr = C.CString(err.Error())
-		return C.ObjectRef_t{}
+		return C.ObjectRef{}
 	}
 
-	return C.ObjectRef_t{universe.Add(&Object{scope, object})}
+	return C.ObjectRef{universe.Add(&Object{scope, object})}
 }
 
 // close_object closes the object.
 //export close_object
-func close_object(objectHandle C.ObjectRef_t, cerr **C.char) {
+func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 	object, ok := universe.Get(objectHandle._handle).(*Bucket)
 	if !ok {
 		*cerr = C.CString("invalid object")
@@ -60,11 +60,11 @@ func close_object(objectHandle C.ObjectRef_t, cerr **C.char) {
 
 // get_object_meta returns the object meta which contains metadata about a specific Object.
 //export get_object_meta
-func get_object_meta(cObject C.ObjectRef_t, cErr **C.char) C.ObjectMeta_t {
+func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 	object, ok := universe.Get(cObject._handle).(*uplink.Object)
 	if !ok {
 		*cErr = C.CString("invalid object")
-		return C.ObjectMeta_t{}
+		return C.ObjectMeta{}
 	}
 
 	checksum, checksumLen := bytes_to_cbytes(object.Meta.Checksum)
@@ -73,11 +73,11 @@ func get_object_meta(cObject C.ObjectRef_t, cErr **C.char) C.ObjectMeta_t {
 	for k, v := range object.Meta.Metadata {
 		map_ref_set(mapRef, C.CString(k), C.CString(v), cErr)
 		if C.GoString(*cErr) != "" {
-			return C.ObjectMeta_t{}
+			return C.ObjectMeta{}
 		}
 	}
 
-	return C.ObjectMeta_t {
+	return C.ObjectMeta {
 		bucket: C.CString(object.Meta.Bucket),
 		path:  C.CString(object.Meta.Path),
 		is_prefix: C.bool(object.Meta.IsPrefix),
@@ -94,7 +94,7 @@ func get_object_meta(cObject C.ObjectRef_t, cErr **C.char) C.ObjectMeta_t {
 
 // free_object_meta frees the object meta
 //export free_object_meta
-func free_object_meta(objectMeta *C.ObjectMeta_t) {
+func free_object_meta(objectMeta *C.ObjectMeta) {
 	C.free(unsafe.Pointer(objectMeta.bucket))
 	objectMeta.bucket = nil
 
@@ -113,7 +113,7 @@ func free_object_meta(objectMeta *C.ObjectMeta_t) {
 // download_range returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
 //export download_range
-func download_range(objectRef C.ObjectRef_t, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
+func download_range(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
 	object, ok := universe.Get(objectRef._handle).(*Object)
 	if !ok {
 		*cErr = C.CString("invalid object")
@@ -138,7 +138,7 @@ func download_range(objectRef C.ObjectRef_t, offset C.int64_t, length C.int64_t,
 
 // upload_object uploads a new object, if authorized.
 //export upload_object
-func upload_object(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.UploadOptions_t, cErr **C.char) {
+func upload_object(cBucket C.BucketRef, path *C.char, reader *File, cOpts *C.UploadOptions, cErr **C.char) {
 	bucket, ok := universe.Get(cBucket._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
@@ -173,7 +173,7 @@ func upload_object(cBucket C.BucketRef_t, path *C.char, reader *File, cOpts *C.U
 
 // list_objects lists objects a user is authorized to see.
 //export list_objects
-func list_objects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.char) (cObjList C.ObjectList_t) {
+func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char) (cObjList C.ObjectList) {
 	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
@@ -201,19 +201,19 @@ func list_objects(bucketRef C.BucketRef_t, cListOpts *C.ListOptions_t, cErr **C.
 	}
 	objListLen := len(objectList.Items)
 
-	objectSize := int(unsafe.Sizeof(C.ObjectRef_t{}))
+	objectSize := int(unsafe.Sizeof(C.ObjectRef{}))
 	ptr := uintptr(C.malloc(C.size_t(objListLen * objectSize)))
-	cObjectsPtr := (*[1 << 30]C.ObjectInfo_t)(unsafe.Pointer(ptr))
+	cObjectsPtr := (*[1 << 30]C.ObjectInfo)(unsafe.Pointer(ptr))
 
 	for i, object := range objectList.Items {
 		(*cObjectsPtr)[i] = newObjectInfo(&object)
 	}
 
-	return C.ObjectList_t{
+	return C.ObjectList{
 		bucket: C.CString(objectList.Bucket),
 		prefix: C.CString(objectList.Prefix),
 		more: C.bool(objectList.More),
-		items:  (*C.ObjectInfo_t)(unsafe.Pointer(cObjectsPtr)),
+		items:  (*C.ObjectInfo)(unsafe.Pointer(cObjectsPtr)),
 		length: C.int32_t(objListLen),
 	}
 }

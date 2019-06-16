@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 // test_bucket_config returns test bucket configuration.
-BucketConfig_t test_bucket_config() {
-    BucketConfig_t config = {};
+BucketConfig test_bucket_config() {
+    BucketConfig config = {};
 
     config.path_cipher = 0;
 
@@ -32,7 +32,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
     printf("using GATEWAY_0_API_KEY: %s\n", apikeyStr);
 
     {
-        UplinkConfig_t cfg = {};
+        UplinkConfig cfg = {};
         cfg.Volatile.TLS.SkipPeerCAWhitelist = true; // TODO: add CA Whitelist
 
         // New uplink
