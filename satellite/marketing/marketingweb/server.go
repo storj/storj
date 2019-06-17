@@ -11,6 +11,7 @@ import (
 	"time"
 	"reflect"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -95,6 +96,7 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
 		mux.HandleFunc("/create/{offer_type}", s.createOffer)
+		mux.HandleFunc("/stop/{offer_id}", s.stopOffer)
 	}
 	s.server.Handler = mux
 
@@ -186,11 +188,23 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffe
 	return o,nil
 }
 
+func (s *Server) reRenderTables(w http.ResponseWriter){
+    req,err := http.NewRequest("GET","/",nil)
+    if err != nil {
+        s.log.Error("Rerender tables err", zap.Error(err))
+        s.serveInternalError(w,req,err)
+        return
+    }
+
+    http.Redirect(w,req,"/",http.StatusFound)
+}
+
+
 // Handler for POST requests to create, insert, and start a new offer or credit.
 func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 	o, err := formToStruct(w,req)
 	if err != nil{
-		s.log.Error("err from createFreeCredit Handler", zap.Error(err))
+		s.log.Error("create handler error", zap.Error(err))
 		s.serveInternalError(w,req,err)
 		return
 	}
@@ -205,12 +219,12 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if _, err := s.service.InsertNewOffer(context.Background(), &o); err != nil {
-		s.log.Error("createdHandler error", zap.Error(err))
+		s.log.Error("create handler error", zap.Error(err))
 		s.serveInternalError(w,req,err)
 		return
 	}
-	req.Method = "GET"
-	http.Redirect(w,req,"/",http.StatusFound)
+	
+	s.reRenderTables(w)
 }
 
 // Handler for 404 errors. Defaults to 500 if template fails parsing.
@@ -223,6 +237,23 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 		s.serveInternalError(w,req,err)
 		return
 	}
+}
+
+func (s *Server) stopOffer(w http.ResponseWriter, req *http.Request){
+	offerID,err := strconv.Atoi(mux.Vars(req)["offer_id"])
+	if err != nil {
+		s.log.Error("stop handler error", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
+	}
+
+	if err := s.service.FinishOffer(context.Background(), offerID); err != nil {
+		s.log.Error("stop handler error", zap.Error(err))
+		s.serveInternalError(w,req,err)
+		return
+	}
+	
+	s.reRenderTables(w)
 }
 
 // Handler for 500 errors and also renders err to the internalErr template.

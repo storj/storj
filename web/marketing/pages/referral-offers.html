@@ -12,10 +12,25 @@ See LICENSE for copying information. -->
         <div class="col col-heading">Created</div>
         <div class="col col-heading">Expiration</div>
         <div class="col col-heading">Status</div>
-        <div class="col col-heading"></div>
     </div><hr>
     <div class="row offer-heading ">
         <p class="offer-type">DEFAULT&nbsp;OFFER</p>
+    </div>
+    {{range .RefOffers}}
+        {{if eq .Status 1}}
+            <div class="row data-row">
+                <div class="col ml-3">{{.Name}}</div>
+                <div class="col">${{.InviteeCreditInCents}}</div> 
+                <div class="col">${{.AwardCreditInCents}}</div>
+                <div class="col">{{.NumRedeemed}}</div>
+                <div class="col">&#8734;</div>
+                <div class="col">{{printf "%.10s" .CreatedAt}}</div>
+                <div class="col">&#8734;</div>
+            </div><hr>
+        {{end}}
+    {{end}}
+    <div class="row offer-heading ">
+        <p class="offer-type">CURRENT&nbsp;OFFER</p>
     </div>
     {{range .RefOffers}}
         {{if eq .Status 2}}
@@ -27,26 +42,30 @@ See LICENSE for copying information. -->
                 <div class="col">{{.RedeemableCap}}</div>
                 <div class="col">{{printf "%.10s" .CreatedAt}}</div>
                 <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
-                <div class="col"><a href="#">{{if eq .Status 1}}<strong>Live &#183;</strong>{{else}}off{{end}}</a></div>
-                <div class="col col-heading edit-offer">EDIT</div>
+                <div class="col">
+                    <a href="/stop/{{.ID}}">
+                        <strong>Live &#183;</strong>
+                    </a>
+                </div>    
             </div><hr>
         {{end}}
     {{end}}
     <div class="row offer-heading ">
-        <p class="offer-type">CUSTOM&nbsp;OFFERS</p>
+        <p class="offer-type">OTHER&nbsp;OFFERS</p>
     </div>
     {{range .RefOffers}}
-    <div class="row data-row">
-        <div class="col ml-3">{{.Name}}</div>
-        <div class="col">${{.InviteeCreditInCents}}</div> 
-        <div class="col">${{.AwardCreditInCents}}</div>
-        <div class="col">{{.NumRedeemed}}</div>
-        <div class="col">{{.RedeemableCap}}</div>
-        <div class="col">{{printf "%.10s" .CreatedAt}}</div>
-        <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
-        <div class="col"><a href="#">{{if eq .Status 1}}<strong>Live &#183;</strong>{{else}}off{{end}}</a></div>
-        <div class="col col-heading edit-offer">EDIT</div>
-    </div><hr>
+        {{if eq .Status 0}}
+            <div class="row data-row">
+                <div class="col ml-3">{{.Name}}</div>
+                <div class="col">${{.InviteeCreditInCents}}</div> 
+                <div class="col">${{.AwardCreditInCents}}</div>
+                <div class="col">{{.NumRedeemed}}</div>
+                <div class="col">{{.RedeemableCap}}</div>
+                <div class="col">{{printf "%.10s" .CreatedAt}}</div>
+                <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
+                <div class="col">off</div>
+            </div><hr>
+        {{end}}
     {{end}}
 </div>
 {{end}}
