@@ -40,7 +40,7 @@ func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.U
 		return nil, errs.Wrap(err)
 	}
 
-	return fromDBX(availableCredits)
+	return userCreditsFromDBX(availableCredits)
 }
 
 // Create insert a new record of user credit
@@ -141,7 +141,7 @@ func generateQuery(totalRows int, toInt bool) (query string) {
 	return query
 }
 
-func fromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
+func userCreditsFromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
 	var userCredits []console.UserCredit
 	errList := new(errs.Group)
 

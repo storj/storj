@@ -29,148 +29,144 @@ func TestUsercredits(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		test(ctx, t, db)
-	})
-}
+		consoleDB := db.Console()
 
-func test(ctx context.Context, t *testing.T, store satellite.DB) {
-	consoleDB := store.Console()
+		user, referrer, offer := setupData(ctx, t, db)
+		randomID, err := uuid.New()
+		require.NoError(t, err)
 
-	user, referrer, offer := setupData(ctx, t, store)
-	randomID, err := uuid.New()
-	require.NoError(t, err)
-
-	// test foreign key constraint for inserting a new user credit entry with randomID
-	var invalidUserCredits = []console.UserCredit{
-		{
-			UserID:               *randomID,
-			OfferID:              offer.ID,
-			ReferredBy:           referrer.ID,
-			CreditsEarnedInCents: 100,
-			ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
-		},
-		{
-			UserID:               user.ID,
-			OfferID:              10,
-			ReferredBy:           referrer.ID,
-			CreditsEarnedInCents: 100,
-			ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
-		},
-		{
-			UserID:               user.ID,
-			OfferID:              offer.ID,
-			ReferredBy:           *randomID,
-			CreditsEarnedInCents: 100,
-			ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
-		},
-	}
-
-	for _, ivc := range invalidUserCredits {
-		_, err := consoleDB.UserCredits().Create(ctx, ivc)
-		require.Error(t, err)
-	}
-
-	type result struct {
-		remainingCharge  int
-		availableCredits int
-		hasErr           bool
-	}
-
-	var validUserCredits = []struct {
-		userCredit     console.UserCredit
-		chargedCredits int
-		expected       result
-	}{
-		{
-			userCredit: console.UserCredit{
-				UserID:               user.ID,
+		// test foreign key constraint for inserting a new user credit entry with randomID
+		var invalidUserCredits = []console.UserCredit{
+			{
+				UserID:               *randomID,
 				OfferID:              offer.ID,
 				ReferredBy:           referrer.ID,
 				CreditsEarnedInCents: 100,
 				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
-			chargedCredits: 120,
-			expected: result{
-				remainingCharge:  20,
-				availableCredits: 0,
-				hasErr:           false,
-			},
-		},
-		{
-			// simulate a credit that's already expired
-			userCredit: console.UserCredit{
+			{
 				UserID:               user.ID,
-				OfferID:              offer.ID,
+				OfferID:              10,
 				ReferredBy:           referrer.ID,
 				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 0, -5),
+				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
-			chargedCredits: 60,
-			expected: result{
-				remainingCharge:  60,
-				availableCredits: 0,
-				hasErr:           true,
-			},
-		},
-		{
-			// simulate a credit that's not expired
-			userCredit: console.UserCredit{
+			{
 				UserID:               user.ID,
 				OfferID:              offer.ID,
-				ReferredBy:           referrer.ID,
+				ReferredBy:           *randomID,
 				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 0, 5),
+				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
-			chargedCredits: 80,
-			expected: result{
-				remainingCharge:  0,
-				availableCredits: 20,
-				hasErr:           false,
-			},
-		},
-	}
-
-	for i, vc := range validUserCredits {
-		_, err = consoleDB.UserCredits().Create(ctx, vc.userCredit)
-		require.NoError(t, err)
-
-		{
-			referredCount, err := consoleDB.UserCredits().TotalReferredCount(ctx, vc.userCredit.ReferredBy)
-			if err != nil {
-				require.True(t, uuid.Equal(*randomID, vc.userCredit.ReferredBy))
-				continue
-			}
-			require.NoError(t, err)
-			require.Equal(t, int64(i+1), referredCount)
 		}
 
-		{
-			remainingCharge, err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
-			if vc.expected.hasErr {
-				require.Error(t, err)
-			} else {
+		for _, ivc := range invalidUserCredits {
+			_, err := consoleDB.UserCredits().Create(ctx, ivc)
+			require.Error(t, err)
+		}
+
+		type result struct {
+			remainingCharge  int
+			availableCredits int
+			hasErr           bool
+		}
+
+		var validUserCredits = []struct {
+			userCredit     console.UserCredit
+			chargedCredits int
+			expected       result
+		}{
+			{
+				userCredit: console.UserCredit{
+					UserID:               user.ID,
+					OfferID:              offer.ID,
+					ReferredBy:           referrer.ID,
+					CreditsEarnedInCents: 100,
+					ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+				},
+				chargedCredits: 120,
+				expected: result{
+					remainingCharge:  20,
+					availableCredits: 0,
+					hasErr:           false,
+				},
+			},
+			{
+				// simulate a credit that's already expired
+				userCredit: console.UserCredit{
+					UserID:               user.ID,
+					OfferID:              offer.ID,
+					ReferredBy:           referrer.ID,
+					CreditsEarnedInCents: 100,
+					ExpiresAt:            time.Now().UTC().AddDate(0, 0, -5),
+				},
+				chargedCredits: 60,
+				expected: result{
+					remainingCharge:  60,
+					availableCredits: 0,
+					hasErr:           true,
+				},
+			},
+			{
+				// simulate a credit that's not expired
+				userCredit: console.UserCredit{
+					UserID:               user.ID,
+					OfferID:              offer.ID,
+					ReferredBy:           referrer.ID,
+					CreditsEarnedInCents: 100,
+					ExpiresAt:            time.Now().UTC().AddDate(0, 0, 5),
+				},
+				chargedCredits: 80,
+				expected: result{
+					remainingCharge:  0,
+					availableCredits: 20,
+					hasErr:           false,
+				},
+			},
+		}
+
+		for i, vc := range validUserCredits {
+			_, err = consoleDB.UserCredits().Create(ctx, vc.userCredit)
+			require.NoError(t, err)
+
+			{
+				referredCount, err := consoleDB.UserCredits().TotalReferredCount(ctx, vc.userCredit.ReferredBy)
+				if err != nil {
+					require.True(t, uuid.Equal(*randomID, vc.userCredit.ReferredBy))
+					continue
+				}
 				require.NoError(t, err)
-			}
-			require.Equal(t, vc.expected.remainingCharge, remainingCharge)
-		}
-
-		{
-			availableCredits, err := consoleDB.UserCredits().GetAvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
-			require.NoError(t, err)
-			var sum int
-			for i := range availableCredits {
-				sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
+				require.Equal(t, int64(i+1), referredCount)
 			}
 
-			require.NoError(t, err)
-			require.Equal(t, vc.expected.availableCredits, sum)
+			{
+				remainingCharge, err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
+				if vc.expected.hasErr {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+				require.Equal(t, vc.expected.remainingCharge, remainingCharge)
+			}
+
+			{
+				availableCredits, err := consoleDB.UserCredits().GetAvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
+				require.NoError(t, err)
+				var sum int
+				for i := range availableCredits {
+					sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
+				}
+
+				require.NoError(t, err)
+				require.Equal(t, vc.expected.availableCredits, sum)
+			}
 		}
-	}
+	})
 }
 
-func setupData(ctx context.Context, t *testing.T, store satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer) {
-	consoleDB := store.Console()
-	marketingDB := store.Marketing()
+func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer) {
+	consoleDB := db.Console()
+	marketingDB := db.Marketing()
 	// create user
 	var userPassHash [8]byte
 	_, err := rand.Read(userPassHash[:])
@@ -183,7 +179,7 @@ func setupData(ctx context.Context, t *testing.T, store satellite.DB) (user *con
 	// create an user
 	user, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "John Doe",
-		Email:        "john@example.com",
+		Email:        "john@mail.test",
 		PasswordHash: userPassHash[:],
 		Status:       console.Active,
 	})
@@ -192,7 +188,7 @@ func setupData(ctx context.Context, t *testing.T, store satellite.DB) (user *con
 	//create an user as referrer
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "referrer",
-		Email:        "referrer@example.com",
+		Email:        "referrer@mail.test",
 		PasswordHash: referrerPassHash[:],
 		Status:       console.Active,
 	})
