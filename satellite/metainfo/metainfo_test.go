@@ -445,6 +445,12 @@ func TestCommitSegmentPointer(t *testing.T) {
 			},
 			ErrorMessage: "all pieces needs to have the same size",
 		},
+		{
+			Modify: func(pointer *pb.Pointer) {
+				pointer.SegmentSize = 100
+			},
+			ErrorMessage: "difference between pointer segment size and uploaded pieces too big",
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -546,7 +552,7 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 
 	pointer := &pb.Pointer{
 		Type:        pb.Pointer_REMOTE,
-		SegmentSize: 100,
+		SegmentSize: 4 * memory.KiB.Int64(),
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
@@ -554,14 +560,14 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 					PieceNum: 0,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
-						PieceSize: int64(rs.ErasureShareSize),
+						PieceSize: 4 * int64(rs.ErasureShareSize),
 					},
 				},
 				&pb.RemotePiece{
 					PieceNum: 1,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
-						PieceSize: int64(rs.ErasureShareSize),
+						PieceSize: 4 * int64(rs.ErasureShareSize),
 					},
 				},
 			},
