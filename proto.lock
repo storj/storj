@@ -2323,6 +2323,10 @@
                   {
                     "name": "(gogoproto.stdtime)",
                     "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
                   }
                 ]
               }

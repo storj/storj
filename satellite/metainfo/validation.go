@@ -274,7 +274,7 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 	}
 
 	timestamp := piece.Hash.Timestamp
-	if timestamp == nil || timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
+	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
 		return errs.New("piece hash timestamp is too old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
 	}
 
