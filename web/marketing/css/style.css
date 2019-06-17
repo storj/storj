@@ -179,3 +179,7 @@ input{
     text-decoration: underline;
     color: #656565;
 }
+
+.stop-offer:hover {
+    cursor:pointer;
+}

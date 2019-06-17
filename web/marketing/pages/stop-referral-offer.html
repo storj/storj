@@ -1,0 +1,36 @@
+<!-- Copyright (C) 2019 Storj Labs, Inc.
+See LICENSE for copying information. -->
+
+{{define "stopReferralOffer"}}
+<div class="modal fade stop-referral-offer-modal mt-5" tabindex="-1" role="dialog" aria-labelledby="confirm" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="row d-flex justify-content-between">
+                <img class="mt-3 ml-5" src="/static/img/warning.png" height="30" width="30"/>
+                <p class="mt-3">
+                        Replace 
+                        <strong>
+                            {{range .RefOffers}}{{if eq .Status 2}}{{.Name}}{{end}}{{end}}
+                        </strong>
+                        with 
+                        <strong>
+                            {{range .RefOffers}}{{if eq .Status 1}}{{.Name}}{{end}}{{end}}
+                        </strong> ?
+                    </p>
+                <div class="mt-2">
+                    <a href="/">
+                        <button class="btn btn-outline-secondary mr-1">
+                            <strong>X</strong>
+                        </button>
+                    </a>
+                    <a href="/stop/{{range .RefOffers}}{{if eq .Status 2}}{{.ID}}{{end}}{{end}}">
+                        <button class="btn btn-primary mr-4">
+                            &#10004;
+                        </button>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

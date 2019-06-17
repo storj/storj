@@ -39,14 +39,15 @@ See LICENSE for copying information. -->
                 <div class="col">{{.RedeemableCap}}</div>
                 <div class="col">{{printf "%.10s" .CreatedAt}}</div>
                 <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
-                <div class="col">
-                    <a href="/stop/{{.ID}}">
-                        <strong>Live &#183;</strong>
-                    </a>
-                </div>
+                <div class="col stop-offer">
+                    <span data-toggle="modal" data-target=".stop-free-credit-modal">
+                        <strong class="stop-offer">Live &#183;</strong>
+                    </span>
+                </div>    
             </div><hr>
         {{end}}
     {{end}}
+    {{template "stopFreeCredit" .}}
     <div class="row offer-heading ">
         <p class="offer-type">OTHER&nbsp;OFFERS</p>
     </div>
