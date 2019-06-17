@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -2060,10 +2059,10 @@ type Node struct {
 	LastContactFailure    time.Time
 	Contained             bool
 	Disqualified          bool
-	ReputationAuditAlpha  float64
-	ReputationAuditBeta   float64
-	ReputationUptimeAlpha float64
-	ReputationUptimeBeta  float64
+	AuditReputationAlpha  float64
+	AuditReputationBeta   float64
+	UptimeReputationAlpha float64
+	UptimeReputationBeta  float64
 }
 
 func (Node) _Table() string { return "nodes" }
@@ -2094,10 +2093,10 @@ type Node_Update_Fields struct {
 	LastContactFailure    Node_LastContactFailure_Field
 	Contained             Node_Contained_Field
 	Disqualified          Node_Disqualified_Field
-	ReputationAuditAlpha  Node_ReputationAuditAlpha_Field
-	ReputationAuditBeta   Node_ReputationAuditBeta_Field
-	ReputationUptimeAlpha Node_ReputationUptimeAlpha_Field
-	ReputationUptimeBeta  Node_ReputationUptimeBeta_Field
+	AuditReputationAlpha  Node_AuditReputationAlpha_Field
+	AuditReputationBeta   Node_AuditReputationBeta_Field
+	UptimeReputationAlpha Node_UptimeReputationAlpha_Field
+	UptimeReputationBeta  Node_UptimeReputationBeta_Field
 }
 
 type Node_Id_Field struct {
@@ -2632,81 +2631,81 @@ func (f Node_Disqualified_Field) value() interface{} {
 
 func (Node_Disqualified_Field) _Column() string { return "disqualified" }
 
-type Node_ReputationAuditAlpha_Field struct {
+type Node_AuditReputationAlpha_Field struct {
 	_set   bool
 	_null  bool
 	_value float64
 }
 
-func Node_ReputationAuditAlpha(v float64) Node_ReputationAuditAlpha_Field {
-	return Node_ReputationAuditAlpha_Field{_set: true, _value: v}
+func Node_AuditReputationAlpha(v float64) Node_AuditReputationAlpha_Field {
+	return Node_AuditReputationAlpha_Field{_set: true, _value: v}
 }
 
-func (f Node_ReputationAuditAlpha_Field) value() interface{} {
+func (f Node_AuditReputationAlpha_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Node_ReputationAuditAlpha_Field) _Column() string { return "audit_reputation_alpha" }
+func (Node_AuditReputationAlpha_Field) _Column() string { return "audit_reputation_alpha" }
 
-type Node_ReputationAuditBeta_Field struct {
+type Node_AuditReputationBeta_Field struct {
 	_set   bool
 	_null  bool
 	_value float64
 }
 
-func Node_ReputationAuditBeta(v float64) Node_ReputationAuditBeta_Field {
-	return Node_ReputationAuditBeta_Field{_set: true, _value: v}
+func Node_AuditReputationBeta(v float64) Node_AuditReputationBeta_Field {
+	return Node_AuditReputationBeta_Field{_set: true, _value: v}
 }
 
-func (f Node_ReputationAuditBeta_Field) value() interface{} {
+func (f Node_AuditReputationBeta_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Node_ReputationAuditBeta_Field) _Column() string { return "audit_reputation_beta" }
+func (Node_AuditReputationBeta_Field) _Column() string { return "audit_reputation_beta" }
 
-type Node_ReputationUptimeAlpha_Field struct {
+type Node_UptimeReputationAlpha_Field struct {
 	_set   bool
 	_null  bool
 	_value float64
 }
 
-func Node_ReputationUptimeAlpha(v float64) Node_ReputationUptimeAlpha_Field {
-	return Node_ReputationUptimeAlpha_Field{_set: true, _value: v}
+func Node_UptimeReputationAlpha(v float64) Node_UptimeReputationAlpha_Field {
+	return Node_UptimeReputationAlpha_Field{_set: true, _value: v}
 }
 
-func (f Node_ReputationUptimeAlpha_Field) value() interface{} {
+func (f Node_UptimeReputationAlpha_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Node_ReputationUptimeAlpha_Field) _Column() string { return "uptime_reputation_alpha" }
+func (Node_UptimeReputationAlpha_Field) _Column() string { return "uptime_reputation_alpha" }
 
-type Node_ReputationUptimeBeta_Field struct {
+type Node_UptimeReputationBeta_Field struct {
 	_set   bool
 	_null  bool
 	_value float64
 }
 
-func Node_ReputationUptimeBeta(v float64) Node_ReputationUptimeBeta_Field {
-	return Node_ReputationUptimeBeta_Field{_set: true, _value: v}
+func Node_UptimeReputationBeta(v float64) Node_UptimeReputationBeta_Field {
+	return Node_UptimeReputationBeta_Field{_set: true, _value: v}
 }
 
-func (f Node_ReputationUptimeBeta_Field) value() interface{} {
+func (f Node_UptimeReputationBeta_Field) value() interface{} {
 	if !f._set || f._null {
 		return nil
 	}
 	return f._value
 }
 
-func (Node_ReputationUptimeBeta_Field) _Column() string { return "uptime_reputation_beta" }
+func (Node_UptimeReputationBeta_Field) _Column() string { return "uptime_reputation_beta" }
 
 type Offer struct {
 	Id                        int
@@ -5023,10 +5022,10 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
 	node_disqualified Node_Disqualified_Field,
-	node_audit_reputation_alpha Node_ReputationAuditAlpha_Field,
-	node_audit_reputation_beta Node_ReputationAuditBeta_Field,
-	node_uptime_reputation_alpha Node_ReputationUptimeAlpha_Field,
-	node_uptime_reputation_beta Node_ReputationUptimeBeta_Field) (
+	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
+	node_audit_reputation_beta Node_AuditReputationBeta_Field,
+	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -5069,7 +5068,7 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	obj.logStmt(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+	err = obj.driver.QueryRow(__stmt, __id_val, __address_val, __last_ip_val, __protocol_val, __type_val, __email_val, __wallet_val, __free_bandwidth_val, __free_disk_val, __major_val, __minor_val, __patch_val, __hash_val, __timestamp_val, __release_val, __latency_90_val, __audit_success_count_val, __total_audit_count_val, __audit_success_ratio_val, __uptime_success_count_val, __total_uptime_count_val, __uptime_ratio_val, __created_at_val, __updated_at_val, __last_contact_success_val, __last_contact_failure_val, __contained_val, __disqualified_val, __audit_reputation_alpha_val, __audit_reputation_beta_val, __uptime_reputation_alpha_val, __uptime_reputation_beta_val).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5724,7 +5723,7 @@ func (obj *postgresImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -5787,7 +5786,7 @@ func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx co
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -7171,23 +7170,23 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
 
-	if update.ReputationAuditAlpha._set {
-		__values = append(__values, update.ReputationAuditAlpha.value())
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
 	}
 
-	if update.ReputationAuditBeta._set {
-		__values = append(__values, update.ReputationAuditBeta.value())
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
 	}
 
-	if update.ReputationUptimeAlpha._set {
-		__values = append(__values, update.ReputationUptimeAlpha.value())
+	if update.UptimeReputationAlpha._set {
+		__values = append(__values, update.UptimeReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_alpha = ?"))
 	}
 
-	if update.ReputationUptimeBeta._set {
-		__values = append(__values, update.ReputationUptimeBeta.value())
+	if update.UptimeReputationBeta._set {
+		__values = append(__values, update.UptimeReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
@@ -7205,7 +7204,7 @@ func (obj *postgresImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8292,10 +8291,10 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
 	node_disqualified Node_Disqualified_Field,
-	node_audit_reputation_alpha Node_ReputationAuditAlpha_Field,
-	node_audit_reputation_beta Node_ReputationAuditBeta_Field,
-	node_uptime_reputation_alpha Node_ReputationUptimeAlpha_Field,
-	node_uptime_reputation_beta Node_ReputationUptimeBeta_Field) (
+	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
+	node_audit_reputation_beta Node_AuditReputationBeta_Field,
+	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -9047,7 +9046,7 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9110,7 +9109,7 @@ func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx con
 
 	for __rows.Next() {
 		node := &Node{}
-		err = __rows.Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+		err = __rows.Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -10524,23 +10523,23 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
 	}
 
-	if update.ReputationAuditAlpha._set {
-		__values = append(__values, update.ReputationAuditAlpha.value())
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
 	}
 
-	if update.ReputationAuditBeta._set {
-		__values = append(__values, update.ReputationAuditBeta.value())
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
 	}
 
-	if update.ReputationUptimeAlpha._set {
-		__values = append(__values, update.ReputationUptimeAlpha.value())
+	if update.UptimeReputationAlpha._set {
+		__values = append(__values, update.UptimeReputationAlpha.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_alpha = ?"))
 	}
 
-	if update.ReputationUptimeBeta._set {
-		__values = append(__values, update.ReputationUptimeBeta.value())
+	if update.UptimeReputationBeta._set {
+		__values = append(__values, update.UptimeReputationBeta.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("uptime_reputation_beta = ?"))
 	}
 
@@ -10568,7 +10567,7 @@ func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -11370,7 +11369,7 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 	obj.logStmt(__stmt, pk)
 
 	node = &Node{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.ReputationAuditAlpha, &node.ReputationAuditBeta, &node.ReputationUptimeAlpha, &node.ReputationUptimeBeta)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&node.Id, &node.Address, &node.LastIp, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeBandwidth, &node.FreeDisk, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.AuditSuccessRatio, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.UptimeRatio, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12299,10 +12298,10 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
 	node_disqualified Node_Disqualified_Field,
-	node_audit_reputation_alpha Node_ReputationAuditAlpha_Field,
-	node_audit_reputation_beta Node_ReputationAuditBeta_Field,
-	node_uptime_reputation_alpha Node_ReputationUptimeAlpha_Field,
-	node_uptime_reputation_beta Node_ReputationUptimeBeta_Field) (
+	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
+	node_audit_reputation_beta Node_AuditReputationBeta_Field,
+	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
@@ -13225,10 +13224,10 @@ type Methods interface {
 		node_last_contact_failure Node_LastContactFailure_Field,
 		node_contained Node_Contained_Field,
 		node_disqualified Node_Disqualified_Field,
-		node_audit_reputation_alpha Node_ReputationAuditAlpha_Field,
-		node_audit_reputation_beta Node_ReputationAuditBeta_Field,
-		node_uptime_reputation_alpha Node_ReputationUptimeAlpha_Field,
-		node_uptime_reputation_beta Node_ReputationUptimeBeta_Field) (
+		node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
+		node_audit_reputation_beta Node_AuditReputationBeta_Field,
+		node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
+		node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
 		node *Node, err error)
 
 	Create_Offer(ctx context.Context,

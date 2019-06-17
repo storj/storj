@@ -185,8 +185,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
-			&dbNode.ReputationAuditAlpha, &dbNode.ReputationAuditBeta,
-			&dbNode.ReputationUptimeAlpha, &dbNode.ReputationUptimeBeta,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -267,8 +267,8 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
-			&dbNode.ReputationAuditAlpha, &dbNode.ReputationAuditBeta,
-			&dbNode.ReputationUptimeAlpha, &dbNode.ReputationUptimeBeta,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -335,8 +335,8 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
-			&dbNode.ReputationAuditAlpha, &dbNode.ReputationAuditBeta,
-			&dbNode.ReputationUptimeAlpha, &dbNode.ReputationUptimeBeta,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
 		)
 		if err != nil {
 			return nil, err
@@ -536,10 +536,10 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
 			dbx.Node_Disqualified(false),
-			dbx.Node_ReputationAuditAlpha(1),
-			dbx.Node_ReputationAuditBeta(0),
-			dbx.Node_ReputationUptimeAlpha(1),
-			dbx.Node_ReputationUptimeBeta(0),
+			dbx.Node_AuditReputationAlpha(1),
+			dbx.Node_AuditReputationBeta(0),
+			dbx.Node_UptimeReputationAlpha(1),
+			dbx.Node_UptimeReputationBeta(0),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
