@@ -795,10 +795,10 @@ func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, crit
 }
 
 // KnownOffline filters a set of nodes to offline nodes
-func (m *lockedOverlayCache) KnownOffline(ctx context.Context, a1 storj.NodeIDList) (storj.NodeIDList, error) {
+func (m *lockedOverlayCache) KnownOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.KnownOffline(ctx, a1)
+	return m.db.KnownOffline(ctx, a1, a2)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
