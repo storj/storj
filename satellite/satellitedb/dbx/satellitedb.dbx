@@ -144,10 +144,10 @@ model node (
 	field contained bool ( updatable )
 	field disqualified bool ( updatable )
 
-	field reputation_audit_alpha  float64 ( updatable )
-	field reputation_audit_beta   float64 ( updatable )
-	field reputation_uptime_alpha float64 ( updatable )
-	field reputation_uptime_beta  float64 ( updatable )
+	field audit_reputation_alpha  float64 ( updatable )
+	field audit_reputation_beta   float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable )
+	field uptime_reputation_beta  float64 ( updatable )
 )
 
 create node ( )

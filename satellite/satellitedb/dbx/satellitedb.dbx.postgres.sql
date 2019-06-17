@@ -104,10 +104,10 @@ CREATE TABLE nodes (
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
 	disqualified boolean NOT NULL,
-	reputation_audit_alpha double precision NOT NULL,
-	reputation_audit_beta double precision NOT NULL,
-	reputation_uptime_alpha double precision NOT NULL,
-	reputation_uptime_beta double precision NOT NULL,
+	audit_reputation_alpha double precision NOT NULL,
+	audit_reputation_beta double precision NOT NULL,
+	uptime_reputation_alpha double precision NOT NULL,
+	uptime_reputation_beta double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
