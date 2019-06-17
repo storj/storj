@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-// TODO make it configurable ?
 const pieceHashExpiration = 2 * time.Hour
 
 var (
@@ -474,12 +473,11 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 			err = endpoint.validatePieceHash(ctx, piece, limits)
 			if err != nil {
-				// TODO should this be logged also to uplink somehow ?
+				// TODO maybe this should be logged also to uplink too
 				endpoint.log.Sugar().Warn(err)
 				continue
 			}
 
-			// TODO maybe minimal PieceSize should be bigger
 			if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
 				allSizesValid = false
 				break
