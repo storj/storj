@@ -22,7 +22,7 @@ type Filter struct {
 // NewFilter returns a new custom filter
 func NewFilter(expectedElements int, p float64) *Filter {
 	var f Filter
-	f.seed = 8 // TODO allow another seed value
+	f.seed = 8 // TODO allow another seed value - have to handle the reach of the end of the array
 	f.bitsPerElement = int(-1.44*math.Log2(p)) + 1
 	f.k = int(float64(f.bitsPerElement)*math.Log(2)) + 1
 	m := (expectedElements * f.bitsPerElement) // total number of bits in the array
