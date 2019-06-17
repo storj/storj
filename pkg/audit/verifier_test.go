@@ -309,7 +309,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			RepairThreshold:  6,
 			SuccessThreshold: 8,
 			MaxThreshold:     10,
-			ErasureShareSize: 256,
+			ErasureShareSize: 32 * memory.KiB,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -492,7 +492,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 
 func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 15, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)

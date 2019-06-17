@@ -269,8 +269,7 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 		if endpoint.rsConfig.MaxThreshold == int(redundancy.Total) &&
 			endpoint.rsConfig.MinThreshold == int(redundancy.MinReq) &&
 			endpoint.rsConfig.RepairThreshold == int(redundancy.RepairThreshold) &&
-			endpoint.rsConfig.SuccessThreshold == int(redundancy.SuccessThreshold) &&
-			endpoint.rsConfig.ErasureShareSize.Int32() == redundancy.ErasureShareSize {
+			endpoint.rsConfig.SuccessThreshold == int(redundancy.SuccessThreshold) {
 			return nil
 		}
 		return Error.New("set rs parameters doesnt match satellite's")
