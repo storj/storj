@@ -309,6 +309,7 @@ func TestCommitSegment(t *testing.T) {
 			// create number of pieces below repair threshold
 			usedForPieces := addresedLimits[:redundancy.RepairThreshold-1]
 			pieces := make([]*pb.RemotePiece, len(usedForPieces))
+			timestamp := time.Now()
 			for i, limit := range usedForPieces {
 				pieces[i] = &pb.RemotePiece{
 					PieceNum: int32(i),
@@ -316,7 +317,7 @@ func TestCommitSegment(t *testing.T) {
 					Hash: &pb.PieceHash{
 						PieceId:   limit.Limit.PieceId,
 						PieceSize: 20,
-						Timestamp: ptypes.TimestampNow(),
+						Timestamp: &timestamp,
 					},
 				}
 			}
@@ -432,9 +433,8 @@ func TestCommitSegmentPointer(t *testing.T) {
 		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
-				oldTimestamp, err := ptypes.TimestampProto(time.Now().Add(-time.Hour * 24))
-				require.NoError(t, err)
-				pointer.Remote.RemotePieces[0].Hash.Timestamp = oldTimestamp
+				oldTimestamp := time.Now().Add(-time.Hour * 24)
+				pointer.Remote.RemotePieces[0].Hash.Timestamp = &oldTimestamp
 			},
 			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
 		},
@@ -560,6 +560,7 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 	require.NoError(t, err)
 	segmentSize := 4 * memory.KiB.Int64()
 	pieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
+	timestamp := time.Now()
 	pointer := &pb.Pointer{
 		Type:        pb.Pointer_REMOTE,
 		SegmentSize: segmentSize,
@@ -569,15 +570,15 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 				&pb.RemotePiece{
 					PieceNum: 0,
 					Hash: &pb.PieceHash{
-						Timestamp: ptypes.TimestampNow(),
 						PieceSize: pieceSize,
+						Timestamp: &timestamp,
 					},
 				},
 				&pb.RemotePiece{
 					PieceNum: 1,
 					Hash: &pb.PieceHash{
-						Timestamp: ptypes.TimestampNow(),
 						PieceSize: pieceSize,
+						Timestamp: &timestamp,
 					},
 				},
 			},

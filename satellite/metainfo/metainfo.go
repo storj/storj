@@ -29,7 +29,7 @@ import (
 )
 
 // TODO make it configurable ?
-const pieceHashExpiration = time.Hour * 2
+const pieceHashExpiration = 2 * time.Hour
 
 var (
 	mon = monkit.Package()

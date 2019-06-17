@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -274,12 +273,9 @@ func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.Remot
 		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
 	}
 
-	timestamp, err := ptypes.Timestamp(piece.Hash.Timestamp)
-	if err != nil {
-		return errs.New("unable to read piece hash timestamp, removing from pointer %v (%v): %v", piece.NodeId, piece.PieceNum, err)
-	}
-	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
-		return errs.New("piece hash timestamp is to old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+	timestamp := piece.Hash.Timestamp
+	if timestamp == nil || timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
+		return errs.New("piece hash timestamp is too old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
 	}
 
 	limit := limits[piece.PieceNum]

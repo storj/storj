@@ -63,7 +63,7 @@ message PieceHash {
     // size of uploaded piece
     int64 piece_size = 4;
     // timestamp when upload occur
-    google.protobuf.Timestamp timestamp = 5;
+    google.protobuf.Timestamp timestamp = 5 [(gogoproto.stdtime) = true];
 }
 
 

@@ -299,11 +299,12 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				}
 			}
 
+			timestamp := time.Now()
 			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
 				PieceId:   limit.PieceId,
 				Hash:      expectedHash,
 				PieceSize: pieceWriter.Size(),
-				Timestamp: ptypes.TimestampNow(),
+				Timestamp: &timestamp,
 			})
 			if err != nil {
 				return ErrInternal.Wrap(err)

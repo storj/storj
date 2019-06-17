@@ -2318,7 +2318,13 @@
               {
                 "id": 5,
                 "name": "timestamp",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  }
+                ]
               }
             ]
           },
