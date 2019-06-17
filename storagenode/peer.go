@@ -278,7 +278,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			return nil, err
 		}
 
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(), peer.DB.Orders(),
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, intervalDuration, bufferDuration)
 
 	}
