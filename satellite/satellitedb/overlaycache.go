@@ -164,8 +164,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 
 	var rows *sql.Rows
 	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
-	type, address, last_ip, free_bandwidth, free_disk, audit_reputation_alpha,
-	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
+	type, address, last_ip, free_bandwidth, free_disk, reputation_audit_alpha,
+	reputation_audit_beta, reputation_uptime_alpha, reputation_uptime_beta,
 	total_audit_count, total_uptime_count, disqualified
 	FROM nodes
 	`+safeQuery+safeExcludeNodes+`
@@ -705,10 +705,6 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	uptimeSuccessCount := dbNode.UptimeSuccessCount
-	totalUptimeCount := dbNode.TotalUptimeCount
-	var uptimeRatio float64
-
 	updateFields := dbx.Node_Update_Fields{}
 	updatedUptimeTotal, updatedUptimeAlpha, updatedUptimeBeta := updateReputation(
 		isUp,
@@ -716,7 +712,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		beta,
 		lambda,
 		weight,
-		totalUptimeCount,
+		dbNode.TotalUptimeCount,
 	)
 
 	updateFields.ReputationUptimeAlpha = dbx.Node_ReputationUptimeAlpha(updatedUptimeAlpha)
