@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Filter is a custom filter
+// Filter is a bloom filter implementation
 type Filter struct {
 	seed           int
 	k              int

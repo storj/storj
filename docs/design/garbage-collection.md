@@ -150,10 +150,10 @@ see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node
 ## Bloom filters benchmark
 
 Three Bloom filter implementations are considered:
-- **BF1**: Zeebo's bloom filters (github.com/zeebo/sbloom)
-- **BF2**: Willf's Bloom filters (github.com/zeebo/sbloom)
-- **BF3**: Steakknife's Bloom filters (github.com/golang/leveldb/bloom)
-- **BF4**: Custom bloom filter
+- **Zeebo**: Zeebo's bloom filters (github.com/zeebo/sbloom)
+- **Willf**: Willf's Bloom filters (github.com/willf/bloom)
+- **Steakknife**: Steakknife's Bloom filters (github.com/golang/leveldb/bloom)
+- **Custom**: Custom bloom filter
 
 ### Zeebo's bloom filters
 - Parameters:
@@ -189,7 +189,7 @@ We create a list of 1 million piece ids and add 95% of them to the Bloom filter.
 For each target false positive probability between 1% and 20% and each bloom filter type, we measure the size (in bytes) of the encoded bloom filter and the observed false positive rate.
 
 
-|p|	BF1 size|BF1 real_p| BF2 size|BF2 real_p|BF3 size|BF3 real_p| BF4 size|BF4 real_p|
+|p|	Zeebo size|Zeebo real_p| Willf size|Willf real_p|Steakknife size|Steakknife real_p| Custom size|Custom real_p|
 |---|	---|	---|	---|	---|	---|	---|	---|	---|
 |0.01|	9437456|	0.01|	1198160|	0.01|	1198264|	0.01|	1250012|	0.01|
 |0.02|	8913247|	0.02|	1017824|	0.02|	1017920|	0.02|	1125012|	0.01|

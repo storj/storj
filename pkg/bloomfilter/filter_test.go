@@ -4,6 +4,7 @@
 package bloomfilter
 
 import (
+	"os"
 	"testing"
 
 	"storj.io/storj/pkg/storj"
@@ -23,7 +24,7 @@ func TestMain(m *testing.M) {
 	nbPiecesInFilter = 950000
 	pieceIDs = GenerateIDs(totalNbPieces)
 	falsePositiveProbability = 0.1
-	m.Run()
+	os.Exit(m.Run())
 }
 
 func TestNoFalsePositive(t *testing.T) {
