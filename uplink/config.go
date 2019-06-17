@@ -133,7 +133,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
-	buckets := buckets.NewStore(streams)
+	buckets := buckets.NewStore(metainfo)
 
 	return kvmetainfo.New(metainfo, buckets, streams, segments, key, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
 }
