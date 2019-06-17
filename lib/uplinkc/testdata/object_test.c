@@ -33,10 +33,26 @@ void handle_project(ProjectRef project) {
         char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
         int num_of_objects = 4;
 
-        char *data = "testing data 123";
-        //for(int i = 0; i < num_of_objects; i++) {
-        //    
-        //}
+        for(int i = 0; i < num_of_objects; i++) {
+            FILE *f = tmpfile();
+
+            char *data = mkrndstr(1024*i^2);
+
+            MapRef map = new_map_ref();
+            UploadOptions opts = {
+                "text/plain",
+                map,
+                time(NULL),
+            };
+
+            upload_object(bucket, object_paths[i], f, &opts, err);
+            require_noerror(*err);
+
+            if (data != NULL) {
+                free(data);
+        }
+     }
+
     }
     close_bucket(bucket, err);
     require_noerror(*err);

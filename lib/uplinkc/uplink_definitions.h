@@ -39,7 +39,7 @@ typedef struct RedundancyScheme {
 typedef struct BucketInfo {
     char    *name;
 
-    int64_t created;
+    time_t created;
     uint8_t path_cipher;
     uint64_t segment_size;
 
