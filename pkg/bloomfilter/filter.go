@@ -6,7 +6,6 @@ package bloomfilter
 import (
 	"encoding/binary"
 	"math"
-	"math/big"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -32,16 +31,11 @@ func NewFilter(expectedElements int, p float64) *Filter {
 
 // Add adds an element to the bloom filter
 func (cf *Filter) Add(pieceID storj.PieceID) {
-	nAsBytes := int2bytes(len(cf.table) * 8)
-	n := new(big.Int)
-	n.SetBytes(nAsBytes)
-	offset := new(big.Int)
-
-	offset = offset.SetBytes(pieceID[cf.seed : cf.seed+cf.k])
-
+	offsetAsByteArray := pieceID[cf.seed : cf.seed+cf.k]
+	offset := binary.BigEndian.Uint64(append(make([]byte, len(offsetAsByteArray)), offsetAsByteArray...))
 	i := 0
 	for i < cf.k {
-		byteIndex, bitIndex := getByteIndexAndBitIndex(offset, pieceID[cf.seed+i:cf.seed+i+1], n)
+		byteIndex, bitIndex := getByteIndexAndBitIndex(offset, pieceID[cf.seed+i:cf.seed+i+1], uint64(len(cf.table)*8))
 		cf.table[byteIndex] |= 0x1 << bitIndex
 		i++
 	}
@@ -50,16 +44,12 @@ func (cf *Filter) Add(pieceID storj.PieceID) {
 
 // Contains return true if pieceID may be in the set
 func (cf *Filter) Contains(pieceID storj.PieceID) bool {
-	nAsBytes := int2bytes(len(cf.table) * 8)
-	n := new(big.Int)
-	n.SetBytes(nAsBytes)
-	offset := new(big.Int)
-
-	offset = offset.SetBytes(pieceID[cf.seed : cf.seed+cf.k])
+	offsetAsByteArray := pieceID[cf.seed : cf.seed+cf.k]
+	offset := binary.BigEndian.Uint64(append(make([]byte, len(offsetAsByteArray)), offsetAsByteArray...))
 
 	i := 0
 	for i < cf.k {
-		byteIndex, bitIndex := getByteIndexAndBitIndex(offset, pieceID[cf.seed+i:cf.seed+i+1], n)
+		byteIndex, bitIndex := getByteIndexAndBitIndex(offset, pieceID[cf.seed+i:cf.seed+i+1], uint64(len(cf.table)*8))
 		if (cf.table[byteIndex] & (0x1 << bitIndex)) == 0 {
 			return false
 		}
@@ -77,20 +67,17 @@ func (cf *Filter) Encode() []byte {
 }
 
 func int2bytes(num int) (b []byte) {
-	b = make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(num))
+	b = make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(num))
 	return
 }
 
 // returns a byte and a bit index within 0 and n-1 computed from an offset and a bit represented as a byte array
-func getByteIndexAndBitIndex(offset *big.Int, bit []byte, n *big.Int) (byteIndex uint64, bitIndex uint64) {
-	b := new(big.Int)
-	b.SetBytes(bit)
-	i := offset.Add(offset, b)
-	imodn := new(big.Int)
-	imodn = imodn.Mod(i, n)
-
-	mod := imodn.Uint64()
+func getByteIndexAndBitIndex(offset uint64, bit []byte, n uint64) (byteIndex uint64, bitIndex uint64) {
+	b := make([]byte, 8-len(bit))
+	bit = append(b, bit...)
+	i := offset + binary.BigEndian.Uint64(bit)
+	mod := i % n
 	bitIndex = mod % 8
 	byteIndex = mod / 8
 
