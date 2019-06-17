@@ -458,7 +458,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
 		allSizesValid := true
-		maxPieceSize := int64(0)
+		lastPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 			// TODO enable verification
 
@@ -480,26 +480,24 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			}
 
 			// TODO maybe minimal PieceSize should be bigger
-			if piece.Hash.PieceSize <= 0 || (maxPieceSize > 0 && maxPieceSize != piece.Hash.PieceSize) {
+			if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
 				allSizesValid = false
+				break
 			}
-			if maxPieceSize < piece.Hash.PieceSize {
-				maxPieceSize = piece.Hash.PieceSize
-			}
+			lastPieceSize = piece.Hash.PieceSize
 
 			remotePieces = append(remotePieces, piece)
 		}
 
 		if allSizesValid {
-			segmentSize := pointer.SegmentSize
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
 				return Error.New("unable to verify piece size, invalid redundancy scheme values")
 			}
 
-			expectedPieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
-			if expectedPieceSize != maxPieceSize {
-				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, maxPieceSize)
+			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
+			if expectedPieceSize != lastPieceSize {
+				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, lastPieceSize)
 			}
 		} else {
 			return Error.New("all pieces needs to have the same size")
