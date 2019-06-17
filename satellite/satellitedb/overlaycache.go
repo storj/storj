@@ -579,10 +579,10 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		updateFields := dbx.Node_Update_Fields{
 			TotalAuditCount:       dbx.Node_TotalAuditCount(startingStats.AuditCount),
 			TotalUptimeCount:      dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
-			ReputationAuditAlpha:  dbx.Node_ReputationAuditAlpha(startingStats.AuditReputationAlpha),
-			ReputationAuditBeta:   dbx.Node_ReputationAuditBeta(startingStats.AuditReputationBeta),
-			ReputationUptimeAlpha: dbx.Node_ReputationUptimeAlpha(startingStats.UptimeReputationAlpha),
-			ReputationUptimeBeta:  dbx.Node_ReputationUptimeBeta(startingStats.UptimeReputationBeta),
+			AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(startingStats.AuditReputationAlpha),
+			AuditReputationBeta:   dbx.Node_AuditReputationBeta(startingStats.AuditReputationBeta),
+			UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(startingStats.UptimeReputationAlpha),
+			UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(startingStats.UptimeReputationBeta),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -617,8 +617,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 	totalAuditCount, auditReputationAlpha, auditReputationBeta := updateReputation(
 		updateReq.AuditSuccess,
-		dbNode.ReputationAuditAlpha,
-		dbNode.ReputationAuditBeta,
+		dbNode.AuditReputationAlpha,
+		dbNode.AuditReputationBeta,
 		updateReq.AuditReputationLambda,
 		updateReq.AuditReputationWeight,
 		dbNode.TotalAuditCount,
@@ -626,8 +626,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 	totalUptimeCount, uptimeReputationAlpha, uptimeReputationBeta := updateReputation(
 		updateReq.IsUp,
-		dbNode.ReputationUptimeAlpha,
-		dbNode.ReputationUptimeBeta,
+		dbNode.UptimeReputationAlpha,
+		dbNode.UptimeReputationBeta,
 		updateReq.UptimeReputationLambda,
 		updateReq.UptimeReputationWeight,
 		dbNode.TotalUptimeCount,
@@ -636,10 +636,10 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	updateFields := dbx.Node_Update_Fields{
 		TotalAuditCount:       dbx.Node_TotalAuditCount(totalAuditCount),
 		TotalUptimeCount:      dbx.Node_TotalUptimeCount(totalUptimeCount),
-		ReputationAuditAlpha:  dbx.Node_ReputationAuditAlpha(auditReputationAlpha),
-		ReputationAuditBeta:   dbx.Node_ReputationAuditBeta(auditReputationBeta),
-		ReputationUptimeAlpha: dbx.Node_ReputationUptimeAlpha(uptimeReputationAlpha),
-		ReputationUptimeBeta:  dbx.Node_ReputationUptimeBeta(uptimeReputationBeta),
+		AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(auditReputationAlpha),
+		AuditReputationBeta:   dbx.Node_AuditReputationBeta(auditReputationBeta),
+		UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(uptimeReputationAlpha),
+		UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(uptimeReputationBeta),
 	}
 
 	if updateReq.IsUp {
@@ -729,8 +729,8 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		dbNode.TotalUptimeCount,
 	)
 
-	updateFields.ReputationUptimeAlpha = dbx.Node_ReputationUptimeAlpha(updatedUptimeAlpha)
-	updateFields.ReputationUptimeBeta = dbx.Node_ReputationUptimeBeta(updatedUptimeBeta)
+	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(updatedUptimeAlpha)
+	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(updatedUptimeBeta)
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(updatedUptimeTotal)
 
 	if isUp {
@@ -813,10 +813,10 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		UptimeCount:           dbNode.TotalUptimeCount,
 		LastContactSuccess:    dbNode.LastContactSuccess,
 		LastContactFailure:    dbNode.LastContactFailure,
-		AuditReputationAlpha:  dbNode.ReputationAuditAlpha,
-		AuditReputationBeta:   dbNode.ReputationAuditBeta,
-		UptimeReputationAlpha: dbNode.ReputationUptimeAlpha,
-		UptimeReputationBeta:  dbNode.ReputationUptimeBeta,
+		AuditReputationAlpha:  dbNode.AuditReputationAlpha,
+		AuditReputationBeta:   dbNode.AuditReputationBeta,
+		UptimeReputationAlpha: dbNode.UptimeReputationAlpha,
+		UptimeReputationBeta:  dbNode.UptimeReputationBeta,
 		Disqualified:          dbNode.Disqualified,
 	}
 	return nodeStats
