@@ -547,7 +547,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 }
 
 // CreateStats initializes the stats the provided storagenode
-func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats overlay.NodeStats) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -559,16 +559,16 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	if (overlay.NodeStats{}) == startingStats {
+	if startingStats == nil {
 		// TODO: add possible sanity checking for alpha and beta values
 
 		updateFields := dbx.Node_Update_Fields{
 			TotalAuditCount:       dbx.Node_TotalAuditCount(startingStats.AuditCount),
 			TotalUptimeCount:      dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
-			ReputationAuditAlpha:  dbx.Node_ReputationAuditAlpha(startingStats.ReputationAuditAlpha),
-			ReputationAuditBeta:   dbx.Node_ReputationAuditBeta(startingStats.ReputationAuditBeta),
-			ReputationUptimeAlpha: dbx.Node_UptimeReputationAlpha(startingStats.ReputationUptimeAlpha),
-			ReputationUptimeBeta:  dbx.Node_UptimeReputationBeta(startingStats.ReputationUptimeBeta),
+			ReputationAuditAlpha:  dbx.Node_ReputationAuditAlpha(startingStats.AuditReputationAlpha),
+			ReputationAuditBeta:   dbx.Node_ReputationAuditBeta(startingStats.AuditReputationBeta),
+			ReputationUptimeAlpha: dbx.Node_ReputationUptimeAlpha(startingStats.UptimeReputationAlpha),
+			ReputationUptimeBeta:  dbx.Node_ReputationUptimeBeta(startingStats.UptimeReputationBeta),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -693,7 +693,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, alpha, beta, lambda, weight float64) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -710,15 +710,18 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	var uptimeRatio float64
 
 	updateFields := dbx.Node_Update_Fields{}
-	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateReputation(
+	updatedUptimeTotal, updatedUptimeAlpha, updatedUptimeBeta := updateReputation(
 		isUp,
-		uptimeSuccessCount,
+		alpha,
+		beta,
+		lambda,
+		weight,
 		totalUptimeCount,
 	)
 
-	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
-	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-	updateFields.UptimeRatio = dbx.Node_UptimeRatio(uptimeRatio)
+	updateFields.ReputationUptimeAlpha = dbx.Node_ReputationUptimeAlpha(updatedUptimeAlpha)
+	updateFields.ReputationUptimeBeta = dbx.Node_ReputationUptimeBeta(updatedUptimeBeta)
+	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(updatedUptimeTotal)
 
 	if isUp {
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
@@ -812,14 +815,14 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 // updateReputation uses the Beta distribution model to determine a node's reputation.
 // lambda is the "forgetting factor" which determines how much past info is kept when determining current reputation score.
 // w is the normalization weight that affects how severely new updates affect the current reputation distribution.
-func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount int64) (int64, float64, float64) {
+func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount int64) (updatedTotal int64, newAlpha float64, newBeta float64) {
 	totalCount++
 	// v is a single feedback value that allows us to update both alpha and beta
 	var v float64 = -1
 	if isSuccess {
 		v = 1
 	}
-	newAlpha := lambda*alpha + w*(1+v)/2
-	newBeta := lambda*beta + w*(1-v)/2
+	newAlpha = lambda*alpha + w*(1+v)/2
+	newBeta = lambda*beta + w*(1-v)/2
 	return totalCount, newAlpha, newBeta
 }
