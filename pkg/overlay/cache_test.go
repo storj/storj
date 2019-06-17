@@ -50,13 +50,13 @@ func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distin
 		ReputationAuditAlpha0:        1,
 		ReputationAuditBeta0:         0,
 		ReputationAuditLambda:        1,
-		ReputationAuditOmega:         1,
+		ReputationAuditWeight:        1,
 		ReputationUptimeRepairWeight: 1,
 		ReputationUptimeUplinkWeight: 1,
 		ReputationUptimeAlpha0:       1,
 		ReputationUptimeBeta0:        0,
 		ReputationUptimeLambda:       1,
-		ReputationUptimeOmega:        1,
+		ReputationUptimeWeight:       1,
 	}
 }
 
@@ -150,7 +150,7 @@ func TestRandomizedSelection(t *testing.T) {
 				Capacity: &pb.NodeCapacity{},
 			})
 			require.NoError(t, err)
-			_, err = cache.UpdateUptime(ctx, newID, true)
+			_, err = cache.UpdateUptime(ctx, newID, true, 1, 0, 1, 1)
 			require.NoError(t, err)
 			allIDs[i] = newID
 			nodeCounts[newID] = 0
