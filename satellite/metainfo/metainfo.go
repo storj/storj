@@ -492,7 +492,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		if allSizesValid {
 			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 			if err != nil {
-				return Error.New("unable to verify piece size, invalid redundancy scheme values")
+				return Error.Wrap(err)
 			}
 
 			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
