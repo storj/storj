@@ -694,15 +694,15 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		// "2" = healthy, "1" = unhealthy, "0" = offline
 		for _, id := range segment.HealthyIds {
 			i := nodeIndices[id]
-			row[i] = "2"
+			row[i] = "healthy"
 		}
 		for _, id := range segment.UnhealthyIds {
 			i := nodeIndices[id]
-			row[i] = "1"
+			row[i] = "unhealthy"
 		}
 		for _, id := range segment.OfflineIds {
 			i := nodeIndices[id]
-			row[i] = "0"
+			row[i] = "offline"
 		}
 		row[0] = string(segment.GetSegment())
 		if err := w.Write(row); err != nil {
