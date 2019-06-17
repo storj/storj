@@ -11,16 +11,16 @@
 # audit.min-bytes-per-second: 128 B
 
 # the minimum duration for downloading a share from storage nodes before timing out
-# audit.min-download-timeout: 5s
+# audit.min-download-timeout: 25s
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
 # how frequently irrepairable checker should check for lost pieces
-# checker.irreparable-interval: 15s
+# checker.irreparable-interval: 30m0s
 
 # server address of the graphql api gateway and frontend app
-# console.address: "127.0.0.1:8081"
+# console.address: ":10100"
 
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
@@ -107,7 +107,7 @@ kademlia.operator.wallet: ""
 # kademlia.replacement-cache-size: 5
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: ""
+# live-accounting.storage-backend: "plainmemory"
 
 # if true, log function filename and line number
 # log.caller: false
@@ -263,7 +263,7 @@ kademlia.operator.wallet: ""
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 10m0s
+# repairer.timeout: 2h0m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false
