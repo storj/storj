@@ -554,14 +554,14 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 					PieceNum: 0,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
-						PieceSize: 100,
+						PieceSize: int64(rs.ErasureShareSize),
 					},
 				},
 				&pb.RemotePiece{
 					PieceNum: 1,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
-						PieceSize: 100,
+						PieceSize: int64(rs.ErasureShareSize),
 					},
 				},
 			},

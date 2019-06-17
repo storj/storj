@@ -493,10 +493,18 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		if allSizesValid {
 			minReq := int64(remote.Redundancy.MinReq)
 			uploadSize := maxSize * minReq
-			segmentSize := pointer.SegmentSize
 			erasureShareSize := int64(remote.Redundancy.ErasureShareSize)
+			segmentSize := pointer.SegmentSize
 
-			if segmentSize < erasureShareSize {
+			if maxSize%erasureShareSize != 0 {
+				return Error.New("invalid piece size")
+			}
+
+			if segmentSize%erasureShareSize != 0 {
+				segmentSize += erasureShareSize - segmentSize%erasureShareSize
+			}
+
+			if segmentSize < (erasureShareSize * minReq) {
 				segmentSize = erasureShareSize * minReq
 			}
 
