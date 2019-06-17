@@ -25,11 +25,12 @@ int main(int argc, char *argv[])
 
     {
         // parse api key
-        APIKey apikey = parse_api_key(apikeyStr, err);
+        APIKeyRef apikey = parse_api_key(apikeyStr, err);
         require_noerror(*err);
         requiref(apikey._handle != 0, "got empty apikey\n");
 
-        char *apikeySerialized = serialize_api_key(apikey);
+        char *apikeySerialized = serialize_api_key(apikey, err);
+        require_noerror(*err);
         requiref(strcmp(apikeySerialized, apikeyStr) == 0,
             "got invalid serialized %s expected %s\n", apikeySerialized, apikeyStr);
         free(apikeySerialized);
