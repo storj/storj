@@ -45,7 +45,7 @@ func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.U
 
 // Create insert a new record of user credit
 func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
-	createdUser, err := c.db.Create_UserCredit(ctx,
+	credit, err := c.db.Create_UserCredit(ctx,
 		dbx.UserCredit_UserId(userCredit.UserID[:]),
 		dbx.UserCredit_OfferId(userCredit.OfferID),
 		dbx.UserCredit_CreditsEarnedInCents(userCredit.CreditsEarnedInCents),
@@ -58,7 +58,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		return nil, errs.Wrap(err)
 	}
 
-	return convertDBX(createdUser)
+	return convertDBCredit(credit)
 }
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
@@ -145,9 +145,9 @@ func userCreditsFromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit,
 	var userCredits []console.UserCredit
 	errList := new(errs.Group)
 
-	for _, userCredit := range userCreditsDBX {
+	for _, credit := range userCreditsDBX {
 
-		uc, err := convertDBX(userCredit)
+		uc, err := convertDBCredit(credit)
 		if err != nil {
 			errList.Add(err)
 			continue
@@ -158,7 +158,7 @@ func userCreditsFromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit,
 	return userCredits, errList.Err()
 }
 
-func convertDBX(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
+func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
 	if userCreditDBX == nil {
 		return nil, errs.New("userCreditDBX parameter is nil")
 	}
