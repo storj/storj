@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -312,7 +313,11 @@ func TestCommitSegment(t *testing.T) {
 				pieces[i] = &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
-					Hash:     &pb.PieceHash{},
+					Hash: &pb.PieceHash{
+						PieceId:   limit.Limit.PieceId,
+						PieceSize: 20,
+						Timestamp: ptypes.TimestampNow(),
+					},
 				}
 			}
 
@@ -320,7 +325,8 @@ func TestCommitSegment(t *testing.T) {
 			require.NoError(t, err)
 
 			pointer := &pb.Pointer{
-				Type: pb.Pointer_REMOTE,
+				Type:        pb.Pointer_REMOTE,
+				SegmentSize: 10,
 				Remote: &pb.RemoteSegment{
 					RootPieceId:  rootPieceID,
 					Redundancy:   redundancy,
@@ -449,7 +455,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			Modify: func(pointer *pb.Pointer) {
 				pointer.SegmentSize = 100
 			},
-			ErrorMessage: "difference between pointer segment size and uploaded pieces too big",
+			ErrorMessage: "expected piece size is different from provided",
 		},
 	}
 
@@ -550,9 +556,13 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Type:             pb.RedundancyScheme_RS,
 	}
 
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(rs)
+	require.NoError(t, err)
+	segmentSize := 4 * memory.KiB.Int64()
+	pieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
 	pointer := &pb.Pointer{
 		Type:        pb.Pointer_REMOTE,
-		SegmentSize: 4 * memory.KiB.Int64(),
+		SegmentSize: segmentSize,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
@@ -560,14 +570,14 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 					PieceNum: 0,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
-						PieceSize: 4 * int64(rs.ErasureShareSize),
+						PieceSize: pieceSize,
 					},
 				},
 				&pb.RemotePiece{
 					PieceNum: 1,
 					Hash: &pb.PieceHash{
 						Timestamp: ptypes.TimestampNow(),
-						PieceSize: 4 * int64(rs.ErasureShareSize),
+						PieceSize: pieceSize,
 					},
 				},
 			},

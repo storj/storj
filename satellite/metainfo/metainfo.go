@@ -458,7 +458,7 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
 		allSizesValid := true
-		maxSize := int64(0)
+		maxPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 			// TODO enable verification
 
@@ -480,38 +480,26 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			}
 
 			// TODO maybe minimal PieceSize should be bigger
-			if piece.Hash.PieceSize <= 0 || (maxSize > 0 && maxSize != piece.Hash.PieceSize) {
+			if piece.Hash.PieceSize <= 0 || (maxPieceSize > 0 && maxPieceSize != piece.Hash.PieceSize) {
 				allSizesValid = false
 			}
-			if maxSize < piece.Hash.PieceSize {
-				maxSize = piece.Hash.PieceSize
+			if maxPieceSize < piece.Hash.PieceSize {
+				maxPieceSize = piece.Hash.PieceSize
 			}
 
 			remotePieces = append(remotePieces, piece)
 		}
 
 		if allSizesValid {
-			minReq := int64(remote.Redundancy.MinReq)
-			uploadSize := maxSize * minReq
-			erasureShareSize := int64(remote.Redundancy.ErasureShareSize)
 			segmentSize := pointer.SegmentSize
-
-			if maxSize%erasureShareSize != 0 {
-				return Error.New("invalid piece size")
+			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+			if err != nil {
+				return Error.New("unable to verify piece size, invalid redundancy scheme values")
 			}
 
-			if segmentSize%erasureShareSize != 0 {
-				segmentSize += erasureShareSize - segmentSize%erasureShareSize
-			}
-
-			if segmentSize < (erasureShareSize * minReq) {
-				segmentSize = erasureShareSize * minReq
-			}
-
-			diff := float64(uploadSize-segmentSize) / float64(segmentSize)
-			// if diff between calculation and reported segment size is greater than 10%
-			if diff > 0.1 {
-				return Error.New("difference between pointer segment size and uploaded pieces too big")
+			expectedPieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
+			if expectedPieceSize != maxPieceSize {
+				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, maxPieceSize)
 			}
 		} else {
 			return Error.New("all pieces needs to have the same size")
