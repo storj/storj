@@ -508,7 +508,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				DeleteTallies: false,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.mail.mail.test:587",
+				SMTPServerAddress: "smtp.mail.test:587",
 				From:              "Labs <storj@mail.test>",
 				AuthType:          "simulate",
 			},
