@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/memory"
@@ -23,12 +24,13 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 )
 
 func TestUploadDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(expectedData)
@@ -46,7 +48,15 @@ func TestUploadDownload(t *testing.T) {
 
 func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.MaxThreshold = 5
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -60,10 +70,10 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     10,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     5,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -118,7 +128,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		dataToUpload := make([][]byte, 5)
 		for i := 0; i < len(dataToUpload); i++ {
@@ -162,7 +172,7 @@ func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
 	numberOfUplinks := 5
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: numberOfUplinks,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: numberOfUplinks,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		dataToUpload := make([][]byte, numberOfUplinks)
 		for i := 0; i < len(dataToUpload); i++ {
@@ -225,7 +235,15 @@ func (mock *piecestoreMock) Delete(ctx context.Context, delete *pb.PieceDeleteRe
 
 func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 3
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.MaxThreshold = 5
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		expectedData := make([]byte, 1*memory.MiB)
@@ -233,10 +251,10 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     10,
+			MinThreshold:     2,
+			RepairThreshold:  3,
+			SuccessThreshold: 4,
+			MaxThreshold:     5,
 		}, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 

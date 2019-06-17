@@ -322,10 +322,10 @@ func (uplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config.Client.RequestTimeout = 10 * time.Second
 	config.Client.DialTimeout = 10 * time.Second
 
-	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)     // 40% of storage nodes
-	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 3 / 5)  // 60% of storage nodes
-	config.RS.SuccessThreshold = atLeastOne(uplink.StorageNodeCount * 4 / 5) // 80% of storage nodes
-	config.RS.MaxThreshold = atLeastOne(uplink.StorageNodeCount * 5 / 5)     // 100% of storage nodes
+	config.RS.MinThreshold = atLeastOne(uplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
+	config.RS.RepairThreshold = atLeastOne(uplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes
+	config.RS.SuccessThreshold = atLeastOne(uplink.StorageNodeCount * 3 / 5) // 60% of storage nodes
+	config.RS.MaxThreshold = atLeastOne(uplink.StorageNodeCount * 4 / 5)     // 80% of storage nodes
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
