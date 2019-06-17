@@ -178,7 +178,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return nil
 		}()
 		if rejectErr != err {
-			log.Debug("order limit/order verification failed", zap.String("serial", orderLimit.SerialNumber.String()), zap.Error(err))
+			log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(err))
 			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
 				SerialNumber: orderLimit.SerialNumber,
 				Status:       pb.SettlementResponse_REJECTED,
