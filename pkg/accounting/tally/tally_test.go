@@ -157,6 +157,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 }
 
 func TestCalculateBucketAtRestData(t *testing.T) {
+	t.Skip("TODO: this test is flaky")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
