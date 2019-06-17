@@ -528,3 +528,49 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 	}
 	return pointer
 }
+
+func TestBucketNameValidation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+
+		rs := &pb.RedundancyScheme{
+			MinReq:           1,
+			RepairThreshold:  1,
+			SuccessThreshold: 3,
+			Total:            4,
+			ErasureShareSize: 1024,
+			Type:             pb.RedundancyScheme_RS,
+		}
+
+		validNames := []string{
+			"tes", "testbucket",
+			"test-bucket", "testbucket9",
+			"9testbucket", "a.b",
+			"test.bucket", "test-one.bucket-one",
+			"test.bucket.one",
+			"testbucket-63-0123456789012345678901234567890123456789012345abc",
+		}
+		for _, name := range validNames {
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			require.NoError(t, err, "bucket name: %v", name)
+		}
+
+		invalidNames := []string{
+			"", "t", "te", "-testbucket",
+			"testbucket-", "-testbucket-",
+			"a.b.", "test.bucket-.one",
+			"test.-bucket.one", "1.2.3.4",
+			"192.168.1.234",
+			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
+		}
+		for _, name := range invalidNames {
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			require.Error(t, err, "bucket name: %v", name)
+		}
+	})
+}
