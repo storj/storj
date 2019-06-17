@@ -15,7 +15,7 @@ service GarbageCollection {
 message BloomFilter {
     uint32 seed = 1;
     uint32 k = 2;
-    uint32 bitsPerElement = 3;
+    uint32 bits_per_element = 3;
     bytes table = 4;
 }
 
