@@ -380,7 +380,7 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 }
 
 // KnownOffline filters a set of nodes to offline nodes
-func (cache *overlaycache) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIds) == 0 {
@@ -391,22 +391,27 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, nodeIds storj.NodeI
 	var rows *sql.Rows
 	switch t := cache.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
-		args := make([]interface{}, 0, len(nodeIds))
+		args := make([]interface{}, 0, len(nodeIds)+1)
 		for i := range nodeIds {
 			args = append(args, nodeIds[i].Bytes())
 		}
+		args = append(args, time.Now().Add(-criteria.OnlineWindow))
 
 		rows, err = cache.db.Query(cache.db.Rebind(`
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-			AND last_contact_success < last_contact_failure
+			AND (
+				last_contact_success < last_contact_failure OR last_contact_success < ?
+			)
 		`), args...)
 
 	case *pq.Driver:
 		rows, err = cache.db.Query(`
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
-				AND last_contact_success < last_contact_failure
+				AND (
+					last_contact_success < last_contact_failure OR last_contact_success < $1
+				)
 			`, postgresNodeIDList(nodeIds),
 		)
 	default:
