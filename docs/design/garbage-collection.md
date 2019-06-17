@@ -60,8 +60,9 @@ message Filter {
     ...
 }
 
-message DeleteRequest {
-    Filter filter = 1;
+message RetainRequest {
+    Timestamp creation_date = 1;
+    Filter filter = 2;
 }
 ```
 ### Probabilistic data structures
