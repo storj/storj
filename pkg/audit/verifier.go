@@ -193,6 +193,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
 	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
 	mon.Meter("audit_offline_nodes_global").Mark(numOffline)
+	mon.Meter("audit_contained_nodes_global").Mark(numContained)
 	mon.Meter("audit_total_nodes_global").Mark(totalAudited)
 	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer)
 
@@ -285,6 +286,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 
 	pieces := stripe.Segment.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
+	var containedInSegment int64
 
 	for _, piece := range pieces {
 		pending, err := verifier.containment.Get(ctx, piece.NodeId)
@@ -297,6 +299,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			verifier.log.Debug("Reverify: error getting from containment db", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
 			continue
 		}
+		containedInSegment++
 
 		go func(pending *PendingAudit, piece *pb.RemotePiece) {
 			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, pending.PieceID, pending.ShareSize)
@@ -388,6 +391,19 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			err = errs.Combine(err, result.err)
 		}
 	}
+
+	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
+	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))
+	mon.Meter("reverify_fails_global").Mark(len(report.Fails))
+	mon.Meter("reverify_contained_global").Mark(len(report.PendingAudits))
+
+	mon.IntVal("reverify_successes").Observe(int64(len(report.Successes)))
+	mon.IntVal("reverify_offlines").Observe(int64(len(report.Offlines)))
+	mon.IntVal("reverify_fails").Observe(int64(len(report.Fails)))
+	mon.IntVal("reverify_contained").Observe(int64(len(report.PendingAudits)))
+
+	mon.IntVal("reverify_contained_in_segment").Observe(containedInSegment)
+	mon.IntVal("reverify_total_in_segment").Observe(int64(len(pieces)))
 
 	return report, err
 }
