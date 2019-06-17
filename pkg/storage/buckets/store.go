@@ -77,20 +77,8 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 	if err != nil {
 		return Meta{}, err
 	}
-
-	// metadata conversion function call: pointer -> segment -> stream -> object -> bucket
-	segment := segments.ConvertMeta(pointer)
-
-	streamInfo := pb.StreamInfo{
-		NumberOfSegments: 0,
-		SegmentsSize:     segment.Size,
-		LastSegmentSize:  segment.Size,
-		Metadata:         segment.Data,
-	}
-	streamMeta := pb.StreamMeta{}
-
-	object := objects.ConvertMeta(streams.ConvertMeta(segment, streamInfo, streamMeta))
-	return convertMeta(object)
+	// pointer -> segment -> stream -> object -> bucket
+	return convertMeta(convertPointer(pointer))
 }
 
 // Put calls objects store Put and fills in some specific metadata to be used
@@ -125,34 +113,9 @@ func (b *BucketStore) Put(ctx context.Context, bucketName string, inMeta Meta) (
 		"default-rs-total":  strconv.Itoa(int(inMeta.RedundancyScheme.TotalShares)),
 	}
 
-	metadata, err := proto.Marshal(&pb.SerializableMeta{UserDefined: userMeta})
+	pointer, err := userMetaToPointer(userMeta)
 	if err != nil {
 		return meta, err
-	}
-
-	streamInfo, err := proto.Marshal(&pb.StreamInfo{
-		NumberOfSegments: 1,
-		SegmentsSize:     0,
-		LastSegmentSize:  0,
-		Metadata:         metadata,
-	})
-	if err != nil {
-		return meta, err
-	}
-
-	streamMeta, err := proto.Marshal(&pb.StreamMeta{
-		EncryptedStreamInfo: streamInfo,
-		EncryptionType:      int32(storj.Unencrypted),
-		EncryptionBlockSize: 0,
-	})
-
-	var exp timestamp.Timestamp
-	pointer := &pb.Pointer{
-		Type:           pb.Pointer_INLINE,
-		InlineSegment:  nil,
-		SegmentSize:    0,
-		ExpirationDate: &exp,
-		Metadata:       streamMeta,
 	}
 	path := storj.JoinPaths("l", bucketName)
 	p, err := b.metainfo.CommitSegment(ctx, bucketName, path, 0, pointer, nil)
@@ -296,4 +259,58 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
 	}
 	return t
+}
+
+// helper method for Get function
+// TODO: This conversion from pointer to bucket Meta object would be simplified if there were a metainfo call available like b.metainfo.BucketInfo(), but currently that doesn't exist.
+// However, it does seem like that change is captured in the metainfo refactor.
+// When the refactor is done, we can replace this method.
+func convertPointer(pointer *pb.Pointer) objects.Meta {
+	segment := segments.ConvertMeta(pointer)
+
+	streamInfo := pb.StreamInfo{
+		NumberOfSegments: 0,
+		SegmentsSize:     segment.Size,
+		LastSegmentSize:  segment.Size,
+		Metadata:         segment.Data,
+	}
+
+	streamMeta := pb.StreamMeta{}
+
+	return objects.ConvertMeta(streams.ConvertMeta(segment, streamInfo, streamMeta))
+}
+
+// helper method for Put function
+func userMetaToPointer(userMeta map[string]string) (pointer *pb.Pointer, err error) {
+
+	metadata, err := proto.Marshal(&pb.SerializableMeta{UserDefined: userMeta})
+	if err != nil {
+		return &pb.Pointer{}, err
+	}
+
+	streamInfo, err := proto.Marshal(&pb.StreamInfo{
+		NumberOfSegments: 1,
+		SegmentsSize:     0,
+		LastSegmentSize:  0,
+		Metadata:         metadata,
+	})
+	if err != nil {
+		return &pb.Pointer{}, err
+	}
+
+	streamMeta, err := proto.Marshal(&pb.StreamMeta{
+		EncryptedStreamInfo: streamInfo,
+		EncryptionType:      int32(storj.Unencrypted),
+		EncryptionBlockSize: 0,
+	})
+
+	var exp timestamp.Timestamp
+	pointer = &pb.Pointer{
+		Type:           pb.Pointer_INLINE,
+		InlineSegment:  nil,
+		SegmentSize:    0,
+		ExpirationDate: &exp,
+		Metadata:       streamMeta,
+	}
+	return pointer, nil
 }
