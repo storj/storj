@@ -43,6 +43,7 @@ func TestMessage(t *testing.T) {
 }
 
 type test struct {
+	logs   []string
 	errors []string
 	fatals []string
 }
@@ -50,5 +51,6 @@ type test struct {
 func (t *test) Name() string { return "Example" }
 func (t *test) Helper()      {}
 
+func (t *test) Log(args ...interface{})   { t.logs = append(t.logs, fmt.Sprint(args...)) }
 func (t *test) Error(args ...interface{}) { t.errors = append(t.errors, fmt.Sprint(args...)) }
 func (t *test) Fatal(args ...interface{}) { t.fatals = append(t.fatals, fmt.Sprint(args...)) }

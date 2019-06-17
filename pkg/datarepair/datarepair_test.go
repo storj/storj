@@ -68,7 +68,7 @@ func TestDataRepair(t *testing.T) {
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
-		toKill := numPieces - int(minReq)
+		toKill := numPieces - (int(minReq) + 1)
 		// we should have enough storage nodes to repair on
 		assert.True(t, (numStorageNodes-toKill) >= numPieces)
 
