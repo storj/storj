@@ -229,7 +229,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
 		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
 
-		stats, err := cache.UpdateUptime(ctx, nodeID, false)
+		stats, err := cache.UpdateUptime(ctx, nodeID, false, 1, 0, 1, 1)
 		require.NoError(t, err)
 
 		currUptimeCount++
