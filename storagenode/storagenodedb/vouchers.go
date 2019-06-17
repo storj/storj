@@ -56,7 +56,7 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 	return err
 }
 
-// NeedVoucher returns whether a voucher request is needed for a satellite
+// NeedVoucher returns true if a satellite's voucher is expired/about to expire or does not exist
 func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID, expirationBuffer time.Duration) (need bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()

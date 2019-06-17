@@ -34,7 +34,7 @@ type DB interface {
 	Put(context.Context, *pb.Voucher) error
 	// GetValid returns one valid voucher from the list of approved satellites
 	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
-	// NeedVoucher
+	// NeedVoucher returns true if a satellite's voucher is expired/about to expire or does not exist
 	NeedVoucher(context.Context, storj.NodeID, time.Duration) (bool, error)
 	// ListSatellites returns all satellites from the vouchersDB
 	ListSatellites(context.Context) ([]storj.NodeID, error)
