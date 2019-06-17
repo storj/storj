@@ -547,7 +547,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 }
 
 // CreateStats initializes the stats the provided storagenode
-func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *pb.NodeStats) (stats *pb.NodeStats, err error) {
+func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats overlay.NodeStats) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -559,26 +559,16 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	if startingStats != nil {
-		// TODO(nat): add back when correct fields are added to the pb
-		// auditSuccessRatio, err := checkRatioVars(ctx, startingStats.ReputationAuditAlpha, startingStats.ReputationAuditBeta, startingStats.AuditCount)
-		// if err != nil {
-		// 	return nil, errAuditSuccess.Wrap(errs.Combine(err, tx.Rollback()))
-		// }
-
-		// uptimeSuccessRatio, err := checkRatioVars(ctx, startingStats.ReputationUptimeAlpha, startingStats.ReputationUptimeBeta, startingStats.UptimeCount)
-		// if err != nil {
-		// 	return nil, errUptime.Wrap(errs.Combine(err, tx.Rollback()))
-		// }
+	if (overlay.NodeStats{}) == startingStats {
+		// TODO: add possible sanity checking for alpha and beta values
 
 		updateFields := dbx.Node_Update_Fields{
-			TotalAuditCount:  dbx.Node_TotalAuditCount(startingStats.AuditCount),
-			TotalUptimeCount: dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
-			// TODO(nat): add back when these fields are added to the pb
-			// ReputationAuditAlpha:  dbx.Node_ReputationAuditAlpha(startingStats.ReputationAuditAlpha),
-			// ReputationAuditBeta:   dbx.Node_ReputationAuditBeta(startingStats.ReputationAuditBeta),
-			// ReputationUptimeAlpha: dbx.Node_UptimeReputationAlpha(startingStats.ReputationUptimeAlpha),
-			// ReputationUptimeBeta:  dbx.Node_UptimeReputationBeta(startingStats.ReputationUptimeBeta),
+			TotalAuditCount:       dbx.Node_TotalAuditCount(startingStats.AuditCount),
+			TotalUptimeCount:      dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
+			ReputationAuditAlpha:  dbx.Node_ReputationAuditAlpha(startingStats.ReputationAuditAlpha),
+			ReputationAuditBeta:   dbx.Node_ReputationAuditBeta(startingStats.ReputationAuditBeta),
+			ReputationUptimeAlpha: dbx.Node_UptimeReputationAlpha(startingStats.ReputationUptimeAlpha),
+			ReputationUptimeBeta:  dbx.Node_UptimeReputationBeta(startingStats.ReputationUptimeBeta),
 		}
 
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -597,7 +587,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 }
 
 // UpdateStats a single storagenode's stats in the db
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *pb.NodeStats, err error) {
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeID := updateReq.NodeID
@@ -615,6 +605,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		updateReq.AuditSuccess,
 		dbNode.ReputationAuditAlpha,
 		dbNode.ReputationAuditBeta,
+		updateReq.AuditReputationLambda,
+		updateReq.AuditReputationWeight,
 		dbNode.TotalAuditCount,
 	)
 
@@ -622,6 +614,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		updateReq.IsUp,
 		dbNode.ReputationUptimeAlpha,
 		dbNode.ReputationUptimeBeta,
+		updateReq.UptimeReputationLambda,
+		updateReq.UptimeReputationWeight,
 		dbNode.TotalUptimeCount,
 	)
 
@@ -699,7 +693,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *pb.NodeStats, err error) {
+func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -716,12 +710,11 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	var uptimeRatio float64
 
 	updateFields := dbx.Node_Update_Fields{}
-	// TODO(nat): add back when pb has correct fields
-	// uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateReputation(
-	// 	isUp,
-	// 	uptimeSuccessCount,
-	// 	totalUptimeCount,
-	// )
+	uptimeSuccessCount, totalUptimeCount, uptimeRatio = updateReputation(
+		isUp,
+		uptimeSuccessCount,
+		totalUptimeCount,
+	)
 
 	updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(uptimeSuccessCount)
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
@@ -786,7 +779,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 			FreeBandwidth: info.FreeBandwidth,
 			FreeDisk:      info.FreeDisk,
 		},
-		Reputation: getNodeStats(info),
+		Reputation: *getNodeStats(info),
 		Version: pb.NodeVersion{
 			Version:    ver.String(),
 			CommitHash: info.Hash,
@@ -800,17 +793,17 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	return node, nil
 }
 
-func getNodeStats(dbNode *dbx.Node) *pb.NodeStats {
-	nodeStats := &pb.NodeStats{
+func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
+	nodeStats := &overlay.NodeStats{
 		Latency90:             dbNode.Latency90,
 		AuditCount:            dbNode.TotalAuditCount,
 		UptimeCount:           dbNode.TotalUptimeCount,
 		LastContactSuccess:    dbNode.LastContactSuccess,
 		LastContactFailure:    dbNode.LastContactFailure,
-		AuditReputationAlpha:  dbNode.AuditReputationAlpha,
-		AuditReputationBeta:   dbNode.AuditReputationBeta,
-		UptimeReputationAlpha: dbNode.UptimeReputationAlpha,
-		UptimeReputationBeta:  dbNode.UptimeReputationBeta,
+		AuditReputationAlpha:  dbNode.ReputationAuditAlpha,
+		AuditReputationBeta:   dbNode.ReputationAuditBeta,
+		UptimeReputationAlpha: dbNode.ReputationUptimeAlpha,
+		UptimeReputationBeta:  dbNode.ReputationUptimeBeta,
 		Disqualified:          dbNode.Disqualified,
 	}
 	return nodeStats
@@ -829,22 +822,4 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	newAlpha := lambda*alpha + w*(1+v)/2
 	newBeta := lambda*beta + w*(1-v)/2
 	return totalCount, newAlpha, newBeta
-}
-
-func checkRatioVars(ctx context.Context, totalCount int64) (reputation float64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if successCount < 0 {
-		return 0, errs.New("success count less than 0")
-	}
-	if totalCount < 0 {
-		return 0, errs.New("total count less than 0")
-	}
-	if successCount > totalCount {
-		return 0, errs.New("success count greater than total count")
-	}
-	if totalCount == 0 {
-		return 0, nil
-	}
-	ratio = float64(successCount) / float64(totalCount)
-	return ratio, nil
 }
