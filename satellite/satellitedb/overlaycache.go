@@ -164,9 +164,10 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 
 	var rows *sql.Rows
 	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
-	type, address, last_ip, free_bandwidth, free_disk, reputation_audit_alpha,
-	reputation_audit_beta, reputation_uptime_alpha, reputation_uptime_beta,
-	total_audit_count, total_uptime_count, disqualified
+	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+	uptime_success_count, disqualified, audit_reputation_alpha,
+	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM nodes
 	`+safeQuery+safeExcludeNodes+`
 	ORDER BY RANDOM()
@@ -181,9 +182,12 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
 			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.ReputationAuditAlpha, &dbNode.ReputationAuditBeta,
-			&dbNode.ReputationUptimeAlpha, &dbNode.ReputationUptimeBeta,
-			&dbNode.TotalAuditCount, &dbNode.TotalUptimeCount, &dbNode.Disqualified)
+			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -237,11 +241,13 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 	args = append(args, count)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
-	type, address, last_ip, free_bandwidth, free_disk, audit_reputation_alpha,
-	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-	total_audit_count, total_uptime_count, disqualified
+	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+	uptime_success_count, disqualified, audit_reputation_alpha,
+	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
 		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count, disqualified,
+		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
 		Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
@@ -258,9 +264,12 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
 			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.ReputationAuditAlpha, &dbNode.ReputationAuditBeta,
-			&dbNode.ReputationUptimeAlpha, &dbNode.ReputationUptimeBeta,
-			&dbNode.TotalAuditCount, &dbNode.TotalUptimeCount, &dbNode.Disqualified)
+			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -300,13 +309,15 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	args = append(args, count)
 
 	rows, err := cache.db.Query(cache.db.Rebind(`SELECT DISTINCT ON (last_ip) id,
-	type, address, last_ip, free_bandwidth, free_disk, audit_reputation_alpha,
-	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-	total_audit_count, total_uptime_count
+	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+	uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
+	uptime_reputation_alpha, uptime_reputation_beta
 	FROM (SELECT id,
-		type, address, last_ip, free_bandwidth, free_disk, audit_reputation_alpha,
-		audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-		total_audit_count, total_uptime_count
+		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
+		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
+		uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
+		uptime_reputation_alpha, uptime_reputation_beta
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
 		ORDER BY RANDOM()
@@ -321,9 +332,12 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
 			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.ReputationAuditAlpha, &dbNode.ReputationAuditBeta,
-			&dbNode.ReputationUptimeAlpha, &dbNode.ReputationUptimeBeta,
-			&dbNode.TotalAuditCount, &dbNode.TotalUptimeCount)
+			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
+			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
+			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
+			&dbNode.UptimeReputationAlpha, &dbNode.UptimeReputationBeta,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -522,10 +536,10 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
 			dbx.Node_Disqualified(false),
-			dbx.Node_ReputationAuditAlpha(1),
-			dbx.Node_ReputationAuditBeta(0),
-			dbx.Node_ReputationUptimeAlpha(1),
-			dbx.Node_ReputationUptimeBeta(0),
+			dbx.Node_AuditReputationAlpha(1),
+			dbx.Node_AuditReputationBeta(0),
+			dbx.Node_UptimeReputationAlpha(1),
+			dbx.Node_UptimeReputationBeta(0),
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
