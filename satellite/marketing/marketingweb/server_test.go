@@ -84,3 +84,21 @@ func TestGetOffers(t *testing.T){
 		t.Fatalf("response err : %v\n", err)
 	}
 }
+
+func TestStopOffer(t *testing.T){
+	url := "http://127.0.0.1:10003"
+	req,err := http.NewRequest("PUT",url+"/stop/1",nil)
+	if err != nil {
+		t.Fatalf("create request err : %v\n", err)
+	}
+
+	c := http.Client{}
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("response Err : %v\n", err)
+	}
+
+	if resp.Status != "200 OK"{
+		t.Fatalf("bad status code : %v\n", resp.Status)
+	}
+}
