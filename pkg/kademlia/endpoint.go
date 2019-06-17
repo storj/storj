@@ -56,7 +56,7 @@ func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = endpoint.service.Ping(ctx, *target)
 	if err != nil {
-		endpoint.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", target.Id.String()))
+		endpoint.log.Debug("connection to node failed", zap.Error(err), zap.Stringer("nodeID", target.Id))
 		err = endpoint.routingTable.ConnectionFailed(ctx, target)
 		if err != nil {
 			endpoint.log.Error("could not respond to connection failed", zap.Error(err))
