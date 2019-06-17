@@ -11,7 +11,7 @@ import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
 service GarbageCollection {
-    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    rpc Retain(RetainRequest) returns (RetainResponse);
 }
 
 message Filter {
@@ -21,10 +21,10 @@ message Filter {
     bytes table = 4;
 }
 
-message DeleteRequest {
+message RetainRequest {
     google.protobuf.Timestamp creation_date = 1 [(gogoproto.stdtime) = true];
     Filter filter = 2;
 }
 
-message DeleteResponse {
+message RetainResponse {
 }

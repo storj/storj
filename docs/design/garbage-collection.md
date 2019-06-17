@@ -53,7 +53,7 @@ What could be sent to the node:
 ### Service
 ```protobuf
 service GarbageCollection {
-    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    rpc Retain(DeleteRequest) returns (RetainResponse);
 }
 
 message Filter {
