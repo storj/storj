@@ -21,7 +21,7 @@ BucketConfig test_bucket_config() {
 }
 
 // with_test_project opens default test project and calls handleProject callback.
-void with_test_project(void (*handleProject)(Project)) {
+void with_test_project(void (*handleProject)(ProjectRef)) {
     char *_err = "";
     char **err = &_err;
 
@@ -33,22 +33,22 @@ void with_test_project(void (*handleProject)(Project)) {
 
     {
         UplinkConfig cfg = {};
-        cfg.Volatile.TLS.SkipPeerCAWhitelist = 1; // TODO: add CA Whitelist
+        cfg.Volatile.TLS.SkipPeerCAWhitelist = true; // TODO: add CA Whitelist
 
         // New uplink
-        Uplink uplink = new_uplink(cfg, err);
+        UplinkRef uplink = new_uplink(cfg, err);
         require_noerror(*err);
         requiref(uplink._handle != 0, "got empty uplink\n");
 
         {
             // parse api key
-            APIKey apikey = parse_api_key(apikeyStr, err);
+            APIKeyRef apikey = parse_api_key(apikeyStr, err);
             require_noerror(*err);
             requiref(apikey._handle != 0, "got empty apikey\n");
 
             {
                 // open a project
-                Project project = open_project(uplink, satellite_addr, apikey, err);
+                ProjectRef project = open_project(uplink, satellite_addr, apikey, err);
                 require_noerror(*err);
                 requiref(project._handle != 0, "got empty project\n");
 
