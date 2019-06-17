@@ -87,7 +87,6 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 				OfferID:              offer.ID,
 				ReferredBy:           referrer.ID,
 				CreditsEarnedInCents: 100,
-				CreditsUsedInCents:   0,
 				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
 			chargedCredits: 120,
@@ -111,6 +110,22 @@ func test(ctx context.Context, t *testing.T, store satellite.DB) {
 				remainingCharge:  60,
 				availableCredits: 0,
 				hasErr:           true,
+			},
+		},
+		{
+			// simulate a credit that's not expired
+			userCredit: console.UserCredit{
+				UserID:               user.ID,
+				OfferID:              offer.ID,
+				ReferredBy:           referrer.ID,
+				CreditsEarnedInCents: 100,
+				ExpiresAt:            time.Now().UTC().AddDate(0, 0, 5),
+			},
+			chargedCredits: 80,
+			expected: result{
+				remainingCharge:  0,
+				availableCredits: 20,
+				hasErr:           false,
 			},
 		},
 	}

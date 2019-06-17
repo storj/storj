@@ -5,9 +5,10 @@ package satellitedb
 
 import (
 	"context"
-	"strconv"
 	"time"
 
+	"github.com/lib/pq"
+	"github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -17,11 +18,6 @@ import (
 
 type usercredits struct {
 	db *dbx.DB
-}
-
-type updateInfo struct {
-	id      int
-	credits int
 }
 
 // TotalReferredCount returns the total amount of referral a user has made based on user id
@@ -83,9 +79,11 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharg
 		return creditsToCharge, errs.Combine(errs.New("No available credits"), tx.Commit())
 	}
 
-	var infos []updateInfo
+	values := make([]interface{}, len(availableCredits)*2)
+	rowIds := make([]interface{}, len(availableCredits))
+
 	remainingCharge = creditsToCharge
-	for _, credit := range availableCredits {
+	for i, credit := range availableCredits {
 		if remainingCharge == 0 {
 			break
 		}
@@ -96,35 +94,51 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharg
 			creditsForUpdate = remainingCharge
 		}
 
-		infos = append(infos, updateInfo{
-			id:      credit.Id,
-			credits: creditsForUpdate,
-		})
+		values[i%2] = credit.Id
+		values[(i%2 + 1)] = creditsForUpdate
+		rowIds[i] = credit.Id
 
 		remainingCharge -= creditsForUpdate
 	}
 
-	statement := `UPDATE user_credits SET
-		credits_used_in_cents = CASE id ` + convertToSQLFormat(infos)
+	values = append(values, rowIds...)
 
-	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(statement))
+	var statement string
+	switch t := c.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		statement = generateQuery(len(availableCredits), false)
+	case *pq.Driver:
+		statement = generateQuery(len(availableCredits), true)
+	default:
+		return creditsToCharge, errs.New("Unsupported database %t", t)
+	}
+
+	_, err = tx.Tx.ExecContext(ctx, c.db.Rebind(`UPDATE user_credits SET
+			credits_used_in_cents = CASE `+statement), values...)
 	if err != nil {
 		return creditsToCharge, errs.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 	return remainingCharge, errs.Wrap(tx.Commit())
 }
 
-func convertToSQLFormat(updateInfo []updateInfo) (updateStr string) {
-	for i, info := range updateInfo {
-		updateStr += `WHEN ` + strconv.Itoa(info.id) + ` THEN ` + strconv.Itoa(info.credits)
-		if i == len(updateInfo)-1 {
-			updateStr += ` END;`
-			break
-		}
-		updateStr += ` `
+func generateQuery(totalRows int, toInt bool) (query string) {
+	whereClause := `WHERE id IN (`
+	condition := `WHEN id=? THEN ? `
+	if toInt {
+		condition = `WHEN id=? THEN ?::int `
 	}
 
-	return updateStr
+	for i := 0; i < totalRows; i++ {
+		query += condition
+
+		if i == totalRows-1 {
+			query += ` END ` + whereClause + ` ?);`
+			break
+		}
+		whereClause += `?, `
+	}
+
+	return query
 }
 
 func fromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
