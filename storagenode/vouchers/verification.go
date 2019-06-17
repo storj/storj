@@ -20,7 +20,8 @@ var (
 	ErrVerify = errs.Class("verification")
 )
 
-func (service *Service) verifyVoucher(ctx context.Context, satellite storj.NodeID, voucher *pb.Voucher) (err error) {
+// VerifyVoucher verifies that the signature and the information contained in a voucher are valid
+func (service *Service) VerifyVoucher(ctx context.Context, satellite storj.NodeID, voucher *pb.Voucher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if self := service.kademlia.Local().Id; voucher.StorageNodeId != self {
@@ -37,7 +38,7 @@ func (service *Service) verifyVoucher(ctx context.Context, satellite storj.NodeI
 	}
 
 	if expiration.Before(time.Now().UTC()) {
-		return ErrVerify.New("Voucher is expired: %v", expiration)
+		return ErrVerify.New("Voucher is already expired")
 	}
 
 	signee, err := service.trust.GetSignee(ctx, voucher.SatelliteId)

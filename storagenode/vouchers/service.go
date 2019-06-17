@@ -150,7 +150,7 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 	case pb.VoucherResponse_ACCEPTED:
 		voucher := resp.GetVoucher()
 
-		if err := service.verifyVoucher(ctx, satelliteID, voucher); err != nil {
+		if err := service.VerifyVoucher(ctx, satelliteID, voucher); err != nil {
 			return err
 		}
 
