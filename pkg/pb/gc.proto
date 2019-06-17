@@ -6,13 +6,15 @@ option go_package = "pb";
 
 package gc;
 
+
+import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
 service GarbageCollection {
     rpc Delete(DeleteRequest) returns (DeleteResponse);
 }
 
-message BloomFilter {
+message Filter {
     uint32 seed = 1;
     uint32 k = 2;
     uint32 bits_per_element = 3;
@@ -20,8 +22,8 @@ message BloomFilter {
 }
 
 message DeleteRequest {
-    google.protobuf.Timestamp creation_date = 1;
-    BloomFilter filter = 2;
+    google.protobuf.Timestamp creation_date = 1 [(gogoproto.stdtime) = true];
+    Filter filter = 2;
 }
 
 message DeleteResponse {
