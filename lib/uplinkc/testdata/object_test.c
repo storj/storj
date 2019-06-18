@@ -11,7 +11,11 @@
 void handle_project(ProjectRef project);
 
 int main(int argc, char *argv[]) {
-    with_test_project(&handle_project);
+    ProjectOptions opts = {};
+    memset(&opts.key, '\0', 32);
+    memcpy(&opts.key, "hello", 5);
+
+    with_test_project(&handle_project, &opts);
 }
 
 void handle_project(ProjectRef project) {
@@ -26,7 +30,9 @@ void handle_project(ProjectRef project) {
     free_bucket_info(&info);
 
     EncryptionAccess access = {};
-    memcpy(&access.key[0], "hello", 5);
+    memset(&access.key, '\0', 32);
+    memcpy(&access.key, "hello", 5);
+
     BucketRef bucket = open_bucket(project, bucket_name, access, err);
     require_noerror(*err);
     {
