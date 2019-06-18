@@ -110,73 +110,14 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 	universe.Del(objectMeta.meta_data._handle)
 }
 
-type Download struct {
+type Upload struct {
 	scope
-	rc io.ReadCloser
+	wc io.WriteCloser // 🤔
 }
 
-// download returns an Object's data. A length of -1 will mean
-// (Object.Size - offset).
-//export download
-func download(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloadReaderRef) {
-	object, ok := universe.Get(objectRef._handle).(*Object)
-	if !ok {
-		*cErr = C.CString("invalid object")
-		return
-	}
-
-	scope := object.scope.child()
-
-	rc, err := object.DownloadRange(scope.ctx, int64(offset), int64(length))
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-
-	return C.DownloadReaderRef{universe.Add(&Download{
-		scope: scope,
-		rc: rc,
-	})}
-}
-
-//export download_read
-func download_read(downloader C.DownloadReaderRef_t, bytes *C.uint8_t, length C.int, cErr **C.char) (readLength C.uint64_t) {
-	download, ok := universe.Get(downloader).(*Download)
-	if !ok {
-		*cErr = C.CString("invalid reader")
-		return C.int(0)
-	}
-
-	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length:length]
-
-	n, err := download.rc.Read(buf)
-	if err == io.EOF {
-		return C.EOF
-	}
-
-	return C.int(n)
-}
-
-//export download_close
-func download_close(downloader C.DownloadReaderRef_t, cErr **C.char) {
-	download, ok := universe.Get(downloader).(*Download)
-	if !ok {
-		*cErr = C.CString("invalid reader")
-	}
-
-	universe.Del(downloader._handle)
-	defer download.cancel()
-
-	err := download.rc.Close()
-	if err != nil {
-		*cErr = C.CString(err.Error())
-		return
-	}
-}
-
-// upload_object uploads a new object, if authorized.
-//export upload_object
-func upload_object(cBucket C.BucketRef, path *C.char, reader *File, cOpts *C.UploadOptions, cErr **C.char) {
+// upload uploads a new object, if authorized.
+//export upload
+func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.char) (downloader C.UploaderRef) {
 	bucket, ok := universe.Get(cBucket._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
@@ -203,11 +144,53 @@ func upload_object(cBucket C.BucketRef, path *C.char, reader *File, cOpts *C.Upl
 		}
 	}
 
-	if err := bucket.UploadObject(scope.ctx, C.GoString(path), reader, opts); err != nil {
+	writeCloser, err := bucket.NewWriter(scope.ctx, C.GoString(path), opts)
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+
+	return C.UploaderRef{universe.Add(&Upload{
+		scope: scope,
+		wc: writeCloser,
+	})}
+}
+
+//export upload_write
+func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (writeLength C.int) {
+	upload, ok := universe.Get(uploader).(*Upload)
+	if !ok {
+		*cErr = C.CString("invalid uploader")
+		return C.int(0)
+	}
+
+	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length:length]
+
+	n, err := upload.wc.Write(buf)
+	if err == io.EOF {
+		return C.EOF
+	}
+
+	return C.int(n)
+}
+
+//export upload_close
+func upload_close(uploader C.UploaderRef, cErr *C.char) {
+	upload, ok := universe.Get(uploader).(*Upload)
+	if !ok {
+		*cErr = C.CString("invalid uploader")
+	}
+
+	universe.Del(uploader._handle)
+	defer upload.cancel()
+
+	err := upload.wc.Close()
+	if err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}
 }
+
 
 // list_objects lists objects a user is authorized to see.
 //export list_objects
@@ -253,5 +236,70 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 		more: C.bool(objectList.More),
 		items:  (*C.ObjectInfo)(unsafe.Pointer(cObjectsPtr)),
 		length: C.int32_t(objListLen),
+	}
+}
+
+
+type Download struct {
+	scope
+	rc io.ReadCloser
+}
+
+// download returns an Object's data. A length of -1 will mean
+// (Object.Size - offset).
+//export download
+func download(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloaderRef) {
+	object, ok := universe.Get(objectRef._handle).(*Object)
+	if !ok {
+		*cErr = C.CString("invalid object")
+		return
+	}
+
+	scope := object.scope.child()
+
+	rc, err := object.DownloadRange(scope.ctx, int64(offset), int64(length))
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+
+	return C.DownloaderRef{universe.Add(&Download{
+		scope: scope,
+		rc: rc,
+	})}
+}
+
+//export download_read
+func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (readLength C.int) {
+	download, ok := universe.Get(downloader).(*Download)
+	if !ok {
+		*cErr = C.CString("invalid downloader")
+		return C.int(0)
+	}
+
+	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length:length]
+
+	n, err := download.rc.Read(buf)
+	if err == io.EOF {
+		return C.EOF
+	}
+
+	return C.int(n)
+}
+
+//export download_close
+func download_close(downloader C.DownloaderRef, cErr **C.char) {
+	download, ok := universe.Get(downloader).(*Download)
+	if !ok {
+		*cErr = C.CString("invalid downloader")
+	}
+
+	universe.Del(downloader._handle)
+	defer download.cancel()
+
+	err := download.rc.Close()
+	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
 	}
 }
