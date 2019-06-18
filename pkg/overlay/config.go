@@ -39,11 +39,11 @@ type NodeSelectionConfig struct {
 	ReputationAuditAlpha0        float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
 	ReputationAuditBeta0         float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:"0.0"`
 	ReputationAuditLambda        float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"1.0"`
-	ReputationAuditWeight        float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
+	ReputationAuditOmega         float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
 	ReputationUptimeRepairWeight float64 `help:"weight to apply to uptime reputation for total repair reputation calculation" default:"1.0"`
 	ReputationUptimeUplinkWeight float64 `help:"weight to apply to uptime reputation for total uplink reputation calculation" default:"1.0"`
 	ReputationUptimeAlpha0       float64 `help:"the initial shape 'alpha' used to calculate uptime SNs reputation" default:"1.0"`
 	ReputationUptimeBeta0        float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
 	ReputationUptimeLambda       float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"1.0"`
-	ReputationUptimeWeight       float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
+	ReputationUptimeOmega        float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
 }

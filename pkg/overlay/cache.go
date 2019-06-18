@@ -317,9 +317,9 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 
 	// TODO(nat): maybe change to make these arguments to db.UpdateStats instead
 	request.AuditReputationLambda = cache.preferences.ReputationAuditLambda
-	request.AuditReputationWeight = cache.preferences.ReputationAuditWeight
+	request.AuditReputationWeight = cache.preferences.ReputationAuditOmega
 	request.UptimeReputationLambda = cache.preferences.ReputationUptimeLambda
-	request.UptimeReputationWeight = cache.preferences.ReputationUptimeWeight
+	request.UptimeReputationWeight = cache.preferences.ReputationUptimeOmega
 
 	return cache.db.UpdateStats(ctx, request)
 }
@@ -336,7 +336,7 @@ func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp 
 	alpha := cache.preferences.ReputationUptimeAlpha0
 	beta := cache.preferences.ReputationUptimeBeta0
 	lambda := cache.preferences.ReputationUptimeLambda
-	weight := cache.preferences.ReputationUptimeWeight
+	weight := cache.preferences.ReputationUptimeOmega
 
 	return cache.db.UpdateUptime(ctx, nodeID, isUp, alpha, beta, lambda, weight)
 }
@@ -349,7 +349,7 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	alpha := cache.preferences.ReputationUptimeAlpha0
 	beta := cache.preferences.ReputationUptimeBeta0
 	lambda := cache.preferences.ReputationUptimeLambda
-	weight := cache.preferences.ReputationUptimeWeight
+	weight := cache.preferences.ReputationUptimeOmega
 
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
@@ -373,7 +373,7 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	alpha := cache.preferences.ReputationUptimeAlpha0
 	beta := cache.preferences.ReputationUptimeBeta0
 	lambda := cache.preferences.ReputationUptimeLambda
-	weight := cache.preferences.ReputationUptimeWeight
+	weight := cache.preferences.ReputationUptimeOmega
 
 	_, err = cache.db.UpdateUptime(ctx, node.Id, true, alpha, beta, lambda, weight)
 	if err != nil {

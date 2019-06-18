@@ -50,7 +50,7 @@ func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distin
 		ReputationAuditAlpha0:        1,
 		ReputationAuditBeta0:         0,
 		ReputationAuditLambda:        1,
-		ReputationAuditWeight:        1,
+		ReputationAuditOmega:         1,
 		ReputationUptimeRepairWeight: 1,
 		ReputationUptimeUplinkWeight: 1,
 		ReputationUptimeAlpha0:       1,
