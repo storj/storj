@@ -53,18 +53,18 @@ func TestMergePlanets(t *testing.T) {
 	alpha.Start(ctx)
 	beta.Start(ctx)
 
-	allSatellites := []*satellite.Peer{}
-	allSatellites = append(allSatellites, alpha.Satellites...)
-	allSatellites = append(allSatellites, beta.Satellites...)
+	allStorageNodes := []*storagenode.Peer{}
+	allStorageNodes = append(allStorageNodes, alpha.StorageNodes...)
+	allStorageNodes = append(allStorageNodes, beta.StorageNodes...)
 
-	// make satellites refresh buckets 10 times
+	// make storage nodes refresh buckets 10 times
 	var group errgroup.Group
-	for _, satellite := range allSatellites {
-		satellite := satellite
+	for _, storagenode := range allStorageNodes {
+		storagenode := storagenode
 		group.Go(func() error {
-			satellite.Kademlia.Service.SetBucketRefreshThreshold(0)
+			storagenode.Kademlia.Service.SetBucketRefreshThreshold(0)
 			for i := 0; i < 2; i++ {
-				satellite.Kademlia.Service.RefreshBuckets.TriggerWait()
+				storagenode.Kademlia.Service.RefreshBuckets.TriggerWait()
 			}
 			return nil
 		})

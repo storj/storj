@@ -37,10 +37,6 @@ func TestBasic(t *testing.T) {
 			t.Log("UPLINK", uplink.ID(), uplink.Addr())
 		}
 
-		// ping a satellite
-		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.Satellites[0].Local().Node)
-		require.NoError(t, err)
-
 		// ping a storage node
 		_, err = planet.StorageNodes[0].Kademlia.Service.Ping(ctx, planet.StorageNodes[1].Local().Node)
 		require.NoError(t, err)
