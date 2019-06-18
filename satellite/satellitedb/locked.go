@@ -457,6 +457,43 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
 }
 
+// UserCredits is a getter for UserCredits repository
+func (m *lockedConsole) UserCredits() console.UserCredits {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserCredits{m.Locker, m.db.UserCredits()}
+}
+
+// lockedUserCredits implements locking wrapper for console.UserCredits
+type lockedUserCredits struct {
+	sync.Locker
+	db console.UserCredits
+}
+
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, userCredit)
+}
+
+func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
+}
+
+func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.TotalReferredCount(ctx, userID)
+}
+
+func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
