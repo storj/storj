@@ -119,11 +119,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			storj.NodeID{3}, storj.NodeID{4},
 			storj.NodeID{5}, storj.NodeID{6},
 		}
-		criteria := &overlay.NodeCriteria{
-			AuditSuccessRatio:  0.5,
-			UptimeSuccessRatio: 0.5,
-			OnlineWindow:       time.Hour,
-		}
+		criteria := &overlay.NodeCriteria{OnlineWindow: time.Hour}
 
 		invalid, err := cache.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 		require.NoError(t, err)

@@ -74,17 +74,15 @@ type FindStorageNodesRequest struct {
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth      int64
-	FreeDisk           int64
-	AuditCount         int64
-	AuditSuccessRatio  float64
-	UptimeCount        int64
-	UptimeSuccessRatio float64
-	ExcludedNodes      []storj.NodeID
-	ExcludedIPs        []string
-	MinimumVersion     string // semver or empty
-	OnlineWindow       time.Duration
-	DistinctIP         bool
+	FreeBandwidth  int64
+	FreeDisk       int64
+	AuditCount     int64
+	UptimeCount    int64
+	ExcludedNodes  []storj.NodeID
+	ExcludedIPs    []string
+	MinimumVersion string // semver or empty
+	OnlineWindow   time.Duration
+	DistinctIP     bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -202,14 +200,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
 		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeBandwidth:     req.FreeBandwidth,
-			FreeDisk:          req.FreeDisk,
-			AuditCount:        preferences.AuditCount,
-			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			ExcludedNodes:     excludedNodes,
-			MinimumVersion:    preferences.MinimumVersion,
-			OnlineWindow:      preferences.OnlineWindow,
-			DistinctIP:        preferences.DistinctIP,
+			FreeBandwidth:  req.FreeBandwidth,
+			FreeDisk:       req.FreeDisk,
+			AuditCount:     preferences.AuditCount,
+			ExcludedNodes:  excludedNodes,
+			MinimumVersion: preferences.MinimumVersion,
+			OnlineWindow:   preferences.OnlineWindow,
+			DistinctIP:     preferences.DistinctIP,
 		})
 		if err != nil {
 			return nil, err
@@ -226,17 +223,15 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	criteria := NodeCriteria{
-		FreeBandwidth:      req.FreeBandwidth,
-		FreeDisk:           req.FreeDisk,
-		AuditCount:         preferences.AuditCount,
-		AuditSuccessRatio:  preferences.AuditSuccessRatio,
-		UptimeCount:        preferences.UptimeCount,
-		UptimeSuccessRatio: preferences.UptimeRatio,
-		ExcludedNodes:      excludedNodes,
-		ExcludedIPs:        excludedIPs,
-		MinimumVersion:     preferences.MinimumVersion,
-		OnlineWindow:       preferences.OnlineWindow,
-		DistinctIP:         preferences.DistinctIP,
+		FreeBandwidth:  req.FreeBandwidth,
+		FreeDisk:       req.FreeDisk,
+		AuditCount:     preferences.AuditCount,
+		UptimeCount:    preferences.UptimeCount,
+		ExcludedNodes:  excludedNodes,
+		ExcludedIPs:    excludedIPs,
+		MinimumVersion: preferences.MinimumVersion,
+		OnlineWindow:   preferences.OnlineWindow,
+		DistinctIP:     preferences.DistinctIP,
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
@@ -257,11 +252,9 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		OnlineWindow:       cache.preferences.OnlineWindow,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+		AuditCount:   cache.preferences.AuditCount,
+		OnlineWindow: cache.preferences.OnlineWindow,
+		UptimeCount:  cache.preferences.UptimeCount,
 	}
 	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
@@ -299,10 +292,8 @@ func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *No
 func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+		AuditCount:  cache.preferences.AuditCount,
+		UptimeCount: cache.preferences.UptimeCount,
 	}
 	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
@@ -316,10 +307,10 @@ func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (st
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO(nat): maybe change to make these arguments to db.UpdateStats instead
-	request.AuditReputationLambda = cache.preferences.ReputationAuditLambda
-	request.AuditReputationWeight = cache.preferences.ReputationAuditOmega
-	request.UptimeReputationLambda = cache.preferences.ReputationUptimeLambda
-	request.UptimeReputationWeight = cache.preferences.ReputationUptimeOmega
+	request.AuditReputationLambda = cache.preferences.AuditReputationLambda
+	request.AuditReputationWeight = cache.preferences.AuditReputationWeight
+	request.UptimeReputationLambda = cache.preferences.UptimeReputationLambda
+	request.UptimeReputationWeight = cache.preferences.UptimeReputationWeight
 
 	return cache.db.UpdateStats(ctx, request)
 }
@@ -333,10 +324,10 @@ func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeI
 // UpdateUptime updates a single storagenode's uptime stats.
 func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	alpha := cache.preferences.ReputationUptimeAlpha0
-	beta := cache.preferences.ReputationUptimeBeta0
-	lambda := cache.preferences.ReputationUptimeLambda
-	weight := cache.preferences.ReputationUptimeOmega
+	alpha := cache.preferences.UptimeReputationAlpha0
+	beta := cache.preferences.UptimeReputationBeta0
+	lambda := cache.preferences.UptimeReputationLambda
+	weight := cache.preferences.UptimeReputationWeight
 
 	return cache.db.UpdateUptime(ctx, nodeID, isUp, alpha, beta, lambda, weight)
 }
@@ -346,10 +337,10 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	alpha := cache.preferences.ReputationUptimeAlpha0
-	beta := cache.preferences.ReputationUptimeBeta0
-	lambda := cache.preferences.ReputationUptimeLambda
-	weight := cache.preferences.ReputationUptimeOmega
+	alpha := cache.preferences.UptimeReputationAlpha0
+	beta := cache.preferences.UptimeReputationBeta0
+	lambda := cache.preferences.UptimeReputationLambda
+	weight := cache.preferences.UptimeReputationWeight
 
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
@@ -370,10 +361,10 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 		zap.L().Debug("error updating uptime for node", zap.Error(err))
 	}
 
-	alpha := cache.preferences.ReputationUptimeAlpha0
-	beta := cache.preferences.ReputationUptimeBeta0
-	lambda := cache.preferences.ReputationUptimeLambda
-	weight := cache.preferences.ReputationUptimeOmega
+	alpha := cache.preferences.UptimeReputationAlpha0
+	beta := cache.preferences.UptimeReputationBeta0
+	lambda := cache.preferences.UptimeReputationLambda
+	weight := cache.preferences.UptimeReputationWeight
 
 	_, err = cache.db.UpdateUptime(ctx, node.Id, true, alpha, beta, lambda, weight)
 	if err != nil {
