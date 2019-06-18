@@ -578,6 +578,8 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 	if startingStats == nil {
 		// TODO: add possible sanity checking for alpha and beta values
 
+		startingStats = &overlay.NodeStats{}
+
 		updateFields := dbx.Node_Update_Fields{
 			TotalAuditCount:       dbx.Node_TotalAuditCount(startingStats.AuditCount),
 			TotalUptimeCount:      dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
