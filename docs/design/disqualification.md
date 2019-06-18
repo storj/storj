@@ -53,12 +53,14 @@ Disqualification can be handled in our existing SQL implementation by adding a `
 CREATE TABLE nodes (
   id bytea NOT NULL,
   ...
-  disqualified boolean NOT NULL,
+  disqualified timestamp with time zone,
   PRIMARY KEY ( id )
 );
 ```
 
-Existing SQL queries employing logic such as `WHERE audit_success_ratio >= $2 AND uptime_ratio >= $3` would change to `WHERE disqualified = FALSE`.
+The type of `disqualified` column is a _timestamp_ because in case that for an unexpected cause several nodes get disqualified, such nodes, and not the ones marked by a normal flow, could be set to not be disqualified, once the causes of such problem be identified.
+
+Existing SQL queries employing logic such as `WHERE audit_success_ratio >= $2 AND uptime_ratio >= $3` would change to `WHERE disqualified IS NULL`.
 
 Existing calls to the DBX `UpdateNodeInfo()` method must set `disqualified` if appropriate.  Care should be employed to not overburden the data structures used to store node info.  In the case of Postgres, these tables may be updated and return their values in a single SQL statement.
 

@@ -114,9 +114,9 @@ read all (
 model node (
 	key id
 
-	index ( 
+	index (
 		name node_last_ip
-		fields last_ip 
+		fields last_ip
 	)
 
 	field id             blob
@@ -150,7 +150,7 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
-	field disqualified bool ( updatable )
+	field disqualified timestamp ( updatable, nullable )
 )
 
 create node ( )
@@ -652,8 +652,8 @@ delete reset_password_token ( where reset_password_token.secret = ? )
 
 model offer (
 	key id
-	
-	field id	serial 
+
+	field id	serial
 	field name text ( updatable )
 	field description text ( updatable )
 
