@@ -193,6 +193,14 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Add index on pieceinfo expireation",
+				Version:     4,
+				Action: migrate.SQL{
+					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(piece_expiration)`,
+					`CREATE INDEX idx_pieceinfo_deletion_failed ON pieceinfo(deletion_failed_at)`,
+				},
+			},
 		},
 	}
 }

@@ -5,7 +5,7 @@ package uplink
 
 import (
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 )
 
 var (
