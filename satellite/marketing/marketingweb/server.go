@@ -35,7 +35,7 @@ type Config struct {
 // Server represents marketing offersweb server
 type Server struct {
 	log *zap.Logger
-	config Config
+	Config Config
 	listener net.Listener
 	server   http.Server
 	service  *marketing.Service
@@ -89,7 +89,7 @@ func (s *Server) commonPages() []string {
 func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
-		config:   config,
+		Config:   config,
 		listener: listener,
 		service:  service,
 	}
@@ -97,16 +97,16 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	decoder.RegisterConverter(time.Time{}, timeConverter)
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
-	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.Config.StaticDir)))
 	mux := mux.NewRouter()
-	if s.config.StaticDir != "" {
+	if s.Config.StaticDir != "" {
 		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
-		mux.HandleFunc("/create/{offer_type}", s.createOffer)
+		mux.HandleFunc("/create/{offer_type}", s.CreateOffer)
 	}
 	s.server.Handler = mux
 
-	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
+	s.templateDir = filepath.Join(s.Config.StaticDir, "pages")
 
 	if err := s.parseTemplates(); err != nil {
 		return nil, Error.Wrap(err)
@@ -195,7 +195,7 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffe
 }
 
 // createOffer handles requests to create new offers.
-func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
+func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	o, err := formToStruct(w,req)
 	if err != nil{
 		s.log.Error("failed to convert form to struct", zap.Error(err))
@@ -217,8 +217,9 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 		s.serveInternalError(w,req,err)
 		return
 	}
+
 	req.Method = "GET"
-	http.Redirect(w,req,"/",http.StatusFound)
+	http.Redirect(w,req,"/",http.StatusSeeOther)
 }
 
 // serveNotFound handles 404 errors and defaults to 500 if template parsing fails.

@@ -2,14 +2,17 @@ package marketingweb_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"net/url"
 	"strings"
-	"log"
+	"fmt"
 
 	"github.com/stretchr/testify/require"
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/satellite/marketing"
 )
-
 
 func buildForm(isReferralOffer bool) url.Values{
 	form := url.Values{}
@@ -27,10 +30,10 @@ func buildForm(isReferralOffer bool) url.Values{
 	return form
 }
 
-func buildResources(endpoint string, isReferralOffer bool) (url.URL, url.Values, error){
-	URL, err := url.ParseRequestURI("http://127.0.0.1:10003")
+func buildResources(address, endpoint string, isReferralOffer bool) (url.URL, url.Values, error){
+	URL, err := url.ParseRequestURI("http://"+address)
 	if err != nil{
-		log.Printf("URL parsing Err : %v\n", err)
+		fmt.Printf("err from buildResources : %v\n", err)
 		return *URL, url.Values{}, err
 	}
 	URL.Path = endpoint
@@ -39,53 +42,56 @@ func buildResources(endpoint string, isReferralOffer bool) (url.URL, url.Values,
 	return *URL, form, nil
 }
 
-func callServer(t *testing.T,endpoint,params string, form url.Values) string{
-	c := http.Client{}
-	req, err := http.NewRequest("POST", endpoint, strings.NewReader(params))
-	require.NoError(t,err,"failed to create new POST request")
+func TestCreateOffer(t *testing.T){
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		validOffers := []marketing.NewOffer{
+			{Type: marketing.Referral,},
+			{Type: marketing.FreeCredit,},
+		}
 
-	req.PostForm = form
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		s := planet.Satellites[0].Marketing.Endpoint
 
-	resp, err := c.Do(req)
-	if err != nil {
-		require.NoError(t,err,"failed to execute POST request.")
-	}
-	return resp.Status
-}
+		for _, offer := range validOffers {
 
-func TestCreateFreeCredit(t *testing.T){
-	URL,form,err := buildResources("/create/free-credit", false)
-	require.NoError(t,err,"failed to build request resources")
+			var (
+				form url.Values
+				isReferralOffer bool
+			)
 
-	urlStr := URL.String()
-	respStatus := callServer(t,urlStr,URL.RawQuery,form)
+			endpoint := "/create"
 
-	if respStatus != "200 OK" {
-		t.Fatalf("Bad http response status : %v\n", respStatus)
-	}
-}
+			
+			switch offer.Type {
+				
+				case marketing.Referral :
+					endpoint += "/referral-offer"
+					isReferralOffer = true
+				case marketing.FreeCredit :
+					isReferralOffer = false
+					endpoint += "/free-credit"
+				}
 
-func TestCreateReferralOffer(t *testing.T){
-	URL,form,err := buildResources("/create/referral-offer", true)
-	require.NoError(t,err,"failed to build request resources")
 
-	urlStr := URL.String()
-	respStatus := callServer(t,urlStr,URL.RawQuery,form)
+			URL,form,err := buildResources(s.Config.Address,endpoint, isReferralOffer)
+			require.NoError(t,err,"failed to build request resources")
 
-	if respStatus != "200 OK" {
-		t.Fatalf("Bad http response status : %v\n", respStatus)
-	}
-}
+			urlStr := URL.String()
 
-func TestGetOffers(t *testing.T){
-	url := "http://127.0.0.1:10003/"
-	resp, err := http.Get(url)
-	require.NoError(t,err,"failed to execute GET request.")
+			req, err := http.NewRequest("POST", urlStr, strings.NewReader(URL.RawQuery))
+			require.NoError(t,err,"failed to create new POST request")
 
-	defer resp.Body.Close()
+			req.PostForm = form
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	if resp.Status != "200 OK" {
-		t.Fatalf("Bad http response status : %v\n", resp.Status)
-	}
+			rr := httptest.NewRecorder()
+			s.CreateOffer(rr,req)
+
+			resp := rr.Result()
+			if resp.StatusCode != http.StatusSeeOther{
+				t.Fatalf("Received StatusCode %d expected %d\n", resp.StatusCode, http.StatusSeeOther)
+			}
+		}
+	})
 }
