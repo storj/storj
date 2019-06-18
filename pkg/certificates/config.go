@@ -120,7 +120,7 @@ func (c CertServerConfig) Run(ctx context.Context, srv *server.Server) (err erro
 
 	certSrv.log.Info(
 		"Certificate signing server running",
-		zap.String("address", srv.Addr().String()),
+		zap.Stringer("address", srv.Addr()),
 	)
 
 	ctx, cancel := context.WithCancel(ctx)

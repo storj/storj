@@ -7,7 +7,7 @@ trap "exit" INT TERM
 . $(dirname $0)/utils.sh
 
 failures=3
-user_id="user@example.com"
+user_id="user@mail.test"
 signer_address="127.0.0.1:8888"
 difficulty=16
 
