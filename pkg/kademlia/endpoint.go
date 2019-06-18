@@ -42,7 +42,7 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *p
 		endpoint.pingback(ctx, req.Sender)
 	}
 
-	nodes, err := endpoint.routingTable.FindNear(req.Target.Id, int(req.Limit))
+	nodes, err := endpoint.routingTable.FindNear(ctx, req.Target.Id, int(req.Limit))
 	if err != nil {
 		return &pb.QueryResponse{}, EndpointError.New("could not find near endpoint: %v", err)
 	}
@@ -56,13 +56,13 @@ func (endpoint *Endpoint) pingback(ctx context.Context, target *pb.Node) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = endpoint.service.Ping(ctx, *target)
 	if err != nil {
-		endpoint.log.Debug("connection to node failed", zap.Error(err), zap.String("nodeID", target.Id.String()))
-		err = endpoint.routingTable.ConnectionFailed(target)
+		endpoint.log.Debug("connection to node failed", zap.Error(err), zap.Stringer("nodeID", target.Id))
+		err = endpoint.routingTable.ConnectionFailed(ctx, target)
 		if err != nil {
 			endpoint.log.Error("could not respond to connection failed", zap.Error(err))
 		}
 	} else {
-		err = endpoint.routingTable.ConnectionSuccess(target)
+		err = endpoint.routingTable.ConnectionSuccess(ctx, target)
 		if err != nil {
 			endpoint.log.Error("could not respond to connection success", zap.Error(err))
 		} else {

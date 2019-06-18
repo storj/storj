@@ -26,7 +26,7 @@ var (
 var storjCustomer = payments.Customer{
 	ID:        []byte("0"),
 	Name:      "Storj",
-	Email:     "storj@example.com",
+	Email:     "storj@mail.test",
 	CreatedAt: creationDate,
 }
 
@@ -101,11 +101,7 @@ func (*service) GetCustomerPaymentsMethods(ctx context.Context, customerID []byt
 // GetPaymentMethod always returns defaultPaymentMethod or error
 func (*service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if string(id) == "0" {
-		return &defaultPaymentMethod, nil
-	}
-
-	return nil, internalPaymentsErr.New("only one payments method exists, with id \"0\"")
+	return &defaultPaymentMethod, nil
 }
 
 // CreateProjectInvoice creates invoice from provided params

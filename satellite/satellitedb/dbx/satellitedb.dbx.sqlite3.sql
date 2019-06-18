@@ -103,7 +103,11 @@ CREATE TABLE nodes (
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
-	disqualified INTEGER NOT NULL,
+	disqualified TIMESTAMP,
+	audit_reputation_alpha REAL NOT NULL,
+	audit_reputation_beta REAL NOT NULL,
+	uptime_reputation_alpha REAL NOT NULL,
+	uptime_reputation_beta REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -188,10 +192,11 @@ CREATE TABLE users (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
-	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
+	bucket_name BLOB NOT NULL,
 	partner_id BLOB NOT NULL,
 	last_updated TIMESTAMP NOT NULL,
-	PRIMARY KEY ( bucket_id )
+	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -223,6 +228,17 @@ CREATE TABLE used_serials (
 	serial_number_id INTEGER NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_credits (
+	id INTEGER NOT NULL,
+	user_id BLOB NOT NULL REFERENCES users( id ),
+	offer_id INTEGER NOT NULL REFERENCES offers( id ),
+	referred_by BLOB REFERENCES users( id ),
+	credits_earned_in_cents INTEGER NOT NULL,
+	credits_used_in_cents INTEGER NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE user_payments (
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
