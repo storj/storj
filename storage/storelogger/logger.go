@@ -34,14 +34,14 @@ func New(log *zap.Logger, store storage.KeyValueStore) *Logger {
 // Put adds a value to store
 func (store *Logger) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Put", zap.String("key", string(key)), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
+	store.log.Debug("Put", zap.ByteString("key", key), zap.Int("value length", len(value)), zap.Binary("truncated value", truncate(value)))
 	return store.store.Put(ctx, key, value)
 }
 
 // Get gets a value to store
 func (store *Logger) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Get", zap.String("key", string(key)))
+	store.log.Debug("Get", zap.ByteString("key", key))
 	return store.store.Get(ctx, key)
 }
 
@@ -55,7 +55,7 @@ func (store *Logger) GetAll(ctx context.Context, keys storage.Keys) (_ storage.V
 // Delete deletes key and the value
 func (store *Logger) Delete(ctx context.Context, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	store.log.Debug("Delete", zap.String("key", string(key)))
+	store.log.Debug("Delete", zap.ByteString("key", key))
 	return store.store.Delete(ctx, key)
 }
 
@@ -63,7 +63,7 @@ func (store *Logger) Delete(ctx context.Context, key storage.Key) (err error) {
 func (store *Logger) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
 	defer mon.Task()(&ctx)(&err)
 	keys, err := store.store.List(ctx, first, limit)
-	store.log.Debug("List", zap.String("first", string(first)), zap.Int("limit", limit), zap.Any("keys", keys.Strings()))
+	store.log.Debug("List", zap.ByteString("first", first), zap.Int("limit", limit), zap.Strings("keys", keys.Strings()))
 	return keys, err
 }
 
@@ -71,8 +71,8 @@ func (store *Logger) List(ctx context.Context, first storage.Key, limit int) (_ 
 func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	store.log.Debug("Iterate",
-		zap.String("prefix", string(opts.Prefix)),
-		zap.String("first", string(opts.First)),
+		zap.ByteString("prefix", opts.Prefix),
+		zap.ByteString("first", opts.First),
 		zap.Bool("recurse", opts.Recurse),
 		zap.Bool("reverse", opts.Reverse),
 	)
@@ -81,7 +81,7 @@ func (store *Logger) Iterate(ctx context.Context, opts storage.IterateOptions, f
 			ok := it.Next(ctx, item)
 			if ok {
 				store.log.Debug("  ",
-					zap.String("key", string(item.Key)),
+					zap.ByteString("key", item.Key),
 					zap.Int("value length", len(item.Value)),
 					zap.Binary("truncated value", truncate(item.Value)),
 				)

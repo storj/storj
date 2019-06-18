@@ -26,7 +26,7 @@ var (
 var storjCustomer = payments.Customer{
 	ID:        []byte("0"),
 	Name:      "Storj",
-	Email:     "storj@example.com",
+	Email:     "storj@mail.test",
 	CreatedAt: creationDate,
 }
 

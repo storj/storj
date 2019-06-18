@@ -47,7 +47,7 @@ var (
 
 // Config contains configuration for console web server
 type Config struct {
-	Address         string `help:"server address of the graphql api gateway and frontend app" default:"127.0.0.1:8081"`
+	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 	StripeKey       string `help:"stripe api key" default:""`
@@ -174,9 +174,9 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	before = time.Unix(beforeStamp, 0)
 
 	s.log.Debug("querying bucket usage report",
-		zap.String("projectID", projectID.String()),
-		zap.String("since", since.String()),
-		zap.String("before", before.String()))
+		zap.Stringer("projectID", projectID),
+		zap.Stringer("since", since),
+		zap.Stringer("before", before))
 
 	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
