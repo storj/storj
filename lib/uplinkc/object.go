@@ -158,7 +158,7 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 //export upload_write
 func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (writeLength C.int) {
-	upload, ok := universe.Get(uploader).(*Upload)
+	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
 		return C.int(0)
@@ -175,8 +175,8 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr *
 }
 
 //export upload_close
-func upload_close(uploader C.UploaderRef, cErr *C.char) {
-	upload, ok := universe.Get(uploader).(*Upload)
+func upload_close(uploader C.UploaderRef, cErr **C.char) {
+	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
 	}
@@ -271,7 +271,7 @@ func download(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, cErr **
 
 //export download_read
 func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (readLength C.int) {
-	download, ok := universe.Get(downloader).(*Download)
+	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {
 		*cErr = C.CString("invalid downloader")
 		return C.int(0)
@@ -289,7 +289,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, c
 
 //export download_close
 func download_close(downloader C.DownloaderRef, cErr **C.char) {
-	download, ok := universe.Get(downloader).(*Download)
+	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {
 		*cErr = C.CString("invalid downloader")
 	}

@@ -34,8 +34,6 @@ void handle_project(ProjectRef project) {
         int num_of_objects = 4;
 
         for(int i = 0; i < num_of_objects; i++) {
-            FILE *f = tmpfile();
-
             char *data = mkrndstr(1024*i^2);
 
             MapRef map = new_map_ref();
@@ -45,7 +43,22 @@ void handle_project(ProjectRef project) {
                 time(NULL),
             };
 
-            upload_object(bucket, object_paths[i], f, &opts, err);
+            UploaderRef uploader = upload(bucket, object_paths[i], &opts, err);
+            require_noerror(*err);
+
+            int uploaded = 0;
+            while (uploaded <= strlen(data)) {
+                int write_len = upload_write(uploader, (uint8_t *)data+uploaded, 1024, err);
+                require_noerror(*err);
+
+                if (write_len == 0) {
+                    break;
+                }
+
+                uploaded += write_len;
+            }
+
+            upload_close(uploader, err);
             require_noerror(*err);
 
             if (data != NULL) {
