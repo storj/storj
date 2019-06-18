@@ -471,11 +471,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
-	defaultPayment, err := s.pm.GetCustomerDefaultPaymentMethod(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
@@ -496,12 +491,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		if err != nil {
 			return errs.New(internalErrMsg)
 		}
-
-		_, err = tx.ProjectPayments().Create(ctx, ProjectPayment{
-			ProjectID:       p.ID,
-			PayerID:         auth.User.ID,
-			PaymentMethodID: defaultPayment.ID,
-		})
 
 		return err
 	})
