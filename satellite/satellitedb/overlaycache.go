@@ -712,6 +712,35 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
+	lastContactSuccess := dbNode.LastContactSuccess
+	lastContactFailure := dbNode.LastContactFailure
+	mon.Meter("uptime_updates").Mark(1)
+	if !isUp {
+		mon.Meter("uptime_update_failures").Mark(1)
+
+		// it's been over 24 hours since we've seen this node
+		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
+			mon.Meter("uptime_not_seen_24h").Mark(1)
+		}
+
+		// it's been over a week since we've seen this node
+		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
+			mon.Meter("uptime_not_seen_week").Mark(1)
+		}
+	} else {
+		mon.Meter("uptime_update_successes").Mark(1)
+
+		// we have seen this node in the past 24 hours
+		if time.Now().Sub(lastContactFailure) > time.Hour*24 {
+			mon.Meter("uptime_seen_24h").Mark(1)
+		}
+
+		// we have seen this node in the past week
+		if time.Now().Sub(lastContactFailure) > time.Hour*24*7 {
+			mon.Meter("uptime_seen_week").Mark(1)
+		}
+	}
+
 	uptimeSuccessCount := dbNode.UptimeSuccessCount
 	totalUptimeCount := dbNode.TotalUptimeCount
 	var uptimeRatio float64
