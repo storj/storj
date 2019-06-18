@@ -38,3 +38,20 @@ func generateTestIDs(n int) []storj.PieceID {
 	}
 	return ids
 }
+
+func BenchmarkFilterAdd(b *testing.B) {
+	ids := generateTestIDs(100000)
+	filter := bloomfilter.New(len(ids), 0.1)
+
+	b.Run("Add", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			filter.Add(ids[i%len(ids)])
+		}
+	})
+
+	b.Run("Contains", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			filter.Contains(ids[i%len(ids)])
+		}
+	})
+}

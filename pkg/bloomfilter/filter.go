@@ -39,7 +39,6 @@ func (cf *Filter) Add(pieceID storj.PieceID) {
 		cf.table[byteIndex] |= 0x1 << bitIndex
 		i++
 	}
-
 }
 
 // Contains return true if pieceID may be in the set
