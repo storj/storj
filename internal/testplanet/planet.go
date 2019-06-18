@@ -579,13 +579,16 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 		}
 
 		var db storagenode.DB
-		if planet.config.Reconfigure.NewStorageNodeDB != nil {
-			db, err = planet.config.Reconfigure.NewStorageNodeDB(i)
-		} else {
-			db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
-		}
+		db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
 		if err != nil {
 			return nil, err
+		}
+
+		if planet.config.Reconfigure.NewStorageNodeDB != nil {
+			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = db.CreateTables()

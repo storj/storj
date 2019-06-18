@@ -291,8 +291,15 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
+	var storageNodeDB *testblobs.SlowDB
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB) (storagenode.DB, error) {
+				storageNodeDB = testblobs.NewSlowDB(db, 110*time.Millisecond)
+				return storageNodeDB, nil
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
@@ -331,24 +338,18 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		// make the first node in the pointer to respond slowly
-		slowNodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
-		slowNode := getStorageNode(planet, slowNodeID)
-		slowNode.Storage2.Store.WithBlobs(testblobs.NewSlowBlobs(slowNode.DB.Pieces(), 110*time.Millisecond))
+		// make downloads slow
+		storageNodeDB.Slow()
 
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
-		for _, share := range shares {
-			if share.NodeID == slowNodeID {
-				assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
-					return status.Code(err) == codes.DeadlineExceeded
-				}), "unexpected error: %+v", share.Error)
-				assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
-			} else {
-				assert.NoError(t, share.Error)
-			}
-		}
+		require.Len(t, shares, 1)
+		share := shares[0]
+		assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
+			return status.Code(err) == codes.DeadlineExceeded
+		}), "unexpected error: %+v", share.Error)
+		assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 	})
 }
 
