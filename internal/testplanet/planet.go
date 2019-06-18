@@ -490,7 +490,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					RepairThreshold:  (planet.config.StorageNodeCount * 2 / 5),
 					SuccessThreshold: (planet.config.StorageNodeCount * 3 / 5),
 					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
-					Validate:         true,
+					Validate:         false,
 				},
 			},
 			Checker: checker.Config{
