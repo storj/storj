@@ -45,6 +45,20 @@ func TestBytes(t *testing.T) {
 	}
 }
 
+func TestBytes_Failing(t *testing.T) {
+	failing := [][]byte{
+		{},
+		{0},
+		{1},
+		{1, 0},
+		{255, 10, 10, 10},
+	}
+	for _, bytes := range failing {
+		_, err := bloomfilter.NewFromBytes(bytes)
+		require.Error(t, err)
+	}
+}
+
 // generateTestIDs generates n piece ids
 func generateTestIDs(n int) []storj.PieceID {
 	ids := make([]storj.PieceID, n)
