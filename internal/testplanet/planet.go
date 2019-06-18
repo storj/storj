@@ -429,6 +429,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 
 				Config: tlsopts.Config{
 					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+					UsePeerCAWhitelist:  true,
 					PeerCAWhitelistPath: planet.whitelistPath,
 					PeerIDVersions:      "latest",
 					Extensions: extensions.Config{
