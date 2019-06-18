@@ -115,7 +115,7 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	return s, nil
 }
 
-// Serves index page and renders offer and credits tables
+// getOffers renders the tables for free credits and referral offers to the UI
 func (s *Server) getOffers(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		s.serveNotFound(w, req)
