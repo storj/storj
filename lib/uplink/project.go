@@ -189,7 +189,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	bucketStore := buckets.NewStore(streamStore)
+	bucketStore := buckets.NewStore(p.metainfo)
 
 	return &Bucket{
 		BucketConfig: *cfg,

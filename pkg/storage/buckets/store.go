@@ -78,7 +78,7 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, err
 	}
 	// pointer -> segment -> stream -> object -> bucket
-	return convertMeta(convertPointer(pointer))
+	return convertMeta(ctx, convertPointer(pointer))
 }
 
 // Put calls objects store Put and fills in some specific metadata to be used
@@ -188,7 +188,7 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 			continue
 		}
 		streamInfo := pb.StreamInfo{
-			NumberOfSegments: 1,
+			NumberOfSegments: 1, // is this the correct value?
 			SegmentsSize:     objItem.Meta.Size,
 			LastSegmentSize:  objItem.Meta.Size,
 			Metadata:         objItem.Meta.Data,
@@ -196,7 +196,7 @@ func (b *BucketStore) List(ctx context.Context, startAfter, endBefore string, li
 
 		object := objects.ConvertMeta(streams.ConvertMeta(objItem.Meta, streamInfo, pb.StreamMeta{}))
 
-		m, err := convertMeta(object)
+		m, err := convertMeta(ctx, object)
 		if err != nil {
 			return nil, false, err
 		}

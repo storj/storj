@@ -86,9 +86,6 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	opts := &libuplink.ProjectOptions{}
-	opts.Volatile.EncryptionKey = encKey
-
 	uplk, err := cliCfg.NewUplink(ctx)
 	if err != nil {
 		return nil, err

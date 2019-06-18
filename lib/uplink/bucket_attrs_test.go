@@ -42,7 +42,7 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 			t.Fatalf("could not create new Uplink object: %v", err)
 		}
 		defer ctx.Check(uplink.Close)
-		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey, nil)
+		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey)
 		if err != nil {
 			t.Fatalf("could not open project from libuplink under testplanet: %v", err)
 		}

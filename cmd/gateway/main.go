@@ -265,8 +265,6 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	opts.Volatile.EncryptionKey = encKey
-
 	uplk, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
 		return nil, err
