@@ -268,7 +268,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{
 
 		peer.Console.Service, err = console.NewService(
-			peer.Log.Named("operator:service"),
+			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,

@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -51,7 +52,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 
 	mux := http.NewServeMux()
 
-	server.staticDir = "web/operator/"
+	server.staticDir = "web/operator"
 
 	mux.Handle("/", http.HandlerFunc(server.appHandler))
 	mux.Handle("/static/", http.HandlerFunc(server.appStaticHandler))
@@ -86,7 +87,7 @@ func (s *Server) Close() error {
 
 // appHandler is an entry point for storagenode console web interface
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := Asset(s.staticDir + "dist/public/index.html")
+	data, err := Asset(filepath.Join(s.staticDir, "dist/public/index.html"))
 	if err != nil {
 		s.log.Error("", zap.Error(err))
 		return
@@ -103,7 +104,7 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 func (s *Server) appStaticHandler(w http.ResponseWriter, req *http.Request) {
 	resourceName := strings.TrimPrefix(req.RequestURI, "/static/")
 
-	data, err := Asset(s.staticDir + resourceName)
+	data, err := Asset(filepath.Join(s.staticDir, resourceName))
 	if err != nil {
 		s.log.Error("", zap.Error(err))
 		return
