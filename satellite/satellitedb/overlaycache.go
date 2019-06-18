@@ -41,7 +41,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE NOT disqualified
+		WHERE disqualified IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -97,7 +97,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 	nodeType := int(pb.NodeType_STORAGE)
 
 	safeQuery := `
-		WHERE NOT disqualified
+		WHERE disqualified IS NULL
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
@@ -377,7 +377,7 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 	row := cache.db.QueryRow(cache.db.Rebind(`SELECT id
 	FROM nodes
 	WHERE id = ?
-		AND NOT disqualified
+		AND disqualified IS NULL
 		AND type = ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
@@ -414,7 +414,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		rows, err = cache.db.Query(cache.db.Rebind(`
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
-			AND NOT disqualified
+			AND disqualified IS NULL
 			AND last_contact_success > ? AND last_contact_success > last_contact_failure
 		`), args...)
 
@@ -422,7 +422,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		rows, err = cache.db.Query(`
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
-				AND NOT disqualified
+				AND disqualified IS NULL
 				AND last_contact_success > $2 AND last_contact_success > last_contact_failure
 			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
@@ -540,6 +540,9 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_AuditReputationBeta(0),
 			dbx.Node_UptimeReputationAlpha(1),
 			dbx.Node_UptimeReputationBeta(0),
+			dbx.Node_Create_Fields{
+				Disqualified: dbx.Node_Disqualified_Null(),
+			},
 		)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))

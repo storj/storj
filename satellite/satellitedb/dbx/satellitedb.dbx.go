@@ -375,7 +375,7 @@ CREATE TABLE nodes (
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
-	disqualified boolean NOT NULL,
+	disqualified timestamp with time zone,
 	audit_reputation_alpha double precision NOT NULL,
 	audit_reputation_beta double precision NOT NULL,
 	uptime_reputation_alpha double precision NOT NULL,
@@ -698,7 +698,7 @@ CREATE TABLE nodes (
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
-	disqualified INTEGER NOT NULL,
+	disqualified TIMESTAMP,
 	audit_reputation_alpha REAL NOT NULL,
 	audit_reputation_beta REAL NOT NULL,
 	uptime_reputation_alpha REAL NOT NULL,
@@ -2058,7 +2058,7 @@ type Node struct {
 	LastContactSuccess    time.Time
 	LastContactFailure    time.Time
 	Contained             bool
-	Disqualified          bool
+	Disqualified          *time.Time
 	AuditReputationAlpha  float64
 	AuditReputationBeta   float64
 	UptimeReputationAlpha float64
@@ -2066,6 +2066,10 @@ type Node struct {
 }
 
 func (Node) _Table() string { return "nodes" }
+
+type Node_Create_Fields struct {
+	Disqualified Node_Disqualified_Field
+}
 
 type Node_Update_Fields struct {
 	Address               Node_Address_Field
@@ -2615,12 +2619,25 @@ func (Node_Contained_Field) _Column() string { return "contained" }
 type Node_Disqualified_Field struct {
 	_set   bool
 	_null  bool
-	_value bool
+	_value *time.Time
 }
 
-func Node_Disqualified(v bool) Node_Disqualified_Field {
-	return Node_Disqualified_Field{_set: true, _value: v}
+func Node_Disqualified(v time.Time) Node_Disqualified_Field {
+	return Node_Disqualified_Field{_set: true, _value: &v}
 }
+
+func Node_Disqualified_Raw(v *time.Time) Node_Disqualified_Field {
+	if v == nil {
+		return Node_Disqualified_Null()
+	}
+	return Node_Disqualified(*v)
+}
+
+func Node_Disqualified_Null() Node_Disqualified_Field {
+	return Node_Disqualified_Field{_set: true, _null: true}
+}
+
+func (f Node_Disqualified_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Node_Disqualified_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5021,11 +5038,11 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
-	node_disqualified Node_Disqualified_Field,
 	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
 	node_audit_reputation_beta Node_AuditReputationBeta_Field,
 	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+	optional Node_Create_Fields) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -5056,7 +5073,7 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__last_contact_success_val := node_last_contact_success.value()
 	__last_contact_failure_val := node_last_contact_failure.value()
 	__contained_val := node_contained.value()
-	__disqualified_val := node_disqualified.value()
+	__disqualified_val := optional.Disqualified.value()
 	__audit_reputation_alpha_val := node_audit_reputation_alpha.value()
 	__audit_reputation_beta_val := node_audit_reputation_beta.value()
 	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
@@ -8290,11 +8307,11 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
-	node_disqualified Node_Disqualified_Field,
 	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
 	node_audit_reputation_beta Node_AuditReputationBeta_Field,
 	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+	optional Node_Create_Fields) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -8325,7 +8342,7 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__last_contact_success_val := node_last_contact_success.value()
 	__last_contact_failure_val := node_last_contact_failure.value()
 	__contained_val := node_contained.value()
-	__disqualified_val := node_disqualified.value()
+	__disqualified_val := optional.Disqualified.value()
 	__audit_reputation_alpha_val := node_audit_reputation_alpha.value()
 	__audit_reputation_beta_val := node_audit_reputation_beta.value()
 	__uptime_reputation_alpha_val := node_uptime_reputation_alpha.value()
@@ -12297,17 +12314,17 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
-	node_disqualified Node_Disqualified_Field,
 	node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
 	node_audit_reputation_beta Node_AuditReputationBeta_Field,
 	node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-	node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
+	node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+	optional Node_Create_Fields) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_address, node_last_ip, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure, node_contained, node_disqualified, node_audit_reputation_alpha, node_audit_reputation_beta, node_uptime_reputation_alpha, node_uptime_reputation_beta)
+	return tx.Create_Node(ctx, node_id, node_address, node_last_ip, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure, node_contained, node_audit_reputation_alpha, node_audit_reputation_beta, node_uptime_reputation_alpha, node_uptime_reputation_beta, optional)
 
 }
 
@@ -13223,11 +13240,11 @@ type Methods interface {
 		node_last_contact_success Node_LastContactSuccess_Field,
 		node_last_contact_failure Node_LastContactFailure_Field,
 		node_contained Node_Contained_Field,
-		node_disqualified Node_Disqualified_Field,
 		node_audit_reputation_alpha Node_AuditReputationAlpha_Field,
 		node_audit_reputation_beta Node_AuditReputationBeta_Field,
 		node_uptime_reputation_alpha Node_UptimeReputationAlpha_Field,
-		node_uptime_reputation_beta Node_UptimeReputationBeta_Field) (
+		node_uptime_reputation_beta Node_UptimeReputationBeta_Field,
+		optional Node_Create_Fields) (
 		node *Node, err error)
 
 	Create_Offer(ctx context.Context,
