@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
@@ -1013,4 +1014,31 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
+}
+
+// ValueAttribution returns database for partner keys information
+func (m *locked) ValueAttribution() valueattribution.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedValueAttribution{m.Locker, m.db.ValueAttribution()}
+}
+
+// lockedValueAttribution implements locking wrapper for valueattribution.DB
+type lockedValueAttribution struct {
+	sync.Locker
+	db valueattribution.DB
+}
+
+// Get retrieves partner id using bucket name
+func (m *lockedValueAttribution) Get(ctx context.Context, buckname []byte) (*valueattribution.PartnerInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, buckname)
+}
+
+// Insert creates and stores new ConnectorKeyInfo
+func (m *lockedValueAttribution) Insert(ctx context.Context, info *valueattribution.PartnerInfo) (*valueattribution.PartnerInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, info)
 }
