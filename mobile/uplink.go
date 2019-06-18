@@ -81,18 +81,12 @@ type Project struct {
 func (uplink *Uplink) OpenProject(satellite string, apikey string, options *ProjectOptions) (*Project, error) {
 	scope := uplink.scope.child()
 
-	opts := libuplink.ProjectOptions{}
-	if options != nil {
-		opts.Volatile.EncryptionKey = &storj.Key{}
-		copy(opts.Volatile.EncryptionKey[:], options.EncryptionKey) // TODO: error check
-	}
-
 	key, err := libuplink.ParseAPIKey(apikey)
 	if err != nil {
 		return nil, safeError(err)
 	}
 
-	project, err := uplink.lib.OpenProject(scope.ctx, satellite, key, &opts)
+	project, err := uplink.lib.OpenProject(scope.ctx, satellite, key)
 	if err != nil {
 		return nil, safeError(err)
 	}

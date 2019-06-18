@@ -220,7 +220,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		}
 	}
 
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey, nil)
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		return err
 	}

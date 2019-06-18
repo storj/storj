@@ -80,18 +80,13 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 	if err != nil {
 		return nil, err
 	}
-
-	encKey, err := uplink.LoadEncryptionKey(cliCfg.Enc.KeyFilepath)
-	if err != nil {
-		return nil, err
-	}
-
+	
 	uplk, err := cliCfg.NewUplink(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey, nil)
+	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		if err := uplk.Close(); err != nil {
 			fmt.Printf("error closing uplink: %+v\n", err)

@@ -712,7 +712,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	buckets := buckets.NewStore(streams)
+	buckets := buckets.NewStore(metainfo)
 
 	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, int32(blockSize), rs, 64*memory.MiB.Int64())
 
@@ -734,7 +734,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey, nil)
+	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
