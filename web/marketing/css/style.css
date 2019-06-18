@@ -1,3 +1,6 @@
+/*Copyright (C) 2019 Storj Labs, Inc.*/
+/*See LICENSE for copying information.*/
+
 html{
     height:100vh;
     width:100vw;
@@ -6,11 +9,100 @@ html{
 body{
     height:100%;
     width:100%;
-    background-color: #DDDDDD;
+    background-color:#E5E5E5;
 }
 
-.home-link:hover,.home-link p:hover{
+.home-link:hover,
+.home-link p:hover{
     text-decoration: none;
+}
+
+.btn{
+    height:48px;
+}
+
+hr{
+    margin-top:-5px;
+    margin-left: -15px;
+    margin-bottom: 0px;
+    width: 1102px;
+}
+
+.offers-table{
+    width: 1110px;
+    margin-left: -15px;
+    background: #FFFFFF;
+    border: 1.5px solid #DFDFDF;
+    border-radius: 6px;
+    width: 1106px;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.offer-heading{
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    margin-top:-5px;
+    width: 1103px;
+    color: #656565;
+    background: #F2F3F5;
+    border: 1px solid #DADDE5;
+    height:42px;
+}
+
+.offer-heading p{
+    margin-top:-5px;
+}
+
+.offer-heading, 
+.data-row, 
+.col-heading {
+    font-family: 'Roboto';
+    font-style: normal;
+}
+
+.data-row{
+    font-weight: normal;
+    font-size: 14px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #656565;
+}
+
+.data-row:hover{
+    background-color: #F9FAFB;
+}
+
+.col-heading{
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 49px;
+    align-items: center;
+    letter-spacing: -0.100741px;
+    color: #96989E;
+}
+
+.referral-admin,h3{
+    font-family: 'Poppins';
+    font-style: normal;
+}
+
+.referral-admin{
+    font-weight: 500;
+    font-size: 18px;
+    line-height: 19px;
+    color: #96989E;
+    margin-top:30px;
+}
+
+h3{
+    font-weight: bold;
+    font-size: 24px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #494949;
 }
 
 .banner{
@@ -18,14 +110,16 @@ body{
     overflow: hidden;
 }
 
-.banner-txt{
+.banner-txt, 
+.offer-label{
     font-family: 'Inter';
+}
+.banner-txt{
     font-size: 18px;
     color:white;
 }
 
 .offer-label{
-    font-family: 'Inter';
     font-size: 11px;
     line-height: 49px;
     letter-spacing: -0.100741px;
@@ -38,4 +132,49 @@ body{
 
 .toggler:hover{
     cursor:pointer;
+}
+
+#free-offers-modal-lbl, 
+#ref-offers-modal-lbl{
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 49px;
+    letter-spacing: -0.100741px;
+    color: #494949;
+}
+
+label,
+input{
+    font-family: 'Roboto';
+    font-style: normal;
+    font-weight: normal;
+}
+
+label{
+    font-size: 15px;
+    line-height: 19px;
+    color: #848484;
+}
+
+input{
+    font-size: 16px;
+    line-height: 131.56%;
+    letter-spacing: 0.01em;
+    text-indent: 15px;
+    color: #D0D0D0;
+}
+
+.offer-type{
+    margin-left:35px;
+}
+
+.edit-offer{
+    color:white;
+}
+
+.edit-offer:hover{
+    text-decoration: underline;
+    color: #656565;
 }

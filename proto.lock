@@ -679,94 +679,6 @@
             ]
           },
           {
-            "name": "GetStatsRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "name": "GetStatsResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "audit_count",
-                "type": "int64"
-              },
-              {
-                "id": 2,
-                "name": "audit_ratio",
-                "type": "double"
-              },
-              {
-                "id": 3,
-                "name": "uptime_count",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "uptime_ratio",
-                "type": "double"
-              }
-            ]
-          },
-          {
-            "name": "CreateStatsRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "audit_count",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "audit_success_count",
-                "type": "int64"
-              },
-              {
-                "id": 4,
-                "name": "uptime_count",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "uptime_success_count",
-                "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "CreateStatsResponse"
-          },
-          {
             "name": "CountNodesResponse",
             "fields": [
               {
@@ -1361,16 +1273,6 @@
                 "name": "DumpNodes",
                 "in_type": "DumpNodesRequest",
                 "out_type": "DumpNodesResponse"
-              },
-              {
-                "name": "GetStats",
-                "in_type": "GetStatsRequest",
-                "out_type": "GetStatsResponse"
-              },
-              {
-                "name": "CreateStats",
-                "in_type": "CreateStatsRequest",
-                "out_type": "CreateStatsResponse"
               }
             ]
           },
@@ -1970,71 +1872,6 @@
                 "id": 2,
                 "name": "address",
                 "type": "string"
-              }
-            ]
-          },
-          {
-            "name": "NodeStats",
-            "fields": [
-              {
-                "id": 1,
-                "name": "node_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "latency_90",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "audit_success_ratio",
-                "type": "double"
-              },
-              {
-                "id": 4,
-                "name": "uptime_ratio",
-                "type": "double"
-              },
-              {
-                "id": 5,
-                "name": "audit_count",
-                "type": "int64"
-              },
-              {
-                "id": 6,
-                "name": "audit_success_count",
-                "type": "int64"
-              },
-              {
-                "id": 7,
-                "name": "uptime_count",
-                "type": "int64"
-              },
-              {
-                "id": 8,
-                "name": "uptime_success_count",
-                "type": "int64"
-              },
-              {
-                "id": 9,
-                "name": "last_contact_success",
-                "type": "google.protobuf.Timestamp"
-              },
-              {
-                "id": 10,
-                "name": "last_contact_failure",
-                "type": "google.protobuf.Timestamp"
               }
             ]
           },

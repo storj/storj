@@ -156,32 +156,32 @@ func TestProjectMembersRepository(t *testing.T) {
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Users, projects console.Projects) ([]*console.User, []*console.Project) {
 	usersList := []*console.User{{
-		Email:        "2email2@ukr.net",
+		Email:        "2email2@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Liam",
 		FullName:     "Liam Jameson",
 	}, {
-		Email:        "1email1@ukr.net",
+		Email:        "1email1@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "William",
 		FullName:     "Noahson William",
 	}, {
-		Email:        "email3@ukr.net",
+		Email:        "email3@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Mason",
 		FullName:     "Mason Elijahson",
 	}, {
-		Email:        "email4@ukr.net",
+		Email:        "email4@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Oliver",
 		FullName:     "Oliver Jacobson",
 	}, {
-		Email:        "email5@ukr.net",
+		Email:        "email5@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Lucas",
 		FullName:     "Michaelson Lucas",
 	}, {
-		Email:        "email6@ukr.net",
+		Email:        "email6@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Alexander",
 		FullName:     "Alexander Ethanson",

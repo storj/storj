@@ -375,7 +375,7 @@ CREATE TABLE nodes (
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
-	disqualified boolean NOT NULL,
+	disqualified timestamp with time zone,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -694,7 +694,7 @@ CREATE TABLE nodes (
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
-	disqualified INTEGER NOT NULL,
+	disqualified TIMESTAMP,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -2050,10 +2050,14 @@ type Node struct {
 	LastContactSuccess time.Time
 	LastContactFailure time.Time
 	Contained          bool
-	Disqualified       bool
+	Disqualified       *time.Time
 }
 
 func (Node) _Table() string { return "nodes" }
+
+type Node_Create_Fields struct {
+	Disqualified Node_Disqualified_Field
+}
 
 type Node_Update_Fields struct {
 	Address            Node_Address_Field
@@ -2599,12 +2603,25 @@ func (Node_Contained_Field) _Column() string { return "contained" }
 type Node_Disqualified_Field struct {
 	_set   bool
 	_null  bool
-	_value bool
+	_value *time.Time
 }
 
-func Node_Disqualified(v bool) Node_Disqualified_Field {
-	return Node_Disqualified_Field{_set: true, _value: v}
+func Node_Disqualified(v time.Time) Node_Disqualified_Field {
+	return Node_Disqualified_Field{_set: true, _value: &v}
 }
+
+func Node_Disqualified_Raw(v *time.Time) Node_Disqualified_Field {
+	if v == nil {
+		return Node_Disqualified_Null()
+	}
+	return Node_Disqualified(*v)
+}
+
+func Node_Disqualified_Null() Node_Disqualified_Field {
+	return Node_Disqualified_Field{_set: true, _null: true}
+}
+
+func (f Node_Disqualified_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Node_Disqualified_Field) value() interface{} {
 	if !f._set || f._null {
@@ -4929,7 +4946,7 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
-	node_disqualified Node_Disqualified_Field) (
+	optional Node_Create_Fields) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -4960,7 +4977,7 @@ func (obj *postgresImpl) Create_Node(ctx context.Context,
 	__last_contact_success_val := node_last_contact_success.value()
 	__last_contact_failure_val := node_last_contact_failure.value()
 	__contained_val := node_contained.value()
-	__disqualified_val := node_disqualified.value()
+	__disqualified_val := optional.Disqualified.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_ip, protocol, type, email, wallet, free_bandwidth, free_disk, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.address, nodes.last_ip, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.free_bandwidth, nodes.free_disk, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.audit_success_ratio, nodes.uptime_success_count, nodes.total_uptime_count, nodes.uptime_ratio, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified")
 
@@ -8170,7 +8187,7 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
-	node_disqualified Node_Disqualified_Field) (
+	optional Node_Create_Fields) (
 	node *Node, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -8201,7 +8218,7 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 	__last_contact_success_val := node_last_contact_success.value()
 	__last_contact_failure_val := node_last_contact_failure.value()
 	__contained_val := node_contained.value()
-	__disqualified_val := node_disqualified.value()
+	__disqualified_val := optional.Disqualified.value()
 
 	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, address, last_ip, protocol, type, email, wallet, free_bandwidth, free_disk, major, minor, patch, hash, timestamp, release, latency_90, audit_success_count, total_audit_count, audit_success_ratio, uptime_success_count, total_uptime_count, uptime_ratio, created_at, updated_at, last_contact_success, last_contact_failure, contained, disqualified ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
@@ -12149,13 +12166,13 @@ func (rx *Rx) Create_Node(ctx context.Context,
 	node_last_contact_success Node_LastContactSuccess_Field,
 	node_last_contact_failure Node_LastContactFailure_Field,
 	node_contained Node_Contained_Field,
-	node_disqualified Node_Disqualified_Field) (
+	optional Node_Create_Fields) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_address, node_last_ip, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure, node_contained, node_disqualified)
+	return tx.Create_Node(ctx, node_id, node_address, node_last_ip, node_protocol, node_type, node_email, node_wallet, node_free_bandwidth, node_free_disk, node_major, node_minor, node_patch, node_hash, node_timestamp, node_release, node_latency_90, node_audit_success_count, node_total_audit_count, node_audit_success_ratio, node_uptime_success_count, node_total_uptime_count, node_uptime_ratio, node_last_contact_success, node_last_contact_failure, node_contained, optional)
 
 }
 
@@ -13071,7 +13088,7 @@ type Methods interface {
 		node_last_contact_success Node_LastContactSuccess_Field,
 		node_last_contact_failure Node_LastContactFailure_Field,
 		node_contained Node_Contained_Field,
-		node_disqualified Node_Disqualified_Field) (
+		optional Node_Create_Fields) (
 		node *Node, err error)
 
 	Create_Offer(ctx context.Context,
