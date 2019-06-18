@@ -46,3 +46,22 @@ func map_ref_get(metaDataRef C.MapRef, key *C.char, cErr **C.char) (cValue *C.ch
 
 	return C.CString(value)
 }
+
+// map_ref_del deletes value of the passed key in the go map that the passed ref refers to.
+//export map_ref_del
+func map_ref_del(metaDataRef C.MapRef, key *C.char, cErr **C.char) {
+	metaData, ok := universe.Get(metaDataRef._handle).(*MapRef)
+	if !ok {
+		*cErr = C.CString("invalid map")
+	}
+
+	metaData.mtx.Lock()
+	delete(metaData.m, C.GoString(key))
+	metaData.mtx.Unlock()
+}
+
+// delete_map_ref deletes a ref/handle to a go map[string]string.
+//export delete_map_ref
+func delete_map_ref(metaDataRef C.MapRef) {
+	universe.Del(metaDataRef._handle)
+}

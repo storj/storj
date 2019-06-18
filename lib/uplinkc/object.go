@@ -156,6 +156,14 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 	})}
 }
 
+//export free_upload_opts
+func free_upload_opts(uploadOpts *C.UploadOptions) {
+	C.free(unsafe.Pointer(uploadOpts.content_type))
+	uploadOpts.content_type = nil
+
+	universe.Del(uploadOpts.metadata._handle)
+}
+
 //export upload_write
 func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (writeLength C.int) {
 	upload, ok := universe.Get(uploader._handle).(*Upload)
@@ -164,7 +172,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr *
 		return C.int(0)
 	}
 
-	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length:length]
+	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := upload.wc.Write(buf)
 	if err == io.EOF {
@@ -277,7 +285,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, c
 		return C.int(0)
 	}
 
-	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length:length]
+	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(buf)
 	if err == io.EOF {

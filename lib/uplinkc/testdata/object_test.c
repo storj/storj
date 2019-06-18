@@ -40,7 +40,7 @@ void handle_project(ProjectRef project) {
         int num_of_objects = 4;
 
         for(int i = 0; i < num_of_objects; i++) {
-            char *data = mkrndstr(1024*i^2);
+            char *data = mkrndstr(1024 * (i + 1));
 
             MapRef map = new_map_ref();
             UploadOptions opts = {
@@ -52,8 +52,10 @@ void handle_project(ProjectRef project) {
             UploaderRef uploader = upload(bucket, object_paths[i], &opts, err);
             require_noerror(*err);
 
+            delete_map_ref(map);
+
             int uploaded = 0;
-            while (uploaded <= strlen(data)) {
+            while (uploaded < strlen(data)) {
                 int write_len = upload_write(uploader, (uint8_t *)data+uploaded, 1024, err);
                 require_noerror(*err);
 
