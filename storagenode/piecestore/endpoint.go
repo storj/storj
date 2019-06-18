@@ -146,7 +146,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 	limit := message.Limit
 
-	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
+	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	// TODO: verify that we have have expected amount of storage before continuing
 
@@ -177,13 +177,13 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
 			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
 			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
 			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
 			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
-			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -338,7 +338,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	}
 	limit, chunk := message.Limit, message.Chunk
 
-	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
+	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
@@ -370,13 +370,13 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action), zap.Error(err))
+			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
 			mon.Meter("download_success_byte_meter").Mark64(downloadSize)
 			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
 			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
 			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
-			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
