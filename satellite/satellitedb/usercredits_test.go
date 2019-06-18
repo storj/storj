@@ -68,6 +68,7 @@ func TestUsercredits(t *testing.T) {
 		type result struct {
 			remainingCharge  int
 			availableCredits int
+			usedCredits      int
 			hasErr           bool
 		}
 
@@ -88,6 +89,7 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					remainingCharge:  20,
 					availableCredits: 0,
+					usedCredits:      100,
 					hasErr:           false,
 				},
 			},
@@ -104,6 +106,7 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					remainingCharge:  60,
 					availableCredits: 0,
+					usedCredits:      100,
 					hasErr:           true,
 				},
 			},
@@ -120,6 +123,7 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					remainingCharge:  0,
 					availableCredits: 20,
+					usedCredits:      180,
 					hasErr:           false,
 				},
 			},
@@ -152,13 +156,13 @@ func TestUsercredits(t *testing.T) {
 			{
 				availableCredits, err := consoleDB.UserCredits().GetAvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
 				require.NoError(t, err)
-				var sum int
-				for i := range availableCredits {
-					sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
-				}
+				require.Equal(t, vc.expected.availableCredits, availableCredits)
+			}
 
+			{
+				usedCredts, err := consoleDB.UserCredits().GetUsedCredits(ctx, vc.userCredit.UserID)
 				require.NoError(t, err)
-				require.Equal(t, vc.expected.availableCredits, sum)
+				require.Equal(t, vc.expected.usedCredits, usedCredts)
 			}
 		}
 	})

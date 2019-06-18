@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/lib/pq"
@@ -31,16 +32,39 @@ func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int
 }
 
 // GetAvailableCredits returns all records of user credit that are not expired or used
-func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+func (c *usercredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (total int, err error) {
 	availableCredits, err := c.db.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
-		dbx.UserCredit_UserId(referrerID[:]),
+		dbx.UserCredit_UserId(userID[:]),
 		dbx.UserCredit_ExpiresAt(expirationEndDate),
 	)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return total, errs.Wrap(err)
 	}
 
-	return userCreditsFromDBX(availableCredits)
+	for _, credit := range availableCredits {
+		total += credit.CreditsEarnedInCents - credit.CreditsUsedInCents
+	}
+
+	return total, nil
+}
+
+func (c *usercredits) GetUsedCredits(ctx context.Context, userID uuid.UUID) (total int, err error) {
+	creditRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT SUM(credits_used_in_cents) FROM user_credits WHERE user_id=?`), userID[:])
+	if err != nil {
+		return total, errs.Wrap(err)
+	}
+
+	for creditRows.Next() {
+		var usedCredits sql.NullInt64
+		err = creditRows.Scan(&usedCredits)
+		if err != nil {
+			return total, err
+		}
+
+		total += int(usedCredits.Int64)
+	}
+
+	return total, nil
 }
 
 // Create insert a new record of user credit
