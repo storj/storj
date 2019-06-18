@@ -29,14 +29,36 @@ func TestNoFalsePositive(t *testing.T) {
 	}
 }
 
+func TestBytes(t *testing.T) {
+	for _, count := range []int{0, 100, 1000, 10000} {
+		filter := bloomfilter.NewOptimal(count, 0.1)
+		for i := 0; i < count; i++ {
+			id := newTestPieceID()
+			filter.Add(id)
+		}
+
+		bytes := filter.Bytes()
+		unmarshaled, err := bloomfilter.NewFromBytes(bytes)
+		require.NoError(t, err)
+
+		require.Equal(t, filter, unmarshaled)
+	}
+}
+
 // generateTestIDs generates n piece ids
 func generateTestIDs(n int) []storj.PieceID {
 	ids := make([]storj.PieceID, n)
 	for i := range ids {
-		// using math/rand, for less overhead
-		_, _ = rand.Read(ids[i][:])
+		ids[i] = newTestPieceID()
 	}
 	return ids
+}
+
+func newTestPieceID() storj.PieceID {
+	var id storj.PieceID
+	// using math/rand, for less overhead
+	_, _ = rand.Read(id[:])
+	return id
 }
 
 func BenchmarkFilterAdd(b *testing.B) {

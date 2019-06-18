@@ -8,18 +8,24 @@ import (
 	"math"
 	"math/rand"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
+)
+
+const (
+	version1 = 1
 )
 
 // Filter is a bloom filter implementation
 type Filter struct {
-	seed      int
-	hashCount int
+	seed      byte
+	hashCount byte
 	table     []byte
 }
 
 // New returns a new custom filter
-func New(seed, hashCount, sizeInBytes int) *Filter {
+func New(seed, hashCount byte, sizeInBytes int) *Filter {
 	return &Filter{
 		seed:      seed,
 		hashCount: hashCount,
@@ -29,20 +35,23 @@ func New(seed, hashCount, sizeInBytes int) *Filter {
 
 // NewOptimal returns a filter based on expected element count and false positive rate.
 func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
-	seed := rand.Intn(len(storj.PieceID{}))
+	seed := byte(rand.Intn(len(storj.PieceID{})))
 
 	// calculation based on https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
 	bitsPerElement := int(-1.44*math.Log2(falsePositiveRate)) + 1
 	hashCount := int(float64(bitsPerElement)*math.Log(2)) + 1
+	if hashCount > 255 {
+		hashCount = 255
+	}
 	sizeInBytes := expectedElements * bitsPerElement / 8
 
-	return New(seed, hashCount, sizeInBytes)
+	return New(seed, byte(hashCount), sizeInBytes)
 }
 
 // Add adds an element to the bloom filter
 func (filter *Filter) Add(pieceID storj.PieceID) {
-	seed := filter.seed
-	for k := 0; k < filter.hashCount; k++ {
+	seed := int(filter.seed)
+	for k := byte(0); k < filter.hashCount; k++ {
 		hash, bit := subrange(seed, pieceID)
 		seed += 11
 		if seed > 32 {
@@ -56,8 +65,8 @@ func (filter *Filter) Add(pieceID storj.PieceID) {
 
 // Contains return true if pieceID may be in the set
 func (filter *Filter) Contains(pieceID storj.PieceID) bool {
-	seed := filter.seed
-	for k := 0; k < filter.hashCount; k++ {
+	seed := int(filter.seed)
+	for k := byte(0); k < filter.hashCount; k++ {
 		hash, bit := subrange(seed, pieceID)
 		seed += 11
 		if seed > 32 {
@@ -83,13 +92,31 @@ func subrange(offset int, id storj.PieceID) (uint64, byte) {
 	return binary.LittleEndian.Uint64(id[offset : offset+8]), id[8]
 }
 
-/*
-func NewFromBytes() *Filter {}
+// NewFromBytes decodes the filter from a sequence of bytes.
+//
+// Note: data will be referenced inside the table.
+func NewFromBytes(data []byte) (*Filter, error) {
+	if len(data) < 3 {
+		return nil, errs.New("not enough data")
+	}
+	if data[0] != version1 {
+		return nil, errs.New("unsupported version %d", data[0])
+	}
 
-// Encode encodes the filter
-func (filter *Filter) Encode() []byte {
-	filterInfos := append(int2bytes(filter.seed), int2bytes(filter.bitsPerElement)...)
-	filterInfos = append(filterInfos, int2bytes(filter.hashCount)...)
-	return append(filterInfos, filter.table...)
+	filter := &Filter{}
+	filter.seed = data[1]
+	filter.hashCount = data[2]
+	filter.table = data[3:]
+
+	return filter, nil
 }
-*/
+
+// Bytes encodes the filter into a sequence of bytes that can be transferred on network.
+func (filter *Filter) Bytes() []byte {
+	bytes := make([]byte, 1+1+1+len(filter.table))
+	bytes[0] = version1
+	bytes[1] = filter.seed
+	bytes[2] = filter.hashCount
+	copy(bytes[3:], filter.table)
+	return bytes
+}
