@@ -416,9 +416,9 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
 				AND (
-					last_contact_success < last_contact_failure OR last_contact_success < $1
+					last_contact_success < last_contact_failure OR last_contact_success < $2
 				)
-			`, postgresNodeIDList(nodeIds),
+			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
 	default:
 		return nil, Error.New("Unsupported database %t", t)
