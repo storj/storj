@@ -118,10 +118,10 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 		ping, err := discovery.kad.Ping(ctx, node.Node)
 		if err != nil {
-			discovery.log.Info("could not ping node", zap.String("ID", node.Id.String()), zap.Error(err))
+			discovery.log.Info("could not ping node", zap.Stringer("ID", node.Id), zap.Error(err))
 			_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
 			if err != nil {
-				discovery.log.Error("could not update node uptime in cache", zap.String("ID", node.Id.String()), zap.Error(err))
+				discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
 			}
 			continue
 		}
@@ -132,19 +132,19 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
 		if err != nil {
-			discovery.log.Error("could not update node uptime in cache", zap.String("ID", ping.Id.String()), zap.Error(err))
+			discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", ping.Id), zap.Error(err))
 		}
 
 		// update node info
 		info, err := discovery.kad.FetchInfo(ctx, node.Node)
 		if err != nil {
-			discovery.log.Warn("could not fetch node info", zap.String("ID", ping.GetAddress().String()))
+			discovery.log.Warn("could not fetch node info", zap.Stringer("ID", ping.GetAddress()))
 			continue
 		}
 
 		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
 		if err != nil {
-			discovery.log.Warn("could not update node info", zap.String("ID", ping.GetAddress().String()))
+			discovery.log.Warn("could not update node info", zap.Stringer("ID", ping.GetAddress()))
 		}
 	}
 
