@@ -177,21 +177,19 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		var wallet sql.NullString
 		var disqualified *time.Time
 		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
-			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, disqualified)
+			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, &disqualified)
 		if err != nil {
 			return csv, Error.Wrap(err)
 		}
 		if wallet.Valid {
 			r.Wallet = wallet.String
 		}
-		if disqualified != nil {
-			r.Disqualified = *disqualified
-		}
 		id, err := storj.NodeIDFromBytes(nodeID)
 		if err != nil {
 			return csv, Error.Wrap(err)
 		}
 		r.NodeID = id
+		r.Disqualified = disqualified
 		csv = append(csv, r)
 	}
 	return csv, nil
