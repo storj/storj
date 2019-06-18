@@ -101,11 +101,11 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
-		AND total_audit_count < ?
+		AND (total_audit_count < ? OR total_uptime_count < ?)
 		AND last_contact_success > ?
 		AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, time.Now().Add(-criteria.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -245,10 +245,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 	uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count, disqualified,
-		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-		Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
+	FROM (SELECT *, Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
 	WHERE rn = 1
@@ -313,12 +310,7 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 	uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
 	uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT id,
-		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-		uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
-		uptime_reputation_alpha, uptime_reputation_beta
-		FROM nodes
+	FROM (SELECT * FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
 		ORDER BY RANDOM()
 		LIMIT ?) n`), args...)
