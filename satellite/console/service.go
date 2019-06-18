@@ -471,12 +471,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return
 	}
 
-	pmInfo, err := s.store.UserPayments().Get(ctx, auth.User.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	defaultPayment, err := s.pm.GetCustomerDefaultPaymentMethod(ctx, pmInfo.CustomerID)
+	defaultPayment, err := s.pm.GetCustomerDefaultPaymentMethod(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +499,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 		_, err = tx.ProjectPayments().Create(ctx, ProjectPayment{
 			ProjectID:       p.ID,
-			PayerID:         pmInfo.UserID,
+			PayerID:         auth.User.ID,
 			PaymentMethodID: defaultPayment.ID,
 		})
 
@@ -629,11 +624,6 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	projPaymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return err
-	}
-
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
@@ -644,12 +634,6 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		if err != nil {
 			userErr.Add(err)
 			continue
-		}
-
-		// abort if one of the members payment info
-		// attached to this project
-		if projPaymentInfo.PayerID == user.ID {
-			return errs.New("member with attached payment can not be deleted")
 		}
 
 		userIDs = append(userIDs, user.ID)
