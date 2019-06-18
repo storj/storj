@@ -151,6 +151,11 @@ model node (
 
 	field contained bool ( updatable )
 	field disqualified timestamp ( updatable, nullable )
+
+	field audit_reputation_alpha  float64 ( updatable )
+	field audit_reputation_beta   float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable )
+	field uptime_reputation_beta  float64 ( updatable )
 )
 
 create node ( )
