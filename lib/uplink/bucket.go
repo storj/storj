@@ -96,10 +96,6 @@ type UploadOptions struct {
 func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts != nil {
-
-	}
-
 	upload, err := b.NewWriter(ctx, path, opts)
 	if err != nil {
 		return err
