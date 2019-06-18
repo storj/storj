@@ -165,23 +165,6 @@ func generateQuery(totalRows int, toInt bool) (query string) {
 	return query
 }
 
-func userCreditsFromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
-	var userCredits []console.UserCredit
-	errList := new(errs.Group)
-
-	for _, credit := range userCreditsDBX {
-
-		uc, err := convertDBCredit(credit)
-		if err != nil {
-			errList.Add(err)
-			continue
-		}
-		userCredits = append(userCredits, *uc)
-	}
-
-	return userCredits, errList.Err()
-}
-
 func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
 	if userCreditDBX == nil {
 		return nil, errs.New("userCreditDBX parameter is nil")
