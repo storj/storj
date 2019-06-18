@@ -302,7 +302,6 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		// Upload with larger erasure share size to simulate longer download over slow transport client
 		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
