@@ -12,20 +12,21 @@ import (
 	"reflect"
 	"path/filepath"
 
-
+	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"github.com/gorilla/schema"
 	"storj.io/storj/satellite/marketing"
-	"github.com/gorilla/mux"
 )
 
 var (
+	// Error is satellite marketing error type
 	Error = errs.Class("satellite marketing error")
 	decoder = schema.NewDecoder()
 )
 
+// Config contains configuration for marketingweb server
 type Config struct {
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
 	StaticDir string `help:"path to static resources" default:""`
@@ -34,7 +35,7 @@ type Config struct {
 // Server represents marketing offersweb server
 type Server struct {
 	log *zap.Logger
-	config Config
+	Config Config
 	listener net.Listener
 	server   http.Server
 	service  *marketing.Service
@@ -46,24 +47,30 @@ type Server struct {
 	}
 }
 
-// Struct used to render each offer table
+// offerSet provides a separation of marketing offers by type.
 type offerSet struct {
 	RefOffers,FreeCredits []marketing.Offer
 }
 
+// init safely registers the timeConverter for the decoder.
 func init(){
 	decoder.RegisterConverter(time.Time{}, timeConverter)
 }
 
-// Organizes offers from database by type.
+// organizeOffers organizes offers by type.
 func organizeOffers(offers []marketing.Offer) offerSet{
 	var os offerSet
 	for _,offer := range offers {
-		if offer.Type == marketing.FreeCredit {
+
+		switch offer.Type {
+
+		case marketing.FreeCredit :
 			os.FreeCredits = append(os.FreeCredits,offer)
-		}else if offer.Type == marketing.Referral {
+
+		case marketing.Referral :
 			os.RefOffers = append(os.RefOffers,offer)
 		}
+
 	}
 	return os
 }
@@ -82,7 +89,7 @@ func (s *Server) commonPages() []string {
 func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
-		config:   config,
+		Config:   config,
 		listener: listener,
 		service:  service,
 	}
@@ -90,16 +97,16 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	decoder.RegisterConverter(time.Time{}, timeConverter)
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
-	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.Config.StaticDir)))
 	mux := mux.NewRouter()
-	if s.config.StaticDir != "" {
+	if s.Config.StaticDir != "" {
 		mux.HandleFunc("/", s.getOffers)
 		mux.PathPrefix("/static/").Handler(fs)
-		mux.HandleFunc("/create/{offer_type}", s.createOffer)
+		mux.HandleFunc("/create/{offer_type}", s.CreateOffer)
 	}
 	s.server.Handler = mux
 
-	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
+	s.templateDir = filepath.Join(s.Config.StaticDir, "pages")
 
 	if err := s.parseTemplates(); err != nil {
 		return nil, Error.Wrap(err)
@@ -117,7 +124,7 @@ func (s *Server) getOffers(w http.ResponseWriter, req *http.Request){
 
 	offers, err := s.service.ListAllOffers(context.Background())
 	if err != nil {
-		s.log.Error("app handler error", zap.Error(err))
+		s.log.Error("failed to retrieve all offers", zap.Error(err))
 		s.serveInternalError(w,req,err)
 		return
 	}
@@ -164,7 +171,7 @@ func (s *Server) parseTemplates() (err error) {
 	return nil
 }
 
-// Time converter is used by decoder in formToStruct to format expiration date field from form input.
+// timeConverter formats form time input as time.Time.
 func timeConverter(value string) reflect.Value {
 	v, err := time.Parse("2006-01-02",value)
 	if err != nil {
@@ -173,7 +180,7 @@ func timeConverter(value string) reflect.Value {
 	return reflect.ValueOf(v)
 }
 
-// formToStruct is used by createOffer to format post form input into a newOffer.
+// formToStruct decodes POST form data into a new offer.
 func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
 	err := req.ParseForm()
 	if err != nil {
@@ -187,11 +194,11 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffe
 	return o,nil
 }
 
-// Handler for POST requests to create, insert, and start a new offer or credit.
-func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
+// createOffer handles requests to create new offers.
+func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	o, err := formToStruct(w,req)
 	if err != nil{
-		s.log.Error("err from createFreeCredit Handler", zap.Error(err))
+		s.log.Error("failed to convert form to struct", zap.Error(err))
 		s.serveInternalError(w,req,err)
 		return
 	}
@@ -206,15 +213,16 @@ func (s *Server) createOffer(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if _, err := s.service.InsertNewOffer(context.Background(), &o); err != nil {
-		s.log.Error("createdHandler error", zap.Error(err))
+		s.log.Error("failed to insert new offer", zap.Error(err))
 		s.serveInternalError(w,req,err)
 		return
 	}
+
 	req.Method = "GET"
-	http.Redirect(w,req,"/",http.StatusFound)
+	http.Redirect(w,req,"/",http.StatusSeeOther)
 }
 
-// Handler for 404 errors. Defaults to 500 if template fails parsing.
+// serveNotFound handles 404 errors and defaults to 500 if template parsing fails.
 func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
@@ -226,7 +234,7 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// Handler for 500 errors and also renders err to the internalErr template.
+// serveInternalError handles 500 errors and renders err to the internalErr template.
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e error) {
 
 	w.WriteHeader(http.StatusInternalServerError)
