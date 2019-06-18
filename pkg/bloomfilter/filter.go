@@ -15,6 +15,10 @@ import (
 
 const (
 	version1 = 1
+
+	// rangeOffset 11 is a prime and
+	// hence iterates over all subranges of pieceID
+	rangeOffset = 11
 )
 
 // Filter is a bloom filter implementation
@@ -41,6 +45,7 @@ func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 	bitsPerElement := int(-1.44*math.Log2(falsePositiveRate)) + 1
 	hashCount := int(float64(bitsPerElement)*math.Log(2)) + 1
 	if hashCount > 255 {
+		// it will never be larger, but just in case to avoid overflow
 		hashCount = 255
 	}
 	sizeInBytes := expectedElements * bitsPerElement / 8
@@ -53,9 +58,10 @@ func (filter *Filter) Add(pieceID storj.PieceID) {
 	seed := int(filter.seed)
 	for k := byte(0); k < filter.hashCount; k++ {
 		hash, bit := subrange(seed, pieceID)
-		seed += 11
-		if seed > 32 {
-			seed -= 32
+
+		seed += rangeOffset
+		if seed > len(storj.PieceID{}) {
+			seed -= len(storj.PieceID{})
 		}
 
 		offset := hash % uint64(len(filter.table))
@@ -68,9 +74,10 @@ func (filter *Filter) Contains(pieceID storj.PieceID) bool {
 	seed := int(filter.seed)
 	for k := byte(0); k < filter.hashCount; k++ {
 		hash, bit := subrange(seed, pieceID)
-		seed += 11
-		if seed > 32 {
-			seed -= 32
+
+		seed += rangeOffset
+		if seed > len(storj.PieceID{}) {
+			seed -= len(storj.PieceID{})
 		}
 
 		offset := hash % uint64(len(filter.table))
