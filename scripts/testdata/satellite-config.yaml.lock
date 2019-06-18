@@ -196,6 +196,24 @@ kademlia.operator.wallet: ""
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 500
 
+# the initial shape 'alpha' used to calculate audit SNs reputation
+# overlay.node.audit-reputation-alpha0: 1
+
+# the initial shape 'beta' value used to calculate audit SNs reputation
+# overlay.node.audit-reputation-beta0: 0
+
+# the forgetting factor used to calculate the audit SNs reputation
+# overlay.node.audit-reputation-lambda: 1
+
+# weight to apply to audit reputation for total repair reputation calculation
+# overlay.node.audit-reputation-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# overlay.node.audit-reputation-uplink-weight: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# overlay.node.audit-reputation-weight: 1
+
 # a node's ratio of successful audits
 # overlay.node.audit-success-ratio: 0.4
 
@@ -211,23 +229,11 @@ kademlia.operator.wallet: ""
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 1h0m0s
 
-# the initial shape 'alpha' used to calculate audit SNs reputation
-# overlay.node.audit-reputation-alpha0: 1
+# the number of times a node's uptime has been checked to not be considered a New Node
+# overlay.node.uptime-count: 500
 
-# the initial shape 'beta' value used to calculate audit SNs reputation
-# overlay.node.audit-reputation-beta0: 0
-
-# the forgetting factor used to calculate the audit SNs reputation
-# overlay.node.audit-reputation-lambda: 1
-
-# the normalization weight used to calculate the audit SNs reputation
-# overlay.node.audit-reputation-weight: 1
-
-# weight to apply to audit reputation for total repair reputation calculation
-# overlay.node.audit-reputation-repair-weight: 1
-
-# weight to apply to audit reputation for total uplink reputation calculation
-# overlay.node.audit-reputation-uplink-weight: 1
+# a node's ratio of being up/online vs. down/offline
+# overlay.node.uptime-ratio: 0.9
 
 # the initial shape 'alpha' used to calculate uptime SNs reputation
 # overlay.node.uptime-reputation-alpha0: 1
@@ -238,20 +244,14 @@ kademlia.operator.wallet: ""
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 1
 
-# the normalization weight used to calculate the uptime SNs reputation
-# overlay.node.uptime-reputation-weight: 1
-
 # weight to apply to uptime reputation for total repair reputation calculation
 # overlay.node.uptime-reputation-repair-weight: 1
 
 # weight to apply to uptime reputation for total uplink reputation calculation
 # overlay.node.uptime-reputation-uplink-weight: 1
 
-# the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 500
-
-# a node's ratio of being up/online vs. down/offline
-# overlay.node.uptime-ratio: 0.9
+# the normalization weight used to calculate the uptime SNs reputation
+# overlay.node.uptime-reputation-weight: 1
 
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
