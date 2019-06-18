@@ -4,13 +4,11 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -108,32 +106,6 @@ var (
 		Use:   "routing-graph",
 		Short: "Dumps a graph of the routing table in the dot format",
 		RunE:  DrawTableAsGraph,
-	}
-	getStatsCmd = &cobra.Command{
-		Use:   "getstats <node_id>",
-		Short: "Get node stats",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  GetStats,
-	}
-	getCSVStatsCmd = &cobra.Command{
-		Use:   "getcsvstats <path to node ID csv file>",
-		Short: "Get node stats from csv",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  GetCSVStats,
-	}
-	createStatsCmd = &cobra.Command{
-		// TODO: add args to usage
-		Use:   "createstats",
-		Short: "Create node with stats",
-		Args:  cobra.MinimumNArgs(5), // id, auditct, auditsuccessct, uptimect, uptimesuccessct
-		RunE:  CreateStats,
-	}
-	createCSVStatsCmd = &cobra.Command{
-		// TODO: add args to usage
-		Use:   "createcsvstats",
-		Short: "Create node stats from csv",
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  CreateCSVStats,
 	}
 	objectHealthCmd = &cobra.Command{
 		Use:   "object <project-id> <bucket> <encrypted-path>",
@@ -328,167 +300,6 @@ func PingNode(cmd *cobra.Command, args []string) (err error) {
 	fmt.Printf("\n -- Ping response: %s\n", okayString)
 	if err != nil {
 		fmt.Printf(" -- Error: %v\n", err)
-	}
-	return nil
-}
-
-// GetStats gets a node's stats from overlay
-func GetStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-
-	res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
-		NodeId: nodeID,
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Stats for ID %s:\n", nodeID)
-	fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
-		res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
-	return nil
-}
-
-// GetCSVStats gets node stats from overlay based on a csv
-func GetCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// get csv
-	csvPath := args[0]
-	csvFile, _ := os.Open(csvPath)
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return ErrArgs.Wrap(err)
-		}
-
-		nodeID, err := storj.NodeIDFromString(line[0])
-		if err != nil {
-			return err
-		}
-		res, err := i.overlayclient.GetStats(context.Background(), &pb.GetStatsRequest{
-			NodeId: nodeID,
-		})
-		if err != nil {
-			return ErrRequest.Wrap(err)
-		}
-
-		fmt.Printf("Stats for ID %s:\n", nodeID)
-		fmt.Printf("AuditSuccessRatio: %f, AuditCount: %d, UptimeRatio: %f, UptimeCount: %d,\n",
-			res.AuditRatio, res.AuditCount, res.UptimeRatio, res.UptimeCount)
-	}
-	return nil
-}
-
-// CreateStats creates a node with stats in overlay
-func CreateStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	nodeID, err := storj.NodeIDFromString(args[0])
-	if err != nil {
-		return err
-	}
-	auditCount, err := strconv.ParseInt(args[1], 10, 64)
-	if err != nil {
-		return ErrArgs.New("audit count must be an int")
-	}
-	auditSuccessCount, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		return ErrArgs.New("audit success count must be an int")
-	}
-	uptimeCount, err := strconv.ParseInt(args[3], 10, 64)
-	if err != nil {
-		return ErrArgs.New("uptime count must be an int")
-	}
-	uptimeSuccessCount, err := strconv.ParseInt(args[4], 10, 64)
-	if err != nil {
-		return ErrArgs.New("uptime success count must be an int")
-	}
-
-	_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
-		NodeId:             nodeID,
-		AuditCount:         auditCount,
-		AuditSuccessCount:  auditSuccessCount,
-		UptimeCount:        uptimeCount,
-		UptimeSuccessCount: uptimeSuccessCount,
-	})
-	if err != nil {
-		return ErrRequest.Wrap(err)
-	}
-
-	fmt.Printf("Created stats entry for ID %s\n", nodeID)
-	return nil
-}
-
-// CreateCSVStats creates node with stats in overlay based on a CSV
-func CreateCSVStats(cmd *cobra.Command, args []string) (err error) {
-	i, err := NewInspector(*Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-
-	// get csv
-	csvPath := args[0]
-	csvFile, _ := os.Open(csvPath)
-	reader := csv.NewReader(bufio.NewReader(csvFile))
-	for {
-		line, err := reader.Read()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return ErrArgs.Wrap(err)
-		}
-
-		nodeID, err := storj.NodeIDFromString(line[0])
-		if err != nil {
-			return err
-		}
-		auditCount, err := strconv.ParseInt(line[1], 10, 64)
-		if err != nil {
-			return ErrArgs.New("audit count must be an int")
-		}
-		auditSuccessCount, err := strconv.ParseInt(line[2], 10, 64)
-		if err != nil {
-			return ErrArgs.New("audit success count must be an int")
-		}
-		uptimeCount, err := strconv.ParseInt(line[3], 10, 64)
-		if err != nil {
-			return ErrArgs.New("uptime count must be an int")
-		}
-		uptimeSuccessCount, err := strconv.ParseInt(line[4], 10, 64)
-		if err != nil {
-			return ErrArgs.New("uptime success count must be an int")
-		}
-
-		_, err = i.overlayclient.CreateStats(context.Background(), &pb.CreateStatsRequest{
-			NodeId:             nodeID,
-			AuditCount:         auditCount,
-			AuditSuccessCount:  auditSuccessCount,
-			UptimeCount:        uptimeCount,
-			UptimeSuccessCount: uptimeSuccessCount,
-		})
-		if err != nil {
-			return ErrRequest.Wrap(err)
-		}
-
-		fmt.Printf("Created stats entry for ID %s\n", nodeID)
 	}
 	return nil
 }
@@ -805,11 +616,6 @@ func init() {
 	kadCmd.AddCommand(nodeInfoCmd)
 	kadCmd.AddCommand(dumpNodesCmd)
 	kadCmd.AddCommand(drawTableCmd)
-
-	statsCmd.AddCommand(getStatsCmd)
-	statsCmd.AddCommand(getCSVStatsCmd)
-	statsCmd.AddCommand(createStatsCmd)
-	statsCmd.AddCommand(createCSVStatsCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)

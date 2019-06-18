@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -47,6 +48,7 @@ func (s *Server) commonPages() []string {
 		filepath.Join(s.templateDir, "base.html"),
 		filepath.Join(s.templateDir, "index.html"),
 		filepath.Join(s.templateDir, "banner.html"),
+		filepath.Join(s.templateDir, "logo.html"),
 	}
 }
 
@@ -60,10 +62,10 @@ func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Serve
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
 
-	fs := http.FileServer(http.Dir(s.config.StaticDir))
-	mux := http.NewServeMux()
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
+	mux := mux.NewRouter()
 	if s.config.StaticDir != "" {
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.PathPrefix("/static/").Handler(fs)
 		mux.Handle("/", s)
 	}
 	s.server.Handler = mux
@@ -94,10 +96,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (s *Server) parseTemplates() (err error) {
 	homeFiles := append(s.commonPages(),
 		filepath.Join(s.templateDir, "home.html"),
-		filepath.Join(s.templateDir, "refOffers.html"),
-		filepath.Join(s.templateDir, "freeOffers.html"),
-		filepath.Join(s.templateDir, "roModal.html"),
-		filepath.Join(s.templateDir, "foModal.html"),
+		filepath.Join(s.templateDir, "referral-offers.html"),
+		filepath.Join(s.templateDir, "referral-offers-modal.html"),
+		filepath.Join(s.templateDir, "free-offers.html"),
+		filepath.Join(s.templateDir, "free-offers-modal.html"),
 	)
 
 	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
