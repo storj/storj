@@ -535,7 +535,6 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
-			dbx.Node_Disqualified(false),
 			dbx.Node_AuditReputationAlpha(1),
 			dbx.Node_AuditReputationBeta(0),
 			dbx.Node_UptimeReputationAlpha(1),
