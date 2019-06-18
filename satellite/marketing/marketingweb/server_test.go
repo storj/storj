@@ -1,4 +1,4 @@
-package marketingweb
+package marketingweb_test
 
 import (
 	"net/http"
@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"log"
+
+	"github.com/stretchr/testify/require"
 )
 
 
@@ -25,62 +27,65 @@ func buildForm(isReferralOffer bool) url.Values{
 	return form
 }
 
-func buildResources(endpoint string, isReferralOffer bool) (url.URL, url.Values){
+func buildResources(endpoint string, isReferralOffer bool) (url.URL, url.Values, error){
 	URL, err := url.ParseRequestURI("http://127.0.0.1:10003")
 	if err != nil{
-		log.Fatalf("URL parsing Err : %v\n", err)
+		log.Printf("URL parsing Err : %v\n", err)
+		return *URL, url.Values{}, err
 	}
 	URL.Path = endpoint
 	form := buildForm(isReferralOffer)
 	URL.RawQuery = form.Encode()
-	return *URL, form
+	return *URL, form, nil
 }
 
 func callServer(t *testing.T,endpoint,params string, form url.Values) string{
 	c := http.Client{}
 	req, err := http.NewRequest("POST", endpoint, strings.NewReader(params))
-	if err != nil {
-		t.Fatalf("Err building request : %v\n", err)
-	}
+	require.NoError(t,err,"failed to create new POST request")
+
 	req.PostForm = form
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.Do(req)
 	if err != nil {
-		t.Fatalf("Resp Err : %v\n", err)
+		require.NoError(t,err,"failed to execute POST request.")
 	}
 	return resp.Status
 }
 
 func TestCreateFreeCredit(t *testing.T){
-	URL,form := buildResources("/create/free-credit", false)
+	URL,form,err := buildResources("/create/free-credit", false)
+	require.NoError(t,err,"failed to build request resources")
+
 	urlStr := URL.String()
 	respStatus := callServer(t,urlStr,URL.RawQuery,form)
 
 	if respStatus != "200 OK" {
-		t.Fatalf("response err : %v\n", respStatus)
+		t.Fatalf("Bad http response status : %v\n", respStatus)
 	}
 }
 
 func TestCreateReferralOffer(t *testing.T){
-	URL,form := buildResources("/create/referral-offer", true)
+	URL,form,err := buildResources("/create/referral-offer", true)
+	require.NoError(t,err,"failed to build request resources")
+
 	urlStr := URL.String()
 	respStatus := callServer(t,urlStr,URL.RawQuery,form)
 
 	if respStatus != "200 OK" {
-		t.Fatalf("response err : %v\n", respStatus)
+		t.Fatalf("Bad http response status : %v\n", respStatus)
 	}
 }
 
 func TestGetOffers(t *testing.T){
 	url := "http://127.0.0.1:10003/"
 	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("request err : %v\n", err)
-	}
+	require.NoError(t,err,"failed to execute GET request.")
+
 	defer resp.Body.Close()
 
 	if resp.Status != "200 OK" {
-		t.Fatalf("response err : %v\n", err)
+		t.Fatalf("Bad http response status : %v\n", resp.Status)
 	}
 }
