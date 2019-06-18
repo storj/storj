@@ -502,7 +502,6 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	// Add online/offline info to the node table
 	for _, segment := range segments {
 		row := make([]string, numNodes+1)
-		// "2" = healthy, "1" = unhealthy, "0" = offline
 		for _, id := range segment.HealthyIds {
 			i := nodeIndices[id]
 			row[i] = "healthy"
