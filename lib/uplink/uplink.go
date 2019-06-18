@@ -157,7 +157,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	if err != nil {
 		return nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
-	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int64())
+	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
 	var encryptionKey *storj.Key
 	if opts != nil {
 		encryptionKey = opts.Volatile.EncryptionKey
@@ -167,8 +167,9 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		// TODO: fix before the final alpha network wipe
 		encryptionKey = new(storj.Key)
 	}
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(),
-		maxBucketMetaSize.Int(), encryptionKey, memory.KiB.Int(), storj.AESGCM)
+	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), encryptionKey,
+		memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int(),
+	)
 	if err != nil {
 		return nil, Error.New("failed to create stream store: %v", err)
 	}

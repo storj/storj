@@ -61,14 +61,14 @@ type Store interface {
 type streamStore struct {
 	segments        segments.Store
 	segmentSize     int64
-	inlineThreshold int
 	rootKey         *storj.Key
 	encBlockSize    int
 	cipher          storj.Cipher
+	inlineThreshold int
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, inlineThreshold int, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher, inlineThreshold int) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
@@ -82,10 +82,10 @@ func NewStreamStore(segments segments.Store, segmentSize int64, inlineThreshold 
 	return &streamStore{
 		segments:        segments,
 		segmentSize:     segmentSize,
-		inlineThreshold: inlineThreshold,
 		rootKey:         rootKey,
 		encBlockSize:    encBlockSize,
 		cipher:          cipher,
+		inlineThreshold: inlineThreshold,
 	}, nil
 }
 
@@ -111,203 +111,158 @@ func (s *streamStore) Put(ctx context.Context, path storj.Path, pathCipher storj
 	return m, err
 }
 
-// segmentEncrypter contains all the keys, nonces, and encrypter that are
-// needed to encrypt segments
-type segmentEncrypter struct {
-	contentKey   storj.Key
-	contentNonce storj.Nonce
-	keyNonce     storj.Nonce
-	encryptedKey storj.EncryptedPrivateKey
-	encrypter    encryption.Transformer
-}
-
-func newSegmentEncrypter(derivedKey *storj.Key, cipher storj.Cipher, currentSegmentIndex int64, blockSize int) (se *segmentEncrypter, err error) {
-	// generate random key for encrypting the segment's content
-	var contentKey storj.Key
-	_, err = rand.Read(contentKey[:])
-	if err != nil {
-		return se, err
-	}
-
-	// Initialize the content nonce with the segment's index incremented by 1.
-	// The increment by 1 is to avoid nonce reuse with the metadata encryption,
-	// which is encrypted with the zero nonce.
-	var contentNonce storj.Nonce
-	_, err = encryption.Increment(&contentNonce, currentSegmentIndex+1)
-	if err != nil {
-		return se, err
-	}
-
-	encrypter, err := encryption.NewEncrypter(cipher, &contentKey, &contentNonce, blockSize)
-	if err != nil {
-		return se, err
-	}
-
-	// generate random nonce for encrypting the content key
-	var keyNonce storj.Nonce
-	_, err = rand.Read(keyNonce[:])
-	if err != nil {
-		return se, err
-	}
-
-	// encrypt the contentKey so that we can store it alongside the segment metainfo
-	encryptedKey, err := encryption.EncryptKey(&contentKey, cipher, derivedKey, &keyNonce)
-	if err != nil {
-		return se, err
-	}
-
-	return &segmentEncrypter{
-		contentKey:   contentKey,
-		contentNonce: contentNonce,
-		keyNonce:     keyNonce,
-		encryptedKey: encryptedKey,
-		encrypter:    encrypter,
-	}, err
-}
-
-// Generating the segment info is deferred until after the reader has been
-// drained. For this reason, we do not know if it is the last segment, or the
-// segment size, until the reader has been read when we put the data.
-//
-// We create a function closure here that has all the needed information to
-// generate the segment info when it is needed.
-func (s *streamStore) generateSegmentInfoFunc(ctx context.Context, encPath storj.Path,
-	segmentIndex int64, segmentEncrypter *segmentEncrypter, isLast func() bool,
-	lastSegmentSize func() int64, metadata []byte) func() (storj.Path, []byte, error) {
-
-	return func() (storj.Path, []byte, error) {
-		// If we aren't at the last segment, then only create segment metadata
-		if !isLast() {
-			segmentPath := getSegmentPath(encPath, segmentIndex)
-
-			if s.cipher == storj.Unencrypted {
-				return segmentPath, nil, nil
-			}
-
-			segmentMeta, err := proto.Marshal(&pb.SegmentMeta{
-				EncryptedKey: segmentEncrypter.encryptedKey,
-				KeyNonce:     segmentEncrypter.keyNonce[:],
-			})
-			if err != nil {
-				return "", nil, err
-			}
-
-			return segmentPath, segmentMeta, nil
-		}
-
-		// If we are at the last segment, then create the stream metadata with
-		// last segment metadata
-		lastSegmentPath := storj.JoinPaths("l", encPath)
-		streamInfo, err := proto.Marshal(&pb.StreamInfo{
-			NumberOfSegments: segmentIndex + 1,
-			SegmentsSize:     s.segmentSize,
-			LastSegmentSize:  lastSegmentSize(),
-			Metadata:         metadata,
-		})
-		if err != nil {
-			return "", nil, err
-		}
-
-		// encrypt metadata with the content encryption key and zero nonce
-		encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &segmentEncrypter.contentKey, &storj.Nonce{})
-		if err != nil {
-			return "", nil, err
-		}
-
-		streamMeta := pb.StreamMeta{
-			EncryptedStreamInfo: encryptedStreamInfo,
-			EncryptionType:      int32(s.cipher),
-			EncryptionBlockSize: int32(s.encBlockSize),
-		}
-
-		if s.cipher != storj.Unencrypted {
-			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-				EncryptedKey: segmentEncrypter.encryptedKey,
-				KeyNonce:     segmentEncrypter.keyNonce[:],
-			}
-		}
-
-		lastSegmentMeta, err := proto.Marshal(&streamMeta)
-		if err != nil {
-			return "", nil, err
-		}
-
-		return lastSegmentPath, lastSegmentMeta, nil
-	}
-}
-
 func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (m Meta, lastSegment int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var currentSegmentIndex int64
+	var currentSegment int64
 	var streamSize int64
 	var putMeta segments.Meta
 
 	defer func() {
 		select {
 		case <-ctx.Done():
-			s.cancelHandler(context.Background(), currentSegmentIndex, path, pathCipher)
+			s.cancelHandler(context.Background(), currentSegment, path, pathCipher)
 		default:
 		}
 	}()
 
 	derivedKey, err := encryption.DeriveContentKey(path, s.rootKey)
 	if err != nil {
-		return Meta{}, currentSegmentIndex, err
-	}
-
-	encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
-	if err != nil {
-		return Meta{}, currentSegmentIndex, err
+		return Meta{}, currentSegment, err
 	}
 
 	eofReader := NewEOFReader(data)
 
 	for !eofReader.isEOF() && !eofReader.hasError() {
-
-		segmentEncrypter, err := newSegmentEncrypter(derivedKey, s.cipher, currentSegmentIndex, s.encBlockSize)
+		// generate random key for encrypting the segment's content
+		var contentKey storj.Key
+		_, err = rand.Read(contentKey[:])
 		if err != nil {
-			return Meta{}, currentSegmentIndex, err
+			return Meta{}, currentSegment, err
+		}
+
+		// Initialize the content nonce with the segment's index incremented by 1.
+		// The increment by 1 is to avoid nonce reuse with the metadata encryption,
+		// which is encrypted with the zero nonce.
+		var contentNonce storj.Nonce
+		_, err := encryption.Increment(&contentNonce, currentSegment+1)
+		if err != nil {
+			return Meta{}, currentSegment, err
+		}
+
+		encrypter, err := encryption.NewEncrypter(s.cipher, &contentKey, &contentNonce, s.encBlockSize)
+		if err != nil {
+			return Meta{}, currentSegment, err
+		}
+
+		// generate random nonce for encrypting the content key
+		var keyNonce storj.Nonce
+		_, err = rand.Read(keyNonce[:])
+		if err != nil {
+			return Meta{}, currentSegment, err
+		}
+
+		encryptedKey, err := encryption.EncryptKey(&contentKey, s.cipher, derivedKey, &keyNonce)
+		if err != nil {
+			return Meta{}, currentSegment, err
 		}
 
 		sizeReader := NewSizeReader(eofReader)
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
-
 		// If the data is larger than the inline threshold size, then it will be a remote segment
 		isRemote, err := peekReader.IsLargerThan(s.inlineThreshold)
 		if err != nil {
-			return Meta{}, currentSegmentIndex, err
+			return Meta{}, currentSegment, err
 		}
-
-		// Deal with inline first
-		if !isRemote {
-			data := peekReader.Buf()
-			cipherData, err := encryption.Encrypt(data, s.cipher, &segmentEncrypter.contentKey, &segmentEncrypter.contentNonce)
-			if err != nil {
-				return Meta{}, currentSegmentIndex, err
-			}
-			segmentInfoFunc := s.generateSegmentInfoFunc(ctx, encPath, currentSegmentIndex, segmentEncrypter, eofReader.isEOF, sizeReader.Size, metadata)
-			putMeta, err = s.segments.PutInline(ctx, cipherData, expiration, segmentInfoFunc)
-			if err != nil {
-				return Meta{}, currentSegmentIndex, err
-			}
+		var transformedReader io.Reader
+		if isRemote {
+			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
+			transformedReader = encryption.TransformReader(paddedReader, encrypter, 0)
 		} else {
-			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), segmentEncrypter.encrypter.InBlockSize())
-			transformedReader := encryption.TransformReader(paddedReader, segmentEncrypter.encrypter, 0)
-			segmentInfoFunc := s.generateSegmentInfoFunc(ctx, encPath, currentSegmentIndex, segmentEncrypter, eofReader.isEOF, sizeReader.Size, metadata)
-			putMeta, err = s.segments.PutRemote(ctx, transformedReader, expiration, segmentInfoFunc)
+			data, err := ioutil.ReadAll(peekReader)
 			if err != nil {
-				return Meta{}, currentSegmentIndex, err
+				return Meta{}, currentSegment, err
 			}
+			cipherData, err := encryption.Encrypt(data, s.cipher, &contentKey, &contentNonce)
+			if err != nil {
+				return Meta{}, currentSegment, err
+			}
+			transformedReader = bytes.NewReader(cipherData)
 		}
 
-		currentSegmentIndex++
+		putMeta, err = s.segments.Put(ctx, transformedReader, expiration, func() (storj.Path, []byte, error) {
+			encPath, err := EncryptAfterBucket(ctx, path, pathCipher, s.rootKey)
+			if err != nil {
+				return "", nil, err
+			}
+
+			if !eofReader.isEOF() {
+				segmentPath := getSegmentPath(encPath, currentSegment)
+
+				if s.cipher == storj.Unencrypted {
+					return segmentPath, nil, nil
+				}
+
+				segmentMeta, err := proto.Marshal(&pb.SegmentMeta{
+					EncryptedKey: encryptedKey,
+					KeyNonce:     keyNonce[:],
+				})
+				if err != nil {
+					return "", nil, err
+				}
+
+				return segmentPath, segmentMeta, nil
+			}
+
+			lastSegmentPath := storj.JoinPaths("l", encPath)
+
+			streamInfo, err := proto.Marshal(&pb.StreamInfo{
+				NumberOfSegments: currentSegment + 1,
+				SegmentsSize:     s.segmentSize,
+				LastSegmentSize:  sizeReader.Size(),
+				Metadata:         metadata,
+			})
+			if err != nil {
+				return "", nil, err
+			}
+
+			// encrypt metadata with the content encryption key and zero nonce
+			encryptedStreamInfo, err := encryption.Encrypt(streamInfo, s.cipher, &contentKey, &storj.Nonce{})
+			if err != nil {
+				return "", nil, err
+			}
+
+			streamMeta := pb.StreamMeta{
+				EncryptedStreamInfo: encryptedStreamInfo,
+				EncryptionType:      int32(s.cipher),
+				EncryptionBlockSize: int32(s.encBlockSize),
+			}
+
+			if s.cipher != storj.Unencrypted {
+				streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+					EncryptedKey: encryptedKey,
+					KeyNonce:     keyNonce[:],
+				}
+			}
+
+			lastSegmentMeta, err := proto.Marshal(&streamMeta)
+			if err != nil {
+				return "", nil, err
+			}
+
+			return lastSegmentPath, lastSegmentMeta, nil
+		})
+		if err != nil {
+			return Meta{}, currentSegment, err
+		}
+
+		currentSegment++
 		streamSize += sizeReader.Size()
 	}
 
 	if eofReader.hasError() {
-		return Meta{}, currentSegmentIndex, eofReader.err
+		return Meta{}, currentSegment, eofReader.err
 	}
 
 	resultMeta := Meta{
@@ -317,7 +272,7 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 		Data:       metadata,
 	}
 
-	return resultMeta, currentSegmentIndex, nil
+	return resultMeta, currentSegment, nil
 }
 
 // getSegmentPath returns the unique path for a particular segment

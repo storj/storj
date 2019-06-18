@@ -78,30 +78,17 @@ func (mr *MockStoreMockRecorder) Repair(ctx, path, lostPieces interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Repair", reflect.TypeOf((*MockStore)(nil).Repair), ctx, path, lostPieces)
 }
 
-// PutInline mocks base method
-func (m *MockStore) PutInline(ctx context.Context, data []byte, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (Meta, error) {
-	ret := m.ctrl.Call(m, "PutInline", ctx, data, expiration, segmentInfo)
+// Put mocks base method
+func (m *MockStore) Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (Meta, error) {
+	ret := m.ctrl.Call(m, "Put", ctx, data, expiration, segmentInfo)
 	ret0, _ := ret[0].(Meta)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// PutRemote mocks base method
-func (m *MockStore) PutRemote(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (Meta, error) {
-	ret := m.ctrl.Call(m, "PutRemote", ctx, data, expiration, segmentInfo)
-	ret0, _ := ret[0].(Meta)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PutInline indicates an expected call of PutInline
-func (mr *MockStoreMockRecorder) PutInline(ctx, data, expiration, segmentInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutInline", reflect.TypeOf((*MockStore)(nil).PutInline), ctx, data, expiration, segmentInfo)
-}
-
-// PutRemote indicates an expected call of PutRemote
-func (mr *MockStoreMockRecorder) PutRemote(ctx, data, expiration, segmentInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutRemote", reflect.TypeOf((*MockStore)(nil).PutRemote), ctx, data, expiration, segmentInfo)
+// Put indicates an expected call of Put
+func (mr *MockStoreMockRecorder) Put(ctx, data, expiration, segmentInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockStore)(nil).Put), ctx, data, expiration, segmentInfo)
 }
 
 // Delete mocks base method

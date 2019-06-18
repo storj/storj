@@ -181,9 +181,9 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	if err != nil {
 		return nil, err
 	}
-	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, maxEncryptedSegmentSize)
+	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), p.maxInlineSize.Int(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}

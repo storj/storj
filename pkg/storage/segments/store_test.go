@@ -4,6 +4,7 @@
 package segments_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"fmt"
@@ -47,10 +48,11 @@ func TestSegmentStoreMeta(t *testing.T) {
 		t.Run("#"+strconv.Itoa(i), func(t *testing.T) {
 			runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
 				expectedSize := int64(len(test.data))
+				reader := bytes.NewReader(test.data)
 
 				beforeModified := time.Now()
 				if test.err == "" {
-					meta, err := segmentStore.PutInline(ctx, test.data, test.expiration, func() (storj.Path, []byte, error) {
+					meta, err := segmentStore.Put(ctx, reader, test.expiration, func() (storj.Path, []byte, error) {
 						return test.path, test.metadata, nil
 					})
 					require.NoError(t, err)
@@ -88,7 +90,7 @@ func TestSegmentStorePutGet(t *testing.T) {
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			metadata, err := segmentStore.PutInline(ctx, test.content, test.expiration, func() (storj.Path, []byte, error) {
+			metadata, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
 				return test.path, test.metadata, nil
 			})
 			require.NoError(t, err, test.name)
@@ -122,7 +124,7 @@ func TestSegmentStoreDelete(t *testing.T) {
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
-			_, err := segmentStore.PutInline(ctx, test.content, test.expiration, func() (storj.Path, []byte, error) {
+			_, err := segmentStore.Put(ctx, bytes.NewReader(test.content), test.expiration, func() (storj.Path, []byte, error) {
 				return test.path, test.metadata, nil
 			})
 			require.NoError(t, err, test.name)
@@ -162,7 +164,7 @@ func TestSegmentStoreList(t *testing.T) {
 		}
 		for _, seg := range segments {
 			segment := seg
-			_, err := segmentStore.PutInline(ctx, segment.content, expiration, func() (storj.Path, []byte, error) {
+			_, err := segmentStore.Put(ctx, bytes.NewReader(segment.content), expiration, func() (storj.Path, []byte, error) {
 				return segment.path, []byte{}, nil
 			})
 			require.NoError(t, err)
@@ -274,7 +276,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
 		require.NoError(t, err)
 
-		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 8*memory.MiB.Int64())
+		segmentStore := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 		assert.NotNil(t, segmentStore)
 
 		test(t, ctx, planet, segmentStore)
