@@ -19,7 +19,7 @@ func TestNoFalsePositive(t *testing.T) {
 
 	for _, ratio := range []float32{0.5, 1, 2} {
 		size := int(numberOfPieces * ratio)
-		filter := bloomfilter.New(size, 0.1)
+		filter := bloomfilter.NewOptimal(size, 0.1)
 		for _, pieceID := range pieceIDs {
 			filter.Add(pieceID)
 		}
@@ -41,7 +41,7 @@ func generateTestIDs(n int) []storj.PieceID {
 
 func BenchmarkFilterAdd(b *testing.B) {
 	ids := generateTestIDs(100000)
-	filter := bloomfilter.New(len(ids), 0.1)
+	filter := bloomfilter.NewOptimal(len(ids), 0.1)
 
 	b.Run("Add", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
