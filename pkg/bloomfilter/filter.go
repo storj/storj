@@ -18,8 +18,8 @@ type Filter struct {
 	table          []byte
 }
 
-// NewFilter returns a new custom filter
-func NewFilter(expectedElements int, p float64) *Filter {
+// New returns a new custom filter
+func New(expectedElements int, p float64) *Filter {
 	var f Filter
 	f.seed = 8 // TODO allow another seed value - have to handle the reach of the end of the array
 	f.bitsPerElement = int(-1.44*math.Log2(p)) + 1

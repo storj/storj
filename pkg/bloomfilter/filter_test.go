@@ -1,53 +1,40 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package bloomfilter
+package bloomfilter_test
 
 import (
-	"os"
+	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/storj"
 )
 
-var pieceIDs []storj.PieceID
-var nbPiecesInFilter int
-var totalNbPieces int
-var falsePositiveProbability float64
-
-//  generates 1 million piece ids
-// adds 95% of them to the bloom filter,
-// and then checks all 1 million piece ids with the bloom filter
-
-func TestMain(m *testing.M) {
-	totalNbPieces = 1000000
-	nbPiecesInFilter = 950000
-	pieceIDs = GenerateIDs(totalNbPieces)
-	falsePositiveProbability = 0.1
-	os.Exit(m.Run())
-}
-
 func TestNoFalsePositive(t *testing.T) {
-	filter := NewFilter(len(pieceIDs), falsePositiveProbability)
-	for _, pieceID := range pieceIDs[:nbPiecesInFilter] {
-		filter.Add(pieceID)
-	}
+	const numberOfPieces = 10000
+	pieceIDs := generateTestIDs(numberOfPieces)
 
-	for _, pieceID := range pieceIDs[:nbPiecesInFilter] {
-		if !filter.Contains(pieceID) {
-			t.Fatal("Filter returns false negative!")
+	for _, ratio := range []float32{0.5, 1, 2} {
+		size := int(numberOfPieces * ratio)
+		filter := bloomfilter.New(size, 0.1)
+		for _, pieceID := range pieceIDs {
+			filter.Add(pieceID)
+		}
+		for _, pieceID := range pieceIDs {
+			require.True(t, filter.Contains(pieceID))
 		}
 	}
 }
 
-// GenerateIDs generates nbPieces piece ids
-func GenerateIDs(nbPieces int) []storj.PieceID {
-	pieceIDs := make([]storj.PieceID, nbPieces)
-	currentNbPieces := 0
-	for currentNbPieces < nbPieces {
-		newPiece := storj.NewPieceID()
-		pieceIDs[currentNbPieces] = newPiece
-		currentNbPieces++
+// generateTestIDs generates n piece ids
+func generateTestIDs(n int) []storj.PieceID {
+	ids := make([]storj.PieceID, n)
+	for i := range ids {
+		// using math/rand, for less overhead
+		_, _ = rand.Read(ids[i][:])
 	}
-	return pieceIDs
+	return ids
 }
