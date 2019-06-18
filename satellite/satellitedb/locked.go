@@ -22,11 +22,11 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/valueattribution"
 )
 
 // locked implements a locking wrapper around satellite.DB.

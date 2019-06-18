@@ -15,12 +15,12 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/valueattribution"
 )
 
 var (

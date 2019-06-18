@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/satellite/valueattribution"
 )
 
 func TestValueAttribution(t *testing.T) {

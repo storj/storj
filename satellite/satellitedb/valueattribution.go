@@ -6,8 +6,8 @@ package satellitedb
 import (
 	"context"
 
-	"storj.io/storj/pkg/valueattribution"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/valueattribution"
 )
 
 type valueattributionDB struct {
