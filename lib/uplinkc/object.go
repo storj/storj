@@ -110,10 +110,15 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 	universe.Del(objectMeta.meta_data._handle)
 }
 
-// download_range returns an Object's data. A length of -1 will mean
+type Download struct {
+	scope
+	rc io.ReadCloser
+}
+
+// download returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
-//export download_range
-func download_range(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, file *File, cErr **C.char) {
+//export download
+func download(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloadReaderRef) {
 	object, ok := universe.Get(objectRef._handle).(*Object)
 	if !ok {
 		*cErr = C.CString("invalid object")
@@ -128,9 +133,42 @@ func download_range(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, f
 		return
 	}
 
-	defer rc.Close()
-	_, err = io.Copy(file, rc)
-	if err != io.EOF && err != nil {
+	return C.DownloadReaderRef{universe.Add(&Download{
+		scope: scope,
+		rc: rc,
+	})}
+}
+
+//export download_read
+func download_read(downloader C.DownloadReaderRef_t, bytes *C.uint8_t, length C.int, cErr **C.char) (readLength C.uint64_t) {
+	download, ok := universe.Get(downloader).(*Download)
+	if !ok {
+		*cErr = C.CString("invalid reader")
+		return C.int(0)
+	}
+
+	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length:length]
+
+	n, err := download.rc.Read(buf)
+	if err == io.EOF {
+		return C.EOF
+	}
+
+	return C.int(n)
+}
+
+//export download_close
+func download_close(downloader C.DownloadReaderRef_t, cErr **C.char) {
+	download, ok := universe.Get(downloader).(*Download)
+	if !ok {
+		*cErr = C.CString("invalid reader")
+	}
+
+	universe.Del(downloader._handle)
+	defer download.cancel()
+
+	err := download.rc.Close()
+	if err != nil {
 		*cErr = C.CString(err.Error())
 		return
 	}

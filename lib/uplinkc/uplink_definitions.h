@@ -7,12 +7,13 @@
 #include <string.h>
 #include <time.h>
 
-typedef struct APIKey   { long _handle; } APIKeyRef;
-typedef struct Uplink   { long _handle; } UplinkRef;
-typedef struct Project  { long _handle; } ProjectRef;
-typedef struct Bucket   { long _handle; } BucketRef;
-typedef struct Map      { long _handle; } MapRef;
-typedef struct Object   { long _handle; } ObjectRef;
+typedef struct APIKey         { long _handle; } APIKeyRef;
+typedef struct Uplink         { long _handle; } UplinkRef;
+typedef struct Project        { long _handle; } ProjectRef;
+typedef struct Bucket         { long _handle; } BucketRef;
+typedef struct Map            { long _handle; } MapRef;
+typedef struct Object         { long _handle; } ObjectRef;
+typedef struct DownloadReader { long _handle; } DownloadReaderRef;
 
 typedef struct UplinkConfig {
     struct {
