@@ -8,9 +8,9 @@ import (
 	"html/template"
 	"net"
 	"net/http"
-	"time"
-	"reflect"
 	"path/filepath"
+	"reflect"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
@@ -22,7 +22,7 @@ import (
 
 var (
 	// Error is satellite marketing error type
-	Error = errs.Class("satellite marketing error")
+	Error   = errs.Class("satellite marketing error")
 	decoder = schema.NewDecoder()
 )
 
@@ -34,11 +34,11 @@ type Config struct {
 
 // Server represents marketing offersweb server
 type Server struct {
-	log *zap.Logger
-	Config Config
-	listener net.Listener
-	server   http.Server
-	service  *marketing.Service
+	log         *zap.Logger
+	Config      Config
+	listener    net.Listener
+	server      http.Server
+	service     *marketing.Service
 	templateDir string
 	templates   struct {
 		home          *template.Template
@@ -49,26 +49,26 @@ type Server struct {
 
 // offerSet provides a separation of marketing offers by type.
 type offerSet struct {
-	RefOffers,FreeCredits []marketing.Offer
+	RefOffers, FreeCredits []marketing.Offer
 }
 
 // init safely registers the timeConverter for the decoder.
-func init(){
+func init() {
 	decoder.RegisterConverter(time.Time{}, timeConverter)
 }
 
 // organizeOffers organizes offers by type.
-func organizeOffers(offers []marketing.Offer) offerSet{
+func organizeOffers(offers []marketing.Offer) offerSet {
 	var os offerSet
-	for _,offer := range offers {
+	for _, offer := range offers {
 
 		switch offer.Type {
 
-		case marketing.FreeCredit :
-			os.FreeCredits = append(os.FreeCredits,offer)
+		case marketing.FreeCredit:
+			os.FreeCredits = append(os.FreeCredits, offer)
 
-		case marketing.Referral :
-			os.RefOffers = append(os.RefOffers,offer)
+		case marketing.Referral:
+			os.RefOffers = append(os.RefOffers, offer)
 		}
 
 	}
@@ -116,7 +116,7 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 }
 
 // Serves index page and renders offer and credits tables
-func (s *Server) getOffers(w http.ResponseWriter, req *http.Request){
+func (s *Server) getOffers(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		s.serveNotFound(w, req)
 		return
@@ -125,13 +125,13 @@ func (s *Server) getOffers(w http.ResponseWriter, req *http.Request){
 	offers, err := s.service.ListAllOffers(context.Background())
 	if err != nil {
 		s.log.Error("failed to retrieve all offers", zap.Error(err))
-		s.serveInternalError(w,req,err)
+		s.serveInternalError(w, req, err)
 		return
 	}
 
 	if err := s.templates.home.ExecuteTemplate(w, "base", organizeOffers(offers)); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
-		s.serveInternalError(w,req,err)
+		s.serveInternalError(w, req, err)
 	}
 }
 
@@ -173,7 +173,7 @@ func (s *Server) parseTemplates() (err error) {
 
 // timeConverter formats form time input as time.Time.
 func timeConverter(value string) reflect.Value {
-	v, err := time.Parse("2006-01-02",value)
+	v, err := time.Parse("2006-01-02", value)
 	if err != nil {
 		return reflect.Value{}
 	}
@@ -181,25 +181,25 @@ func timeConverter(value string) reflect.Value {
 }
 
 // formToStruct decodes POST form data into a new offer.
-func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error){
+func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffer, e error) {
 	err := req.ParseForm()
 	if err != nil {
 		return o, err
 	}
 	defer req.Body.Close()
 
-	if err := decoder.Decode(&o, req.PostForm);err != nil {
+	if err := decoder.Decode(&o, req.PostForm); err != nil {
 		return o, err
 	}
-	return o,nil
+	return o, nil
 }
 
 // createOffer handles requests to create new offers.
 func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
-	o, err := formToStruct(w,req)
-	if err != nil{
+	o, err := formToStruct(w, req)
+	if err != nil {
 		s.log.Error("failed to convert form to struct", zap.Error(err))
-		s.serveInternalError(w,req,err)
+		s.serveInternalError(w, req, err)
 		return
 	}
 
@@ -208,18 +208,18 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 
 	if reqType == "referral-offer" {
 		o.Type = marketing.Referral
-	}else{
+	} else {
 		o.Type = marketing.FreeCredit
 	}
 
 	if _, err := s.service.InsertNewOffer(context.Background(), &o); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
-		s.serveInternalError(w,req,err)
+		s.serveInternalError(w, req, err)
 		return
 	}
 
 	req.Method = "GET"
-	http.Redirect(w,req,"/",http.StatusSeeOther)
+	http.Redirect(w, req, "/", http.StatusSeeOther)
 }
 
 // serveNotFound handles 404 errors and defaults to 500 if template parsing fails.
@@ -229,7 +229,7 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	err := s.templates.pageNotFound.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
-		s.serveInternalError(w,req,err)
+		s.serveInternalError(w, req, err)
 		return
 	}
 }
