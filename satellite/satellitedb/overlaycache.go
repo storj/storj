@@ -385,6 +385,63 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 	return true, nil
 }
 
+// KnownOffline filters a set of nodes to offline nodes
+func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIds) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	// get offline nodes
+	var rows *sql.Rows
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		args := make([]interface{}, 0, len(nodeIds)+1)
+		for i := range nodeIds {
+			args = append(args, nodeIds[i].Bytes())
+		}
+		args = append(args, time.Now().Add(-criteria.OnlineWindow))
+
+		rows, err = cache.db.Query(cache.db.Rebind(`
+			SELECT id FROM nodes
+			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+			AND (
+				last_contact_success < last_contact_failure OR last_contact_success < ?
+			)
+		`), args...)
+
+	case *pq.Driver:
+		rows, err = cache.db.Query(`
+			SELECT id FROM nodes
+				WHERE id = any($1::bytea[])
+				AND (
+					last_contact_success < last_contact_failure OR last_contact_success < $2
+				)
+			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		)
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		offlineNodes = append(offlineNodes, id)
+	}
+	return offlineNodes, nil
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
 func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
