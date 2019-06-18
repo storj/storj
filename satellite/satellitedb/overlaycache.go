@@ -24,9 +24,7 @@ import (
 )
 
 var (
-	mon             = monkit.Package()
-	errAuditSuccess = errs.Class("overlay audit success error")
-	errUptime       = errs.Class("overlay uptime error")
+	mon = monkit.Package()
 )
 
 var _ overlay.DB = (*overlaycache)(nil)
