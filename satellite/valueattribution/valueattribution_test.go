@@ -23,20 +23,20 @@ func TestValueAttribution(t *testing.T) {
 
 		// unique partner and bucket
 		partnerInfo := &valueattribution.PartnerInfo{
-			PartnerID:  []byte("valueattribution testcase partnerID"),
-			BucketName: []byte("valueattribution testcase bucketname"),
+			PartnerID:  []byte("partnerID"),
+			BucketName: []byte("bucketname"),
 		}
 
 		// same partner and dfferent bucket
 		partnerInfo1 := &valueattribution.PartnerInfo{
-			PartnerID:  []byte("valueattribution testcase partnerID"),
-			BucketName: []byte("valueattribution testcase different bucketname"),
+			PartnerID:  []byte("partnerID"),
+			BucketName: []byte("different bucketname"),
 		}
 
 		// different partner and existing bucket
 		partnerInfo2 := &valueattribution.PartnerInfo{
-			PartnerID:  []byte("valueattribution testcase different partnerID"),
-			BucketName: []byte("valueattribution testcase different bucketname"),
+			PartnerID:  []byte("different partnerID"),
+			BucketName: []byte("different bucketname"),
 		}
 
 		{ // Insert
