@@ -123,7 +123,7 @@ type NodeStats struct {
 	UptimeReputationAlpha float64
 	AuditReputationBeta   float64
 	UptimeReputationBeta  float64
-	Disqualified          time.Time
+	Disqualified          *time.Time
 }
 
 // Cache is used to store and handle node information

@@ -840,7 +840,7 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		AuditReputationBeta:   dbNode.AuditReputationBeta,
 		UptimeReputationAlpha: dbNode.UptimeReputationAlpha,
 		UptimeReputationBeta:  dbNode.UptimeReputationBeta,
-		Disqualified:          *dbNode.Disqualified,
+		Disqualified:          dbNode.Disqualified,
 	}
 	return nodeStats
 }
