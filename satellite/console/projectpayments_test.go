@@ -36,7 +36,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 		// create user
 		user, err := consoleDB.Users().Insert(ctx, &console.User{
 			FullName:     "John Doe",
-			Email:        "john@example.com",
+			Email:        "john@mail.test",
 			PasswordHash: passHash[:],
 			Status:       console.Active,
 		})
