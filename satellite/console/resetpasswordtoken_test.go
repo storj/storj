@@ -19,7 +19,7 @@ func TestNewRegistrationSecret(t *testing.T) {
 	const (
 		// for user
 		shortName    = "lastName"
-		email        = "email@ukr.net"
+		email        = "email@mail.test"
 		pass         = "123456"
 		userFullName = "name"
 	)
