@@ -62,7 +62,7 @@ func TestGraphqlQuery(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FullName:  "John",
 				ShortName: "",
-				Email:     "mtest@email.com",
+				Email:     "mtest@mail.test",
 			},
 			Password: "123a123",
 		}
@@ -77,12 +77,12 @@ func TestGraphqlQuery(t *testing.T) {
 			activationToken, err := service.GenerateActivationToken(
 				ctx,
 				rootUser.ID,
-				"mtest@email.com",
+				"mtest@mail.test",
 			)
 			require.NoError(t, err)
 			err = service.ActivateAccount(ctx, activationToken)
 			require.NoError(t, err)
-			rootUser.Email = "mtest@email.com"
+			rootUser.Email = "mtest@mail.test"
 		})
 
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
@@ -184,7 +184,7 @@ func TestGraphqlQuery(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FullName:  "Mickey Last",
 				ShortName: "Last",
-				Email:     "muu1@email.com",
+				Email:     "muu1@mail.test",
 			},
 			Password: "123a123",
 		}, regTokenUser1.Secret)
@@ -194,12 +194,12 @@ func TestGraphqlQuery(t *testing.T) {
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
-				"muu1@email.com",
+				"muu1@mail.test",
 			)
 			require.NoError(t, err)
 			err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
-			user1.Email = "muu1@email.com"
+			user1.Email = "muu1@mail.test"
 
 		})
 
@@ -210,7 +210,7 @@ func TestGraphqlQuery(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FullName:  "Dubas Name",
 				ShortName: "Name",
-				Email:     "muu2@email.com",
+				Email:     "muu2@mail.test",
 			},
 			Password: "123a123",
 		}, regTokenUser2.Secret)
@@ -220,12 +220,12 @@ func TestGraphqlQuery(t *testing.T) {
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,
-				"muu2@email.com",
+				"muu2@mail.test",
 			)
 			require.NoError(t, err)
 			err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
-			user2.Email = "muu2@email.com"
+			user2.Email = "muu2@mail.test"
 		})
 
 		users, err := service.AddProjectMembers(authCtx, createdProject.ID, []string{
@@ -422,7 +422,7 @@ func TestGraphqlQuery(t *testing.T) {
 				UserInfo: console.UserInfo{
 					FullName:  "Example User",
 					ShortName: "Example",
-					Email:     "user@example.com",
+					Email:     "user@mail.test",
 				},
 				Password: "123a123",
 			}, regToken.Secret)
@@ -433,13 +433,13 @@ func TestGraphqlQuery(t *testing.T) {
 				activationToken, err := service.GenerateActivationToken(
 					ctx,
 					user.ID,
-					"user@example.com",
+					"user@mail.test",
 				)
 				require.NoError(t, err)
 
 				err = service.ActivateAccount(ctx, activationToken)
 				require.NoError(t, err)
-				user.Email = "user@example.com"
+				user.Email = "user@mail.test"
 
 			})
 
@@ -462,7 +462,7 @@ func TestGraphqlQuery(t *testing.T) {
 				UserInfo: console.UserInfo{
 					FullName:  "Example User",
 					ShortName: "Example",
-					Email:     "user1@example.com",
+					Email:     "user1@mail.test",
 				},
 				Password: "123a123",
 			}, regToken.Secret)

@@ -816,8 +816,22 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add alpha and beta columns for reputations",
+				Description: "Change type of disqualified column of nodes table to timestamp",
 				Version:     32,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes
+						ALTER COLUMN disqualified DROP DEFAULT,
+						ALTER COLUMN disqualified DROP NOT NULL,
+						ALTER COLUMN disqualified TYPE timestamp with time zone USING
+							CASE disqualified
+								WHEN true THEN TIMESTAMP WITH TIME ZONE '2019-06-15 00:00:00+00'
+								ELSE NULL
+							END`,
+				},
+			},
+			{
+				Description: "Add alpha and beta columns for reputations",
+				Version:     33,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD COLUMN audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
 					`ALTER TABLE nodes ADD COLUMN audit_reputation_beta double precision NOT NULL DEFAULT 0;`,

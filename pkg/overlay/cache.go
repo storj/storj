@@ -107,7 +107,7 @@ type NodeDossier struct {
 	Reputation   NodeStats
 	Version      pb.NodeVersion
 	Contained    bool
-	Disqualified bool
+	Disqualified *time.Time
 }
 
 // NodeStats contains statistics about a node.
@@ -125,7 +125,7 @@ type NodeStats struct {
 	UptimeReputationAlpha float64
 	AuditReputationBeta   float64
 	UptimeReputationBeta  float64
-	Disqualified          bool
+	Disqualified          time.Time
 }
 
 // Cache is used to store and handle node information

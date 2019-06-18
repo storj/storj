@@ -444,7 +444,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				BootstrapBackoffMax:  2 * time.Second,
 				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@example.com",
+					Email:  prefix + "@mail.test",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
@@ -508,8 +508,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				DeleteTallies: false,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.mail.example.com:587",
-				From:              "Labs <storj@example.com>",
+				SMTPServerAddress: "smtp.mail.test:587",
+				From:              "Labs <storj@mail.test>",
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
@@ -617,7 +617,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Alpha:                5,
 				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@example.com",
+					Email:  prefix + "@mail.test",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
@@ -726,7 +726,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			Alpha:                5,
 			DBPath:               dbDir, // TODO: replace with master db
 			Operator: kademlia.OperatorConfig{
-				Email:  prefix + "@example.com",
+				Email:  prefix + "@mail.test",
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 		},
