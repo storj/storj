@@ -9,12 +9,12 @@
 
 *SA* - _Satellite_
 
-## OVERVIEW
+## Overview
 
 Currently our network lacks the ability to let SA's inform the SN about issues, updates and other important messages/notifications.
 With the Notification System the SA is able to send an email to the SN advertised email as send a message via simple Protobuf.
 
-## GOALS
+## Goals
 
 
 * A generic library that can send emails and messages to the SN
@@ -26,7 +26,7 @@ With the Notification System the SA is able to send an email to the SN advertise
 * Ability to send updates to specific groups of SN
 
 
-## NON GOALS
+## Non-Goals
 
 * PopUp Messages on the SN Hosts
 
@@ -34,7 +34,7 @@ With the Notification System the SA is able to send an email to the SN advertise
 
 * Not preventing Notifications from every satellite currently, meaning, that you get an offline notification from every satellite you are connected to. (Possible way to mitigate this, is to first check via GRPC, if the node accepts connections)
 
-## SCENARIOS
+## Scenarios
 
 
 * The SA encounters a failed uptime check of/to SN.
@@ -59,7 +59,7 @@ With the Notification System the SA is able to send an email to the SN advertise
 
 	* The Satellite informs the SN about its outdated software and kindly reminds to update. This can be used to stage updates across the network once we have auto-updates in place.
 
-## DESIGN
+## Design
 ### Functionality
 The existing Service (mailservice) will be extended with templates for all possible notifications we want to send.
 
