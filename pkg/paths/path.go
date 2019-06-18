@@ -47,9 +47,9 @@ func (path Unencrypted) Raw() string {
 // String returns a human readable form of the Unencrypted.
 func (path Unencrypted) String() string {
 	if !path.valid {
-		return "<none>"
+		return "<unencrypted-invalid-path>"
 	}
-	return "up:" + path.Raw()
+	return path.Raw()
 }
 
 // Consume attempts to remove the prefix from the Unencrypted, and reports true
@@ -88,9 +88,9 @@ func (path Encrypted) Raw() string {
 // String returns a human readable form of the Encrypted.
 func (path Encrypted) String() string {
 	if !path.valid {
-		return "<none>"
+		return "<encrypted-invalid-path>"
 	}
-	return "ep:" + path.Raw()
+	return path.Raw()
 }
 
 // Consume attempts to remove the prefix from the Encrypted, and reports true

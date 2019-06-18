@@ -4,7 +4,6 @@
 package streams
 
 import (
-	"fmt"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -294,9 +293,6 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	fmt.Println("enc:", encPath)
-	fmt.Println("seg:", segmentPath)
-
 	lastSegmentRanger, lastSegmentMeta, err := s.segments.Get(ctx, segmentPath)
 	if err != nil {
 		return nil, Meta{}, err
@@ -508,7 +504,7 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 			if err != nil {
 				return nil, false, err
 			}
-			path = CreatePath(ctx, path.Bucket(), paths.NewUnencrypted(itemPath))
+			path = CreatePath(ctx, prefix.Bucket(), paths.NewUnencrypted(itemPath))
 		} else {
 			itemPath = item.Path
 			path = CreatePath(ctx, item.Path, paths.Unencrypted{})

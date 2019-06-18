@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
+	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -30,12 +31,12 @@ func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, sto
 
 	_, consumed, base := store.LookupUnencrypted(bucket, path)
 	if base == nil {
-		return paths.Encrypted{}, errs.New("unable to find encryption base for: %q", path)
+		return paths.Encrypted{}, errs.New("unable to find encryption base for: %s/%q", bucket, path)
 	}
 
 	remaining, ok := path.Consume(consumed)
 	if !ok {
-		return paths.Encrypted{}, errs.New("unable to encrypt bucket path: %q", path)
+		return paths.Encrypted{}, errs.New("unable to encrypt bucket path: %s/%q", bucket, path)
 	}
 
 	// if we didn't consume any path, we're at the root of the bucket, and so we have
@@ -186,15 +187,25 @@ func DeriveContentKey(bucket string, path paths.Unencrypted, store *Store) (key 
 func DerivePathKey(bucket string, path paths.Unencrypted, store *Store) (key *storj.Key, err error) {
 	_, consumed, base := store.LookupUnencrypted(bucket, path)
 	if base == nil {
-		return nil, errs.New("unable to find encryption base for: %q", path)
+		fmt.Printf("%+v\n", store)
+		return nil, errs.New("unable to find encryption base for: %s/%q", bucket, path)
 	}
 
 	remaining, ok := path.Consume(consumed)
 	if !ok {
-		return nil, errs.New("unable to derive path key for: %q", path)
+		return nil, errs.New("unable to derive path key for: %s/%q", bucket, path)
 	}
 
+	// if we didn't consume any path, we're at the root of the bucket, and so we have
+	// to fold the bucket name into the key.
 	key = &base.Key
+	if len(consumed.Raw()) == 0 {
+		key, err = DeriveKey(key, "path:"+bucket)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+	}
+
 	for iter := remaining.Iterator(); !iter.Done(); {
 		key, err = DeriveKey(key, "path:"+iter.Next())
 		if err != nil {
