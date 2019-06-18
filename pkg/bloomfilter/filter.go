@@ -28,8 +28,8 @@ type Filter struct {
 	table     []byte
 }
 
-// New returns a new custom filter
-func New(seed, hashCount byte, sizeInBytes int) *Filter {
+// newExplicit returns a new custom filter.
+func newExplicit(seed, hashCount byte, sizeInBytes int) *Filter {
 	return &Filter{
 		seed:      seed,
 		hashCount: hashCount,
@@ -50,7 +50,7 @@ func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 	}
 	sizeInBytes := expectedElements * bitsPerElement / 8
 
-	return New(seed, byte(hashCount), sizeInBytes)
+	return newExplicit(seed, byte(hashCount), sizeInBytes)
 }
 
 // Add adds an element to the bloom filter
