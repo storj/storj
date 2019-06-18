@@ -565,10 +565,19 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	if startingStats == nil {
-		// TODO: add possible sanity checking for alpha and beta values
-
-		startingStats = &overlay.NodeStats{}
+	if startingStats != nil {
+		if startingStats.AuditReputationAlpha <= 0 {
+			return nil, Error.Wrap(errs.Combine(errs.New("audit alpha less than or equal to 0"), tx.Rollback()))
+		}
+		if startingStats.AuditReputationBeta <= 0 {
+			return nil, Error.Wrap(errs.Combine(errs.New("audit beta less than or equal to 0"), tx.Rollback()))
+		}
+		if startingStats.UptimeReputationAlpha <= 0 {
+			return nil, Error.Wrap(errs.Combine(errs.New("uptime alpha less than or equal to 0"), tx.Rollback()))
+		}
+		if startingStats.UptimeReputationBeta <= 0 {
+			return nil, Error.Wrap(errs.Combine(errs.New("uptime beta less than or equal to 0"), tx.Rollback()))
+		}
 
 		updateFields := dbx.Node_Update_Fields{
 			TotalAuditCount:       dbx.Node_TotalAuditCount(startingStats.AuditCount),
