@@ -39,37 +39,3 @@ func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (
 	defer mon.Task()(&ctx)(&err)
 	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
 }
-
-// GetStats returns the stats for a particular node ID
-func (srv *Inspector) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	node, err := srv.cache.Get(ctx, req.NodeId)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.GetStatsResponse{
-		AuditCount:  node.Reputation.AuditCount,
-		AuditRatio:  node.Reputation.AuditSuccessRatio,
-		UptimeCount: node.Reputation.UptimeCount,
-		UptimeRatio: node.Reputation.UptimeRatio,
-	}, nil
-}
-
-// CreateStats creates a node with specified stats
-func (srv *Inspector) CreateStats(ctx context.Context, req *pb.CreateStatsRequest) (_ *pb.CreateStatsResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	stats := &NodeStats{
-		AuditCount:         req.AuditCount,
-		AuditSuccessCount:  req.AuditSuccessCount,
-		UptimeCount:        req.UptimeCount,
-		UptimeSuccessCount: req.UptimeSuccessCount,
-	}
-
-	_, err = srv.cache.Create(ctx, req.NodeId, stats)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.CreateStatsResponse{}, nil
-}
