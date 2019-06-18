@@ -96,7 +96,7 @@ func BenchmarkOverlay(b *testing.B) {
 					Type: pb.NodeType_STORAGE,
 					Operator: &pb.NodeOperator{
 						Wallet: "0x0123456789012345678901234567890123456789",
-						Email:  "a@example.com",
+						Email:  "a@mail.test",
 					},
 					Capacity: &pb.NodeCapacity{
 						FreeBandwidth: 1000,
