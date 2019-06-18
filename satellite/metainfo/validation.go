@@ -242,7 +242,6 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 		return Error.New("pointer type is INLINE but remote segment is set")
 	}
 
-	// TODO does it all?
 	if pointer.Type == pb.Pointer_REMOTE {
 		switch {
 		case pointer.Remote == nil:
