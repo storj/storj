@@ -14,16 +14,9 @@ service GarbageCollection {
     rpc Retain(RetainRequest) returns (RetainResponse);
 }
 
-message Filter {
-    uint32 seed = 1;
-    uint32 k = 2;
-    uint32 bits_per_element = 3;
-    bytes table = 4;
-}
-
 message RetainRequest {
-    google.protobuf.Timestamp creation_date = 1 [(gogoproto.stdtime) = true];
-    Filter filter = 2;
+    google.protobuf.Timestamp creation_date = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    bytes filter = 2;
 }
 
 message RetainResponse {
