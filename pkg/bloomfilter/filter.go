@@ -15,11 +15,11 @@ import (
 
 const (
 	version1 = 1
-
-	// rangeOffset 11 is a prime and
-	// hence iterates over all subranges of pieceID
-	rangeOffset = 11
 )
+
+// rangeOffsets contains offsets for selecting subranges
+// that minimize overlap in the first hash functions
+var rangeOffsets = [...]byte{9, 13, 19, 23}
 
 // Filter is a bloom filter implementation
 type Filter struct {
@@ -39,7 +39,7 @@ func New(seed, hashCount byte, sizeInBytes int) *Filter {
 
 // NewOptimal returns a filter based on expected element count and false positive rate.
 func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
-	seed := byte(rand.Intn(len(storj.PieceID{})))
+	seed := byte(rand.Intn(255))
 
 	// calculation based on https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
 	bitsPerElement := int(-1.44*math.Log2(falsePositiveRate)) + 1
@@ -55,33 +55,35 @@ func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 
 // Add adds an element to the bloom filter
 func (filter *Filter) Add(pieceID storj.PieceID) {
-	seed := int(filter.seed)
-	for k := byte(0); k < filter.hashCount; k++ {
-		hash, bit := subrange(seed, pieceID)
+	offset, rangeOffset := initialConditions(filter.seed)
 
-		seed += rangeOffset
-		if seed > len(storj.PieceID{}) {
-			seed -= len(storj.PieceID{})
+	for k := byte(0); k < filter.hashCount; k++ {
+		hash, bit := subrange(offset, pieceID)
+
+		offset += int(rangeOffset)
+		if offset >= len(storj.PieceID{}) {
+			offset -= len(storj.PieceID{})
 		}
 
-		offset := hash % uint64(len(filter.table))
-		filter.table[offset] |= 1 << (bit % 8)
+		bucket := hash % uint64(len(filter.table))
+		filter.table[bucket] |= 1 << (bit % 8)
 	}
 }
 
 // Contains return true if pieceID may be in the set
 func (filter *Filter) Contains(pieceID storj.PieceID) bool {
-	seed := int(filter.seed)
-	for k := byte(0); k < filter.hashCount; k++ {
-		hash, bit := subrange(seed, pieceID)
+	offset, rangeOffset := initialConditions(filter.seed)
 
-		seed += rangeOffset
-		if seed > len(storj.PieceID{}) {
-			seed -= len(storj.PieceID{})
+	for k := byte(0); k < filter.hashCount; k++ {
+		hash, bit := subrange(offset, pieceID)
+
+		offset += int(rangeOffset)
+		if offset >= len(storj.PieceID{}) {
+			offset -= len(storj.PieceID{})
 		}
 
-		offset := hash % uint64(len(filter.table))
-		if filter.table[offset]&(1<<(bit%8)) == 0 {
+		bucket := hash % uint64(len(filter.table))
+		if filter.table[bucket]&(1<<(bit%8)) == 0 {
 			return false
 		}
 	}
@@ -89,14 +91,20 @@ func (filter *Filter) Contains(pieceID storj.PieceID) bool {
 	return true
 }
 
-func subrange(offset int, id storj.PieceID) (uint64, byte) {
-	if offset > len(id)-9 {
+func initialConditions(seed byte) (initialOffset, rangeOffset int) {
+	initialOffset = int(seed % 32)
+	rangeOffset = int(rangeOffsets[int(seed/32)%len(rangeOffsets)])
+	return initialOffset, rangeOffset
+}
+
+func subrange(seed int, id storj.PieceID) (uint64, byte) {
+	if seed > len(id)-9 {
 		var unwrap [9]byte
-		n := copy(unwrap[:], id[offset:])
+		n := copy(unwrap[:], id[seed:])
 		copy(unwrap[n:], id[:])
 		return binary.LittleEndian.Uint64(unwrap[:]), unwrap[8]
 	}
-	return binary.LittleEndian.Uint64(id[offset : offset+8]), id[8]
+	return binary.LittleEndian.Uint64(id[seed : seed+8]), id[8]
 }
 
 // NewFromBytes decodes the filter from a sequence of bytes.
