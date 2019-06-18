@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -33,11 +34,17 @@ type Config struct {
 	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
 }
 
+type KademliaClient interface {
+	Ping(context.Context, pb.Node) error
+	FetchInfo(context.Context, pb.Node) (*pb.InfoResponse, error)
+	FindNear(ctx context.Context, target storj.NodeID) ([]*pb.Node, error)
+}
+
 // Discovery struct loads on cache, kad
 type Discovery struct {
 	log   *zap.Logger
 	cache *overlay.Cache
-	kad   *kademlia.Kademlia
+	kad   KademliaClient
 
 	// refreshOffset tracks the offset of the current refresh cycle
 	refreshOffset int64
@@ -48,7 +55,7 @@ type Discovery struct {
 }
 
 // New returns a new discovery service.
-func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config Config) *Discovery {
+func New(logger *zap.Logger, ol *overlay.Cache, kad KademliaClient, config Config) *Discovery {
 	discovery := &Discovery{
 		log:   logger,
 		cache: ol,
@@ -116,7 +123,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 
-		ping, err := discovery.kad.Ping(ctx, node.Node)
+		err := discovery.kad.Ping(ctx, node.Node)
 		if err != nil {
 			discovery.log.Info("could not ping node", zap.Stringer("ID", node.Id), zap.Error(err))
 			_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
@@ -130,21 +137,21 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 			return ctx.Err()
 		}
 
-		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
+		_, err = discovery.cache.UpdateUptime(ctx, node.Node.Id, true)
 		if err != nil {
-			discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", ping.Id), zap.Error(err))
+			discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Node.Id.String()), zap.Error(err))
 		}
 
 		// update node info
 		info, err := discovery.kad.FetchInfo(ctx, node.Node)
 		if err != nil {
-			discovery.log.Warn("could not fetch node info", zap.Stringer("ID", ping.GetAddress()))
+			discovery.log.Warn("could not fetch node info", zap.Stringer("ID", node.Node.GetAddress().String()))
 			continue
 		}
 
-		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
+		_, err = discovery.cache.UpdateNodeInfo(ctx, node.Node.Id, info)
 		if err != nil {
-			discovery.log.Warn("could not update node info", zap.Stringer("ID", ping.GetAddress()))
+			discovery.log.Warn("could not update node info", zap.Stringer("ID", node.Node.GetAddress().String()))
 		}
 	}
 
@@ -159,7 +166,7 @@ func (discovery *Discovery) discover(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	_, err = discovery.kad.FindNode(ctx, r)
+	_, err = discovery.kad.FindNear(ctx, r)
 	if err != nil && !kademlia.NodeNotFound.Has(err) {
 		return Error.Wrap(err)
 	}

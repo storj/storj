@@ -223,12 +223,6 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	// init Satellites
-	for _, satellite := range planet.Satellites {
-		if len(satellite.Kademlia.Service.GetBootstrapNodes()) == 0 {
-			satellite.Kademlia.Service.SetBootstrapNodes([]pb.Node{planet.Bootstrap.Local().Node})
-		}
-	}
 	// init storage nodes
 	for _, storageNode := range planet.StorageNodes {
 		if len(storageNode.Kademlia.Service.GetBootstrapNodes()) == 0 {
@@ -264,10 +258,6 @@ func (planet *Planet) Start(ctx context.Context) {
 		peer.Kademlia.Service.WaitForBootstrap()
 	}
 
-	for _, peer := range planet.Satellites {
-		peer.Kademlia.Service.WaitForBootstrap()
-	}
-
 	planet.Reconnect(ctx)
 }
 
@@ -295,7 +285,7 @@ func (planet *Planet) Reconnect(ctx context.Context) {
 		satellite := satellite
 		group.Go(func() error {
 			for _, storageNode := range planet.StorageNodes {
-				_, err := satellite.Kademlia.Service.Ping(ctx, storageNode.Local().Node)
+				err := satellite.Kademlia.Client.Ping(ctx, storageNode.Local().Node)
 				if err != nil {
 					log.Error("satellite did not find storage node", zap.Error(err))
 				}
@@ -436,16 +426,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 						Revocation:          false,
 						WhitelistSignedLeaf: false,
 					},
-				},
-			},
-			Kademlia: kademlia.Config{
-				Alpha:                5,
-				BootstrapBackoffBase: 500 * time.Millisecond,
-				BootstrapBackoffMax:  2 * time.Second,
-				DBPath:               storageDir, // TODO: replace with master db
-				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@mail.test",
-					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
 			Overlay: overlay.Config{

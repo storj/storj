@@ -47,7 +47,7 @@ func TestRequestInfo(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		info, err := planet.Satellites[0].Kademlia.Service.FetchInfo(ctx, node.Local().Node)
+		info, err := planet.Satellites[0].Kademlia.Client.FetchInfo(ctx, node.Local().Node)
 		require.NoError(t, err)
 		require.Equal(t, node.Local().Type, info.GetType())
 		require.Empty(t, cmp.Diff(node.Local().Operator, *info.GetOperator(), cmp.Comparer(pb.Equal)))
