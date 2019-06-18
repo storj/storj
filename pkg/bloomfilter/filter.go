@@ -115,6 +115,10 @@ func NewFromBytes(data []byte) (*Filter, error) {
 	filter.hashCount = data[2]
 	filter.table = data[3:]
 
+	if filter.hashCount == 0 {
+		return nil, errs.New("invalid hash count %d", filter.hashCount)
+	}
+
 	return filter, nil
 }
 
