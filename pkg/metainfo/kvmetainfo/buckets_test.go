@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"testing"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -25,6 +24,8 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 )
 
 const (
@@ -311,6 +312,14 @@ func getBucketNames(bucketList storj.BucketList) []string {
 func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmetainfo.DB, buckets.Store, streams.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 2
+				config.Metainfo.RS.RepairThreshold = 4
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.MaxThreshold = 4
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		db, buckets, streams, err := newMetainfoParts(planet)
 		require.NoError(t, err)

@@ -9,11 +9,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 )
 
@@ -21,6 +23,14 @@ func TestSendingReceivingOrders(t *testing.T) {
 	// test happy path
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 1
+				config.Metainfo.RS.RepairThreshold = 2
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.MaxThreshold = 4
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
@@ -67,6 +77,14 @@ func TestUnableToSendOrders(t *testing.T) {
 	// test sending when satellite is unavailable
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 1
+				config.Metainfo.RS.RepairThreshold = 2
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.MaxThreshold = 4
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Audit.Service.Loop.Stop()
 		for _, storageNode := range planet.StorageNodes {
@@ -114,6 +132,14 @@ func TestUnableToSendOrders(t *testing.T) {
 func TestUploadDownloadBandwidth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 1
+				config.Metainfo.RS.RepairThreshold = 2
+				config.Metainfo.RS.SuccessThreshold = 4
+				config.Metainfo.RS.MaxThreshold = 4
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		hourBeforeTest := time.Now().UTC().Add(-time.Hour)
 

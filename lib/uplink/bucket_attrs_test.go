@@ -25,7 +25,7 @@ type testConfig struct {
 func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// we only use testUplink for the free API key, until such time
 		// as testplanet makes it easy to get another way :D
@@ -64,8 +64,8 @@ func TestBucketAttrs(t *testing.T) {
 	var (
 		access          = simpleEncryptionAccess("voxmachina")
 		bucketName      = "mightynein"
-		shareSize       = memory.Size(256).Int32()
-		requiredShares  = 4
+		shareSize       = memory.KiB.Int32()
+		requiredShares  = 2
 		stripeSize      = shareSize * int32(requiredShares)
 		stripesPerBlock = 2
 		inBucketConfig  = BucketConfig{
@@ -82,9 +82,9 @@ func TestBucketAttrs(t *testing.T) {
 					Algorithm:      storj.ReedSolomon,
 					ShareSize:      shareSize,
 					RequiredShares: int16(requiredShares),
-					RepairShares:   6,
-					OptimalShares:  8,
-					TotalShares:    10,
+					RepairShares:   3,
+					OptimalShares:  4,
+					TotalShares:    5,
 				},
 				SegmentsSize: 688894,
 			},
@@ -124,8 +124,8 @@ func TestBucketAttrsApply(t *testing.T) {
 		bucketName      = "dodecahedron"
 		objectPath1     = "vax/vex/vox"
 		objectContents  = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
-		shareSize       = memory.Size(256).Int32()
-		requiredShares  = 4
+		shareSize       = 3 * memory.KiB.Int32()
+		requiredShares  = 1
 		stripeSize      = shareSize * int32(requiredShares)
 		stripesPerBlock = 2
 		inBucketConfig  = BucketConfig{
@@ -142,9 +142,9 @@ func TestBucketAttrsApply(t *testing.T) {
 					Algorithm:      storj.ReedSolomon,
 					ShareSize:      shareSize,
 					RequiredShares: int16(requiredShares),
-					RepairShares:   6,
-					OptimalShares:  8,
-					TotalShares:    10,
+					RepairShares:   2,
+					OptimalShares:  3,
+					TotalShares:    4,
 				},
 				SegmentsSize: 1536,
 			},

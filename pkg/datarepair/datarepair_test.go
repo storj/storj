@@ -9,20 +9,28 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 )
 
 func TestDataRepair(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 15,
-		UplinkCount:      1,
+		SatelliteCount: 1, StorageNodeCount: 12, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.MinThreshold = 3
+				config.Metainfo.RS.RepairThreshold = 5
+				config.Metainfo.RS.SuccessThreshold = 7
+				config.Metainfo.RS.MaxThreshold = 7
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -39,10 +47,10 @@ func TestDataRepair(t *testing.T) {
 		assert.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     4,
-			RepairThreshold:  6,
-			SuccessThreshold: 8,
-			MaxThreshold:     10,
+			MinThreshold:     3,
+			RepairThreshold:  5,
+			SuccessThreshold: 7,
+			MaxThreshold:     7,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 

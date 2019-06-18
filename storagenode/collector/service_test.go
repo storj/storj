@@ -18,7 +18,7 @@ import (
 
 func TestCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for _, storageNode := range planet.StorageNodes {
 			// stop collector, so we can run it manually
@@ -75,7 +75,7 @@ func TestCollector(t *testing.T) {
 		}
 
 		require.NotZero(t, collections)
-		require.Equal(t, serialsPresent, 2)
+		require.Equal(t, serialsPresent, 3)
 
 		serialsPresent = 0
 
