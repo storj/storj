@@ -260,11 +260,6 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	encKey, err := uplink.LoadEncryptionKey(flags.Enc.KeyFilepath)
-	if err != nil {
-		return nil, err
-	}
-
 	uplk, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
 		return nil, err
