@@ -24,7 +24,7 @@ func TestLookupNodes(t *testing.T) {
 
 	planet.Start(ctx)
 
-	k := planet.Satellites[0].Kademlia.Service
+	k := planet.StorageNodes[0].Kademlia.Service
 	k.WaitForBootstrap() // redundant, but leaving here to be clear
 
 	seen, err := k.DumpNodes(ctx)

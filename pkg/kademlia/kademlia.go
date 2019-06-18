@@ -59,11 +59,19 @@ type Kademlia struct {
 
 // NewService returns a newly configured Kademlia instance
 func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, config Config) (*Kademlia, error) {
+	nodeptrs, err := config.BootstrapNodes()
+	if err != nil {
+		return nil, err
+	}
+	nodes := make([]pb.Node, 0, len(nodeptrs))
+	for _, node := range nodeptrs {
+		nodes = append(nodes, *node)
+	}
 	k := &Kademlia{
 		log:                  log,
 		alpha:                config.Alpha,
 		routingTable:         rt,
-		bootstrapNodes:       config.BootstrapNodes(),
+		bootstrapNodes:       nodes,
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
 		Dialer:               NewDialer(log.Named("dialer"), transport),

@@ -35,8 +35,6 @@ func TestCache_Discovery(t *testing.T) {
 		testnode := planet.StorageNodes[0]
 		offlineID := testnode.ID()
 
-		satellite.Kademlia.Service.RefreshBuckets.Pause()
-
 		satellite.Discovery.Service.Refresh.Pause()
 		satellite.Discovery.Service.Discovery.Pause()
 

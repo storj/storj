@@ -9,8 +9,6 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -59,7 +57,6 @@ import (
 	"storj.io/storj/satellite/payments/stripepayments"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/boltdb"
 )
 
 var mon = monkit.Package()
@@ -107,7 +104,12 @@ type Config struct {
 	// TODO: switch to using server.Config when Identity has been removed from it
 	Server server.Config
 
-	Kademlia  kademlia.Config
+	Kademlia struct {
+		ExternalAddress string `user:"true" help:"the public address of the Kademlia node, useful for nodes behind NAT" default:""`
+		BootstrapAddr   string `help:"the list of bootstrap nodes to use" default:""`
+		Operator        kademlia.OperatorConfig
+		kademlia.ClientConfig
+	}
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
@@ -148,13 +150,10 @@ type Peer struct {
 	Version *version.Service
 
 	// services and endpoints
-	Kademlia struct {
-		kdb, ndb storage.KeyValueStore // TODO: move these into DB
 
-		RoutingTable *kademlia.RoutingTable
-		Service      *kademlia.Kademlia
-		Endpoint     *kademlia.Endpoint
-		Inspector    *kademlia.Inspector
+	Kademlia struct {
+		Dossier overlay.NodeDossier
+		Client  discovery.KademliaClient
 	}
 
 	Overlay struct {
@@ -273,7 +272,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup kademlia
 		log.Debug("Setting up Kademlia")
 		config := config.Kademlia
-		// TODO: move this setup logic into kademlia package
 		if config.ExternalAddress == "" {
 			config.ExternalAddress = peer.Addr()
 		}
@@ -283,7 +281,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		self := &overlay.NodeDossier{
+		peer.Kademlia.Dossier = overlay.NodeDossier{
 			Node: pb.Node{
 				Id: peer.ID(),
 				Address: &pb.NodeAddress{
@@ -298,46 +296,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			Version: *pbVersion,
 		}
 
-		{ // setup routing table
-			// TODO: clean this up, should be part of database
-			log.Debug("Setting up routing table")
-			bucketIdentifier := peer.ID().String()[:5] // need a way to differentiate between nodes if running more than one simultaneously
-			dbpath := filepath.Join(config.DBPath, fmt.Sprintf("kademlia_%s.db", bucketIdentifier))
-
-			if err := os.MkdirAll(config.DBPath, 0777); err != nil && !os.IsExist(err) {
-				return nil, err
-			}
-
-			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
-
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, &config.RoutingTableConfig)
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			peer.Transport = peer.Transport.WithObservers(peer.Kademlia.RoutingTable)
-		}
-
-		peer.Kademlia.Service, err = kademlia.NewService(peer.Log.Named("kademlia"), peer.Transport, peer.Kademlia.RoutingTable, config)
+		bootstrapNodes, err := kademlia.NodesFromConfig(config.BootstrapAddr)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Kademlia.Endpoint = kademlia.NewEndpoint(peer.Log.Named("kademlia:endpoint"), peer.Kademlia.Service, peer.Kademlia.RoutingTable)
-		pb.RegisterNodesServer(peer.Server.GRPC(), peer.Kademlia.Endpoint)
-
-		peer.Kademlia.Inspector = kademlia.NewInspector(peer.Kademlia.Service, peer.Identity)
-		pb.RegisterKadInspectorServer(peer.Server.PrivateGRPC(), peer.Kademlia.Inspector)
+		// TODO: functional peer.Transport = peer.Transport.WithObservers(observer) pattern could lead to bugs!
+		// we want to make sure that the peer.Transport given here has all observers past, present, and future
+		// added.
+		peer.Kademlia.Client = kademlia.NewClient(peer.Log.Named("kadclient"), peer.Transport, bootstrapNodes, config.ClientConfig)
 	}
 
 	{ // setup discovery
 		log.Debug("Setting up discovery")
 		config := config.Discovery
-		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Service, config)
+		peer.Discovery.Service = discovery.New(peer.Log.Named("discovery"), peer.Overlay.Service, peer.Kademlia.Client, config)
 	}
 
 	{ // setup vouchers
@@ -629,12 +602,6 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
-	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))
-	})
-	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
@@ -713,21 +680,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Discovery.Service.Close())
 	}
 
-	// TODO: add kademlia.Endpoint for consistency
-	if peer.Kademlia.Service != nil {
-		errlist.Add(peer.Kademlia.Service.Close())
-	}
-	if peer.Kademlia.RoutingTable != nil {
-		errlist.Add(peer.Kademlia.RoutingTable.Close())
-	}
-
 	if peer.Overlay.Service != nil {
 		errlist.Add(peer.Overlay.Service.Close())
-	}
-
-	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
-		errlist.Add(peer.Kademlia.kdb.Close())
-		errlist.Add(peer.Kademlia.ndb.Close())
 	}
 
 	return errlist.Err()
@@ -737,7 +691,7 @@ func (peer *Peer) Close() error {
 func (peer *Peer) ID() storj.NodeID { return peer.Identity.ID }
 
 // Local returns the peer local node info.
-func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTable.Local() }
+func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.Dossier }
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
