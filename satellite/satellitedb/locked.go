@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
@@ -456,6 +457,43 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
 }
 
+// UserCredits is a getter for UserCredits repository
+func (m *lockedConsole) UserCredits() console.UserCredits {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserCredits{m.Locker, m.db.UserCredits()}
+}
+
+// lockedUserCredits implements locking wrapper for console.UserCredits
+type lockedUserCredits struct {
+	sync.Locker
+	db console.UserCredits
+}
+
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, userCredit)
+}
+
+func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
+}
+
+func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.TotalReferredCount(ctx, userID)
+}
+
+func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
@@ -653,10 +691,10 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) Finish(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Finish(ctx, offerId)
+	return m.db.Finish(ctx, offerID)
 }
 
 func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
@@ -671,10 +709,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Redeem(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Redeem(ctx, offerId)
+	return m.db.Redeem(ctx, offerID)
 }
 
 // Orders returns database for orders
@@ -1006,4 +1044,31 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
+}
+
+// ValueAttribution returns database for partner keys information
+func (m *locked) ValueAttribution() valueattribution.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedValueAttribution{m.Locker, m.db.ValueAttribution()}
+}
+
+// lockedValueAttribution implements locking wrapper for valueattribution.DB
+type lockedValueAttribution struct {
+	sync.Locker
+	db valueattribution.DB
+}
+
+// Get retrieves partner id using bucket name
+func (m *lockedValueAttribution) Get(ctx context.Context, buckname []byte) (*valueattribution.PartnerInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, buckname)
+}
+
+// Insert creates and stores new ConnectorKeyInfo
+func (m *lockedValueAttribution) Insert(ctx context.Context, info *valueattribution.PartnerInfo) (*valueattribution.PartnerInfo, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, info)
 }
