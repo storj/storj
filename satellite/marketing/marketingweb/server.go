@@ -95,8 +95,6 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 		service:  service,
 	}
 
-	decoder.RegisterConverter(time.Time{}, timeConverter)
-
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
 	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.Config.StaticDir)))
 	mux := mux.NewRouter()
