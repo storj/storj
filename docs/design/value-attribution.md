@@ -56,7 +56,7 @@ The attribution table will consist of data that allows for ease of calculating t
 | Name            | Type          |
 | --------------- | ------------- |
 | project_id (pk) | uuid          |
-| bucket_name     | bytes         |
+| bucket_name(pk) | bytes         |
 | user_id         | uuid          |
 | partner_id      | uuid          |
 | at_rest_data    | integer       |
