@@ -59,15 +59,16 @@ type Store interface {
 
 // streamStore is a store for streams
 type streamStore struct {
-	segments     segments.Store
-	segmentSize  int64
-	rootKey      *storj.Key
-	encBlockSize int
-	cipher       storj.Cipher
+	segments        segments.Store
+	segmentSize     int64
+	rootKey         *storj.Key
+	encBlockSize    int
+	cipher          storj.Cipher
+	inlineThreshold int
 }
 
 // NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher) (Store, error) {
+func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher, inlineThreshold int) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
@@ -79,11 +80,12 @@ func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.K
 	}
 
 	return &streamStore{
-		segments:     segments,
-		segmentSize:  segmentSize,
-		rootKey:      rootKey,
-		encBlockSize: encBlockSize,
-		cipher:       cipher,
+		segments:        segments,
+		segmentSize:     segmentSize,
+		rootKey:         rootKey,
+		encBlockSize:    encBlockSize,
+		cipher:          cipher,
+		inlineThreshold: inlineThreshold,
 	}, nil
 }
 
@@ -168,12 +170,13 @@ func (s *streamStore) upload(ctx context.Context, path storj.Path, pathCipher st
 		sizeReader := NewSizeReader(eofReader)
 		segmentReader := io.LimitReader(sizeReader, s.segmentSize)
 		peekReader := segments.NewPeekThresholdReader(segmentReader)
-		largeData, err := peekReader.IsLargerThan(encrypter.InBlockSize())
+		// If the data is larger than the inline threshold size, then it will be a remote segment
+		isRemote, err := peekReader.IsLargerThan(s.inlineThreshold)
 		if err != nil {
 			return Meta{}, currentSegment, err
 		}
 		var transformedReader io.Reader
-		if largeData {
+		if isRemote {
 			paddedReader := eestream.PadReader(ioutil.NopCloser(peekReader), encrypter.InBlockSize())
 			transformedReader = encryption.TransformReader(paddedReader, encrypter, 0)
 		} else {
