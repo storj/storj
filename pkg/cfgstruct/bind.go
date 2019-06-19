@@ -213,7 +213,8 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				setBoolAnnotation(flags, flagname, "user")
 			}
 			if field.Tag.Get("hidden") == "true" {
-				flags.MarkHidden(flagname)
+				err := flags.MarkHidden(flagname)
+				check(err)
 			}
 		}
 	}
