@@ -17,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
 	"storj.io/storj/satellite/marketing"
 )
 
@@ -186,7 +187,6 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffe
 	if err != nil {
 		return o, err
 	}
-	defer req.Body.Close()
 
 	if err := decoder.Decode(&o, req.PostForm); err != nil {
 		return o, err
@@ -194,7 +194,7 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o marketing.NewOffe
 	return o, nil
 }
 
-// createOffer handles requests to create new offers.
+// CreateOffer handles requests to create new offers.
 func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	o, err := formToStruct(w, req)
 	if err != nil {
