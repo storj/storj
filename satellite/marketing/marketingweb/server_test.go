@@ -58,45 +58,45 @@ func TestCreateOffer(t *testing.T) {
 
 		for _, offer := range validOffers {
 
-			go func() {
+			var (
+				form            url.Values
+				isReferralOffer bool
+			)
 
-				var (
-					form            url.Values
-					isReferralOffer bool
-				)
+			endpoint := "/create"
 
-				endpoint := "/create"
+			switch offer.Type {
 
-				switch offer.Type {
+			case marketing.Referral:
+				endpoint += "/referral-offer"
+				isReferralOffer = true
+			case marketing.FreeCredit:
+				isReferralOffer = false
+				endpoint += "/free-credit"
+			}
 
-				case marketing.Referral:
-					endpoint += "/referral-offer"
-					isReferralOffer = true
-				case marketing.FreeCredit:
-					isReferralOffer = false
-					endpoint += "/free-credit"
-				}
+			URL, form, err := buildResources(s.Config.Address, endpoint, isReferralOffer)
+			require.NoError(t, err, "failed to build request resources")
 
-				URL, form, err := buildResources(s.Config.Address, endpoint, isReferralOffer)
-				require.NoError(t, err, "failed to build request resources")
+			urlStr := URL.String()
 
-				urlStr := URL.String()
+			req, err := http.NewRequest("POST", urlStr, strings.NewReader(URL.RawQuery))
+			require.NoError(t, err, "failed to create new POST request")
 
-				req, err := http.NewRequest("POST", urlStr, strings.NewReader(URL.RawQuery))
-				require.NoError(t, err, "failed to create new POST request")
+			req.PostForm = form
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-				req.PostForm = form
-				req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			rr := httptest.NewRecorder()
 
-				rr := httptest.NewRecorder()
+			go func(recorder *httptest.ResponseRecorder, request *http.Request) {
 
-				s.CreateOffer(rr, req)
+				s.CreateOffer(recorder, request)
 
-				resp := rr.Result()
+				resp := recorder.Result()
 				if resp.StatusCode != http.StatusSeeOther {
 					t.Fatalf("Received StatusCode %d expected %d\n", resp.StatusCode, http.StatusSeeOther)
 				}
-			}()
+			}(rr, req)
 		}
 	})
 }

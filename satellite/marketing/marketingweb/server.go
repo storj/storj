@@ -218,7 +218,6 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	req.Method = "GET"
 	http.Redirect(w, req, "/", http.StatusSeeOther)
 }
 
