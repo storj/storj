@@ -21,6 +21,7 @@ type FlagSet interface {
 	StringVar(p *string, name string, value string, usage string)
 	StringArrayVar(p *[]string, name string, value []string, usage string)
 	Var(val pflag.Value, name string, usage string)
+	MarkHidden(name string) error
 }
 
 var _ FlagSet = (*pflag.FlagSet)(nil)
