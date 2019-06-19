@@ -507,13 +507,14 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	return storj.JoinPaths(entries...), nil
 }
 
-// ValueAttributeInfo commits segment metadata
-func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.AddAttributionRequest) (_ *pb.AddAttributionResponse, err error) {
+// AddAttribution tries to add attribution to the bucket.
+func (endpoint *Endpoint) AddAttribution(ctx context.Context, req *pb.AddAttributionRequest) (_ *pb.AddAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = endpoint.checkBucketPointers(ctx, req)
 	if err != nil {
-		endpoint.log.Sugar().Info("related bucket id already attributed \n")
+		// TODO: return correct status code for GRPC
+		endpoint.log.Sugar().Debug("related bucket id already attributed \n")
 		return &pb.AddAttributionResponse{}, err
 	}
 
