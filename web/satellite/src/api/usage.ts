@@ -96,7 +96,7 @@ export async function fetchBucketUsages(projectID: string, before: Date, cursor:
     return result;
 }
 
-export async function getCreditUsage(): Promise<RequestResponse<CreditUsage>> {
+export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> {
     let result: RequestResponse<CreditUsage> = {
         errorMessage: '',
         isSuccess: false,
