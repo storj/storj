@@ -1709,7 +1709,7 @@
             ]
           },
           {
-            "name": "AddAttributionRequest",
+            "name": "SetAttributionRequest",
             "fields": [
               {
                 "id": 1,
@@ -1724,7 +1724,7 @@
             ]
           },
           {
-            "name": "AddAttributionResponse"
+            "name": "SetAttributionResponse"
           }
         ],
         "services": [
@@ -1762,9 +1762,9 @@
                 "out_type": "ListSegmentsResponse"
               },
               {
-                "name": "AddAttribution",
-                "in_type": "AddAttributionRequest",
-                "out_type": "AddAttributionResponse"
+                "name": "SetAttribution",
+                "in_type": "SetAttributionRequest",
+                "out_type": "SetAttributionResponse"
               }
             ]
           }

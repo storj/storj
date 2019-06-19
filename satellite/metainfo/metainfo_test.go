@@ -436,7 +436,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 	})
 }
 
-func TestAddAttribution(t *testing.T) {
+func TestSetAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -452,18 +452,18 @@ func TestAddAttribution(t *testing.T) {
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 
-		keyInfo := pb.AddAttributionRequest{
+		keyInfo := pb.SetAttributionRequest{
 			PartnerId:  []byte("PartnerID"),
 			BucketName: []byte("myBucketName"),
 		}
 
 		{
 			// bucket with no items
-			err = metainfoClient.AddAttribution(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.SetAttribution(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.AddAttribution(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.SetAttribution(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId))
 			require.NoError(t, err)
 		}
 		{
@@ -475,7 +475,7 @@ func TestAddAttribution(t *testing.T) {
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.AddAttribution(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.SetAttribution(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
 			require.Error(t, err)
 		}
 	})

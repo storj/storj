@@ -507,24 +507,24 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	return storj.JoinPaths(entries...), nil
 }
 
-// AddAttribution tries to add attribution to the bucket.
-func (endpoint *Endpoint) AddAttribution(ctx context.Context, req *pb.AddAttributionRequest) (_ *pb.AddAttributionResponse, err error) {
+// SetAttribution tries to add attribution to the bucket.
+func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttributionRequest) (_ *pb.SetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = endpoint.checkBucketPointers(ctx, req)
 	if err != nil {
 		// TODO: return correct status code for GRPC
 		endpoint.log.Sugar().Debug("related bucket id already attributed \n")
-		return &pb.AddAttributionResponse{}, err
+		return &pb.SetAttributionResponse{}, err
 	}
 
 	// TODO: add valueattribution DB access functions added in new PR.
 
-	return &pb.AddAttributionResponse{}, nil
+	return &pb.SetAttributionResponse{}, nil
 }
 
 // checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.AddAttributionRequest) (resp bool, err error) {
+func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAttributionRequest) (resp bool, err error) {
 	//TODO: Logic of checking if bucket exists will be added in new PR.
 	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
 	defer mon.Task()(&ctx)(&err)
