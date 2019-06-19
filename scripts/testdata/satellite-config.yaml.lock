@@ -197,7 +197,7 @@ kademlia.operator.wallet: ""
 # metainfo.rs.success-threshold: 80
 
 # toggle flag if rsconfig is enabled
-# metainfo.rs.validate: false
+# metainfo.rs.validate: true
 
 # address to send telemetry to
 # metrics.addr: "collectora.storj.io:9000"
