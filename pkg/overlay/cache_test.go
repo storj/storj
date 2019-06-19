@@ -70,7 +70,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	_, _ = rand.Read(valid2ID[:])
 	_, _ = rand.Read(missingID[:])
 
-	cache := overlay.NewCache(zaptest.NewLogger(t), store, testNodeSelectionConfig(0, 0, false))
+	nodeSelectionConfig := testNodeSelectionConfig(0, 0, false)
+	cache := overlay.NewCache(zaptest.NewLogger(t), store, nodeSelectionConfig)
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
@@ -86,23 +87,26 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 	{ // Get
 		_, err := cache.Get(ctx, storj.NodeID{})
-		assert.Error(t, err)
-		assert.True(t, err == overlay.ErrEmptyNode)
+		require.Error(t, err)
+		require.True(t, err == overlay.ErrEmptyNode)
 
 		valid1, err := cache.Get(ctx, valid1ID)
-		if assert.NoError(t, err) {
-			assert.Equal(t, valid1.Id, valid1ID)
-		}
+		require.NoError(t, err)
+		require.Equal(t, valid1.Id, valid1ID)
+		require.Equal(t, valid1.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
+		require.Equal(t, valid1.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
+		require.Equal(t, valid1.Reputation.UptimeReputationAlpha, nodeSelectionConfig.UptimeReputationAlpha0)
+		require.Equal(t, valid1.Reputation.UptimeReputationBeta, nodeSelectionConfig.UptimeReputationBeta0)
+		require.Nil(t, valid1.Reputation.Disqualified)
 
 		valid2, err := cache.Get(ctx, valid2ID)
-		if assert.NoError(t, err) {
-			assert.Equal(t, valid2.Id, valid2ID)
-		}
+		require.NoError(t, err)
+		require.Equal(t, valid2.Id, valid2ID)
 
 		invalid2, err := cache.Get(ctx, missingID)
-		assert.Error(t, err)
-		assert.True(t, overlay.ErrNodeNotFound.Has(err))
-		assert.Nil(t, invalid2)
+		require.Error(t, err)
+		require.True(t, overlay.ErrNodeNotFound.Has(err))
+		require.Nil(t, invalid2)
 
 		// TODO: add erroring database test
 	}
@@ -138,20 +142,33 @@ func TestRandomizedSelection(t *testing.T) {
 		cache := db.OverlayCache()
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
+		defaults := overlay.NodeSelectionConfig{
+			AuditReputationAlpha0:  1,
+			AuditReputationBeta0:   0,
+			UptimeReputationAlpha0: 1,
+			UptimeReputationBeta0:  0,
+		}
 
 		// put nodes in cache
 		for i := 0; i < totalNodes; i++ {
 			newID := storj.NodeID{}
 			_, _ = rand.Read(newID[:])
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID})
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: newID}, defaults)
 			require.NoError(t, err)
 			_, err = cache.UpdateNodeInfo(ctx, newID, &pb.InfoResponse{
 				Type:     pb.NodeType_STORAGE,
 				Capacity: &pb.NodeCapacity{},
 			})
 			require.NoError(t, err)
-			_, err = cache.UpdateUptime(ctx, newID, true, 1, 0, 1, 1)
-			require.NoError(t, err)
+
+			if i%2 == 0 { // make half of nodes "new" and half "vetted"
+				cache.UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       newID,
+					IsUp:         true,
+					AuditSuccess: true,
+				}, 1, 1, 1, 1)
+			}
+
 			allIDs[i] = newID
 			nodeCounts[newID] = 0
 		}
@@ -162,7 +179,10 @@ func TestRandomizedSelection(t *testing.T) {
 			var err error
 
 			if i%2 == 0 {
-				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{OnlineWindow: time.Hour})
+				nodes, err = cache.SelectStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
+					OnlineWindow: time.Hour,
+					AuditCount:   1,
+				})
 				require.NoError(t, err)
 			} else {
 				nodes, err = cache.SelectNewStorageNodes(ctx, numNodesToSelect, &overlay.NodeCriteria{
@@ -209,9 +229,8 @@ func TestIsVetted(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.AuditCount = 1
-				config.Overlay.Node.AuditSuccessRatio = 1
 				config.Overlay.Node.UptimeCount = 1
-				config.Overlay.Node.UptimeRatio = 1
+				// TODO(moby) test IsVetted against dqed nodes
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -223,16 +242,16 @@ func TestIsVetted(t *testing.T) {
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
-		})
-		assert.NoError(t, err)
+		}, 1, 1, 1, 1)
+		require.NoError(t, err)
 
 		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
-		assert.True(t, reputable)
+		require.True(t, reputable)
 
 		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
 		require.NoError(t, err)
-		assert.False(t, reputable)
+		require.False(t, reputable)
 	})
 }
 
