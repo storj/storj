@@ -224,7 +224,7 @@ func TestRandomizedSelection(t *testing.T) {
 			require.NoError(t, err)
 
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
-				cache.UpdateStats(ctx, &overlay.UpdateRequest{
+				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       newID,
 					IsUp:         true,
 					AuditSuccess: true,
@@ -235,6 +235,7 @@ func TestRandomizedSelection(t *testing.T) {
 					UptimeWeight: 1,
 					UptimeDQ:     0.5,
 				})
+				require.NoError(t, err)
 			}
 
 			allIDs[i] = newID
