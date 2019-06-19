@@ -80,7 +80,7 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 	if err != nil {
 		return nil, err
 	}
-	
+
 	uplk, err := cliCfg.NewUplink(ctx)
 	if err != nil {
 		return nil, err

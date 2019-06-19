@@ -16,10 +16,6 @@ import (
 	"storj.io/storj/uplink/metainfo"
 )
 
-var (
-	maxBucketMetaSize = 10 * memory.MiB
-)
-
 // Config represents configuration options for an Uplink
 type Config struct {
 	// Volatile groups config values that are likely to change semantics

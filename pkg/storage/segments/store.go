@@ -395,7 +395,6 @@ func SplitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, 
 	return bucket, objectPath, segmentIndex, nil
 }
 
-
 func convertSegmentIndex(segmentComp string) (segmentIndex int64, err error) {
 	switch {
 	case segmentComp == "l":
