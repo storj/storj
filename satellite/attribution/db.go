@@ -19,10 +19,24 @@ type Info struct {
 	CreatedAt  time.Time
 }
 
+// ValueAttributionRow represents data from QueryValueAttribution without exposing dbx
+type ValueAttributionRow struct {
+	ProjectID string
+	//UserID      string
+	BucketID   string
+	AtRestData float64
+	InlineData float64
+	EgressData int64
+	//IngressData int64
+	LastUpdated time.Time
+}
+
 // DB implements the database for value attribution table
 type DB interface {
 	// Get retrieves attribution info using project id and bucket name.
 	Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*Info, error)
 	// Insert creates and stores new Info
 	Insert(ctx context.Context, info *Info) (*Info, error)
+	// QueryValueAttribution queries partner bucket attribution data
+	QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*ValueAttributionRow, err error)
 }

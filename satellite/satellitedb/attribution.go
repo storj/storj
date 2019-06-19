@@ -5,11 +5,55 @@ package satellitedb
 
 import (
 	"context"
+	"time"
 
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/attribution"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+)
+
+const (
+	valueAttrQuery1 = `SELECT o.project_id as project_id, o.bucket_name as bucket_name, SUM(o.remote)/SUM(o.hours) as remote, SUM(o.inline)/SUM(o.hours) as inline, SUM(o.settled) as settled FROM
+	(
+		-- SUM the storage
+		SELECT bsto.project_id as project_id, bsto.bucket_name as bucket_name, SUM(bsto.remote) as remote, SUM(bsto.inline) as inline, 0 as settled, count(1) as hours FROM
+		(   -- Collapse entries by the latest record in the hour
+			SELECT `
+	slHour          = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
+	pqHour          = "date_trunc('hour', bst.interval_start)"
+	valueAttrQuery2 = ` as hours, bst.project_id, bst.bucket_name, MAX(bst.interval_start) as max_interval
+		FROM bucket_storage_tallies bst
+		LEFT OUTER JOIN value_attributions va
+		ON (bst.project_id = va.project_id
+		AND bst.bucket_name = va.bucket_name)
+		WHERE va.partner_id = ?
+		AND bst.interval_start >= ?
+		AND bst.interval_start <  ?
+		GROUP BY bst.project_id, bst.bucket_name, hours
+		ORDER BY max_interval DESC
+	) bsti
+	LEFT JOIN bucket_storage_tallies bsto ON (bsto.project_id = bsti.project_id AND bsto.bucket_name = bsti.bucket_name AND bsto.interval_start = bsti.max_interval)
+	GROUP BY bsto.project_id, bsto.bucket_name
+	UNION
+	-- SUM the bandwidth
+	SELECT bbr.project_id as project_id, bbr.bucket_name as bucket_name, 0 as remote, 0 as inline, SUM(settled) as settled, NULL as hours
+	FROM bucket_bandwidth_rollups bbr
+	LEFT OUTER JOIN value_attributions va
+	ON (bbr.project_id = va.project_id
+	AND bbr.bucket_name = va.bucket_name)
+	WHERE va.partner_id = ?
+	AND bbr.interval_start >= ?
+	AND bbr.interval_start <  ?
+	AND bbr.action = 1
+	GROUP BY bbr.project_id, bbr.bucket_name) AS o
+	GROUP BY o.project_id, o.bucket_name;`
+
+	slValueAttrQuery = valueAttrQuery1 + slHour + valueAttrQuery2
+	pqValueAttrQuery = valueAttrQuery1 + pqHour + valueAttrQuery2
 )
 
 type attributionDB struct {
@@ -45,6 +89,38 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 	}
 
 	return attributionFromDBX(dbxInfo)
+}
+
+// QueryValueAttribution queries partner bucket attribution data
+func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.ValueAttributionRow, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var query string
+	switch t := keys.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		query = slValueAttrQuery
+	case *pq.Driver:
+		query = pqValueAttrQuery
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
+	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(query), []byte(partnerID.String()), start.UTC(), end.UTC(), []byte(partnerID.String()), start.UTC(), end.UTC())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	csv := make([]*attribution.ValueAttributionRow, 0, 0)
+	for rows.Next() {
+		r := &attribution.ValueAttributionRow{}
+		err := rows.Scan(&r.ProjectID, &r.BucketID, &r.AtRestData, &r.InlineData, &r.EgressData)
+		if err != nil {
+			return csv, Error.Wrap(err)
+		}
+		csv = append(csv, r)
+	}
+	return csv, nil
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
