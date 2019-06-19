@@ -515,14 +515,14 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, stripe *Str
 	pointer, err := verifier.metainfo.Get(ctx, stripe.SegmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return ErrSegmentDeleted.New(stripe.SegmentPath)
+			return ErrSegmentDeleted.New("%s", stripe.SegmentPath)
 		}
 		return err
 	}
 
 	if pointer.GetCreationDate().GetSeconds() != stripe.Segment.GetCreationDate().GetSeconds() ||
 		pointer.GetCreationDate().GetNanos() != stripe.Segment.GetCreationDate().GetNanos() {
-		return ErrSegmentDeleted.New(stripe.SegmentPath)
+		return ErrSegmentDeleted.New("%s", stripe.SegmentPath)
 	}
 
 	return nil
