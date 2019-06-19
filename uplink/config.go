@@ -126,7 +126,9 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, int(blockSize), storj.Cipher(c.Enc.DataType))
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key,
+		int(blockSize), storj.Cipher(c.Enc.DataType), c.Client.MaxInlineSize.Int(),
+	)
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
