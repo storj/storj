@@ -59,7 +59,6 @@ func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 	return &prefixWriter{
 		PrefixWriter: writer,
 		prefix:       prefix,
-		local:        sync.Mutex{},
 		id:           "",
 		buffer:       make([]byte, 0, writer.maxline),
 	}
