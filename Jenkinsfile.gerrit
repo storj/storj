@@ -10,7 +10,10 @@ pipeline {
     }
     stages {
         stage('Start') {
-          steps { gerritReview message: 'Building' }
+          steps {
+            gerritReview message: 'Building'
+            sh 'python ./scripts/gerrit-cla.py'
+          }
         }
 
         stage('Build') {
