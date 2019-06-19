@@ -43,7 +43,7 @@ func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.
 // close_object closes the object.
 //export close_object
 func close_object(objectHandle C.ObjectRef, cerr **C.char) {
-	object, ok := universe.Get(objectHandle._handle).(*Bucket)
+	object, ok := universe.Get(objectHandle._handle).(*Object)
 	if !ok {
 		*cerr = C.CString("invalid object")
 		return
@@ -61,7 +61,7 @@ func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 // get_object_meta returns the object meta which contains metadata about a specific Object.
 //export get_object_meta
 func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
-	object, ok := universe.Get(cObject._handle).(*uplink.Object)
+	object, ok := universe.Get(cObject._handle).(*Object)
 	if !ok {
 		*cErr = C.CString("invalid object")
 		return C.ObjectMeta{}

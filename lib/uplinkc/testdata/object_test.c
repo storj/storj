@@ -35,14 +35,15 @@ void handle_project(ProjectRef project) {
 
     BucketRef bucket = open_bucket(project, bucket_name, access, err);
     require_noerror(*err);
+
     {
         char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
         int num_of_objects = 4;
 
         for(int i = 0; i < num_of_objects; i++) {
-        // TODO: figure out why node selection criteria aren't met in testplanet
-//            char *data = mkrndstr(1024 * (i + 1));
-            char *data = mkrndstr(1024);
+            // TODO: figure out why node selection criteria aren't met in testplanet
+            int data_len = 1024;
+            char *data = mkrndstr(data_len);
 
             MapRef map = new_map_ref();
             UploadOptions opts = {
@@ -57,8 +58,8 @@ void handle_project(ProjectRef project) {
             delete_map_ref(map);
 
             int uploaded = 0;
-            while (uploaded < strlen(data)) {
-                int write_len = upload_write(uploader, (uint8_t *)data+uploaded, 1024, err);
+            while (uploaded < data_len) {
+                int write_len = upload_write(uploader, (uint8_t *)data+uploaded, 256, err);
                 require_noerror(*err);
 
                 if (write_len == 0) {
@@ -71,83 +72,58 @@ void handle_project(ProjectRef project) {
             upload_close(uploader, err);
             require_noerror(*err);
 
+            ObjectRef object_ref = open_object(bucket, object_paths[i], err);
+            require_noerror(*err);
+
+            ObjectMeta object_meta = get_object_meta(object_ref, err);
+            require_noerror(*err);
+            require(strcmp(object_paths[i], object_meta.path) == 0);
+            require(data_len == object_meta.size);
+            // TODO: finish up
+            require(true == ((time(NULL) - object_meta.expires) <= 2000));
+
+            DownloaderRef downloader = download(object_ref, 0, object_meta.size, err);
+            require_noerror(*err);
+
+            printf("meta size: %llu\n", object_meta.size);
+            char downloadedData[object_meta.size];
+            memset(downloadedData, '\0', object_meta.size);
+            int downloadedTotal = 0;
+
+            uint8_t *bytes = NULL;
+
+            while (downloadedTotal < object_meta.size) {
+                uint64_t size_to_read = 1024;
+                bytes = malloc(size_to_read);
+                uint64_t downloadedSize = download_read(downloader, bytes, size_to_read, err);
+
+                if (downloadedSize == EOF) {
+                    free(bytes);
+                    break;
+                }
+
+                require_noerror(*err);
+                memcpy(downloadedData+downloadedTotal, bytes, downloadedSize);
+                downloadedTotal += downloadedSize;
+                free(bytes);
+            }
+
+            download_close(downloader, err);
+            require_noerror(*err);
+            require(memcmp(data, downloadedData, data_len) == 0);
+
             if (data != NULL) {
                 free(data);
+            }
+
+            free_object_meta(&object_meta);
+
+            close_object(object_ref, err);
+            require_noerror(*err);
         }
-     }
 
     }
+
     close_bucket(bucket, err);
     require_noerror(*err);
 }
-
-//void TestObject(void)
-//{
-//char *_err = "";
-//char **err = &_err;
-//
-//// Open Project
-//ProjectRef_t ref_project = OpenTestProject(err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//char *bucket_name = "TestBucket1";
-//
-//// Create buckets
-//Bucket_t *bucket = CreateTestBucket(ref_project, bucket_name, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//free(bucket);
-//
-//uint8_t *enc_key = "abcdefghijklmnopqrstuvwxyzABCDEF";
-//EncryptionAccess_t *access = NewEncryptionAccess(enc_key, strlen((const char *)enc_key));
-//
-//// Open bucket
-//BucketRef_t ref_bucket = OpenBucket(ref_project, bucket_name, NULL, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//char *object_path = "TestObject1";
-//
-//// Create objects
-//char *str_data = "testing data 123";
-//Object_t *object = malloc(sizeof(Object_t));
-//Bytes_t *data = BytesFromString(str_data);
-//
-//create_test_object(ref_bucket, object_path, object, data, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//free(object);
-//
-//ObjectRef_t object_ref = OpenObject(ref_bucket, object_path, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//ObjectMeta_t object_meta = ObjectMeta(object_ref, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//TEST_ASSERT_EQUAL_STRING(object_path, object_meta.Path);
-//TEST_ASSERT_EQUAL(data->length, object_meta.Size);
-//
-//DownloadReaderRef_t downloader = DownloadRange(object_ref, 0, object_meta.Size, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//char downloadedData[object_meta.Size];
-//memset(downloadedData, '\0', object_meta.Size);
-//int downloadedTotal = 0;
-//
-//while (true) {
-//Bytes_t *bytes = malloc(sizeof(Bytes_t));
-//uint64_t downloadedSize = Download(downloader, bytes, err);
-//if (downloadedSize == EOF) {
-//free(bytes);
-//break;
-//}
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//memcpy(downloadedData+downloadedTotal, bytes->bytes, bytes->length);
-//downloadedTotal += downloadedSize;
-//free(bytes);
-//}
-//
-//TEST_ASSERT_EQUAL_STRING(str_data, downloadedData);
-//
-//// Close Project
-//CloseProject(ref_project, err);
-//TEST_ASSERT_EQUAL_STRING("", *err);
-//
-//free(data);
-//}
