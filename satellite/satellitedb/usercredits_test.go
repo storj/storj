@@ -66,9 +66,9 @@ func TestUsercredits(t *testing.T) {
 		}
 
 		type result struct {
-			remainingCharge  int
-			availableCredits int
-			hasErr           bool
+			remainingCharge int
+			usage           console.UserCreditUsage
+			hasErr          bool
 		}
 
 		var validUserCredits = []struct {
@@ -86,9 +86,13 @@ func TestUsercredits(t *testing.T) {
 				},
 				chargedCredits: 120,
 				expected: result{
-					remainingCharge:  20,
-					availableCredits: 0,
-					hasErr:           false,
+					remainingCharge: 20,
+					usage: console.UserCreditUsage{
+						AvailableCredits: 0,
+						UsedCredits:      100,
+						Referred:         0,
+					},
+					hasErr: false,
 				},
 			},
 			{
@@ -102,9 +106,13 @@ func TestUsercredits(t *testing.T) {
 				},
 				chargedCredits: 60,
 				expected: result{
-					remainingCharge:  60,
-					availableCredits: 0,
-					hasErr:           true,
+					remainingCharge: 60,
+					usage: console.UserCreditUsage{
+						AvailableCredits: 0,
+						UsedCredits:      100,
+						Referred:         0,
+					},
+					hasErr: true,
 				},
 			},
 			{
@@ -118,9 +126,13 @@ func TestUsercredits(t *testing.T) {
 				},
 				chargedCredits: 80,
 				expected: result{
-					remainingCharge:  0,
-					availableCredits: 20,
-					hasErr:           false,
+					remainingCharge: 0,
+					usage: console.UserCreditUsage{
+						AvailableCredits: 20,
+						UsedCredits:      180,
+						Referred:         0,
+					},
+					hasErr: false,
 				},
 			},
 		}
@@ -128,16 +140,6 @@ func TestUsercredits(t *testing.T) {
 		for i, vc := range validUserCredits {
 			_, err = consoleDB.UserCredits().Create(ctx, vc.userCredit)
 			require.NoError(t, err)
-
-			{
-				referredCount, err := consoleDB.UserCredits().TotalReferredCount(ctx, vc.userCredit.ReferredBy)
-				if err != nil {
-					require.True(t, uuid.Equal(*randomID, vc.userCredit.ReferredBy))
-					continue
-				}
-				require.NoError(t, err)
-				require.Equal(t, int64(i+1), referredCount)
-			}
 
 			{
 				remainingCharge, err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
@@ -150,15 +152,15 @@ func TestUsercredits(t *testing.T) {
 			}
 
 			{
-				availableCredits, err := consoleDB.UserCredits().GetAvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
+				usage, err := consoleDB.UserCredits().GetCreditUsage(ctx, vc.userCredit.UserID, time.Now().UTC())
 				require.NoError(t, err)
-				var sum int
-				for i := range availableCredits {
-					sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
-				}
+				require.Equal(t, vc.expected.usage, *usage)
+			}
 
+			{
+				referred, err := consoleDB.UserCredits().GetCreditUsage(ctx, referrer.ID, time.Now().UTC())
 				require.NoError(t, err)
-				require.Equal(t, vc.expected.availableCredits, sum)
+				require.Equal(t, int64(i+1), referred.Referred)
 			}
 		}
 	})
