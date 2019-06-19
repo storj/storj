@@ -20,7 +20,7 @@ import (
 )
 
 type DB interface {
-	GetSatelliteIDs(ctx context.Context) (storj.NodeIDList, error)
+	GetSatelliteIDs(ctx context.Context, from, to time.Time) (storj.NodeIDList, error)
 }
 
 // Service is handling storage node operator related logic

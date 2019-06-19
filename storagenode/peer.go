@@ -56,6 +56,7 @@ type DB interface {
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
+	Console() console.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
