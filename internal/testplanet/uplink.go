@@ -167,7 +167,7 @@ func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite
 	return uplink.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
-// UploadWithExpiratonAndConfig uploads data to specific satellite with configured values and expiration time
+// UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
 func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte, expiration time.Time) error {
 	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
