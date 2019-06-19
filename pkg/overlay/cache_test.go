@@ -233,17 +233,18 @@ func TestRandomizedSelection(t *testing.T) {
 
 func TestIsVetted(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.Node.AuditCount = 1
 				config.Overlay.Node.UptimeCount = 1
-				// TODO(moby) test IsVetted against dqed nodes
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var err error
 		satellite := planet.Satellites[0]
+		satellite.Audit.Service.Loop.Pause()
+		satellite.Repair.Checker.Loop.Pause()
 		service := satellite.Overlay.Service
 
 		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
@@ -252,16 +253,69 @@ func TestIsVetted(t *testing.T) {
 			AuditSuccess: true,
 			AuditLambda:  1,
 			AuditWeight:  1,
-			AuditDQ:      0.75,
+			AuditDQ:      0.5,
 			UptimeLambda: 1,
 			UptimeWeight: 1,
-			UptimeDQ:     0.75,
+			UptimeDQ:     0.5,
+		})
+		require.NoError(t, err)
+
+		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       planet.StorageNodes[1].ID(),
+			IsUp:         true,
+			AuditSuccess: true,
+			AuditLambda:  1,
+			AuditWeight:  1,
+			AuditDQ:      0.5,
+			UptimeLambda: 1,
+			UptimeWeight: 1,
+			UptimeDQ:     0.5,
 		})
 		require.NoError(t, err)
 
 		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
 		require.NoError(t, err)
 		require.True(t, reputable)
+
+		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
+		require.NoError(t, err)
+		require.True(t, reputable)
+
+		reputable, err = service.IsVetted(ctx, planet.StorageNodes[2].ID())
+		require.NoError(t, err)
+		require.False(t, reputable)
+
+		// test dqing for bad uptime
+		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       planet.StorageNodes[0].ID(),
+			IsUp:         false,
+			AuditSuccess: true,
+			AuditLambda:  0.1,
+			AuditWeight:  3,
+			AuditDQ:      0.5,
+			UptimeLambda: 0.1,
+			UptimeWeight: 3,
+			UptimeDQ:     0.5,
+		})
+		require.NoError(t, err)
+
+		// test dqing for bad audit
+		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       planet.StorageNodes[1].ID(),
+			IsUp:         true,
+			AuditSuccess: false,
+			AuditLambda:  0.1,
+			AuditWeight:  3,
+			AuditDQ:      0.5,
+			UptimeLambda: 0.1,
+			UptimeWeight: 3,
+			UptimeDQ:     0.5,
+		})
+		require.NoError(t, err)
+
+		reputable, err = service.IsVetted(ctx, planet.StorageNodes[0].ID())
+		require.NoError(t, err)
+		require.False(t, reputable)
 
 		reputable, err = service.IsVetted(ctx, planet.StorageNodes[1].ID())
 		require.NoError(t, err)
