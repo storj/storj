@@ -21,9 +21,7 @@ import (
 	"storj.io/storj/satellite/payments"
 )
 
-var (
-	mon = monkit.Package()
-)
+var mon = monkit.Package()
 
 const (
 	// maxLimit specifies the limit for all paged queries
@@ -455,6 +453,22 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	}
 
 	return
+}
+
+// GetUserCreditUsage is a method for querying users' credit information up until now
+func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now().UTC())
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return usage, nil
 }
 
 // CreateProject is a method for creating new project
