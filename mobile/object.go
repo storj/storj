@@ -30,7 +30,7 @@ func newObjectInfoFromObject(object storj.Object) *ObjectInfo {
 	return &ObjectInfo{
 		Version:     int32(object.Version),
 		Bucket:      object.Bucket.Name,
-		Path:        object.Path,
+		Path:        object.Path.String(),
 		IsPrefix:    object.IsPrefix,
 		Size:        object.Size,
 		ContentType: object.ContentType,
@@ -74,7 +74,7 @@ func (bl *ObjectList) More() bool {
 
 // Prefix prefix for objects from list
 func (bl *ObjectList) Prefix() string {
-	return bl.list.Prefix
+	return bl.list.Prefix.String()
 }
 
 // Bucket returns bucket name

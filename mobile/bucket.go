@@ -9,6 +9,7 @@ import (
 	"time"
 
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -45,7 +46,7 @@ type Bucket struct {
 // BucketAccess defines access to bucket
 type BucketAccess struct {
 	PathEncryptionKey   []byte
-	EncryptedPathPrefix storj.Path
+	EncryptedPathPrefix string
 }
 
 // BucketInfo bucket meta struct
@@ -201,7 +202,7 @@ func (bucket *Bucket) ListObjects(options *ListOptions) (*ObjectList, error) {
 
 	opts := &storj.ListOptions{}
 	if options != nil {
-		opts.Prefix = options.Prefix
+		opts.Prefix = paths.NewUnencrypted(options.Prefix)
 		opts.Cursor = options.Cursor
 		opts.Direction = storj.ListDirection(options.Direction)
 		opts.Delimiter = options.Delimiter
@@ -275,7 +276,7 @@ type Writer struct {
 }
 
 // NewWriter creates instance of Writer
-func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Writer, error) {
+func (bucket *Bucket) NewWriter(path string, options *WriterOptions) (*Writer, error) {
 	scope := bucket.scope.child()
 
 	opts := &libuplink.UploadOptions{}
@@ -330,7 +331,7 @@ type Reader struct {
 }
 
 // NewReader returns new reader for downloading object
-func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reader, error) {
+func (bucket *Bucket) NewReader(path string, options *ReaderOptions) (*Reader, error) {
 	scope := bucket.scope.child()
 
 	reader, err := bucket.lib.NewReader(scope.ctx, path)

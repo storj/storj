@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -238,7 +239,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 		Direction: storj.After,
 		Cursor:    startAfter,
-		Prefix:    prefix,
+		Prefix:    paths.NewUnencrypted(prefix),
 		Recursive: recursive,
 		Limit:     maxKeys,
 	})
@@ -248,9 +249,9 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 
 	if len(list.Items) > 0 {
 		for _, item := range list.Items {
-			path := item.Path
+			path := item.Path.String()
 			if recursive && prefix != "" {
-				path = storj.JoinPaths(strings.TrimSuffix(prefix, "/"), path)
+				path = strings.Join([]string{strings.TrimSuffix(prefix, "/"), path}, "/")
 			}
 			if item.IsPrefix {
 				prefixes = append(prefixes, path)
@@ -266,7 +267,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 				UserDefined: item.Metadata,
 			})
 		}
-		startAfter = list.Items[len(list.Items)-1].Path
+		startAfter = list.Items[len(list.Items)-1].Path.String()
 	}
 
 	result = minio.ListObjectsInfo{
@@ -298,7 +299,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 	recursive := delimiter == ""
 	var nextContinuationToken string
 
-	var startAfterPath storj.Path
+	var startAfterPath string
 	if continuationToken != "" {
 		startAfterPath = continuationToken
 	}
@@ -312,7 +313,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
 		Direction: storj.After,
 		Cursor:    startAfterPath,
-		Prefix:    prefix,
+		Prefix:    paths.NewUnencrypted(prefix),
 		Recursive: recursive,
 		Limit:     maxKeys,
 	})
@@ -322,9 +323,9 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 
 	if len(list.Items) > 0 {
 		for _, item := range list.Items {
-			path := item.Path
+			path := item.Path.String()
 			if recursive && prefix != "" {
-				path = storj.JoinPaths(strings.TrimSuffix(prefix, "/"), path)
+				path = strings.Join([]string{strings.TrimSuffix(prefix, "/"), path}, "/")
 			}
 			if item.IsPrefix {
 				prefixes = append(prefixes, path)
@@ -341,7 +342,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 			})
 		}
 
-		nextContinuationToken = list.Items[len(list.Items)-1].Path + "\x00"
+		nextContinuationToken = list.Items[len(list.Items)-1].Path.String() + "\x00"
 	}
 
 	result = minio.ListObjectsV2Info{
