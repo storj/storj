@@ -44,6 +44,8 @@ func NewPrefixWriter(defaultPrefix string, dst io.Writer) *PrefixWriter {
 type prefixWriter struct {
 	*PrefixWriter
 	prefix string
+
+	local  sync.Mutex
 	id     string
 	buffer []byte
 }
@@ -54,7 +56,13 @@ func (writer *PrefixWriter) Prefixed(prefix string) io.Writer {
 	writer.prefixlen = max(writer.prefixlen, len(prefix))
 	writer.mu.Unlock()
 
-	return &prefixWriter{writer, prefix, "", make([]byte, 0, writer.maxline)}
+	return &prefixWriter{
+		PrefixWriter: writer,
+		prefix:       prefix,
+		local:        sync.Mutex{},
+		id:           "",
+		buffer:       make([]byte, 0, writer.maxline),
+	}
 }
 
 // Write implements io.Writer that prefixes lines.
@@ -67,6 +75,9 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
+
+	writer.local.Lock()
+	defer writer.local.Unlock()
 
 	var newID string
 	if writer.id == "" {
