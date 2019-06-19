@@ -1709,7 +1709,7 @@
             ]
           },
           {
-            "name": "ValueAttributionRequest",
+            "name": "SetAttributionRequest",
             "fields": [
               {
                 "id": 1,
@@ -1724,7 +1724,7 @@
             ]
           },
           {
-            "name": "ValueAttributionResponse"
+            "name": "SetAttributionResponse"
           }
         ],
         "services": [
@@ -1762,9 +1762,9 @@
                 "out_type": "ListSegmentsResponse"
               },
               {
-                "name": "ValueAttributeInfo",
-                "in_type": "ValueAttributionRequest",
-                "out_type": "ValueAttributionResponse"
+                "name": "SetAttribution",
+                "in_type": "SetAttributionRequest",
+                "out_type": "SetAttributionResponse"
               }
             ]
           }
