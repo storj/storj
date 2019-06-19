@@ -1143,11 +1143,42 @@
             "fields": [
               {
                 "id": 1,
-                "name": "online_nodes",
-                "type": "int32"
+                "name": "healthy_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
               },
               {
                 "id": 2,
+                "name": "unhealthy_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "offline_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 4,
                 "name": "segment",
                 "type": "bytes"
               }

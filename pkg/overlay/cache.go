@@ -44,6 +44,8 @@ type DB interface {
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
+	// KnownOffline filters a set of nodes to offline nodes
+	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
@@ -74,17 +76,15 @@ type FindStorageNodesRequest struct {
 
 // NodeCriteria are the requirements for selecting nodes
 type NodeCriteria struct {
-	FreeBandwidth      int64
-	FreeDisk           int64
-	AuditCount         int64
-	AuditSuccessRatio  float64
-	UptimeCount        int64
-	UptimeSuccessRatio float64
-	ExcludedNodes      []storj.NodeID
-	ExcludedIPs        []string
-	MinimumVersion     string // semver or empty
-	OnlineWindow       time.Duration
-	DistinctIP         bool
+	FreeBandwidth  int64
+	FreeDisk       int64
+	AuditCount     int64
+	UptimeCount    int64
+	ExcludedNodes  []storj.NodeID
+	ExcludedIPs    []string
+	MinimumVersion string // semver or empty
+	OnlineWindow   time.Duration
+	DistinctIP     bool
 }
 
 // UpdateRequest is used to update a node status.
@@ -197,14 +197,13 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	var newNodes []*pb.Node
 	if newNodeCount > 0 {
 		newNodes, err = cache.db.SelectNewStorageNodes(ctx, newNodeCount, &NodeCriteria{
-			FreeBandwidth:     req.FreeBandwidth,
-			FreeDisk:          req.FreeDisk,
-			AuditCount:        preferences.AuditCount,
-			AuditSuccessRatio: preferences.AuditSuccessRatio,
-			ExcludedNodes:     excludedNodes,
-			MinimumVersion:    preferences.MinimumVersion,
-			OnlineWindow:      preferences.OnlineWindow,
-			DistinctIP:        preferences.DistinctIP,
+			FreeBandwidth:  req.FreeBandwidth,
+			FreeDisk:       req.FreeDisk,
+			AuditCount:     preferences.AuditCount,
+			ExcludedNodes:  excludedNodes,
+			MinimumVersion: preferences.MinimumVersion,
+			OnlineWindow:   preferences.OnlineWindow,
+			DistinctIP:     preferences.DistinctIP,
 		})
 		if err != nil {
 			return nil, err
@@ -221,17 +220,15 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	}
 
 	criteria := NodeCriteria{
-		FreeBandwidth:      req.FreeBandwidth,
-		FreeDisk:           req.FreeDisk,
-		AuditCount:         preferences.AuditCount,
-		AuditSuccessRatio:  preferences.AuditSuccessRatio,
-		UptimeCount:        preferences.UptimeCount,
-		UptimeSuccessRatio: preferences.UptimeRatio,
-		ExcludedNodes:      excludedNodes,
-		ExcludedIPs:        excludedIPs,
-		MinimumVersion:     preferences.MinimumVersion,
-		OnlineWindow:       preferences.OnlineWindow,
-		DistinctIP:         preferences.DistinctIP,
+		FreeBandwidth:  req.FreeBandwidth,
+		FreeDisk:       req.FreeDisk,
+		AuditCount:     preferences.AuditCount,
+		UptimeCount:    preferences.UptimeCount,
+		ExcludedNodes:  excludedNodes,
+		ExcludedIPs:    excludedIPs,
+		MinimumVersion: preferences.MinimumVersion,
+		OnlineWindow:   preferences.OnlineWindow,
+		DistinctIP:     preferences.DistinctIP,
 	}
 	reputableNodes, err := cache.db.SelectStorageNodes(ctx, reputableNodeCount-len(newNodes), &criteria)
 	if err != nil {
@@ -248,15 +245,20 @@ func (cache *Cache) FindStorageNodesWithPreferences(ctx context.Context, req Fin
 	return nodes, nil
 }
 
+// KnownOffline filters a set of nodes to offline nodes
+func (cache *Cache) KnownOffline(ctx context.Context, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	criteria := &NodeCriteria{
+		OnlineWindow: cache.preferences.OnlineWindow,
+	}
+	return cache.db.KnownOffline(ctx, criteria, nodeIds)
+}
+
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new.
 func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		OnlineWindow:       cache.preferences.OnlineWindow,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+		OnlineWindow: cache.preferences.OnlineWindow,
 	}
 	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
 }
@@ -294,10 +296,8 @@ func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *No
 func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	criteria := &NodeCriteria{
-		AuditCount:         cache.preferences.AuditCount,
-		AuditSuccessRatio:  cache.preferences.AuditSuccessRatio,
-		UptimeCount:        cache.preferences.UptimeCount,
-		UptimeSuccessRatio: cache.preferences.UptimeRatio,
+		AuditCount:  cache.preferences.AuditCount,
+		UptimeCount: cache.preferences.UptimeCount,
 	}
 	reputable, err = cache.db.IsVetted(ctx, nodeID, criteria)
 	if err != nil {
