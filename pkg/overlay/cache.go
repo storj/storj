@@ -55,7 +55,7 @@ type DB interface {
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest, auditLambda, auditWeight, uptimeLambda, uptimeWeight float64) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
@@ -90,6 +90,16 @@ type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditSuccess bool
 	IsUp         bool
+
+	// n.b. these are set values from the satellite.
+	// They are part of the UpdateRequest struct in order to be
+	// more easily accessible in satellite/satellitedb/overlaycache.go.
+	AuditLambda  float64
+	AuditWeight  float64
+	AuditDQ      float64
+	UptimeLambda float64
+	UptimeWeight float64
+	UptimeDQ     float64
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node
@@ -303,12 +313,14 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auditLambda := cache.preferences.AuditReputationLambda
-	auditWeight := cache.preferences.AuditReputationWeight
-	uptimeLambda := cache.preferences.UptimeReputationLambda
-	uptimeWeight := cache.preferences.UptimeReputationWeight
+	request.AuditLambda = cache.preferences.AuditReputationLambda
+	request.AuditWeight = cache.preferences.AuditReputationWeight
+	request.AuditDQ = cache.preferences.AuditReputationDQ
+	request.UptimeLambda = cache.preferences.UptimeReputationLambda
+	request.UptimeWeight = cache.preferences.UptimeReputationWeight
+	request.UptimeDQ = cache.preferences.UptimeReputationDQ
 
-	return cache.db.UpdateStats(ctx, request, auditLambda, auditWeight, uptimeLambda, uptimeWeight)
+	return cache.db.UpdateStats(ctx, request)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
