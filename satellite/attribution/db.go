@@ -9,7 +9,11 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 )
+
+// ErrBucketNameNotFound is returned if a node does not exist in database
+var ErrBucketNameNotFound = errs.Class("bucket name not found")
 
 // Info describing value attribution from partner to bucket
 type Info struct {

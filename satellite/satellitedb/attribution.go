@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -24,6 +25,9 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 		dbx.ValueAttribution_ProjectId(projectID[:]),
 		dbx.ValueAttribution_BucketName(bucketName),
 	)
+	if err == sql.ErrNoRows {
+		return nil, attribution.ErrBucketNameNotFound.New(string(bucketName))
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
