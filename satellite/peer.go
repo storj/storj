@@ -112,6 +112,9 @@ type Config struct {
 	Discovery discovery.Config
 
 	Metainfo metainfo.Config
+	Orders   struct {
+		Expiration time.Duration `help:"how long until an order expires" default:"1080h"`
+	}
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -391,7 +394,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.CertDB(),
 			peer.DB.Orders(),
-			45*24*time.Hour, // TODO: make it configurable?
+			config.Orders.Expiration,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
