@@ -6,7 +6,7 @@
 
 #include "require.h"
 #include "uplink.h"
-#include "helpers2.h"
+#include "helpers.h"
 
 void handle_project(ProjectRef project);
 
@@ -98,7 +98,7 @@ void handle_project(ProjectRef project) {
                 uint64_t size_to_read = 1024;
                 bytes = malloc(size_to_read);
                 uint64_t downloadedSize = download_read(downloader, bytes, size_to_read, err);
-                printf("size: %llu\n", downloadedSize);
+
                 if (downloadedSize == EOF) {
                     free(bytes);
                     break;
@@ -125,20 +125,22 @@ void handle_project(ProjectRef project) {
         require_noerror(*err);
     }
 
-//    { // List objects
-//        ObjectList objects_list = ListObjects(bucket, NULL, err);
-//        TEST_ASSERT_EQUAL_STRING("", *err);
-//        TEST_ASSERT_EQUAL_STRING(bucket_name, objects_list.bucket);
-//        TEST_ASSERT_EQUAL_STRING("", objects_list.prefix);
-//        TEST_ASSERT_EQUAL(false, objects_list.more);
-//        TEST_ASSERT_EQUAL(num_of_objects, objects_list.length);
+    { // List objects
+//        ObjectList objects_list = list_objects(bucket, NULL, err);
+//        require_noerror(*err);
+//        require(strcmp(bucket_name, objects_list.bucket) == 0);
+//        require(strcmp("", objects_list.prefix) == 0);
+//        require(false == objects_list.more);
+//        require(num_of_objects == objects_list.length);
 //
-//        Object_t *object;
+//        ObjectInfo *object;
 //        for (int i=0; i < objects_list.length; i++) {
 //            object = &objects_list.items[i];
-//            TEST_ASSERT_EQUAL_STRING(object_paths[i], object->path);
+//            require(true == array_contains(object->path, object_paths, num_of_objects));
 //        }
-//    }
+//
+//        free_list_objects(&objects_list);
+    }
 
     close_bucket(bucket, err);
     require_noerror(*err);

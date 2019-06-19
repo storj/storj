@@ -95,3 +95,13 @@ char *mkrndstr(size_t length) { // const size_t length, supra
 
     return randomString;
 }
+
+bool array_contains(char *item, char *array[], int array_size) {
+    for (int i = 0; i < array_size; i++) {
+        if(strcmp(array[i], item) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
