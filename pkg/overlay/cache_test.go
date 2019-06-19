@@ -343,11 +343,11 @@ func TestIsVetted(t *testing.T) {
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         false,
 			AuditSuccess: true,
-			AuditLambda:  0.1,
-			AuditWeight:  3,
+			AuditLambda:  1,
+			AuditWeight:  1,
 			AuditDQ:      0.5,
-			UptimeLambda: 0.1,
-			UptimeWeight: 3,
+			UptimeLambda: 0,
+			UptimeWeight: 1,
 			UptimeDQ:     0.5,
 		})
 		require.NoError(t, err)
@@ -357,11 +357,11 @@ func TestIsVetted(t *testing.T) {
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: false,
-			AuditLambda:  0.1,
-			AuditWeight:  3,
+			AuditLambda:  0,
+			AuditWeight:  1,
 			AuditDQ:      0.5,
-			UptimeLambda: 0.1,
-			UptimeWeight: 3,
+			UptimeLambda: 1,
+			UptimeWeight: 1,
 			UptimeDQ:     0.5,
 		})
 		require.NoError(t, err)
