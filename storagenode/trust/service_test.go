@@ -33,7 +33,7 @@ func TestGetSignee(t *testing.T) {
 
 	var group errgroup.Group
 	group.Go(func() error {
-		_, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
+		_, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID(), planet.Satellites[0].Local().Node.Address)
 		if err == context.Canceled {
 			return nil
 		}
@@ -43,7 +43,7 @@ func TestGetSignee(t *testing.T) {
 	})
 
 	group.Go(func() error {
-		cert, err := trust.GetSignee(ctx, planet.Satellites[0].ID())
+		cert, err := trust.GetSignee(ctx, planet.Satellites[0].ID(), planet.Satellites[0].Local().Node.Address)
 		if err != nil {
 			return err
 		}

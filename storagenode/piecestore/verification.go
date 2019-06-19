@@ -133,7 +133,7 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
+	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId, limit.SatelliteAddress)
 	if err != nil {
 		if err == context.Canceled {
 			return err

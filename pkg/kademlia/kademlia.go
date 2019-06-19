@@ -42,7 +42,7 @@ type Kademlia struct {
 	alpha          int // alpha is a system wide concurrency parameter
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
-	dialer         *Dialer
+	Dialer         *Dialer
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished    sync2.Fence
@@ -66,7 +66,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
-		dialer:               NewDialer(log.Named("dialer"), transport),
+		Dialer:               NewDialer(log.Named("dialer"), transport),
 		refreshThreshold:     int64(time.Minute),
 	}
 
@@ -75,7 +75,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 
 // Close closes all kademlia connections and prevents new ones from being created.
 func (k *Kademlia) Close() error {
-	dialerErr := k.dialer.Close()
+	dialerErr := k.Dialer.Close()
 	k.lookups.Close()
 	k.lookups.Wait()
 	return dialerErr
@@ -172,7 +172,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 				return errGroup.Err()
 			}
 
-			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
+			ident, err := k.Dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
 				errGroup.Add(err)
 				continue
@@ -184,7 +184,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 			// The way FetchPeerIdentityUnverified does is is to do a basic ping request, which
 			// we have now done. Let's tell all the transport observers now.
 			// TODO: remove the explicit transport observer notification
-			k.dialer.transport.AlertSuccess(ctx, &pb.Node{
+			k.Dialer.transport.AlertSuccess(ctx, &pb.Node{
 				Id:      ident.ID,
 				Address: node.Address,
 			})
@@ -239,7 +239,7 @@ func (k *Kademlia) FetchPeerIdentity(ctx context.Context, nodeID storj.NodeID) (
 	if err != nil {
 		return nil, err
 	}
-	return k.dialer.FetchPeerIdentity(ctx, node)
+	return k.Dialer.FetchPeerIdentity(ctx, node)
 }
 
 // Ping checks that the provided node is still accessible on the network
@@ -250,7 +250,7 @@ func (k *Kademlia) Ping(ctx context.Context, node pb.Node) (_ pb.Node, err error
 	}
 	defer k.lookups.Done()
 
-	ok, err := k.dialer.PingNode(ctx, node)
+	ok, err := k.Dialer.PingNode(ctx, node)
 	if err != nil {
 		return pb.Node{}, NodeErr.Wrap(err)
 	}
@@ -268,7 +268,7 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoRespo
 	}
 	defer k.lookups.Done()
 
-	info, err := k.dialer.FetchInfo(ctx, node)
+	info, err := k.Dialer.FetchInfo(ctx, node)
 	if err != nil {
 		return nil, NodeErr.Wrap(err)
 	}
@@ -307,7 +307,7 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID) (_ []*pb.Nod
 		return nil, err
 	}
 	self := k.routingTable.Local().Node
-	lookup := newPeerDiscovery(k.log, k.dialer, nodeID, nodes, k.routingTable.K(), k.alpha, &self)
+	lookup := newPeerDiscovery(k.log, k.Dialer, nodeID, nodes, k.routingTable.K(), k.alpha, &self)
 	results, err := lookup.Run(ctx)
 	if err != nil {
 		return nil, err

@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -24,7 +25,7 @@ var mon = monkit.Package()
 
 // Pool implements different peer verifications.
 type Pool struct {
-	kademlia *kademlia.Kademlia
+	dialer *kademlia.Dialer
 
 	mu sync.RWMutex
 
@@ -39,10 +40,10 @@ type satelliteInfoCache struct {
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
-func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs string) (*Pool, error) {
+func NewPool(dialer *kademlia.Dialer, trustAll bool, trustedSatelliteIDs string) (*Pool, error) {
 	if trustAll {
 		return &Pool{
-			kademlia: kademlia,
+			dialer: dialer,
 
 			trustAllSatellites: true,
 			trustedSatellites:  map[storj.NodeID]*satelliteInfoCache{},
@@ -68,7 +69,7 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 	}
 
 	return &Pool{
-		kademlia: kademlia,
+		dialer: dialer,
 
 		trustAllSatellites: false,
 		trustedSatellites:  trusted,
@@ -101,7 +102,7 @@ func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) (err erro
 
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
-func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
+func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID, address *pb.NodeAddress) (_ signing.Signee, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// lookup peer identity with id
@@ -131,7 +132,7 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 	defer info.mu.Unlock()
 
 	if info.identity == nil {
-		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
+		identity, err := pool.dialer.FetchPeerIdentityUnverified(ctx, address.Address)
 		if err != nil {
 			if err == context.Canceled {
 				return nil, err
