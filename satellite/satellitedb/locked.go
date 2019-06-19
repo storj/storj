@@ -503,7 +503,7 @@ func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserC
 	return m.db.Create(ctx, userCredit)
 }
 
-func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditsUsage, error) {
+func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetCreditUsage(ctx, userID, expirationEndDate)

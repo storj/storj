@@ -22,7 +22,7 @@ type usercredits struct {
 }
 
 // GetCreditUsage returns the total amount of referral a user has made based on user id, total available credits, and total used credits based on user id
-func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditsUsage, error) {
+func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
 	usageRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT a.used_credit, b.available_credit, c.referred
 		FROM (SELECT SUM(credits_used_in_cents) AS used_credit FROM user_credits WHERE user_id = ?) AS a,
 		(SELECT SUM(credits_earned_in_cents - credits_used_in_cents) AS available_credit FROM user_credits WHERE expires_at > ? AND user_id = ?) AS b,
@@ -31,7 +31,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 		return nil, err
 	}
 
-	usage := console.UserCreditsUsage{}
+	usage := console.UserCreditUsage{}
 
 	for usageRows.Next() {
 

@@ -455,7 +455,7 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	return
 }
 
-func (s *Service) GetUserCreditsUsage(ctx context.Context) (usage *UserCreditsUsage, err error) {
+func (s *Service) GetUserCreditsUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {

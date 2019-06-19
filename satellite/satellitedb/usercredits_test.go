@@ -67,7 +67,7 @@ func TestUsercredits(t *testing.T) {
 
 		type result struct {
 			remainingCharge int
-			usage           console.UserCreditsUsage
+			usage           console.UserCreditUsage
 			hasErr          bool
 		}
 
@@ -87,7 +87,7 @@ func TestUsercredits(t *testing.T) {
 				chargedCredits: 120,
 				expected: result{
 					remainingCharge: 20,
-					usage: console.UserCreditsUsage{
+					usage: console.UserCreditUsage{
 						AvailableCredits: 0,
 						UsedCredits:      100,
 						Referred:         0,
@@ -107,7 +107,7 @@ func TestUsercredits(t *testing.T) {
 				chargedCredits: 60,
 				expected: result{
 					remainingCharge: 60,
-					usage: console.UserCreditsUsage{
+					usage: console.UserCreditUsage{
 						AvailableCredits: 0,
 						UsedCredits:      100,
 						Referred:         0,
@@ -127,7 +127,7 @@ func TestUsercredits(t *testing.T) {
 				chargedCredits: 80,
 				expected: result{
 					remainingCharge: 0,
-					usage: console.UserCreditsUsage{
+					usage: console.UserCreditUsage{
 						AvailableCredits: 20,
 						UsedCredits:      180,
 						Referred:         0,
