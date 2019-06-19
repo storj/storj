@@ -60,7 +60,7 @@ func (filter *Filter) Add(pieceID storj.PieceID) {
 	for k := byte(0); k < filter.hashCount; k++ {
 		hash, bit := subrange(offset, pieceID)
 
-		offset += int(rangeOffset)
+		offset += rangeOffset
 		if offset >= len(storj.PieceID{}) {
 			offset -= len(storj.PieceID{})
 		}
@@ -77,7 +77,7 @@ func (filter *Filter) Contains(pieceID storj.PieceID) bool {
 	for k := byte(0); k < filter.hashCount; k++ {
 		hash, bit := subrange(offset, pieceID)
 
-		offset += int(rangeOffset)
+		offset += rangeOffset
 		if offset >= len(storj.PieceID{}) {
 			offset -= len(storj.PieceID{})
 		}
