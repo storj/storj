@@ -369,7 +369,8 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, blockSize, storj.AESGCM)
+	inlineThreshold := 8 * memory.KiB.Int()
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, blockSize, storj.AESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -104,6 +104,10 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 			continue
 		}
 
+		if f.Hidden == true {
+			continue
+		}
+
 		var overriddenValue interface{}
 		var overrideExist bool
 		if overrides != nil {

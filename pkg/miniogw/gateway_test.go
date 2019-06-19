@@ -706,7 +706,8 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	copy(encKey[:], TestEncKey)
 
 	blockSize := rs.StripeSize()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM)
+	inlineThreshold := 4 * memory.KiB.Int()
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}

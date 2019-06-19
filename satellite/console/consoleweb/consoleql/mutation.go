@@ -94,7 +94,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
 					if err != nil {
 						log.Error("register: failed to generate activation token",
-							zap.String("id", user.ID.String()),
+							zap.Stringer("id", user.ID),
 							zap.String("email", user.Email),
 							zap.Error(err))
 

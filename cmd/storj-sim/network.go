@@ -219,7 +219,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.private-address", net.JoinHostPort(host, port(bootstrapPeer, 0, privateGRPC)),
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
-			"--kademlia.operator.email", "bootstrap@example.com",
+			"--kademlia.operator.email", "bootstrap@mail.test",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 
 			"--server.extensions.revocation=false",
@@ -424,11 +424,11 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateGRPC)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
-				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
+				"--kademlia.operator.email", fmt.Sprintf("storage%d@mail.test", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 
-				"--storage2.monitor.minimum-disk-space", "25GB",
-				"--storage2.monitor.minimum-bandwidth", "25GB",
+				"--storage2.monitor.minimum-disk-space", "10GB",
+				"--storage2.monitor.minimum-bandwidth", "10GB",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
