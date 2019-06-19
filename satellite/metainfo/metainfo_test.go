@@ -5,12 +5,12 @@ package metainfo_test
 
 import (
 	"context"
-	"crypto/rand"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -436,46 +436,41 @@ func TestCommitSegmentPointer(t *testing.T) {
 	})
 }
 
-func TestValueAttributeInfo(t *testing.T) {
+func TestSetAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
+
 		config := uplink.GetConfig(planet.Satellites[0])
 		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 		require.NoError(t, err)
-		encScheme := config.GetEncryptionScheme()
-		_, err = metainfo.CreateBucket(ctx, "myBucket", &storj.Bucket{PathCipher: encScheme.Cipher})
+
+		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 
-		keyInfo := pb.ValueAttributionRequest{
-			PartnerId:  []byte("PartnerID"),
-			BucketName: []byte("myBucketName"),
-		}
+		partnerID, err := uuid.New()
+		require.NoError(t, err)
 
 		{
 			// bucket with no items
-			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.SetAttribution(ctx, "beta", *partnerID)
 			require.NoError(t, err)
 		}
 		{
-			expectedData := make([]byte, 1*memory.MiB)
-			_, err = rand.Read(expectedData)
-			assert.NoError(t, err)
-
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "myBucket", "path", expectedData)
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
 			require.Error(t, err)
 		}
 	})

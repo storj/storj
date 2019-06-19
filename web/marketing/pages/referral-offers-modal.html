@@ -1,9 +1,12 @@
-{{define "roModal"}}
-<div class="modal fade" id="roModal" tabindex="-1" role="dialog" aria-labelledby="roModalLabel" aria-hidden="true">
+<!-- Copyright (C) 2019 Storj Labs, Inc.
+See LICENSE for copying information. -->
+
+{{define "referralOffersModal"}}
+<div class="modal fade p-5" id="referral-offers-modal" tabindex="-1" role="dialog" aria-labelledby="referral-offers-modal-lbl" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="roModalLabel">Create Referral Credit</h5>
+                <h5 class="modal-title" id="referral-offers-modal-lbl">Create Referral Credit</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
                 </button>
@@ -13,39 +16,41 @@
                     <div class="form-row">
                         <div class="form-group col-md-4">
                             <label for="offer-name">Offer Name</label>
-                            <input type="text" class="form-control" id="offer-name" placeholder="May Referral">
+                            <input type="text" class="form-control" id="offer-name" placeholder="May Referral" required>
                         </div>
                         <div class="form-group col-md-4">
                             <label for="description">Description</label>
-                            <input type="text" class="form-control" id="description" placeholder="Our test with $50 for May">
+                            <input type="text" class="form-control" id="description" placeholder="Our test with $50 for May" required>
                         </div>
                         <div class="form-group col-md-4">
                             <label for="expiration">Credit Exp Date</label>
-                            <input type="date" class="form-control" id="expiration" placeholder="06/01/19">
+                            <input type="date" class="form-control" id="expiration" placeholder="06/01/19" required>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-md-2">
                             <label for="give-credit">Give Credit</label>
-                            <input type="number" class="form-control" id="give-credit" value="$50">                        </div>
+                            <input type="number" class="form-control" id="give-credit" placeholder="$50" required>                        
+                        </div>
                         <div class="form-group col-md-2">
                             <label for="give-credit-exp">Give Credit Exp.</label>
-                            <input type="date" class="form-control" id="give-credit-exp">
+                            <input type="number" class="form-control" id="give-credit-exp" min="1" placeholder="14 days" required>
                         </div>
                         <div class="form-group col-md-2">
                             <label for="get-credit">Get Credit</label>
-                            <input type="number" class="form-control" id="get-credit" value="$50">                        </div>
+                            <input type="number" class="form-control" id="get-credit" placeholder="$50" min="1" required>                        
+                        </div>
                         <div class="form-group col-md-3">
                             <label for="get-credit-exp">Get Credit Exp.</label>
-                            <input type="date" class="form-control" id="get-credit-exp">
+                            <input type="number" class="form-control" id="get-credit-exp" placeholder="12 months" min="1" required>
                         </div>
                         <div class="form-group col-md-3">
                             <label for="redeemable-capacity">Redeemable Capacity</label>
-                            <input type="text" class="form-control" id="redeemable-capacity">
+                            <input type="number" class="form-control" id="redeemable-capacity" min="1" placeholder="150 users" required>
                         </div>
                     </div>
                     <div class="m-1 text-left">
-                        <button type="submit" class="btn btn-secondary">Create Offer</button>
+                        <button type="submit" class="btn btn-primary">Create Offer</button>
                         <a class="ml-3" href="/">Cancel</a>
                     </div>
                 </form>

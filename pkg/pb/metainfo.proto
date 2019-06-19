@@ -20,7 +20,7 @@ service Metainfo {
     rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
     rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
-    rpc ValueAttributeInfo(ValueAttributionRequest) returns (ValueAttributionResponse);
+    rpc SetAttribution(SetAttributionRequest) returns (SetAttributionResponse);
 }
 
 message AddressedOrderLimit {
@@ -106,10 +106,10 @@ message ListSegmentsResponse {
     bool more = 2;
 }
 
-message ValueAttributionRequest{
+message SetAttributionRequest{
     bytes bucket_name = 1;
-    bytes partner_id = 2;
+    bytes partner_id = 2 ;
 }
 
-message ValueAttributionResponse {
+message SetAttributionResponse {
 }

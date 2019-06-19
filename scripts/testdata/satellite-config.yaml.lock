@@ -11,16 +11,16 @@
 # audit.min-bytes-per-second: 128 B
 
 # the minimum duration for downloading a share from storage nodes before timing out
-# audit.min-download-timeout: 5s
+# audit.min-download-timeout: 25s
 
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
 # how frequently irrepairable checker should check for lost pieces
-# checker.irreparable-interval: 15s
+# checker.irreparable-interval: 30m0s
 
 # server address of the graphql api gateway and frontend app
-# console.address: "127.0.0.1:8081"
+# console.address: ":10100"
 
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
@@ -107,7 +107,7 @@ kademlia.operator.wallet: ""
 # kademlia.replacement-cache-size: 5
 
 # what to use for storing real-time accounting data
-# live-accounting.storage-backend: ""
+# live-accounting.storage-backend: "plainmemory"
 
 # if true, log function filename and line number
 # log.caller: false
@@ -119,7 +119,7 @@ kademlia.operator.wallet: ""
 # log.encoding: "console"
 
 # the minimum log level to log
-# log.level: warn
+# log.level: info
 
 # can be stdout, stderr, or a filename
 # log.output: "stderr"
@@ -196,6 +196,24 @@ kademlia.operator.wallet: ""
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 500
 
+# the initial shape 'alpha' used to calculate audit SNs reputation
+# overlay.node.audit-reputation-alpha0: 1
+
+# the initial shape 'beta' value used to calculate audit SNs reputation
+# overlay.node.audit-reputation-beta0: 0
+
+# the forgetting factor used to calculate the audit SNs reputation
+# overlay.node.audit-reputation-lambda: 1
+
+# weight to apply to audit reputation for total repair reputation calculation
+# overlay.node.audit-reputation-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# overlay.node.audit-reputation-uplink-weight: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# overlay.node.audit-reputation-weight: 1
+
 # a node's ratio of successful audits
 # overlay.node.audit-success-ratio: 0.4
 
@@ -211,47 +229,29 @@ kademlia.operator.wallet: ""
 # the amount of time without seeing a node before its considered offline
 # overlay.node.online-window: 1h0m0s
 
-# the initial shape 'alpha' used to calculate audit SNs reputation
-# overlay.node.reputation-audit-alpha0: 1
-
-# the initial shape 'beta' value used to calculate audit SNs reputation
-# overlay.node.reputation-audit-beta0: 0
-
-# the forgetting factor used to calculate the audit SNs reputation
-# overlay.node.reputation-audit-lambda: 1
-
-# the normalization weight used to calculate the audit SNs reputation
-# overlay.node.reputation-audit-omega: 1
-
-# weight to apply to audit reputation for total repair reputation calculation
-# overlay.node.reputation-audit-repair-weight: 1
-
-# weight to apply to audit reputation for total uplink reputation calculation
-# overlay.node.reputation-audit-uplink-weight: 1
-
-# the initial shape 'alpha' used to calculate uptime SNs reputation
-# overlay.node.reputation-uptime-alpha0: 1
-
-# the initial shape 'beta' value used to calculate uptime SNs reputation
-# overlay.node.reputation-uptime-beta0: 0
-
-# the forgetting factor used to calculate the uptime SNs reputation
-# overlay.node.reputation-uptime-lambda: 1
-
-# the normalization weight used to calculate the uptime SNs reputation
-# overlay.node.reputation-uptime-omega: 1
-
-# weight to apply to uptime reputation for total repair reputation calculation
-# overlay.node.reputation-uptime-repair-weight: 1
-
-# weight to apply to uptime reputation for total uplink reputation calculation
-# overlay.node.reputation-uptime-uplink-weight: 1
-
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 500
 
 # a node's ratio of being up/online vs. down/offline
 # overlay.node.uptime-ratio: 0.9
+
+# the initial shape 'alpha' used to calculate uptime SNs reputation
+# overlay.node.uptime-reputation-alpha0: 1
+
+# the initial shape 'beta' value used to calculate uptime SNs reputation
+# overlay.node.uptime-reputation-beta0: 0
+
+# the forgetting factor used to calculate the uptime SNs reputation
+# overlay.node.uptime-reputation-lambda: 1
+
+# weight to apply to uptime reputation for total repair reputation calculation
+# overlay.node.uptime-reputation-repair-weight: 1
+
+# weight to apply to uptime reputation for total uplink reputation calculation
+# overlay.node.uptime-reputation-uplink-weight: 1
+
+# the normalization weight used to calculate the uptime SNs reputation
+# overlay.node.uptime-reputation-weight: 1
 
 # how frequently repairer should try and repair more data
 # repairer.interval: 1h0m0s
@@ -263,7 +263,7 @@ kademlia.operator.wallet: ""
 # repairer.max-repair: 5
 
 # time limit for uploading repaired pieces to new storage nodes
-# repairer.timeout: 10m0s
+# repairer.timeout: 2h0m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: false

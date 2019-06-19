@@ -444,7 +444,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				BootstrapBackoffMax:  2 * time.Second,
 				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@example.com",
+					Email:  prefix + "@mail.test",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
@@ -457,6 +457,19 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					NewNodePercentage: 0,
 					OnlineWindow:      time.Hour,
 					DistinctIP:        false,
+
+					AuditReputationRepairWeight:  1,
+					AuditReputationUplinkWeight:  1,
+					AuditReputationAlpha0:        1,
+					AuditReputationBeta0:         0,
+					AuditReputationLambda:        1,
+					AuditReputationWeight:        1,
+					UptimeReputationRepairWeight: 1,
+					UptimeReputationUplinkWeight: 1,
+					UptimeReputationAlpha0:       1,
+					UptimeReputationBeta0:        0,
+					UptimeReputationLambda:       1,
+					UptimeReputationWeight:       1,
 				},
 			},
 			Discovery: discovery.Config{
@@ -495,8 +508,8 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				DeleteTallies: false,
 			},
 			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.mail.example.com:587",
-				From:              "Labs <storj@example.com>",
+				SMTPServerAddress: "smtp.mail.test:587",
+				From:              "Labs <storj@mail.test>",
 				AuthType:          "simulate",
 			},
 			Console: consoleweb.Config{
@@ -604,7 +617,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				Alpha:                5,
 				DBPath:               storageDir, // TODO: replace with master db
 				Operator: kademlia.OperatorConfig{
-					Email:  prefix + "@example.com",
+					Email:  prefix + "@mail.test",
 					Wallet: "0x" + strings.Repeat("00", 20),
 				},
 			},
@@ -713,7 +726,7 @@ func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
 			Alpha:                5,
 			DBPath:               dbDir, // TODO: replace with master db
 			Operator: kademlia.OperatorConfig{
-				Email:  prefix + "@example.com",
+				Email:  prefix + "@mail.test",
 				Wallet: "0x" + strings.Repeat("00", 20),
 			},
 		},
