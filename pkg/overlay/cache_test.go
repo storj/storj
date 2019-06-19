@@ -95,11 +95,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		valid1, err := cache.Get(ctx, valid1ID)
 		require.NoError(t, err)
 		require.Equal(t, valid1.Id, valid1ID)
-		require.Equal(t, valid1.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
-		require.Equal(t, valid1.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
-		require.Equal(t, valid1.Reputation.UptimeReputationAlpha, nodeSelectionConfig.UptimeReputationAlpha0)
-		require.Equal(t, valid1.Reputation.UptimeReputationBeta, nodeSelectionConfig.UptimeReputationBeta0)
-		require.Nil(t, valid1.Reputation.Disqualified)
 
 		valid2, err := cache.Get(ctx, valid2ID)
 		require.NoError(t, err)
@@ -126,6 +121,51 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.NoError(t, err)
 		assert.NotNil(t, more)
 		assert.NotEqual(t, len(zero), 0)
+	}
+
+	{ // Reputation
+		valid1, err := cache.Get(ctx, valid1ID)
+		require.NoError(t, err)
+		require.EqualValues(t, valid1.Id, valid1ID)
+		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
+		require.EqualValues(t, valid1.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
+		require.EqualValues(t, valid1.Reputation.UptimeReputationAlpha, nodeSelectionConfig.UptimeReputationAlpha0)
+		require.EqualValues(t, valid1.Reputation.UptimeReputationBeta, nodeSelectionConfig.UptimeReputationBeta0)
+		require.Nil(t, valid1.Reputation.Disqualified)
+
+		cache.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       valid1ID,
+			IsUp:         true,
+			AuditSuccess: false,
+		})
+
+		newAuditAlpha := 1
+		newAuditBeta := 1
+		newUptimeAlpha := 2
+		newUptimeBeta := 0
+
+		valid1, err = cache.Get(ctx, valid1ID)
+		require.NoError(t, err)
+		require.EqualValues(t, valid1.Reputation.AuditReputationAlpha, newAuditAlpha)
+		require.EqualValues(t, valid1.Reputation.AuditReputationBeta, newAuditBeta)
+		require.EqualValues(t, valid1.Reputation.UptimeReputationAlpha, newUptimeAlpha)
+		require.EqualValues(t, valid1.Reputation.UptimeReputationBeta, newUptimeBeta)
+		require.NotNil(t, valid1.Reputation.Disqualified)
+		require.True(t, time.Now().UTC().Sub(*valid1.Reputation.Disqualified) < time.Minute)
+
+		cache.UpdateUptime(ctx, valid2ID, false)
+
+		newUptimeAlpha = 1
+		newUptimeBeta = 1
+
+		valid2, err := cache.Get(ctx, valid2ID)
+		require.NoError(t, err)
+		require.EqualValues(t, valid2.Reputation.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
+		require.EqualValues(t, valid2.Reputation.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
+		require.EqualValues(t, valid2.Reputation.UptimeReputationAlpha, newUptimeAlpha)
+		require.EqualValues(t, valid2.Reputation.UptimeReputationBeta, newUptimeBeta)
+		require.NotNil(t, valid2.Reputation.Disqualified)
+		require.True(t, time.Now().UTC().Sub(*valid2.Reputation.Disqualified) < time.Minute)
 	}
 }
 
