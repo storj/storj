@@ -4,7 +4,8 @@
 package tally_test
 
 import (
-	"crypto/rand"
+	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -159,123 +160,84 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 }
 
 func TestCalculateBucketAtRestData(t *testing.T) {
-	t.Skip("TODO: this test is flaky")
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		tallySvc := planet.Satellites[0].Accounting.Tally
-		uplink := planet.Uplinks[0]
+	var testCases = []struct {
+		name      string
+		fileSizes []memory.Size
+	}{
+		{"one bucket, one inline file", []memory.Size{1 * memory.KiB}},
+		{"one bucket, one remote file", []memory.Size{5 * memory.KiB}},
+		{"one bucket, two files (inline and remote)", []memory.Size{1 * memory.KiB, 5 * memory.KiB}},
+		{"one bucket, two files (both remote)", []memory.Size{6 * memory.KiB, 5 * memory.KiB}},
+	}
 
-		ps, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-		if err1 != nil {
-			assert.NoError(t, err1)
-		}
-		project := ps[0]
-		projectID := []byte(project.ID.String())
+	for _, tt := range testCases {
+		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellitePeer := planet.Satellites[0]
+			tallySvc := satellitePeer.Accounting.Tally
+			projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
+			require.NoError(t, err)
+			projectID := []byte(projects[0].ID.String())
+			uplink := planet.Uplinks[0]
+			uplinkConfig := uplink.GetConfig(satellitePeer)
 
-		// Setup: create 50KiB of data for the uplink to upload
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
-		expectedData2 := make([]byte, 100*memory.KiB)
-		_, err = rand.Read(expectedData)
-		require.NoError(t, err)
-
-		// Setup: get the expected size of the data that will be stored in pointer
-		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
-		require.NoError(t, err)
-		expectedTotalBytes2, err := encryption.CalcEncryptedSize(int64(len(expectedData2)), uplinkConfig.GetEncryptionScheme())
-		require.NoError(t, err)
-
-		// Setup: The data in this tally should match the pointer that the uplink.upload created
-		expectedBucketName1 := "testbucket1"
-		expectedTally1 := accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName1),
-			ProjectID:      projectID,
-			Segments:       1,
-			RemoteSegments: 1,
-			Files:          1,
-			RemoteFiles:    1,
-			Bytes:          expectedTotalBytes,
-			RemoteBytes:    expectedTotalBytes,
-			MetadataSize:   112, // brittle, this is hardcoded since its too difficult to get this value progamatically
-		}
-
-		expectedBucketName2 := "testbucket2"
-		expectedTally2 := accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName2),
-			ProjectID:      projectID,
-			Segments:       1,
-			RemoteSegments: 1,
-			Files:          1,
-			RemoteFiles:    1,
-			Bytes:          expectedTotalBytes2,
-			RemoteBytes:    expectedTotalBytes2,
-			MetadataSize:   112, // brittle, this is hardcoded since its too difficult to get this value progamatically
-		}
-
-		expectedBucketName3 := "testbucket3"
-		expectedTally3 := accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName3),
-			ProjectID:      projectID,
-			Segments:       0,
-			RemoteSegments: 0,
-			Files:          0,
-			RemoteFiles:    0,
-			Bytes:          0,
-			RemoteBytes:    0,
-			MetadataSize:   0,
-		}
-
-		expectedBucketName4 := "testbucket4"
-		expectedTally4 := accounting.BucketTally{
-			BucketName:     []byte(expectedBucketName4),
-			ProjectID:      projectID,
-			Segments:       2,
-			RemoteSegments: 2,
-			Files:          2,
-			RemoteFiles:    2,
-			Bytes:          expectedTotalBytes + expectedTotalBytes2,
-			RemoteBytes:    expectedTotalBytes + expectedTotalBytes2,
-			MetadataSize:   224,
-		}
-
-		// Execute test: upload a file, then calculate at rest data
-
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path2", expectedData2)
-		assert.NoError(t, err)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName1, "test/path1", expectedData)
-		assert.NoError(t, err)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, "test/path2", expectedData2)
-		assert.NoError(t, err)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, "test/path1", expectedData)
-		assert.NoError(t, err)
-
-		_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
-		require.NoError(t, err)
-
-		// Confirm the correct bucket storage tally was created
-		assert.Equal(t, len(actualBucketData), 3)
-		for bucketID, actualTally := range actualBucketData {
-			var bucketName = string(actualTally.BucketName)
-			assert.True(t, bucketName == expectedBucketName1 || bucketName == expectedBucketName2 || bucketName == expectedBucketName3 || bucketName == expectedBucketName4, "Test bucket names do not exist in results")
-			switch bucketName {
-			case expectedBucketName1:
-				assert.Contains(t, bucketID, expectedBucketName1)
-				assert.Equal(t, expectedTally1, *actualTally)
-			case expectedBucketName2:
-				assert.Contains(t, bucketID, expectedBucketName2)
-				assert.Equal(t, expectedTally2, *actualTally)
-			case expectedBucketName3:
-				assert.Contains(t, bucketID, expectedBucketName3)
-				assert.Equal(t, expectedTally3, *actualTally)
-			case expectedBucketName4:
-				assert.Contains(t, bucketID, expectedBucketName4)
-				assert.Equal(t, expectedTally4, *actualTally)
+			bucketName := "testbucket"
+			expectedTally := accounting.BucketTally{
+				BucketName: []byte(bucketName),
+				ProjectID:  projectID,
 			}
-		}
-	})
+
+			// Setup: upload multiple files of varying sizes
+			for i, fileSize := range tt.fileSizes {
+
+				// Setup: create data for the uplink to upload
+				expectedData := make([]byte, fileSize)
+				_, err := rand.Read(expectedData)
+				require.NoError(t, err)
+
+				// Setup: calculate what the expected tally should be
+				expectedTally.Files++
+				expectedTally.Segments++
+
+				// File is remote size
+				if fileSize >= uplinkConfig.Client.MaxInlineSize {
+					expectedRemoteBytes, err := encryption.CalcEncryptedSize(
+						int64(len(expectedData)),
+						uplinkConfig.GetEncryptionScheme(),
+					)
+					require.NoError(t, err)
+					expectedTally.Bytes += expectedRemoteBytes
+					expectedTally.RemoteBytes += expectedRemoteBytes
+					expectedTally.MetadataSize += 111 // brittle, this is hardcoded since its too difficult to get this value progamatically
+					expectedTally.RemoteFiles++
+					expectedTally.RemoteSegments++
+				} else {
+					// File is inline size
+					const encryptionAuthOverhead = 16 // bytes
+					expectedInlineBytes := fileSize.Int64() + int64(encryptionAuthOverhead)
+					expectedTally.Bytes += expectedInlineBytes
+					expectedTally.InlineBytes += expectedInlineBytes
+					expectedTally.MetadataSize += 111 // brittle, this is hardcoded since its too difficult to get this value progamatically
+					expectedTally.InlineFiles++
+					expectedTally.InlineSegments++
+				}
+
+				// Execute test: upload a file, then calculate at rest data
+				fileName := "file" + strconv.Itoa(i) + ".txt"
+				err = uplink.Upload(ctx, satellitePeer, bucketName, fileName, expectedData)
+				assert.NoError(t, err)
+			}
+
+			_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
+			require.NoError(t, err)
+
+			for _, actualTally := range actualBucketData {
+				assert.Equal(t, expectedTally, *actualTally)
+			}
+		})
+	}
 }
 
 func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
