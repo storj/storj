@@ -503,22 +503,10 @@ func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserC
 	return m.db.Create(ctx, userCredit)
 }
 
-func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (int, error) {
+func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditsUsage, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
-}
-
-func (m *lockedUserCredits) GetUsedCredits(ctx context.Context, userID uuid.UUID) (total int, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetUsedCredits(ctx, userID)
-}
-
-func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.TotalReferredCount(ctx, userID)
+	return m.db.GetCreditUsage(ctx, userID, expirationEndDate)
 }
 
 func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {

@@ -455,35 +455,19 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	return
 }
 
-func (s *Service) GetUserCreditsUsage(ctx context.Context) (uc *UserCreditsUsage, err error) {
+func (s *Service) GetUserCreditsUsage(ctx context.Context) (usage *UserCreditsUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	usedCredits, err := s.store.UserCredits().GetUsedCredits(ctx, auth.User.ID)
+	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now().UTC())
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	availableCredits, err := s.store.UserCredits().GetAvailableCredits(ctx, auth.User.ID, time.Now().UTC())
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	totalReferred, err := s.store.UserCredits().TotalReferredCount(ctx, auth.User.ID)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-
-	uc = &UserCreditsUsage{
-		AvailableCredits: availableCredits,
-		UsedCredits:      usedCredits,
-		Referred:         totalReferred,
-	}
-
-	return uc, nil
+	return usage, nil
 }
 
 // CreateProject is a method for creating new project

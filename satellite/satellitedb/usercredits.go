@@ -21,50 +21,36 @@ type usercredits struct {
 	db *dbx.DB
 }
 
-// TotalReferredCount returns the total amount of referral a user has made based on user id
-func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int64, error) {
-	totalReferred, err := c.db.Count_UserCredit_By_ReferredBy(ctx, dbx.UserCredit_ReferredBy(id[:]))
+// GetCreditUsage returns the total amount of referral a user has made based on user id, total available credits, and total used credits based on user id
+func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditsUsage, error) {
+	usageRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT a.used_credit, b.available_credit, c.referred
+		FROM (SELECT SUM(credits_used_in_cents) AS used_credit FROM user_credits WHERE user_id = ?) AS a,
+		(SELECT SUM(credits_earned_in_cents - credits_used_in_cents) AS available_credit FROM user_credits WHERE expires_at > ? AND user_id = ?) AS b,
+		(SELECT count(id) AS referred FROM user_credits WHERE user_credits.referred_by = ?) AS c;`), userID[:], expirationEndDate, userID[:], userID[:])
 	if err != nil {
-		return totalReferred, errs.Wrap(err)
+		return nil, err
 	}
 
-	return totalReferred, nil
-}
+	usage := console.UserCreditsUsage{}
 
-// GetAvailableCredits returns all records of user credit that are not expired or used
-func (c *usercredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (total int, err error) {
-	availableCredits, err := c.db.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
-		dbx.UserCredit_UserId(userID[:]),
-		dbx.UserCredit_ExpiresAt(expirationEndDate),
-	)
-	if err != nil {
-		return total, errs.Wrap(err)
-	}
+	for usageRows.Next() {
 
-	for _, credit := range availableCredits {
-		total += credit.CreditsEarnedInCents - credit.CreditsUsedInCents
-	}
-
-	return total, nil
-}
-
-func (c *usercredits) GetUsedCredits(ctx context.Context, userID uuid.UUID) (total int, err error) {
-	creditRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT SUM(credits_used_in_cents) FROM user_credits WHERE user_id=?`), userID[:])
-	if err != nil {
-		return total, errs.Wrap(err)
-	}
-
-	for creditRows.Next() {
-		var usedCredits sql.NullInt64
-		err = creditRows.Scan(&usedCredits)
+		var (
+			usedCredit      sql.NullInt64
+			availableCredit sql.NullInt64
+			referred        sql.NullInt64
+		)
+		err = usageRows.Scan(&usedCredit, &availableCredit, &referred)
 		if err != nil {
-			return total, err
+			return nil, err
 		}
 
-		total += int(usedCredits.Int64)
+		usage.UsedCredits += usedCredit.Int64
+		usage.Referred += referred.Int64
+		usage.AvailableCredits += availableCredit.Int64
 	}
 
-	return total, nil
+	return &usage, nil
 }
 
 // Create insert a new record of user credit
