@@ -166,7 +166,8 @@ func TestRandomizedSelection(t *testing.T) {
 					NodeID:       newID,
 					IsUp:         true,
 					AuditSuccess: true,
-				}, 1, 1, 1, 1)
+					// n.b. missing lambda, weight, etc.
+				})
 			}
 
 			allIDs[i] = newID
@@ -242,7 +243,8 @@ func TestIsVetted(t *testing.T) {
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
-		}, 1, 1, 1, 1)
+			// n.b. missing lambda, weight, etc.
+		})
 		require.NoError(t, err)
 
 		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
