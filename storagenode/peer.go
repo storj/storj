@@ -266,15 +266,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	// Storage Node Operator Dashboard
 	{
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Bandwidth(),
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
+			peer.Version,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
-			config.Kademlia.Operator.Wallet)
+			config.Kademlia.Operator.Wallet,
+			versionInfo)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

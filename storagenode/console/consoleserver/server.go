@@ -18,7 +18,7 @@ import (
 )
 
 // TODO: improve embedded resources generation
-//go-bindata -pkg consoleserver -o storagenode/console/consoleserver/static.go web/operator/dist web/operator/dist/public/
+//go:generate go-bindata -pkg consoleserver -o static.go ../../../web/operator/dist ../../../web/operator/dist/public/
 
 // Error is storagenode console web error type
 var Error = errs.Class("storagenode console web error")
