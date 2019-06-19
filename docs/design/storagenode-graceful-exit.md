@@ -47,6 +47,7 @@ This process including the Storage nodes transferring their pieces to other node
 		- GB Transferred (amount of data the node transferred during exiting)		
 - When a Storage Node exits the network gracefully I want the satellite to have the ability to track how much egress they used for exiting so that we do not pay them for that bandwidth.
 - When A Storage Node is in the process of gracefully exiting the network I want them to be selected for download requests so that they can continue to contribute to the overall network.
+	- we need to be able to distinguish the bandwidth used for serving up data to clients vs bandwidth used for graceful exit. the node will NOT get paid for bandwidth used for graceful exit but will get paid for the bandwidth used to serve data to clients.
 - When a Storage Node is in the process of gracefully exiting the network I want them to continue to be audited and thier uptime checked so we can ensure they are still "good" nodes.
 - When a Storage Node wants to rejoin the network I want them to have that ability so that they do not need to generate a new node ID via POW, go through the node vetting process, and so they can utilize their repuration. 
 - When a Storage Node rejoins the network I want the satellite to keep track of that so that we can start the escrow process for that node over. 
