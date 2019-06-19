@@ -3,6 +3,7 @@ pipeline {
         dockerfile {
             filename 'Dockerfile.jenkins'
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
+            label 'main'
         }
     }
     options {
