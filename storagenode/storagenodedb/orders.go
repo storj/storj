@@ -266,32 +266,3 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 
 	return infos, ErrInfo.Wrap(rows.Err())
 }
-
-// ListSatellites returns all satellites in the archive
-func (db *ordersdb) ListSatellites(ctx context.Context) (satellites []storj.NodeID, err error) {
-	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
-
-	rows, err := db.db.Query(`
-		SELECT DISTINCT satellite_id
-		FROM order_archive
-	`)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, ErrInfo.Wrap(err)
-	}
-
-	for rows.Next() {
-		var id storj.NodeID
-
-		err = rows.Scan(&id)
-		if err != nil {
-			return nil, ErrInfo.Wrap(err)
-		}
-		satellites = append(satellites, id)
-	}
-
-	return satellites, ErrInfo.Wrap(rows.Err())
-}
