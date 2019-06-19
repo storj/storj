@@ -609,57 +609,6 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 	return Error.Wrap(tx.Commit())
 }
 
-// CreateStats initializes the stats the provided storagenode
-func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID, startingStats *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	if startingStats != nil {
-		if startingStats.AuditReputationAlpha <= 0 {
-			return nil, Error.Wrap(errs.Combine(errs.New("audit alpha less than or equal to 0"), tx.Rollback()))
-		}
-		if startingStats.AuditReputationBeta <= 0 {
-			return nil, Error.Wrap(errs.Combine(errs.New("audit beta less than or equal to 0"), tx.Rollback()))
-		}
-		if startingStats.UptimeReputationAlpha <= 0 {
-			return nil, Error.Wrap(errs.Combine(errs.New("uptime alpha less than or equal to 0"), tx.Rollback()))
-		}
-		if startingStats.UptimeReputationBeta <= 0 {
-			return nil, Error.Wrap(errs.Combine(errs.New("uptime beta less than or equal to 0"), tx.Rollback()))
-		}
-
-		updateFields := dbx.Node_Update_Fields{
-			TotalAuditCount:       dbx.Node_TotalAuditCount(startingStats.AuditCount),
-			TotalUptimeCount:      dbx.Node_TotalUptimeCount(startingStats.UptimeCount),
-			AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(startingStats.AuditReputationAlpha),
-			AuditReputationBeta:   dbx.Node_AuditReputationBeta(startingStats.AuditReputationBeta),
-			UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(startingStats.UptimeReputationAlpha),
-			UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(startingStats.UptimeReputationBeta),
-		}
-
-		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-		if err != nil {
-			return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-		}
-	}
-
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
-	}
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
-}
-
 // UpdateStats a single storagenode's stats in the db
 func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest, auditLambda, auditWeight, uptimeLambda, uptimeWeight float64) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
