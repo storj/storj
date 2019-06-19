@@ -22,8 +22,12 @@ type Path struct {
 
 	raw []byte // raw byte representation of the path
 
-	hasBucket  bool // true if the bucket field is valid
+	hasBucket bool // true if the bucket field is valid
+	valid     bool // true if path created by valid constructor
 }
+
+// Valid returns true if the Path is valid.
+func (p Path) Valid() bool { return p.valid }
 
 // ProjectID returns the project id associated with the path.
 func (p Path) ProjectID() uuid.UUID { return p.projectID }
@@ -35,10 +39,10 @@ func (p Path) SegmentIndex() int64 { return p.segmentIndex }
 func (p Path) Bucket() (string, bool) { return p.bucket, p.hasBucket }
 
 // EncryptedPath returns the encrypted path part of the path.
-func (p Path) EncryptedPath() (paths.Encrypted) { return p.encPath }
+func (p Path) EncryptedPath() paths.Encrypted { return p.encPath }
 
 // Raw returns the raw data in the path.
-func (p Path) Raw() []byte { return p.raw }
+func (p Path) Raw() []byte { return append([]byte(nil), p.raw...) }
 
 // String returns the string form of the raw data in the path.
 func (p Path) String() string { return string(p.raw) }
@@ -84,6 +88,7 @@ func ParsePath(raw []byte) (path Path, err error) {
 		}
 	}
 
+	path.valid = true
 	return path, nil
 }
 
@@ -125,5 +130,6 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	}
 
 	path.raw = path.raw[:len(path.raw)-1]
+	path.valid = true
 	return path, nil
 }

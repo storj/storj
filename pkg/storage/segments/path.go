@@ -33,7 +33,7 @@ func (p Path) Bucket() (string, bool) { return p.bucket, p.hasBucket }
 func (p Path) EncryptedPath() paths.Encrypted { return p.encPath }
 
 // Raw returns the raw data in the path.
-func (p Path) Raw() []byte { return p.raw }
+func (p Path) Raw() []byte { return append([]byte(nil), p.raw...) }
 
 // String returns the string form of the raw data in the path.
 func (p Path) String() string { return string(p.raw) }

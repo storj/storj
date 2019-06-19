@@ -27,7 +27,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 
 	bytes, err := proto.Marshal(segmentInfo.SegmentDetail)
 	if err != nil {
-		return err
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))

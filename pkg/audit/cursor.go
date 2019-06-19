@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -25,13 +24,13 @@ import (
 type Stripe struct {
 	Index       int64
 	Segment     *pb.Pointer
-	SegmentPath storj.Path
+	SegmentPath metainfo.Path
 }
 
 // Cursor keeps track of audit location in pointer db
 type Cursor struct {
 	metainfo *metainfo.Service
-	lastPath storj.Path
+	lastPath string
 	mutex    sync.Mutex
 }
 
@@ -50,9 +49,9 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 	defer cursor.mutex.Unlock()
 
 	var pointerItems []*pb.ListResponse_Item
-	var path storj.Path
+	var path metainfo.Path
 
-	pointerItems, more, err = cursor.metainfo.List(ctx, "", cursor.lastPath, "", true, 0, meta.None)
+	pointerItems, more, err = cursor.metainfo.List(ctx, path, cursor.lastPath, "", true, 0, meta.None)
 	if err != nil {
 		return nil, more, err
 	}
@@ -105,7 +104,7 @@ func getRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err
 }
 
 // getRandomValidPointer attempts to get a random remote pointer from a list. If it sees expired pointers in the process of looking, deletes them
-func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path storj.Path, err error) {
+func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []*pb.ListResponse_Item) (pointer *pb.Pointer, path metainfo.Path, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var src cryptoSource
 	rnd := rand.New(src)
@@ -114,7 +113,11 @@ func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []
 
 	for _, randomIndex := range randomNums {
 		pointerItem := pointerItems[randomIndex]
-		path := pointerItem.Path
+		path, err := metainfo.ParsePath([]byte(pointerItem.Path))
+		if err != nil {
+			errGroup.Add(err)
+			continue
+		}
 
 		// get pointer info
 		pointer, err := cursor.metainfo.Get(ctx, path)
@@ -123,7 +126,7 @@ func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []
 			continue
 		}
 
-		//delete expired items rather than auditing them
+		// delete expired items rather than auditing them
 		if expiration := pointer.GetExpirationDate(); expiration != nil {
 			t, err := ptypes.Timestamp(expiration)
 			if err != nil {
@@ -146,7 +149,7 @@ func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []
 		return pointer, path, nil
 	}
 
-	return nil, "", errGroup.Err()
+	return nil, metainfo.Path{}, errGroup.Err()
 }
 
 // cryptoSource implements the math/rand Source interface using crypto/rand

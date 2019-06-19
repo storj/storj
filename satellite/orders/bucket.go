@@ -54,4 +54,4 @@ func (b BucketID) ProjectID() uuid.UUID { return b.projectID }
 func (b BucketID) Bucket() string { return b.bucket }
 
 // Raw returns a byte representation of the BucketID.
-func (b BucketID) Raw() []byte { return b.raw }
+func (b BucketID) Raw() []byte { return append([]byte(nil), b.raw...) }
