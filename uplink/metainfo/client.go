@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -57,7 +58,7 @@ type Client interface {
 	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
 	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
-	ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, partnerID string) error
+	SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) error
 }
 
 // NewClient initializes a new metainfo client
@@ -225,12 +226,12 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 	return items, response.GetMore(), nil
 }
 
-// ValueAttributeInfo requests the connector key info
-func (metainfo *Metainfo) ValueAttributeInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, partnerID string) (err error) {
+// SetAttribution tries to set the attribution information on the bucket.
+func (metainfo *Metainfo) SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = metainfo.client.ValueAttributeInfo(ctx, &pb.ValueAttributionRequest{
-		PartnerId:  []byte(partnerID),
+	_, err = metainfo.client.SetAttribution(ctx, &pb.SetAttributionRequest{
+		PartnerId:  partnerID[:], // TODO: implement storj.UUID that can be sent using pb
 		BucketName: []byte(bucket),
 	})
 
