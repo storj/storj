@@ -623,6 +623,10 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+	// do not update reputation if node is disqualified
+	if dbNode.Disqualified != nil {
+		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	}
 
 	auditAlpha, auditBeta, totalAuditCount := updateReputation(
 		updateReq.AuditSuccess,
@@ -740,6 +744,10 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+	// do not update reputation if node is disqualified
+	if dbNode.Disqualified != nil {
+		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 	}
 
 	lastContactSuccess := dbNode.LastContactSuccess

@@ -139,12 +139,10 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 			AuditSuccess: false,
 		})
 		require.NoError(t, err)
-
 		newAuditAlpha := 1
 		newAuditBeta := 1
 		newUptimeAlpha := 2
 		newUptimeBeta := 0
-
 		require.EqualValues(t, stats.AuditReputationAlpha, newAuditAlpha)
 		require.EqualValues(t, stats.AuditReputationBeta, newAuditBeta)
 		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
@@ -154,10 +152,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 		stats, err = cache.UpdateUptime(ctx, valid2ID, false)
 		require.NoError(t, err)
-
 		newUptimeAlpha = 1
 		newUptimeBeta = 1
-
 		require.EqualValues(t, stats.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
 		require.EqualValues(t, stats.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
 		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
@@ -166,6 +162,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
 		dqTime := *stats.Disqualified
 
+		// should not update once already disqualified
 		stats, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       valid2ID,
 			IsUp:         false,
@@ -173,14 +170,9 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		})
 		require.NoError(t, err)
 
-		newAuditAlpha = 2
-		newAuditBeta = 0
-		newUptimeAlpha = 1
-		newUptimeBeta = 2
-
 		require.NoError(t, err)
-		require.EqualValues(t, stats.AuditReputationAlpha, newAuditAlpha)
-		require.EqualValues(t, stats.AuditReputationBeta, newAuditBeta)
+		require.EqualValues(t, stats.AuditReputationAlpha, nodeSelectionConfig.AuditReputationAlpha0)
+		require.EqualValues(t, stats.AuditReputationBeta, nodeSelectionConfig.AuditReputationBeta0)
 		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
 		require.EqualValues(t, stats.UptimeReputationBeta, newUptimeBeta)
 		require.NotNil(t, stats.Disqualified)
