@@ -150,3 +150,43 @@ func TestBindDevDefaults(t *testing.T) {
 	assertEqual(c.Fields[0].AnotherInt, int(6))
 	assertEqual(c.Fields[3].AnotherInt, int(1))
 }
+
+func TestHiddenDev(t *testing.T) {
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
+	var c struct {
+		String string `default:"dev" hidden:"true"`
+		Bool   bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64  int64  `releaseDefault:"0" devDefault:"1"`
+		Int    int    `default:"2"`
+	}
+	Bind(f, &c, UseDevDefaults())
+
+	flagString := f.Lookup("string")
+	flagBool := f.Lookup("bool")
+	flagInt64 := f.Lookup("int64")
+	flagInt := f.Lookup("int")
+	assertEqual(flagString.Hidden, true)
+	assertEqual(flagBool.Hidden, true)
+	assertEqual(flagInt64.Hidden, false)
+	assertEqual(flagInt.Hidden, false)
+}
+
+func TestHiddenRelease(t *testing.T) {
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
+	var c struct {
+		String string `default:"dev" hidden:"true"`
+		Bool   bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64  int64  `releaseDefault:"0" devDefault:"1"`
+		Int    int    `default:"2"`
+	}
+	Bind(f, &c, UseReleaseDefaults())
+
+	flagString := f.Lookup("string")
+	flagBool := f.Lookup("bool")
+	flagInt64 := f.Lookup("int64")
+	flagInt := f.Lookup("int")
+	assertEqual(flagString.Hidden, true)
+	assertEqual(flagBool.Hidden, true)
+	assertEqual(flagInt64.Hidden, false)
+	assertEqual(flagInt.Hidden, false)
+}
