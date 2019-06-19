@@ -97,7 +97,8 @@ func TestVouchersService(t *testing.T) {
 
 		// node type needs to be set to receive vouchers
 		for _, sat := range planet.Satellites {
-			sat.Overlay.Service.UpdateNodeInfo(ctx, node.ID(), &pb.InfoResponse{Type: pb.NodeType_STORAGE})
+			_, err := sat.Overlay.Service.UpdateNodeInfo(ctx, node.ID(), &pb.InfoResponse{Type: pb.NodeType_STORAGE})
+			require.NoError(t, err)
 		}
 
 		// assert no vouchers
