@@ -27,7 +27,7 @@ type RSConfig struct {
 	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
 	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
 	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10"`
-	Validate         bool        `default:"false" help:"toggle flag if rsconfig is enabled"`
+	Validate         bool        `help:"toggle flag if rsconfig is enabled" releaseDefault:"true" devDefault:"false"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo
@@ -37,7 +37,7 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
 	BwExpiration         int         `default:"45"   help:"lifespan of bandwidth agreements in days"`
-	RS                   RSConfig    `help:"reed solomon configurations"`
+	RS                   RSConfig    `help:"redundancy scheme configuration"`
 }
 
 // NewStore returns database for storing pointer data

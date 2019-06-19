@@ -344,18 +344,73 @@ func TestCommitSegment(t *testing.T) {
 			require.Contains(t, err.Error(), "less than or equal to the repair threshold")
 		}
 		{
-			// error if number of remote pieces is lower then repair threshold
+			// error - ErasureShareSize <= 0
 			redundancy := &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 3,
+				Total:            4,
+				ErasureShareSize: -1,
+			}
+			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
+			require.Error(t, err)
+
+			// error - any of the values are negative
+			redundancy = &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  -2,
+				SuccessThreshold: 3,
+				Total:            -4,
+				ErasureShareSize: 10,
+			}
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
+			require.Error(t, err)
+
+			// error - MinReq >= RepairThreshold
+			redundancy = &pb.RedundancyScheme{
 				MinReq:           10,
 				RepairThreshold:  2,
 				SuccessThreshold: 3,
 				Total:            4,
 				ErasureShareSize: 10,
 			}
-			expirationDate := time.Now()
-			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
 			require.Error(t, err)
 
+			// error - MinReq >= RepairThreshold
+			redundancy = &pb.RedundancyScheme{
+				MinReq:           2,
+				RepairThreshold:  2,
+				SuccessThreshold: 3,
+				Total:            4,
+				ErasureShareSize: 10,
+			}
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
+			require.Error(t, err)
+
+			// error - RepairThreshold >= SuccessThreshold
+			redundancy = &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  3,
+				SuccessThreshold: 3,
+				Total:            4,
+				ErasureShareSize: 10,
+			}
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
+			require.Error(t, err)
+
+			// error -  SuccessThreshold >= Total
+			redundancy = &pb.RedundancyScheme{
+				MinReq:           1,
+				RepairThreshold:  2,
+				SuccessThreshold: 4,
+				Total:            4,
+				ErasureShareSize: 10,
+			}
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
+			require.Error(t, err)
+
+			// ok - valid RS parameters
 			redundancy = &pb.RedundancyScheme{
 				MinReq:           1,
 				RepairThreshold:  2,
@@ -363,8 +418,7 @@ func TestCommitSegment(t *testing.T) {
 				Total:            4,
 				ErasureShareSize: 256,
 			}
-			expirationDate = time.Now()
-			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			_, _, err = metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, time.Now())
 			require.NoError(t, err)
 		}
 	})
