@@ -668,9 +668,14 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	}
 
 	if updateReq.IsUp {
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
 	} else {
 		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
+	}
+
+	if updateReq.AuditSuccess {
+		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
 	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
@@ -748,35 +753,6 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 	}
 
-	lastContactSuccess := dbNode.LastContactSuccess
-	lastContactFailure := dbNode.LastContactFailure
-	mon.Meter("uptime_updates").Mark(1)
-	if !isUp {
-		mon.Meter("uptime_update_failures").Mark(1)
-
-		// it's been over 24 hours since we've seen this node
-		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
-			mon.Meter("uptime_not_seen_24h").Mark(1)
-		}
-
-		// it's been over a week since we've seen this node
-		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
-			mon.Meter("uptime_not_seen_week").Mark(1)
-		}
-	} else {
-		mon.Meter("uptime_update_successes").Mark(1)
-
-		// we have seen this node in the past 24 hours
-		if time.Now().Sub(lastContactFailure) > time.Hour*24 {
-			mon.Meter("uptime_seen_24h").Mark(1)
-		}
-
-		// we have seen this node in the past week
-		if time.Now().Sub(lastContactFailure) > time.Hour*24*7 {
-			mon.Meter("uptime_seen_week").Mark(1)
-		}
-	}
-
 	updateFields := dbx.Node_Update_Fields{}
 	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		isUp,
@@ -796,10 +772,36 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
 	}
 
+	lastContactSuccess := dbNode.LastContactSuccess
+	lastContactFailure := dbNode.LastContactFailure
+	mon.Meter("uptime_updates").Mark(1)
 	if isUp {
+		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
+
+		mon.Meter("uptime_update_successes").Mark(1)
+		// we have seen this node in the past 24 hours
+		if time.Now().Sub(lastContactFailure) > time.Hour*24 {
+			mon.Meter("uptime_seen_24h").Mark(1)
+		}
+		// we have seen this node in the past week
+		if time.Now().Sub(lastContactFailure) > time.Hour*24*7 {
+			mon.Meter("uptime_seen_week").Mark(1)
+		}
 	} else {
 		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
+
+		mon.Meter("uptime_update_failures").Mark(1)
+
+		// it's been over 24 hours since we've seen this node
+		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
+			mon.Meter("uptime_not_seen_24h").Mark(1)
+		}
+
+		// it's been over a week since we've seen this node
+		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
+			mon.Meter("uptime_not_seen_week").Mark(1)
+		}
 	}
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
