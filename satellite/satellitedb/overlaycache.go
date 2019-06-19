@@ -792,12 +792,10 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
 
 		mon.Meter("uptime_update_failures").Mark(1)
-
 		// it's been over 24 hours since we've seen this node
 		if time.Now().Sub(lastContactSuccess) > time.Hour*24 {
 			mon.Meter("uptime_not_seen_24h").Mark(1)
 		}
-
 		// it's been over a week since we've seen this node
 		if time.Now().Sub(lastContactSuccess) > time.Hour*24*7 {
 			mon.Meter("uptime_not_seen_week").Mark(1)
