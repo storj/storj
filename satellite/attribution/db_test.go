@@ -33,7 +33,7 @@ func TestDB(t *testing.T) {
 		project1, project2 := newUUID(), newUUID()
 		partner1, partner2 := newUUID(), newUUID()
 
-		infos := []attribution.Info{
+		infos := []*attribution.Info{
 			{project1, []byte("alpha"), partner1, time.Time{}},
 			{project1, []byte("beta"), partner2, time.Time{}},
 			{project2, []byte("alpha"), partner2, time.Time{}},
@@ -41,11 +41,11 @@ func TestDB(t *testing.T) {
 		}
 
 		for _, info := range infos {
-			got, err := attributionDB.Insert(ctx, &info)
+			got, err := attributionDB.Insert(ctx, info)
 			require.NoError(t, err)
 
 			got.CreatedAt = time.Time{}
-			assert.Equal(t, &info, got)
+			assert.Equal(t, info, got)
 		}
 
 		for _, info := range infos {
