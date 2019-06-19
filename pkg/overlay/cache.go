@@ -53,7 +53,7 @@ type DB interface {
 	// IsVetted returns whether or not the node reaches reputable thresholds
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
-	UpdateAddress(ctx context.Context, value *pb.Node) error
+	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest, auditLambda, auditWeight, uptimeLambda, uptimeWeight float64) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -282,7 +282,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
-	return cache.db.UpdateAddress(ctx, &value)
+	return cache.db.UpdateAddress(ctx, &value, cache.preferences)
 }
 
 // IsVetted returns whether or not the node reaches reputable thresholds

@@ -888,10 +888,10 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 }
 
 // Update updates node address
-func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, defaults overlay.NodeSelectionConfig) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateAddress(ctx, value)
+	return m.db.UpdateAddress(ctx, value, defaults)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.

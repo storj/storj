@@ -534,7 +534,7 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 }
 
 // Update updates node address
-func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (err error) {
+func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, defaults overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if info == nil || info.Id.IsZero() {
@@ -582,10 +582,10 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node) (er
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
-			dbx.Node_AuditReputationAlpha(1),
-			dbx.Node_AuditReputationBeta(0),
-			dbx.Node_UptimeReputationAlpha(1),
-			dbx.Node_UptimeReputationBeta(0),
+			dbx.Node_AuditReputationAlpha(defaults.AuditReputationAlpha0),
+			dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
+			dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
+			dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
 			dbx.Node_Create_Fields{
 				Disqualified: dbx.Node_Disqualified_Null(),
 			},
