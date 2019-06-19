@@ -77,8 +77,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
 	}
 
-	if nonNilCount(limits) < rs.RepairThreshold() {
-		return nil, nil, Error.New("number of non-nil limits (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(limits), rs.RepairThreshold())
+	nonNilLimits := nonNilCount(limits)
+	if nonNilLimits <= rs.RepairThreshold() && nonNilLimits < rs.OptimalThreshold() {
+		return nil, nil, Error.New("number of non-nil limits (%d) is less than or equal to the repair threshold (%d) of erasure scheme", nonNilLimits, rs.RepairThreshold())
 	}
 
 	if !unique(limits) {
@@ -137,11 +138,17 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		successfulHashes[info.i] = info.hash
 
 		switch int(atomic.AddInt32(&successfulCount, 1)) {
-		case rs.RepairThreshold():
+		case rs.OptimalThreshold():
+			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+			if timer != nil {
+				timer.Stop()
+			}
+			cancel()
+		case rs.RepairThreshold() + 1:
 			elapsed := time.Since(start)
 			more := elapsed * 3 / 2
 
-			zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+			zap.S().Infof("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
 				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 			timer = time.AfterFunc(more, func() {
@@ -150,10 +157,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 					cancel()
 				}
 			})
-		case rs.OptimalThreshold():
-			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-			timer.Stop()
-			cancel()
 		}
 	}
 
@@ -175,8 +178,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}
 	}()
 
-	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", atomic.LoadInt32(&successfulCount), rs.RepairThreshold())
+	successes := int(atomic.LoadInt32(&successfulCount))
+	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
