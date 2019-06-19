@@ -9,8 +9,6 @@ typedef struct Uplink   { long _handle; } UplinkRef;
 typedef struct Project  { long _handle; } ProjectRef;
 typedef struct Bucket   { long _handle; } BucketRef;
 
-typedef int64_t time;
-
 typedef struct UplinkConfig {
     struct {
         struct {
