@@ -65,7 +65,7 @@ func TestNodeSelection(t *testing.T) {
 					NodeID:       node.ID(),
 					IsUp:         true,
 					AuditSuccess: true,
-				})
+				}, 1, 1, 1, 1)
 				assert.NoError(t, err)
 			}
 		}
@@ -214,7 +214,7 @@ func TestDistinctIPs(t *testing.T) {
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
 				AuditSuccess: true,
-			})
+			}, 1, 1, 1, 1)
 			assert.NoError(t, err)
 		}
 
