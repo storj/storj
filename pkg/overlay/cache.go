@@ -52,12 +52,10 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// IsVetted returns whether or not the node reaches reputable thresholds
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
-	// CreateStats initializes the stats for node.
-	CreateStats(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node) error
 	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
+	UpdateStats(ctx context.Context, request *UpdateRequest, auditLambda, auditWeight, uptimeLambda, uptimeWeight float64) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
@@ -89,13 +87,9 @@ type NodeCriteria struct {
 
 // UpdateRequest is used to update a node status.
 type UpdateRequest struct {
-	NodeID                 storj.NodeID
-	AuditSuccess           bool
-	IsUp                   bool
-	AuditReputationLambda  float64
-	AuditReputationWeight  float64
-	UptimeReputationLambda float64
-	UptimeReputationWeight float64
+	NodeID       storj.NodeID
+	AuditSuccess bool
+	IsUp         bool
 }
 
 // NodeDossier is the complete info that the satellite tracks for a storage node
@@ -291,12 +285,6 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	return cache.db.UpdateAddress(ctx, &value)
 }
 
-// Create adds a new stats entry for node.
-func (cache *Cache) Create(ctx context.Context, nodeID storj.NodeID, initial *NodeStats) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return cache.db.CreateStats(ctx, nodeID, initial)
-}
-
 // IsVetted returns whether or not the node reaches reputable thresholds
 func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputable bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -315,13 +303,12 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 func (cache *Cache) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(nat): maybe change to make these arguments to db.UpdateStats instead
-	request.AuditReputationLambda = cache.preferences.AuditReputationLambda
-	request.AuditReputationWeight = cache.preferences.AuditReputationWeight
-	request.UptimeReputationLambda = cache.preferences.UptimeReputationLambda
-	request.UptimeReputationWeight = cache.preferences.UptimeReputationWeight
+	auditLambda := cache.preferences.AuditReputationLambda
+	auditWeight := cache.preferences.AuditReputationWeight
+	uptimeLambda := cache.preferences.UptimeReputationLambda
+	uptimeWeight := cache.preferences.UptimeReputationWeight
 
-	return cache.db.UpdateStats(ctx, request)
+	return cache.db.UpdateStats(ctx, request, auditLambda, auditWeight, uptimeLambda, uptimeWeight)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
