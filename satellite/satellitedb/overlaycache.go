@@ -655,18 +655,16 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(uptimeBeta),
 	}
 
-	if dbNode.Disqualified == nil {
-		auditRep := auditAlpha / (auditAlpha + auditBeta)
-		if auditRep <= updateReq.AuditDQ {
-			updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-		}
+	auditRep := auditAlpha / (auditAlpha + auditBeta)
+	if auditRep <= updateReq.AuditDQ {
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+	}
 
-		uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
-		if uptimeRep <= updateReq.UptimeDQ {
-			// n.b. that this will overwrite the audit DQ timestamp
-			// if it has already been set.
-			updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-		}
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= updateReq.UptimeDQ {
+		// n.b. that this will overwrite the audit DQ timestamp
+		// if it has already been set.
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
 	}
 
 	if updateReq.IsUp {
@@ -793,11 +791,9 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(uptimeBeta)
 	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 
-	if dbNode.Disqualified == nil {
-		uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
-		if uptimeRep <= uptimeDQ {
-			updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
-		}
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= uptimeDQ {
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
 	}
 
 	if isUp {
