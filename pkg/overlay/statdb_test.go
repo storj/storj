@@ -41,38 +41,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 	currUptimeSuccess := int64(8)
 	currUptimeCount := int64(25)
 
-	{ // TestCreateNewAndWithStats
-		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
-		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
-
-		nodeSelection := overlay.NodeSelectionConfig{
-			AuditSuccessRatio: auditSuccessRatio,
-			UptimeRatio:       uptimeRatio,
-			AuditCount:        currAuditCount,
-			UptimeCount:       currUptimeCount,
-		}
-
-		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID}, nodeSelection)
-		require.NoError(t, err)
-
-		node, err := cache.Get(ctx, nodeID)
-		require.NoError(t, err)
-
-		assert.EqualValues(t, currAuditCount, node.Reputation.AuditCount)
-		assert.EqualValues(t, currAuditSuccess, node.Reputation.AuditSuccessCount)
-		assert.EqualValues(t, auditSuccessRatio, node.Reputation.AuditSuccessRatio)
-		assert.EqualValues(t, currUptimeCount, node.Reputation.UptimeCount)
-		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
-		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
-	}
-
-	{ // TestGetDoesNotExist
-		noNodeID := storj.NodeID{255, 255, 255, 255}
-
-		_, err := cache.Get(ctx, noNodeID)
-		assert.Error(t, err)
-	}
-
 	{ // TestKnownUnreliableOrOffline
 		for _, tt := range []struct {
 			nodeID             storj.NodeID
