@@ -59,7 +59,7 @@ type DB interface {
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, alpha float64, beta float64, lambda float64, weight float64) (stats *NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64) (stats *NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -320,12 +320,10 @@ func (cache *Cache) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeI
 // UpdateUptime updates a single storagenode's uptime stats.
 func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	alpha := cache.preferences.UptimeReputationAlpha0
-	beta := cache.preferences.UptimeReputationBeta0
 	lambda := cache.preferences.UptimeReputationLambda
 	weight := cache.preferences.UptimeReputationWeight
 
-	return cache.db.UpdateUptime(ctx, nodeID, isUp, alpha, beta, lambda, weight)
+	return cache.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
@@ -333,15 +331,13 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	alpha := cache.preferences.UptimeReputationAlpha0
-	beta := cache.preferences.UptimeReputationBeta0
 	lambda := cache.preferences.UptimeReputationLambda
 	weight := cache.preferences.UptimeReputationWeight
 
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
 	// it differently.
-	_, err = cache.db.UpdateUptime(ctx, node.Id, false, alpha, beta, lambda, weight)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, false, lambda, weight)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node", zap.Error(err))
 	}
@@ -357,12 +353,10 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 		zap.L().Debug("error updating uptime for node", zap.Error(err))
 	}
 
-	alpha := cache.preferences.UptimeReputationAlpha0
-	beta := cache.preferences.UptimeReputationBeta0
 	lambda := cache.preferences.UptimeReputationLambda
 	weight := cache.preferences.UptimeReputationWeight
 
-	_, err = cache.db.UpdateUptime(ctx, node.Id, true, alpha, beta, lambda, weight)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight)
 	if err != nil {
 		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}

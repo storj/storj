@@ -716,7 +716,7 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 }
 
 // UpdateUptime updates a single storagenode's uptime stats in the db
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, alpha, beta, lambda, weight float64) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight float64) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := cache.db.Open(ctx)
@@ -760,8 +760,8 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	updateFields := dbx.Node_Update_Fields{}
 	updatedUptimeAlpha, updatedUptimeBeta, totalUptimeCount := updateReputation(
 		isUp,
-		alpha,
-		beta,
+		dbNode.UptimeReputationAlpha,
+		dbNode.UptimeReputationBeta,
 		lambda,
 		weight,
 		dbNode.TotalUptimeCount,
