@@ -661,7 +661,7 @@ func (cache *overlaycache) CreateStats(ctx context.Context, nodeID storj.NodeID,
 }
 
 // UpdateStats a single storagenode's stats in the db
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest, auditLambda, auditWeight, uptimeLambda, uptimeWeight float64) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeID := updateReq.NodeID
@@ -675,21 +675,21 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	totalAuditCount, auditReputationAlpha, auditReputationBeta := updateReputation(
+	auditReputationAlpha, auditReputationBeta, totalAuditCount := updateReputation(
 		updateReq.AuditSuccess,
 		dbNode.AuditReputationAlpha,
 		dbNode.AuditReputationBeta,
-		updateReq.AuditReputationLambda,
-		updateReq.AuditReputationWeight,
+		auditLambda,
+		auditWeight,
 		dbNode.TotalAuditCount,
 	)
 
-	totalUptimeCount, uptimeReputationAlpha, uptimeReputationBeta := updateReputation(
+	uptimeReputationAlpha, uptimeReputationBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
 		dbNode.UptimeReputationAlpha,
 		dbNode.UptimeReputationBeta,
-		updateReq.UptimeReputationLambda,
-		updateReq.UptimeReputationWeight,
+		uptimeLambda,
+		uptimeWeight,
 		dbNode.TotalUptimeCount,
 	)
 
@@ -809,7 +809,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	}
 
 	updateFields := dbx.Node_Update_Fields{}
-	updatedUptimeTotal, updatedUptimeAlpha, updatedUptimeBeta := updateReputation(
+	updatedUptimeAlpha, updatedUptimeBeta, totalUptimeCount := updateReputation(
 		isUp,
 		alpha,
 		beta,
@@ -820,7 +820,9 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 
 	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(updatedUptimeAlpha)
 	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(updatedUptimeBeta)
-	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(updatedUptimeTotal)
+	// updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
+
+	// TODO: handle newreputation to figure out if disqualified
 
 	if isUp {
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
@@ -914,8 +916,7 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 // updateReputation uses the Beta distribution model to determine a node's reputation.
 // lambda is the "forgetting factor" which determines how much past info is kept when determining current reputation score.
 // w is the normalization weight that affects how severely new updates affect the current reputation distribution.
-func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount int64) (updatedTotal int64, newAlpha float64, newBeta float64) {
-	totalCount++
+func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount int64) (newAlpha, newBeta float64, updatedCount int64) {
 	// v is a single feedback value that allows us to update both alpha and beta
 	var v float64 = -1
 	if isSuccess {
@@ -923,5 +924,5 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	}
 	newAlpha = lambda*alpha + w*(1+v)/2
 	newBeta = lambda*beta + w*(1-v)/2
-	return totalCount, newAlpha, newBeta
+	return newAlpha, newBeta, totalCount + 1
 }
