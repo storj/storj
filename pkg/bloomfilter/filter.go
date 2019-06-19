@@ -53,6 +53,11 @@ func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 	return newExplicit(seed, byte(hashCount), sizeInBytes)
 }
 
+// Parameters returns filter parameters.
+func (filter *Filter) Parameters() (hashCount, size int) {
+	return int(filter.hashCount), len(filter.table)
+}
+
 // Add adds an element to the bloom filter
 func (filter *Filter) Add(pieceID storj.PieceID) {
 	offset, rangeOffset := initialConditions(filter.seed)
