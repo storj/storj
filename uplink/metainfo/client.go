@@ -231,7 +231,7 @@ func (metainfo *Metainfo) SetAttribution(ctx context.Context, bucket string, par
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = metainfo.client.SetAttribution(ctx, &pb.SetAttributionRequest{
-		PartnerId:  []byte(partnerID[:]), // TODO: implement storj.UUID that can be sent using pb
+		PartnerId:  partnerID[:], // TODO: implement storj.UUID that can be sent using pb
 		BucketName: []byte(bucket),
 	})
 
