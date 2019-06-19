@@ -101,11 +101,11 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND type = ?
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
-		AND total_audit_count < ?
+		AND (total_audit_count < ? OR total_uptime_count < ?)
 		AND last_contact_success > ?
 		AND last_contact_success > last_contact_failure`
 	args := append(make([]interface{}, 0, 10),
-		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, time.Now().Add(-criteria.OnlineWindow))
+		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
 	if criteria.MinimumVersion != "" {
 		v, err := version.NewSemVer(criteria.MinimumVersion)
@@ -245,10 +245,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 	uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT id, type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count, uptime_success_count, disqualified,
-		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta,
-		Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
+	FROM (SELECT *, Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
 	WHERE rn = 1
@@ -313,12 +310,7 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
 	uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
 	uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT id,
-		type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-		uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-		uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
-		uptime_reputation_alpha, uptime_reputation_beta
-		FROM nodes
+	FROM (SELECT * FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
 		ORDER BY RANDOM()
 		LIMIT ?) n`), args...)
@@ -391,6 +383,63 @@ func (cache *overlaycache) IsVetted(ctx context.Context, id storj.NodeID, criter
 		return false, err
 	}
 	return true, nil
+}
+
+// KnownOffline filters a set of nodes to offline nodes
+func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(nodeIds) == 0 {
+		return nil, Error.New("no ids provided")
+	}
+
+	// get offline nodes
+	var rows *sql.Rows
+	switch t := cache.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		args := make([]interface{}, 0, len(nodeIds)+1)
+		for i := range nodeIds {
+			args = append(args, nodeIds[i].Bytes())
+		}
+		args = append(args, time.Now().Add(-criteria.OnlineWindow))
+
+		rows, err = cache.db.Query(cache.db.Rebind(`
+			SELECT id FROM nodes
+			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
+			AND (
+				last_contact_success < last_contact_failure OR last_contact_success < ?
+			)
+		`), args...)
+
+	case *pq.Driver:
+		rows, err = cache.db.Query(`
+			SELECT id FROM nodes
+				WHERE id = any($1::bytea[])
+				AND (
+					last_contact_success < last_contact_failure OR last_contact_success < $2
+				)
+			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		)
+	default:
+		return nil, Error.New("Unsupported database %t", t)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		offlineNodes = append(offlineNodes, id)
+	}
+	return offlineNodes, nil
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new
