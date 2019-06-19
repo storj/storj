@@ -154,18 +154,21 @@ func TestBindDevDefaults(t *testing.T) {
 func TestHiddenDev(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String string `default:"dev" hidden:"true"`
-		Bool   bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
-		Int64  int64  `releaseDefault:"0" devDefault:"1"`
-		Int    int    `default:"2"`
+		String  string `default:"dev" hidden:"true"`
+		String2 string `default:"dev" hidden:"false"`
+		Bool    bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64   int64  `releaseDefault:"0" devDefault:"1"`
+		Int     int    `default:"2"`
 	}
 	Bind(f, &c, UseDevDefaults())
 
 	flagString := f.Lookup("string")
+	flagStringHide := f.Lookup("string2")
 	flagBool := f.Lookup("bool")
 	flagInt64 := f.Lookup("int64")
 	flagInt := f.Lookup("int")
 	assertEqual(flagString.Hidden, true)
+	assertEqual(flagStringHide.Hidden, false)
 	assertEqual(flagBool.Hidden, true)
 	assertEqual(flagInt64.Hidden, false)
 	assertEqual(flagInt.Hidden, false)
@@ -174,18 +177,21 @@ func TestHiddenDev(t *testing.T) {
 func TestHiddenRelease(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String string `default:"dev" hidden:"true"`
-		Bool   bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
-		Int64  int64  `releaseDefault:"0" devDefault:"1"`
-		Int    int    `default:"2"`
+		String  string `default:"dev" hidden:"false"`
+		String2 string `default:"dev" hidden:"true"`
+		Bool    bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64   int64  `releaseDefault:"0" devDefault:"1"`
+		Int     int    `default:"2"`
 	}
 	Bind(f, &c, UseReleaseDefaults())
 
 	flagString := f.Lookup("string")
+	flagStringHide := f.Lookup("string2")
 	flagBool := f.Lookup("bool")
 	flagInt64 := f.Lookup("int64")
 	flagInt := f.Lookup("int")
-	assertEqual(flagString.Hidden, true)
+	assertEqual(flagString.Hidden, false)
+	assertEqual(flagStringHide.Hidden, true)
 	assertEqual(flagBool.Hidden, true)
 	assertEqual(flagInt64.Hidden, false)
 	assertEqual(flagInt.Hidden, false)
