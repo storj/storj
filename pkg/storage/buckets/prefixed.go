@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 )
+
 // PrefixedObjStore  ...
 type PrefixedObjStore struct {
 	Store  objects.Store
