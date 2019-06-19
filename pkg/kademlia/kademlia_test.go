@@ -70,7 +70,7 @@ func TestNewKademlia(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
-		assert.NotNil(t, kad.dialer)
+		assert.NotNil(t, kad.Dialer)
 		assert.NotNil(t, kad.routingTable)
 		assert.NoError(t, kad.Close())
 	}
