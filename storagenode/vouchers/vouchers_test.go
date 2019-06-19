@@ -11,8 +11,6 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
@@ -20,7 +18,6 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -93,18 +90,15 @@ func TestVouchersDB(t *testing.T) {
 
 func TestVouchersService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Vouchers.Expiration = 1
-			},
-		},
+		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
 		node.Vouchers.Loop.Pause()
 
-		// node needs time to find satellites
-		time.Sleep(400 * time.Millisecond)
+		// node type needs to be set to receive vouchers
+		for _, sat := range planet.Satellites {
+			sat.Overlay.Service.UpdateNodeInfo(ctx, node.ID(), &pb.InfoResponse{Type: pb.NodeType_STORAGE})
+		}
 
 		// assert no vouchers
 		satellites, err := node.DB.Vouchers().ListSatellites(ctx)
