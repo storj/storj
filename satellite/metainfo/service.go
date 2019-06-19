@@ -158,8 +158,54 @@ func (s *Service) Delete(ctx context.Context, path Path) (err error) {
 	return s.DB.Delete(ctx, path.Raw())
 }
 
+// Iterator iterates over a sequence of ListItems
+type Iterator interface {
+	// Next prepares the next list item.
+	// It returns true on success, or false if there is no next result row or an error happened while preparing it.
+	Next(ctx context.Context, item *ListItem) bool
+}
+
+// ListItem is an item in the metainfo service.
+type ListItem struct {
+	Path     Path
+	Pointer  *pb.Pointer
+	IsPrefix bool
+}
+
+// iteratorAdapter changes a storage.Iterator into a metainfo Iterator
+type iteratorAdapter struct {
+	iter storage.Iterator
+	item storage.ListItem
+	err  error
+}
+
+// Next calls next on the underlying iterator, and returns true if the iterator did
+// and all of its values parsed successfully.
+func (i *iteratorAdapter) Next(ctx context.Context, item *ListItem) bool {
+	if i.err != nil {
+		return false
+	}
+	if !i.iter.Next(ctx, &i.item) {
+		return false
+	}
+
+	item.Path, i.err = ParsePath([]byte(i.item.Key))
+	if i.err != nil {
+		return false
+	}
+
+	item.Pointer = new(pb.Pointer)
+	i.err = proto.Unmarshal([]byte(i.item.Value), item.Pointer)
+	if i.err != nil {
+		return false
+	}
+
+	item.IsPrefix = i.item.IsPrefix
+	return true
+}
+
 // Iterate iterates over items in db
-func (s *Service) Iterate(ctx context.Context, prefix Path, first Path, recurse bool, reverse bool, f func(context.Context, storage.Iterator) error) (err error) {
+func (s *Service) Iterate(ctx context.Context, prefix Path, first Path, recurse bool, reverse bool, f func(context.Context, Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	opts := storage.IterateOptions{
@@ -168,5 +214,10 @@ func (s *Service) Iterate(ctx context.Context, prefix Path, first Path, recurse 
 		Recurse: recurse,
 		Reverse: reverse,
 	}
-	return s.DB.Iterate(ctx, opts, f)
+
+	return s.DB.Iterate(ctx, opts, func(ctx context.Context, iter storage.Iterator) error {
+		adapter := &iteratorAdapter{iter: iter}
+		err := f(ctx, adapter)
+		return errs.Combine(err, adapter.err)
+	})
 }

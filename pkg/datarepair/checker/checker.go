@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -19,7 +18,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/storage"
 )
 
 // Error is a standard error class for this package.
@@ -111,23 +109,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	}()
 
 	err = checker.metainfo.Iterate(ctx, metainfo.Path{}, checker.lastChecked, true, false,
-		func(ctx context.Context, it storage.Iterator) (err error) {
-			var item storage.ListItem
-
+		func(ctx context.Context, it metainfo.Iterator) (err error) {
+			var item metainfo.ListItem
 			for it.Next(ctx, &item) {
-				path, err := metainfo.ParsePath([]byte(item.Key))
-				if err != nil {
-					return err
-				}
-				checker.lastChecked = path
-
-				pointer := &pb.Pointer{}
-				err = proto.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return Error.New("error unmarshalling pointer %s", err)
-				}
-
-				err = checker.updateSegmentStatus(ctx, pointer, path, &monStats)
+				checker.lastChecked = item.Path
+				err = checker.updateSegmentStatus(ctx, item.Pointer, item.Path, &monStats)
 				if err != nil {
 					return err
 				}
@@ -201,14 +187,11 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
 		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
 	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
-		// check to make sure there's an object path
-		if bucket, ok := path.Bucket(); ok && path.EncryptedPath().Valid() {
-			// create a canonical path with a fixed segment id. we know it can't error because
-			// the only way it can is with an invalid segment id.
-			lostPath, _ := metainfo.CreatePath(ctx, path.ProjectID(), -1, bucket, path.EncryptedPath())
-			lostPathKey := lostPath.String()
-			if _, ok := monStats.remoteSegmentInfo[lostPathKey]; !ok {
-				monStats.remoteSegmentInfo[lostPathKey] = struct{}{}
+		// check to make sure there's an object path and add it to the remote segment info if necessary
+		if _, ok := path.Bucket(); ok && path.EncryptedPath().Valid() {
+			objectPath := path.ObjectString()
+			if _, ok := monStats.remoteSegmentInfo[objectPath]; !ok {
+				monStats.remoteSegmentInfo[objectPath] = struct{}{}
 			}
 		}
 

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -26,6 +25,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/metainfo"
 )
 
 var (
@@ -564,8 +564,10 @@ func getSegments(cmd *cobra.Command, args []string) error {
 			return ErrRequest.Wrap(err)
 		}
 
-		objects := sortSegments(res.Segments)
-		if len(objects) == 0 {
+		objects, err := sortSegments(res.Segments)
+		if err != nil {
+			return err
+		} else if len(objects) == 0 {
 			break
 		}
 
@@ -590,17 +592,20 @@ func getSegments(cmd *cobra.Command, args []string) error {
 }
 
 // sortSegments by the object they belong to
-func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
+func sortSegments(segments []*pb.IrreparableSegment) (map[string][]*pb.IrreparableSegment, error) {
+	var err error
 	objects := make(map[string][]*pb.IrreparableSegment)
 	for _, seg := range segments {
-		pathElements := storj.SplitPath(string(seg.Path))
+		path, pathErr := metainfo.ParsePath(seg.GetPath())
+		if pathErr != nil {
+			err = errs.Combine(err, pathErr)
+			continue
+		}
+		objPath := path.ObjectString()
 
-		// by removing the segment index, we can easily sort segments into a map of objects
-		pathElements = append(pathElements[:1], pathElements[2:]...)
-		objPath := strings.Join(pathElements, "/")
 		objects[objPath] = append(objects[objPath], seg)
 	}
-	return objects
+	return objects, err
 }
 
 func init() {

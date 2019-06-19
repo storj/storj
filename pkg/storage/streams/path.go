@@ -24,7 +24,7 @@ func (p Path) Bucket() string { return p.bucket }
 func (p Path) UnencryptedPath() paths.Unencrypted { return p.unencPath }
 
 // Raw returns the raw data in the path.
-func (p Path) Raw() []byte { return appned([]byte(nil), p.raw...) }
+func (p Path) Raw() []byte { return append([]byte(nil), p.raw...) }
 
 // String returns the string form of the raw data in the path.
 func (p Path) String() string { return string(p.raw) }

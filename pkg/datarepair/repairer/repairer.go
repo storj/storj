@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -51,7 +50,7 @@ func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, met
 
 // SegmentRepairer is a repairer for segments
 type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path) (err error)
+	Repair(ctx context.Context, metainfoPath metainfo.Path) (err error)
 }
 
 // Service contains the information needed to run the repair service
@@ -138,7 +137,11 @@ func (service *Service) process(ctx context.Context) (err error) {
 func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
-	err = service.repairer.Repair(ctx, seg.GetPath())
+	path, err := metainfo.ParsePath([]byte(seg.GetPath()))
+	if err != nil {
+		return err
+	}
+	err = service.repairer.Repair(ctx, path)
 	if err != nil {
 		return Error.New("repair failed: %v", err)
 	}

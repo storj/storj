@@ -7,17 +7,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/storage"
 )
 
 // Config contains configurable values for the tally service
@@ -117,43 +114,30 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	var bucketCount int64
 	var totalTallies accounting.BucketTally
 
-	err = t.metainfo.Iterate(ctx, "", "", true, false,
-		func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
+	err = t.metainfo.Iterate(ctx, metainfo.Path{}, metainfo.Path{}, true, false,
+		func(ctx context.Context, it metainfo.Iterator) error {
+			var item metainfo.ListItem
 			for it.Next(ctx, &item) {
-
-				pointer := &pb.Pointer{}
-				err = proto.Unmarshal(item.Value, pointer)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-
-				pathElements := storj.SplitPath(storj.Path(item.Key))
 				// check to make sure there are at least *4* path elements. the first three
 				// are project, segment, and bucket name, but we want to make sure we're talking
 				// about an actual object, and that there's an object name specified
 
 				// handle conditions with buckets with no files
-				if len(pathElements) == 3 {
+				if !item.Path.EncryptedPath().Valid() {
 					bucketCount++
-				} else if len(pathElements) >= 4 {
-					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
-
-					bucketID := storj.JoinPaths(project, bucketName)
-
+				} else if bucketName, ok := item.Path.Bucket(); ok {
+					bucketID := item.Path.ProjectID().String() + "/" + bucketName
 					bucketTally := bucketTallies[bucketID]
 					if bucketTally == nil {
 						bucketTally = &accounting.BucketTally{}
-						bucketTally.ProjectID = []byte(project)
+						bucketTally.ProjectID = []byte(item.Path.ProjectID().String())
 						bucketTally.BucketName = []byte(bucketName)
-
 						bucketTallies[bucketID] = bucketTally
 					}
-
-					bucketTally.AddSegment(pointer, segment == "l")
+					bucketTally.AddSegment(item.Pointer, item.Path.SegmentIndex() == -1)
 				}
 
-				remote := pointer.GetRemote()
+				remote := item.Pointer.GetRemote()
 				if remote == nil {
 					continue
 				}
@@ -162,7 +146,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 					t.logger.Debug("no pieces on remote segment")
 					continue
 				}
-				segmentSize := pointer.GetSegmentSize()
+				segmentSize := item.Pointer.GetSegmentSize()
 				redundancy := remote.GetRedundancy()
 				if redundancy == nil {
 					t.logger.Debug("no redundancy scheme present")

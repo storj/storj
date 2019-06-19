@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -46,6 +47,23 @@ func (p Path) Raw() []byte { return append([]byte(nil), p.raw...) }
 
 // String returns the string form of the raw data in the path.
 func (p Path) String() string { return string(p.raw) }
+
+// ObjectString returns a string representation of the entire object, removing
+// the segment index.
+func (p Path) ObjectString() string {
+	if !p.Valid() {
+		return ""
+	}
+	parts := make([]string, 0, 3)
+	parts = append(parts, p.ProjectID().String())
+	if bucket, ok := p.Bucket(); ok {
+		parts = append(parts, bucket)
+		if enc := p.EncryptedPath(); enc.Valid() {
+			parts = append(parts, enc.String())
+		}
+	}
+	return strings.Join(parts, "/")
+}
 
 // ParsePath returns a new path with the given raw bytes.
 func ParsePath(raw []byte) (path Path, err error) {
