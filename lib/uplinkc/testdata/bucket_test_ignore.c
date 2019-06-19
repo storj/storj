@@ -58,19 +58,7 @@ void TestBucket(void)
         free(data);
     }
 
-    // List objects
-    ObjectList_t objects_list = ListObjects(ref_bucket, NULL, err);
-    TEST_ASSERT_EQUAL_STRING("", *err);
-    TEST_ASSERT_EQUAL_STRING(bucket_name, objects_list.bucket);
-    TEST_ASSERT_EQUAL_STRING("", objects_list.prefix);
-    TEST_ASSERT_EQUAL(false, objects_list.more);
-    TEST_ASSERT_EQUAL(num_of_objects, objects_list.length);
 
-    Object_t *object;
-    for (int i=0; i < objects_list.length; i++) {
-        object = &objects_list.items[i];
-        TEST_ASSERT_EQUAL_STRING(object_paths[i], object->path);
-    }
 }
 
 int main(int argc, char *argv[])

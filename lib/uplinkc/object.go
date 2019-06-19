@@ -247,6 +247,35 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	}
 }
 
+// free_object_info frees the object info
+//export free_object_info
+func free_object_info(objectInfo *C.ObjectInfo) {
+	bucketInfo := objectInfo.bucket
+	free_bucket_info(&bucketInfo)
+
+	C.free(unsafe.Pointer(objectInfo.path))
+	objectInfo.path = nil
+
+	C.free(unsafe.Pointer(objectInfo.content_type))
+	objectInfo.content_type = nil
+
+	delete_map_ref(objectInfo.metadata)
+}
+
+// free_list_objects frees the list of objects
+//export free_list_objects
+func free_list_objects(objectList *C.ObjectList) {
+	C.free(unsafe.Pointer(objectList.bucket))
+	objectList.bucket = nil
+
+	C.free(unsafe.Pointer(objectList.prefix))
+	objectList.prefix = nil
+
+	for i := 0; i < int(objectList.length); i++ {
+		item := int(uintptr(unsafe.Pointer(objectList.items))) + i * int(unsafe.Sizeof(C.ObjectInfo{}))
+		free_object_info((*C.ObjectInfo)(unsafe.Pointer(uintptr(item))))
+	}
+}
 
 type Download struct {
 	scope

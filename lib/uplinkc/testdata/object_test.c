@@ -36,15 +36,15 @@ void handle_project(ProjectRef project) {
     BucketRef bucket = open_bucket(project, bucket_name, access, err);
     require_noerror(*err);
 
-    {
-        char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
-        int num_of_objects = 4;
+    char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
+    int num_of_objects = 4;
 
-        for(int i = 0; i < num_of_objects; i++) {
-            // TODO: figure out why node selection criteria aren't met in testplanet
-            int data_len = 1024;
-            char *data = mkrndstr(data_len);
+    for(int i = 0; i < num_of_objects; i++) {
+        // TODO: figure out why node selection criteria aren't met in testplanet
+        int data_len = 1024;
+        char *data = mkrndstr(data_len);
 
+        { // upload
             MapRef map = new_map_ref();
             UploadOptions opts = {
                 "text/plain",
@@ -71,21 +71,23 @@ void handle_project(ProjectRef project) {
 
             upload_close(uploader, err);
             require_noerror(*err);
+        }
 
-            ObjectRef object_ref = open_object(bucket, object_paths[i], err);
-            require_noerror(*err);
+        // object meta
+        ObjectRef object_ref = open_object(bucket, object_paths[i], err);
+        require_noerror(*err);
 
-            ObjectMeta object_meta = get_object_meta(object_ref, err);
-            require_noerror(*err);
-            require(strcmp(object_paths[i], object_meta.path) == 0);
-            require(data_len == object_meta.size);
-            // TODO: finish up
-            require(true == ((time(NULL) - object_meta.expires) <= 2000));
+        ObjectMeta object_meta = get_object_meta(object_ref, err);
+        require_noerror(*err);
+        require(strcmp(object_paths[i], object_meta.path) == 0);
+        require(data_len == object_meta.size);
+        // TODO: finish up
+        require(true == ((time(NULL) - object_meta.expires) <= 2000));
 
+        { // download
             DownloaderRef downloader = download(bucket, object_paths[i], err);
             require_noerror(*err);
 
-            printf("meta size: %llu\n", object_meta.size);
             char downloadedData[object_meta.size];
             memset(downloadedData, '\0', object_meta.size);
             int downloadedTotal = 0;
@@ -111,18 +113,32 @@ void handle_project(ProjectRef project) {
             download_close(downloader, err);
             require_noerror(*err);
             require(memcmp(data, downloadedData, data_len) == 0);
-
-            if (data != NULL) {
-                free(data);
-            }
-
-            free_object_meta(&object_meta);
-
-            close_object(object_ref, err);
-            require_noerror(*err);
         }
 
+        if (data != NULL) {
+            free(data);
+        }
+
+        free_object_meta(&object_meta);
+
+        close_object(object_ref, err);
+        require_noerror(*err);
     }
+
+//    { // List objects
+//        ObjectList objects_list = ListObjects(bucket, NULL, err);
+//        TEST_ASSERT_EQUAL_STRING("", *err);
+//        TEST_ASSERT_EQUAL_STRING(bucket_name, objects_list.bucket);
+//        TEST_ASSERT_EQUAL_STRING("", objects_list.prefix);
+//        TEST_ASSERT_EQUAL(false, objects_list.more);
+//        TEST_ASSERT_EQUAL(num_of_objects, objects_list.length);
+//
+//        Object_t *object;
+//        for (int i=0; i < objects_list.length; i++) {
+//            object = &objects_list.items[i];
+//            TEST_ASSERT_EQUAL_STRING(object_paths[i], object->path);
+//        }
+//    }
 
     close_bucket(bucket, err);
     require_noerror(*err);
