@@ -1707,6 +1707,24 @@
                 ]
               }
             ]
+          },
+          {
+            "name": "AddAttributionRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket_name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "partner_id",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "AddAttributionResponse"
           }
         ],
         "services": [
@@ -1742,6 +1760,11 @@
                 "name": "ListSegments",
                 "in_type": "ListSegmentsRequest",
                 "out_type": "ListSegmentsResponse"
+              },
+              {
+                "name": "AddAttribution",
+                "in_type": "AddAttributionRequest",
+                "out_type": "AddAttributionResponse"
               }
             ]
           }

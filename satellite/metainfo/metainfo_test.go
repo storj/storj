@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"context"
+	"crypto/rand"
 	"sort"
 	"testing"
 	"time"
@@ -431,6 +432,51 @@ func TestCommitSegmentPointer(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrorMessage)
+		}
+	})
+}
+
+func TestAddAttribution(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+		require.NoError(t, err)
+		encScheme := config.GetEncryptionScheme()
+		_, err = metainfo.CreateBucket(ctx, "myBucket", &storj.Bucket{PathCipher: encScheme.Cipher})
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+
+		keyInfo := pb.AddAttributionRequest{
+			PartnerId:  []byte("PartnerID"),
+			BucketName: []byte("myBucketName"),
+		}
+
+		{
+			// bucket with no items
+			err = metainfoClient.AddAttribution(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			require.NoError(t, err)
+
+			// no bucket exists
+			err = metainfoClient.AddAttribution(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId))
+			require.NoError(t, err)
+		}
+		{
+			expectedData := make([]byte, 1*memory.MiB)
+			_, err = rand.Read(expectedData)
+			assert.NoError(t, err)
+
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "myBucket", "path", expectedData)
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.AddAttribution(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			require.Error(t, err)
 		}
 	})
 }
