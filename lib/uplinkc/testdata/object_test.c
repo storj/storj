@@ -82,7 +82,7 @@ void handle_project(ProjectRef project) {
             // TODO: finish up
             require(true == ((time(NULL) - object_meta.expires) <= 2000));
 
-            DownloaderRef downloader = download(object_ref, 0, object_meta.size, err);
+            DownloaderRef downloader = download(bucket, object_paths[i], err);
             require_noerror(*err);
 
             printf("meta size: %llu\n", object_meta.size);
@@ -96,7 +96,7 @@ void handle_project(ProjectRef project) {
                 uint64_t size_to_read = 1024;
                 bytes = malloc(size_to_read);
                 uint64_t downloadedSize = download_read(downloader, bytes, size_to_read, err);
-
+                printf("size: %llu\n", downloadedSize);
                 if (downloadedSize == EOF) {
                     free(bytes);
                     break;

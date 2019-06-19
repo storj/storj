@@ -250,22 +250,26 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 
 type Download struct {
 	scope
-	rc io.ReadCloser
+	rc interface {
+			io.Reader
+			io.Seeker
+			io.Closer
+	}
 }
 
 // download returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
 //export download
-func download(objectRef C.ObjectRef, offset C.int64_t, length C.int64_t, cErr **C.char) (downloader C.DownloaderRef) {
-	object, ok := universe.Get(objectRef._handle).(*Object)
+func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.DownloaderRef) {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {
-		*cErr = C.CString("invalid object")
+		*cErr = C.CString("invalid bucket")
 		return
 	}
 
-	scope := object.scope.child()
+	scope := bucket.scope.child()
 
-	rc, err := object.DownloadRange(scope.ctx, int64(offset), int64(length))
+	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return
@@ -285,9 +289,11 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, c
 		return C.int(0)
 	}
 
+	var result [1024]byte
 	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length]
 
-	n, err := download.rc.Read(buf)
+	n, err := download.rc.Read(result[:])
+	copy(buf, result[:n])
 	if err == io.EOF {
 		return C.EOF
 	}
