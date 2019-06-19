@@ -59,7 +59,7 @@ type DB interface {
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *pb.InfoResponse) (stats *NodeDossier, err error)
 	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64) (stats *NodeStats, err error)
+	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda, weight, uptimeDQ float64) (stats *NodeStats, err error)
 }
 
 // FindStorageNodesRequest defines easy request parameters.
@@ -334,8 +334,9 @@ func (cache *Cache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp 
 	defer mon.Task()(&ctx)(&err)
 	lambda := cache.preferences.UptimeReputationLambda
 	weight := cache.preferences.UptimeReputationWeight
+	uptimeDQ := cache.preferences.UptimeReputationDQ
 
-	return cache.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight)
+	return cache.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ConnFailure implements the Transport Observer `ConnFailure` function
@@ -345,11 +346,12 @@ func (cache *Cache) ConnFailure(ctx context.Context, node *pb.Node, failureError
 
 	lambda := cache.preferences.UptimeReputationLambda
 	weight := cache.preferences.UptimeReputationWeight
+	uptimeDQ := cache.preferences.UptimeReputationDQ
 
 	// TODO: Kademlia paper specifies 5 unsuccessful PINGs before removing the node
 	// from our routing table, but this is the cache so maybe we want to treat
 	// it differently.
-	_, err = cache.db.UpdateUptime(ctx, node.Id, false, lambda, weight)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, false, lambda, weight, uptimeDQ)
 	if err != nil {
 		zap.L().Debug("error updating uptime for node", zap.Error(err))
 	}
@@ -367,8 +369,9 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 
 	lambda := cache.preferences.UptimeReputationLambda
 	weight := cache.preferences.UptimeReputationWeight
+	uptimeDQ := cache.preferences.UptimeReputationDQ
 
-	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight)
+	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
 	if err != nil {
 		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}
