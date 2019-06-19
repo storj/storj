@@ -22,8 +22,8 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
@@ -38,6 +38,33 @@ type locked struct {
 // newLocked returns database wrapped with locker.
 func newLocked(db satellite.DB) satellite.DB {
 	return &locked{&sync.Mutex{}, db}
+}
+
+// Attribution returns database for partner keys information
+func (m *locked) Attribution() attribution.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedAttribution{m.Locker, m.db.Attribution()}
+}
+
+// lockedAttribution implements locking wrapper for attribution.DB
+type lockedAttribution struct {
+	sync.Locker
+	db attribution.DB
+}
+
+// Get retrieves attribution info using project id and bucket name.
+func (m *lockedAttribution) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, projectID, bucketName)
+}
+
+// Insert creates and stores new Info
+func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, info)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -1051,31 +1078,4 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
-}
-
-// ValueAttribution returns database for partner keys information
-func (m *locked) ValueAttribution() valueattribution.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedValueAttribution{m.Locker, m.db.ValueAttribution()}
-}
-
-// lockedValueAttribution implements locking wrapper for valueattribution.DB
-type lockedValueAttribution struct {
-	sync.Locker
-	db valueattribution.DB
-}
-
-// Get retrieves partner id using bucket name
-func (m *lockedValueAttribution) Get(ctx context.Context, buckname []byte) (*valueattribution.PartnerInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, buckname)
-}
-
-// Insert creates and stores new ConnectorKeyInfo
-func (m *lockedValueAttribution) Insert(ctx context.Context, info *valueattribution.PartnerInfo) (*valueattribution.PartnerInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Insert(ctx, info)
 }
