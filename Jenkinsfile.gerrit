@@ -3,6 +3,7 @@ pipeline {
         dockerfile {
             filename 'Dockerfile.jenkins'
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
+            label 'gerrit'
         }
     }
     options {
@@ -10,7 +11,10 @@ pipeline {
     }
     stages {
         stage('Start') {
-          steps { gerritReview message: 'Building' }
+          steps {
+            gerritReview message: 'Building'
+            sh 'python ./scripts/gerrit-cla.py'
+          }
         }
 
         stage('Build') {
