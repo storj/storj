@@ -769,7 +769,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 
 	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(updatedUptimeAlpha)
 	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(updatedUptimeBeta)
-	// updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
+	updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
 
 	// TODO: handle newreputation to figure out if disqualified
 
