@@ -909,10 +909,10 @@ func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.U
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight)
+	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ProjectAccounting returns database for storing information about project data use

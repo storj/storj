@@ -45,22 +45,15 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		auditSuccessRatio := getRatio(currAuditSuccess, currAuditCount)
 		uptimeRatio := getRatio(currUptimeSuccess, currUptimeCount)
 
-		nodeStats := &overlay.NodeStats{
-			AuditSuccessRatio:  auditSuccessRatio,
-			UptimeRatio:        uptimeRatio,
-			AuditCount:         currAuditCount,
-			AuditSuccessCount:  currAuditSuccess,
-			UptimeCount:        currUptimeCount,
-			UptimeSuccessCount: currUptimeSuccess,
+		nodeSelection := overlay.NodeSelectionConfig{
+			AuditSuccessRatio: auditSuccessRatio,
+			UptimeRatio:       uptimeRatio,
+			AuditCount:        currAuditCount,
+			UptimeCount:       currUptimeCount,
 		}
 
-		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})
+		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID}, nodeSelection)
 		require.NoError(t, err)
-
-		stats, err := cache.CreateStats(ctx, nodeID, nodeStats)
-		require.NoError(t, err)
-		assert.EqualValues(t, auditSuccessRatio, stats.AuditSuccessRatio)
-		assert.EqualValues(t, uptimeRatio, stats.UptimeRatio)
 
 		node, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -98,19 +91,14 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			{storj.NodeID{6}, 0, 1, 0.0, 5, 5, .01},     // bad audit success exactly one audit => bad
 			{storj.NodeID{7}, 0, 20, 0.0, 20, 20, 1.0},  // impossible math, but good ratios => good
 		} {
-			nodeStats := &overlay.NodeStats{
-				AuditSuccessRatio:  tt.auditSuccessRatio,
-				UptimeRatio:        tt.uptimeRatio,
-				AuditCount:         tt.auditCount,
-				AuditSuccessCount:  tt.auditSuccessCount,
-				UptimeCount:        tt.uptimeCount,
-				UptimeSuccessCount: tt.uptimeSuccessCount,
+			nodeSelection := overlay.NodeSelectionConfig{
+				AuditSuccessRatio: tt.auditSuccessRatio,
+				UptimeRatio:       tt.uptimeRatio,
+				AuditCount:        tt.auditCount,
+				UptimeCount:       tt.uptimeCount,
 			}
 
-			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID})
-			require.NoError(t, err)
-
-			_, err = cache.CreateStats(ctx, tt.nodeID, nodeStats)
+			err := cache.UpdateAddress(ctx, &pb.Node{Id: tt.nodeID}, nodeSelection)
 			require.NoError(t, err)
 		}
 
@@ -134,7 +122,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 	{ // TestUpdateOperator
 		nodeID := storj.NodeID{10}
-		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID})
+		err := cache.UpdateAddress(ctx, &pb.Node{Id: nodeID}, overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
 		update, err := cache.UpdateNodeInfo(ctx, nodeID, &pb.InfoResponse{
@@ -225,7 +213,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		assert.EqualValues(t, currUptimeSuccess, node.Reputation.UptimeSuccessCount)
 		assert.EqualValues(t, uptimeRatio, node.Reputation.UptimeRatio)
 
-		stats, err := cache.UpdateUptime(ctx, nodeID, false, 1, 0, 1, 1)
+		stats, err := cache.UpdateUptime(ctx, nodeID, false, 1, 1, 0.5)
 		require.NoError(t, err)
 
 		currUptimeCount++
