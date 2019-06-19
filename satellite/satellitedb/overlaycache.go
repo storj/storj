@@ -636,6 +636,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		updateReq.AuditWeight,
 		dbNode.TotalAuditCount,
 	)
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)
 
 	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
@@ -645,6 +647,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		updateReq.UptimeWeight,
 		dbNode.TotalUptimeCount,
 	)
+	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
+	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
 
 	updateFields := dbx.Node_Update_Fields{
 		TotalAuditCount:       dbx.Node_TotalAuditCount(totalAuditCount),
@@ -762,6 +766,8 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 		weight,
 		dbNode.TotalUptimeCount,
 	)
+	mon.FloatVal("uptime_reputation_alpha").Observe(uptimeAlpha)
+	mon.FloatVal("uptime_reputation_beta").Observe(uptimeBeta)
 
 	updateFields.UptimeReputationAlpha = dbx.Node_UptimeReputationAlpha(uptimeAlpha)
 	updateFields.UptimeReputationBeta = dbx.Node_UptimeReputationBeta(uptimeBeta)
