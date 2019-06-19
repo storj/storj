@@ -1707,24 +1707,6 @@
                 ]
               }
             ]
-          },
-          {
-            "name": "ValueAttributionRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "bucket_name",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "partner_id",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "ValueAttributionResponse"
           }
         ],
         "services": [
@@ -1760,11 +1742,6 @@
                 "name": "ListSegments",
                 "in_type": "ListSegmentsRequest",
                 "out_type": "ListSegmentsResponse"
-              },
-              {
-                "name": "ValueAttributeInfo",
-                "in_type": "ValueAttributionRequest",
-                "out_type": "ValueAttributionResponse"
               }
             ]
           }
