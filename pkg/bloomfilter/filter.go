@@ -104,7 +104,7 @@ func subrange(seed int, id storj.PieceID) (uint64, byte) {
 		copy(unwrap[n:], id[:])
 		return binary.LittleEndian.Uint64(unwrap[:]), unwrap[8]
 	}
-	return binary.LittleEndian.Uint64(id[seed : seed+8]), id[8]
+	return binary.LittleEndian.Uint64(id[seed : seed+8]), id[seed+8]
 }
 
 // NewFromBytes decodes the filter from a sequence of bytes.
