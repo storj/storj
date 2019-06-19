@@ -902,10 +902,10 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 }
 
 // UpdateStats all parts of single storagenode's stats.
-func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest, auditLambda float64, auditWeight float64, uptimeLambda float64, uptimeWeight float64) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateStats(ctx, request, auditLambda, auditWeight, uptimeLambda, uptimeWeight)
+	return m.db.UpdateStats(ctx, request)
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.

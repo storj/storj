@@ -610,7 +610,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 }
 
 // UpdateStats a single storagenode's stats in the db
-func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest, auditLambda, auditWeight, uptimeLambda, uptimeWeight float64) (stats *overlay.NodeStats, err error) {
+func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeID := updateReq.NodeID
@@ -624,31 +624,46 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	auditReputationAlpha, auditReputationBeta, totalAuditCount := updateReputation(
+	auditAlpha, auditBeta, totalAuditCount := updateReputation(
 		updateReq.AuditSuccess,
 		dbNode.AuditReputationAlpha,
 		dbNode.AuditReputationBeta,
-		auditLambda,
-		auditWeight,
+		updateReq.AuditLambda,
+		updateReq.AuditWeight,
 		dbNode.TotalAuditCount,
 	)
 
-	uptimeReputationAlpha, uptimeReputationBeta, totalUptimeCount := updateReputation(
+	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		updateReq.IsUp,
 		dbNode.UptimeReputationAlpha,
 		dbNode.UptimeReputationBeta,
-		uptimeLambda,
-		uptimeWeight,
+		updateReq.UptimeLambda,
+		updateReq.UptimeWeight,
 		dbNode.TotalUptimeCount,
 	)
 
 	updateFields := dbx.Node_Update_Fields{
 		TotalAuditCount:       dbx.Node_TotalAuditCount(totalAuditCount),
 		TotalUptimeCount:      dbx.Node_TotalUptimeCount(totalUptimeCount),
-		AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(auditReputationAlpha),
-		AuditReputationBeta:   dbx.Node_AuditReputationBeta(auditReputationBeta),
-		UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(uptimeReputationAlpha),
-		UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(uptimeReputationBeta),
+		AuditReputationAlpha:  dbx.Node_AuditReputationAlpha(auditAlpha),
+		AuditReputationBeta:   dbx.Node_AuditReputationBeta(auditBeta),
+		UptimeReputationAlpha: dbx.Node_UptimeReputationAlpha(uptimeAlpha),
+		UptimeReputationBeta:  dbx.Node_UptimeReputationBeta(uptimeBeta),
+	}
+
+	var disqualified time.Time
+	auditRep := auditAlpha / (auditAlpha + auditBeta)
+	if auditRep <= updateReq.AuditDQ {
+		disqualified = time.Now().UTC()
+		updateFields.Disqualified = dbx.Node_Disqualified(disqualified)
+	}
+
+	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
+	if uptimeRep <= updateReq.UptimeDQ {
+		// n.b. that this will overwrite the audit DQ timestamp
+		// if it has already been set.
+		disqualified = time.Now().UTC()
+		updateFields.Disqualified = dbx.Node_Disqualified(disqualified)
 	}
 
 	if updateReq.IsUp {
