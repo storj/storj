@@ -507,6 +507,21 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	return storj.JoinPaths(entries...), nil
 }
 
+// ValueAttributeInfo commits segment metadata
+func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.AddAttributionRequest) (_ *pb.AddAttributionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = endpoint.checkBucketPointers(ctx, req)
+	if err != nil {
+		endpoint.log.Sugar().Info("related bucket id already attributed \n")
+		return &pb.AddAttributionResponse{}, err
+	}
+
+	// TODO: add valueattribution DB access functions added in new PR.
+
+	return &pb.AddAttributionResponse{}, nil
+}
+
 // checks if bucket has any pointers(entries)
 func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.AddAttributionRequest) (resp bool, err error) {
 	//TODO: Logic of checking if bucket exists will be added in new PR.
@@ -538,17 +553,4 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.AddAt
 	}
 
 	return true, nil
-}
-
-// ValueAttributeInfo commits segment metadata
-func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.AddAttributionRequest) (*pb.ValueAttributionResponse, error) {
-	_, err := endpoint.checkBucketPointers(ctx, req)
-	if err != nil {
-		endpoint.log.Sugar().Info("related bucket id already attributed \n")
-		return &pb.AddAttributionResponse{}, err
-	}
-
-	// TODO: add valueattribution DB access functions added in new PR.
-
-	return &pb.AddAttributionResponse{}, nil
 }
