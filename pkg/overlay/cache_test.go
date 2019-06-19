@@ -51,12 +51,14 @@ func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distin
 		AuditReputationBeta0:         0,
 		AuditReputationLambda:        1,
 		AuditReputationWeight:        1,
+		AuditReputationDQ:            0.5,
 		UptimeReputationRepairWeight: 1,
 		UptimeReputationUplinkWeight: 1,
 		UptimeReputationAlpha0:       1,
 		UptimeReputationBeta0:        0,
 		UptimeReputationLambda:       1,
 		UptimeReputationWeight:       1,
+		UptimeReputationDQ:           0.5,
 	}
 }
 
@@ -166,7 +168,13 @@ func TestRandomizedSelection(t *testing.T) {
 					NodeID:       newID,
 					IsUp:         true,
 					AuditSuccess: true,
-				}, 1, 1, 1, 1)
+					AuditLambda:  1,
+					AuditWeight:  1,
+					AuditDQ:      0.5,
+					UptimeLambda: 1,
+					UptimeWeight: 1,
+					UptimeDQ:     0.5,
+				})
 			}
 
 			allIDs[i] = newID
@@ -242,7 +250,13 @@ func TestIsVetted(t *testing.T) {
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
-		}, 1, 1, 1, 1)
+			AuditLambda:  1,
+			AuditWeight:  1,
+			AuditDQ:      0.75,
+			UptimeLambda: 1,
+			UptimeWeight: 1,
+			UptimeDQ:     0.75,
+		})
 		require.NoError(t, err)
 
 		reputable, err := service.IsVetted(ctx, planet.StorageNodes[0].ID())
