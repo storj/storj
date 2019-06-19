@@ -28,7 +28,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 		(SELECT SUM(credits_earned_in_cents - credits_used_in_cents) AS available_credit FROM user_credits WHERE expires_at > ? AND user_id = ?) AS b,
 		(SELECT count(id) AS referred FROM user_credits WHERE user_credits.referred_by = ?) AS c;`), userID[:], expirationEndDate, userID[:], userID[:])
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	usage := console.UserCreditUsage{}
@@ -42,7 +42,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 		)
 		err = usageRows.Scan(&usedCredit, &availableCredit, &referred)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		usage.UsedCredits += usedCredit.Int64
