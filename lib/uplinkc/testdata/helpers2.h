@@ -10,7 +10,7 @@ BucketConfig test_bucket_config() {
     config.path_cipher = 0;
 
     config.encryption_parameters.cipher_suite = 1; // TODO: make a named const
-    config.encryption_parameters.block_size = 4096;
+    config.encryption_parameters.block_size = 2048;
 
     config.redundancy_scheme.algorithm = 1; // TODO: make a named const
     config.redundancy_scheme.share_size = 1024;

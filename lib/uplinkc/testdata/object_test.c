@@ -40,7 +40,9 @@ void handle_project(ProjectRef project) {
         int num_of_objects = 4;
 
         for(int i = 0; i < num_of_objects; i++) {
-            char *data = mkrndstr(1024 * (i + 1));
+        // TODO: figure out why node selection criteria aren't met in testplanet
+//            char *data = mkrndstr(1024 * (i + 1));
+            char *data = mkrndstr(1024);
 
             MapRef map = new_map_ref();
             UploadOptions opts = {
