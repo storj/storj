@@ -103,11 +103,10 @@ func (repairer *Repairer) Repair(ctx context.Context, metainfoPath metainfo.Path
 		}
 	}
 
-	bucket, ok := metainfoPath.Bucket()
+	bucketID, ok := metainfoPath.BucketID()
 	if !ok {
 		return Error.New("meta key does not contain bucket: %q", metainfoPath)
 	}
-	bucketID := orders.NewBucketID(metainfoPath.ProjectID(), bucket)
 
 	// Create the order limits for the GET_REPAIR action
 	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)

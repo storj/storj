@@ -164,7 +164,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	bucketID := orders.NewBucketID(apiKeyInfo.ProjectID, string(req.Bucket))
+	bucketID := paths.NewBucketID(apiKeyInfo.ProjectID, string(req.Bucket))
 	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -243,7 +243,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if req.Pointer.Type == pb.Pointer_INLINE {
-		bucketID := orders.NewBucketID(apiKeyInfo.ProjectID, string(req.Bucket))
+		bucketID, _ := metainfoPath.BucketID()
 		// TODO or maybe use pointer.SegmentSize ??
 		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
 		if err != nil {
@@ -287,7 +287,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	// then it would not need the ProjectID passed to it separately/again. Maybe that's
 	// indicitive of a bug, but who knows? That's why this is a TODO and not a TODONE.
 
-	bucketID := orders.NewBucketID(apiKeyInfo.ProjectID, string(req.Bucket))
+	bucketID := paths.NewBucketID(apiKeyInfo.ProjectID, string(req.Bucket))
 	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, apiKeyInfo.ProjectID, bucketID.Raw())
 	if err != nil {
 		endpoint.log.Error("retrieving project bandwidth total", zap.Error(err))
@@ -385,7 +385,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 			}
 		}
 
-		bucketID := orders.NewBucketID(apiKeyInfo.ProjectID, string(req.Bucket))
+		bucketID, _ := metainfoPath.BucketID()
 		limits, err := endpoint.orders.CreateDeleteOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())

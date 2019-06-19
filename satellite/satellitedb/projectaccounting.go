@@ -13,8 +13,8 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -24,7 +24,7 @@ type ProjectAccounting struct {
 }
 
 // SaveTallies saves the latest bucket info
-func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) (_ []accounting.BucketTally, err error) {
+func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[paths.BucketID]*accounting.BucketTally) (_ []accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(bucketTallies) == 0 {
 		return nil, Error.New("In SaveTallies with empty bucketTallies")
@@ -33,9 +33,8 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	var result []accounting.BucketTally
 
 	for bucketID, info := range bucketTallies {
-		bucketIDComponents := storj.SplitPath(bucketID)
-		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[1]))
-		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[0]))
+		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketID.Bucket()))
+		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketID.ProjectID().String()))
 		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
 		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
 		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))

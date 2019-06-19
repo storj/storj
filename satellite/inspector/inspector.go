@@ -7,6 +7,8 @@ import (
 	"context"
 	"strconv"
 
+	"storj.io/storj/pkg/paths"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -118,7 +120,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := metainfo.CreatePath(ctx, *projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	path, err := metainfo.CreatePath(ctx, *projectID, in.GetSegmentIndex(), string(in.GetBucket()), paths.NewEncrypted(string(in.GetEncryptedPath())))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

@@ -39,6 +39,12 @@ func (p Path) SegmentIndex() int64 { return p.segmentIndex }
 // Bucket returns the bucket part of the path and a bool if it exists.
 func (p Path) Bucket() (string, bool) { return p.bucket, p.hasBucket }
 
+// BucketID returns the paths.BucketID associated with the metainfo path and
+// a boolean indicating that it is valid.
+func (p Path) BucketID() (paths.BucketID, bool) {
+	return paths.NewBucketID(p.projectID, p.bucket), p.hasBucket
+}
+
 // EncryptedPath returns the encrypted path part of the path.
 func (p Path) EncryptedPath() paths.Encrypted { return p.encPath }
 

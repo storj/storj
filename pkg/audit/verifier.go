@@ -81,7 +81,10 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 
 	pointer := stripe.Segment
 	shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-	bucketID := createBucketID(stripe.SegmentPath)
+	bucketID, ok := stripe.SegmentPath.BucketID()
+	if !ok {
+		return nil, errs.New("no bucket id present in path: %q", stripe.SegmentPath)
+	}
 
 	var offlineNodes storj.NodeIDList
 	var failedNodes storj.NodeIDList
@@ -282,6 +285,11 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	bucketID, ok := stripe.SegmentPath.BucketID()
+	if !ok {
+		return nil, errs.New("no bucket id present in path: %q", stripe.SegmentPath)
+	}
+
 	// result status enum
 	const (
 		skipped = iota
@@ -317,7 +325,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 		containedInSegment++
 
 		go func(pending *PendingAudit, piece *pb.RemotePiece) {
-			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, pending.PieceID, pending.ShareSize)
+			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, bucketID, pending.NodeID, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeOffline.Has(err) {
 					ch <- result{nodeID: piece.NodeId, status: offline}
@@ -601,15 +609,6 @@ func getSuccessNodes(ctx context.Context, shares map[int]Share, failedNodes, off
 	}
 
 	return successNodes
-}
-
-func createBucketID(path storj.Path) []byte {
-	comps := storj.SplitPath(path)
-	if len(comps) < 3 {
-		return nil
-	}
-	// project_id/bucket_name
-	return []byte(storj.JoinPaths(comps[0], comps[2]))
 }
 
 func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeID, correctedShares []infectious.Share, stripe *Stripe) (pending []*PendingAudit, err error) {

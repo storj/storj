@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storage/streams"
@@ -153,22 +154,22 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 }
 
 // Upload data to specific satellite
-func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
+func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path paths.Unencrypted, data []byte) error {
 	return uplink.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpiration data to specific satellite and expiration time
-func (uplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte, expiration time.Time) error {
+func (uplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path paths.Unencrypted, data []byte, expiration time.Time) error {
 	return uplink.UploadWithExpirationAndConfig(ctx, satellite, nil, bucket, path, data, expiration)
 }
 
 // UploadWithConfig uploads data to specific satellite with configured values
-func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path paths.Unencrypted, data []byte) error {
 	return uplink.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte, expiration time.Time) error {
+func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path paths.Unencrypted, data []byte, expiration time.Time) error {
 	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
 		if redundancy.MinThreshold > 0 {
@@ -242,7 +243,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 }
 
 // DownloadStream returns stream for downloading data.
-func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
+func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path paths.Unencrypted) (*stream.Download, error) {
 	config := uplink.GetConfig(satellite)
 	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {
@@ -258,7 +259,7 @@ func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.P
 }
 
 // Download data from specific satellite
-func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
+func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path paths.Unencrypted) ([]byte, error) {
 	download, err := uplink.DownloadStream(ctx, satellite, bucket, path)
 	if err != nil {
 		return []byte{}, err
@@ -273,7 +274,7 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 }
 
 // Delete data to specific satellite
-func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
+func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path paths.Unencrypted) error {
 	config := uplink.GetConfig(satellite)
 	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 	if err != nil {

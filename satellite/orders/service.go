@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -62,13 +63,13 @@ func (service *Service) createSerial(ctx context.Context) (_ storj.SerialNumber,
 	return storj.SerialNumber(*uuid), nil
 }
 
-func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID BucketID, expiresAt time.Time) (err error) {
+func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucketID paths.BucketID, expiresAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
-func (service *Service) updateBandwidth(ctx context.Context, bucketID BucketID, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
+func (service *Service) updateBandwidth(ctx context.Context, bucketID paths.BucketID, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(addressedOrderLimits) == 0 {
@@ -114,7 +115,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID BucketID, 
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID BucketID, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID paths.BucketID, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -203,7 +204,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 }
 
 // CreatePutOrderLimits creates the order limits for uploading pieces to nodes.
-func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID BucketID, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID paths.BucketID, nodes []*pb.Node, expiration *timestamp.Timestamp, maxPieceSize int64) (_ storj.PieceID, _ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// convert orderExpiration from duration to timestamp
@@ -262,7 +263,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 }
 
 // CreateDeleteOrderLimits creates the order limits for deleting the pieces of pointer.
-func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID BucketID, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *identity.PeerIdentity, bucketID paths.BucketID, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -340,7 +341,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of pointer.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID BucketID, pointer *pb.Pointer, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *identity.PeerIdentity, bucketID paths.BucketID, pointer *pb.Pointer, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -426,7 +427,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 }
 
 // CreateAuditOrderLimit creates an order limit for auditing a single the piece from a pointer.
-func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID BucketID, nodeID storj.NodeID, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID paths.BucketID, nodeID storj.NodeID, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// convert orderExpiration from duration to timestamp
@@ -486,7 +487,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 }
 
 // CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
-func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID BucketID, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID paths.BucketID, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -571,7 +572,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 }
 
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID BucketID, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, err error) {
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID paths.BucketID, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -641,7 +642,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 }
 
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
-func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID BucketID, amount int64) (err error) {
+func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID paths.BucketID, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now().UTC()
@@ -651,7 +652,7 @@ func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID Bucke
 }
 
 // UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
-func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID BucketID, amount int64) (err error) {
+func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID paths.BucketID, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now().UTC()

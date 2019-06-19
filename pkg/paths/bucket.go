@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package orders
+package paths
 
 import (
 	"bytes"
@@ -10,12 +10,10 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// BucketID represents a fully qualified identifier for a bucket and some project.
+// BucketID represents a fully qualified identifier for a bucket name and some project id.
 type BucketID struct {
 	projectID uuid.UUID
 	bucket    string
-
-	raw []byte
 }
 
 // NewBucketID constructs a BucketID for the project and bucket name.
@@ -24,9 +22,6 @@ func NewBucketID(projectID uuid.UUID, bucket string) BucketID {
 		projectID: projectID,
 		bucket:    bucket,
 	}
-	b.raw = append(b.raw, projectID.String()...)
-	b.raw = append(b.raw, '/')
-	b.raw = append(b.raw, bucket...)
 	return b
 }
 
@@ -43,7 +38,6 @@ func ParseBucketID(raw []byte) (BucketID, error) {
 	return BucketID{
 		projectID: *projectID,
 		bucket:    string(raw[index+1:]),
-		raw:       raw,
 	}, nil
 }
 
@@ -54,4 +48,10 @@ func (b BucketID) ProjectID() uuid.UUID { return b.projectID }
 func (b BucketID) Bucket() string { return b.bucket }
 
 // Raw returns a byte representation of the BucketID.
-func (b BucketID) Raw() []byte { return append([]byte(nil), b.raw...) }
+func (b BucketID) Raw() []byte {
+	var out []byte
+	out = append(out, b.ProjectID().String()...)
+	out = append(out, '/')
+	out = append(out, b.bucket...)
+	return out
+}

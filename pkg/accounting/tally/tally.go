@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/accounting/live"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -101,7 +102,7 @@ func (t *Service) Tally(ctx context.Context) (err error) {
 
 // CalculateAtRestData iterates through the pieces on metainfo and calculates
 // the amount of at-rest data stored in each bucket and on each respective node
-func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[string]*accounting.BucketTally, err error) {
+func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Time, nodeData map[storj.NodeID]float64, bucketTallies map[paths.BucketID]*accounting.BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	latestTally, err = t.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
@@ -109,7 +110,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 		return latestTally, nodeData, bucketTallies, Error.Wrap(err)
 	}
 	nodeData = make(map[storj.NodeID]float64)
-	bucketTallies = make(map[string]*accounting.BucketTally)
+	bucketTallies = make(map[paths.BucketID]*accounting.BucketTally)
 
 	var bucketCount int64
 	var totalTallies accounting.BucketTally
@@ -125,13 +126,12 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 				// handle conditions with buckets with no files
 				if !item.Path.EncryptedPath().Valid() {
 					bucketCount++
-				} else if bucketName, ok := item.Path.Bucket(); ok {
-					bucketID := item.Path.ProjectID().String() + "/" + bucketName
+				} else if bucketID, ok := item.Path.BucketID(); ok {
 					bucketTally := bucketTallies[bucketID]
 					if bucketTally == nil {
 						bucketTally = &accounting.BucketTally{}
-						bucketTally.ProjectID = []byte(item.Path.ProjectID().String())
-						bucketTally.BucketName = []byte(bucketName)
+						bucketTally.ProjectID = []byte(bucketID.ProjectID().String())
+						bucketTally.BucketName = []byte(bucketID.Bucket())
 						bucketTallies[bucketID] = bucketTally
 					}
 					bucketTally.AddSegment(item.Pointer, item.Path.SegmentIndex() == -1)

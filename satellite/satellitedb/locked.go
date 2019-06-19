@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -750,14 +751,14 @@ type lockedOrders struct {
 }
 
 // CreateSerialInfo creates serial number entry in database
-func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error {
+func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID paths.BucketID, limitExpiration time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateSerialInfo(ctx, serialNumber, bucketID, limitExpiration)
 }
 
 // GetBucketBandwidth gets total bucket bandwidth from period of time
-func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, bucketID []byte, from time.Time, to time.Time) (int64, error) {
+func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, bucketID paths.BucketID, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetBucketBandwidth(ctx, bucketID, from, to)
@@ -778,21 +779,21 @@ func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj
 }
 
 // UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID paths.BucketID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID paths.BucketID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID paths.BucketID, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
@@ -958,7 +959,7 @@ func (m *lockedProjectAccounting) GetStorageTotals(ctx context.Context, projectI
 }
 
 // SaveTallies saves the latest project info
-func (m *lockedProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[string]*accounting.BucketTally) ([]accounting.BucketTally, error) {
+func (m *lockedProjectAccounting) SaveTallies(ctx context.Context, intervalStart time.Time, bucketTallies map[paths.BucketID]*accounting.BucketTally) ([]accounting.BucketTally, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, intervalStart, bucketTallies)
