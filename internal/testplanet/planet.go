@@ -58,7 +58,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/vouchers"
+	snVouchers "storj.io/storj/storagenode/vouchers"
 	"storj.io/storj/versioncontrol"
 )
 
@@ -645,7 +645,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
-			Vouchers: vouchers.Config{
+			Vouchers: snVouchers.Config{
 				Interval:         7,
 				ExpirationBuffer: 7,
 			},
