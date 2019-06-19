@@ -455,7 +455,8 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	return
 }
 
-func (s *Service) GetUserCreditsUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
+// GetUserCreditUsage is a method for querying users' credit information up until now
+func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	auth, err := GetAuth(ctx)
 	if err != nil {
