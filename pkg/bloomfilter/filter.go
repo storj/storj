@@ -42,13 +42,13 @@ func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 	seed := byte(rand.Intn(255))
 
 	// calculation based on https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
-	bitsPerElement := int(-1.44*math.Log2(falsePositiveRate)) + 1
-	hashCount := int(float64(bitsPerElement)*math.Log(2)) + 1
-	if hashCount >= 32 {
-		// we don't support more than 32 hash functions in this implementation
+	bitsPerElement := -1.44 * math.Log2(falsePositiveRate)
+	hashCount := math.Ceil(bitsPerElement * math.Log(2))
+	if hashCount > 32 {
+		// it will never be larger, but just in case to avoid overflow
 		hashCount = 32
 	}
-	sizeInBytes := expectedElements * bitsPerElement / 8
+	sizeInBytes := int(math.Ceil(float64(expectedElements) * bitsPerElement / 8))
 
 	return newExplicit(seed, byte(hashCount), sizeInBytes)
 }
