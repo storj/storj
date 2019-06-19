@@ -46,17 +46,17 @@ func TestDiscoveryQueue(t *testing.T) {
 	//     t.Logf("%08b,%08b -> %08b,%08b", node.Id[0], node.Id[1], xor[0], xor[1])
 	// }
 
-	queue := newDiscoveryQueue(6)
-	queue.Insert(target, nodes...)
+	queue := newDiscoveryQueue(target, 6)
+	queue.Insert(nodes...)
 
-	assert.Equal(t, queue.Len(), 6)
+	assert.Equal(t, queue.Unqueried(), 6)
 
 	for i, expect := range expected {
-		node := queue.Closest()
+		node := queue.ClosestUnqueried()
 		assert.Equal(t, node.Id, expect.Id, strconv.Itoa(i))
 	}
 
-	assert.Nil(t, queue.Closest())
+	assert.Nil(t, queue.ClosestUnqueried())
 }
 
 func TestDiscoveryQueueRandom(t *testing.T) {
@@ -78,20 +78,20 @@ func TestDiscoveryQueueRandom(t *testing.T) {
 			initial = append(initial, &pb.Node{Id: nodeID})
 		}
 
-		queue := newDiscoveryQueue(maxLen)
-		queue.Insert(target, initial...)
+		queue := newDiscoveryQueue(target, maxLen)
+		queue.Insert(initial...)
 
 		for k := 0; k < 10; k++ {
 			var nodeID storj.NodeID
 			_, _ = r.Read(nodeID[:])
-			queue.Insert(target, &pb.Node{Id: nodeID})
+			queue.Insert(&pb.Node{Id: nodeID})
 		}
 
-		assert.Equal(t, queue.Len(), maxLen)
+		assert.Equal(t, queue.Unqueried(), maxLen)
 
 		previousPriority := storj.NodeID{}
-		for queue.Len() > 0 {
-			next := queue.Closest()
+		for queue.Unqueried() > 0 {
+			next := queue.ClosestUnqueried()
 			priority := xorNodeID(target, next.Id)
 			// ensure that priority is monotonically increasing
 			assert.False(t, priority.Less(previousPriority))
