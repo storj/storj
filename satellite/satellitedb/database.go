@@ -16,11 +16,11 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/valueattribution"
 )
 
 var (
@@ -98,9 +98,9 @@ func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
 }
 
-// ValueAttribution is a getter for valueattribution repository
-func (db *DB) ValueAttribution() valueattribution.DB {
-	return &valueattributionDB{db: db.db}
+// Attribution is a getter for value attribution repository
+func (db *DB) Attribution() attribution.DB {
+	return &attributionDB{db: db.db}
 }
 
 // OverlayCache is a getter for overlay cache repository

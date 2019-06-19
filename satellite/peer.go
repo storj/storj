@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -56,7 +57,6 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
-	"storj.io/storj/satellite/valueattribution"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -80,8 +80,8 @@ type DB interface {
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
-	// ValueAttribution returns database for partner keys information
-	ValueAttribution() valueattribution.DB
+	// Attribution returns database for partner keys information
+	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
 	StoragenodeAccounting() accounting.StoragenodeAccounting
 	// ProjectAccounting returns database for storing information about project data use
