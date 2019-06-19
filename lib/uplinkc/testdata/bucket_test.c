@@ -18,7 +18,7 @@ void handle_project(ProjectRef project) {
     char *_err = "";
     char **err = &_err;
 
-    char *bucket_names[] = {"TestBucket1", "TestBucket2", "TestBucket3", "TestBucket4"};
+    char *bucket_names[] = {"test-bucket1", "test-bucket2", "test-bucket3", "test-bucket4"};
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // TODO: test with different bucket configs

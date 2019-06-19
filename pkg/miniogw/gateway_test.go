@@ -133,7 +133,7 @@ func TestListBuckets(t *testing.T) {
 		assert.Empty(t, bucketInfos)
 
 		// Create all expected buckets using the Metainfo API
-		bucketNames := []string{"bucket 1", "bucket 2", "bucket 3"}
+		bucketNames := []string{"bucket-1", "bucket-2", "bucket-3"}
 		buckets := make([]storj.Bucket, len(bucketNames))
 		for i, bucketName := range bucketNames {
 			bucket, err := metainfo.CreateBucket(ctx, bucketName, nil)

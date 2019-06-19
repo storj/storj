@@ -350,10 +350,10 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
 
-		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing create request or request expired")
 	})
@@ -429,7 +429,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
-			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrorMessage)
 		}
@@ -446,7 +446,7 @@ func TestValueAttributeInfo(t *testing.T) {
 		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
 		require.NoError(t, err)
 		encScheme := config.GetEncryptionScheme()
-		_, err = metainfo.CreateBucket(ctx, "myBucket", &storj.Bucket{PathCipher: encScheme.Cipher})
+		_, err = metainfo.CreateBucket(ctx, "mybucket", &storj.Bucket{PathCipher: encScheme.Cipher})
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -459,11 +459,11 @@ func TestValueAttributeInfo(t *testing.T) {
 
 		{
 			// bucket with no items
-			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.ValueAttributeInfo(ctx, "mybucket", "", -1, string(keyInfo.PartnerId))
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket1", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.ValueAttributeInfo(ctx, "mybucket1", "", -1, string(keyInfo.PartnerId))
 			require.NoError(t, err)
 		}
 		{
@@ -471,11 +471,11 @@ func TestValueAttributeInfo(t *testing.T) {
 			_, err = rand.Read(expectedData)
 			assert.NoError(t, err)
 
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "myBucket", "path", expectedData)
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "mybucket", "path", expectedData)
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.ValueAttributeInfo(ctx, "myBucket", "", -1, string(keyInfo.PartnerId))
+			err = metainfoClient.ValueAttributeInfo(ctx, "mybucket", "", -1, string(keyInfo.PartnerId))
 			require.Error(t, err)
 		}
 	})
@@ -486,7 +486,7 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Clien
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
 
-	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "myBucketName", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
+	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
@@ -565,7 +565,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-", "-testbucket-",
 			"a.b.", "test.bucket-.one",
 			"test.-bucket.one", "1.2.3.4",
-			"192.168.1.234",
+			"192.168.1.234", "testBUCKET",
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
