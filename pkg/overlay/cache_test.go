@@ -166,6 +166,28 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, valid2.Reputation.UptimeReputationBeta, newUptimeBeta)
 		require.NotNil(t, valid2.Reputation.Disqualified)
 		require.True(t, time.Now().UTC().Sub(*valid2.Reputation.Disqualified) < time.Minute)
+		dqTime := *valid2.Reputation.Disqualified
+
+		cache.UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       valid2ID,
+			IsUp:         false,
+			AuditSuccess: true,
+		})
+
+		newAuditAlpha = 2
+		newAuditBeta = 0
+		newUptimeAlpha = 1
+		newUptimeBeta = 2
+
+		valid2, err = cache.Get(ctx, valid2ID)
+		require.NoError(t, err)
+		require.EqualValues(t, valid2.Reputation.AuditReputationAlpha, newAuditAlpha)
+		require.EqualValues(t, valid2.Reputation.AuditReputationBeta, newAuditBeta)
+		require.EqualValues(t, valid2.Reputation.UptimeReputationAlpha, newUptimeAlpha)
+		require.EqualValues(t, valid2.Reputation.UptimeReputationBeta, newUptimeBeta)
+		require.NotNil(t, valid2.Reputation.Disqualified)
+		require.Equal(t, *valid2.Reputation.Disqualified, dqTime)
+
 	}
 }
 
