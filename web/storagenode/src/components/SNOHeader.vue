@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
 	<div class="header">
 		<div class="header__content-holder">
@@ -17,7 +20,7 @@
     @Component ({
         computed: {
             node: function ()  {
-                return this.$store.state.fakeModule.node;
+                return this.$store.state.node;
             }
         }
     })

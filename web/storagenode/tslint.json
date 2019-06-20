@@ -1,0 +1,69 @@
+{
+  "defaultSeverity": "warning",
+  "rulesDirectory": [
+    "tslint-consistent-codestyle"
+  ],
+  "linterOptions": {
+    "exclude": [
+      "node_modules/**"
+    ]
+  },
+  "rules": {
+    // Enforces vertical alignment.
+    "align": [true, "parameters", "statements"],
+    // Enforces use of T[] if T is a simple type.
+    "array-type": [true, "array-simple"],
+    // Enforces PascalCased class and interface names.
+    "class-name": true,
+    // Enforces formatting rules for single-line comments.
+    "comment-format": [true, "check-space"],
+    "quotemark": [true, "single", "avoid-escape"],
+    // Ensures the file ends with a newline.
+    "eofline": true,
+    "indent": [true, "spaces", 4],
+    // Ensures proper spacing between import statement keywords.
+    "import-spacing": true,
+    "interface-name": false,
+    "ordered-imports": false,
+    // Enforces consistent semicolon usage at the end of every statement.
+    "semicolon": [true, "always"],
+    // Enforces braces for if/for/do/while statements.
+    "curly": [true, "ignore-same-line"],
+    // Enforces blank line before return when not the only line in the block.
+    "newline-before-return": true,
+    // Disallows multiple variable definitions in the same declaration statement.(Exception for loops)
+    "one-variable-per-declaration": [true, "ignore-for-loop"],
+    "object-literal-sort-keys": false,
+    "whitespace": [
+      true,
+      "check-branch", // checks branching statements (if/else/for/while) are followed by whitespace.
+      "check-decl",  // checks that variable declarations have whitespace around the equals token.
+      "check-operator", // checks for whitespace around operator tokens.
+      "check-module", // checks for whitespace in import & export statements.
+      "check-separator", // checks for whitespace after separator tokens (,/;).
+      "check-type-operator", // checks for whitespace between type operators | and &.
+      "check-preblock" // checks for whitespace before the opening brace of a block.
+    ],
+    // Recommends to use an early exit instead of a long if block.
+    "early-exit": true,
+    // Bans the use of specified console methods.
+    "no-console": [true, "log"],
+    "no-default-export": false,
+    // Ban the use of this in static methods.
+    "no-static-this": true,
+    // Warns if ‘super()’ appears twice in a constructor.
+    "no-duplicate-super": true,
+    // Disallows any type of assignment in conditionals.
+    "no-conditional-assignment": true,
+    // Prevents duplicate cases in switch statements.
+    "no-duplicate-switch-case": true,
+    // Disallows empty blocks.
+    "no-empty": true,
+    // Disallows two or more blank lines in a row.
+    "no-consecutive-blank-lines": [true, 2],
+    // Warns on use of ${ in non-template strings.
+    "no-invalid-template-strings": true,
+    // Disallows using the this keyword outside of classes.
+    "no-invalid-this": true
+  }
+}

@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
 	<div class="satellite-selection-choice-container" id="satelliteDropdown">
 		<div class="satellite-selection-overflow-container">
@@ -16,7 +19,7 @@
     @Component ({
         computed: {
             satelliteList: function () {
-                return this.$store.state.fakeModule.satellite.list;
+                return this.$store.state.satellite.list;
             }
         },
     })
@@ -55,12 +58,13 @@
 
 			p {
 				font-size: 14px;
-				line-height: 20px;
+				line-height: 40px;
 				font-family: 'font_regular';
 			}
 
 			&:hover {
 				background-color: #EBECF0;
+				cursor: pointer;
 			}
 
 			&--selected {

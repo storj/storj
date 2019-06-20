@@ -5,20 +5,23 @@
 			<SNOContentTitle />
 			<SNOContentFilling />
 		</div>
+		<SNOFooter />
 	</div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import SNOHeader from '@/components/sno/SNOHeader.vue';
-    import SNOContentTitle from '@/components/sno/SNOContentTitle.vue';
-    import SNOContentFilling from '@/components/sno/SNOContentFilling.vue';
+    import SNOHeader from '@/components/SNOHeader.vue';
+    import SNOContentTitle from '@/components/SNOContentTitle.vue';
+    import SNOContentFilling from '@/components/SNOContentFilling.vue';
+    import SNOFooter from '@/components/SNOFooter.vue';
 
     @Component ({
         components: {
             SNOHeader,
 	        SNOContentTitle,
             SNOContentFilling,
+			SNOFooter,
         }
     })
 
