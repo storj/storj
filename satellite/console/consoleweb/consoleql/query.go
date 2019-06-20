@@ -24,6 +24,8 @@ const (
 	ProjectQuery = "project"
 	// MyProjectsQuery is a query name for projects related to account
 	MyProjectsQuery = "myProjects"
+	// CreditUsageQuery is a query name for credit usage related to an user
+	CreditUsageQuery = "creditUsage"
 	// TokenQuery is a query name for token
 	TokenQuery = "token"
 	// ForgotPasswordQuery is a query name for password recovery request
@@ -79,6 +81,12 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				Type: graphql.NewList(types.project),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					return service.GetUsersProjects(p.Context)
+				},
+			},
+			CreditUsageQuery: &graphql.Field{
+				Type: types.creditUsage,
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					return service.GetUserCreditUsage(p.Context)
 				},
 			},
 			TokenQuery: &graphql.Field{
