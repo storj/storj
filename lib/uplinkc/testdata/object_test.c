@@ -74,6 +74,22 @@ void handle_project(ProjectRef project) {
             require_noerror(*err);
         }
 
+        { // object meta
+            ObjectRef object_ref = open_object(bucket, object_paths[i], err);
+            require_noerror(*err);
+
+            ObjectMeta object_meta = get_object_meta(object_ref, err);
+            require_noerror(*err);
+            require(strcmp(object_paths[i], object_meta.path) == 0);
+            require(data_len == object_meta.size);
+            require(future_expiration_timestamp == object_meta.expires);
+            require((time(NULL) - object_meta.created) <= 2);
+            require((time(NULL) - object_meta.modified) <= 2);
+            // TODO: checksum is empty, is this expected?
+//            require(object_meta.checksum_bytes != NULL);
+//            require(object_meta.checksum_length != 0);
+        }
+
         { // download
             DownloaderRef downloader = download(bucket, object_paths[i], err);
             require_noerror(*err);
@@ -102,6 +118,28 @@ void handle_project(ProjectRef project) {
         if (data != NULL) {
             free(data);
         }
+
+        free_object_meta(&object_meta);
+
+        close_object(object_ref, err);
+        require_noerror(*err);
+    }
+
+    { // List objects
+        ObjectList objects_list = list_objects(bucket, NULL, err);
+        require_noerror(*err);
+        require(strcmp(bucket_name, objects_list.bucket) == 0);
+        require(strcmp("", objects_list.prefix) == 0);
+        require(false == objects_list.more);
+        require(num_of_objects == objects_list.length);
+
+        ObjectInfo *object;
+        for (int i=0; i < objects_list.length; i++) {
+            object = &objects_list.items[i];
+            require(true == array_contains(object->path, object_paths, num_of_objects));
+        }
+
+        free_list_objects(&objects_list);
     }
 
     close_bucket(bucket, err);
