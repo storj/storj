@@ -126,20 +126,20 @@ void handle_project(ProjectRef project) {
     }
 
     { // List objects
-//        ObjectList objects_list = list_objects(bucket, NULL, err);
-//        require_noerror(*err);
-//        require(strcmp(bucket_name, objects_list.bucket) == 0);
-//        require(strcmp("", objects_list.prefix) == 0);
-//        require(false == objects_list.more);
-//        require(num_of_objects == objects_list.length);
-//
-//        ObjectInfo *object;
-//        for (int i=0; i < objects_list.length; i++) {
-//            object = &objects_list.items[i];
-//            require(true == array_contains(object->path, object_paths, num_of_objects));
-//        }
-//
-//        free_list_objects(&objects_list);
+        ObjectList objects_list = list_objects(bucket, NULL, err);
+        require_noerror(*err);
+        require(strcmp(bucket_name, objects_list.bucket) == 0);
+        require(strcmp("", objects_list.prefix) == 0);
+        require(false == objects_list.more);
+        require(num_of_objects == objects_list.length);
+
+        ObjectInfo *object;
+        for (int i=0; i < objects_list.length; i++) {
+            object = &objects_list.items[i];
+            require(true == array_contains(object->path, object_paths, num_of_objects));
+        }
+
+        free_list_objects(&objects_list);
     }
 
     close_bucket(bucket, err);
