@@ -35,8 +35,6 @@ type DB interface {
 	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
 	// NeedVoucher returns true if a satellite's voucher is expired/about to expire or does not exist
 	NeedVoucher(context.Context, storj.NodeID, time.Duration) (bool, error)
-	// ListSatellites returns all satellites from the vouchersDB
-	ListSatellites(context.Context) ([]storj.NodeID, error)
 }
 
 // Config defines configuration for requesting vouchers.

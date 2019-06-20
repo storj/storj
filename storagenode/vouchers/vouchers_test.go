@@ -102,12 +102,14 @@ func TestVouchersService(t *testing.T) {
 		}
 
 		// assert no vouchers
-		satellites, err := node.DB.Vouchers().ListSatellites(ctx)
-		require.NoError(t, err)
-		assert.Len(t, satellites, 0)
+		for _, sat := range planet.Satellites {
+			voucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{sat.ID()})
+			require.NoError(t, err)
+			assert.Nil(t, voucher)
+		}
 
 		// run service and check vouchers have been received
-		err = node.Vouchers.RunOnce(ctx)
+		err := node.Vouchers.RunOnce(ctx)
 		require.NoError(t, err)
 
 		for _, sat := range planet.Satellites {
