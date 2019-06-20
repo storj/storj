@@ -54,6 +54,12 @@ func (p Path) Raw() []byte { return append([]byte(nil), p.raw...) }
 // String returns the string form of the raw data in the path.
 func (p Path) String() string { return string(p.raw) }
 
+// Equal returns if two paths are equal, unless either path is not valid, in which
+// case false is returned.
+func (p Path) Equal(o Path) bool {
+	return p.valid && o.valid && bytes.Equal(p.raw, o.raw)
+}
+
 // ObjectString returns a string representation of the entire object, removing
 // the segment index.
 func (p Path) ObjectString() string {
@@ -108,7 +114,7 @@ func ParsePath(raw []byte) (path Path, err error) {
 	if len(parts) >= 3 {
 		path.bucket, path.hasBucket = string(parts[2]), true
 		if len(parts) == 4 {
-			path.encPath = paths.NewEncrypted(string(parts[4]))
+			path.encPath = paths.NewEncrypted(string(parts[3]))
 		}
 	}
 

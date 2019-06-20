@@ -60,7 +60,7 @@ func TestDataRepair(t *testing.T) {
 		var path metainfo.Path
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
-			path, err = metainfo.ParsePath([]byte(v.GetPath()))
+			path, err = metainfo.CreatePath(ctx, ul.ProjectID[satellite.ID()], -1, "testbucket", paths.NewEncrypted(v.GetPath()))
 			require.NoError(t, err)
 			pointer, err = metainfoService.Get(ctx, path)
 			assert.NoError(t, err)

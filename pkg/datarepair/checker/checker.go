@@ -108,10 +108,20 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		mon.IntVal("remote_files_lost").Observe(int64(len(monStats.remoteSegmentInfo)))
 	}()
 
+	// TODO: we want to startAfter checker.lastChecked, but metainfo.Iterate doesn't support
+	// a startAfter argument. so we have to fake it and skip the first loop
+	skipNext := !checker.lastChecked.Equal(metainfo.Path{})
+
 	err = checker.metainfo.Iterate(ctx, metainfo.Path{}, checker.lastChecked, true, false,
 		func(ctx context.Context, it metainfo.Iterator) (err error) {
 			var item metainfo.ListItem
 			for it.Next(ctx, &item) {
+				if skipNext {
+					if item.Path.Equal(checker.lastChecked) {
+						continue
+					}
+					skipNext = false
+				}
 				checker.lastChecked = item.Path
 				err = checker.updateSegmentStatus(ctx, item.Pointer, item.Path, &monStats)
 				if err != nil {
@@ -125,6 +135,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return err
 	}
 
+	checker.lastChecked = metainfo.Path{}
 	return nil
 }
 
@@ -176,7 +187,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 			LostPieces: missingPieces,
 		})
 		if err != nil {
-			return Error.New("error adding injured segment to queue %s", err)
+			return Error.Wrap(err)
 		}
 
 		// delete always returns nil when something was deleted and also when element didn't exists

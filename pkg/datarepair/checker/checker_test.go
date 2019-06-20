@@ -31,17 +31,20 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
 
+		projectID, err := uuid.New()
+		require.NoError(t, err)
+
 		//add noise to metainfo before bad record
 		for x := 0; x < 1000; x++ {
-			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
+			makePointer(t, planet, *projectID, -1, fmt.Sprintf("a-%d", x), false)
 		}
 		//create piece that needs repair
-		makePointer(t, planet, fmt.Sprintf("b"), true)
+		makePointer(t, planet, *projectID, -1, fmt.Sprintf("b"), true)
 		//add more noise to metainfo after bad record
 		for x := 0; x < 1000; x++ {
-			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
+			makePointer(t, planet, *projectID, -1, fmt.Sprintf("c-%d", x), false)
 		}
-		err := checker.IdentifyInjuredSegments(ctx)
+		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
 		//check if the expected segments were added to the queue
@@ -52,7 +55,9 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		numValidNode := int32(len(planet.StorageNodes))
-		require.Equal(t, "b", injuredSegment.Path)
+		path, err := metainfo.ParsePath([]byte(injuredSegment.Path))
+		require.NoError(t, err)
+		require.Equal(t, "b", path.EncryptedPath().Raw())
 		require.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
 			// makePointer() starts with numValidNode good pieces
@@ -168,7 +173,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	})
 }
 
-func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
+func makePointer(t *testing.T, planet *testplanet.Planet, projectID uuid.UUID, segmentNum int64, pieceID string, createLost bool) {
 	ctx := context.TODO()
 	numOfStorageNodes := len(planet.StorageNodes)
 	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
@@ -205,7 +210,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 		},
 	}
 	// put test pointer to db
-	path, err := metainfo.ParsePath([]byte(pieceID))
+	path, err := metainfo.CreatePath(ctx, projectID, segmentNum, "bucket", paths.NewEncrypted(pieceID))
 	require.NoError(t, err)
 	pointerdb := planet.Satellites[0].Metainfo.Service
 	err = pointerdb.Put(ctx, path, pointer)
@@ -220,50 +225,97 @@ func TestCheckerResume(t *testing.T) {
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
 		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, 30*time.Second, 15*time.Second)
 
-		// create pointer that needs repair
-		makePointer(t, planet, "a", true)
-		// create pointer that will cause an error
-		makePointer(t, planet, "b", true)
-		// create pointer that needs repair
-		makePointer(t, planet, "c", true)
-		// create pointer that will cause an error
-		makePointer(t, planet, "d", true)
+		projectID, err := uuid.New()
+		require.NoError(t, err)
 
-		err := c.IdentifyInjuredSegments(ctx)
-		require.Error(t, err)
+		// create pointer that needs repair
+		makePointer(t, planet, *projectID, -1, "a", true)
+		// create pointer that will cause an error
+		makePointer(t, planet, *projectID, -1, "b", true)
+		// create pointer that needs repair
+		makePointer(t, planet, *projectID, 2, "c", true)
+		// create pointer that will cause an error
+		makePointer(t, planet, *projectID, 2, "d", true)
+
+		err = c.IdentifyInjuredSegments(ctx)
+		require.True(t, mockInsertErr.Has(err), fmt.Sprintf("%#v", err))
 
 		// "a" should be the only segment in the repair queue
 		injuredSegment, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "a")
+		path, err := metainfo.ParsePath([]byte(injuredSegment.Path))
+		require.NoError(t, err)
+		require.Equal(t, "a", path.EncryptedPath().Raw())
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
-		require.Error(t, err)
+		require.True(t, mockSelectErr.Has(err), fmt.Sprintf("%#v", err))
 
 		err = c.IdentifyInjuredSegments(ctx)
-		require.Error(t, err)
+		require.True(t, mockInsertErr.Has(err))
 
 		// "c" should be the only segment in the repair queue
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "c")
+		path, err = metainfo.ParsePath([]byte(injuredSegment.Path))
+		require.NoError(t, err)
+		require.Equal(t, "c", path.EncryptedPath().Raw())
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
-		require.Error(t, err)
+		require.True(t, mockSelectErr.Has(err), fmt.Sprintf("%#v", err))
 
 		err = c.IdentifyInjuredSegments(ctx)
-		require.Error(t, err)
+		require.NoError(t, err)
+
+		err = c.IdentifyInjuredSegments(ctx)
+		require.True(t, mockInsertErr.Has(err))
 
 		// "a" should be the only segment in the repair queue
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "a")
+		path, err = metainfo.ParsePath([]byte(injuredSegment.Path))
+		require.NoError(t, err)
+		require.Equal(t, "a", path.EncryptedPath().Raw())
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
-		require.Error(t, err)
+		require.True(t, mockSelectErr.Has(err), fmt.Sprintf("%#v", err))
+	})
+}
+
+func TestCheckerAllSegmentNums(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		repairQueue := &mockRepairQueue{}
+		irrepairQueue := planet.Satellites[0].DB.Irreparable()
+		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, 30*time.Second, 15*time.Second)
+
+		projectID, err := uuid.New()
+		require.NoError(t, err)
+
+		makePointer(t, planet, *projectID, 0, "a", true)
+		makePointer(t, planet, *projectID, 1, "a", true)
+		makePointer(t, planet, *projectID, 2, "a", true)
+		makePointer(t, planet, *projectID, -1, "a", true)
+
+		for j := 0; j < 2; j++ {
+			err = c.IdentifyInjuredSegments(ctx)
+			require.NoError(t, err)
+
+			for i := -1; i < 3; i++ {
+				injuredSegment, err := repairQueue.Select(ctx)
+				require.NoError(t, err)
+				path, err := metainfo.ParsePath([]byte(injuredSegment.Path))
+				require.NoError(t, err)
+				require.Equal(t, "a", path.EncryptedPath().Raw())
+				err = repairQueue.Delete(ctx, injuredSegment)
+				require.NoError(t, err)
+			}
+		}
+		_, err = repairQueue.Select(ctx)
+		require.True(t, mockSelectErr.Has(err), fmt.Sprintf("%#v", err))
 	})
 }
 
@@ -272,9 +324,22 @@ type mockRepairQueue struct {
 	injuredSegments []pb.InjuredSegment
 }
 
+var mockInsertErr = errs.Class("mock insert error")
+var mockSelectErr = errs.Class("mock select error")
+
 func (mockRepairQueue *mockRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
-	if s.Path == "b" || s.Path == "d" {
-		return errs.New("mock Insert error")
+	path, err := metainfo.ParsePath([]byte(s.Path))
+	if err != nil {
+		return err
+	}
+	rawpath := path.EncryptedPath().Raw()
+
+	if rawpath != "a" && rawpath != "b" && rawpath != "c" && rawpath != "d" {
+		panic(fmt.Sprintf("unexpected path: %q", s.Path))
+	}
+
+	if rawpath == "b" || rawpath == "d" {
+		return mockInsertErr.New("mock Insert error")
 	}
 	mockRepairQueue.injuredSegments = append(mockRepairQueue.injuredSegments, *s)
 	return nil
@@ -282,7 +347,7 @@ func (mockRepairQueue *mockRepairQueue) Insert(ctx context.Context, s *pb.Injure
 
 func (mockRepairQueue *mockRepairQueue) Select(ctx context.Context) (*pb.InjuredSegment, error) {
 	if len(mockRepairQueue.injuredSegments) == 0 {
-		return &pb.InjuredSegment{}, errs.New("mock Select error")
+		return &pb.InjuredSegment{}, mockSelectErr.New("mock Select error")
 	}
 	s := mockRepairQueue.injuredSegments[0]
 	return &s, nil
