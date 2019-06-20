@@ -21,8 +21,23 @@ type Asset struct {
 	Children []*Asset
 }
 
-// NewAsset loads an asset from filesystem.
-func NewAsset(path string) (*Asset, error) {
+// NewDir loads an asset directory from filesystem.
+func NewDir(path string) (*Asset, error) {
+	abspath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
+	asset, err := New(abspath)
+	if err != nil {
+		return nil, err
+	}
+	asset.Name = ""
+	return asset, nil
+}
+
+// New loads an asset from filesystem.
+func New(path string) (*Asset, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -37,10 +52,9 @@ func NewAsset(path string) (*Asset, error) {
 	}
 
 	asset := &Asset{
-		Name:     file.Name(),
-		Mode:     stat.Mode(),
-		ModTime:  stat.ModTime(),
-		Children: []*Asset{},
+		Name:    stat.Name(),
+		Mode:    stat.Mode(),
+		ModTime: stat.ModTime(),
 	}
 
 	if stat.IsDir() {
@@ -62,11 +76,11 @@ func NewAsset(path string) (*Asset, error) {
 // addFiles adds all nested files to asset
 func (asset *Asset) addFiles(dir string, infos []os.FileInfo) error {
 	for _, info := range infos {
-		asset, err := NewAsset(filepath.Join(dir, info.Name()))
+		child, err := New(filepath.Join(dir, info.Name()))
 		if err != nil {
 			return err
 		}
-		asset.Children = append(asset.Children, asset)
+		asset.Children = append(asset.Children, child)
 	}
 	return nil
 }
