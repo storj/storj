@@ -48,7 +48,7 @@ const (
 	WHERE va.partner_id = ?
 	AND bbr.interval_start >= ?
 	AND bbr.interval_start <  ?
-	AND bbr.action = 1
+	AND bbr.action = 2
 	GROUP BY bbr.project_id, bbr.bucket_name) AS o
 	GROUP BY o.project_id, o.bucket_name;`
 

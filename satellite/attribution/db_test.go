@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"storj.io/storj/pkg/pb"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/accounting"
@@ -66,19 +67,19 @@ func TestQueryValueAttribution(t *testing.T) {
 
 		attributionDB := db.Attribution()
 		projectAccoutingDB := db.ProjectAccounting()
+		orderDB := db.Orders()
 
 		now := time.Now().UTC()
 		hoursOfData := 28
 		var remoteSize int64 = 5368709120 // 5GB
 		var inlineSize int64 = 1024
-		dataStart := time.Date(now.Year(), now.Month(), now.Day(), -2, 0, 0, 0, now.Location())
+
+		//dataStart := time.Date(now.Year(), now.Month(), now.Day(), -2, 0, 0, 0, now.Location())
 		dataInterval := time.Date(now.Year(), now.Month(), now.Day(), -2, -1, 0, 0, now.Location())
 		bwStart := time.Date(now.Year(), now.Month(), now.Day(), -2, 0, 0, 0, now.Location())
 		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 		end := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
 		hours := int64(end.Sub(start).Hours())
-
-		fmt.Printf("Dates %v %v %v\n", start, dataStart, bwStart)
 
 		newUUID := func() uuid.UUID {
 			v, err := uuid.New()
@@ -86,12 +87,13 @@ func TestQueryValueAttribution(t *testing.T) {
 			return *v
 		}
 
-		project1 := newUUID()
-		partner1 := newUUID()
-		bucket1 := []byte("alpha")
+		projectID1 := newUUID()
+		partnerID1 := newUUID()
+		bucketName1 := []byte("alpha")
+		bucketID1 := []byte(string(projectID1[:]) + "/" + string(bucketName1))
 
 		infos := []*attribution.Info{
-			{project1, bucket1, partner1, time.Time{}},
+			{projectID1, bucketName1, partnerID1, time.Time{}},
 		}
 
 		for _, info := range infos {
@@ -102,38 +104,40 @@ func TestQueryValueAttribution(t *testing.T) {
 		dataCounter := 0
 		var expectedRemoteBytes int64 = 0
 		var expectedInlineBytes int64 = 0
+		var expectedEgress int64 = 0
 		for i := 0; i < hoursOfData; i++ {
+			var egress int64 = 1
+			err := orderDB.UpdateBucketBandwidthSettle(ctx, bucketID1, pb.PieceAction_GET, egress, bwStart)
+			require.NoError(t, err)
+
+			bwStart = bwStart.Add(time.Hour)
 
 			dataCounter++
 			dataInterval = dataInterval.Add(time.Minute * 30)
-			//fmt.Printf("EEEE dataInterval1 %v\n", dataInterval)
-			tally1, err := createTallyData(ctx, projectAccoutingDB, project1, bucket1, remoteSize*int64(dataCounter), inlineSize*int64(dataCounter), dataInterval)
+			_, err = createTallyData(ctx, projectAccoutingDB, projectID1, bucketName1, remoteSize*int64(dataCounter), inlineSize*int64(dataCounter), dataInterval)
 			require.NoError(t, err)
 
 			dataCounter++
 			dataInterval = dataInterval.Add(time.Minute * 30)
-			//fmt.Printf("EEEE dataInterval2 %v\n", dataInterval)
-			tally2, err := createTallyData(ctx, projectAccoutingDB, project1, bucket1, remoteSize*int64(dataCounter), inlineSize*int64(dataCounter), dataInterval)
+			tally2, err := createTallyData(ctx, projectAccoutingDB, projectID1, bucketName1, remoteSize*int64(dataCounter), inlineSize*int64(dataCounter), dataInterval)
 			require.NoError(t, err)
 
 			if (dataInterval.After(start) || dataInterval.Equal(start)) && dataInterval.Before(end) {
 				expectedRemoteBytes += tally2.RemoteBytes
 				expectedInlineBytes += tally2.InlineBytes
+				expectedEgress += egress
 			}
-			fmt.Printf("1: %v, %v %v\n2: %v, %v%v\n", tally1.RemoteBytes, tally1.InlineBytes, tally1.IntervalStart, tally2.RemoteBytes, tally2.InlineBytes, tally2.IntervalStart)
 		}
-
-		results, err := attributionDB.QueryValueAttribution(ctx, partner1, start, end)
+		results, err := attributionDB.QueryValueAttribution(ctx, partnerID1, start, end)
 		require.NoError(t, err)
 		for _, r := range results {
 			projectID, _ := bytesToUUID(r.ProjectID)
-			fmt.Printf("EEEE: %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour)
-			assert.Equal(t, project1[:], r.ProjectID)
-			assert.Equal(t, bucket1, r.BucketName)
+			fmt.Printf("EEEE: %v, %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour, r.EgressData)
+			assert.Equal(t, projectID1[:], r.ProjectID)
+			assert.Equal(t, bucketName1, r.BucketName)
 			assert.Equal(t, float64(expectedRemoteBytes/hours), r.RemoteBytesPerHour)
 			assert.Equal(t, float64(expectedInlineBytes/hours), r.InlineBytesPerHour)
-			fmt.Printf("EEEE: %v, %v\n", float64(expectedRemoteBytes/hours) == r.RemoteBytesPerHour, float64(expectedInlineBytes/hours) == r.InlineBytesPerHour)
-
+			assert.Equal(t, expectedEgress, r.EgressData)
 		}
 	})
 }
