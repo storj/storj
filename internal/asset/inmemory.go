@@ -12,91 +12,93 @@ import (
 
 // InmemoryFileSystem defines an inmemory http.FileSystem
 type InmemoryFileSystem struct {
-	Root  *Node
-	Index map[string]*Node
+	Root  *Asset
+	Index map[string]*Asset
 }
 
 // Inmemory creates an InmemoryFileSystem from
-func Inmemory(asset *Asset) *InmemoryFileSystem {
-	return InmemoryFromNode(asset.Node())
-}
-
-// InmemoryFromNode creates an
-func InmemoryFromNode(root *Node) *InmemoryFileSystem {
+func Inmemory(root *Asset) *InmemoryFileSystem {
 	fs := &InmemoryFileSystem{}
 	fs.Root = root
-	fs.Index = map[string]*Node{}
+	fs.Index = map[string]*Asset{}
 	fs.reindex("", "", root)
 	return fs
 }
 
 // reindex inserts a node to the index
-func (fs *InmemoryFileSystem) reindex(prefix, name string, node *Node) {
-	fs.Index[prefix+"/"+name] = node
-	for _, child := range node.Children {
+func (fs *InmemoryFileSystem) reindex(prefix, name string, file *Asset) {
+	fs.Index[prefix+"/"+name] = file
+	for _, child := range file.Children {
 		fs.reindex(prefix+"/"+name, child.Name, child)
 	}
 }
 
-// Node defines a file system node for InmemoryFileSystem
-type Node struct {
-	Name     string
-	Size     int64
-	Mode     os.FileMode
-	ModTime  time.Time
-	Data     []byte
-	Children []*Node
-	Lookup   map[string]*Node
-}
-
-// File opens the particular node as a file.
-func (node *Node) File() *File {
-	return &File{*bytes.NewReader(node.Data), node}
+// File opens the particular asset as a file.
+func (asset *Asset) File() *File {
+	return &File{*bytes.NewReader(asset.Data), asset}
 }
 
 // File defines a readable file
 type File struct {
 	bytes.Reader
-	*Node
+	*Asset
 }
 
 // Readdir reads all file infos from the directory.
-func (file *File) Readdir() ([]os.FileInfo, error) {
+func (file *File) Readdir(count int) ([]os.FileInfo, error) {
 	if !file.Mode.IsDir() {
 		return nil, errors.New("not a directory")
 	}
 
-	infos := []os.FileInfo{}
-	for _, child := range file.Children {
-		infos = append(infos, FileInfo{child})
+	if count > len(file.Children) {
+		count = len(file.Children)
 	}
 
-	return nil, nil
+	infos := make([]os.FileInfo, 0, count)
+	for _, child := range file.Children {
+		infos = append(infos, child.stat())
+	}
+
+	return infos, nil
+}
+
+func (asset *Asset) stat() FileInfo {
+	return FileInfo{
+		name:    asset.Name,
+		size:    int64(len(asset.Data)),
+		mode:    asset.Mode,
+		modTime: asset.ModTime,
+	}
 }
 
 // Stat returns stats about the file.
-func (file *File) Stat() (os.FileInfo, error) { return FileInfo{file.Node}, nil }
+func (file *File) Stat() (os.FileInfo, error) { return file.stat(), nil }
 
 // Close closes the file.
 func (file *File) Close() error { return nil }
 
 // FileInfo implements file info.
-type FileInfo struct{ *Node }
+type FileInfo struct {
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
+}
 
 // Name implements os.FileInfo
-func (info FileInfo) Name() string { return info.Node.Name }
+func (info FileInfo) Name() string { return info.name }
 
 // Size implements os.FileInfo
-func (info FileInfo) Size() int64 { return info.Node.Size }
+func (info FileInfo) Size() int64 { return info.size }
 
 // Mode implements os.FileInfo
-func (info FileInfo) Mode() os.FileMode { return info.Node.Mode }
+func (info FileInfo) Mode() os.FileMode { return info.mode }
 
 // ModTime implements os.FileInfo
-func (info FileInfo) ModTime() time.Time { return info.Node.ModTime }
+func (info FileInfo) ModTime() time.Time { return info.modTime }
 
 // IsDir implements os.FileInfo
-func (info FileInfo) IsDir() bool { return info.Node.Mode.IsDir() }
+func (info FileInfo) IsDir() bool { return info.mode.IsDir() }
 
 // Sys implements os.FileInfo
 func (info FileInfo) Sys() interface{} { return nil }

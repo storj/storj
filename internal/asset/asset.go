@@ -21,27 +21,7 @@ type Asset struct {
 	Children []*Asset
 }
 
-// Node converts the asset to a node.
-func (asset *Asset) Node() *Node {
-	lookup := map[string]*Node{}
-	children := []*Node{}
-	for _, child := range asset.Children {
-		node := child.Node()
-		children = append(children, node)
-		lookup[child.Name] = node
-	}
-
-	return &Node{
-		Name:     asset.Name,
-		Size:     int64(len(asset.Data)),
-		Mode:     asset.Mode,
-		ModTime:  asset.ModTime,
-		Data:     asset.Data,
-		Children: children,
-		Lookup:   lookup,
-	}
-}
-
+// NewAsset loads an asset from filesystem.
 func NewAsset(path string) (*Asset, error) {
 	file, err := os.Open(path)
 	if err != nil {

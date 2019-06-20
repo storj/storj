@@ -7,6 +7,7 @@ import (
 	"net/http"
 )
 
+// FileSystem creates an http.FileSystem out of dir.
 func FileSystem(dir string) http.FileSystem {
 	return http.Dir(dir)
 }
