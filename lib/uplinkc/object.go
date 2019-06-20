@@ -76,6 +76,7 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
+		return
 	}
 
 	universe.Del(uploader._handle)
