@@ -681,7 +681,7 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
-// Marketing returns database for marketing admin GUI
+// returns database for marketing admin GUI
 func (m *locked) Offers() offers.DB {
 	m.Lock()
 	defer m.Unlock()
@@ -718,10 +718,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]offers.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerID int, isDefault bool) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID)
+	return m.db.Redeem(ctx, offerID, isDefault)
 }
 
 // Orders returns database for orders

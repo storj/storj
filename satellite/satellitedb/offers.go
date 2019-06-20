@@ -65,6 +65,11 @@ func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Off
 		return nil, offers.Err.New("expiration time: %v can't be before: %v", o.ExpiresAt, currentTime)
 	}
 
+	if o.Status == offers.Default {
+		o.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
+		o.RedeemableCap = 1
+	}
+
 	tx, err := db.db.Open(ctx)
 	if err != nil {
 		return nil, offers.Err.Wrap(err)
@@ -105,7 +110,11 @@ func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Off
 }
 
 // Redeem adds 1 to the amount of offers redeemed based on offer id
-func (db *offersDB) Redeem(ctx context.Context, oID int) error {
+func (db *offersDB) Redeem(ctx context.Context, oID int, isDefault bool) error {
+	if isDefault {
+		return nil
+	}
+
 	statement := db.db.Rebind(
 		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
 	)

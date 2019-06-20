@@ -92,7 +92,7 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	// Marketing returns database for marketing admin GUI
+	//  returns database for marketing admin GUI
 	Offers() offers.DB
 	// Orders returns database for orders
 	Orders() orders.DB
@@ -201,10 +201,6 @@ type Peer struct {
 
 	Vouchers struct {
 		Service *vouchers.Service
-	}
-
-	Offers struct {
-		Service *offers.Service
 	}
 
 	Console struct {
@@ -555,18 +551,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
-	{
-		// setup offers service
-		log.Debug("Setting up offers")
-
-		peer.Offers.Service, err = offers.NewService(peer.Log.Named("offers"),
-			peer.DB.Offers(),
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-	}
-
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -621,7 +605,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
-			// peer.Offers.Service
+			// peer.DB.Offers()
 			peer.Marketing.Listener,
 		)
 		if err != nil {

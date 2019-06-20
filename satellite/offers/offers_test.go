@@ -64,7 +64,8 @@ func TestOffer_Database(t *testing.T) {
 				ExpiresAt: time.Now(),
 			}
 
-			err = planet.Satellites[0].DB.Offers().Redeem(ctx, update.ID)
+			isDefault := update.Status == offers.Default
+			err = planet.Satellites[0].DB.Offers().Redeem(ctx, update.ID, isDefault)
 			require.NoError(t, err)
 
 			err = planet.Satellites[0].DB.Offers().Finish(ctx, update.ID)
