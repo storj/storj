@@ -44,7 +44,7 @@ void handle_project(ProjectRef project) {
 
     for(int i = 0; i < num_of_objects; i++) {
         // TODO: figure out why node selection criteria aren't met in testplanet
-        int data_len = 1024;
+        int data_len = 1024 * pow((i + 1), 2);
         char *data = mkrndstr(data_len);
 
         { // upload

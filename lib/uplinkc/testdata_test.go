@@ -35,6 +35,9 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 
 	planet.Start(ctx)
 
+	// make sure nodes are refreshed in db
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	run(ctx, planet)
 }
 
@@ -60,7 +63,7 @@ func TestC(t *testing.T) {
 			t.Run(filepath.Base(ctest), func(t *testing.T) {
 				t.Parallel()
 
-				testexe := ctx.CompileC(t, ctest, libuplink, definition)
+				testexe := ctx.CompileC(t, ctest, libuplink, definition, testcontext.CLibMath)
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)

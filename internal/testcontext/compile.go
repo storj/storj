@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+var CLibMath = Include{Library: "m", Installed: true}
+
 // Compile compiles the specified package and returns the executable name.
 func (ctx *Context) Compile(pkg string) string {
 	ctx.test.Helper()
