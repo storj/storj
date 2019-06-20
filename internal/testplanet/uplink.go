@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -42,6 +43,7 @@ type Uplink struct {
 	Transport        transport.Client
 	StorageNodeCount int
 	APIKey           map[storj.NodeID]string
+	ProjectID        map[storj.NodeID]uuid.UUID
 }
 
 // newUplink creates a new uplink
@@ -77,6 +79,7 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 	}
 
 	apiKeys := make(map[storj.NodeID]string)
+	projectIDs := make(map[storj.NodeID]uuid.UUID)
 	for j, satellite := range planet.Satellites {
 		// TODO: find a nicer way to do this
 		// populate satellites console with example
@@ -112,10 +115,12 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 			return nil, err
 		}
 
+		projectIDs[satellite.ID()] = project.ID
 		apiKeys[satellite.ID()] = key.Serialize()
 	}
 
 	uplink.APIKey = apiKeys
+	uplink.ProjectID = projectIDs
 	planet.uplinks = append(planet.uplinks, uplink)
 
 	return uplink, nil

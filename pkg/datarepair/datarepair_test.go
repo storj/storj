@@ -13,8 +13,10 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink"
 )
 
@@ -43,19 +45,24 @@ func TestDataRepair(t *testing.T) {
 			RepairThreshold:  5,
 			SuccessThreshold: 7,
 			MaxThreshold:     7,
-		}, "testbucket", "test/path", testData)
+		}, "testbucket", paths.NewUnencrypted("test/path"), testData)
 		require.NoError(t, err)
 
 		// get a remote segment from metainfo
-		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
+		metainfoService := satellite.Metainfo.Service
+
+		bucketPath, err := metainfo.CreatePath(ctx, ul.ProjectID[satellite.ID()], -1, "testbucket", paths.Encrypted{})
 		require.NoError(t, err)
 
-		var path string
+		listResponse, _, err := metainfoService.List(ctx, bucketPath, "", "", true, 0, 0)
+		require.NoError(t, err)
+
+		var path metainfo.Path
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = metainfo.Get(ctx, path)
+			path, err = metainfo.ParsePath([]byte(v.GetPath()))
+			require.NoError(t, err)
+			pointer, err = metainfoService.Get(ctx, path)
 			assert.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -115,12 +122,12 @@ func TestDataRepair(t *testing.T) {
 		}
 
 		// we should be able to download data without any of the original nodes
-		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
+		newData, err := ul.Download(ctx, satellite, "testbucket", paths.NewUnencrypted("test/path"))
 		assert.NoError(t, err)
 		assert.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
-		pointer, err = metainfo.Get(ctx, path)
+		pointer, err = metainfoService.Get(ctx, path)
 		assert.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
