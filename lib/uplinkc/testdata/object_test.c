@@ -81,18 +81,15 @@ void handle_project(ProjectRef project) {
 
             uint64_t size_to_read = 256 + i;
             while (true) {
-                uint8_t *bytes = malloc(size_to_read);
-                uint64_t downloadedSize = download_read(downloader, bytes, size_to_read, err);
+                uint64_t downloadedSize = download_read(downloader, &downloadedData+downloadedTotal, size_to_read, err);
+                require_noerror(*err);
 
                 if (downloadedSize == EOF) {
-                    free(bytes);
                     break;
                 }
 
-                require_noerror(*err);
                 memcpy(downloadedData+downloadedTotal, bytes, downloadedSize);
                 downloadedTotal += downloadedSize;
-                free(bytes);
             }
 
             download_close(downloader, err);

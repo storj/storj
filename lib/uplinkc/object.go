@@ -16,7 +16,7 @@ import (
 
 type Upload struct {
 	scope
-	wc io.WriteCloser // 🤔
+	wc io.WriteCloser // 🚽
 }
 
 // upload uploads a new object, if authorized.
