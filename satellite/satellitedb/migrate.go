@@ -678,7 +678,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Create new tables for free credits program",
 				Version:     22,
 				Action: migrate.SQL{`
-					CREATE TABLE offers (
+					CREATE TABLE offersDB (
 						id serial NOT NULL,
 						name text NOT NULL,
 						description text NOT NULL,
@@ -731,10 +731,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add invitee_credit_in_gb and award_credit_in_gb columns, delete type and credit_in_cents columns",
 				Version:     26,
 				Action: migrate.SQL{
-					`ALTER TABLE offers DROP COLUMN credit_in_cents;`,
-					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
-					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
-					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
+					`ALTER TABLE offersDB DROP COLUMN credit_in_cents;`,
+					`ALTER TABLE offersDB ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE offersDB ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE offersDB ALTER COLUMN expires_at SET NOT NULL;`,
 				},
 			},
 			{
@@ -805,7 +805,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE TABLE user_credits (
 						id serial NOT NULL,
 						user_id bytea NOT NULL REFERENCES users( id ),
-						offer_id integer NOT NULL REFERENCES offers( id ),
+						offer_id integer NOT NULL REFERENCES offersDB( id ),
 						referred_by bytea REFERENCES users( id ),
 						credits_earned_in_cents integer NOT NULL,
 						credits_used_in_cents integer NOT NULL,
