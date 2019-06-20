@@ -171,6 +171,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		inline       bool
 		last         bool
 	}{
+		{"bucket, no objects", "mockProjectID", "", "mockBucketName", "", true, false},
 		{"inline, same project, same bucket", "mockProjectID", "l", "mockBucketName", "mockObjectName", true, true},
 		{"remote, same project, same bucket", "mockProjectID", "s0", "mockBucketName", "mockObjectName1", false, false},
 		{"last segment, same project, different bucket", "mockProjectID", "l", "mockBucketName1", "mockObjectName2", false, true},
@@ -191,15 +192,21 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
 				metainfo := satellitePeer.Metainfo.Service
 				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.projectID, tt.segmentIndex, tt.bucketName, tt.objectName)
+				if tt.objectName == "" {
+					objectPath = fmt.Sprintf("%s/%s/%s", tt.projectID, tt.segmentIndex, tt.bucketName)
+				}
 				err := metainfo.Put(ctx, objectPath, pointer)
 				require.NoError(t, err)
 
-				// setup: create expected bucket tally for the pointer just created
-				bucketID := fmt.Sprintf("%s/%s", tt.projectID, tt.bucketName)
-				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
-				newTally.BucketName = []byte(tt.bucketName)
-				newTally.ProjectID = []byte(tt.projectID)
-				expectedBucketTallies[bucketID] = newTally
+				// setup: create expected bucket tally for the pointer just created, but only if
+				// the pointer was for an object and not just for a bucket
+				if tt.objectName != "" {
+					bucketID := fmt.Sprintf("%s/%s", tt.projectID, tt.bucketName)
+					newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
+					newTally.BucketName = []byte(tt.bucketName)
+					newTally.ProjectID = []byte(tt.projectID)
+					expectedBucketTallies[bucketID] = newTally
+				}
 
 				// test: calculate at rest data
 				tallySvc := satellitePeer.Accounting.Tally
