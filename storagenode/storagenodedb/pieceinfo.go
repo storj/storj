@@ -158,3 +158,21 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
 	}
 	return sum.Int64, err
 }
+
+// SpaceUsed calculates disk space used by all pieces
+func (db *pieceinfo) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer db.locked()()
+
+	var sum sql.NullInt64
+	err = db.db.QueryRowContext(ctx, db.Rebind(`
+		SELECT SUM(piece_size)
+		FROM pieceinfo
+		WHERE satellite_id = ?
+	`), satelliteID).Scan(&sum)
+
+	if err == sql.ErrNoRows || !sum.Valid {
+		return 0, nil
+	}
+	return sum.Int64, err
+}
