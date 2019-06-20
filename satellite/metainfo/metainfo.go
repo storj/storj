@@ -528,7 +528,7 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 		if attribution.ErrBucketNameNotFound.Has(err) {
 			partnerID, err := bytesToUUID(req.GetPartnerId())
 			if err != nil {
-				return &pb.SetAttributionResponse{}, nil
+				return nil, err
 			}
 			_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
 				ProjectID:  *projectID,
