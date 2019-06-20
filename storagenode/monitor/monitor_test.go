@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -35,7 +36,7 @@ func TestMonitor(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", paths.NewUnencrypted("test/path"), expectedData)
 		require.NoError(t, err)
 
 		nodeAssertions := 0

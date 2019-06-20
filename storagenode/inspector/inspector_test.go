@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/uplink"
 )
@@ -60,10 +61,10 @@ func TestInspectorStats(t *testing.T) {
 		MaxThreshold:     10,
 	}
 
-	err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", "test/path", expectedData)
+	err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], rs, "testbucket", paths.NewUnencrypted("test/path"), expectedData)
 	require.NoError(t, err)
 
-	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+	_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", paths.NewUnencrypted("test/path"))
 	assert.NoError(t, err)
 
 	var downloaded int
@@ -113,7 +114,7 @@ func TestInspectorDashboard(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", paths.NewUnencrypted("test/path"), expectedData)
 		require.NoError(t, err)
 
 		for _, storageNode := range planet.StorageNodes {

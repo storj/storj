@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -41,7 +42,7 @@ func TestCollector(t *testing.T) {
 				SuccessThreshold: 2,
 				MaxThreshold:     2,
 			},
-			"testbucket", "test/path",
+			"testbucket", paths.NewUnencrypted("test/path"),
 			expectedData, time.Now().Add(8*24*time.Hour))
 		require.NoError(t, err)
 
