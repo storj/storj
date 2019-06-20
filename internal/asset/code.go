@@ -4,14 +4,14 @@
 package asset
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
-	"strings"
 )
 
 // GenerateGo generates an function closure that can be assigned to a variable.
-func (asset *Asset) GenerateGo() string {
-	var source strings.Builder
+func (asset *Asset) GenerateGo() []byte {
+	var source bytes.Buffer
 	fmt.Fprintf(&source, "func() *Asset {\n")
 
 	blob := []byte{}
@@ -22,7 +22,6 @@ func (asset *Asset) GenerateGo() string {
 		if !asset.Mode.IsDir() {
 			start := len(blob)
 			blob = append(blob, asset.Data...)
-			fmt.Println(asset.Name, len(asset.Data))
 			finish := len(blob)
 			blobMapping[asset] = [2]int{start, finish}
 			return
@@ -47,7 +46,7 @@ func (asset *Asset) GenerateGo() string {
 
 		fmt.Fprintf(&source, "Name: %q,\n", asset.Name)
 		fmt.Fprintf(&source, "Mode: %o,\n", asset.Mode)
-		fmt.Fprintf(&source, "ModTime: %v,\n", asset.ModTime)
+		//TODO: fmt.Fprintf(&source, "ModTime: %v,\n", asset.ModTime)
 
 		if !asset.Mode.IsDir() {
 			r := blobMapping[asset]
@@ -68,5 +67,5 @@ func (asset *Asset) GenerateGo() string {
 	fmt.Fprintf(&source, "\n")
 
 	fmt.Fprintf(&source, "}()\n")
-	return source.String()
+	return source.Bytes()
 }
