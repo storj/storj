@@ -202,6 +202,9 @@ kademlia.operator.wallet: ""
 # the initial shape 'beta' value used to calculate audit SNs reputation
 # overlay.node.audit-reputation-beta0: 0
 
+# the reputation cut-off for disqualifying SNs based on audit history
+# overlay.node.audit-reputation-dq: 0.5
+
 # the forgetting factor used to calculate the audit SNs reputation
 # overlay.node.audit-reputation-lambda: 1
 
@@ -240,6 +243,9 @@ kademlia.operator.wallet: ""
 
 # the initial shape 'beta' value used to calculate uptime SNs reputation
 # overlay.node.uptime-reputation-beta0: 0
+
+# the reputation cut-off for disqualifying SNs based on uptime history
+# overlay.node.uptime-reputation-dq: 0.5
 
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 1
