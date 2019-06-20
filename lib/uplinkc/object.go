@@ -129,11 +129,9 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, c
 		return C.int(0)
 	}
 
-	var result [1024]byte
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
-	n, err := download.rc.Read(result[:])
-	copy(buf, result[:n])
+	n, err := download.rc.Read(buf)
 	if err == io.EOF {
 		return C.EOF
 	}
