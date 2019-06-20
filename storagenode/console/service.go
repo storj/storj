@@ -63,8 +63,8 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 		return nil, errs.New("version can't be nil")
 	}
 
-	if consoleDB == nil {
-		return nil, errs.New("consoleDB can't be nil")
+	if kademlia == nil {
+		return nil, errs.New("kademlia can't be nil")
 	}
 
 	return &Service{
