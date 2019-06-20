@@ -88,6 +88,9 @@ void handle_project(ProjectRef project) {
             // TODO: checksum is empty, is this expected?
 //            require(object_meta.checksum_bytes != NULL);
 //            require(object_meta.checksum_length != 0);
+
+            free_object_meta(&object_meta);
+            close_object(object_ref, err);
         }
 
         { // download
@@ -119,9 +122,6 @@ void handle_project(ProjectRef project) {
             free(data);
         }
 
-        free_object_meta(&object_meta);
-
-        close_object(object_ref, err);
         require_noerror(*err);
     }
 

@@ -203,6 +203,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	cObjectsPtr := (*[1 << 30]C.ObjectInfo)(ptr)
 
 	for i, object := range objectList.Items {
+		object := object
 		(*cObjectsPtr)[i] = newObjectInfo(&object)
 	}
 
@@ -332,7 +333,7 @@ func free_list_objects(objectList *C.ObjectList) {
 	objectList.prefix = nil
 
 	for i := 0; i < int(objectList.length); i++ {
-		item := int(uintptr(unsafe.Pointer(objectList.items))) + i*int(unsafe.Sizeof(C.ObjectInfo{}))
+		item := int(uintptr(unsafe.Pointer(objectList.items))) + i*int(C.sizeof_ObjectInfo)
 		free_object_info((*C.ObjectInfo)(unsafe.Pointer(uintptr(item))))
 	}
 }
