@@ -99,7 +99,8 @@ The probability of having a false positive depends on the size of the Bloom filt
 - **n**: number of elements in the set
 - **m**: size of the Bloom filter array
 - **k**: number of hash functions used
-- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(kn/m))^k.
+- **Probability of false positives**: (1-(1-1/m)^kn)^k which can be approximate by (1-e^(-kn/m))^k.
+
 
 | m/n|k|k=1	|k=2	|k=3	|k=4	|k=5	|k=6	|k=7	|k=8
 |---|---|---|---|---|---|---|---|---|---|
@@ -146,3 +147,74 @@ see: [Bloom filter math](http://pages.cs.wisc.edu/~cao/papers/summary-cache/node
     - Storage node should be able to receive a Delete request from a Satellite
 - Storage node should use the filter from the Delete request to decide which pieces to delete, then delete them
 - Eventually, this service should iterate over a db snapshot instead of being integrated with the data repair checker
+
+## Bloom filters benchmark
+
+Three Bloom filter implementations are considered:
+- **Zeebo**: Zeebo's bloom filters (github.com/zeebo/sbloom)
+- **Willf**: Willf's Bloom filters (github.com/willf/bloom)
+- **Steakknife**: Steakknife's Bloom filters (github.com/golang/leveldb/bloom)
+- **Custom**: Custom bloom filter
+
+### Zeebo's bloom filters
+- Parameters:
+    - **k**: The Bloom filter will be built such that the probability of a false positive is less than (1/2)^k
+    - **h**: hash functions
+- Serialization available
+- hash functions are to be given as a parameter to the constructor
+### Willf's bloom filters
+- Parameters:
+    - **m**: max size in bits
+    - **k**: number of hash functions
+- hash functions not configurable
+
+### Steakknife's bloom filters
+- Parameters:
+    - **maxElements**: max number of elements in the set
+    - **p**: probability of false positive
+- Serialization available
+- murmur3 hash function
+
+### Custom bloom filter
+- Parameters:
+    - **maxElements**: max number of elements in the set
+    - **p**: probability of false positive
+- The piece id is used as a hash function.
+
+
+### Benchmark
+We assume a typical storage nodes has 2 TB capacity, and a typical piece is ~2 MB, so we are testing the behavior with 1 million pieces.
+
+We create a list of 1 million piece ids and add 95% of them to the Bloom filter. We then check if the 95% are contained in the set (there should be no false negative) and we evaluate the false positive rate by checking the remaining 5% piece ids.
+
+For each target false positive probability between 1% and 20% and each bloom filter type, we measure the size (in bytes) of the encoded bloom filter and the observed false positive rate.
+
+
+|p|	Zeebo size|Zeebo real_p| Willf size|Willf real_p|Steakknife size|Steakknife real_p| Custom size|Custom real_p|
+|---|	---|	---|	---|	---|	---|	---|	---|	---|
+|0.01|	9437456|	0.01|	1198160|	0.01|	1198264|	0.01|	1250012|	0.01|
+|0.02|	8913247|	0.02|	1017824|	0.02|	1017920|	0.02|	1125012|	0.01|
+|0.03|	8913247|	0.02|	912336|	    0.03|	912432|	0.03|	1000012|	0.02	|
+|0.04|	8389038|	0.03|	837488|	    0.04|	837576|	0.03|	875012|	0.03|
+|0.05|	8389038|	0.03|	779432|	    0.04|	779520|	0.04|	875012|	0.03|
+|0.06|	8389038|	0.03|	732000|	    0.06|	732088|	0.05|	750012|	0.05|
+|0.07|	7864829|	0.06|	691888|	    0.06|	691968|	0.06|	750012|	0.05|
+|0.08|	7864829|	0.06|	657152|	    0.07|	657232|	0.07|	750012|	0.05|
+|0.09|	7864829|	0.06|	626504|	    0.08|	626584|	0.08|	750012|	0.05|
+|0.10|	7864829|	0.06|	599096|	    0.09|	599176|	0.09|	625012|	0.08|
+|0.11|	7864829|	0.06|	574296|	    0.10|	574376|	0.10|	625012|	0.08|
+|0.12|	7864829|	0.06|	551656|	    0.11|	551736|	0.11|	625012|	0.08|
+|0.13|	7340620|	0.12|	530832|	    0.11|	530904|	0.12|	625012|	0.08|
+|0.14|	7340620|	0.12|	511552|	    0.12|	511624|	0.13|	625012|	0.08|
+|0.15|	7340620|	0.12|	493600|	    0.14|	493672|	0.14|	500012|	0.16|
+|0.16|	7340620|	0.12|	476816|	    0.15|	476888|	0.15|	500012|	0.16|
+|0.17|	7340620|	0.12|	461040|	    0.15|	461112|	0.16|	500012|	0.16|
+|0.18|	7340620|	0.12|	446168|	    0.17|	446240|	0.17|	500012|	0.16|
+|0.19|	7340620|    0.12|	432104|	    0.18|	432176|	0.18|	500012|	0.16|
+|0.20|	7340620|	0.12|	418760|	    0.19|	418832|	0.19|	500012|	0.16|
+
+The benchmark code is available as a gist [here](https://gist.github.com/Fadila82/9f54c61b5f91f6b1a6f9207dfbb5dd2d).
+
+An estimated number of elements must be provided when creating the bloom filter. We decide to use the last known piece count (obtained through the last iteration) as the number of elements for the creation of the new bloom filter.
+
+If the difference of number of elements between the last iteration and the current iteration is too high (inducing a high false positive rate), we don't send the bloom filter to the storage node.
