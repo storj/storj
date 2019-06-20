@@ -46,17 +46,13 @@ void handle_project(ProjectRef project) {
         fill_random_data(data, data_len);
 
         { // upload
-            MetadataRef metadata = new_metadata();
             UploadOptions opts = {
                 "text/plain",
-                metadata,
                 future_expiration_timestamp,
             };
 
             UploaderRef uploader = upload(bucket, object_paths[i], &opts, err);
             require_noerror(*err);
-
-            free_metadata(metadata);
 
             size_t uploaded = 0;
             while (uploaded < data_len) {

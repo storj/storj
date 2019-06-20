@@ -32,18 +32,11 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 	var opts *uplink.UploadOptions
 	if cOpts != nil {
-		var metadata *Metadata
-		if cOpts.metadata._handle != 0 {
-			metadata, ok = universe.Get(cOpts.metadata._handle).(*Metadata)
-			if !ok {
-				*cErr = C.CString("invalid metadata in upload options")
-				return
-			}
-		}
+		var metadata map[string]string
 
 		opts = &uplink.UploadOptions{
 			ContentType: C.GoString(cOpts.content_type),
-			Metadata:    metadata.m,
+			Metadata:    metadata,
 			Expires:     time.Unix(int64(cOpts.expires), 0),
 		}
 	}
@@ -169,6 +162,4 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 func free_upload_opts(uploadOpts *C.UploadOptions) {
 	C.free(unsafe.Pointer(uploadOpts.content_type))
 	uploadOpts.content_type = nil
-
-	universe.Del(uploadOpts.metadata._handle)
 }

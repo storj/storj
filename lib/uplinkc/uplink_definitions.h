@@ -73,6 +73,5 @@ typedef struct EncryptionAccess {
 
 typedef struct UploadOptions {
     char    *content_type;
-    MetadataRef  metadata;
     int64_t expires;
 } UploadOptions;
