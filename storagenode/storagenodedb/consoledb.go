@@ -6,21 +6,21 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"storj.io/storj/storagenode/console"
 	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode/console"
 )
 
-type consoledb struct { *InfoDB }
+type consoledb struct{ *InfoDB }
 
 // Console returns console.DB
-func (db *InfoDB) Console() console.DB { return &consoledb{db}}
+func (db *InfoDB) Console() console.DB { return &consoledb{db} }
 
 // Console returns console.DB
-func (db *DB) Console() console.DB { return db.info.Console()}
+func (db *DB) Console() console.DB { return db.info.Console() }
 
 func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -28,10 +28,10 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 
 	var satellites storj.NodeIDList
 
-	rows, err := db.db.QueryContext(ctx, `
+	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT DISTINCT satellite_id
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?`, from, to)
+		WHERE ? <= created_at AND created_at <= ?`), from, to)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

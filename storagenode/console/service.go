@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
+// DB exposes methods for managing SNO dashboard related data.
 type DB interface {
 	GetSatelliteIDs(ctx context.Context, from, to time.Time) (storj.NodeIDList, error)
 }
@@ -27,23 +28,28 @@ type DB interface {
 type Service struct {
 	log *zap.Logger
 
-	bandwidth bandwidth.DB
-	pieceInfo pieces.DB
-	kademlia  *kademlia.Kademlia
-	version   *version.Service
+	consoleDB   DB
+	bandwidthDB bandwidth.DB
+	pieceInfoDB pieces.DB
+	kademlia    *kademlia.Kademlia
+	version     *version.Service
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
-	walletNumber       string
+	walletAddress      string
 	startedAt          time.Time
 	versionInfo        version.Info
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, version *version.Service,
-	allocatedBandwidth, allocatedDiskSpace memory.Size, walletNumber string, versionInfo version.Info) (*Service, error) {
+func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, version *version.Service,
+	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
+	}
+
+	if consoleDB == nil {
+		return nil, errs.New("consoleDB can't be nil")
 	}
 
 	if bandwidth == nil {
@@ -54,28 +60,31 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceInfo pieces.DB, ka
 		return nil, errs.New("pieceInfo can't be nil")
 	}
 
-	if kademlia == nil {
-		return nil, errs.New("kademlia can't be nil")
+	if version == nil {
+		return nil, errs.New("version can't be nil")
 	}
 
-	service := Service{
+	if consoleDB == nil {
+		return nil, errs.New("consoleDB can't be nil")
+	}
+
+	return &Service{
 		log:                log,
-		bandwidth:          bandwidth,
-		pieceInfo:          pieceInfo,
+		bandwidthDB:        bandwidth,
+		pieceInfoDB:        pieceInfo,
 		kademlia:           kademlia,
+		version:            version,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
-		walletNumber:       walletNumber,
+		walletAddress:      walletAddress,
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
-	}
-
-	return &service, nil
+	}, nil
 }
 
-// GetUsedBandwidth returns all info about storage node bandwidth usage
+// GetUsedBandwidthTotal returns all info about storage node bandwidth usage
 func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (*BandwidthInfo, error) {
-	usage, err := bandwidth.TotalMonthlySummary(ctx, s.bandwidth)
+	usage, err := bandwidth.TotalMonthlySummary(ctx, s.bandwidthDB)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +94,7 @@ func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (*BandwidthInfo, er
 
 // GetBandwidthBySatellite returns all info about storage node bandwidth usage by satellite
 func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *BandwidthInfo, err error) {
-	summaries, err := s.bandwidth.SummaryBySatellite(ctx, time.Time{}, time.Now())
+	summaries, err := s.bandwidthDB.SummaryBySatellite(ctx, time.Time{}, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +105,7 @@ func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj
 
 // GetUsedStorageTotal returns all info about storagenode disk space usage
 func (s *Service) GetUsedStorageTotal(ctx context.Context) (*DiskSpaceInfo, error) {
-	spaceUsed, err := s.pieceInfo.SpaceUsed(ctx)
+	spaceUsed, err := s.pieceInfoDB.SpaceUsed(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,9 +113,9 @@ func (s *Service) GetUsedStorageTotal(ctx context.Context) (*DiskSpaceInfo, erro
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
-// GetUsedStorageTotal returns all info about storagenode disk space usage
+// GetUsedStorageBySatellite returns all info about storagenode disk space usage
 func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (*DiskSpaceInfo, error) {
-	spaceUsed, err := s.pieceInfo.SpaceUsedBySatellite(ctx, satelliteID)
+	spaceUsed, err := s.pieceInfoDB.SpaceUsedBySatellite(ctx, satelliteID)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +125,7 @@ func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID sto
 
 // GetWalletNumber return wallet number of node operator
 func (s *Service) GetWalletNumber(ctx context.Context) string {
-	return s.walletNumber
+	return s.walletAddress
 }
 
 // GetUptime return wallet number of node operator
@@ -139,28 +148,7 @@ func (s *Service) CheckVersion(ctx context.Context) error {
 	return s.version.CheckVersion(ctx)
 }
 
+// GetSatellites used to retrieve satellites list
 func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList, err error) {
-	summaries, err := s.bandwidth.SummaryBySatellite(ctx, time.Time{}, time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	var satellites storj.NodeIDList
-	for id := range summaries {
-		satellites = append(satellites, id)
-	}
-
-	return satellites, nil
-}
-
-// getMonthRange is used to get first and last dates of month
-func getMonthRange() (firstDay, lastDay time.Time) {
-	now := time.Now()
-	currentYear, currentMonth, _ := now.Date()
-	currentLocation := now.Location()
-
-	firstDay = time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
-	lastDay = firstDay.AddDate(0, 1, -1)
-
-	return
+	return s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
 }

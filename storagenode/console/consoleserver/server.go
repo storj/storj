@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,15 +16,13 @@ import (
 	"storj.io/storj/storagenode/console"
 )
 
-// TODO: improve embedded resources generation
-//go:generate go-bindata -pkg consoleserver -o static.go ../../../web/operator/dist ../../../web/operator/dist/public/
-
 // Error is storagenode console web error type
 var Error = errs.Class("storagenode console web error")
 
 // Config contains configuration for storagenode console web server
 type Config struct {
-	Address string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	Address   string `help:"server address of the api gateway and frontend app" default:"127.0.0.1:14002"`
+	StaticDir string `help:"path to static resources" default:""`
 }
 
 // Server represents storagenode console web server
@@ -37,8 +34,6 @@ type Server struct {
 	listener net.Listener
 
 	server http.Server
-
-	staticDir string
 }
 
 // NewServer creates new instance of storagenode console web server
@@ -50,12 +45,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 		listener: listener,
 	}
 
+	var fs http.Handler
 	mux := http.NewServeMux()
 
-	server.staticDir = "web/operator"
+	// handle static pages
+	if config.StaticDir != "" {
+		fs = http.FileServer(http.Dir(server.config.StaticDir))
 
-	mux.Handle("/", http.HandlerFunc(server.appHandler))
-	mux.Handle("/static/", http.HandlerFunc(server.appStaticHandler))
+		mux.Handle("/static/", http.StripPrefix("/static", fs))
+		mux.Handle("/", http.HandlerFunc(server.appHandler))
+	}
 
 	server.server = http.Server{
 		Handler: mux,
@@ -85,34 +84,7 @@ func (s *Server) Close() error {
 	return s.server.Close()
 }
 
-// appHandler is an entry point for storagenode console web interface
+// appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	data, err := Asset(filepath.Join(s.staticDir, "dist/public/index.html"))
-	if err != nil {
-		s.log.Error("", zap.Error(err))
-		return
-	}
-
-	_, err = w.Write(data)
-	if err != nil {
-		s.log.Error("", zap.Error(err))
-		return
-	}
-}
-
-// appStaticHandler is needed to return static resources
-func (s *Server) appStaticHandler(w http.ResponseWriter, req *http.Request) {
-	resourceName := strings.TrimPrefix(req.RequestURI, "/static/")
-
-	data, err := Asset(filepath.Join(s.staticDir, resourceName))
-	if err != nil {
-		s.log.Error("", zap.Error(err))
-		return
-	}
-
-	_, err = w.Write(data)
-	if err != nil {
-		s.log.Error("", zap.Error(err))
-		return
-	}
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
 }
