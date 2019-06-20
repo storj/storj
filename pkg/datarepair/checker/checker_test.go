@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
@@ -16,8 +17,10 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/datarepair/checker"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
@@ -67,6 +70,11 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
 
+		projectID, err := uuid.New()
+		require.NoError(t, err)
+		testPath, err := metainfo.CreatePath(ctx, *projectID, -1, "testbucket", paths.NewEncrypted("testpath"))
+		require.NoError(t, err)
+
 		const numberOfNodes = 10
 		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
 		// use online nodes
@@ -101,7 +109,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put(ctx, "fake-piece-id", pointer)
+		err = metainfo.Put(ctx, testPath, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -114,7 +122,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		//check if the expected segments were added to the irreparable DB
 		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, []byte("fake-piece-id"))
+		remoteSegmentInfo, err := irreparable.Get(ctx, testPath.Raw())
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -126,7 +134,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		remoteSegmentInfo, err = irreparable.Get(ctx, testPath.Raw())
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -149,13 +157,13 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		}
 		// put test pointer to db
 		metainfo = planet.Satellites[0].Metainfo.Service
-		err = metainfo.Put(ctx, "fake-piece-id", pointer)
+		err = metainfo.Put(ctx, testPath, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte("fake-piece-id"))
+		remoteSegmentInfo, err = irreparable.Get(ctx, testPath.Raw())
 		require.Error(t, err)
 	})
 }
@@ -197,8 +205,10 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 		},
 	}
 	// put test pointer to db
+	path, err := metainfo.ParsePath([]byte(pieceID))
+	require.NoError(t, err)
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(ctx, pieceID, pointer)
+	err = pointerdb.Put(ctx, path, pointer)
 	require.NoError(t, err)
 }
 
