@@ -70,9 +70,6 @@ func (cfg *BucketConfig) setDefaults() {
 	if cfg.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		cfg.EncryptionParameters.CipherSuite = defaultCipher
 	}
-	if cfg.EncryptionParameters.BlockSize == 0 {
-		cfg.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
-	}
 	if cfg.Volatile.RedundancyScheme.RequiredShares == 0 {
 		cfg.Volatile.RedundancyScheme.RequiredShares = 29
 	}
@@ -84,6 +81,10 @@ func (cfg *BucketConfig) setDefaults() {
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
 		cfg.Volatile.RedundancyScheme.TotalShares = 95
+	}
+	if cfg.EncryptionParameters.BlockSize == 0 {
+		cfg.EncryptionParameters.BlockSize = memory.KiB.Int32() *
+			int32(cfg.Volatile.RedundancyScheme.RequiredShares)
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
