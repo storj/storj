@@ -34,16 +34,19 @@ type NodeSelectionConfig struct {
 	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"1h"`
 	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
 
-	AuditReputationRepairWeight  float64 `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
-	AuditReputationUplinkWeight  float64 `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
-	AuditReputationAlpha0        float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
-	AuditReputationBeta0         float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:"0.0"`
-	AuditReputationLambda        float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"1.0"`
-	AuditReputationWeight        float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
+	AuditReputationRepairWeight float64 `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
+	AuditReputationUplinkWeight float64 `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
+	AuditReputationAlpha0       float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
+	AuditReputationBeta0        float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:"0.0"`
+	AuditReputationLambda       float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"1.0"`
+	AuditReputationWeight       float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
+	// TODO(nat): figure out default for DQs
+	AuditReputationDQ            float64 `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.5"`
 	UptimeReputationRepairWeight float64 `help:"weight to apply to uptime reputation for total repair reputation calculation" default:"1.0"`
 	UptimeReputationUplinkWeight float64 `help:"weight to apply to uptime reputation for total uplink reputation calculation" default:"1.0"`
 	UptimeReputationAlpha0       float64 `help:"the initial shape 'alpha' used to calculate uptime SNs reputation" default:"1.0"`
 	UptimeReputationBeta0        float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
 	UptimeReputationLambda       float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"1.0"`
 	UptimeReputationWeight       float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
+	UptimeReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on uptime history" default:"0.5"`
 }

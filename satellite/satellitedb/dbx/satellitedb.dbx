@@ -11,11 +11,15 @@ model value_attribution (
 )
 
 create value_attribution ()
-delete value_attribution ( where value_attribution.bucket_name = ? )
+delete value_attribution ( 
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
 
 read one (
     select value_attribution
-    where value_attribution.bucket_name = ?
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
 )
 
 //--- containment ---//

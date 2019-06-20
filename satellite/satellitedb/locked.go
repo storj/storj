@@ -22,8 +22,8 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/valueattribution"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
@@ -38,6 +38,33 @@ type locked struct {
 // newLocked returns database wrapped with locker.
 func newLocked(db satellite.DB) satellite.DB {
 	return &locked{&sync.Mutex{}, db}
+}
+
+// Attribution returns database for partner keys information
+func (m *locked) Attribution() attribution.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedAttribution{m.Locker, m.db.Attribution()}
+}
+
+// lockedAttribution implements locking wrapper for attribution.DB
+type lockedAttribution struct {
+	sync.Locker
+	db attribution.DB
+}
+
+// Get retrieves attribution info using project id and bucket name.
+func (m *lockedAttribution) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, projectID, bucketName)
+}
+
+// Insert creates and stores new Info
+func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, info)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -476,16 +503,10 @@ func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserC
 	return m.db.Create(ctx, userCredit)
 }
 
-func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
-}
-
-func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.TotalReferredCount(ctx, userID)
+	return m.db.GetCreditUsage(ctx, userID, expirationEndDate)
 }
 
 func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
@@ -811,13 +832,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// CreateStats initializes the stats for node.
-func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateStats(ctx, nodeID, initial)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -830,6 +844,13 @@ func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, crit
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IsVetted(ctx, id, criteria)
+}
+
+// KnownOffline filters a set of nodes to offline nodes
+func (m *lockedOverlayCache) KnownOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.KnownOffline(ctx, a1, a2)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
@@ -861,10 +882,10 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 }
 
 // Update updates node address
-func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, defaults overlay.NodeSelectionConfig) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateAddress(ctx, value)
+	return m.db.UpdateAddress(ctx, value, defaults)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -882,10 +903,10 @@ func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.U
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateUptime(ctx, nodeID, isUp)
+	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ProjectAccounting returns database for storing information about project data use
@@ -1044,31 +1065,4 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
-}
-
-// ValueAttribution returns database for partner keys information
-func (m *locked) ValueAttribution() valueattribution.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedValueAttribution{m.Locker, m.db.ValueAttribution()}
-}
-
-// lockedValueAttribution implements locking wrapper for valueattribution.DB
-type lockedValueAttribution struct {
-	sync.Locker
-	db valueattribution.DB
-}
-
-// Get retrieves partner id using bucket name
-func (m *lockedValueAttribution) Get(ctx context.Context, buckname []byte) (*valueattribution.PartnerInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, buckname)
-}
-
-// Insert creates and stores new ConnectorKeyInfo
-func (m *lockedValueAttribution) Insert(ctx context.Context, info *valueattribution.PartnerInfo) (*valueattribution.PartnerInfo, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Insert(ctx, info)
 }

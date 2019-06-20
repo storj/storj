@@ -38,3 +38,9 @@ declare type BucketUsageCursor = {
     limit: number,
     page: number
 };
+
+declare type CreditUsage = {
+    referred: number,
+    usedCredits: number,
+    availableCredits: number,
+};
