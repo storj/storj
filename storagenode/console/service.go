@@ -7,12 +7,11 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/internal/version"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
