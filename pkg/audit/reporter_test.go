@@ -73,10 +73,10 @@ func TestRecordAuditsAtLeaseOnce(t *testing.T) {
 		// expect RecordAudits to try recording at least once
 		failed, err := reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
-		assert.Zero(t, failed)
+		require.Zero(t, failed)
 
 		node, err := overlay.Get(ctx, nodeID)
 		require.NoError(t, err)
-		assert.Equal(t, int64(1), node.Reputation.AuditCount)
+		require.EqualValues(t, 1, node.Reputation.AuditCount)
 	})
 }
