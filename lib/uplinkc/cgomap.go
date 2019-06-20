@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package main
 
 // #include "uplink_definitions.h"
@@ -6,7 +9,7 @@ import "sync"
 
 type MapRef struct {
 	mtx sync.Mutex
-	m map[string]string
+	m   map[string]string
 }
 
 // new_map_ref returns a new ref/handle to a go map[string]string.

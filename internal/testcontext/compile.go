@@ -11,6 +11,7 @@ import (
 	"testing"
 )
 
+// CLibMath is an include for the C math standard library.
 var CLibMath = Include{Library: "m", Standard: true}
 
 // Compile compiles the specified package and returns the executable name.

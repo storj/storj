@@ -8,16 +8,11 @@ import "C"
 
 import (
 	"io"
-	"storj.io/storj/lib/uplink"
 	"time"
 	"unsafe"
-)
 
-// Object is a scoped uplink.Object
-type Object struct {
-	scope
-	*uplink.Object
-}
+	"storj.io/storj/lib/uplink"
+)
 
 type Upload struct {
 	scope
@@ -61,7 +56,7 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 	return C.UploaderRef{universe.Add(&Upload{
 		scope: scope,
-		wc: writeCloser,
+		wc:    writeCloser,
 	})}
 }
 
@@ -73,7 +68,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr *
 		return C.int(0)
 	}
 
-	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length]
+	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := upload.wc.Write(buf)
 	if err == io.EOF {
@@ -100,13 +95,12 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 	}
 }
 
-
 type Download struct {
 	scope
 	rc interface {
-			io.Reader
-			io.Seeker
-			io.Closer
+		io.Reader
+		io.Seeker
+		io.Closer
 	}
 }
 
@@ -130,7 +124,7 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.
 
 	return C.DownloaderRef{universe.Add(&Download{
 		scope: scope,
-		rc: rc,
+		rc:    rc,
 	})}
 }
 
@@ -143,7 +137,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, c
 	}
 
 	var result [1024]byte
-	buf := (*[1<<30]byte)(unsafe.Pointer(bytes))[:length]
+	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(result[:])
 	copy(buf, result[:n])
