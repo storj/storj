@@ -17,7 +17,13 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
+)
+
+var (
+	testPath1 = paths.NewUnencrypted("test/path1")
+	testPath2 = paths.NewUnencrypted("test/path2")
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -98,7 +104,7 @@ func TestOnlyInline(t *testing.T) {
 		}
 
 		// Execute test: upload a file, then calculate at rest data
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, testPath1, expectedData)
 		assert.NoError(t, err)
 
 		// Run calculate twice to test unique constraint issue
@@ -139,7 +145,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 		// Execute test: upload a file, then calculate at rest data
 		expectedBucketName := "testbucket"
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, testPath1, expectedData)
 
 		assert.NoError(t, err)
 		_, actualNodeData, _, err := tallySvc.CalculateAtRestData(ctx)
@@ -243,13 +249,13 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 
 		// Execute test: upload a file, then calculate at rest data
 
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, "test/path2", expectedData2)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName2, testPath2, expectedData2)
 		assert.NoError(t, err)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName1, "test/path1", expectedData)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName1, testPath1, expectedData)
 		assert.NoError(t, err)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, "test/path2", expectedData2)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, testPath2, expectedData2)
 		assert.NoError(t, err)
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, "test/path1", expectedData)
+		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName4, testPath1, expectedData)
 		assert.NoError(t, err)
 
 		_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
