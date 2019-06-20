@@ -37,12 +37,12 @@ This process including the Storage nodes transferring their pieces to other node
 - When a Storage Node runs the graceful exit command I want them to be prompted with a confirmation message so that we can avoid storage nodes running the command accidentally.
 - When a Storage Node gracefully exits the network I want all of the pieces they have been storing to be deleted from their hard drive so that their computers hard drive space is no longer used. 
 - When a Storage node triggers graceful exit I want them to be omitted from the node selection process for uploads so they are no longer selected to store new pieces.
-- When a Storage node triggers graceful exit I want thier allocated bandwidth on the network to be ignored so that they can complete their graceful exit as quickly as possible.
+- When a Storage node triggers graceful exit I want their allocated bandwidth on the network to be ignored so that they can complete their graceful exit as quickly as possible.
 - When a node dose not complete the graceful exit entirely I want the satellite to keep track of this so that they are subject to be DQed and their escrow kept
 	- this includes the node sending bad data to other nodes
 	- the node not transferring some pieces it holds
-- When a Storage Node leaves the network I want the ability to run a report on the satellite to get information about what Storage Nodes exited so that I can pay them thier escrow amounts. 
-	- Create a report on the satellite to display which nodes have exited gracefully during a specified timeframe. The report must include:
+- When a Storage Node leaves the network I want the ability to run a report on the satellite to get information about what Storage Nodes exited so that I can pay them their escrow amounts. 
+	- Create a report on the satellite to display which nodes have exited gracefully during a specified time frame. The report must include:
 		- NodeID
 		- Wallet address
 		- The date the node joined the network
@@ -51,7 +51,7 @@ This process including the Storage nodes transferring their pieces to other node
 - When a Storage Node exits the network gracefully I want the satellite to have the ability to track how much egress they used for exiting so that we do not pay them for that bandwidth.
 - When A Storage Node is in the process of gracefully exiting the network I want them to be selected for download requests so that they can continue to contribute to the overall network.
 	- we need to be able to distinguish the bandwidth used for serving up data to clients vs bandwidth used for graceful exit. the node will NOT get paid for bandwidth used for graceful exit but will get paid for the bandwidth used to serve data to clients.
-- When a Storage Node is in the process of gracefully exiting the network I want them to continue to be audited and thier uptime checked so we can ensure they are still "good" nodes.
+- When a Storage Node is in the process of gracefully exiting the network I want them to continue to be audited and their uptime checked so we can ensure they are still "good" nodes.
 
 
 ## Business Requirements/ Job Stories (Non MVP)
@@ -60,24 +60,24 @@ This process including the Storage nodes transferring their pieces to other node
 - When a Storage node no longer wants to store data for a satellite I want them to have the ability to run graceful exit for a specific satellite so that they do not lose their escrow on that satellite. 
 - When a Storage Node wants to rejoin a satellite they previously exited gracefully I want them to have a simple command they can run so that the satellite is notified and they can start being selected for storage in the node selection process.
 	- The node will restart the escrow process if they decide to rejoin a satellite. 
-- When a Storage Node operator wants to reduce the amount of storage space they have allocated to the network I want them to have the ability to do a “partial graceful exit which would transfer some of the data they currently have onto other nodes so they have a way of reducing thier storage allocation without just deleting data and failing audits. 
+- When a Storage Node operator wants to reduce the amount of storage space they have allocated to the network I want them to have the ability to do a “partial graceful exit which would transfer some of the data they currently have onto other nodes so they have a way of reducing their storage allocation without just deleting data and failing audits. 
 - When a Storage node triggers graceful exit on a satellite but they do NOT have enough allocated bandwidth to send the data to other nodes I want the SNO to be prompted about what action they would like to take. 
 	- Continue the graceful exit and exceed the bandwidth allocation the SNO originally setup
 	- Wait until the SNO has enough available bandwidth
 	- Cancel the graceful exit
-- When a Storage Node wants to rejoin the network I want them to have that ability so that they do not need to generate a new node ID via POW, go through the node vetting process, and so they can utilize their repuration. 
+- When a Storage Node wants to rejoin the network I want them to have that ability so that they do not need to generate a new node ID via POW, go through the node vetting process, and so they can utilize their reputation. 
 - When a Storage Node rejoins the network I want the satellite to keep track of that so that we can start the escrow process for that node over. 
 
 ## Design Overview
 
-- The repair checker will be responsible for finding pieces that need to be transfered from a node who is gracefully exiting the network.
+- The repair checker will be responsible for finding pieces that need to be transferred from a node who is gracefully exiting the network.
 - The repair checker needs to add those pieces to another queue.
 	- This queue is responsible for prioritizing the order of pieces the exiting node sends to other nodes.
-		- pieces should be prioritized based on how many other pieces are still on the network. Pieces for files that are closer to needing to be repaired should be transfered off the exiting before pieces for files that are still considered healthy.
+		- pieces should be prioritized based on how many other pieces are still on the network. Pieces for files that are closer to needing to be repaired should be transferred off the exiting before pieces for files that are still considered healthy.
 	- This queue is responsible for communicating with the exiting node and telling it what piece to send to what node
 	- This should be a unique queue for each exiting node
-- The satellite needs to validate the correctness of the data the exiting node transfered to the new node
-	- The exiting node will send the new node the hash it has for the piece. (that hash contains the uplinks signature). The new node will sign it and send it back to the exiting node. The exiting node will send it to the satellite to prove the data was transfered to the new node. The satellite will check the uplinks signature and the new nodes signature on the hash it receives from the exiting node.
+- The satellite needs to validate the correctness of the data the exiting node transferred to the new node
+	- The exiting node will send the new node the hash it has for the piece. (that hash contains the uplinks signature). The new node will sign it and send it back to the exiting node. The exiting node will send it to the satellite to prove the data was transferred to the new node. The satellite will check the uplinks signature and the new nodes signature on the hash it receives from the exiting node.
 - We need to create a new operation for storage nodes transferring pieces to other storage nodes
 	- Receiving storage nodes should be uploaded to as if they were receiving any other upload (orders, etc).
 - We need to have the storage node keep track how its progress during graceful exit by calculating how much data it had when it started the graceful exit and keeping track of how much data it has deleted (data is deleted from the exiting node as it sends pieces to new nodes). This is an estimation since the storage node is likely holding more data than it will gracefully exit (garbage data). 
@@ -86,3 +86,4 @@ This process including the Storage nodes transferring their pieces to other node
 ## Open Questions
 
 - What happens if we are doing a repair and a graceful exit on the same segment?
+- What happens if a piece is deleted when the piece is in the process of being transferred from the exiting node to other node in the network?
