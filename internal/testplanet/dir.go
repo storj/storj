@@ -16,5 +16,5 @@ func init() {
 		return
 	}
 
-	developmentRoot = strings.TrimSuffix(filename, "/cmd/storj-sim/dir.go")
+	developmentRoot = strings.TrimSuffix(filename, "/internal/testplanet/dir.go")
 }
