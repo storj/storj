@@ -41,19 +41,16 @@ typedef struct RedundancyScheme {
 } RedundancyScheme;
 
 typedef struct BucketInfo {
-    char    *name;
-
-    int64_t created;
-    uint8_t path_cipher;
-    uint64_t segment_size;
-
+    char                 *name;
+    int64_t              created;
+    uint8_t              path_cipher;
+    uint64_t             segment_size;
     EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketInfo;
 
 typedef struct BucketConfig {
-    uint8_t path_cipher;
-
+    uint8_t              path_cipher;
     EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketConfig;
