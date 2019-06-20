@@ -105,22 +105,22 @@ func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID 
 		return nil, Error.New("Unsupported database %t", t)
 	}
 
-	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(query), []byte(partnerID.String()), start.UTC(), end.UTC(), []byte(partnerID.String()), start.UTC(), end.UTC())
+	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(query), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	csv := make([]*attribution.ValueAttributionRow, 0, 0)
+	results := make([]*attribution.ValueAttributionRow, 0, 0)
 	for rows.Next() {
 		r := &attribution.ValueAttributionRow{}
-		err := rows.Scan(&r.ProjectID, &r.BucketID, &r.AtRestData, &r.InlineData, &r.EgressData)
+		err := rows.Scan(&r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)
 		if err != nil {
-			return csv, Error.Wrap(err)
+			return results, Error.Wrap(err)
 		}
-		csv = append(csv, r)
+		results = append(results, r)
 	}
-	return csv, nil
+	return results, nil
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {

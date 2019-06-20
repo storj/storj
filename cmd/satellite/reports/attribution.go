@@ -38,7 +38,7 @@ func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID
 	w := csv.NewWriter(output)
 	headers := []string{
 		"projectID",
-		"bucketID",
+		"bucketName",
 		"byte-hours:Remote",
 		"byte-hours:Inline",
 		"bytes:BWEgress",
@@ -65,11 +65,11 @@ func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID
 
 func csvRowToStringSlice(p *attribution.ValueAttributionRow) []string {
 	record := []string{
-		p.ProjectID,
-		p.BucketID,
+		string(p.ProjectID),
+		string(p.BucketName),
 		//p.UserID,
-		strconv.FormatFloat(p.AtRestData, 'f', 2, 64),
-		strconv.FormatFloat(p.InlineData, 'f', 2, 64),
+		strconv.FormatFloat(p.RemoteBytesPerHour, 'f', 2, 64),
+		strconv.FormatFloat(p.InlineBytesPerHour, 'f', 2, 64),
 		strconv.FormatInt(p.EgressData, 10),
 		//strconv.FormatInt(p.IngressData, 10),
 		//p.LastUpdated.Format("2006-01-02"),

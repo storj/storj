@@ -21,14 +21,12 @@ type Info struct {
 
 // ValueAttributionRow represents data from QueryValueAttribution without exposing dbx
 type ValueAttributionRow struct {
-	ProjectID string
-	//UserID      string
-	BucketID   string
-	AtRestData float64
-	InlineData float64
-	EgressData int64
-	//IngressData int64
-	LastUpdated time.Time
+	ProjectID          []byte
+	BucketName         []byte
+	RemoteBytesPerHour float64
+	InlineBytesPerHour float64
+	EgressData         int64
+	LastUpdated        time.Time
 }
 
 // DB implements the database for value attribution table
