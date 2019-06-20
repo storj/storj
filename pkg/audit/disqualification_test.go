@@ -126,7 +126,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 				break
 			}
 
-			require.Nilf(t, dossier.Disqualified, "Disqualified")
+			require.Nil(t, dossier.Disqualified, "Disqualified")
 			prevReputation = reputation
 		}
 	})
