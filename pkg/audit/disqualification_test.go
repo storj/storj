@@ -33,6 +33,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				auditDQCutOff = config.Overlay.Node.AuditReputationDQ
+				config.Audit.MaxRetriesStatDB = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
