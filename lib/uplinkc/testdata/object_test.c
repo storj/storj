@@ -43,7 +43,6 @@ void handle_project(ProjectRef project) {
     int64_t future_expiration_timestamp = 17329017831;
 
     for(int i = 0; i < num_of_objects; i++) {
-        // TODO: figure out why node selection criteria aren't met in testplanet
         int data_len = 1024 * pow((i + 1), 2);
         char *data = mkrndstr(data_len);
 
@@ -85,7 +84,11 @@ void handle_project(ProjectRef project) {
         require(strcmp(object_paths[i], object_meta.path) == 0);
         require(data_len == object_meta.size);
         require(future_expiration_timestamp == object_meta.expires);
-        // TODO: finish up
+        require((time(NULL) - object_meta.created) <= 2);
+        require((time(NULL) - object_meta.modified) <= 2);
+        // TODO: checksum is empty, is this expected?
+//        require(object_meta.checksum_bytes != NULL);
+//        require(object_meta.checksum_length != 0);
 
         { // download
             DownloaderRef downloader = download(bucket, object_paths[i], err);
