@@ -53,15 +53,16 @@ What could be sent to the node:
 ### Service
 ```protobuf
 service GarbageCollection {
-    rpc Delete(DeleteRequest) returns (DeleteResponse);
+    rpc Retain(RetainRequest) returns (RetainResponse);
 }
 
 message Filter {
     ...
 }
 
-message DeleteRequest {
-    Filter filter = 1;
+message RetainRequest {
+    Timestamp creation_date = 1;
+    Filter filter = 2;
 }
 ```
 ### Probabilistic data structures
