@@ -68,7 +68,13 @@ func (b *BucketStore) Get(ctx context.Context, bucket string) (meta Meta, err er
 		return Meta{}, storj.ErrNoBucket.New("")
 	}
 
-	bb, objectPath, segmentIndex, err := segments.SplitPathFragments(bucket)
+	// bb, objectPath, segmentIndex, err := segments.SplitPathFragments(storj.JoinPaths(bucket,"l"))
+	// fmt.Println("bb: ", storj.JoinPaths(bucket,"l"))
+	// fmt.Println("objectPath: ", objectPath)
+	// fmt.Println("segmentIndex: ", segmentIndex)
+	bb := bucket
+	objectPath := ""
+	segmentIndex := int64(0)
 	if err != nil {
 		return Meta{}, err
 	}

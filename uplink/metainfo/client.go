@@ -124,7 +124,6 @@ func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path
 // SegmentInfo requests the pointer of a segment
 func (metainfo *Metainfo) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	response, err := metainfo.client.SegmentInfo(ctx, &pb.SegmentInfoRequest{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),

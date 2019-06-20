@@ -378,6 +378,7 @@ func convertTime(ts *timestamp.Timestamp) time.Time {
 // SplitPathFragments ...
 func SplitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {
 	components := storj.SplitPath(path)
+
 	if len(components) < 1 {
 		return "", "", -2, Error.New("empty path")
 	}
