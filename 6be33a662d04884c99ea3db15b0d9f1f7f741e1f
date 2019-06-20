@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "b1878219_078fe672",
+        "filename": "pkg/discovery/service.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 37,
+      "author": {
+        "id": 1015281
+      },
+      "writtenOn": "2019-06-20T08:13:18Z",
+      "side": 1,
+      "message": "`Kademlia` should be sufficient here.",
+      "revId": "6be33a662d04884c99ea3db15b0d9f1f7f741e1f",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "1f92dfc8_2f82d092",
+        "filename": "satellite/peer.go",
+        "patchSetId": 3
+      },
+      "lineNbr": 156,
+      "author": {
+        "id": 1015281
+      },
+      "writtenOn": "2019-06-20T08:13:18Z",
+      "side": 1,
+      "message": "Any reason not to use `*kademlia.Client` directly?",
+      "revId": "6be33a662d04884c99ea3db15b0d9f1f7f741e1f",
+      "serverId": "d5d70762-12d0-45a1-890d-524b12d3f735",
+      "unresolved": true
+    }
+  ]
+}
