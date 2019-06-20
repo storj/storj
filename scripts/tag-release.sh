@@ -3,10 +3,9 @@
 set -eu
 set -o pipefail
 
-VERSION="$1"
-shift
+VERSION="${1-}"
 
-if [[ "$VERSION" == "" ]]; then
+if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "usage: $0 vMAJOR.MINOR.PATCH"
   exit 1
 fi
