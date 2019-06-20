@@ -3,11 +3,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-typedef struct APIKey   { long _handle; } APIKeyRef;
-typedef struct Uplink   { long _handle; } UplinkRef;
-typedef struct Project  { long _handle; } ProjectRef;
-typedef struct Bucket   { long _handle; } BucketRef;
+typedef struct APIKey     { long _handle; } APIKeyRef;
+typedef struct Uplink     { long _handle; } UplinkRef;
+typedef struct Project    { long _handle; } ProjectRef;
+typedef struct Bucket     { long _handle; } BucketRef;
+typedef struct Map        { long _handle; } MapRef;
+typedef struct Downloader { long _handle; } DownloaderRef;
+typedef struct Uploader   { long _handle; } UploaderRef;
 
 typedef struct UplinkConfig {
     struct {
@@ -68,3 +73,9 @@ typedef struct BucketList {
 typedef struct EncryptionAccess {
     char key[32];
 } EncryptionAccess;
+
+typedef struct UploadOptions {
+    char    *content_type;
+    MapRef  metadata;
+    int64_t expires;
+} UploadOptions;
