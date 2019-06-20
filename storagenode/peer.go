@@ -6,8 +6,8 @@ package storagenode
 import (
 	"context"
 	"fmt"
-	"time"
 	"net"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -77,7 +77,7 @@ type Config struct {
 	Collector collector.Config
 
 	Vouchers vouchers.Config
-	
+
 	Console consoleserver.Config
 
 	Version version.Config
@@ -120,7 +120,6 @@ type Peer struct {
 		Sender    *orders.Sender
 	}
 
-	//TODO: Where to put this? Storage2/Kademlia?
 	Vouchers *vouchers.Service
 
 	Collector *collector.Service
@@ -294,7 +293,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, intervalDuration, bufferDuration)
 	}
-	
+
 	// Storage Node Operator Dashboard
 	{
 		peer.Console.Service, err = console.NewService(
