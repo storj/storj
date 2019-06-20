@@ -60,6 +60,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 				UptimeLambda: 1, UptimeWeight: 1,
 				AuditDQ: 0.9, UptimeDQ: 0.9,
 			})
+			require.NoError(t, err)
 		}
 
 		nodeIds := storj.NodeIDList{
