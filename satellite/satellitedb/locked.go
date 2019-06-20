@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
@@ -37,6 +38,33 @@ type locked struct {
 // newLocked returns database wrapped with locker.
 func newLocked(db satellite.DB) satellite.DB {
 	return &locked{&sync.Mutex{}, db}
+}
+
+// Attribution returns database for partner keys information
+func (m *locked) Attribution() attribution.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedAttribution{m.Locker, m.db.Attribution()}
+}
+
+// lockedAttribution implements locking wrapper for attribution.DB
+type lockedAttribution struct {
+	sync.Locker
+	db attribution.DB
+}
+
+// Get retrieves attribution info using project id and bucket name.
+func (m *lockedAttribution) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, projectID, bucketName)
+}
+
+// Insert creates and stores new Info
+func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Insert(ctx, info)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -456,6 +484,37 @@ func (m *lockedUsageRollups) GetProjectTotal(ctx context.Context, projectID uuid
 	return m.db.GetProjectTotal(ctx, projectID, since, before)
 }
 
+// UserCredits is a getter for UserCredits repository
+func (m *lockedConsole) UserCredits() console.UserCredits {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserCredits{m.Locker, m.db.UserCredits()}
+}
+
+// lockedUserCredits implements locking wrapper for console.UserCredits
+type lockedUserCredits struct {
+	sync.Locker
+	db console.UserCredits
+}
+
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, userCredit)
+}
+
+func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCreditUsage(ctx, userID, expirationEndDate)
+}
+
+func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()
@@ -653,10 +712,10 @@ func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*
 	return m.db.Create(ctx, offer)
 }
 
-func (m *lockedOffers) Finish(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Finish(ctx, offerId)
+	return m.db.Finish(ctx, offerID)
 }
 
 func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
@@ -671,10 +730,10 @@ func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedOffers) Redeem(ctx context.Context, offerId int) error {
+func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Redeem(ctx, offerId)
+	return m.db.Redeem(ctx, offerID)
 }
 
 // Orders returns database for orders
@@ -773,13 +832,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// CreateStats initializes the stats for node.
-func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateStats(ctx, nodeID, initial)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -792,6 +844,13 @@ func (m *lockedOverlayCache) IsVetted(ctx context.Context, id storj.NodeID, crit
 	m.Lock()
 	defer m.Unlock()
 	return m.db.IsVetted(ctx, id, criteria)
+}
+
+// KnownOffline filters a set of nodes to offline nodes
+func (m *lockedOverlayCache) KnownOffline(ctx context.Context, a1 *overlay.NodeCriteria, a2 storj.NodeIDList) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.KnownOffline(ctx, a1, a2)
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
@@ -823,10 +882,10 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 }
 
 // Update updates node address
-func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, defaults overlay.NodeSelectionConfig) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateAddress(ctx, value)
+	return m.db.UpdateAddress(ctx, value, defaults)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -844,10 +903,10 @@ func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.U
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateUptime(ctx, nodeID, isUp)
+	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ProjectAccounting returns database for storing information about project data use

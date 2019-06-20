@@ -13,7 +13,7 @@ import (
 func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 	return C.BucketInfo{
 		name:         C.CString(bucket.Name),
-		created:      C.time_t(bucket.Created.Unix()),
+		created:      C.int64_t(bucket.Created.Unix()),
 		path_cipher:  C.uint8_t(bucket.PathCipher),
 		segment_size: C.uint64_t(bucket.SegmentsSize),
 

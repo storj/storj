@@ -117,7 +117,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
-	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "public", "index.html"))
+	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
 }
 
 // bucketUsageReportHandler generate bucket usage report page for project
@@ -174,9 +174,9 @@ func (s *Server) bucketUsageReportHandler(w http.ResponseWriter, req *http.Reque
 	before = time.Unix(beforeStamp, 0)
 
 	s.log.Debug("querying bucket usage report",
-		zap.String("projectID", projectID.String()),
-		zap.String("since", since.String()),
-		zap.String("before", before.String()))
+		zap.Stringer("projectID", projectID),
+		zap.Stringer("since", since),
+		zap.Stringer("before", before))
 
 	ctx = console.WithAuth(ctx, auth)
 	bucketRollups, err := s.service.GetBucketUsageRollups(ctx, *projectID, since, before)
