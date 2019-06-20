@@ -29,7 +29,6 @@ func newObjectInfo(object *storj.Object) C.ObjectInfo {
 		bucket:       newBucketInfo(&object.Bucket),
 		path:         C.CString(object.Path),
 		is_prefix:    C.bool(object.IsPrefix),
-		metadata:     C.MapRef{universe.Add(object.Metadata)},
 		content_type: C.CString(object.ContentType),
 		created:      C.int64_t(object.Created.Unix()),
 		modified:     C.int64_t(object.Modified.Unix()),

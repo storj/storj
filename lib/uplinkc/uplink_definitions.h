@@ -76,7 +76,6 @@ typedef struct ObjectInfo {
     BucketInfo bucket;
     char       *path;
     bool       is_prefix;
-    MapRef     metadata;
     char       *content_type;
     int64_t    created;
     int64_t    modified;
@@ -110,7 +109,6 @@ typedef struct ObjectMeta {
     char     *path;
     bool     is_prefix;
     char     *content_type;
-    MapRef   meta_data;
     int64_t  created;
     int64_t  modified;
     int64_t  expires;

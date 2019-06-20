@@ -70,20 +70,11 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 
 	checksum, checksumLen := bytes_to_cbytes(object.Meta.Checksum)
 
-	mapRef := new_map_ref()
-	for k, v := range object.Meta.Metadata {
-		map_ref_set(mapRef, C.CString(k), C.CString(v), cErr)
-		if C.GoString(*cErr) != "" {
-			return C.ObjectMeta{}
-		}
-	}
-
 	return C.ObjectMeta{
 		bucket:          C.CString(object.Meta.Bucket),
 		path:            C.CString(object.Meta.Path),
 		is_prefix:       C.bool(object.Meta.IsPrefix),
 		content_type:    C.CString(object.Meta.ContentType),
-		meta_data:       mapRef,
 		created:         C.int64_t(object.Meta.Created.Unix()),
 		modified:        C.int64_t(object.Meta.Modified.Unix()),
 		expires:         C.int64_t(object.Meta.Expires.Unix()),
@@ -304,8 +295,6 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 
 	C.free(unsafe.Pointer(objectMeta.checksum_bytes))
 	objectMeta.checksum_bytes = nil
-
-	universe.Del(objectMeta.meta_data._handle)
 }
 
 // free_object_info frees the object info
@@ -319,8 +308,6 @@ func free_object_info(objectInfo *C.ObjectInfo) {
 
 	C.free(unsafe.Pointer(objectInfo.content_type))
 	objectInfo.content_type = nil
-
-	delete_map_ref(objectInfo.metadata)
 }
 
 // free_list_objects frees the list of objects
