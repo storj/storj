@@ -75,27 +75,10 @@ void with_test_project(void (*handleProject)(ProjectRef), ProjectOptions *projec
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
 }
 
-char *mkrndstr(size_t length) { // const size_t length, supra
-
-    static char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,.-#'?!"; // could be const
-    char *randomString = NULL;
-
-    if (length > 0) {
-        randomString = malloc(length +1); // sizeof(char) == 1, cf. C99
-
-        if (randomString) {
-            int l = (int) (sizeof(charset) -1); // (static/global, could be const or #define SZ, would be even better)
-            int key;  // one-time instantiation (static/global would be even better)
-            for (int n = 0;n < length;n++) {
-                key = rand() % l;   // no instantiation, just assignment, no overhead from sizeof
-                randomString[n] = charset[key];
-            }
-
-            randomString[length] = '\0';
-        }
-    }
-
-    return randomString;
+void fill_random_data(uint8_t *buffer, size_t length) {
+     for(size_t i = 0; i < length; i++) {
+          buffer[i] = (uint8_t)i*31;
+     }
 }
 
 bool array_contains(char *item, char *array[], int array_size) {

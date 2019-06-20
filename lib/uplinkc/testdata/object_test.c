@@ -11,8 +11,7 @@
 void handle_project(ProjectRef project);
 
 int main(int argc, char *argv[]) {
-    ProjectOptions opts = {};
-    memset(&opts.key, '\0', 32);
+    ProjectOptions opts = {{0}};
     memcpy(&opts.key, "hello", 5);
 
     with_test_project(&handle_project, &opts);
@@ -29,8 +28,7 @@ void handle_project(ProjectRef project) {
     require_noerror(*err);
     free_bucket_info(&info);
 
-    EncryptionAccess access = {};
-    memset(&access.key, '\0', 32);
+    EncryptionAccess access = {{0}};
     memcpy(&access.key, "hello", 5);
 
     BucketRef bucket = open_bucket(project, bucket_name, access, err);
@@ -43,8 +41,9 @@ void handle_project(ProjectRef project) {
     int64_t future_expiration_timestamp = 17329017831;
 
     for(int i = 0; i < num_of_objects; i++) {
-        int data_len = 1024 * pow((i + 1), 2);
-        char *data = mkrndstr(data_len);
+        size_t data_len = 1024 * (i + 1) * (i + 1);
+        uint8_t *data = malloc(data_len);
+        fill_random_data(data, data_len);
 
         { // upload
             MapRef map = new_map_ref();
@@ -59,9 +58,10 @@ void handle_project(ProjectRef project) {
 
             delete_map_ref(map);
 
-            int uploaded = 0;
+            size_t uploaded = 0;
             while (uploaded < data_len) {
-                int write_len = upload_write(uploader, (uint8_t *)data+uploaded, 256, err);
+                int to_write_len = (data_len - uploaded > 256) ? 256 : data_len - uploaded;
+                int write_len = upload_write(uploader, (uint8_t *)data+uploaded, to_write_len, err);
                 require_noerror(*err);
 
                 if (write_len == 0) {
@@ -80,14 +80,12 @@ void handle_project(ProjectRef project) {
             require_noerror(*err);
 
             char downloadedData[data_len];
-            memset(downloadedData, '\0', data_len);
-            int downloadedTotal = 0;
+            memset(downloadedData, '\0', 32);
+            size_t downloadedTotal = 0;
 
-            uint8_t *bytes = NULL;
-
-            while (downloadedTotal < data_len) {
-                uint64_t size_to_read = 1024;
-                bytes = malloc(size_to_read);
+            uint64_t size_to_read = 256 + i;
+            while (true) {
+                uint8_t *bytes = malloc(size_to_read);
                 uint64_t downloadedSize = download_read(downloader, bytes, size_to_read, err);
 
                 if (downloadedSize == EOF) {
