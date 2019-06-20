@@ -63,6 +63,7 @@ This process including the Storage nodes transferring their pieces to other node
 - When a Storage Node wants to rejoin a satellite they previously exited gracefully I want them to have a simple command they can run so that the satellite is notified and they can start being selected for storage in the node selection process.
 	- The node will restart the escrow process if they decide to rejoin a satellite. 
 - When a Storage Node operator wants to reduce the amount of storage space they have allocated to the network I want them to have the ability to do a “partial graceful exit which would transfer some of the data they currently have onto other nodes so they have a way of reducing their storage allocation without just deleting data and failing audits. 
+	- In this situation the satellite will determine which pieces are removed from the node NOT the storage node.
 - When a Storage node triggers graceful exit on a satellite but they do NOT have enough allocated bandwidth to send the data to other nodes I want the SNO to be prompted about what action they would like to take. 
 	- Continue the graceful exit and exceed the bandwidth allocation the SNO originally setup
 	- Wait until the SNO has enough available bandwidth
