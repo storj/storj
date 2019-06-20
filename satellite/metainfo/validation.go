@@ -261,18 +261,8 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 	defer mon.Task()(&ctx)(&err)
 
 	if endpoint.rsConfig.Validate == true {
-		if redundancy.ErasureShareSize <= 0 ||
-			redundancy.MinReq <= 0 ||
-			redundancy.RepairThreshold <= 0 ||
-			redundancy.SuccessThreshold <= 0 ||
-			redundancy.Total <= 0 ||
-			redundancy.MinReq >= redundancy.RepairThreshold ||
-			redundancy.RepairThreshold >= redundancy.SuccessThreshold ||
-			redundancy.SuccessThreshold >= redundancy.Total {
-			return Error.New("invalid redundancy parameters")
-		}
-
-		if endpoint.rsConfig.MaxThreshold != int(redundancy.Total) ||
+		if endpoint.rsConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
+			endpoint.rsConfig.MaxThreshold != int(redundancy.Total) ||
 			endpoint.rsConfig.MinThreshold != int(redundancy.MinReq) ||
 			endpoint.rsConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
 			endpoint.rsConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {

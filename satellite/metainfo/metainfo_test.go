@@ -306,7 +306,7 @@ func TestCommitSegment(t *testing.T) {
 				RepairThreshold:  2,
 				SuccessThreshold: 3,
 				Total:            4,
-				ErasureShareSize: 10,
+				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now()
 			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
