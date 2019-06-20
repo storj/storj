@@ -66,6 +66,17 @@ func (path Unencrypted) Iterator() Iterator {
 	return Iterator{raw: path.raw}
 }
 
+// Less returns true if 'path' should be sorted earlier than 'other'
+func (path Unencrypted) Less(other Unencrypted) bool {
+	if !other.valid {
+		return false
+	}
+	if !path.valid {
+		return true
+	}
+	return path.raw < other.raw
+}
+
 //
 // encrypted path
 //
@@ -105,6 +116,17 @@ func (path Encrypted) Consume(prefix Encrypted) (Encrypted, bool) {
 // Iterator returns an iterator over the components of the Encrypted.
 func (path Encrypted) Iterator() Iterator {
 	return Iterator{raw: path.raw}
+}
+
+// Less returns true if 'path' should be sorted earlier than 'other'
+func (path Encrypted) Less(other Encrypted) bool {
+	if !other.valid {
+		return false
+	}
+	if !path.valid {
+		return true
+	}
+	return path.raw < other.raw
 }
 
 //

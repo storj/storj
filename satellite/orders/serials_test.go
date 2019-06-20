@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
@@ -23,8 +25,10 @@ func TestSerialNumbers(t *testing.T) {
 
 		ordersDB := db.Orders()
 
-		expectedBucket := []byte("bucketID")
-		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now().UTC())
+		projectID, err := uuid.New()
+		require.NoError(t, err)
+		expectedBucket := paths.NewBucketID(*projectID, "bucketID")
+		err = ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, expectedBucket, time.Now().UTC())
 		require.NoError(t, err)
 
 		bucketID, err := ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})

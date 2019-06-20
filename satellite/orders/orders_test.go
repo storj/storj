@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -32,7 +33,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 		require.NoError(t, err)
 
 		redundancy := noLongTailRedundancy(planet)
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", paths.NewUnencrypted("test/path"), expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -78,7 +79,7 @@ func TestUnableToSendOrders(t *testing.T) {
 		require.NoError(t, err)
 
 		redundancy := noLongTailRedundancy(planet)
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", paths.NewUnencrypted("test/path"), expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -127,10 +128,10 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 
 		redundancy := noLongTailRedundancy(planet)
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", paths.NewUnencrypted("test/path"), expectedData)
 		require.NoError(t, err)
 
-		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", paths.NewUnencrypted("test/path"))
 		require.NoError(t, err)
 		require.Equal(t, expectedData, data)
 
@@ -155,9 +156,9 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 
 		ordersDB := planet.Satellites[0].DB.Orders()
-		bucketID := storj.JoinPaths(projects[0].ID.String(), "testbucket")
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, []byte(bucketID), hourBeforeTest, time.Now().UTC())
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, bucketID, hourBeforeTest, time.Now().UTC())
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 

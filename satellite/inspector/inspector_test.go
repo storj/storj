@@ -7,8 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,8 +15,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
@@ -33,7 +32,7 @@ func TestInspectorStats(t *testing.T) {
 
 		bucket := "testbucket"
 
-		err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
+		err = uplink.Upload(ctx, planet.Satellites[0], bucket, paths.NewUnencrypted("test/path"), testData)
 		require.NoError(t, err)
 
 		healthEndpoint := planet.Satellites[0].Inspector.Endpoint
@@ -43,22 +42,25 @@ func TestInspectorStats(t *testing.T) {
 			func(ctx context.Context, it storage.Iterator) error {
 				var item storage.ListItem
 				for it.Next(ctx, &item) {
-					if bytes.Contains(item.Key, []byte(fmt.Sprintf("%s/", bucket))) {
+					path, err := metainfo.ParsePath([]byte(item.Key))
+					require.NoError(t, err)
+					if b, ok := path.Bucket(); ok && b == bucket {
 						break
 					}
 				}
 
-				fullPath := storj.SplitPath(item.Key.String())
-				require.Falsef(t, len(fullPath) < 4, "Could not retrieve a full path from pointerdb")
+				fullPath, err := metainfo.ParsePath([]byte(item.Key))
+				require.NoError(t, err)
 
-				projectID := fullPath[0]
-				bucket := fullPath[2]
-				encryptedPath := strings.Join(fullPath[3:], "/")
+				projectID := fullPath.ProjectID()
+				bucket, ok := fullPath.Bucket()
+				require.True(t, ok)
+				encryptedPath := fullPath.EncryptedPath()
 
 				{ // Test Segment Health Request
 					req := &pb.SegmentHealthRequest{
-						ProjectId:     []byte(projectID),
-						EncryptedPath: []byte(encryptedPath),
+						ProjectId:     []byte(projectID.String()),
+						EncryptedPath: []byte(encryptedPath.Raw()),
 						Bucket:        []byte(bucket),
 						SegmentIndex:  -1,
 					}
@@ -75,8 +77,8 @@ func TestInspectorStats(t *testing.T) {
 
 				{ // Test Object Health Request
 					objectHealthReq := &pb.ObjectHealthRequest{
-						ProjectId:         []byte(projectID),
-						EncryptedPath:     []byte(encryptedPath),
+						ProjectId:         []byte(projectID.String()),
+						EncryptedPath:     []byte(encryptedPath.Raw()),
 						Bucket:            []byte(bucket),
 						StartAfterSegment: 0,
 						EndBeforeSegment:  0,

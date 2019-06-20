@@ -14,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -65,7 +66,7 @@ func TestUsageRollups(t *testing.T) {
 			bucketName := fmt.Sprintf("bucket_%d", i)
 
 			// project 1
-			bucketID := []byte(project1.String() + "/" + bucketName)
+			bucketID := paths.NewBucketID(*project1, bucketName)
 			for _, action := range actions {
 				value := getValue(0, i, p1base)
 
@@ -101,7 +102,7 @@ func TestUsageRollups(t *testing.T) {
 			}
 
 			// project 2
-			bucketID = []byte(project2.String() + "/" + bucketName)
+			bucketID = paths.NewBucketID(*project2, bucketName)
 			for _, action := range actions {
 				value := getValue(1, i, p2base)
 
@@ -142,10 +143,10 @@ func TestUsageRollups(t *testing.T) {
 		for i := 0; i < tallyIntervals; i++ {
 			interval := start.Add(tallyInterval * time.Duration(i))
 
-			bucketTallies := make(map[string]*accounting.BucketTally)
+			bucketTallies := make(map[paths.BucketID]*accounting.BucketTally)
 			for j, bucket := range buckets {
-				bucketID1 := project1.String() + "/" + bucket
-				bucketID2 := project2.String() + "/" + bucket
+				bucketID1 := paths.NewBucketID(*project1, bucket)
+				bucketID2 := paths.NewBucketID(*project2, bucket)
 				value1 := getValue(i, j, p1base) * 10
 				value2 := getValue(i, j, p2base) * 10
 
