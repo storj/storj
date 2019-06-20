@@ -4,8 +4,8 @@
 package tally_test
 
 import (
+	"fmt"
 	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 
@@ -18,7 +18,9 @@ import (
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {
@@ -161,83 +163,143 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 func TestCalculateBucketAtRestData(t *testing.T) {
 	var testCases = []struct {
-		name      string
-		fileSizes []memory.Size
+		name         string
+		projectID    string
+		segmentIndex string
+		bucketName   string
+		objectName   string
+		inline       bool
+		last         bool
 	}{
-		{"one bucket, one inline file", []memory.Size{1 * memory.KiB}},
-		{"one bucket, one remote file", []memory.Size{5 * memory.KiB}},
-		{"one bucket, two files (inline and remote)", []memory.Size{1 * memory.KiB, 5 * memory.KiB}},
-		{"one bucket, two files (both remote)", []memory.Size{6 * memory.KiB, 5 * memory.KiB}},
+		{"inline, same project, same bucket", "mockProjectID", "l", "mockBucketName", "mockObjectName", true, true},
+		{"remote, same project, same bucket", "mockProjectID", "s0", "mockBucketName", "mockObjectName1", false, false},
+		{"last segment, same project, different bucket", "mockProjectID", "l", "mockBucketName1", "mockObjectName2", false, true},
+		{"different project", "mockProjectID1", "s0", "mockBucketName", "mockObjectName", false, false},
 	}
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		redundancyScheme := planet.Uplinks[0].GetConfig(satellitePeer).GetRedundancyScheme()
+		expectedBucketTallies := make(map[string]*accounting.BucketTally)
+		for _, tt := range testCases {
+			tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
 
-	for _, tt := range testCases {
-		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
-		testplanet.Run(t, testplanet.Config{
-			SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-			satellitePeer := planet.Satellites[0]
-			tallySvc := satellitePeer.Accounting.Tally
-			projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
-			require.NoError(t, err)
-			projectID := []byte(projects[0].ID.String())
-			uplink := planet.Uplinks[0]
-			uplinkConfig := uplink.GetConfig(satellitePeer)
+			t.Run(tt.name, func(t *testing.T) {
 
-			bucketName := "testbucket"
-			expectedTally := accounting.BucketTally{
-				BucketName: []byte(bucketName),
-				ProjectID:  projectID,
-			}
-
-			// Setup: upload multiple files of varying sizes
-			for i, fileSize := range tt.fileSizes {
-
-				// Setup: create data for the uplink to upload
-				expectedData := make([]byte, fileSize)
-				_, err := rand.Read(expectedData)
+				// setup: create a pointer and save it to pointerDB
+				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
+				metainfo := satellitePeer.Metainfo.Service
+				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.projectID, tt.segmentIndex, tt.bucketName, tt.objectName)
+				err := metainfo.Put(ctx, objectPath, pointer)
 				require.NoError(t, err)
 
-				// Setup: calculate what the expected tally should be
-				expectedTally.Files++
-				expectedTally.Segments++
+				// setup: create expected bucket tally for the pointer just created
+				bucketID := fmt.Sprintf("%s/%s", tt.projectID, tt.bucketName)
+				newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
+				newTally.BucketName = []byte(tt.bucketName)
+				newTally.ProjectID = []byte(tt.projectID)
+				expectedBucketTallies[bucketID] = newTally
 
-				// File is remote size
-				if fileSize >= uplinkConfig.Client.MaxInlineSize {
-					expectedRemoteBytes, err := encryption.CalcEncryptedSize(
-						int64(len(expectedData)),
-						uplinkConfig.GetEncryptionScheme(),
-					)
-					require.NoError(t, err)
-					expectedTally.Bytes += expectedRemoteBytes
-					expectedTally.RemoteBytes += expectedRemoteBytes
-					expectedTally.MetadataSize += 111 // brittle, this is hardcoded since its too difficult to get this value progamatically
-					expectedTally.RemoteFiles++
-					expectedTally.RemoteSegments++
-				} else {
-					// File is inline size
-					const encryptionAuthOverhead = 16 // bytes
-					expectedInlineBytes := fileSize.Int64() + int64(encryptionAuthOverhead)
-					expectedTally.Bytes += expectedInlineBytes
-					expectedTally.InlineBytes += expectedInlineBytes
-					expectedTally.MetadataSize += 111 // brittle, this is hardcoded since its too difficult to get this value progamatically
-					expectedTally.InlineFiles++
-					expectedTally.InlineSegments++
+				// test: calculate at rest data
+				tallySvc := satellitePeer.Accounting.Tally
+				_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
+				require.NoError(t, err)
+
+				assert.Equal(t, len(expectedBucketTallies), len(actualBucketData))
+				for bucket, actualTally := range actualBucketData {
+					assert.Equal(t, *expectedBucketTallies[bucket], *actualTally)
 				}
+			})
+		}
+	})
+}
 
-				// Execute test: upload a file, then calculate at rest data
-				fileName := "file" + strconv.Itoa(i) + ".txt"
-				err = uplink.Upload(ctx, satellitePeer, bucketName, fileName, expectedData)
-				assert.NoError(t, err)
-			}
+// addBucketTally creates a new expected bucket tally based on the
+// pointer that was just created for the test case
+func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *accounting.BucketTally {
+	// if there is already an existing tally for this project and bucket, then
+	// add the new pointer data to the existing tally
+	if existingTally != nil {
+		existingTally.Segments++
+		existingTally.Bytes += int64(2)
+		existingTally.MetadataSize += int64(12)
+		existingTally.RemoteSegments++
+		existingTally.RemoteBytes += int64(2)
+		return existingTally
+	}
 
-			_, _, actualBucketData, err := tallySvc.CalculateAtRestData(ctx)
-			require.NoError(t, err)
+	// if the pointer was inline, create a tally with inline info
+	if inline {
+		newInlineTally := accounting.BucketTally{
+			Segments:       int64(1),
+			InlineSegments: int64(1),
+			Files:          int64(1),
+			InlineFiles:    int64(1),
+			Bytes:          int64(2),
+			InlineBytes:    int64(2),
+			MetadataSize:   int64(12),
+		}
+		return &newInlineTally
+	}
 
-			for _, actualTally := range actualBucketData {
-				assert.Equal(t, expectedTally, *actualTally)
-			}
+	// if the pointer was remote, create a tally with remote info
+	newRemoteTally := accounting.BucketTally{
+		Segments:       int64(1),
+		RemoteSegments: int64(1),
+		Bytes:          int64(2),
+		RemoteBytes:    int64(2),
+		MetadataSize:   int64(12),
+	}
+
+	if last {
+		newRemoteTally.Files++
+		newRemoteTally.RemoteFiles++
+	}
+
+	return &newRemoteTally
+}
+
+// makePointer creates a pointer
+func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
+	segmentSize int64, inline bool) (*pb.Pointer, error) {
+
+	if inline {
+		inlinePointer := &pb.Pointer{
+			Type:          pb.Pointer_INLINE,
+			InlineSegment: make([]byte, segmentSize),
+			SegmentSize:   segmentSize,
+			Metadata:      []byte("fakemetadata"),
+		}
+		return inlinePointer, nil
+	}
+
+	pieces := make([]*pb.RemotePiece, 0, len(storageNodes))
+	for i, storagenode := range storageNodes {
+		pieces = append(pieces, &pb.RemotePiece{
+			PieceNum: int32(i),
+			NodeId:   storagenode.ID(),
 		})
 	}
+
+	pointer := &pb.Pointer{
+		Type: pb.Pointer_REMOTE,
+		Remote: &pb.RemoteSegment{
+			Redundancy: &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_RS,
+				MinReq:           int32(rs.RequiredShares),
+				Total:            int32(rs.TotalShares),
+				RepairThreshold:  int32(rs.RepairShares),
+				SuccessThreshold: int32(rs.OptimalShares),
+				ErasureShareSize: rs.ShareSize,
+			},
+			RemotePieces: pieces,
+		},
+		SegmentSize: segmentSize,
+		Metadata:    []byte("fakemetadata"),
+	}
+
+	return pointer, nil
 }
 
 func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
