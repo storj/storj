@@ -76,7 +76,7 @@ void handle_project(ProjectRef project) {
             require_noerror(*err);
 
             char downloadedData[data_len];
-            memset(downloadedData, '\0', 32);
+            memset(downloadedData, '\0', data_len);
             size_t downloadedTotal = 0;
 
             uint64_t size_to_read = 256 + i;
