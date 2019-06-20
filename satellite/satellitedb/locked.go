@@ -510,16 +510,10 @@ func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserC
 	return m.db.Create(ctx, userCredit)
 }
 
-func (m *lockedUserCredits) GetAvailableCredits(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
+func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAvailableCredits(ctx, userID, expirationEndDate)
-}
-
-func (m *lockedUserCredits) TotalReferredCount(ctx context.Context, userID uuid.UUID) (int64, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.TotalReferredCount(ctx, userID)
+	return m.db.GetCreditUsage(ctx, userID, expirationEndDate)
 }
 
 func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error) {
@@ -845,13 +839,6 @@ type lockedOverlayCache struct {
 	db overlay.DB
 }
 
-// CreateStats initializes the stats for node.
-func (m *lockedOverlayCache) CreateStats(ctx context.Context, nodeID storj.NodeID, initial *overlay.NodeStats) (stats *overlay.NodeStats, err error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CreateStats(ctx, nodeID, initial)
-}
-
 // Get looks up the node by nodeID
 func (m *lockedOverlayCache) Get(ctx context.Context, nodeID storj.NodeID) (*overlay.NodeDossier, error) {
 	m.Lock()
@@ -902,10 +889,10 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 }
 
 // Update updates node address
-func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node) error {
+func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, defaults overlay.NodeSelectionConfig) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateAddress(ctx, value)
+	return m.db.UpdateAddress(ctx, value, defaults)
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -923,10 +910,10 @@ func (m *lockedOverlayCache) UpdateStats(ctx context.Context, request *overlay.U
 }
 
 // UpdateUptime updates a single storagenode's uptime stats.
-func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
+func (m *lockedOverlayCache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool, lambda float64, weight float64, uptimeDQ float64) (stats *overlay.NodeStats, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateUptime(ctx, nodeID, isUp)
+	return m.db.UpdateUptime(ctx, nodeID, isUp, lambda, weight, uptimeDQ)
 }
 
 // ProjectAccounting returns database for storing information about project data use
