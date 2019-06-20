@@ -35,6 +35,7 @@ func init() {
 }
 EOF
 
+gofmt -w -s ./internal/version/release.go
 go install ./internal/version
 
 git add ./internal/version/release.go >/dev/null
