@@ -39,6 +39,9 @@ void handle_project(ProjectRef project) {
     char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
     int num_of_objects = 4;
 
+    // NB: about +500 years from time of writing
+    int64_t future_expiration_timestamp = 17329017831;
+
     for(int i = 0; i < num_of_objects; i++) {
         // TODO: figure out why node selection criteria aren't met in testplanet
         int data_len = 1024;
@@ -49,7 +52,7 @@ void handle_project(ProjectRef project) {
             UploadOptions opts = {
                 "text/plain",
                 map,
-                time(NULL),
+                future_expiration_timestamp,
             };
 
             UploaderRef uploader = upload(bucket, object_paths[i], &opts, err);
@@ -81,8 +84,8 @@ void handle_project(ProjectRef project) {
         require_noerror(*err);
         require(strcmp(object_paths[i], object_meta.path) == 0);
         require(data_len == object_meta.size);
+        require(future_expiration_timestamp == object_meta.expires);
         // TODO: finish up
-        require(true == ((time(NULL) - object_meta.expires) <= 2000));
 
         { // download
             DownloaderRef downloader = download(bucket, object_paths[i], err);

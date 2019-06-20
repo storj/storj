@@ -157,51 +157,18 @@ func (uplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, buc
 	return uplink.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
-// UploadWithExpiration data to specific satellite
+// UploadWithExpiration data to specific satellite and expiration time
 func (uplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte, expiration time.Time) error {
-	config := uplink.GetConfig(satellite)
-	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
-	if err != nil {
-		return err
-	}
-
-	encScheme := config.GetEncryptionScheme()
-	redScheme := config.GetRedundancyScheme()
-
-	// create bucket if not exists
-	_, err = metainfo.GetBucket(ctx, bucket)
-	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-
-	createInfo := storj.CreateObject{
-		RedundancyScheme: redScheme,
-		EncryptionScheme: encScheme,
-		Expires:          expiration,
-	}
-	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
-	if err != nil {
-		return err
-	}
-
-	reader := bytes.NewReader(data)
-	err = uploadStream(ctx, streams, obj, reader)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return uplink.UploadWithExpirationAndConfig(ctx, satellite, nil, bucket, path, data, expiration)
 }
 
 // UploadWithConfig uploads data to specific satellite with configured values
 func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+	return uplink.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
+}
+
+// UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
+func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte, expiration time.Time) error {
 	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
 		if redundancy.MinThreshold > 0 {
@@ -245,6 +212,7 @@ func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite
 	createInfo := storj.CreateObject{
 		RedundancyScheme: redScheme,
 		EncryptionScheme: encScheme,
+		Expires:          expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
 	if err != nil {

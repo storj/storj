@@ -3,13 +3,20 @@ pipeline {
         dockerfile {
             filename 'Dockerfile.jenkins'
             args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
-            label 'main'
+            label 'gerrit'
         }
     }
     options {
           timeout(time: 10, unit: 'MINUTES')
     }
     stages {
+        stage('Start') {
+          steps {
+            gerritReview message: 'Building'
+            sh 'python ./scripts/gerrit-cla.py'
+          }
+        }
+
         stage('Build') {
             steps {
                 checkout scm
@@ -104,6 +111,8 @@ pipeline {
     }
 
     post {
+        success { gerritReview labels: [Verified: 1], message: 'Success' }
+        failure { gerritReview labels: [Verified: -1], message: 'Failure' }
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
             deleteDir()

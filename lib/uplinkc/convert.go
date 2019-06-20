@@ -24,7 +24,7 @@ func newBucketConfig(bucketCfg *uplink.BucketConfig) C.BucketConfig {
 func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 	return C.BucketInfo{
 		name:         C.CString(bucket.Name),
-		created:      C.time_t(bucket.Created.Unix()),
+		created:      C.int64_t(bucket.Created.Unix()),
 		path_cipher:  C.uint8_t(bucket.PathCipher),
 		segment_size: C.uint64_t(bucket.SegmentsSize),
 
@@ -42,9 +42,9 @@ func newObjectInfo(object *storj.Object) C.ObjectInfo {
 		is_prefix:    C.bool(object.IsPrefix),
 		metadata:     C.MapRef{universe.Add(object.Metadata)},
 		content_type: C.CString(object.ContentType),
-		created:      C.time_t(object.Created.Unix()),
-		modified:     C.time_t(object.Modified.Unix()),
-		expires:      C.time_t(object.Expires.Unix()),
+		created:      C.int64_t(object.Created.Unix()),
+		modified:     C.int64_t(object.Modified.Unix()),
+		expires:      C.int64_t(object.Expires.Unix()),
 	}
 }
 

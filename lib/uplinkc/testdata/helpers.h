@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 #include <stdlib.h>
+#include <time.h>
 
 // test_bucket_config returns test bucket configuration.
 BucketConfig test_bucket_config() {
