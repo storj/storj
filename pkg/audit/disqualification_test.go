@@ -109,11 +109,11 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 
 			reputation := alpha / (alpha + beta)
 			require.Truef(t, prevReputation >= reputation,
-				"(%d) expected reputation to remain or decrease (previou >= current): %f >= %f",
+				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
 				n, prevReputation, reputation,
 			)
 
-			if reputation < auditDQCutOff || reputation == prevReputation {
+			if reputation <= auditDQCutOff || reputation == prevReputation {
 				require.NotNilf(t, dossier.Disqualified,
 					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
 					n, auditDQCutOff, prevReputation, reputation,
