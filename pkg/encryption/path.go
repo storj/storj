@@ -7,7 +7,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"encoding/base64"
-	"fmt"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -34,15 +33,15 @@ func EncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, sto
 		return paths.Encrypted{}, errs.New("unable to find encryption base for: %s/%q", bucket, path)
 	}
 
-	remaining, ok := path.Consume(consumed)
-	if !ok {
+	remaining := path.Consume(consumed)
+	if !remaining.Valid() {
 		return paths.Encrypted{}, errs.New("unable to encrypt bucket path: %s/%q", bucket, path)
 	}
 
 	// if we didn't consume any path, we're at the root of the bucket, and so we have
 	// to fold the bucket name into the key.
 	key := &base.Key
-	if len(consumed.Raw()) == 0 {
+	if !consumed.Valid() {
 		key, err = DeriveKey(key, "path:"+bucket)
 		if err != nil {
 			return paths.Encrypted{}, errs.Wrap(err)
@@ -112,15 +111,15 @@ func DecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store
 		return paths.Unencrypted{}, errs.New("unable to find encryption base for: %q", path)
 	}
 
-	remaining, ok := path.Consume(consumed)
-	if !ok {
+	remaining := path.Consume(consumed)
+	if !remaining.Valid() {
 		return paths.Unencrypted{}, errs.New("unable to encrpt bucket path: %q", path)
 	}
 
 	// if we didn't consume any path, we're at the root of the bucket, and so we have
 	// to fold the bucket name into the key.
 	key := &base.Key
-	if len(consumed.Raw()) == 0 {
+	if !consumed.Valid() {
 		key, err = DeriveKey(key, "path:"+bucket)
 		if err != nil {
 			return paths.Unencrypted{}, errs.Wrap(err)
@@ -187,19 +186,27 @@ func DeriveContentKey(bucket string, path paths.Unencrypted, store *Store) (key 
 func DerivePathKey(bucket string, path paths.Unencrypted, store *Store) (key *storj.Key, err error) {
 	_, consumed, base := store.LookupUnencrypted(bucket, path)
 	if base == nil {
-		fmt.Printf("%+v\n", store)
 		return nil, errs.New("unable to find encryption base for: %s/%q", bucket, path)
 	}
 
-	remaining, ok := path.Consume(consumed)
-	if !ok {
+	// If asking for the key at the bucket, do that and return.
+	if !path.Valid() {
+		key, err = DeriveKey(&base.Key, "path:"+bucket)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+		return key, nil
+	}
+
+	remaining := path.Consume(consumed)
+	if !remaining.Valid() {
 		return nil, errs.New("unable to derive path key for: %s/%q", bucket, path)
 	}
 
 	// if we didn't consume any path, we're at the root of the bucket, and so we have
 	// to fold the bucket name into the key.
 	key = &base.Key
-	if len(consumed.Raw()) == 0 {
+	if !consumed.Valid() {
 		key, err = DeriveKey(key, "path:"+bucket)
 		if err != nil {
 			return nil, errs.Wrap(err)

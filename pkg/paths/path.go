@@ -52,18 +52,21 @@ func (path Unencrypted) String() string {
 	return path.Raw()
 }
 
-// Consume attempts to remove the prefix from the Unencrypted, and reports true
-// if it was successful.
-func (path Unencrypted) Consume(prefix Unencrypted) (Unencrypted, bool) {
-	if len(path.raw) >= len(prefix.raw) && path.raw[:len(prefix.raw)] == prefix.raw {
-		return NewUnencrypted(path.raw[len(prefix.raw):]), true
+// Consume attempts to remove the prefix from the Unencrypted path. The
+// resultant path is invalid if the prefix could not be consumed. The
+// invalid prefix can always be consumed.
+func (path Unencrypted) Consume(prefix Unencrypted) Unencrypted {
+	if !prefix.Valid() || !path.Valid() {
+		return path
+	} else if len(path.raw) >= len(prefix.raw) && path.raw[:len(prefix.raw)] == prefix.raw {
+		return NewUnencrypted(path.raw[len(prefix.raw):])
 	}
-	return path, false
+	return Unencrypted{}
 }
 
 // Iterator returns an iterator over the components of the Unencrypted.
 func (path Unencrypted) Iterator() Iterator {
-	return Iterator{raw: path.raw}
+	return Iterator{raw: path.raw, lastEmpty: path.Valid()}
 }
 
 // Less returns true if 'path' should be sorted earlier than 'other'
@@ -104,18 +107,21 @@ func (path Encrypted) String() string {
 	return path.Raw()
 }
 
-// Consume attempts to remove the prefix from the Encrypted, and reports true
-// if it was successful.
-func (path Encrypted) Consume(prefix Encrypted) (Encrypted, bool) {
-	if len(path.raw) >= len(prefix.raw) && path.raw[:len(prefix.raw)] == prefix.raw {
-		return NewEncrypted(path.raw[len(prefix.raw):]), true
+// Consume attempts to remove the prefix from the Encrypted path. The
+// resultant path is invalid if the prefix could not be consumed. The
+// invalid prefix can always be consumed.
+func (path Encrypted) Consume(prefix Encrypted) Encrypted {
+	if !prefix.Valid() || !path.Valid() {
+		return path
+	} else if len(path.raw) >= len(prefix.raw) && path.raw[:len(prefix.raw)] == prefix.raw {
+		return NewEncrypted(path.raw[len(prefix.raw):])
 	}
-	return path, false
+	return Encrypted{}
 }
 
 // Iterator returns an iterator over the components of the Encrypted.
 func (path Encrypted) Iterator() Iterator {
-	return Iterator{raw: path.raw}
+	return Iterator{raw: path.raw, lastEmpty: path.Valid()}
 }
 
 // Less returns true if 'path' should be sorted earlier than 'other'
@@ -135,18 +141,19 @@ func (path Encrypted) Less(other Encrypted) bool {
 
 // Iterator allows one to efficiently iterate over components of a path.
 type Iterator struct {
-	raw       string
-	consumed  int
-	lastEmpty bool
+	raw         string
+	consumed    int
+	hasConsumed bool
+	lastEmpty   bool
 }
 
 // NewIterator returns an Iterator for components of the provided raw path.
 func NewIterator(raw string) Iterator {
-	return Iterator{raw: raw}
+	return Iterator{raw: raw, lastEmpty: true}
 }
 
-// Consumed reports how much of the path has been consumed.
-func (pi Iterator) Consumed() string { return pi.raw[:pi.consumed] }
+// Consumed reports how much of the path has been consumed (if any).
+func (pi Iterator) Consumed() (string, bool) { return pi.raw[:pi.consumed], pi.hasConsumed }
 
 // Remaining reports how much of the path is remaining.
 func (pi Iterator) Remaining() string { return pi.raw[pi.consumed:] }
@@ -156,6 +163,11 @@ func (pi Iterator) Done() bool { return len(pi.raw) == pi.consumed && !pi.lastEm
 
 // Next returns the first component of the path, consuming it.
 func (pi *Iterator) Next() string {
+	if pi.Done() {
+		return ""
+	}
+	pi.hasConsumed = true
+
 	rem := pi.Remaining()
 	if index := strings.IndexByte(rem, '/'); index == -1 {
 		pi.consumed += len(rem)

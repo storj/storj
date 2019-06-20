@@ -25,7 +25,7 @@ func Example() {
 
 	// Create a store and add some base keys.
 	store := encryption.NewStore()
-	store.Add(bucket, paths.NewUnencrypted(""), paths.NewEncrypted(""), key)
+	store.Add(bucket, paths.Unencrypted{}, paths.Encrypted{}, key)
 
 	// Encrypt some path the store knows how to encrypt.
 	encPath, err := encryption.EncryptPath(bucket, path, storj.AESGCM, store)
@@ -44,7 +44,7 @@ func Example() {
 
 	// Output:
 	// root key (32 bytes): 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
-	// path to encrypt: up:fold1/fold2/fold3/file.txt
-	// encrypted path:  ep:urxuYzqG_ZlJfBhkGaz87WvvnCZaYD7qf1_ZN_Pd91n5/IyncDwLhWPv4F7EaoUivwICnUeJMWlUnMATL4faaoH2s/_1gitX6uPd3etc3RgoD9R1waT5MPKrlrY32ehz_vqlOv/6qO4DU5AHFabE2r7hmAauvnomvtNByuO-FCw4ch_xaVR3SPE
-	// decrypted path:  up:fold1/fold2/fold3/file.txt
+	// path to encrypt: fold1/fold2/fold3/file.txt
+	// encrypted path:  Z690SnHrqGtVnrpF7i4Y5mKrdH5dw4ZzHl4EOzaLWcCR/lXCefTw2VGTE77me0jpXFP6t0kdy0u_LQktxP65gxJpJ/oFr0Tykb4FhQOXGShXBiSvKuf-2bYq7jWRFaOCjopQAU/anYZjPoKP4Gx8SgUhSL0TYLMaAvthCGbGcTy8nxsmZCzirJl
+	// decrypted path:  fold1/fold2/fold3/file.txt
 }

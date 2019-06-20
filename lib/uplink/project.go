@@ -187,7 +187,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 
 	// TODO(jeff): do a better job making a store
 	store := encryption.NewStore()
-	store.Add(bucketName, paths.NewUnencrypted(""), paths.NewEncrypted(""), access.Key)
+	store.Add(bucketName, paths.Unencrypted{}, paths.Encrypted{}, access.Key)
 
 	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {

@@ -151,8 +151,11 @@ func (s *Store) LookupUnencrypted(bucket string, path paths.Unencrypted) (
 		return nil, paths.Unencrypted{}, nil
 	}
 
-	revealed, rawConsumed, base := root.lookup(path.Iterator(), "", nil, true)
-	return revealed, paths.NewUnencrypted(rawConsumed), base.clone()
+	revealed, rawConsumed, hasRawConsumed, base := root.lookup(path.Iterator(), "", false, nil, true)
+	if hasRawConsumed {
+		consumed = paths.NewUnencrypted(rawConsumed)
+	}
+	return revealed, consumed, base.clone()
 }
 
 // LookupEncrypted finds the matching most encrypted path added to the Store, reports how
@@ -169,17 +172,21 @@ func (s *Store) LookupEncrypted(bucket string, path paths.Encrypted) (
 		return nil, paths.Encrypted{}, nil
 	}
 
-	revealed, rawConsumed, base := root.lookup(path.Iterator(), "", nil, false)
-	return revealed, paths.NewEncrypted(rawConsumed), base.clone()
+	revealed, rawConsumed, hasRawConsumed, base := root.lookup(path.Iterator(), "", false, nil, false)
+	if hasRawConsumed {
+		consumed = paths.NewEncrypted(rawConsumed)
+	}
+	return revealed, consumed, base.clone()
 }
 
 // lookup searches for the path in the node tree structure.
-func (n *node) lookup(path paths.Iterator, bestConsumed string, bestBase *Base, unenc bool) (
-	map[string]string, string, *Base) {
+func (n *node) lookup(path paths.Iterator, bestConsumed string, hasBestConsumed bool, bestBase *Base, unenc bool) (
+	map[string]string, string, bool, *Base) {
 
 	// Keep track of the best match so far.
 	if n.base != nil || bestBase == nil {
-		bestConsumed, bestBase = path.Consumed(), n.base
+		bestConsumed, hasBestConsumed = path.Consumed()
+		bestBase = n.base
 	}
 
 	// Pick the tree we're walking down based on the unenc bool.
@@ -191,15 +198,15 @@ func (n *node) lookup(path paths.Iterator, bestConsumed string, bestBase *Base, 
 	// If we're done walking the path, then return our best match along with the
 	// revealed paths at this node.
 	if path.Done() {
-		return revealed, bestConsumed, bestBase
+		return revealed, bestConsumed, hasBestConsumed, bestBase
 	}
 
 	// Walk to the next node in the tree. If there is no node, then report our best match.
 	child, ok := children[path.Next()]
 	if !ok {
-		return nil, bestConsumed, bestBase
+		return nil, bestConsumed, hasBestConsumed, bestBase
 	}
 
 	// Recurse to the next node in the tree.
-	return child.lookup(path, bestConsumed, bestBase, unenc)
+	return child.lookup(path, bestConsumed, hasBestConsumed, bestBase, unenc)
 }

@@ -458,17 +458,12 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		metaFlags |= meta.UserDefined
 	}
 
-	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
-	if err != nil {
-		return nil, false, err
-	}
-
-	segmentPrefix, err := segments.CreatePath(ctx, -1, prefix.Bucket(), encPrefix)
-	if err != nil {
-		return nil, false, err
-	}
-
 	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), prefix.UnencryptedPath(), s.encStore)
+	if err != nil {
+		return nil, false, err
+	}
+
+	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
@@ -477,7 +472,7 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 	// They don't contain a bucket only if the unencrypted path is valid. This is why
 	// they are raw strings instead of a typed string: it's either a bucket or an unencrypted
 	// path component, and that isn't known at compile time.
-	needsEncryption := prefix.UnencryptedPath().Valid()
+	needsEncryption := prefix.Bucket() != ""
 	if needsEncryption {
 		startAfter, err = encryption.EncryptPathRaw(startAfter, pathCipher, prefixKey)
 		if err != nil {
@@ -487,6 +482,11 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		if err != nil {
 			return nil, false, err
 		}
+	}
+
+	segmentPrefix, err := segments.CreatePath(ctx, -1, prefix.Bucket(), encPrefix)
+	if err != nil {
+		return nil, false, err
 	}
 
 	segments, more, err := s.segments.List(ctx, segmentPrefix, startAfter, endBefore, recursive, limit, metaFlags)

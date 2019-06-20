@@ -92,6 +92,7 @@ func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path
 	response, err := metainfo.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
 		Bucket:                  []byte(bucket),
 		Path:                    []byte(path.Raw()),
+		PathInvalid:             !path.Valid(),
 		Segment:                 segmentIndex,
 		Redundancy:              redundancy,
 		MaxEncryptedSegmentSize: maxEncryptedSegmentSize,
@@ -111,6 +112,7 @@ func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path
 	response, err := metainfo.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
 		Bucket:         []byte(bucket),
 		Path:           []byte(path.Raw()),
+		PathInvalid:    !path.Valid(),
 		Segment:        segmentIndex,
 		Pointer:        pointer,
 		OriginalLimits: originalLimits,
@@ -127,9 +129,10 @@ func (metainfo *Metainfo) SegmentInfo(ctx context.Context, bucket string, path p
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.SegmentInfo(ctx, &pb.SegmentInfoRequest{
-		Bucket:  []byte(bucket),
-		Path:    []byte(path.Raw()),
-		Segment: segmentIndex,
+		Bucket:      []byte(bucket),
+		Path:        []byte(path.Raw()),
+		PathInvalid: !path.Valid(),
+		Segment:     segmentIndex,
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -146,9 +149,10 @@ func (metainfo *Metainfo) ReadSegment(ctx context.Context, bucket string, path p
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
-		Bucket:  []byte(bucket),
-		Path:    []byte(path.Raw()),
-		Segment: segmentIndex,
+		Bucket:      []byte(bucket),
+		Path:        []byte(path.Raw()),
+		PathInvalid: !path.Valid(),
+		Segment:     segmentIndex,
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -183,9 +187,10 @@ func (metainfo *Metainfo) DeleteSegment(ctx context.Context, bucket string, path
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.DeleteSegment(ctx, &pb.SegmentDeleteRequest{
-		Bucket:  []byte(bucket),
-		Path:    []byte(path.Raw()),
-		Segment: segmentIndex,
+		Bucket:      []byte(bucket),
+		Path:        []byte(path.Raw()),
+		PathInvalid: !path.Valid(),
+		Segment:     segmentIndex,
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
@@ -202,13 +207,14 @@ func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefi
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.ListSegments(ctx, &pb.ListSegmentsRequest{
-		Bucket:     []byte(bucket),
-		Prefix:     []byte(prefix.Raw()),
-		StartAfter: []byte(startAfter),
-		EndBefore:  []byte(endBefore),
-		Recursive:  recursive,
-		Limit:      limit,
-		MetaFlags:  metaFlags,
+		Bucket:        []byte(bucket),
+		Prefix:        []byte(prefix.Raw()),
+		PrefixInvalid: !prefix.Valid(),
+		StartAfter:    []byte(startAfter),
+		EndBefore:     []byte(endBefore),
+		Recursive:     recursive,
+		Limit:         limit,
+		MetaFlags:     metaFlags,
 	})
 	if err != nil {
 		return nil, false, Error.Wrap(err)

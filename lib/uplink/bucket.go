@@ -120,7 +120,10 @@ type ListOptions = storj.ListOptions
 func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
-		cfg = &storj.ListOptions{Direction: storj.Forward}
+		cfg = &storj.ListOptions{
+			Prefix:    paths.NewUnencrypted(""),
+			Direction: storj.Forward,
+		}
 	}
 	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
 }

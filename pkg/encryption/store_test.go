@@ -17,7 +17,7 @@ func printLookup(revealed map[string]string, consumed interface{ Raw() string },
 		fmt.Printf("<%q, %q, nil>\n", revealed, consumed.Raw())
 	} else {
 		fmt.Printf("<%q, %q, <%q, %q, %q>>\n",
-			revealed, consumed.Raw(), base.Unencrypted.Raw(), base.Encrypted.Raw(), base.Key[:2])
+			revealed, consumed, base.Unencrypted, base.Encrypted, base.Key[:2])
 	}
 }
 
@@ -45,6 +45,7 @@ func ExampleStore() {
 	abortIfError(s.Add("b1", up("u6"), ep("e6"), toKey("k6")))
 	abortIfError(s.Add("b1", up("u6/u7/u8"), ep("e6/e7/e8"), toKey("k8")))
 	abortIfError(s.Add("b2", up("u1"), ep("e1'"), toKey("k1")))
+	// abortIfError(s.Add("b3", paths.Unencrypted{}, paths.Encrypted{}, toKey("z1")))
 
 	// Look up some complicated queries by the unencrypted path.
 	printLookup(s.LookupUnencrypted("b1", up("u1")))
@@ -53,6 +54,8 @@ func ExampleStore() {
 	printLookup(s.LookupUnencrypted("b1", up("u1/u2/u3/u4")))
 	printLookup(s.LookupUnencrypted("b1", up("u6/u7")))
 	printLookup(s.LookupUnencrypted("b2", up("u1")))
+	// printLookup(s.LookupUnencrypted("b3", paths.Unencrypted{}))
+	// printLookup(s.LookupUnencrypted("b3", up("z1")))
 
 	fmt.Println()
 
@@ -63,6 +66,8 @@ func ExampleStore() {
 	printLookup(s.LookupEncrypted("b1", ep("e1/e2/e3/e4")))
 	printLookup(s.LookupEncrypted("b1", ep("e6/e7")))
 	printLookup(s.LookupEncrypted("b2", ep("e1'")))
+	// printLookup(s.LookupEncrypted("b3", paths.Encrypted{}))
+	// printLookup(s.LookupEncrypted("b3", ep("z1")))
 
 	// output:
 	//

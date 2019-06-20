@@ -77,6 +77,7 @@ func (endpoint *Endpoint) Close() error { return nil }
 func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRequest) (resp *pb.SegmentInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO(jeff): what does req.PathInvalid mean here?
 	apiKeyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
@@ -92,7 +93,12 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), paths.NewEncrypted(string(req.Path)))
+	var encPath paths.Encrypted
+	if !req.PathInvalid {
+		encPath = paths.NewEncrypted(string(req.Path))
+	}
+
+	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), encPath)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -112,6 +118,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO(jeff): PathInvalid?
 	apiKeyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
@@ -200,6 +207,7 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO(jeff): PathInvalid?
 	apiKeyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
@@ -225,7 +233,12 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), paths.NewEncrypted(string(req.Path)))
+	var encPath paths.Encrypted
+	if !req.PathInvalid {
+		encPath = paths.NewEncrypted(string(req.Path))
+	}
+
+	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), encPath)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -283,7 +296,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// TODO(jeff): it'd be nice if the project usage stuff could accept something other than
-	// the raw bytes, but we'll deal with this for now. If it accepted the orders.BucketID type
+	// the raw bytes, but we'll deal with this for now. If it accepted the paths.BucketID type
 	// then it would not need the ProjectID passed to it separately/again. Maybe that's
 	// indicitive of a bug, but who knows? That's why this is a TODO and not a TODONE.
 
@@ -299,7 +312,12 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), paths.NewEncrypted(string(req.Path)))
+	var encPath paths.Encrypted
+	if !req.PathInvalid {
+		encPath = paths.NewEncrypted(string(req.Path))
+	}
+
+	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), encPath)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -339,6 +357,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDeleteRequest) (resp *pb.SegmentDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO(jeff): PathInvalid?
 	apiKeyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
@@ -354,7 +373,12 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), paths.NewEncrypted(string(req.Path)))
+	var encPath paths.Encrypted
+	if !req.PathInvalid {
+		encPath = paths.NewEncrypted(string(req.Path))
+	}
+
+	metainfoPath, err := CreatePath(ctx, apiKeyInfo.ProjectID, req.Segment, string(req.Bucket), encPath)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -401,6 +425,7 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO(jeff): PrefixInvalid?
 	apiKeyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
@@ -411,7 +436,12 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegments
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, apiKeyInfo.ProjectID, -1, string(req.Bucket), paths.NewEncrypted(string(req.Prefix)))
+	var reqPrefix paths.Encrypted
+	if !req.PrefixInvalid {
+		reqPrefix = paths.NewEncrypted(string(req.Prefix))
+	}
+
+	prefix, err := CreatePath(ctx, apiKeyInfo.ProjectID, -1, string(req.Bucket), reqPrefix)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -487,14 +517,15 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 
 // checks if bucket has any pointers(entries)
 func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAttributionRequest) (resp bool, err error) {
-	//TODO: Logic of checking if bucket exists will be added in new PR.
+	// TODO: Logic of checking if bucket exists will be added in new PR.
 	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO(jeff): this should act as if PathInvalid is true
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.BucketName,
-		EncryptedPath: []byte(""),
+		EncryptedPath: nil,
 		Time:          time.Now(),
 	})
 	if err != nil {

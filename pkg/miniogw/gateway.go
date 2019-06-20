@@ -98,7 +98,12 @@ func (layer *gatewayLayer) bucketEmpty(ctx context.Context, bucketName string) (
 	}
 	defer func() { err = errs.Combine(err, bucket.Close()) }()
 
-	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Direction: storj.After, Recursive: true, Limit: 1})
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{
+		// Prefix:    paths.NewUnencrypted(""),
+		Direction: storj.After,
+		Recursive: true,
+		Limit:     1,
+	})
 	if err != nil {
 		return false, convertError(err, bucketName, "")
 	}

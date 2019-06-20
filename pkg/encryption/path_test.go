@@ -15,7 +15,7 @@ import (
 
 func newStore(key storj.Key) *Store {
 	store := NewStore()
-	store.Add("bucket", paths.NewUnencrypted(""), paths.NewEncrypted(""), key)
+	store.Add("bucket", paths.Unencrypted{}, paths.Encrypted{}, key)
 	return store
 }
 
