@@ -130,6 +130,7 @@ func TestQueryValueAttribution(t *testing.T) {
 		}
 		results, err := attributionDB.QueryValueAttribution(ctx, partnerID1, start, end)
 		require.NoError(t, err)
+		require.NotEqual(t, 0, len(results), "Results must not be empty.")
 		for _, r := range results {
 			projectID, _ := bytesToUUID(r.ProjectID)
 			fmt.Printf("EEEE: %v, %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour, r.EgressData)

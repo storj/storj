@@ -67,12 +67,9 @@ func csvRowToStringSlice(p *attribution.ValueAttributionRow) []string {
 	record := []string{
 		string(p.ProjectID),
 		string(p.BucketName),
-		//p.UserID,
 		strconv.FormatFloat(p.RemoteBytesPerHour, 'f', 2, 64),
 		strconv.FormatFloat(p.InlineBytesPerHour, 'f', 2, 64),
 		strconv.FormatInt(p.EgressData, 10),
-		//strconv.FormatInt(p.IngressData, 10),
-		//p.LastUpdated.Format("2006-01-02"),
 	}
 	return record
 }
