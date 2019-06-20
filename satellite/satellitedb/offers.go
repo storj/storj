@@ -34,11 +34,11 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType offers.Offer
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type"
 	statement = `
 		WITH o AS (
-			SELECT ` + columns + ` FROM offersDB WHERE status=? AND type=? AND expires_at>? AND num_redeemed < redeemable_cap
+			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>? AND num_redeemed < redeemable_cap
 		)
 		SELECT ` + columns + ` FROM o
 		UNION ALL
-		SELECT ` + columns + ` FROM offersDB
+		SELECT ` + columns + ` FROM offers
 		WHERE type=? AND status=?
 		AND NOT EXISTS (
 			SELECT id FROM o
@@ -72,7 +72,7 @@ func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Off
 
 	// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
 	statement := db.db.Rebind(`
-		UPDATE offersDB SET status=?, expires_at=?
+		UPDATE offers SET status=?, expires_at=?
 		WHERE status=? AND type=? AND expires_at>?;
 	`)
 	_, err = tx.Tx.ExecContext(ctx, statement, offers.Done, currentTime, o.Status, o.Type, currentTime)
@@ -104,10 +104,10 @@ func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Off
 	return newOffer, offers.Err.Wrap(tx.Commit())
 }
 
-// Redeem adds 1 to the amount of offersDB redeemed based on offer id
+// Redeem adds 1 to the amount of offers redeemed based on offer id
 func (db *offersDB) Redeem(ctx context.Context, oID int) error {
 	statement := db.db.Rebind(
-		`UPDATE offersDB SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
+		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
 	)
 
 	_, err := db.db.DB.ExecContext(ctx, statement, oID, offers.Active)
