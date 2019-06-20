@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+#include <math.h>
 // test_bucket_config returns test bucket configuration.
 BucketConfig test_bucket_config() {
     BucketConfig config = {};

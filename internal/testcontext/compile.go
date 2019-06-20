@@ -11,6 +11,8 @@ import (
 	"testing"
 )
 
+var CLibMath = Include{Library: "m", Installed: true}
+
 // Compile compiles the specified package and returns the executable name.
 func (ctx *Context) Compile(pkg string) string {
 	ctx.test.Helper()
@@ -70,13 +72,19 @@ func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) str
 			args = append(args, "-I", filepath.Dir(inc.Header))
 		}
 		if inc.Library != "" {
-			if runtime.GOOS == "windows" {
+			if inc.Installed {
 				args = append(args,
-					"-L"+filepath.Dir(inc.Library),
-					"-l:"+filepath.Base(inc.Library),
+					"-l"+inc.Library,
 				)
 			} else {
-				args = append(args, inc.Library)
+				if runtime.GOOS == "windows" {
+					args = append(args,
+						"-L"+filepath.Dir(inc.Library),
+						"-l:"+filepath.Base(inc.Library),
+					)
+				} else {
+					args = append(args, inc.Library)
+				}
 			}
 		}
 	}
@@ -97,6 +105,7 @@ func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) str
 
 // Include defines an includable library for gcc.
 type Include struct {
-	Header  string
-	Library string
+	Header    string
+	Library   string
+	Installed bool
 }
