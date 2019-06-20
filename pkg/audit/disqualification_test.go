@@ -117,11 +117,15 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
 					n, auditDQCutOff, prevReputation, reputation,
 				)
-				require.WithinDuration(
-					t, time.Now(), *dossier.Disqualified, 100*time.Millisecond, "Disqualified",
+
+				require.True(t, time.Now().Sub(*dossier.Disqualified) >= 0,
+					"Disqualified should be in the past",
 				)
+
+				break
 			}
 
+			require.Nilf(t, dossier.Disqualified, "Disqualified")
 			prevReputation = reputation
 		}
 	})
