@@ -34,7 +34,7 @@ func InmemoryFromNode(root *Node) *InmemoryFileSystem {
 func (fs *InmemoryFileSystem) reindex(prefix, name string, node *Node) {
 	fs.Index[prefix+"/"+name] = node
 	for _, child := range node.Children {
-		fs.reindex(prefix+"/"+name, child.Name(), child)
+		fs.reindex(prefix+"/"+name, child.Name, child)
 	}
 }
 
@@ -62,7 +62,7 @@ type File struct {
 
 // Readdir reads all file infos from the directory.
 func (file *File) Readdir() ([]os.FileInfo, error) {
-	if !file.IsDir() {
+	if !file.Mode.IsDir() {
 		return nil, errors.New("not a directory")
 	}
 
@@ -75,7 +75,7 @@ func (file *File) Readdir() ([]os.FileInfo, error) {
 }
 
 // Stat returns stats about the file.
-func (file *File) Stat() (os.FileInfo, error) { return file.FileInfo, nil }
+func (file *File) Stat() (os.FileInfo, error) { return FileInfo{file.Node}, nil }
 
 // Close closes the file.
 func (file *File) Close() error { return nil }

@@ -51,7 +51,10 @@ func NewAsset(path string) (*Asset, error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	stat := file.Stat()
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
 
 	asset := &Asset{
 		Name:     file.Name(),
