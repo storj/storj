@@ -85,10 +85,12 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		var (
-			prevAlpha = dossier.Reputation.AuditReputationAlpha
-			prevBeta  = dossier.Reputation.AuditReputationBeta
-		)
+		var prevReputation float64
+		{
+			alpha := dossier.Reputation.AuditReputationAlpha
+			beta := dossier.Reputation.AuditReputationBeta
+			prevReputation = alpha / (alpha + beta)
+		}
 
 		// Report the audit failure until the node gets disqualified due to many
 		// failed audits
@@ -100,26 +102,27 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			require.NoError(t, err)
 
 			var (
-				curAlpha = dossier.Reputation.AuditReputationAlpha
-				curBeta  = dossier.Reputation.AuditReputationBeta
+				alpha = dossier.Reputation.AuditReputationAlpha
+				beta  = dossier.Reputation.AuditReputationBeta
 			)
 
-			require.True(t, curAlpha < prevAlpha,
-				"alpha should have decreased (%d): currentAlpha(%f) < previousAlpha(%f)",
-				n, curAlpha, prevAlpha,
-			)
-			require.True(t, curBeta > prevBeta,
-				"beta should have increaed (%d): currentBeta(%f) > previousBeta(%f)",
-				n, curBeta, prevBeta,
+			reputation := alpha / (alpha + beta)
+			require.Truef(t, prevReputation >= reputation,
+				"(%d) expected reputation to remain or decrease (previou >= current): %f >= %f",
+				n, prevReputation, reputation,
 			)
 
-			prevAlpha, prevBeta = curAlpha, curBeta
-
-			reputation := curAlpha / (curAlpha + curBeta)
-			if reputation < auditDQCutOff {
-				require.NotNil(t, dossier.Disqualified)
-				require.WithinDuration(t, time.Now(), *dossier.Disqualified, 100*time.Millisecond)
+			if reputation < auditDQCutOff || reputation == prevReputation {
+				require.NotNilf(t, dossier.Disqualified,
+					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
+					n, auditDQCutOff, prevReputation, reputation,
+				)
+				require.WithinDuration(
+					t, time.Now(), *dossier.Disqualified, 100*time.Millisecond, "Disqualified",
+				)
 			}
+
+			prevReputation = reputation
 		}
 	})
 }
