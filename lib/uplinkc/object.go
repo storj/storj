@@ -32,9 +32,9 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 	var opts *uplink.UploadOptions
 	if cOpts != nil {
-		var metadata *MapRef
+		var metadata *Metadata
 		if cOpts.metadata._handle != 0 {
-			metadata, ok = universe.Get(cOpts.metadata._handle).(*MapRef)
+			metadata, ok = universe.Get(cOpts.metadata._handle).(*Metadata)
 			if !ok {
 				*cErr = C.CString("invalid metadata in upload options")
 				return

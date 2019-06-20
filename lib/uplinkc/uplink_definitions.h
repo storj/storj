@@ -10,7 +10,7 @@ typedef struct APIKey     { long _handle; } APIKeyRef;
 typedef struct Uplink     { long _handle; } UplinkRef;
 typedef struct Project    { long _handle; } ProjectRef;
 typedef struct Bucket     { long _handle; } BucketRef;
-typedef struct Map        { long _handle; } MapRef;
+typedef struct Metadata   { long _handle; } MetadataRef;
 typedef struct Downloader { long _handle; } DownloaderRef;
 typedef struct Uploader   { long _handle; } UploaderRef;
 
@@ -73,6 +73,6 @@ typedef struct EncryptionAccess {
 
 typedef struct UploadOptions {
     char    *content_type;
-    MapRef  metadata;
+    MetadataRef  metadata;
     int64_t expires;
 } UploadOptions;
