@@ -15,6 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/asset"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
@@ -79,6 +80,9 @@ var (
 	identityDir    string
 	useColor       bool
 )
+
+//go:generate go run ../../scripts/generate-asset.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
+var embeddedAssets *asset.Asset
 
 const (
 	defaultServerAddr        = ":28967"

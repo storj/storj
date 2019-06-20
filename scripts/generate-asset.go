@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"go/format"
+	"io/ioutil"
 	"log"
 
 	"storj.io/storj/internal/asset"
@@ -18,6 +19,7 @@ func main() {
 	packageName := flag.String("pkg", "", "package name")
 	variableName := flag.String("var", "", "variable name to assign to")
 	dir := flag.String("dir", "", "directory")
+	out := flag.String("out", "", "output file")
 
 	flag.Parse()
 
@@ -35,7 +37,7 @@ func main() {
 
 	fmt.Fprintf(&code, "func init() {\n")
 	fmt.Fprintf(&code, "%s = ", *variableName)
-	code.Write(asset.GenerateGo())
+	code.Write(asset.Closure())
 	fmt.Fprintf(&code, "}\n")
 
 	formatted, err := format.Source(code.Bytes())
@@ -43,5 +45,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(string(formatted))
+	if *out == "" {
+		fmt.Println(string(formatted))
+	} else {
+		err := ioutil.WriteFile(*out, formatted, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
