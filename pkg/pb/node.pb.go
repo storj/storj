@@ -3,11 +3,13 @@
 
 package pb
 
-import proto "github.com/gogo/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "github.com/gogo/protobuf/gogoproto"
-import timestamp "github.com/golang/protobuf/ptypes/timestamp"
+import (
+	fmt "fmt"
+	_ "github.com/gogo/protobuf/gogoproto"
+	proto "github.com/gogo/protobuf/proto"
+	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -38,6 +40,7 @@ var NodeType_name = map[int32]string{
 	3: "UPLINK",
 	4: "BOOTSTRAP",
 }
+
 var NodeType_value = map[string]int32{
 	"INVALID":   0,
 	"SATELLITE": 1,
@@ -49,8 +52,9 @@ var NodeType_value = map[string]int32{
 func (x NodeType) String() string {
 	return proto.EnumName(NodeType_name, int32(x))
 }
+
 func (NodeType) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{0}
+	return fileDescriptor_0c843d59d2d938e7, []int{0}
 }
 
 // NodeTransport is an enum of possible transports for the overlay network
@@ -63,6 +67,7 @@ const (
 var NodeTransport_name = map[int32]string{
 	0: "TCP_TLS_GRPC",
 }
+
 var NodeTransport_value = map[string]int32{
 	"TCP_TLS_GRPC": 0,
 }
@@ -70,8 +75,9 @@ var NodeTransport_value = map[string]int32{
 func (x NodeTransport) String() string {
 	return proto.EnumName(NodeTransport_name, int32(x))
 }
+
 func (NodeTransport) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{1}
+	return fileDescriptor_0c843d59d2d938e7, []int{1}
 }
 
 // TODO move statdb.Update() stuff out of here
@@ -90,7 +96,7 @@ func (m *Node) Reset()         { *m = Node{} }
 func (m *Node) String() string { return proto.CompactTextString(m) }
 func (*Node) ProtoMessage()    {}
 func (*Node) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{0}
+	return fileDescriptor_0c843d59d2d938e7, []int{0}
 }
 func (m *Node) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Node.Unmarshal(m, b)
@@ -98,8 +104,8 @@ func (m *Node) XXX_Unmarshal(b []byte) error {
 func (m *Node) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_Node.Marshal(b, m, deterministic)
 }
-func (dst *Node) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Node.Merge(dst, src)
+func (m *Node) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Node.Merge(m, src)
 }
 func (m *Node) XXX_Size() int {
 	return xxx_messageInfo_Node.Size(m)
@@ -137,7 +143,7 @@ func (m *NodeAddress) Reset()         { *m = NodeAddress{} }
 func (m *NodeAddress) String() string { return proto.CompactTextString(m) }
 func (*NodeAddress) ProtoMessage()    {}
 func (*NodeAddress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{1}
+	return fileDescriptor_0c843d59d2d938e7, []int{1}
 }
 func (m *NodeAddress) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeAddress.Unmarshal(m, b)
@@ -145,8 +151,8 @@ func (m *NodeAddress) XXX_Unmarshal(b []byte) error {
 func (m *NodeAddress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodeAddress.Marshal(b, m, deterministic)
 }
-func (dst *NodeAddress) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeAddress.Merge(dst, src)
+func (m *NodeAddress) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeAddress.Merge(m, src)
 }
 func (m *NodeAddress) XXX_Size() int {
 	return xxx_messageInfo_NodeAddress.Size(m)
@@ -184,7 +190,7 @@ func (m *NodeOperator) Reset()         { *m = NodeOperator{} }
 func (m *NodeOperator) String() string { return proto.CompactTextString(m) }
 func (*NodeOperator) ProtoMessage()    {}
 func (*NodeOperator) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{2}
+	return fileDescriptor_0c843d59d2d938e7, []int{2}
 }
 func (m *NodeOperator) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeOperator.Unmarshal(m, b)
@@ -192,8 +198,8 @@ func (m *NodeOperator) XXX_Unmarshal(b []byte) error {
 func (m *NodeOperator) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodeOperator.Marshal(b, m, deterministic)
 }
-func (dst *NodeOperator) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeOperator.Merge(dst, src)
+func (m *NodeOperator) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeOperator.Merge(m, src)
 }
 func (m *NodeOperator) XXX_Size() int {
 	return xxx_messageInfo_NodeOperator.Size(m)
@@ -231,7 +237,7 @@ func (m *NodeCapacity) Reset()         { *m = NodeCapacity{} }
 func (m *NodeCapacity) String() string { return proto.CompactTextString(m) }
 func (*NodeCapacity) ProtoMessage()    {}
 func (*NodeCapacity) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{3}
+	return fileDescriptor_0c843d59d2d938e7, []int{3}
 }
 func (m *NodeCapacity) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeCapacity.Unmarshal(m, b)
@@ -239,8 +245,8 @@ func (m *NodeCapacity) XXX_Unmarshal(b []byte) error {
 func (m *NodeCapacity) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodeCapacity.Marshal(b, m, deterministic)
 }
-func (dst *NodeCapacity) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeCapacity.Merge(dst, src)
+func (m *NodeCapacity) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeCapacity.Merge(m, src)
 }
 func (m *NodeCapacity) XXX_Size() int {
 	return xxx_messageInfo_NodeCapacity.Size(m)
@@ -278,7 +284,7 @@ func (m *NodeMetadata) Reset()         { *m = NodeMetadata{} }
 func (m *NodeMetadata) String() string { return proto.CompactTextString(m) }
 func (*NodeMetadata) ProtoMessage()    {}
 func (*NodeMetadata) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{4}
+	return fileDescriptor_0c843d59d2d938e7, []int{4}
 }
 func (m *NodeMetadata) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeMetadata.Unmarshal(m, b)
@@ -286,8 +292,8 @@ func (m *NodeMetadata) XXX_Unmarshal(b []byte) error {
 func (m *NodeMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodeMetadata.Marshal(b, m, deterministic)
 }
-func (dst *NodeMetadata) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeMetadata.Merge(dst, src)
+func (m *NodeMetadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeMetadata.Merge(m, src)
 }
 func (m *NodeMetadata) XXX_Size() int {
 	return xxx_messageInfo_NodeMetadata.Size(m)
@@ -325,7 +331,7 @@ func (m *NodeRestrictions) Reset()         { *m = NodeRestrictions{} }
 func (m *NodeRestrictions) String() string { return proto.CompactTextString(m) }
 func (*NodeRestrictions) ProtoMessage()    {}
 func (*NodeRestrictions) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{5}
+	return fileDescriptor_0c843d59d2d938e7, []int{5}
 }
 func (m *NodeRestrictions) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeRestrictions.Unmarshal(m, b)
@@ -333,8 +339,8 @@ func (m *NodeRestrictions) XXX_Unmarshal(b []byte) error {
 func (m *NodeRestrictions) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodeRestrictions.Marshal(b, m, deterministic)
 }
-func (dst *NodeRestrictions) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeRestrictions.Merge(dst, src)
+func (m *NodeRestrictions) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeRestrictions.Merge(m, src)
 }
 func (m *NodeRestrictions) XXX_Size() int {
 	return xxx_messageInfo_NodeRestrictions.Size(m)
@@ -374,7 +380,7 @@ func (m *NodeVersion) Reset()         { *m = NodeVersion{} }
 func (m *NodeVersion) String() string { return proto.CompactTextString(m) }
 func (*NodeVersion) ProtoMessage()    {}
 func (*NodeVersion) Descriptor() ([]byte, []int) {
-	return fileDescriptor_node_a9c4d6a5457645c6, []int{6}
+	return fileDescriptor_0c843d59d2d938e7, []int{6}
 }
 func (m *NodeVersion) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_NodeVersion.Unmarshal(m, b)
@@ -382,8 +388,8 @@ func (m *NodeVersion) XXX_Unmarshal(b []byte) error {
 func (m *NodeVersion) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_NodeVersion.Marshal(b, m, deterministic)
 }
-func (dst *NodeVersion) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_NodeVersion.Merge(dst, src)
+func (m *NodeVersion) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_NodeVersion.Merge(m, src)
 }
 func (m *NodeVersion) XXX_Size() int {
 	return xxx_messageInfo_NodeVersion.Size(m)
@@ -423,6 +429,8 @@ func (m *NodeVersion) GetRelease() bool {
 }
 
 func init() {
+	proto.RegisterEnum("node.NodeType", NodeType_name, NodeType_value)
+	proto.RegisterEnum("node.NodeTransport", NodeTransport_name, NodeTransport_value)
 	proto.RegisterType((*Node)(nil), "node.Node")
 	proto.RegisterType((*NodeAddress)(nil), "node.NodeAddress")
 	proto.RegisterType((*NodeOperator)(nil), "node.NodeOperator")
@@ -430,13 +438,11 @@ func init() {
 	proto.RegisterType((*NodeMetadata)(nil), "node.NodeMetadata")
 	proto.RegisterType((*NodeRestrictions)(nil), "node.NodeRestrictions")
 	proto.RegisterType((*NodeVersion)(nil), "node.NodeVersion")
-	proto.RegisterEnum("node.NodeType", NodeType_name, NodeType_value)
-	proto.RegisterEnum("node.NodeTransport", NodeTransport_name, NodeTransport_value)
 }
 
-func init() { proto.RegisterFile("node.proto", fileDescriptor_node_a9c4d6a5457645c6) }
+func init() { proto.RegisterFile("node.proto", fileDescriptor_0c843d59d2d938e7) }
 
-var fileDescriptor_node_a9c4d6a5457645c6 = []byte{
+var fileDescriptor_0c843d59d2d938e7 = []byte{
 	// 577 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x53, 0xcb, 0x6e, 0x13, 0x31,
 	0x14, 0xed, 0x24, 0xd3, 0x24, 0x73, 0xf3, 0xd0, 0x60, 0x2a, 0x88, 0x8a, 0x44, 0x42, 0x24, 0xa4,

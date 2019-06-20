@@ -43,7 +43,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/pkg/valueattribution"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -80,8 +80,8 @@ type DB interface {
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
-	// ValueAttribution returns database for partner keys information
-	ValueAttribution() valueattribution.DB
+	// Attribution returns database for partner keys information
+	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
 	StoragenodeAccounting() accounting.StoragenodeAccounting
 	// ProjectAccounting returns database for storing information about project data use
