@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -47,12 +48,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		var prevReputation float64
-		{
-			alpha := dossier.Reputation.AuditReputationAlpha
-			beta := dossier.Reputation.AuditReputationBeta
-			prevReputation = alpha / (alpha + beta)
-		}
+		prevReputation := calculateStorageNodeReputation(dossier)
 
 		// Report the audit failure until the node gets disqualified due to many
 		// failed audits
@@ -63,12 +59,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 			require.NoError(t, err)
 
-			var (
-				alpha = dossier.Reputation.AuditReputationAlpha
-				beta  = dossier.Reputation.AuditReputationBeta
-			)
-
-			reputation := alpha / (alpha + beta)
+			reputation := calculateStorageNodeReputation(dossier)
 			require.Truef(t, prevReputation >= reputation,
 				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
 				n, prevReputation, reputation,
@@ -91,4 +82,13 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			prevReputation = reputation
 		}
 	})
+}
+
+func calculateStorageNodeReputation(dossier *overlay.NodeDossier) float64 {
+	var (
+		alpha = dossier.Reputation.AuditReputationAlpha
+		beta  = dossier.Reputation.AuditReputationBeta
+	)
+
+	return alpha / (alpha + beta)
 }
