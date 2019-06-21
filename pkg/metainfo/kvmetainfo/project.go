@@ -5,21 +5,25 @@ package kvmetainfo
 
 import (
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/storage/buckets"
+	"storj.io/storj/pkg/storage/objects"
+	"storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/pkg/storj"
 )
 
 // Project implements project management operations
 type Project struct {
-	buckets            buckets.Store
+	buckets            objects.Store
+	streams            streams.Store
 	encryptedBlockSize int32
 	redundancy         eestream.RedundancyStrategy
 	segmentsSize       int64
 }
 
 // NewProject constructs a *Project
-func NewProject(buckets buckets.Store, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
+func NewProject(streams streams.Store, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
 	return &Project{
-		buckets:            buckets,
+		buckets:            objects.NewStore(streams, storj.Unencrypted),
+		streams:            streams,
 		encryptedBlockSize: encryptedBlockSize,
 		redundancy:         redundancy,
 		segmentsSize:       segmentsSize,
