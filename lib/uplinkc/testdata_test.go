@@ -19,7 +19,7 @@ import (
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
-	ctx := testcontext.NewWithTimeout(t, 5 * time.Minute)
+	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.NewCustom(
@@ -43,7 +43,7 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 }
 
 func TestC(t *testing.T) {
-	ctx := testcontext.NewWithTimeout(t, 5 * time.Minute)
+	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
