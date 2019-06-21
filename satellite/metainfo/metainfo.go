@@ -516,41 +516,6 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttributionRequest) (_ *pb.SetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	projectID, err := endpoint.checkBucketPointers(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	// check if already bucket exists
-	_, err = endpoint.partnerinfo.Get(ctx, *projectID, req.GetBucketName())
-	if err != nil {
-		// no rows found for the bucket name
-		if attribution.ErrBucketNameNotFound.Has(err) {
-			partnerID, err := bytesToUUID(req.GetPartnerId())
-			if err != nil {
-				return nil, err
-			}
-			_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
-				ProjectID:  *projectID,
-				BucketName: req.GetBucketName(),
-				PartnerID:  partnerID,
-			})
-			if err != nil {
-				return nil, err
-			}
-			return &pb.SetAttributionResponse{}, nil
-		}
-		return nil, err
-	}
-	return &pb.SetAttributionResponse{}, nil
-}
-
-// checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAttributionRequest) (projectID *uuid.UUID, err error) {
-	//TODO: Logic of checking if bucket exists will be added in new PR.
-	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
-	defer mon.Task()(&ctx)(&err)
-
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.BucketName,
@@ -561,21 +526,43 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAt
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
+	// check if attribution is set for given bucket
+	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
 	if err != nil {
+		if attribution.ErrBucketNameNotFound.Has(err) {
+			//handle bucket attribution
+			prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
+			if err != nil {
+				return nil, err
+			}
+
+			items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(items) > 0 {
+				return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
+			}
+
+			partnerID, err := bytesToUUID(req.GetPartnerId())
+			if err != nil {
+				return nil, err
+			}
+			_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: req.GetBucketName(),
+				PartnerID:  partnerID,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return &pb.SetAttributionResponse{}, nil
+		}
 		return nil, err
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, string(""), string(""), true, 1, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(items) > 0 {
-		return nil, errors.New("already attributed")
-	}
-
-	return &keyInfo.ProjectID, nil
+	return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
 }
 
 // bytesToUUID is used to convert []byte to UUID
