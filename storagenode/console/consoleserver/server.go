@@ -5,19 +5,33 @@ package consoleserver
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
 )
 
+const (
+	contentType = "Content-Type"
+
+	applicationJSON = "application/json"
+)
+
 // Error is storagenode console web error type
-var Error = errs.Class("storagenode console web error")
+var (
+	mon   = monkit.Package()
+	Error = errs.Class("storagenode console web error")
+)
 
 // Config contains configuration for storagenode console web server
 type Config struct {
@@ -54,6 +68,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
+		mux.Handle("/api/dashboard/", http.HandlerFunc(server.dashboardHandler))
 	}
 
 	server.server = http.Server{
@@ -65,6 +80,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 
 // Run starts the server that host webapp and api endpoints
 func (s *Server) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 	group.Go(func() error {
@@ -87,4 +104,77 @@ func (s *Server) Close() error {
 // appHandler is web app http handler function
 func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
+}
+
+// appHandler is web app http handler function
+func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	defer mon.Task()(&ctx)(nil)
+	w.Header().Set(contentType, applicationJSON)
+
+	var response struct {
+		Bandwidth     console.BandwidthInfo `json:"bandwidth"`
+		DiskSpace     console.DiskSpaceInfo `json:"diskSpace"`
+		WalletAddress string                `json:"walletAddress"`
+		VersionInfo   version.Info          `json:"versionInfo"`
+		IsLastVersion bool                  `json:"isLastVersion"`
+		Uptime        time.Duration         `json:"uptime"`
+		NodeID        string                `json:"nodeId"`
+		Satellites    storj.NodeIDList      `json:"satellites"`
+		Error         string                `json:"error,omitempty"`
+	}
+
+	defer func() {
+		err := json.NewEncoder(w).Encode(&response)
+		if err != nil {
+			s.log.Error(err.Error())
+		}
+	}()
+
+	space, err := s.service.GetUsedStorageTotal(ctx)
+	if err != nil {
+		s.log.Error("can not get disk space usage", zap.Error(err))
+		response.Error = "can not get disk space usage"
+		return
+	}
+
+	usage, err := s.service.GetUsedBandwidthTotal(ctx)
+	if err != nil {
+		s.log.Error("can not get bandwidth usage", zap.Error(err))
+		response.Error = "can not get bandwidth usage"
+		return
+	}
+
+	walletAddress := s.service.GetWalletAddress(ctx)
+
+	versionInfo := s.service.GetVersion(ctx)
+
+	err = s.service.CheckVersion(ctx)
+	if err != nil {
+		s.log.Error("can not check latest storagenode version", zap.Error(err))
+		response.Error = "can not check latest storagenode version"
+		return
+	}
+
+	var isLastVersion = err == nil
+
+	uptime := s.service.GetUptime(ctx)
+
+	nodeID := s.service.GetNodeID(ctx)
+
+	satellites, err := s.service.GetSatellites(ctx)
+	if err != nil {
+		s.log.Error("can not get satellites list", zap.Error(err))
+		response.Error = "can not get satellites list"
+		return
+	}
+
+	response.DiskSpace = *space
+	response.Bandwidth = *usage
+	response.WalletAddress = walletAddress
+	response.VersionInfo = versionInfo
+	response.IsLastVersion = isLastVersion
+	response.Uptime = uptime
+	response.NodeID = nodeID.String()
+	response.Satellites = satellites
 }

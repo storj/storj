@@ -69,6 +69,7 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 
 	return &Service{
 		log:                log,
+		consoleDB:          consoleDB,
 		bandwidthDB:        bandwidth,
 		pieceInfoDB:        pieceInfo,
 		kademlia:           kademlia,
@@ -122,8 +123,8 @@ func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID sto
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
-// GetWalletNumber return wallet number of node operator
-func (s *Service) GetWalletNumber(ctx context.Context) string {
+// GetWalletAddress return wallet address of node operator
+func (s *Service) GetWalletAddress(ctx context.Context) string {
 	return s.walletAddress
 }
 
