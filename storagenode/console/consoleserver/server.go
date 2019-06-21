@@ -113,14 +113,16 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set(contentType, applicationJSON)
 
 	var response struct {
-		Bandwidth     console.BandwidthInfo `json:"bandwidth"`
-		DiskSpace     console.DiskSpaceInfo `json:"diskSpace"`
-		WalletAddress string                `json:"walletAddress"`
-		VersionInfo   version.Info          `json:"versionInfo"`
-		IsLastVersion bool                  `json:"isLastVersion"`
-		Uptime        time.Duration         `json:"uptime"`
-		NodeID        string                `json:"nodeId"`
-		Satellites    storj.NodeIDList      `json:"satellites"`
+		Data struct {
+			Bandwidth     console.BandwidthInfo `json:"bandwidth"`
+			DiskSpace     console.DiskSpaceInfo `json:"diskSpace"`
+			WalletAddress string                `json:"walletAddress"`
+			VersionInfo   version.Info          `json:"versionInfo"`
+			IsLastVersion bool                  `json:"isLastVersion"`
+			Uptime        time.Duration         `json:"uptime"`
+			NodeID        string                `json:"nodeId"`
+			Satellites    storj.NodeIDList      `json:"satellites"`
+		} `json:"data"`
 		Error         string                `json:"error,omitempty"`
 	}
 
@@ -156,8 +158,6 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var isLastVersion = err == nil
-
 	uptime := s.service.GetUptime(ctx)
 
 	nodeID := s.service.GetNodeID(ctx)
@@ -169,12 +169,12 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	response.DiskSpace = *space
-	response.Bandwidth = *usage
-	response.WalletAddress = walletAddress
-	response.VersionInfo = versionInfo
-	response.IsLastVersion = isLastVersion
-	response.Uptime = uptime
-	response.NodeID = nodeID.String()
-	response.Satellites = satellites
+	response.Data.DiskSpace = *space
+	response.Data.Bandwidth = *usage
+	response.Data.WalletAddress = walletAddress
+	response.Data.VersionInfo = versionInfo
+	response.Data.IsLastVersion = true
+	response.Data.Uptime = uptime
+	response.Data.NodeID = nodeID.String()
+	response.Data.Satellites = satellites
 }
