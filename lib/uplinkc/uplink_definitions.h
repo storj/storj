@@ -6,13 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 
-typedef enum Cipher {
-    STORJ_UNENCRYPTED,
-    STORJ_AESGCM,
-    STORJ_SECRET_BOX,
-    STORJ_INVALID
-} Cipher;
-
 typedef enum CipherSuite {
     STORJ_ENC_UNSPECIFIED,
     STORJ_ENC_NULL,
@@ -63,14 +56,14 @@ typedef struct RedundancyScheme {
 typedef struct BucketInfo {
     char                 *name;
     int64_t              created;
-    Cipher               path_cipher;
+    CipherSuite          path_cipher;
     uint64_t             segment_size;
     EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketInfo;
 
 typedef struct BucketConfig {
-    Cipher               path_cipher;
+    CipherSuite          path_cipher;
     EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketConfig;

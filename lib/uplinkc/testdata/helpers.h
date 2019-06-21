@@ -8,7 +8,7 @@
 BucketConfig test_bucket_config() {
     BucketConfig config = {};
 
-    config.path_cipher = STORJ_AESGCM;
+    config.path_cipher = STORJ_ENC_AESGCM;
 
     config.encryption_parameters.cipher_suite = STORJ_ENC_AESGCM;
     config.encryption_parameters.block_size = 2048;
