@@ -131,7 +131,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
-
+	project := kvmetainfo.NewProject(streams, blockSize, rs, c.Client.SegmentSize.Int64())
 	return kvmetainfo.New(project, metainfo, streams, segments, key), streams, nil
 }
 
