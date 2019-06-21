@@ -27,6 +27,11 @@ import (
 	"storj.io/storj/uplink/metainfo"
 )
 
+var (
+	maxBucketMetaSize = 10 * memory.MiB
+)
+
+
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
 type RSConfig struct {
@@ -97,13 +102,35 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
-
-	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
-	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
+	
+	// TODO: find a better way to create rs
+	whoCares := 1
+	fc, err := infectious.NewFEC(whoCares, whoCares)
 	if err != nil {
 		return nil, nil, Error.New("failed to create erasure coding client: %v", err)
 	}
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.RS.ErasureShareSize.Int()), c.RS.RepairThreshold, c.RS.SuccessThreshold)
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
+	if err != nil {
+		return nil,nil, Error.New("failed to create redundancy strategy: %v", err)
+	}
+	seg := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+
+	// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
+	// TODO: fix before the final alpha network wipe
+	encryptionKey := new(storj.Key)
+	stms, err := streams.NewStreamStore(seg, maxBucketMetaSize.Int64(), encryptionKey, memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int())
+	if err != nil {
+		return nil, nil, Error.New("failed to create streams: %v", err)
+	}
+	
+	project := kvmetainfo.NewProject(stms, memory.KiB.Int32(), rs, c.Client.SegmentSize.Int64())
+
+	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
+	fc, err = infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
+	if err != nil {
+		return nil, nil, Error.New("failed to create erasure coding client: %v", err)
+	}
+	rs, err = eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, c.RS.ErasureShareSize.Int()), c.RS.RepairThreshold, c.RS.SuccessThreshold)
 	if err != nil {
 		return nil, nil, Error.New("failed to create redundancy strategy: %v", err)
 	}
@@ -112,7 +139,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
 	}
-	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
+	seg = segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
 	blockSize := c.GetEncryptionScheme().BlockSize
 	if int(blockSize)%c.RS.ErasureShareSize.Int()*c.RS.MinThreshold != 0 {
@@ -125,14 +152,14 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key,
+	stms, err = streams.NewStreamStore(seg, c.Client.SegmentSize.Int64(), key,
 		int(blockSize), storj.Cipher(c.Enc.DataType), c.Client.MaxInlineSize.Int(),
 	)
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
-	project := kvmetainfo.NewProject(streams, blockSize, rs, c.Client.SegmentSize.Int64())
-	return kvmetainfo.New(project, metainfo, streams, segments, key), streams, nil
+
+	return kvmetainfo.New(project, metainfo, stms, seg, encryptionKey), stms, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
