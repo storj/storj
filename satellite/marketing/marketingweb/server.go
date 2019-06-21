@@ -256,9 +256,9 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, er
 // serveBadRequest handles 400 errors and renders err to the bad-request template.
 func (s *Server) serveBadRequest(w http.ResponseWriter, req *http.Request, errMsg error) {
 
-	w.WriteHeader(http.StatusInternalServerError)
+	w.WriteHeader(http.StatusBadRequest)
 
-	if err := s.templates.internalError.ExecuteTemplate(w, "base", errMsg); err != nil {
+	if err := s.templates.badRequest.ExecuteTemplate(w, "base", errMsg); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
