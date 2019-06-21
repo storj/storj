@@ -32,7 +32,6 @@ var (
 	NodeNotFound = errs.Class("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
 	defaultTransport = pb.NodeTransport_TCP_TLS_GRPC
-	defaultRetries   = 3
 	mon              = monkit.Package()
 )
 

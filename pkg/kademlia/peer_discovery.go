@@ -248,7 +248,7 @@ func (queue *discoveryQueue) Unqueried() (amount int) {
 
 	for _, item := range queue.items {
 		if queue.state[item.node.Id] == stateUnqueried {
-			amount += 1
+			amount++
 		}
 	}
 	return amount

@@ -158,6 +158,7 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 	return tr
 }
 
+// AlertFail alerts any subscribed observers of the failure 'err' for 'node'
 func (transport *Transport) AlertFail(ctx context.Context, node *pb.Node, err error) {
 	defer mon.Task()(&ctx)(nil)
 	for _, o := range transport.observers {
@@ -165,6 +166,7 @@ func (transport *Transport) AlertFail(ctx context.Context, node *pb.Node, err er
 	}
 }
 
+// AlertSuccess alerts any subscribed observers of success for 'node'
 func (transport *Transport) AlertSuccess(ctx context.Context, node *pb.Node) {
 	defer mon.Task()(&ctx)(nil)
 	for _, o := range transport.observers {
