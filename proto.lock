@@ -2231,6 +2231,11 @@
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
+              },
+              {
+                "id": 11,
+                "name": "satellite_address",
+                "type": "node.NodeAddress"
               }
             ]
           },
@@ -2355,6 +2360,9 @@
           },
           {
             "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "node.proto"
           }
         ],
         "package": {

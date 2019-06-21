@@ -70,6 +70,12 @@ func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) str
 			args = append(args, "-I", filepath.Dir(inc.Header))
 		}
 		if inc.Library != "" {
+			if inc.Standard {
+				args = append(args,
+					"-l"+inc.Library,
+				)
+				continue
+			}
 			if runtime.GOOS == "windows" {
 				args = append(args,
 					"-L"+filepath.Dir(inc.Library),
@@ -97,6 +103,7 @@ func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) str
 
 // Include defines an includable library for gcc.
 type Include struct {
-	Header  string
-	Library string
+	Header   string
+	Library  string
+	Standard bool
 }

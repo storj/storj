@@ -11,7 +11,6 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -103,15 +102,14 @@ type DB interface {
 // Config is the global config satellite
 type Config struct {
 	Identity identity.Config
-
-	// TODO: switch to using server.Config when Identity has been removed from it
-	Server server.Config
+	Server   server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
 	Metainfo metainfo.Config
+	Orders   orders.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -125,8 +123,7 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-
-	Vouchers vouchers.Config
+	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -382,7 +379,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.CertDB(),
 			peer.DB.Orders(),
-			45*24*time.Hour, // TODO: make it configurable?
+			config.Orders.Expiration,
+			&pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   config.Kademlia.ExternalAddress,
+			},
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -402,9 +403,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
+			peer.DB.Attribution(),
 			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
+			config.Metainfo.RS,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)

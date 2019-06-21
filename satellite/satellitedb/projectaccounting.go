@@ -4,7 +4,6 @@
 package satellitedb
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -33,9 +31,12 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 	var result []accounting.BucketTally
 
 	for bucketID, info := range bucketTallies {
-		bucketIDComponents := storj.SplitPath(bucketID)
-		bucketName := dbx.BucketStorageTally_BucketName([]byte(bucketIDComponents[1]))
-		projectID := dbx.BucketStorageTally_ProjectId([]byte(bucketIDComponents[0]))
+		pid, bn, err := splitBucketID([]byte(bucketID))
+		if err != nil {
+			return nil, err
+		}
+		bucketName := dbx.BucketStorageTally_BucketName(bn)
+		projectID := dbx.BucketStorageTally_ProjectId(pid[:])
 		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
 		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
 		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
@@ -86,11 +87,13 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 // GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
 func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	pathEl := bytes.Split(bucketID, []byte("/"))
-	_, projectID := pathEl[1], pathEl[0]
+	projectID, _, err := splitBucketID(bucketID)
+	if err != nil {
+		return 0, err
+	}
 	var sum *int64
 	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
-	err = db.db.QueryRow(db.db.Rebind(query), projectID, pb.PieceAction_GET, from).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}

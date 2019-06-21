@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -25,7 +26,7 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
 		testplanet.Config{
 			SatelliteCount:   1,
-			StorageNodeCount: 8,
+			StorageNodeCount: 6,
 			UplinkCount:      1,
 			Reconfigure:      testplanet.DisablePeerCAWhitelist,
 		},
@@ -35,11 +36,14 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 
 	planet.Start(ctx)
 
+	// make sure nodes are refreshed in db
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	run(ctx, planet)
 }
 
 func TestC(t *testing.T) {
-	ctx := testcontext.New(t)
+	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
