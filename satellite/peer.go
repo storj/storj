@@ -623,7 +623,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("nodestats:endpoint"),
 			peer.DB.OverlayCache())
 
-		pb.RegisterNodeStatsServer(peer.Server.PrivateGRPC(), peer.NodeStats.Endpoint)
+		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 	}
 
 	return peer, nil
