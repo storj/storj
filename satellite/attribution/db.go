@@ -9,7 +9,11 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 )
+
+// ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found)
+var ErrBucketNotAttributed = errs.Class("bucket not attributed")
 
 // Info describing value attribution from partner to bucket
 type Info struct {
