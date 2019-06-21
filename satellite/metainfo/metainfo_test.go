@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/uplink/metainfo"
 )
@@ -276,6 +278,11 @@ func TestServiceList(t *testing.T) {
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.Validate = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -297,9 +304,9 @@ func TestCommitSegment(t *testing.T) {
 			redundancy := &pb.RedundancyScheme{
 				MinReq:           1,
 				RepairThreshold:  2,
-				SuccessThreshold: 4,
-				Total:            6,
-				ErasureShareSize: 10,
+				SuccessThreshold: 3,
+				Total:            4,
+				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now()
 			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
@@ -335,6 +342,105 @@ func TestCommitSegment(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "less than or equal to the repair threshold")
+		}
+	})
+}
+
+func TestCreateSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.Validate = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+
+		for _, r := range []struct {
+			rs   *pb.RedundancyScheme
+			fail bool
+		}{
+			{ // error - ErasureShareSize <= 0
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: -1,
+				},
+				fail: true,
+			},
+			{ // error - any of the values are negative
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  -2,
+					SuccessThreshold: 3,
+					Total:            -4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error - MinReq >= RepairThreshold
+				rs: &pb.RedundancyScheme{
+					MinReq:           10,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error - MinReq >= RepairThreshold
+				rs: &pb.RedundancyScheme{
+					MinReq:           2,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error - RepairThreshold >= SuccessThreshol
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  3,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error -  SuccessThreshold >= Total
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  2,
+					SuccessThreshold: 4,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // ok - valid RS parameters
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 256,
+				},
+				fail: false,
+			},
+		} {
+			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now())
+			if r.fail {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		}
 	})
 }
