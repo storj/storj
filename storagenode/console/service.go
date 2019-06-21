@@ -136,21 +136,28 @@ func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID sto
 
 // GetWalletAddress return wallet address of node operator
 func (s *Service) GetWalletAddress(ctx context.Context) string {
+	defer mon.Task()(&ctx)(nil)
+
 	return s.walletAddress
 }
 
 // GetUptime return wallet number of node operator
 func (s *Service) GetUptime(ctx context.Context) time.Duration {
+	defer mon.Task()(&ctx)(nil)
+
 	return time.Now().Sub(s.startedAt)
 }
 
 // GetNodeID return current node id
 func (s *Service) GetNodeID(ctx context.Context) storj.NodeID {
+	defer mon.Task()(&ctx)(nil)
+
 	return s.kademlia.Local().Id
 }
 
 // GetVersion return current node version
 func (s *Service) GetVersion(ctx context.Context) version.Info {
+	defer mon.Task()(&ctx)(nil)
 	return s.versionInfo
 }
 
