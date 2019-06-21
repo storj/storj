@@ -134,6 +134,15 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
 				BwExpiration:         45,
+				RS: metainfo.RSConfig{
+					MaxBufferMem:     memory.Size(256),
+					ErasureShareSize: memory.Size(256),
+					MinThreshold:     (planet.config.StorageNodeCount * 1 / 5),
+					RepairThreshold:  (planet.config.StorageNodeCount * 2 / 5),
+					SuccessThreshold: (planet.config.StorageNodeCount * 3 / 5),
+					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
+					Validate:         false,
+				},
 			},
 			Orders: orders.Config{
 				Expiration: 45 * 24 * time.Hour,
