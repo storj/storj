@@ -84,28 +84,30 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 
 	trustedSatellites := service.trust.GetSatellites((ctx))
 
-	if len(trustedSatellites) > 0 {
-		var group errgroup.Group
-		ctx, cancel := context.WithTimeout(ctx, time.Hour)
-		defer cancel()
-		for _, satellite := range trustedSatellites {
-			satellite := satellite
-			needVoucher, err := service.vouchersdb.NeedVoucher(ctx, satellite, service.expirationBuffer)
-			if err != nil {
-				service.log.Error("getting voucher status", zap.Error(err))
-				return nil
-			}
-			if needVoucher {
-				group.Go(func() error {
-					service.Request(ctx, satellite)
-					return nil
-				})
-			}
-		}
-		_ = group.Wait() // doesn't return errors
-	} else {
-		service.log.Debug("No voucher requests to send")
+	if len(trustedSatellites) <= 0 {
+		service.log.Debug("No trusted satellites configured. No vouchers to request")
+		return nil
 	}
+
+	var group errgroup.Group
+	ctx, cancel := context.WithTimeout(ctx, time.Hour)
+	defer cancel()
+	for _, satellite := range trustedSatellites {
+		satellite := satellite
+		needVoucher, err := service.vouchersdb.NeedVoucher(ctx, satellite, service.expirationBuffer)
+		if err != nil {
+			service.log.Error("getting voucher status", zap.Error(err))
+			return nil
+		}
+		if needVoucher {
+			group.Go(func() error {
+				service.Request(ctx, satellite)
+				return nil
+			})
+		}
+	}
+	_ = group.Wait() // doesn't return errors
+
 	return nil
 }
 
