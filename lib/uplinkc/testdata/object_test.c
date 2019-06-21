@@ -85,8 +85,8 @@ void handle_project(ProjectRef project) {
             require(future_expiration_timestamp == object_meta.expires);
             require((time(NULL) - object_meta.created) <= 2);
             require((time(NULL) - object_meta.modified) <= 2);
-            // TODO: checksum is empty, is this expected?
-//            require(object_meta.checksum_bytes != NULL);
+            require(object_meta.checksum_bytes != NULL);
+            // TODO: checksum is an empty slice in go; is that expected?
 //            require(object_meta.checksum_length != 0);
 
             free_object_meta(&object_meta);
