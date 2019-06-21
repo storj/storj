@@ -96,9 +96,6 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []
 	if err != nil {
 		return err
 	}
-	if err != nil {
-		return err
-	}
 	statement := db.db.Rebind(
 		`INSERT INTO bucket_bandwidth_rollups (bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
