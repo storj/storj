@@ -164,8 +164,8 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 			reputable, err := satellite.Overlay.Service.IsVetted(ctx, node.Id)
 			require.NoError(t, err)
 			require.True(t, reputable)
+			require.NotEqual(t, node.Id, disqualifiedNode)
 		}
-
 	})
 }
 
