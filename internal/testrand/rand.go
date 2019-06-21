@@ -10,6 +10,8 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+func Intn(n int) int { return rand.Intn(n) }
+
 // Int63n returns, as an int64, a non-negative pseudo-random number in [0,n)
 // from the default Source.
 // It panics if n <= 0.
@@ -53,6 +55,13 @@ func NodeID() storj.NodeID {
 	Read(id[:])
 	// set version to 0
 	id[len(id)-1] = 0
+	return id
+}
+
+// PieceID creates a random piece id.
+func PieceID() storj.PieceID {
+	var id storj.PieceID
+	Read(id[:])
 	return id
 }
 
