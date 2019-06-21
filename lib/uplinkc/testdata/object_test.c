@@ -21,24 +21,27 @@ void handle_project(ProjectRef project) {
     char *_err = "";
     char **err = &_err;
 
-    char *bucket_name = "TestBucket";
-
-    BucketConfig config = test_bucket_config();
-    BucketInfo info = create_bucket(project, bucket_name, &config, err);
-    require_noerror(*err);
-    free_bucket_info(&info);
-
+    char *bucket_name = "test-bucket";
     EncryptionAccess access = {{0}};
     memcpy(&access.key, "hello", 5);
 
-    BucketRef bucket = open_bucket(project, bucket_name, access, err);
-    require_noerror(*err);
-
-    char *object_paths[] = {"TestObject1","TestObject2","TestObject3","TestObject4"};
+    char *object_paths[] = {"test-object1","test-object2","test-object3","test-object4"};
     int num_of_objects = 4;
 
     // NB: about +500 years from time of writing
     int64_t future_expiration_timestamp = 17329017831;
+
+    { // create buckets
+        BucketConfig config = test_bucket_config();
+        BucketInfo info = create_bucket(project, bucket_name, &config, err);
+        require_noerror(*err);
+        free_bucket_info(&info);
+    }
+
+    // open bucket
+    BucketRef bucket = open_bucket(project, bucket_name, access, err);
+    require_noerror(*err);
+
 
     for(int i = 0; i < num_of_objects; i++) {
         size_t data_len = 1024 * (i + 1) * (i + 1);
