@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -20,9 +21,6 @@ type CreateRequest struct {
 }
 
 func TestCreateOffer(t *testing.T) {
-	// We can't call this in testplanet
-	t.Parallel()
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -53,15 +51,28 @@ func TestCreateOffer(t *testing.T) {
 			},
 		}
 
+		addr := planet.Satellites[0].Marketing.Listener.Addr()
+
+		var group errgroup.Group
 		for _, offer := range requests {
+			o := offer
+			group.Go(func() error {
+				baseURL := "http://" + addr.String()
 
-			addr := planet.Satellites[0].Marketing.Listener.Addr()
+				_, err := http.PostForm(baseURL+o.Path, o.Values)
+				if err != nil {
+					return err
+				}
 
-			url := "http://" + addr.String() + offer.Path
+				_, err = http.Get(baseURL)
+				if err != nil {
+					return err
+				}
 
-			resp, err := http.PostForm(url, offer.Values)
+				return nil
+			})
+			err := group.Wait()
 			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 	})
 }
