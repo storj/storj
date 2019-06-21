@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"storj.io/storj/storagenode/nodestats"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -19,7 +21,12 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-var mon = monkit.Package()
+var (
+	// SNOServiceErr defines sno service error
+	SNOServiceErr = errs.Class("storage node dashboard service error")
+
+	mon = monkit.Package()
+)
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
@@ -35,6 +42,7 @@ type Service struct {
 	pieceInfoDB pieces.DB
 	kademlia    *kademlia.Kademlia
 	version     *version.Service
+	nodestats   *nodestats.Service
 
 	allocatedBandwidth memory.Size
 	allocatedDiskSpace memory.Size
@@ -45,7 +53,7 @@ type Service struct {
 
 // NewService returns new instance of Service
 func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, version *version.Service,
-	allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
+	nodestats *nodestats.Service, allocatedBandwidth, allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -77,6 +85,7 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 		pieceInfoDB:        pieceInfo,
 		kademlia:           kademlia,
 		version:            version,
+		nodestats:          nodestats,
 		allocatedBandwidth: allocatedBandwidth,
 		allocatedDiskSpace: allocatedDiskSpace,
 		walletAddress:      walletAddress,
@@ -141,17 +150,27 @@ func (s *Service) GetWalletAddress(ctx context.Context) string {
 	return s.walletAddress
 }
 
-// GetUptime return wallet number of node operator
+// GetUptime returns current storagenode uptime
 func (s *Service) GetUptime(ctx context.Context) time.Duration {
 	defer mon.Task()(&ctx)(nil)
-
 	return time.Now().Sub(s.startedAt)
+}
+
+//  GetUptimeCheckForSatellite returns uptime check for the satellite
+func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *nodestats.UptimeCheck, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	uptime, err := s.nodestats.GetUptimeCheckForSatellite(ctx, satelliteID)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	return uptime, nil
 }
 
 // GetNodeID return current node id
 func (s *Service) GetNodeID(ctx context.Context) storj.NodeID {
 	defer mon.Task()(&ctx)(nil)
-
 	return s.kademlia.Local().Id
 }
 
@@ -162,15 +181,13 @@ func (s *Service) GetVersion(ctx context.Context) version.Info {
 }
 
 // CheckVersion checks to make sure the version is still okay, returning an error if not
-func (s *Service) CheckVersion(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (s *Service) CheckVersion(ctx context.Context) error {
+	defer mon.Task()(&ctx)(nil)
 	return s.version.CheckVersion(ctx)
 }
 
 // GetSatellites used to retrieve satellites list
 func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	return s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
 }
