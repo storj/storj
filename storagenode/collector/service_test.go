@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink"
 )
 
 func TestCollector(t *testing.T) {
@@ -31,13 +32,20 @@ func TestCollector(t *testing.T) {
 		_, err := rand.Read(expectedData)
 		require.NoError(t, err)
 
-		// upload some data that expires in 8 days
-		err = planet.Uplinks[0].UploadWithExpiration(ctx,
-			planet.Satellites[0], "testbucket", "test/path",
+		// upload some data to exactly 2 nodes that expires in 8 days
+		err = planet.Uplinks[0].UploadWithExpirationAndConfig(ctx,
+			planet.Satellites[0],
+			&uplink.RSConfig{
+				MinThreshold:     1,
+				RepairThreshold:  1,
+				SuccessThreshold: 2,
+				MaxThreshold:     2,
+			},
+			"testbucket", "test/path",
 			expectedData, time.Now().Add(8*24*time.Hour))
 		require.NoError(t, err)
 
-		// stop planet to prevent audits
+		// stop satellite to prevent audits
 		require.NoError(t, planet.StopPeer(planet.Satellites[0]))
 
 		collections := 0
@@ -75,7 +83,7 @@ func TestCollector(t *testing.T) {
 		}
 
 		require.NotZero(t, collections)
-		require.Equal(t, serialsPresent, 2)
+		require.Equal(t, 2, serialsPresent)
 
 		serialsPresent = 0
 

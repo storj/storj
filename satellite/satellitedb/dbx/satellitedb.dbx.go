@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -17,9 +18,7 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-
 	"github.com/mattn/go-sqlite3"
-	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
