@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/vivint/infectious"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
