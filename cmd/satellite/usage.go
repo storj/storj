@@ -46,6 +46,7 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 		"bytes:BWPut",
 		"bytes:BWGet",
 		"walletAddress",
+		"disqualified",
 	}
 	if err := w.Write(headers); err != nil {
 		return err
@@ -76,6 +77,10 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 }
 
 func structToStringSlice(s *accounting.CSVRow) []string {
+	dqStr := ""
+	if s.Disqualified != nil {
+		dqStr = s.Disqualified.Format("2006-01-02")
+	}
 	record := []string{
 		s.NodeID.String(),
 		s.NodeCreationDate.Format("2006-01-02"),
@@ -87,6 +92,7 @@ func structToStringSlice(s *accounting.CSVRow) []string {
 		strconv.FormatInt(s.PutTotal, 10),
 		strconv.FormatInt(s.GetTotal, 10),
 		s.Wallet,
+		dqStr,
 	}
 	return record
 }
