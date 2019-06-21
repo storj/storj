@@ -203,5 +203,5 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 
 // Close closes the Project.
 func (p *Project) Close() error {
-	return nil
+	return Error.Wrap(p.metainfo.Close())
 }
