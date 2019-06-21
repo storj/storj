@@ -8,9 +8,9 @@
 BucketConfig test_bucket_config() {
     BucketConfig config = {};
 
-    config.path_cipher = 0;
+    config.path_cipher = 1;
 
-    config.encryption_parameters.cipher_suite = 1; // TODO: make a named const
+    config.encryption_parameters.cipher_suite = 2; // TODO: make a named const
     config.encryption_parameters.block_size = 2048;
 
     config.redundancy_scheme.algorithm = 1; // TODO: make a named const
