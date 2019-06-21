@@ -125,7 +125,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key,
+	// TODO(jeff): this is where we would load scope information in.
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(key)
+
+	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), encStore,
 		int(blockSize), storj.Cipher(c.Enc.DataType), c.Client.MaxInlineSize.Int(),
 	)
 	if err != nil {

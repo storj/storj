@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -166,7 +167,12 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		// TODO: fix before the final alpha network wipe
 		encryptionKey = new(storj.Key)
 	}
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), encryptionKey,
+
+	// TODO(jeff): this is where we would load scope information in.
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(encryptionKey)
+
+	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), encStore,
 		memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int(),
 	)
 	if err != nil {

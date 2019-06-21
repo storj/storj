@@ -183,7 +183,11 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	// TODO(jeff): this is where we would load scope information in.
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(&access.Key)
+
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encStore, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}

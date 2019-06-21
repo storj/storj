@@ -29,12 +29,8 @@ type shimStore struct {
 }
 
 // NewStreamStore constructs a Store.
-func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher, inlineThreshold int) (Store, error) {
-	// TODO(jeff): this should accept the encryption store
-	store := encryption.NewStore()
-	store.SetDefaultKey(rootKey)
-
-	typedStore, err := newTypedStreamStore(segments, segmentSize, store, encBlockSize, cipher, inlineThreshold)
+func NewStreamStore(segments segments.Store, segmentSize int64, encStore *encryption.Store, encBlockSize int, cipher storj.Cipher, inlineThreshold int) (Store, error) {
+	typedStore, err := newTypedStreamStore(segments, segmentSize, encStore, encBlockSize, cipher, inlineThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +123,6 @@ func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path storj.P
 		return nil, pb.StreamMeta{}, err
 	}
 
-	// TODO(jeff): this may even be wrong
 	store := encryption.NewStore()
 	store.SetDefaultKey(rootKey)
 
