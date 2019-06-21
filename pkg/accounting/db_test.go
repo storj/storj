@@ -13,7 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -40,20 +40,26 @@ func TestSaveBucketTallies(t *testing.T) {
 	})
 }
 
-func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.BucketTally, []accounting.BucketTally, error) {
-	bucketTallies := make(map[string]*accounting.BucketTally)
+func createBucketStorageTallies(projectID uuid.UUID) (map[paths.BucketID]*accounting.BucketTally, []accounting.BucketTally, error) {
+	bucketTallies := make(map[paths.BucketID]*accounting.BucketTally)
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
 
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := storj.JoinPaths(projectID.String(), bucketName)
-		bucketIDComponents := storj.SplitPath(bucketID)
-
+		bucketID := paths.NewBucketID(projectID, bucketName)
+		// bucketIDComponents, err := metainfo.ParsePath(bucketID)
+		// if err != nil {
+		// 	return nil, nil, err
+		// }
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
+		pid, err := projectID.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
 		tally := accounting.BucketTally{
-			BucketName:     []byte(bucketIDComponents[1]),
-			ProjectID:      []byte(bucketIDComponents[0]),
+			BucketName:     []byte(bucketName),
+			ProjectID:      pid,
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
 			Files:          int64(1),
