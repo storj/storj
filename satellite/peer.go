@@ -392,6 +392,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.CertDB(),
 			peer.DB.Orders(),
 			45*24*time.Hour, // TODO: make it configurable?
+			&pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   config.Kademlia.ExternalAddress,
+			},
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
