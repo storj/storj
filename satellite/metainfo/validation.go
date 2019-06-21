@@ -24,7 +24,12 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-const requestTTL = time.Hour * 4
+const (
+	// BucketNameRestricted feature flag to toggle bucket name validation
+	BucketNameRestricted = false
+
+	requestTTL = time.Hour * 4
+)
 
 var (
 	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
@@ -229,6 +234,10 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 
 	if len(bucket) == 0 {
 		return errs.New("bucket not specified")
+	}
+
+	if !BucketNameRestricted {
+		return nil
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {
