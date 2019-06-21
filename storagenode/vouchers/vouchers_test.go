@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
@@ -18,6 +19,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -41,22 +43,16 @@ func TestVouchersDB(t *testing.T) {
 			Expiration:    expiration,
 		}
 
-		// GetValid with no entry
+		// Test GetValid returns nil result and nil error when result is not found
 		result, err := vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 		assert.Nil(t, result)
 
-		// basic Put test
+		// Test Put returns no error
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
 
-		// basic NeedVoucher test
-		expirationBuffer := 48 * time.Hour
-		need, err := vdb.NeedVoucher(ctx, satellite.ID, expirationBuffer)
-		require.NoError(t, err)
-		require.True(t, need)
-
-		// basic GetValid test
+		// Test GetValid returns accurate voucher
 		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 		require.Equal(t, voucher.SatelliteId, result.SatelliteId)
@@ -69,7 +65,26 @@ func TestVouchersDB(t *testing.T) {
 
 		require.Equal(t, expectedTime, actualTime)
 
-		// Test duplicate satellite id updates voucher
+		// test NeedVoucher returns true if voucher expiration falls within expirationBuffer period
+		// voucher expiration is 24 hours from now
+		expirationBuffer := 48 * time.Hour
+		need, err := vdb.NeedVoucher(ctx, satellite.ID, expirationBuffer)
+		require.NoError(t, err)
+		require.True(t, need)
+
+		// test NeedVoucher returns true if satellite ID does not exist in table
+		need, err = vdb.NeedVoucher(ctx, teststorj.NodeIDFromString("testnodeID"), expirationBuffer)
+		require.NoError(t, err)
+		require.True(t, need)
+
+		// test NeedVoucher returns false if satellite ID exists and expiration does not fall within expirationBuffer period
+		// voucher expiration is 24 hours from now
+		expirationBuffer = 1 * time.Hour
+		need, err = vdb.NeedVoucher(ctx, satellite.ID, expirationBuffer)
+		require.NoError(t, err)
+		require.False(t, need)
+
+		// Test Put with duplicate satellite id updates voucher info
 		voucher.Expiration, err = ptypes.TimestampProto(time.Now().UTC().Add(48 * time.Hour))
 		require.NoError(t, err)
 
@@ -91,6 +106,11 @@ func TestVouchersDB(t *testing.T) {
 func TestVouchersService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Vouchers.Expiration = 1
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
 		node.Vouchers.Loop.Pause()
