@@ -13,7 +13,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -178,7 +177,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      metainfo,
-		project:       kvmetainfo.NewProject(buckets.NewStore(streams), memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
+		project:       kvmetainfo.NewProject(streams, memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
 		encryptionKey: encryptionKey,
 	}, nil
