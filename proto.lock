@@ -143,7 +143,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -169,7 +175,13 @@
         ],
         "package": {
           "name": "repair"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -227,7 +239,13 @@
         ],
         "package": {
           "name": "gc"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -647,7 +665,21 @@
         ],
         "package": {
           "name": "gogoproto"
-        }
+        },
+        "options": [
+          {
+            "name": "java_package",
+            "value": "com.google.protobuf"
+          },
+          {
+            "name": "java_outer_classname",
+            "value": "GoGoProtos"
+          },
+          {
+            "name": "go_package",
+            "value": "github.com/gogo/protobuf/gogoproto"
+          }
+        ]
       }
     },
     {
@@ -1399,7 +1431,13 @@
         ],
         "package": {
           "name": "inspector"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1429,7 +1467,13 @@
         ],
         "package": {
           "name": "objects"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -1808,7 +1852,13 @@
         ],
         "package": {
           "name": "metainfo"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2016,7 +2066,13 @@
         ],
         "package": {
           "name": "node"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2311,7 +2367,13 @@
         ],
         "package": {
           "name": "orders"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2484,7 +2546,13 @@
         ],
         "package": {
           "name": "overlay"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2656,7 +2724,13 @@
         ],
         "package": {
           "name": "piecestore"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2881,7 +2955,13 @@
         ],
         "package": {
           "name": "pointerdb"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -2956,7 +3036,13 @@
         ],
         "package": {
           "name": "streams"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     },
     {
@@ -3034,7 +3120,13 @@
         ],
         "package": {
           "name": "vouchers"
-        }
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
       }
     }
   ]
