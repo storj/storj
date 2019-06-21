@@ -4,12 +4,12 @@
 package orders_test
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -27,9 +27,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(50*memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
@@ -73,9 +71,7 @@ func TestUnableToSendOrders(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := expectedData := testrand.Bytes(50*memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
@@ -122,9 +118,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := expectedData := testrand.Bytes(50*memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)

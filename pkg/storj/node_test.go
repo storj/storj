@@ -159,7 +159,7 @@ func TestNodeID_UnmarshalJSON(t *testing.T) {
 }
 
 func TestNewVersionedID(t *testing.T) {
-	nodeID := testrand.PseudoNodeID()
+	nodeID := testrand.NodeID()
 
 	assert.Equal(t, storj.V0, nodeID.Version().Number)
 

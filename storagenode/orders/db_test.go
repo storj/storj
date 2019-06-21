@@ -4,7 +4,6 @@
 package orders_test
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"storj.io/storj/internal/testidentity"
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -36,7 +36,7 @@ func TestOrders(t *testing.T) {
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
-		serialNumber := newRandomSerial()
+		serialNumber := testrand.SerialNumber()
 
 		// basic test
 		emptyUnsent, err := ordersdb.ListUnsent(ctx, 100)
@@ -127,11 +127,4 @@ func TestOrders(t *testing.T) {
 		}, archived, cmp.Comparer(pb.Equal)))
 
 	})
-}
-
-// TODO: move somewhere better
-func newRandomSerial() storj.SerialNumber {
-	var serial storj.SerialNumber
-	_, _ = rand.Read(serial[:])
-	return serial
 }

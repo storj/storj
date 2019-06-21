@@ -121,7 +121,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	err = f.Encode([]byte("hello, world! __"), output)
 	require.NoError(t, err)
 
-	testNodeID := testrand.PseudoNodeID()
+	testNodeID := testrand.NodeID()
 
 	ctx := context.Background()
 	contained := make(map[int]storj.NodeID)

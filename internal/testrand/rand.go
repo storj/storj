@@ -4,6 +4,8 @@ import (
 	"io"
 	"math/rand"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
 )
@@ -17,12 +19,15 @@ func Int63n(n int64) int64 {
 
 // Read reads pseudo-random data into data.
 func Read(data []byte) {
+	const newSourceThreshold = 64
+	if len(data) < newSourceThreshold {
+		_, _ = rand.Read(data)
+		return
+	}
+
 	src := rand.NewSource(rand.Int63())
 	r := rand.New(src)
-	_, err := r.Read(data)
-	if err != nil {
-		panic(err) // should never happen
-	}
+	_, _ = r.Read(data)
 }
 
 // Bytes generates size amount of random data.
@@ -42,8 +47,8 @@ func Reader() io.Reader {
 	return rand.New(rand.NewSource(rand.Int63()))
 }
 
-// PseudoNodeID creates a random node id.
-func PseudoNodeID() storj.NodeID {
+// NodeID creates a random node id.
+func NodeID() storj.NodeID {
 	var id storj.NodeID
 	Read(id[:])
 	// set version to 0
@@ -70,4 +75,11 @@ func SerialNumber() storj.SerialNumber {
 	var serial storj.SerialNumber
 	Read(serial[:])
 	return serial
+}
+
+// UUID creates a random uuid.
+func UUID() uuid.UUID {
+	var uuid uuid.UUID
+	Read(uuid[:])
+	return uuid
 }
