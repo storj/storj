@@ -137,13 +137,7 @@ func networkTest(flags *Flags, command string, args []string) error {
 		process.Status.Started.Wait()
 	}
 
-	exe := command
-	if execWith != "" {
-		exe = execWith
-		args = append([]string{command}, args...)
-	}
-	cmd := exec.CommandContext(ctx, exe, args...)
-
+	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Env = append(os.Environ(), processes.Env()...)
 	stdout := processes.Output.Prefixed("test:out")
 	stderr := processes.Output.Prefixed("test:err")

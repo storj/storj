@@ -28,7 +28,6 @@ type Flags struct {
 	Postgres string
 }
 
-var execWith string
 var printCommands bool
 
 func main() {
@@ -54,7 +53,6 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.Identities, "identities", "", 10, "number of identities to create")
 
-	rootCmd.PersistentFlags().StringVarP(&execWith, "exec", "", "", "run the binaries with the tool")
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", false, "use configuration values tuned for development")
 

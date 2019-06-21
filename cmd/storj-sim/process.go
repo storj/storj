@@ -174,13 +174,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	defer process.Status.Started.Release()
 	defer process.Status.Exited.Release()
 
-	exe := process.Executable
-	args := process.Arguments[command]
-	if execWith != "" {
-		exe = execWith
-		args = append([]string{exe}, args...)
-	}
-	cmd := exec.CommandContext(ctx, exe, args...)
+	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
 	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
 
