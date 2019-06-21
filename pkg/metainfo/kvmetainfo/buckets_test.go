@@ -32,7 +32,7 @@ const (
 )
 
 func TestBucketsBasic(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		// Create new bucket
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if assert.NoError(t, err) {
@@ -72,7 +72,7 @@ func TestBucketsBasic(t *testing.T) {
 }
 
 func TestBucketsReadWrite(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		// Create new bucket
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if assert.NoError(t, err) {
@@ -112,7 +112,7 @@ func TestBucketsReadWrite(t *testing.T) {
 }
 
 func TestErrNoBucket(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		_, err := db.CreateBucket(ctx, "", nil)
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
@@ -125,7 +125,7 @@ func TestErrNoBucket(t *testing.T) {
 }
 
 func TestBucketCreateCipher(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		forAllCiphers(func(cipher storj.Cipher) {
 			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{PathCipher: cipher})
 			if assert.NoError(t, err) {
@@ -144,7 +144,7 @@ func TestBucketCreateCipher(t *testing.T) {
 }
 
 func TestListBucketsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		_, err := db.ListBuckets(ctx, storj.BucketListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
@@ -164,7 +164,7 @@ func TestListBucketsEmpty(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucketNames := []string{"a", "aa", "b", "bb", "c"}
 
 		for _, name := range bucketNames {
@@ -270,14 +270,14 @@ func getBucketNames(bucketList storj.BucketList) []string {
 	return names
 }
 
-func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
+func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		db, streams, err := newMetainfoParts(planet)
 		require.NoError(t, err)
 
-		test(ctx, planet, db, streams)
+		test(t, ctx, planet, db, streams)
 	})
 }
 

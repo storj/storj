@@ -115,10 +115,9 @@ func (path Encrypted) Less(other Encrypted) bool {
 
 // Iterator allows one to efficiently iterate over components of a path.
 type Iterator struct {
-	raw         string
-	consumed    int
-	hasConsumed bool
-	lastEmpty   bool
+	raw       string
+	consumed  int
+	lastEmpty bool
 }
 
 // NewIterator returns an Iterator for components of the provided raw path.
@@ -127,7 +126,7 @@ func NewIterator(raw string) Iterator {
 }
 
 // Consumed reports how much of the path has been consumed (if any).
-func (pi Iterator) Consumed() (string, bool) { return pi.raw[:pi.consumed], pi.hasConsumed }
+func (pi Iterator) Consumed() string { return pi.raw[:pi.consumed] }
 
 // Remaining reports how much of the path is remaining.
 func (pi Iterator) Remaining() string { return pi.raw[pi.consumed:] }
@@ -140,7 +139,6 @@ func (pi *Iterator) Next() string {
 	if pi.Done() {
 		return ""
 	}
-	pi.hasConsumed = true
 
 	rem := pi.Remaining()
 	if index := strings.IndexByte(rem, '/'); index == -1 {

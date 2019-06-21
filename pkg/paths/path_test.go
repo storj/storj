@@ -10,73 +10,66 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertConsumed(t *testing.T, it Iterator, consumed string, ok bool) {
-	t.Helper()
-	gotConsumed, gotOk := it.Consumed()
-	assert.Equal(t, gotConsumed, consumed)
-	assert.Equal(t, gotOk, ok)
-}
-
 func TestUnencrypted(t *testing.T) {
 	it := NewUnencrypted("foo").Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.False(t, it.Done())
 	assert.Equal(t, it.Next(), "foo")
-	assertConsumed(t, it, "foo", true)
+	assert.Equal(t, it.Consumed(), "foo")
 	assert.True(t, it.Done())
 
 	it = NewUnencrypted("").Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.True(t, it.Done())
 	assert.Equal(t, it.Next(), "")
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 
 	it = NewUnencrypted("foo/").Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.False(t, it.Done())
 	assert.Equal(t, it.Next(), "foo")
-	assertConsumed(t, it, "foo/", true)
+	assert.Equal(t, it.Consumed(), "foo/")
 	assert.False(t, it.Done())
 	assert.Equal(t, it.Next(), "")
-	assertConsumed(t, it, "foo/", true)
+	assert.Equal(t, it.Consumed(), "foo/")
 	assert.True(t, it.Done())
 
 	it = Unencrypted{}.Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.True(t, it.Done())
 	assert.Equal(t, it.Next(), "")
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 }
 
 func TestEncrypted(t *testing.T) {
 	it := NewEncrypted("foo").Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.False(t, it.Done())
 	assert.Equal(t, it.Next(), "foo")
-	assertConsumed(t, it, "foo", true)
+	assert.Equal(t, it.Consumed(), "foo")
 	assert.True(t, it.Done())
 
 	it = NewEncrypted("").Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.True(t, it.Done())
 	assert.Equal(t, it.Next(), "")
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 
 	it = NewEncrypted("foo/").Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.False(t, it.Done())
 	assert.Equal(t, it.Next(), "foo")
-	assertConsumed(t, it, "foo/", true)
+	assert.Equal(t, it.Consumed(), "foo/")
 	assert.False(t, it.Done())
 	assert.Equal(t, it.Next(), "")
-	assertConsumed(t, it, "foo/", true)
+	assert.Equal(t, it.Consumed(), "foo/")
 	assert.True(t, it.Done())
 
 	it = Encrypted{}.Iterator()
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 	assert.True(t, it.Done())
 	assert.Equal(t, it.Next(), "")
-	assertConsumed(t, it, "", false)
+	assert.Equal(t, it.Consumed(), "")
 }
 
 func TestIterator(t *testing.T) {
@@ -100,15 +93,4 @@ func TestIterator(t *testing.T) {
 		}
 		assert.Equal(t, tt.comps, got, errTag)
 	}
-}
-
-func TestIteratorConsumed(t *testing.T) {
-	it := NewIterator("foo")
-	consumed, ok := it.Consumed()
-	assert.Equal(t, consumed, "")
-	assert.False(t, ok)
-	assert.Equal(t, it.Next(), "foo")
-	consumed, ok = it.Consumed()
-	assert.Equal(t, consumed, "foo")
-	assert.True(t, ok)
 }

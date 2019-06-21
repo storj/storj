@@ -144,16 +144,13 @@ func (s *Store) LookupUnencrypted(bucket string, path paths.Unencrypted) (
 	revealed map[string]string, consumed paths.Unencrypted, base *Base) {
 
 	root, ok := s.roots[bucket]
-	if !ok {
-		if s.defaultKey != nil {
-			return nil, paths.Unencrypted{}, &Base{Key: *s.defaultKey}
-		}
-		return nil, paths.Unencrypted{}, nil
-	}
-
-	revealed, rawConsumed, hasRawConsumed, base := root.lookup(path.Iterator(), "", false, nil, true)
-	if hasRawConsumed {
+	if ok {
+		var rawConsumed string
+		revealed, rawConsumed, base = root.lookup(path.Iterator(), "", nil, true)
 		consumed = paths.NewUnencrypted(rawConsumed)
+	}
+	if base == nil && s.defaultKey != nil {
+		return nil, paths.Unencrypted{}, &Base{Key: *s.defaultKey}
 	}
 	return revealed, consumed, base.clone()
 }
@@ -165,28 +162,24 @@ func (s *Store) LookupEncrypted(bucket string, path paths.Encrypted) (
 	revealed map[string]string, consumed paths.Encrypted, base *Base) {
 
 	root, ok := s.roots[bucket]
-	if !ok {
-		if s.defaultKey != nil {
-			return nil, paths.Encrypted{}, &Base{Key: *s.defaultKey}
-		}
-		return nil, paths.Encrypted{}, nil
-	}
-
-	revealed, rawConsumed, hasRawConsumed, base := root.lookup(path.Iterator(), "", false, nil, false)
-	if hasRawConsumed {
+	if ok {
+		var rawConsumed string
+		revealed, rawConsumed, base = root.lookup(path.Iterator(), "", nil, false)
 		consumed = paths.NewEncrypted(rawConsumed)
+	}
+	if base == nil && s.defaultKey != nil {
+		return nil, paths.Encrypted{}, &Base{Key: *s.defaultKey}
 	}
 	return revealed, consumed, base.clone()
 }
 
 // lookup searches for the path in the node tree structure.
-func (n *node) lookup(path paths.Iterator, bestConsumed string, hasBestConsumed bool, bestBase *Base, unenc bool) (
-	map[string]string, string, bool, *Base) {
+func (n *node) lookup(path paths.Iterator, bestConsumed string, bestBase *Base, unenc bool) (
+	map[string]string, string, *Base) {
 
 	// Keep track of the best match so far.
 	if n.base != nil || bestBase == nil {
-		bestConsumed, hasBestConsumed = path.Consumed()
-		bestBase = n.base
+		bestBase, bestConsumed = n.base, path.Consumed()
 	}
 
 	// Pick the tree we're walking down based on the unenc bool.
@@ -198,15 +191,15 @@ func (n *node) lookup(path paths.Iterator, bestConsumed string, hasBestConsumed 
 	// If we're done walking the path, then return our best match along with the
 	// revealed paths at this node.
 	if path.Done() {
-		return revealed, bestConsumed, hasBestConsumed, bestBase
+		return revealed, bestConsumed, bestBase
 	}
 
 	// Walk to the next node in the tree. If there is no node, then report our best match.
 	child, ok := children[path.Next()]
 	if !ok {
-		return nil, bestConsumed, hasBestConsumed, bestBase
+		return nil, bestConsumed, bestBase
 	}
 
 	// Recurse to the next node in the tree.
-	return child.lookup(path, bestConsumed, hasBestConsumed, bestBase, unenc)
+	return child.lookup(path, bestConsumed, bestBase, unenc)
 }
