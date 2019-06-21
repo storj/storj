@@ -85,7 +85,7 @@ func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess C.En
 
 	var access uplink.EncryptionAccess
 	for i := range access.Key {
-		access.Key[i] = byte(encryptionAccess.key[0])
+		access.Key[i] = byte(encryptionAccess.key[i])
 	}
 
 	scope := project.scope.child()
