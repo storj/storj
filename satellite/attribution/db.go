@@ -21,6 +21,7 @@ type Info struct {
 
 // ValueAttributionRow represents data from QueryValueAttribution without exposing dbx
 type ValueAttributionRow struct {
+	PartnerID          []byte
 	ProjectID          []byte
 	BucketName         []byte
 	RemoteBytesPerHour float64

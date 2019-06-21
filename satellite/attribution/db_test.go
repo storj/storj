@@ -138,9 +138,9 @@ func TestQueryValueAttribution(t *testing.T) {
 				projectID:  newUUID(),
 				bucketName: alphaBucket,
 
-				remoteSize: remoteSize,
-				inlineSize: inlineSize,
-				egressSize: egressSize,
+				remoteSize: remoteSize / 2,
+				inlineSize: inlineSize / 2,
+				egressSize: egressSize / 2,
 
 				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
 				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
@@ -152,9 +152,9 @@ func TestQueryValueAttribution(t *testing.T) {
 				projectID:  newUUID(),
 				bucketName: betaBucket,
 
-				remoteSize: remoteSize,
-				inlineSize: inlineSize,
-				egressSize: egressSize,
+				remoteSize: remoteSize / 3,
+				inlineSize: inlineSize / 3,
+				egressSize: egressSize / 3,
 
 				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
 				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
@@ -166,9 +166,9 @@ func TestQueryValueAttribution(t *testing.T) {
 				projectID:  projectID,
 				bucketName: betaBucket,
 
-				remoteSize: remoteSize,
-				inlineSize: inlineSize,
-				egressSize: egressSize,
+				remoteSize: remoteSize / 4,
+				inlineSize: inlineSize / 4,
+				egressSize: egressSize / 4,
 
 				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
 				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
@@ -194,20 +194,24 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 	results, err := attributionDB.QueryValueAttribution(ctx, testData.partnerID, testData.start, testData.end)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
+	count := 0
 	for _, r := range results {
 		projectID, _ := bytesToUUID(r.ProjectID)
 		// The query returns results by partnerID, so we need to filter out by projectID
 		if projectID != testData.projectID {
 			continue
 		}
+		count++
+
 		fmt.Printf("EEEE: %v, %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour, r.EgressData)
-		// TODO assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
+		assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
 		assert.Equal(t, testData.projectID[:], r.ProjectID, testData.name)
 		assert.Equal(t, testData.bucketName, r.BucketName, testData.name)
 		assert.Equal(t, float64(testData.expectedRemoteBytes/testData.hours), r.RemoteBytesPerHour, testData.name)
 		assert.Equal(t, float64(testData.expectedInlineBytes/testData.hours), r.InlineBytesPerHour, testData.name)
 		assert.Equal(t, testData.expectedEgress, r.EgressData, testData.name)
 	}
+	require.NotEqual(t, 0, len(results), "Results were returned, but did not match the projectID.")
 }
 
 func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testData *ValueAttributionTestData) {

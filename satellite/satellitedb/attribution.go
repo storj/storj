@@ -17,40 +17,96 @@ import (
 )
 
 const (
-	valueAttrQuery1 = `SELECT o.project_id as project_id, o.bucket_name as bucket_name, SUM(o.remote)/SUM(o.hours) as remote, SUM(o.inline)/SUM(o.hours) as inline, SUM(o.settled) as settled FROM
-	(
-		-- SUM the storage
-		SELECT bsto.project_id as project_id, bsto.bucket_name as bucket_name, SUM(bsto.remote) as remote, SUM(bsto.inline) as inline, 0 as settled, count(1) as hours FROM
-		(   -- Collapse entries by the latest record in the hour
-			SELECT `
+	valueAttrQuery1 = `
+	SELECT 
+		o.partner_id as partner_id, 
+		o.project_id as project_id, 
+		o.bucket_name as bucket_name, 
+		SUM(o.remote) / SUM(o.hours) as remote, 
+		SUM(o.inline) / SUM(o.hours) as inline, 
+		SUM(o.settled) as settled 
+	FROM 
+		(
+			-- SUM the storage
+			SELECT 
+				bsti.partner_id as partner_id, 
+				bsto.project_id as project_id, 
+				bsto.bucket_name as bucket_name, 
+				SUM(bsto.remote) as remote, 
+				SUM(bsto.inline) as inline, 
+				0 as settled, 
+				count(1) as hours 
+			FROM 
+				(
+					-- Collapse entries by the latest record in the hour
+					SELECT 
+						va.partner_id, 
+	`
 	slHour          = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
 	pqHour          = "date_trunc('hour', bst.interval_start)"
-	valueAttrQuery2 = ` as hours, bst.project_id, bst.bucket_name, MAX(bst.interval_start) as max_interval
-		FROM bucket_storage_tallies bst
-		LEFT OUTER JOIN value_attributions va
-		ON (bst.project_id = va.project_id
-		AND bst.bucket_name = va.bucket_name)
-		WHERE va.partner_id = ?
-		AND bst.interval_start >= ?
-		AND bst.interval_start <  ?
-		GROUP BY bst.project_id, bst.bucket_name, hours
-		ORDER BY max_interval DESC
-	) bsti
-	LEFT JOIN bucket_storage_tallies bsto ON (bsto.project_id = bsti.project_id AND bsto.bucket_name = bsti.bucket_name AND bsto.interval_start = bsti.max_interval)
-	GROUP BY bsto.project_id, bsto.bucket_name
-	UNION
-	-- SUM the bandwidth
-	SELECT bbr.project_id as project_id, bbr.bucket_name as bucket_name, 0 as remote, 0 as inline, SUM(settled) as settled, NULL as hours
-	FROM bucket_bandwidth_rollups bbr
-	LEFT OUTER JOIN value_attributions va
-	ON (bbr.project_id = va.project_id
-	AND bbr.bucket_name = va.bucket_name)
-	WHERE va.partner_id = ?
-	AND bbr.interval_start >= ?
-	AND bbr.interval_start <  ?
-	AND bbr.action = 2
-	GROUP BY bbr.project_id, bbr.bucket_name) AS o
-	GROUP BY o.project_id, o.bucket_name;`
+	valueAttrQuery2 = `
+						as hours, 
+						bst.project_id, 
+						bst.bucket_name, 
+						MAX(bst.interval_start) as max_interval 
+					FROM 
+						bucket_storage_tallies bst 
+						LEFT OUTER JOIN value_attributions va ON (
+							bst.project_id = va.project_id 
+							AND bst.bucket_name = va.bucket_name
+						) 
+					WHERE 
+						va.partner_id = ? 
+						AND bst.interval_start >= ? 
+						AND bst.interval_start < ? 
+					GROUP BY 
+						va.partner_id, 
+						bst.project_id, 
+						bst.bucket_name, 
+						hours 
+					ORDER BY 
+						max_interval DESC
+				) bsti 
+				LEFT JOIN bucket_storage_tallies bsto ON (
+					bsto.project_id = bsti.project_id 
+					AND bsto.bucket_name = bsti.bucket_name 
+					AND bsto.interval_start = bsti.max_interval
+				) 
+			GROUP BY 
+				bsti.partner_id, 
+				bsto.project_id, 
+				bsto.bucket_name 
+			UNION 
+				-- SUM the bandwidth
+			SELECT 
+				va.partner_id as partner_id, 
+				bbr.project_id as project_id, 
+				bbr.bucket_name as bucket_name, 
+				0 as remote, 
+				0 as inline, 
+				SUM(settled) as settled, 
+				NULL as hours 
+			FROM 
+				bucket_bandwidth_rollups bbr 
+				LEFT OUTER JOIN value_attributions va ON (
+					bbr.project_id = va.project_id 
+					AND bbr.bucket_name = va.bucket_name
+				) 
+			WHERE 
+				va.partner_id = ? 
+				AND bbr.interval_start >= ? 
+				AND bbr.interval_start < ? 
+				AND bbr.action = 2 
+			GROUP BY 
+				va.partner_id, 
+				bbr.project_id, 
+				bbr.bucket_name
+		) AS o 
+	GROUP BY 
+		o.partner_id, 
+		o.project_id, 
+		o.bucket_name;
+	`
 
 	slValueAttrQuery = valueAttrQuery1 + slHour + valueAttrQuery2
 	pqValueAttrQuery = valueAttrQuery1 + pqHour + valueAttrQuery2
@@ -114,7 +170,7 @@ func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID 
 	results := make([]*attribution.ValueAttributionRow, 0, 0)
 	for rows.Next() {
 		r := &attribution.ValueAttributionRow{}
-		err := rows.Scan(&r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)
+		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)
 		if err != nil {
 			return results, Error.Wrap(err)
 		}
