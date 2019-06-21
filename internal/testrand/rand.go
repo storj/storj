@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// testrand implements generating random base types for testing.
+// Package testrand implements generating random base types for testing.
 package testrand
 
 import (
@@ -14,6 +14,9 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Intn returns, as an int, a non-negative pseudo-random number in [0,n)
+// from the default Source.
+// It panics if n <= 0.
 func Intn(n int) int { return rand.Intn(n) }
 
 // Int63n returns, as an int64, a non-negative pseudo-random number in [0,n)
