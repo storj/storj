@@ -43,7 +43,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("humanReadableKey is shorter than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := testrand.BytesN(testrand.Intn(100))
+		humanReadableKey := testrand.BytesN(testrand.Intn(storj.KeySize))
 
 		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
