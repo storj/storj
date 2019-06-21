@@ -68,7 +68,10 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 		return C.ObjectMeta{}
 	}
 
-	checksum, checksumLen := bytes_to_cbytes(object.Meta.Checksum)
+	checksumLen := len(object.Meta.Checksum)
+	checksumPtr := C.malloc(C.size_t(checksumLen))
+	checksum := (*[1 << 30]uint8)(checksumPtr)
+	copy((*checksum)[:], object.Meta.Checksum)
 
 	return C.ObjectMeta{
 		bucket:          C.CString(object.Meta.Bucket),
@@ -79,8 +82,8 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 		modified:        C.int64_t(object.Meta.Modified.Unix()),
 		expires:         C.int64_t(object.Meta.Expires.Unix()),
 		size:            C.uint64_t(object.Meta.Size),
-		checksum_bytes:  checksum,
-		checksum_length: checksumLen,
+		checksum_bytes:  (*C.uint8_t)(checksumPtr),
+		checksum_length: C.uint64_t(checksumLen),
 	}
 }
 

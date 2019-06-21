@@ -55,13 +55,3 @@ func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme 
 		total_shares:    C.int16_t(scheme.TotalShares),
 	}
 }
-
-// bytes_to_cbytes converts a byte array to a C uint8_t array
-func bytes_to_cbytes(bytes []byte) (data *C.uint8_t, _ C.uint64_t) {
-	length := len(bytes)
-	ptr := C.malloc(C.size_t(length))
-	mem := (*[1 << 30]uint8)(ptr)
-	copy((*mem)[:], bytes)
-
-	return data, C.uint64_t(length)
-}
