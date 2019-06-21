@@ -146,7 +146,7 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 	// TODO: separate status for disqualified nodes?
 	switch resp.GetStatus() {
 	case pb.VoucherResponse_REJECTED:
-		service.log.Info("Voucher request denied. Node does not meet voucher requirements")
+		service.log.Info("Voucher request denied. Node does not meet voucher requirements: ANY (disqualified?, total audit count, total uptime check count)")
 	case pb.VoucherResponse_ACCEPTED:
 		voucher := resp.GetVoucher()
 
