@@ -62,10 +62,12 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 	defer db.locked()()
 
 	expiresBefore := time.Now().UTC().Add(expirationBuffer)
+
+	// query returns row if voucher is good. If not, it is either expiring or does not exist
 	row := db.db.QueryRow(`
 		SELECT satellite_id
 		FROM vouchers
-		WHERE satellite_id = ? AND expiration < ?
+		WHERE satellite_id = ? AND expiration > ?
 	`, satelliteID, expiresBefore)
 
 	var bytes []byte
@@ -76,7 +78,7 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 		}
 		return false, ErrInfo.Wrap(err)
 	}
-	return true, nil
+	return false, nil
 }
 
 // GetValid returns one valid voucher from the list of approved satellites
