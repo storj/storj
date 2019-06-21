@@ -63,7 +63,7 @@ func TestC(t *testing.T) {
 			t.Run(filepath.Base(ctest), func(t *testing.T) {
 				t.Parallel()
 
-				testexe := ctx.CompileC(t, ctest, libuplink, definition, testcontext.CLibMath)
+				testexe := ctx.CompileC(t, ctest, libuplink, definition)
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)
