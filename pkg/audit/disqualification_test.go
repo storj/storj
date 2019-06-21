@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/uplink"
 )
 
 func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
@@ -30,8 +29,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
-		disqualifiedNode := planet.StorageNodes[0]
-		uplinkNode := planet.Uplinks[0]
+		upl := planet.Uplinks[0]
 
 		err := satellite.Audit.Service.Close()
 		require.NoError(t, err)
@@ -40,39 +38,34 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = uplinkNode.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     2,
-			RepairThreshold:  3,
-			SuccessThreshold: 4,
-			MaxThreshold:     4,
-		}, "testbucket", "test/path", testData)
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
-
-		disqualifyNode(t, ctx, satellite, disqualifiedNode.ID())
-
-		listResponse, _, err := satellite.Metainfo.Service.List(ctx, "", "", "", true, 0, 0)
+		pointer, err := satellite.Metainfo.Service.Get(ctx)
 		require.NoError(t, err)
 
-		var path string
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = satellite.Metainfo.Service.Get(ctx, path)
-			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
+		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
+		disqualifyNode(t, ctx, satellite, disqualifiedNode)
+
+		request := overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 4,
+			RequestedCount:       0,
+			FreeBandwidth:        0,
+			FreeDisk:             0,
+			ExcludedNodes:        nil,
+			MinimumVersion:       "", // semver or empty
 		}
-		limits, err := satellite.Orders.Service.CreateGetOrderLimits(ctx, uplinkNode.Identity.PeerIdentity(), bucketID, pointer)
-		require.NoError(t, err)
+		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, request)
+		require.IsType(t, overlay.ErrNotEnoughNodes, err)
 
-		for _, orderLimit := range limits {
-			require.NotEqual(t, orderLimit.StorageNodeAddress.Address, disqualifiedNode.Addr())
+		require.NotEmpty(t, nodes)
+		for _, node := range nodes {
+			reputable, err := satellite.Overlay.Service.IsVetted(ctx, node.Id)
+			require.NoError(t, err)
+			require.True(t, reputable)
 		}
 
 	})
@@ -80,8 +73,8 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 
-	// - uploads random data
 	// - mark a node as disqualified
+	// -
 	// - check we don't get it when we want to upload a segment (this should raise an error)
 
 	testplanet.Run(t, testplanet.Config{
@@ -89,7 +82,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		disqualifiedNode := planet.StorageNodes[0]
-		uplinkNode := planet.Uplinks[0]
+		upl := planet.Uplinks[0]
 
 		err := satellite.Audit.Service.Close()
 		require.NoError(t, err)
@@ -124,9 +117,9 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 		require.NoError(t, err)
 
-		apiKey := uplinkNode.APIKey[satellite.ID()]
+		apiKey := upl.APIKey[satellite.ID()]
 
-		metainfo, err := uplinkNode.DialMetainfo(ctx, satellite, apiKey)
+		metainfo, err := upl.DialMetainfo(ctx, satellite, apiKey)
 		require.NoError(t, err)
 
 		_, _, err = metainfo.CreateSegment(ctx, "testbucket", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
