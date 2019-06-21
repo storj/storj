@@ -124,21 +124,21 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 }
 
 //export upload_write
-func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (writeLength C.int) {
+func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) (writeLength C.size_t) {
 	upload, ok := universe.Get(uploader._handle).(*Upload)
 	if !ok {
 		*cErr = C.CString("invalid uploader")
-		return C.int(0)
+		return C.size_t(0)
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := upload.wc.Write(buf)
 	if err == io.EOF {
-		return C.int(0)
+		return C.size_t(0)
 	}
 
-	return C.int(n)
+	return C.size_t(n)
 }
 
 //export upload_commit
@@ -241,21 +241,21 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.
 }
 
 //export download_read
-func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, cErr **C.char) (readLength C.int) {
+func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t, cErr **C.char) C.size_t {
 	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {
 		*cErr = C.CString("invalid downloader")
-		return C.int(0)
+		return C.size_t(0)
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(buf)
 	if err == io.EOF {
-		return C.int(0)
+		return C.size_t(0)
 	}
 
-	return C.int(n)
+	return C.size_t(n)
 }
 
 //export download_close
