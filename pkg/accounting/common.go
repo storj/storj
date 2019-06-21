@@ -31,4 +31,5 @@ type CSVRow struct {
 	PutTotal          int64
 	GetTotal          int64
 	Wallet            string
+	Disqualified      *time.Time
 }
