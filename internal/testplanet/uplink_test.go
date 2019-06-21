@@ -155,6 +155,8 @@ func TestUplinksParallel(t *testing.T) {
 					if !bytes.Equal(data, downloaded) {
 						return fmt.Errorf("upload != download data: %s", suffix)
 					}
+
+					return nil
 				})
 			}
 		}
