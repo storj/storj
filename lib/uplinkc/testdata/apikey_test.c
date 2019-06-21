@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
 
         char *apikeySerialized = serialize_api_key(apikey, err);
         require_noerror(*err);
+
         requiref(strcmp(apikeySerialized, apikeyStr) == 0,
             "got invalid serialized %s expected %s\n", apikeySerialized, apikeyStr);
         free(apikeySerialized);

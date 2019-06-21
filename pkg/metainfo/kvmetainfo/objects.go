@@ -139,12 +139,18 @@ func (db *DB) ModifyObject(ctx context.Context, bucket string, path storj.Path) 
 func (db *DB) DeleteObject(ctx context.Context, bucket string, path storj.Path) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	store, err := db.buckets.GetObjectStore(ctx, bucket)
+	bucketInfo, err := db.GetBucket(ctx, bucket)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrBucketNotFound.Wrap(err)
+		}
 		return err
 	}
-
-	return store.Delete(ctx, path)
+	prefixed := prefixedObjStore{
+		store:  objects.NewStore(db.streams, bucketInfo.PathCipher),
+		prefix: bucket,
+	}
+	return prefixed.Delete(ctx, path)
 }
 
 // ModifyPendingObject creates an interface for updating a partially uploaded object
@@ -168,9 +174,9 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 		return storj.ObjectList{}, err
 	}
 
-	objects, err := db.buckets.GetObjectStore(ctx, bucket)
-	if err != nil {
-		return storj.ObjectList{}, err
+	objects := prefixedObjStore{
+		store:  objects.NewStore(db.streams, bucketInfo.PathCipher),
+		prefix: bucket,
 	}
 
 	var startAfter, endBefore string
