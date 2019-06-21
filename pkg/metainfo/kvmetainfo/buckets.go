@@ -79,7 +79,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		"default-rs-total":  strconv.Itoa(int(info.RedundancyScheme.TotalShares)),
 	}
 	var exp time.Time
-	m, err := db.bucketStore.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
+	m, err := db.buckets.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	if err != nil {
 		return storj.Bucket{}, err
 	}
@@ -114,7 +114,7 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 		return storj.ErrNoBucket.New("")
 	}
 
-	err = db.bucketStore.Delete(ctx, bucketName)
+	err = db.buckets.Delete(ctx, bucketName)
 
 	if storage.ErrKeyNotFound.Has(err) {
 		err = storj.ErrBucketNotFound.Wrap(err)
@@ -131,7 +131,7 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (bucketInfo
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
-	objMeta, err := db.bucketStore.Meta(ctx, bucketName)
+	objMeta, err := db.buckets.Meta(ctx, bucketName)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrBucketNotFound.Wrap(err)
@@ -169,7 +169,7 @@ func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
 	}
 
-	objItems, more, err := db.bucketStore.List(ctx, "", startAfter, endBefore, false, options.Limit, meta.Modified)
+	objItems, more, err := db.buckets.List(ctx, "", startAfter, endBefore, false, options.Limit, meta.Modified)
 	if err != nil {
 		return storj.BucketList{}, err
 	}

@@ -12,7 +12,7 @@ import (
 
 // Project implements project management operations
 type Project struct {
-	bucketStore        objects.Store
+	buckets            objects.Store
 	streams            streams.Store
 	encryptedBlockSize int32
 	redundancy         eestream.RedundancyStrategy
@@ -22,7 +22,7 @@ type Project struct {
 // NewProject constructs a *Project
 func NewProject(streams streams.Store, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
 	return &Project{
-		bucketStore:        objects.NewStore(streams, storj.Unencrypted),
+		buckets:            objects.NewStore(streams, storj.Unencrypted),
 		streams:            streams,
 		encryptedBlockSize: encryptedBlockSize,
 		redundancy:         redundancy,
