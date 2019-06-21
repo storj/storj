@@ -43,6 +43,20 @@ type Uplink struct {
 	APIKey           map[storj.NodeID]string
 }
 
+// newUplinks creates initializes uplinks, requires peer to have at least one satellite
+func (planet *Planet) newUplinks(prefix string, count, storageNodeCount int) ([]*Uplink, error) {
+	var xs []*Uplink
+	for i := 0; i < count; i++ {
+		uplink, err := planet.newUplink(prefix+strconv.Itoa(i), storageNodeCount)
+		if err != nil {
+			return nil, err
+		}
+		xs = append(xs, uplink)
+	}
+
+	return xs, nil
+}
+
 // newUplink creates a new uplink
 func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, error) {
 	identity, err := planet.NewIdentity()
