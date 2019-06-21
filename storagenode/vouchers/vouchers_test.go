@@ -109,6 +109,7 @@ func TestVouchersService(t *testing.T) {
 		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Vouchers.Expiration = time.Hour
 				config.Overlay.Node.AuditCount = 1
 				config.Audit.Interval = time.Hour
 			},
@@ -158,6 +159,25 @@ func TestVouchersService(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, voucher)
 		}
+
+		// Check expiration is updated
+		oldVoucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{planet.Satellites[0].ID()})
+		require.NoError(t, err)
+
+		// Run service and get new voucher with new expiration
+		err = node.Vouchers.RunOnce(ctx)
+		require.NoError(t, err)
+
+		newVoucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{planet.Satellites[0].ID()})
+		require.NoError(t, err)
+
+		// assert old expiration is before new expiration
+		oldExpiration, err := ptypes.Timestamp(oldVoucher.GetExpiration())
+		require.NoError(t, err)
+		newExpiration, err := ptypes.Timestamp(newVoucher.GetExpiration())
+		require.NoError(t, err)
+
+		assert.True(t, oldExpiration.Before(newExpiration))
 	})
 }
 
