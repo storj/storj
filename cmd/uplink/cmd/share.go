@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/lib/uplink"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/process"
@@ -151,7 +152,19 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	scope := &uplink.Scope{
+		SatelliteAddr:    cfg.Client.SatelliteAddr,
+		APIKey:           key,
+		EncryptionAccess: access,
+	}
+
+	scopeData, err := scope.Serialize()
+	if err != nil {
+		return err
+	}
+
 	fmt.Println("api key:", key.Serialize())
 	fmt.Println("enc ctx:", accessData)
+	fmt.Println("scope  :", scopeData)
 	return nil
 }
