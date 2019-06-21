@@ -48,8 +48,8 @@ func convertMeta(lastSegmentMeta segments.Meta, stream pb.StreamInfo, streamMeta
 	}
 }
 
-// Store interface methods for streams to satisfy to be a store
-type Store interface {
+// typedStore interface methods for streams to satisfy to be a store
+type typedStore interface {
 	Meta(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (Meta, error)
 	Get(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (ranger.Ranger, Meta, error)
 	Put(ctx context.Context, path storj.Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (Meta, error)
@@ -57,7 +57,8 @@ type Store interface {
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
 }
 
-// streamStore is a store for streams
+// streamStore is a store for streams. It implements typedStore as part of an ongoing migration
+// to use typed paths. See the shim for the store that the rest of the world interacts with.
 type streamStore struct {
 	segments        segments.Store
 	segmentSize     int64
@@ -67,8 +68,8 @@ type streamStore struct {
 	inlineThreshold int
 }
 
-// NewStreamStore stuff
-func NewStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher, inlineThreshold int) (Store, error) {
+// newTypedStreamStore constructs a typedStore backed by a streamStore.
+func newTypedStreamStore(segments segments.Store, segmentSize int64, rootKey *storj.Key, encBlockSize int, cipher storj.Cipher, inlineThreshold int) (Store, error) {
 	if segmentSize <= 0 {
 		return nil, errs.New("segment size must be larger than 0")
 	}
