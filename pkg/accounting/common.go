@@ -21,15 +21,14 @@ const (
 
 // CSVRow represents data from QueryPaymentInfo without exposing dbx
 type CSVRow struct {
-	NodeID            storj.NodeID
-	NodeCreationDate  time.Time
-	AuditSuccessRatio float64
-	AtRestTotal       float64
-	GetRepairTotal    int64
-	PutRepairTotal    int64
-	GetAuditTotal     int64
-	PutTotal          int64
-	GetTotal          int64
-	Wallet            string
-	Disqualified      *time.Time
+	NodeID           storj.NodeID
+	NodeCreationDate time.Time
+	AtRestTotal      float64
+	GetRepairTotal   int64
+	PutRepairTotal   int64
+	GetAuditTotal    int64
+	PutTotal         int64
+	GetTotal         int64
+	Wallet           string
+	Disqualified     *time.Time
 }

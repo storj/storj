@@ -839,6 +839,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN uptime_reputation_beta double precision NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				Description: "Remove ratio columns from node reputations",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_success_ratio;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_ratio;`,
+				},
+			},
 		},
 	}
 }
