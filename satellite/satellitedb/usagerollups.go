@@ -34,7 +34,7 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?
 		GROUP BY action`)
 
-	rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, []byte(projectID.String()), since, before)
+	rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], since, before)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (db *usagerollups) GetProjectTotal(ctx context.Context, projectID uuid.UUID
 	bucketsTallies := make(map[string]*[]*dbx.BucketStorageTally)
 	for _, bucket := range buckets {
 		storageTallies, err := storageQuery(ctx,
-			dbx.BucketStorageTally_ProjectId([]byte(projectID.String())),
+			dbx.BucketStorageTally_ProjectId(projectID[:]),
 			dbx.BucketStorageTally_BucketName([]byte(bucket)),
 			dbx.BucketStorageTally_IntervalStart(since),
 			dbx.BucketStorageTally_IntervalStart(before))
@@ -124,7 +124,7 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, []byte(projectID.String()), []byte(bucket), since, before)
+		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
@@ -153,7 +153,7 @@ func (db *usagerollups) GetBucketUsageRollups(ctx context.Context, projectID uui
 		}
 
 		bucketStorageTallies, err := storageQuery(ctx,
-			dbx.BucketStorageTally_ProjectId([]byte(projectID.String())),
+			dbx.BucketStorageTally_ProjectId(projectID[:]),
 			dbx.BucketStorageTally_BucketName([]byte(bucket)),
 			dbx.BucketStorageTally_IntervalStart(since),
 			dbx.BucketStorageTally_IntervalStart(before))
@@ -210,7 +210,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 
 	countRow := db.db.QueryRowContext(ctx,
 		countQuery,
-		[]byte(projectID.String()),
+		projectID[:],
 		since, before,
 		search)
 
@@ -234,7 +234,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 
 	bucketRows, err := db.db.QueryContext(ctx,
 		bucketsQuery,
-		[]byte(projectID.String()),
+		projectID[:],
 		since, before,
 		search,
 		page.Limit,
@@ -277,7 +277,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 		}
 
 		// get bucket_bandwidth_rollups
-		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, []byte(projectID.String()), []byte(bucket), since, before)
+		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
@@ -301,7 +301,7 @@ func (db *usagerollups) GetBucketTotals(ctx context.Context, projectID uuid.UUID
 
 		bucketUsage.Egress = memory.Size(totalEgress).GB()
 
-		storageRow := db.db.QueryRowContext(ctx, storageQuery, []byte(projectID.String()), []byte(bucket), since, before)
+		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +338,7 @@ func (db *usagerollups) getBuckets(ctx context.Context, projectID uuid.UUID, sin
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND interval_start >= ? AND interval_start <= ?`)
 
-	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, []byte(projectID.String()), since, before)
+	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
 	if err != nil {
 		return nil, err
 	}
