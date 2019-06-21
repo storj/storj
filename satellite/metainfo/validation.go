@@ -243,6 +243,8 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 		return Error.New("bucket name must be at least 3 and no more than 63 characters long")
 	}
 
+	// Regexp not used because benchmark shows it will be slower for valid bucket names
+	// https://gist.github.com/mniewrzal/49de3af95f36e63e88fac24f565e444c
 	labels := bytes.Split(bucket, []byte("."))
 	for _, label := range labels {
 		err = validateBucketLabel(label)
