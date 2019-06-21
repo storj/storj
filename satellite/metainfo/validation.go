@@ -12,7 +12,6 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -233,7 +232,7 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	defer mon.Task()(&ctx)(&err)
 
 	if len(bucket) == 0 {
-		return errs.New("bucket not specified")
+		return Error.New("bucket not specified")
 	}
 
 	if !BucketNameRestricted {
@@ -241,7 +240,7 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {
-		return errs.New("bucket name must be at least 3 and no more than 63 characters long")
+		return Error.New("bucket name must be at least 3 and no more than 63 characters long")
 	}
 
 	labels := bytes.Split(bucket, []byte("."))
@@ -253,7 +252,7 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	}
 
 	if ipRegexp.MatchString(string(bucket)) {
-		return errs.New("bucket name cannot be formatted as an IP address")
+		return Error.New("bucket name cannot be formatted as an IP address")
 	}
 
 	return nil
@@ -261,20 +260,20 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 
 func validateBucketLabel(label []byte) error {
 	if len(label) == 0 {
-		return errs.New("bucket label cannot be empty")
+		return Error.New("bucket label cannot be empty")
 	}
 
 	if !isLowerLetter(label[0]) && !isDigit(label[0]) {
-		return errs.New("bucket label must start with a lowercase letter or number")
+		return Error.New("bucket label must start with a lowercase letter or number")
 	}
 
 	if label[0] == '-' || label[len(label)-1] == '-' {
-		return errs.New("bucket label cannot start or end with a hyphen")
+		return Error.New("bucket label cannot start or end with a hyphen")
 	}
 
 	for i := 1; i < len(label)-1; i++ {
 		if !isLowerLetter(label[i]) && !isDigit(label[i]) && (label[i] != '-') && (label[i] != '.') {
-			return errs.New("bucket name must contain only lowercase letters, numbers or hyphens")
+			return Error.New("bucket name must contain only lowercase letters, numbers or hyphens")
 		}
 	}
 
