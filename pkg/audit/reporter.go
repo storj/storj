@@ -65,8 +65,8 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 
 	var errlist errs.Group
 
-	retries := 0
-	for retries < reporter.maxRetries {
+	tries := 0
+	for tries <= reporter.maxRetries {
 		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
 			return nil, nil
 		}
@@ -98,11 +98,11 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 			}
 		}
 
-		retries++
+		tries++
 	}
 
 	err = errlist.Err()
-	if retries >= reporter.maxRetries && err != nil {
+	if tries >= reporter.maxRetries && err != nil {
 		return &Report{
 			Successes:     successes,
 			Fails:         fails,
