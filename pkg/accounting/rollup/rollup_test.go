@@ -38,6 +38,7 @@ func TestRollupNoDeletes(t *testing.T) {
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			dqedNodes, err := dqNodes(ctx, planet)
 			require.NoError(t, err)
+			require.NotEmpty(t, dqedNodes)
 
 			days := 5
 			testData := createData(planet, days)
@@ -108,6 +109,7 @@ func TestRollupDeletes(t *testing.T) {
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 			dqedNodes, err := dqNodes(ctx, planet)
 			require.NoError(t, err)
+			require.NotEmpty(t, dqedNodes)
 
 			days := 5
 			testData := createData(planet, days)
