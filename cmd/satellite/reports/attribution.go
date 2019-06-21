@@ -76,7 +76,7 @@ func csvRowToStringSlice(p *attribution.ValueAttributionRow) ([]string, error) {
 	inlineGBPerHour := memory.Size(p.InlineBytesPerHour).GB()
 	egressGBData := memory.Size(p.EgressData).GB()
 	record := []string{
-		string(projectID.String()),
+		projectID.String(),
 		string(p.BucketName),
 		strconv.FormatFloat(remoteGBPerHour, 'f', 4, 64),
 		strconv.FormatFloat(inlineGBPerHour, 'f', 4, 64),

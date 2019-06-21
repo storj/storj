@@ -176,6 +176,7 @@ func TestQueryValueAttribution(t *testing.T) {
 			}}
 
 		for _, td := range testData {
+			td := td
 			td.init()
 			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, time.Time{}}
 			_, err := db.Attribution().Insert(ctx, &info)

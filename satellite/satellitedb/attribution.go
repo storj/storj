@@ -5,8 +5,8 @@ package satellitedb
 
 import (
 	"context"
-	"time"
 	"database/sql"
+	"time"
 
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
