@@ -14,8 +14,8 @@ typedef enum CipherSuite {
 } CipherSuite;
 
 typedef enum RedundancyAlgorithm {
-    STORJ_INVALID_REDUNDANCY_ALGORITHM,
-    STORJ_REED_SOLOMON
+    STORJ_INVALID_REDUNDANCY_ALGORITHM = 0,
+    STORJ_REED_SOLOMON                 = 1
 } RedundancyAlgorithm;
 
 typedef struct APIKey     { long _handle; } APIKeyRef;
