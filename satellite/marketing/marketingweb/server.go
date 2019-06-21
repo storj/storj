@@ -6,6 +6,7 @@ package marketingweb
 import (
 	"context"
 	"html/template"
+	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -36,7 +37,7 @@ type Config struct {
 // Server represents marketing offersweb server
 type Server struct {
 	log         *zap.Logger
-	Config      Config
+	config      Config
 	listener    net.Listener
 	server      http.Server
 	service     *marketing.Service
@@ -45,6 +46,7 @@ type Server struct {
 		home          *template.Template
 		pageNotFound  *template.Template
 		internalError *template.Template
+		badRequest	  *template.Template
 	}
 }
 
@@ -53,9 +55,9 @@ type offerSet struct {
 	RefOffers, FreeCredits []marketing.Offer
 }
 
-// init safely registers the timeConverter for the decoder.
+// init safely registers convertStringToTime for the decoder.
 func init() {
-	decoder.RegisterConverter(time.Time{}, timeConverter)
+	decoder.RegisterConverter(time.Time{}, convertStringToTime)
 }
 
 // organizeOffers organizes offers by type.
@@ -76,7 +78,7 @@ func organizeOffers(offers []marketing.Offer) offerSet {
 	return os
 }
 
-// CommonPages returns templates that are required for everything.
+// commonPages returns templates that are required for all routes.
 func (s *Server) commonPages() []string {
 	return []string{
 		filepath.Join(s.templateDir, "base.html"),
@@ -90,22 +92,22 @@ func (s *Server) commonPages() []string {
 func NewServer(logger *zap.Logger, config Config, service *marketing.Service, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,
-		Config:   config,
+		config:   config,
 		listener: listener,
 		service:  service,
 	}
 
 	logger.Sugar().Debugf("Starting Marketing Admin UI on %s...", s.listener.Addr().String())
-	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.Config.StaticDir)))
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(s.config.StaticDir)))
 	mux := mux.NewRouter()
-	if s.Config.StaticDir != "" {
-		mux.HandleFunc("/", s.getOffers)
+	if s.config.StaticDir != "" {
+		mux.HandleFunc("/", s.GetOffers)
 		mux.PathPrefix("/static/").Handler(fs)
 		mux.HandleFunc("/create/{offer_type}", s.CreateOffer)
 	}
 	s.server.Handler = mux
 
-	s.templateDir = filepath.Join(s.Config.StaticDir, "pages")
+	s.templateDir = filepath.Join(s.config.StaticDir, "pages")
 
 	if err := s.parseTemplates(); err != nil {
 		return nil, Error.Wrap(err)
@@ -114,14 +116,14 @@ func NewServer(logger *zap.Logger, config Config, service *marketing.Service, li
 	return s, nil
 }
 
-// getOffers renders the tables for free credits and referral offers to the UI
-func (s *Server) getOffers(w http.ResponseWriter, req *http.Request) {
+// GetOffers renders the tables for free credits and referral offers to the UI
+func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		s.serveNotFound(w, req)
 		return
 	}
 
-	offers, err := s.service.ListAllOffers(context.Background())
+	offers, err := s.service.ListAllOffers(req.Context())
 	if err != nil {
 		s.log.Error("failed to retrieve all offers", zap.Error(err))
 		s.serveInternalError(w, req, err)
@@ -152,6 +154,10 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "internal-server-error.html"),
 	)
 
+	badRequestFiles := append(s.commonPages(),
+	filepath.Join(s.templateDir, "bad-request.html"),
+)
+
 	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
@@ -167,13 +173,19 @@ func (s *Server) parseTemplates() (err error) {
 		return Error.Wrap(err)
 	}
 
+	s.templates.badRequest, err = template.New("bad-request-error").ParseFiles(badRequestFiles...)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
-// timeConverter formats form time input as time.Time.
-func timeConverter(value string) reflect.Value {
+// convertStringToTime formats form time input as time.Time.
+func convertStringToTime(value string) reflect.Value {
 	v, err := time.Parse("2006-01-02", value)
 	if err != nil {
+		log.Println("invalid decoder value")
 		return reflect.Value{}
 	}
 	return reflect.ValueOf(v)
@@ -197,7 +209,7 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	o, err := formToStruct(w, req)
 	if err != nil {
 		s.log.Error("failed to convert form to struct", zap.Error(err))
-		s.serveInternalError(w, req, err)
+		s.serveBadRequest(w, req, err)
 		return
 	}
 
@@ -210,9 +222,9 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		o.Type = marketing.FreeCredit
 	}
 
-	if _, err := s.service.InsertNewOffer(context.Background(), &o); err != nil {
+	if _, err := s.service.InsertNewOffer(req.Context(), &o); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
-		s.serveInternalError(w, req, err)
+		s.serveBadRequest(w, req, err)
 		return
 	}
 
@@ -231,12 +243,22 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// serveInternalError handles 500 errors and renders err to the internalErr template.
-func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, e error) {
+// serveInternalError handles 500 errors and renders err to the internal-server-error template.
+func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, errMsg error) {
 
 	w.WriteHeader(http.StatusInternalServerError)
 
-	if err := s.templates.internalError.ExecuteTemplate(w, "base", e); err != nil {
+	if err := s.templates.internalError.ExecuteTemplate(w, "base", errMsg); err != nil {
+		s.log.Error("failed to execute template", zap.Error(err))
+	}
+}
+
+// serveBadRequest handles 400 errors and renders err to the bad-request template.
+func (s *Server) serveBadRequest(w http.ResponseWriter, req *http.Request, errMsg error) {
+
+	w.WriteHeader(http.StatusInternalServerError)
+
+	if err := s.templates.internalError.ExecuteTemplate(w, "base", errMsg); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 	}
 }
