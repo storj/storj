@@ -45,15 +45,13 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
-
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
 		bucketID := storj.JoinPaths(projectID.String(), bucketName)
-		bucketIDComponents := storj.SplitPath(bucketID)
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		tally := accounting.BucketTally{
-			BucketName:     []byte(bucketIDComponents[1]),
-			ProjectID:      []byte(bucketIDComponents[0]),
+			BucketName:     []byte(bucketName),
+			ProjectID:      projectID[:],
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
 			Files:          int64(1),

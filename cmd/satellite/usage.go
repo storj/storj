@@ -38,7 +38,6 @@ func generateCSV(ctx context.Context, start time.Time, end time.Time, output io.
 	headers := []string{
 		"nodeID",
 		"nodeCreationDate",
-		"auditSuccessRatio",
 		"byte-hours:AtRest",
 		"bytes:BWRepair-GET",
 		"bytes:BWRepair-PUT",
@@ -84,7 +83,6 @@ func structToStringSlice(s *accounting.CSVRow) []string {
 	record := []string{
 		s.NodeID.String(),
 		s.NodeCreationDate.Format("2006-01-02"),
-		strconv.FormatFloat(s.AuditSuccessRatio, 'f', 5, 64),
 		strconv.FormatFloat(s.AtRestTotal, 'f', 5, 64),
 		strconv.FormatInt(s.GetRepairTotal, 10),
 		strconv.FormatInt(s.PutRepairTotal, 10),

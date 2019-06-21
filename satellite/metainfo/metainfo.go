@@ -59,11 +59,12 @@ type Endpoint struct {
 	containment    Containment
 	apiKeys        APIKeys
 	createRequests *createRequests
+	rsConfig       RSConfig
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
+	apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
@@ -74,6 +75,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
 		createRequests: newCreateRequests(),
+		rsConfig:       rsConfig,
 	}
 }
 
