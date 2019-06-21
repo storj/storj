@@ -103,18 +103,14 @@ type DB interface {
 // Config is the global config satellite
 type Config struct {
 	Identity identity.Config
-
-	// TODO: switch to using server.Config when Identity has been removed from it
-	Server server.Config
+	Server   server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
 	Metainfo metainfo.Config
-	Orders   struct {
-		Expiration time.Duration `help:"how long until an order expires" default:"1080h"`
-	}
+	Orders   orders.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -128,8 +124,7 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-
-	Vouchers vouchers.Config
+	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -381,9 +376,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup orders
 		log.Debug("Setting up orders")
-		if config.Orders.Expiration <= 0 {
-			config.Orders.Expiration = 45 * 24 * time.Hour
-		}
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
