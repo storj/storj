@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -67,9 +68,9 @@ func TestProjectUsageStorage(t *testing.T) {
 				expectedData := make([]byte, 50*memory.KiB)
 				_, err = rand.Read(expectedData)
 				require.NoError(t, err)
-
+				path := paths.NewUnencrypted("test/path")
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
-				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", path, expectedData)
 				if testCase.expectedResource == "storage" {
 					assert.EqualError(t, actualErr, testCase.expectedErrMsg)
 				} else {
@@ -121,7 +122,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				_, err = rand.Read(expectedData)
 				require.NoError(t, err)
 
-				filePath := "test/path"
+				filePath := paths.NewUnencrypted("test/path")
 				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, filePath, expectedData)
 				require.NoError(t, err)
 
