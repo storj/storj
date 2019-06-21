@@ -539,6 +539,7 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 	}
 
 	if !attribution.ErrBucketNotAttributed.Has(err) {
+		// try only to set the attribution, when it's missing
 		return nil, Error.Wrap(err)
 	}
 
@@ -553,7 +554,7 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 	}
 
 	if len(items) > 0 {
-		return nil, Error.New("Bucket(%s) , PartnerID(%q) cannot be attributed", string(req.BucketName), req.PartnerId)
+		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.BucketName, req.PartnerId)
 	}
 
 	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
