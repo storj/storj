@@ -6,12 +6,21 @@ package uplink
 import (
 	"context"
 
+	"github.com/vivint/infectious"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
+	"storj.io/storj/pkg/storage/segments"
+	"storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/metainfo"
+)
+
+var (
+	maxBucketMetaSize = 10 * memory.MiB
 )
 
 // Config represents configuration options for an Uplink
@@ -128,6 +137,23 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: find a better way to create rs
+	whoCares := 1
+	fc, err := infectious.NewFEC(whoCares, whoCares)
+	if err != nil {
+		return nil, Error.New("failed to create erasure coding client: %v", err)
+	}
+	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
+	if err != nil {
+		return nil, Error.New("failed to create redundancy strategy: %v", err)
+	}
+	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
+
+	// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
+	// TODO: fix before the final alpha network wipe
+	encryptionKey := new(storj.Key)
+	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), encryptionKey, memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int())
 
 	return &Project{
 		uplinkCfg:     u.cfg,

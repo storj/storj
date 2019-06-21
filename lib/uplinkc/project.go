@@ -6,10 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
-	"unsafe"
-
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 // Project is a scoped uplink.Project
