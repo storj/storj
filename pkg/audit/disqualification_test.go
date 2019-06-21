@@ -48,7 +48,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		prevReputation := calculateStorageNodeReputation(dossier)
+		prevReputation := calcReputation(dossier)
 
 		// Report the audit failure until the node gets disqualified due to many
 		// failed audits
@@ -59,7 +59,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 			require.NoError(t, err)
 
-			reputation := calculateStorageNodeReputation(dossier)
+			reputation := calcReputation(dossier)
 			require.Truef(t, prevReputation >= reputation,
 				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
 				n, prevReputation, reputation,
@@ -84,7 +84,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	})
 }
 
-func calculateStorageNodeReputation(dossier *overlay.NodeDossier) float64 {
+func calcReputation(dossier *overlay.NodeDossier) float64 {
 	var (
 		alpha = dossier.Reputation.AuditReputationAlpha
 		beta  = dossier.Reputation.AuditReputationBeta
