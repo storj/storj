@@ -529,7 +529,7 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 	// check if attribution is set for given bucket
 	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
 	if err != nil {
-		if attribution.ErrNoAttributionFound.Has(err) {
+		if attribution.ErrBucketNotAttributed.Has(err) {
 			//handle bucket attribution
 			prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
 			if err != nil {

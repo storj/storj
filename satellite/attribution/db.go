@@ -12,8 +12,8 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// ErrNoAttributionFound is returned if a node does not exist in database
-var ErrNoAttributionFound = errs.Class("bucket not attributed")
+// ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found)
+var ErrBucketNotAttributed = errs.Class("bucket not attributed")
 
 // Info describing value attribution from partner to bucket
 type Info struct {
