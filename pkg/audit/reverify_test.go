@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/pkg/paths"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -18,7 +20,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -43,7 +44,8 @@ func TestReverifySuccess(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		metainfo := planet.Satellites[0].Metainfo.Service
@@ -71,7 +73,7 @@ func TestReverifySuccess(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
@@ -125,8 +127,8 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
-
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		metainfo := planet.Satellites[0].Metainfo.Service
@@ -154,7 +156,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
@@ -214,8 +216,8 @@ func TestReverifyFailBadData(t *testing.T) {
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
-
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		metainfo := planet.Satellites[0].Metainfo.Service
@@ -289,8 +291,8 @@ func TestReverifyOffline(t *testing.T) {
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
-
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -367,7 +369,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		metainfo := planet.Satellites[0].Metainfo.Service
@@ -460,7 +463,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -493,7 +497,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			5*time.Second)
 
 		// delete the file
-		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", testPath)
 		require.NoError(t, err)
 
 		report, err := verifier.Reverify(ctx, stripe)
@@ -525,7 +529,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -558,7 +563,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			5*time.Second)
 
 		// replace the file
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		report, err := verifier.Reverify(ctx, stripe)
