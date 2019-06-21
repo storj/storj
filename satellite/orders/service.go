@@ -22,6 +22,11 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Config is a configuration struct for orders Service.
+type Config struct {
+	Expiration time.Duration `help:"how long until an order expires" default:"1080h"`
+}
+
 // Service for creating order limits.
 type Service struct {
 	log              *zap.Logger
