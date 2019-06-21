@@ -188,5 +188,5 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 // still be called to allow forward compatibility. No Project or Bucket
 // objects using this Uplink should be used after calling Close.
 func (u *Uplink) Close() error {
-	return nil
+	return Error.Wrap(u.metainfo.Close())
 }
