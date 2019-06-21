@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -33,7 +32,7 @@ const (
 )
 
 func TestBucketsBasic(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		// Create new bucket
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if assert.NoError(t, err) {
@@ -72,13 +71,15 @@ func TestBucketsBasic(t *testing.T) {
 	})
 }
 
-func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, bucketStore buckets.Store, streams streams.Store) {
-		// (Old API) Create new bucket
-		_, err := bucketStore.Put(ctx, TestBucket, buckets.Meta{PathEncryptionType: storj.AESGCM})
-		assert.NoError(t, err)
+func TestBucketsReadWrite(t *testing.T) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+		// Create new bucket
+		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
+		if assert.NoError(t, err) {
+			assert.Equal(t, TestBucket, bucket.Name)
+		}
 
-		// (New API) Check that bucket list include the new bucket
+		// Check that bucket list include the new bucket
 		bucketList, err := db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
@@ -86,71 +87,32 @@ func TestBucketsReadNewWayWriteOldWay(t *testing.T) {
 			assert.Equal(t, TestBucket, bucketList.Items[0].Name)
 		}
 
-		// (New API) Check that we can get the new bucket explicitly
-		bucket, err := db.GetBucket(ctx, TestBucket)
+		// Check that we can get the new bucket explicitly
+		bucket, err = db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
 			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
 		}
 
-		// (Old API) Delete the bucket
-		err = bucketStore.Delete(ctx, TestBucket)
+		// Delete the bucket
+		err = db.DeleteBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 
-		// (New API) Check that the bucket list is empty
+		// Check that the bucket list is empty
 		bucketList, err = db.ListBuckets(ctx, storj.BucketListOptions{Direction: storj.After})
 		if assert.NoError(t, err) {
 			assert.False(t, bucketList.More)
 			assert.Equal(t, 0, len(bucketList.Items))
 		}
 
-		// (New API) Check that the bucket cannot be get explicitly
+		// Check that the bucket cannot be get explicitly
 		bucket, err = db.GetBucket(ctx, TestBucket)
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
 	})
 }
 
-func TestBucketsReadOldWayWriteNewWay(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
-		// (New API) Create new bucket
-		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
-		if assert.NoError(t, err) {
-			assert.Equal(t, TestBucket, bucket.Name)
-		}
-
-		// (Old API) Check that bucket list include the new bucket
-		items, more, err := buckets.List(ctx, "", "", 0)
-		if assert.NoError(t, err) {
-			assert.False(t, more)
-			assert.Equal(t, 1, len(items))
-			assert.Equal(t, TestBucket, items[0].Bucket)
-		}
-
-		// (Old API) Check that we can get the new bucket explicitly
-		meta, err := buckets.Get(ctx, TestBucket)
-		if assert.NoError(t, err) {
-			assert.Equal(t, storj.AESGCM, meta.PathEncryptionType)
-		}
-
-		// (New API) Delete the bucket
-		err = db.DeleteBucket(ctx, TestBucket)
-		assert.NoError(t, err)
-
-		// (Old API) Check that the bucket list is empty
-		items, more, err = buckets.List(ctx, "", "", 0)
-		if assert.NoError(t, err) {
-			assert.False(t, more)
-			assert.Equal(t, 0, len(items))
-		}
-
-		// (Old API) Check that the bucket cannot be get explicitly
-		_, err = buckets.Get(ctx, TestBucket)
-		assert.True(t, storj.ErrBucketNotFound.Has(err))
-	})
-}
-
 func TestErrNoBucket(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		_, err := db.CreateBucket(ctx, "", nil)
 		assert.True(t, storj.ErrNoBucket.Has(err))
 
@@ -163,7 +125,7 @@ func TestErrNoBucket(t *testing.T) {
 }
 
 func TestBucketCreateCipher(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		forAllCiphers(func(cipher storj.Cipher) {
 			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{PathCipher: cipher})
 			if assert.NoError(t, err) {
@@ -182,7 +144,7 @@ func TestBucketCreateCipher(t *testing.T) {
 }
 
 func TestListBucketsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		_, err := db.ListBuckets(ctx, storj.BucketListOptions{})
 		assert.EqualError(t, err, "kvmetainfo: invalid direction 0")
 
@@ -202,7 +164,7 @@ func TestListBucketsEmpty(t *testing.T) {
 }
 
 func TestListBuckets(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucketNames := []string{"a", "aa", "b", "bb", "c"}
 
 		for _, name := range bucketNames {
@@ -308,30 +270,30 @@ func getBucketNames(bucketList storj.BucketList) []string {
 	return names
 }
 
-func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmetainfo.DB, buckets.Store, streams.Store)) {
+func runTest(t *testing.T, test func(context.Context, *testplanet.Planet, *kvmetainfo.DB, streams.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, buckets, streams, err := newMetainfoParts(planet)
+		db, streams, err := newMetainfoParts(planet)
 		require.NoError(t, err)
 
-		test(ctx, planet, db, buckets, streams)
+		test(ctx, planet, db, streams)
 	})
 }
 
-func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store, streams.Store, error) {
+func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
 		Name: "testProject",
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	apiKeyInfo := console.APIKeyInfo{
@@ -343,23 +305,23 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	// add api key to db
 	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], apiKey.Serialize())
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, 1*memory.KiB.Int()), 0, 0)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	segments := segments.NewSegmentStore(metainfo, ec, rs, 8*memory.KiB.Int(), 8*memory.MiB.Int64())
@@ -372,12 +334,10 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	inlineThreshold := 8 * memory.KiB.Int()
 	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, blockSize, storj.AESGCM, inlineThreshold)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	buckets := buckets.NewStore(streams)
-
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, int32(blockSize), rs, 64*memory.MiB.Int64()), buckets, streams, nil
+	return kvmetainfo.New(metainfo, streams, segments, key, int32(blockSize), rs, 64*memory.MiB.Int64()), streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {

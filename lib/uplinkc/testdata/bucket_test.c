@@ -6,23 +6,23 @@
 
 #include "require.h"
 #include "uplink.h"
-#include "helpers2.h"
+#include "helpers.h"
 
 void handle_project(ProjectRef project);
 
 int main(int argc, char *argv[]) {
-    with_test_project(&handle_project);
+    with_test_project(&handle_project, NULL);
 }
 
 void handle_project(ProjectRef project) {
     char *_err = "";
     char **err = &_err;
 
-    char *bucket_names[] = {"TestBucket1", "TestBucket2", "TestBucket3", "TestBucket4"};
+    char *bucket_names[] = {"test-bucket1", "test-bucket2", "test-bucket3", "test-bucket4"};
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // TODO: test with different bucket configs
-    {// Create buckets
+    { // Create buckets
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
 

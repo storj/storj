@@ -4,12 +4,19 @@
 package kvmetainfo
 
 import (
+	"bytes"
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storage/buckets"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storage"
 )
 
 // CreateBucket creates a new bucket with the specified information
@@ -54,17 +61,33 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		return bucketInfo, err
 	}
 
-	meta, err := db.buckets.Put(ctx, bucketName, buckets.Meta{
-		PathEncryptionType: info.PathCipher,
-		SegmentsSize:       info.SegmentsSize,
-		RedundancyScheme:   info.RedundancyScheme,
-		EncryptionScheme:   info.EncryptionParameters.ToEncryptionScheme(),
-	})
+	if info.PathCipher < storj.Unencrypted || info.PathCipher > storj.SecretBox {
+		return storj.Bucket{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", info.PathCipher)
+	}
+
+	r := bytes.NewReader(nil)
+	userMeta := map[string]string{
+		"path-enc-type":     strconv.Itoa(int(info.PathCipher)),
+		"default-seg-size":  strconv.FormatInt(info.SegmentsSize, 10),
+		"default-enc-type":  strconv.Itoa(int(info.EncryptionParameters.CipherSuite.ToCipher())),
+		"default-enc-blksz": strconv.FormatInt(int64(info.EncryptionParameters.BlockSize), 10),
+		"default-rs-algo":   strconv.Itoa(int(info.RedundancyScheme.Algorithm)),
+		"default-rs-sharsz": strconv.FormatInt(int64(info.RedundancyScheme.ShareSize), 10),
+		"default-rs-reqd":   strconv.Itoa(int(info.RedundancyScheme.RequiredShares)),
+		"default-rs-repair": strconv.Itoa(int(info.RedundancyScheme.RepairShares)),
+		"default-rs-optim":  strconv.Itoa(int(info.RedundancyScheme.OptimalShares)),
+		"default-rs-total":  strconv.Itoa(int(info.RedundancyScheme.TotalShares)),
+	}
+	var exp time.Time
+	m, err := db.buckets.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
 	if err != nil {
 		return storj.Bucket{}, err
 	}
 
-	return bucketFromMeta(bucketName, meta), nil
+	rv := *info
+	rv.Name = bucketName
+	rv.Created = m.Modified
+	return rv, nil
 }
 
 // validateBlockSize confirms the encryption block size aligns with stripe size.
@@ -91,7 +114,13 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 		return storj.ErrNoBucket.New("")
 	}
 
-	return db.buckets.Delete(ctx, bucketName)
+	err = db.buckets.Delete(ctx, bucketName)
+
+	if storage.ErrKeyNotFound.Has(err) {
+		err = storj.ErrBucketNotFound.Wrap(err)
+	}
+
+	return err
 }
 
 // GetBucket gets bucket information
@@ -102,12 +131,15 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (bucketInfo
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 
-	meta, err := db.buckets.Get(ctx, bucketName)
+	objMeta, err := db.buckets.Meta(ctx, bucketName)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrBucketNotFound.Wrap(err)
+		}
 		return storj.Bucket{}, err
 	}
 
-	return bucketFromMeta(bucketName, meta), nil
+	return bucketFromMeta(ctx, bucketName, objMeta)
 }
 
 // ListBuckets lists buckets
@@ -137,30 +169,67 @@ func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		endBefore = "\x7f\x7f\x7f\x7f\x7f\x7f\x7f"
 	}
 
-	items, more, err := db.buckets.List(ctx, startAfter, endBefore, options.Limit)
+	objItems, more, err := db.buckets.List(ctx, "", startAfter, endBefore, false, options.Limit, meta.Modified)
 	if err != nil {
 		return storj.BucketList{}, err
 	}
 
 	list = storj.BucketList{
 		More:  more,
-		Items: make([]storj.Bucket, 0, len(items)),
+		Items: make([]storj.Bucket, 0, len(objItems)),
 	}
 
-	for _, item := range items {
-		list.Items = append(list.Items, bucketFromMeta(item.Bucket, item.Meta))
+	for _, itm := range objItems {
+		if itm.IsPrefix {
+			continue
+		}
+		m, err := bucketFromMeta(ctx, itm.Path, itm.Meta)
+		if err != nil {
+			return storj.BucketList{}, err
+		}
+		list.Items = append(list.Items, m)
 	}
 
 	return list, nil
 }
 
-func bucketFromMeta(bucketName string, meta buckets.Meta) storj.Bucket {
-	return storj.Bucket{
-		Name:                 bucketName,
-		Created:              meta.Created,
-		PathCipher:           meta.PathEncryptionType,
-		SegmentsSize:         meta.SegmentsSize,
-		RedundancyScheme:     meta.RedundancyScheme,
-		EncryptionParameters: meta.EncryptionScheme.ToEncryptionParameters(),
+func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	out.Name = bucketName
+	out.Created = m.Modified
+	// backwards compatibility for old buckets
+	out.PathCipher = storj.AESGCM
+	out.EncryptionParameters.CipherSuite = storj.EncUnspecified
+
+	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
+		if err != nil {
+			return
+		}
+		if stringVal := m.UserDefined[nameInMap]; stringVal != "" {
+			var intVal int64
+			intVal, err = strconv.ParseInt(stringVal, 10, bits)
+			if err != nil {
+				err = errs.New("invalid metadata field for %s: %v", nameInMap, err)
+				return
+			}
+			storeFunc(intVal)
+		}
 	}
+
+	es := &out.EncryptionParameters
+	rs := &out.RedundancyScheme
+
+	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.Cipher(v) })
+	applySetting("default-seg-size", 64, func(v int64) { out.SegmentsSize = v })
+	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.Cipher(v).ToCipherSuite() })
+	applySetting("default-enc-blksz", 32, func(v int64) { es.BlockSize = int32(v) })
+	applySetting("default-rs-algo", 32, func(v int64) { rs.Algorithm = storj.RedundancyAlgorithm(v) })
+	applySetting("default-rs-sharsz", 32, func(v int64) { rs.ShareSize = int32(v) })
+	applySetting("default-rs-reqd", 16, func(v int64) { rs.RequiredShares = int16(v) })
+	applySetting("default-rs-repair", 16, func(v int64) { rs.RepairShares = int16(v) })
+	applySetting("default-rs-optim", 16, func(v int64) { rs.OptimalShares = int16(v) })
+	applySetting("default-rs-total", 16, func(v int64) { rs.TotalShares = int16(v) })
+
+	return out, err
 }

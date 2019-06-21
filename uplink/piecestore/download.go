@@ -5,6 +5,7 @@ package piecestore
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/zeebo/errs"
@@ -174,7 +175,15 @@ func (client *Download) Read(data []byte) (read int, err error) {
 }
 
 // Close closes the downloading.
-func (client *Download) Close() error {
+func (client *Download) Close() (err error) {
+	defer func() {
+		if err != nil {
+			details := errs.Class(fmt.Sprintf("(Node ID: %s, Piece ID: %s)", client.peer.ID.String(), client.limit.PieceId.String()))
+			err = details.Wrap(err)
+			err = Error.Wrap(err)
+		}
+	}()
+
 	alldone := client.read == client.downloadSize
 
 	// close our sending end
@@ -184,16 +193,16 @@ func (client *Download) Close() error {
 
 	if alldone {
 		// if we are all done, then we expecte io.EOF, but don't care about them
-		return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
+		return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
 	}
 
 	if client.unread.Errored() {
 		// something went wrong and we didn't manage to download all the content
-		return Error.Wrap(errs.Combine(client.unread.Error(), closeErr, recvErr))
+		return errs.Combine(client.unread.Error(), closeErr, recvErr)
 	}
 
 	// we probably closed download early, so we can ignore io.EOF-s
-	return Error.Wrap(errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr)))
+	return errs.Combine(ignoreEOF(closeErr), ignoreEOF(recvErr))
 }
 
 // ReadBuffer implements buffered reading with an error.
