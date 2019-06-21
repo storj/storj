@@ -4,7 +4,6 @@
 package accounting_test
 
 import (
-	"crypto/rand"
 	"fmt"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -64,9 +64,7 @@ func TestProjectUsageStorage(t *testing.T) {
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)
 
 				// Setup: create some bytes for the uplink to upload
-				expectedData := make([]byte, 50*memory.KiB)
-				_, err = rand.Read(expectedData)
-				require.NoError(t, err)
+				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 				actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
@@ -117,9 +115,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				}
 
 				// Setup: create some bytes for the uplink to upload to test the download later
-				expectedData := make([]byte, 50*memory.KiB)
-				_, err = rand.Read(expectedData)
-				require.NoError(t, err)
+				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
 				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, filePath, expectedData)
@@ -286,9 +282,7 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		require.Equal(t, project.UsageLimit, limit.Int64())
 
 		// Setup: create some bytes for the uplink to upload
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err = rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
 		actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
