@@ -142,7 +142,7 @@ func TestVouchersService(t *testing.T) {
 
 func TestVerifyVoucher(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 1,
+		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.StorageNodes[0].Vouchers
 		service.Loop.Pause()
