@@ -9,5 +9,6 @@ module.exports = {
           args[0].template = './index.html'
           return args
         })
-    }
+    },
+    publicPath: "/static/dist"
 };

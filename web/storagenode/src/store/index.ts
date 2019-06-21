@@ -4,12 +4,14 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
 import { ACTIONS, MUTATIONS } from '@/utils/constants';
+import { httpGet } from '@/api/storagenode';
 
 Vue.use(Vuex);
 
 // storage node store (vuex)
 const store = new Vuex.Store({
     state: {
+        nodeInfo: {},
         node: {
             id: '12QKex7UUaFeX728x6divdRUApCsm2QybxTdvuWbG1SRdmJqfd1',
             status: 'Online',
@@ -69,10 +71,20 @@ const store = new Vuex.Store({
     },
 
     mutations: {
-
+        [MUTATIONS.POPULATE_STORE](state: any, nodeInfo: any): void {
+            state.nodeInfo = nodeInfo;
+        },
     },
     actions: {
+        [ACTIONS.GET_NODE_INFO]: async function ({commit}: any, url: string): Promise<any> {
+            let response = await httpGet(url);
+            if (response.ok) {
+                commit(MUTATIONS.POPULATE_STORE, response);
+                return;
+            }
 
+            console.error(response.error.message);
+        }
     },
 });
 

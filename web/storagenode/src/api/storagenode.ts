@@ -1,29 +1,26 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import apolloManager from '@/utils/apolloManager';
-import gql from 'graphql-tag';
 
-export async function test(nodeId: string): Promise<number> {
-    try {
-        let response: any = await apolloManager.query(
-            {
-                query: gql(`
-                    query {
-                        
-                    }`
-                ),
-                fetchPolicy: 'no-cache',
-            }
-        );
+/**
+ * Implementation for HTTP GET requests
+ * @param {string} url
+ */
+export async function httpGet(url) {
+    let response = await fetch(url);
 
-        if (response.errors) {
-            return 0;
-        }
+    if (response.ok) {
+        return response.json();
+    }
 
-        return response.data.isNodeUp ? 1 : 0;
+    return processResponseError(response);
+}
 
-    } catch (e) {
-        return 0;
+function processResponseError(response) {
+    switch (response.status) {
+        case 401:
+            window.location.href = '/login';
+        default:
+            return { isSuccess: false, error: { code: response.status, message: response.statusText } };
     }
 }
