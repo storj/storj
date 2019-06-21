@@ -30,11 +30,18 @@ var (
 	Error = errs.Class("metainfo error")
 )
 
-// Client creates a grpcClient
-type Client struct {
+// Metainfo creates a grpcClient
+type Metainfo struct {
 	client pb.MetainfoClient
-	conn   *grpc.ClientConn
 }
+
+// New used as a public function
+func New(gcclient pb.MetainfoClient) (metainfo *Metainfo) {
+	return &Metainfo{client: gcclient}
+}
+
+// a compiler trick to make sure *Metainfo implements Client
+var _ Client = (*Metainfo)(nil)
 
 // ListItem is a single item in a listing
 type ListItem struct {
@@ -43,13 +50,19 @@ type ListItem struct {
 	IsPrefix bool
 }
 
-// New used as a public function
-func New(client pb.MetainfoClient) *Client {
-	return &Client{client: client}
+// Client interface for the Metainfo service
+type Client interface {
+	CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) ([]*pb.AddressedOrderLimit, storj.PieceID, error)
+	CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (*pb.Pointer, error)
+	SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, error)
+	ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (*pb.Pointer, []*pb.AddressedOrderLimit, error)
+	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
+	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
+	SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) error
 }
 
-// Dial initializes a new metainfo client
-func Dial(ctx context.Context, tc transport.Client, address string, apiKey string) (*Client, error) {
+// NewClient initializes a new metainfo client
+func NewClient(ctx context.Context, tc transport.Client, address string, apiKey string) (*Metainfo, error) {
 	apiKeyInjector := grpcauth.NewAPIKeyInjector(apiKey)
 	conn, err := tc.DialAddress(
 		ctx,
@@ -60,19 +73,11 @@ func Dial(ctx context.Context, tc transport.Client, address string, apiKey strin
 		return nil, Error.Wrap(err)
 	}
 
-	return &Client{client: pb.NewMetainfoClient(conn)}, nil
-}
-
-// Close closes the underlying connection.
-func (metainfo *Client) Close() error {
-	if metainfo.conn != nil {
-		return Error.Wrap(metainfo.conn.Close())
-	}
-	return nil
+	return &Metainfo{client: pb.NewMetainfoClient(conn)}, nil
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (metainfo *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
+func (metainfo *Metainfo) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var exp *timestamp.Timestamp
@@ -99,7 +104,7 @@ func (metainfo *Client) CreateSegment(ctx context.Context, bucket string, path s
 }
 
 // CommitSegment requests to store the pointer for the segment
-func (metainfo *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (savedPointer *pb.Pointer, err error) {
+func (metainfo *Metainfo) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
@@ -117,7 +122,7 @@ func (metainfo *Client) CommitSegment(ctx context.Context, bucket string, path s
 }
 
 // SegmentInfo requests the pointer of a segment
-func (metainfo *Client) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
+func (metainfo *Metainfo) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.SegmentInfo(ctx, &pb.SegmentInfoRequest{
@@ -136,7 +141,7 @@ func (metainfo *Client) SegmentInfo(ctx context.Context, bucket string, path sto
 }
 
 // ReadSegment requests the order limits for reading a segment
-func (metainfo *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, err error) {
+func (metainfo *Metainfo) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
@@ -173,7 +178,7 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 }
 
 // DeleteSegment requests the order limits for deleting a segment
-func (metainfo *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, err error) {
+func (metainfo *Metainfo) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.DeleteSegment(ctx, &pb.SegmentDeleteRequest{
@@ -192,7 +197,7 @@ func (metainfo *Client) DeleteSegment(ctx context.Context, bucket string, path s
 }
 
 // ListSegments lists the available segments
-func (metainfo *Client) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
+func (metainfo *Metainfo) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := metainfo.client.ListSegments(ctx, &pb.ListSegmentsRequest{
@@ -222,7 +227,7 @@ func (metainfo *Client) ListSegments(ctx context.Context, bucket string, prefix,
 }
 
 // SetAttribution tries to set the attribution information on the bucket.
-func (metainfo *Client) SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) (err error) {
+func (metainfo *Metainfo) SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = metainfo.client.SetAttribution(ctx, &pb.SetAttributionRequest{

@@ -69,8 +69,6 @@ func TestInvalidAPIKey(t *testing.T) {
 
 		_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, false)
-
-		require.NoError(t, client.Close())
 	}
 }
 
@@ -180,7 +178,6 @@ func TestRestrictedAPIKey(t *testing.T) {
 		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
-		require.NoError(t, client.Close())
 	}
 }
 
@@ -284,7 +281,6 @@ func TestCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
 
 		{
 			// error if pointer is nil
@@ -351,7 +347,6 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
@@ -429,7 +424,6 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
 
 		for _, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
@@ -458,7 +452,6 @@ func TestSetAttribution(t *testing.T) {
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
 
 		partnerID, err := uuid.New()
 		require.NoError(t, err)
@@ -483,7 +476,7 @@ func TestSetAttribution(t *testing.T) {
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)

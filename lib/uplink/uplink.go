@@ -142,7 +142,7 @@ type ProjectOptions struct {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	metainfo, err := metainfo.Dial(ctx, u.tc, satelliteAddr, apiKey.Serialize())
+	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
 	if err != nil {
 		return nil, err
 	}
@@ -188,5 +188,5 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 // still be called to allow forward compatibility. No Project or Bucket
 // objects using this Uplink should be used after calling Close.
 func (u *Uplink) Close() error {
-	return Error.Wrap(u.metainfo.Close())
+	return nil
 }

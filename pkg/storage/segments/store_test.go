@@ -268,7 +268,6 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
 
 		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 		fc, err := infectious.NewFEC(2, 4)
