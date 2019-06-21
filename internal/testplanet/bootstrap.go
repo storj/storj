@@ -23,7 +23,6 @@ import (
 
 // newBootstrap initializes the bootstrap node
 func (planet *Planet) newBootstrap() (peer *bootstrap.Peer, err error) {
-	// TODO: move into separate file
 	defer func() {
 		planet.peers = append(planet.peers, closablePeer{peer: peer})
 	}()

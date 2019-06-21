@@ -35,7 +35,6 @@ import (
 
 // newSatellites initializes satellites
 func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
-	// TODO: move into separate file
 	var xs []*satellite.Peer
 	defer func() {
 		for _, x := range xs {

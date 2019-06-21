@@ -27,7 +27,6 @@ import (
 
 // newStorageNodes initializes storage nodes
 func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []string) ([]*storagenode.Peer, error) {
-	// TODO: move into separate file
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
