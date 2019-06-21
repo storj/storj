@@ -62,15 +62,13 @@ func (cfg *BucketConfig) clone() *BucketConfig {
 	return &clone
 }
 
+// TODO: is this the best way to do this?
 func (cfg *BucketConfig) setDefaults() {
 	if cfg.PathCipher == storj.EncUnspecified {
 		cfg.PathCipher = defaultCipher
 	}
 	if cfg.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		cfg.EncryptionParameters.CipherSuite = defaultCipher
-	}
-	if cfg.EncryptionParameters.BlockSize == 0 {
-		cfg.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
 	}
 	if cfg.Volatile.RedundancyScheme.RequiredShares == 0 {
 		cfg.Volatile.RedundancyScheme.RequiredShares = 29
@@ -86,6 +84,9 @@ func (cfg *BucketConfig) setDefaults() {
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
+	}
+	if cfg.EncryptionParameters.BlockSize == 0 {
+		cfg.EncryptionParameters.BlockSize = cfg.Volatile.RedundancyScheme.ShareSize * int32(cfg.Volatile.RedundancyScheme.RequiredShares)
 	}
 	if cfg.Volatile.SegmentsSize.Int() == 0 {
 		cfg.Volatile.SegmentsSize = 64 * memory.MiB
@@ -124,7 +125,7 @@ type BucketListOptions = storj.BucketListOptions
 func (p *Project) ListBuckets(ctx context.Context, opts *BucketListOptions) (bl storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts == nil {
-		opts = &BucketListOptions{}
+		opts = &BucketListOptions{Direction: storj.Forward}
 	}
 	return p.project.ListBuckets(ctx, *opts)
 }
@@ -183,7 +184,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher)
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}

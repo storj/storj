@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This design doc outlines how we will implement node disqualification, wherein a storage node is deemed permanently inelligible for storing new data via uploads.
+This design doc outlines how we will implement node disqualification, wherein a storage node is deemed permanently ineligible for storing new data via uploads.
 
 Nodes can be disqualified due to audit failures, failures to return data during repair, or poor uptime statistics.
 
@@ -21,15 +21,15 @@ The whitepaper section 4.15 and 4.16 talk about disqualification mode as follows
 
 'Failing to return data' is clarified to mean during an audit or a repair. Failure to return data to uplinks is specifically excluded, as this would imply a robust system of trust that does not currently exist. "Filter these nodes out from future uploads" has been clarified to mean that we want to stop any transactions with these nodes:  upload and downloading including repair and graceful exist.  In effect, the satellite should do no business with a disqualified node.
 
-'Regardless of... the vetting process' is highlighted to show that both vetted and new nodes may be disqualified.  We explicitly do not want to give new nodes a window where we enforce rules less rigorously.  The data science team's initial whitepapers assumed that repuation should be earned over time.  If this assumption is kept, we will need to develop a sliding-scale algorithm to determine the disqualification cutoff for nodes gaining repuation.  A simpler solution may be to set the initial repuation value (via α0, β0) to above the disqualification cutoff.
+'Regardless of... the vetting process' is highlighted to show that both vetted and new nodes may be disqualified.  We explicitly do not want to give new nodes a window where we enforce rules less rigorously.  The data science team's initial whitepapers assumed that reputation should be earned over time.  If this assumption is kept, we will need to develop a sliding-scale algorithm to determine the disqualification cutoff for nodes gaining repuation.  A simpler solution may be to set the initial repuation value (via α0, β0) to above the disqualification cutoff.
 
 > After a storage node is disqualified, the node must go back through the entire vetting process again. If the node decides to start over with a brand-new identity, the node must restart the vetting process from the beginning (in addition to generating a new nodeID via the proof of work system). This strongly disincentivizes storage nodes from being cavalier with their reputation.
 
 Further, the node will be demonetized.
 
-> Provided the storage node hasn’t been disqualified, the storage node will be paid by the Satellite for the data it has stored over the course ofthe month, per the Satellite’s records.
+> Provided the storage node hasn't been disqualified, the storage node will be paid by the Satellite for the data it has stored over the course of the month, per the Satellite’s records.
 
-A disqualified SNO should quickly stop particiapting with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia as the kademlia network supports multiple satellites.  It will also be found in Node DB / overlay cache, as nodes are not currently ever removed from that database.  Filtering of Node DB records will be required for most operations.
+A disqualified SNO should quickly stop participating with a satellite it is disqualified and demonetized on.  However, it may remain in Kademlia as the kademlia network supports multiple satellites.  It will also be found in Node DB / overlay cache, as nodes are not currently ever removed from that database.  Filtering of Node DB records will be required for most operations.
 
 One option that currently will NOT be allowed for disqualified storage nodes is a Graceful Exit.  "Storage Node Payment and Incentives for V3" describes this feature:
 
@@ -41,7 +41,7 @@ One option that currently will NOT be allowed for disqualified storage nodes is 
 
 Disqualified nodes may be used during download of typical downloads from uplinks or via repair.  Therefore, their IP must be tracked in the overlay cache.
 
-Disqualified nodes may not be used for upload, therefore they should not be returned from node selection proceses of any sort.  There is no reason to update the statistics of disqualified nodes.
+Disqualified nodes may not be used for upload, therefore they should not be returned from node selection processes of any sort.  There is no reason to update the statistics of disqualified nodes.
 
 The list of disqualified nodes should change infrequently, but could grow large over time.  If in the long run, the list of disqualified nodes becomes very large, it may benefit us to move it to its own data store rather than using a disqualified flag.
 
@@ -53,18 +53,20 @@ Disqualification can be handled in our existing SQL implementation by adding a `
 CREATE TABLE nodes (
   id bytea NOT NULL,
   ...
-  disqualified boolean NOT NULL,
+  disqualified timestamp with time zone,
   PRIMARY KEY ( id )
 );
 ```
 
-Existing SQL queries employing logic such as `WHERE audit_success_ratio >= $2 AND uptime_ratio >= $3` would change to `WHERE disqualified = FALSE`.
+The type of `disqualified` column is a _timestamp_ because in case that for an unexpected cause several nodes get disqualified, such nodes, and not the ones marked by a normal flow, could be set to not be disqualified, once the causes of such problem be identified.
+
+Existing SQL queries employing logic such as `WHERE audit_success_ratio >= $2 AND uptime_ratio >= $3` would change to `WHERE disqualified IS NULL`.
 
 Existing calls to the DBX `UpdateNodeInfo()` method must set `disqualified` if appropriate.  Care should be employed to not overburden the data structures used to store node info.  In the case of Postgres, these tables may be updated and return their values in a single SQL statement.
 
 ### Determining Disqualification
 
-A node is disqualified when its reputation falls below a fixed value.  We are currently envision two disinct reputation check values, one for uptime and another for audit.  These values will represent an idea value minus some standard-deviation.  The proposed system for calculation repuations is based on four values: α0, β0, λ, and v.  Because changing these values will change the expected standard deviation of measurements, the reputation cutoff values will vary as these parameters vary.  At this phase, it is exected that these cutoffs are all configured based on numbers from the data science team.  A node will be disqualified if either the audit or the uptime reputation value falls below their disqualification cutoff value.
+A node is disqualified when its reputation falls below a fixed value.  We are currently envision two distinct reputation check values, one for uptime and another for audit.  These values will represent an idea value minus some standard-deviation.  The proposed system for calculation reputations is based on four values: α0, β0, λ, and v.  Because changing these values will change the expected standard deviation of measurements, the reputation cutoff values will vary as these parameters vary.  At this phase, it is expected that these cutoffs are all configured based on numbers from the data science team.  A node will be disqualified if either the audit or the uptime reputation value falls below their disqualification cutoff value.
 
 ## Rationale
 

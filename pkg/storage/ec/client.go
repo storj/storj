@@ -33,13 +33,15 @@ type Client interface {
 	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
+	WithForceErrorDetection(force bool) Client
 }
 
 type psClientHelper func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
-	transport   transport.Client
-	memoryLimit int
+	transport           transport.Client
+	memoryLimit         int
+	forceErrorDetection bool
 }
 
 // NewClient from the given identity and max buffer memory
@@ -48,6 +50,11 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 		transport:   tc,
 		memoryLimit: memoryLimit,
 	}
+}
+
+func (ec *ecClient) WithForceErrorDetection(force bool) Client {
+	ec.forceErrorDetection = force
+	return ec
 }
 
 func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
@@ -70,8 +77,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
 	}
 
-	if nonNilCount(limits) < rs.RepairThreshold() {
-		return nil, nil, Error.New("number of non-nil limits (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(limits), rs.RepairThreshold())
+	nonNilLimits := nonNilCount(limits)
+	if nonNilLimits <= rs.RepairThreshold() && nonNilLimits < rs.OptimalThreshold() {
+		return nil, nil, Error.New("number of non-nil limits (%d) is less than or equal to the repair threshold (%d) of erasure scheme", nonNilLimits, rs.RepairThreshold())
 	}
 
 	if !unique(limits) {
@@ -130,11 +138,17 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		successfulHashes[info.i] = info.hash
 
 		switch int(atomic.AddInt32(&successfulCount, 1)) {
-		case rs.RepairThreshold():
+		case rs.OptimalThreshold():
+			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+			if timer != nil {
+				timer.Stop()
+			}
+			cancel()
+		case rs.RepairThreshold() + 1:
 			elapsed := time.Since(start)
 			more := elapsed * 3 / 2
 
-			zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+			zap.S().Infof("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
 				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 			timer = time.AfterFunc(more, func() {
@@ -143,10 +157,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 					cancel()
 				}
 			})
-		case rs.OptimalThreshold():
-			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-			timer.Stop()
-			cancel()
 		}
 	}
 
@@ -168,8 +178,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}
 	}()
 
-	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", atomic.LoadInt32(&successfulCount), rs.RepairThreshold())
+	successes := int(atomic.LoadInt32(&successfulCount))
+	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
@@ -362,7 +373,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.memoryLimit)
+	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
 		return nil, err
 	}

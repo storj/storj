@@ -5,7 +5,6 @@ package audit_test
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -24,7 +23,6 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
 
@@ -56,6 +54,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -111,6 +110,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -182,6 +182,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		stripe.Segment.GetRemote().RootPieceId = storj.NewPieceID()
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -259,6 +260,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -339,6 +341,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		minBytesPerSecond := 1 * memory.MiB
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -383,6 +386,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -422,6 +426,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -465,6 +470,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -530,6 +536,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -548,27 +555,80 @@ func TestVerifierDialTimeout(t *testing.T) {
 	})
 }
 
-func getStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) *storagenode.Peer {
-	for _, node := range planet.StorageNodes {
-		if node.ID() == nodeID {
-			return node
-		}
-	}
-	return nil
+func TestVerifierDeletedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// delete the file
+		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		require.NoError(t, err)
+
+		report, err := verifier.Verify(ctx, stripe, nil)
+		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		assert.Empty(t, report)
+	})
 }
 
-func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) error {
-	node := getStorageNode(planet, nodeID)
-	if node == nil {
-		return fmt.Errorf("no such node: %s", nodeID.String())
-	}
+func TestVerifierModifiedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
 
-	err := planet.StopPeer(node)
-	if err != nil {
-		return err
-	}
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
 
-	// mark stopped node as offline in overlay cache
-	_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, nodeID, false)
-	return err
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// replace the file
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		report, err := verifier.Verify(ctx, stripe, nil)
+		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		assert.Empty(t, report)
+	})
 }

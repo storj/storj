@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -333,7 +334,7 @@ func TestCommitSegment(t *testing.T) {
 			}
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "Number of valid pieces is less than or equal to the repair threshold")
+			require.Contains(t, err.Error(), "less than or equal to the repair threshold")
 		}
 	})
 }
@@ -431,6 +432,46 @@ func TestCommitSegmentPointer(t *testing.T) {
 			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrorMessage)
+		}
+	})
+}
+
+func TestSetAttribution(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+		require.NoError(t, err)
+
+		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+
+		partnerID, err := uuid.New()
+		require.NoError(t, err)
+
+		{
+			// bucket with no items
+			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			require.NoError(t, err)
+
+			// no bucket exists
+			err = metainfoClient.SetAttribution(ctx, "beta", *partnerID)
+			require.NoError(t, err)
+		}
+		{
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			require.Error(t, err)
 		}
 	})
 }

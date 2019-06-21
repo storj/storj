@@ -43,6 +43,7 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -79,6 +80,8 @@ type DB interface {
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// Attribution returns database for partner keys information
+	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
 	StoragenodeAccounting() accounting.StoragenodeAccounting
 	// ProjectAccounting returns database for storing information about project data use
@@ -596,11 +599,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Marketing.Endpoint = marketingweb.NewServer(
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
 			peer.Marketing.Listener,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	return peer, nil

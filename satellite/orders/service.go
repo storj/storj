@@ -97,6 +97,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
+	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
 	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
 		return Error.Wrap(err)
 	}
@@ -148,7 +149,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		}
 
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
@@ -287,7 +288,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 		}
 
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
@@ -367,12 +368,18 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
+			continue
+		}
+
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
@@ -515,7 +522,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		}
 
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}

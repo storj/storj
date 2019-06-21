@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -57,6 +58,7 @@ func TestReverifySuccess(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 
 		verifier := audit.NewVerifier(zap.L(),
+			metainfo,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			containment,
@@ -139,6 +141,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		containment := planet.Satellites[0].DB.Containment()
 
 		verifier := audit.NewVerifier(zap.L(),
+			metainfo,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			containment,
@@ -226,6 +229,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		minBytesPerSecond := 128 * memory.B
 
 		verifier := audit.NewVerifier(zap.L(),
+			metainfo,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -299,6 +303,7 @@ func TestReverifyOffline(t *testing.T) {
 		minBytesPerSecond := 128 * memory.B
 
 		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
 			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -394,6 +399,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(zap.L(),
+			metainfo,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
@@ -431,5 +437,135 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pending.NodeID)
+	})
+}
+
+func TestReverifyDeletedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// - uploads random data
+		// - uses the cursor to get a stripe
+		// - creates one pending audit for a node holding a piece for that stripe
+		// - deletes the file
+		// - calls reverify on that same stripe
+		// - expects reverification to pass successufully and the storage node to be not in containment mode
+
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		pending := &audit.PendingAudit{
+			NodeID:            nodeID,
+			PieceID:           stripe.Segment.GetRemote().RootPieceId,
+			StripeIndex:       stripe.Index,
+			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
+			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
+			ReverifyCount:     0,
+		}
+
+		containment := planet.Satellites[0].DB.Containment()
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			containment,
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// delete the file
+		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		require.NoError(t, err)
+
+		report, err := verifier.Reverify(ctx, stripe)
+		require.NoError(t, err)
+		assert.Empty(t, report)
+
+		_, err = containment.Get(ctx, nodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
+	})
+}
+
+func TestReverifyModifiedSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// - uploads random data
+		// - uses the cursor to get a stripe
+		// - creates one pending audit for a node holding a piece for that stripe
+		// - re-uploads the file
+		// - calls reverify on that same stripe
+		// - expects reverification to pass successufully and the storage node to be not in containment mode
+
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		pending := &audit.PendingAudit{
+			NodeID:            nodeID,
+			PieceID:           stripe.Segment.GetRemote().RootPieceId,
+			StripeIndex:       stripe.Index,
+			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
+			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
+			ReverifyCount:     0,
+		}
+
+		containment := planet.Satellites[0].DB.Containment()
+
+		err = containment.IncrementPending(ctx, pending)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			containment,
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// replace the file
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		report, err := verifier.Reverify(ctx, stripe)
+		require.NoError(t, err)
+		assert.Empty(t, report)
+
+		_, err = containment.Get(ctx, nodeID)
+		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }

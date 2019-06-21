@@ -28,13 +28,13 @@ type RoutingTable interface {
 	Local() overlay.NodeDossier
 	K() int
 	CacheSize() int
-	GetBucketIds() (storage.Keys, error)
-	FindNear(id storj.NodeID, limit int) ([]*pb.Node, error)
-	ConnectionSuccess(node *pb.Node) error
-	ConnectionFailed(node *pb.Node) error
+	GetBucketIds(context.Context) (storage.Keys, error)
+	FindNear(ctx context.Context, id storj.NodeID, limit int) ([]*pb.Node, error)
+	ConnectionSuccess(ctx context.Context, node *pb.Node) error
+	ConnectionFailed(ctx context.Context, node *pb.Node) error
 	// these are for refreshing
-	SetBucketTimestamp(id []byte, now time.Time) error
-	GetBucketTimestamp(id []byte) (time.Time, error)
+	SetBucketTimestamp(ctx context.Context, id []byte, now time.Time) error
+	GetBucketTimestamp(ctx context.Context, id []byte) (time.Time, error)
 
 	Close() error
 }
