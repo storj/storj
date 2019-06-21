@@ -113,7 +113,7 @@ func TestVouchersService(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
-		node.Vouchers.Loop.Pause()
+		node.Vouchers.Loop.Stop()
 
 		// node type needs to be set to receive vouchers
 		for _, sat := range planet.Satellites {
