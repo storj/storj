@@ -87,7 +87,7 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 // GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
 func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	projectID, _, err := splitBucketID([]byte(bucketID))
+	projectID, _, err := splitBucketID(bucketID)
 	if err != nil {
 		return 0, err
 	}
