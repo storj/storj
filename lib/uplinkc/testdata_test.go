@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -36,7 +37,8 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 	planet.Start(ctx)
 
 	// make sure nodes are refreshed in db
-	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+	//planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+	time.Sleep(3 * time.Second)
 
 	run(ctx, planet)
 }
