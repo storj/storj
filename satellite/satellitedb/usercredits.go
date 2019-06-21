@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/lib/pq"
@@ -20,27 +21,36 @@ type usercredits struct {
 	db *dbx.DB
 }
 
-// TotalReferredCount returns the total amount of referral a user has made based on user id
-func (c *usercredits) TotalReferredCount(ctx context.Context, id uuid.UUID) (int64, error) {
-	totalReferred, err := c.db.Count_UserCredit_By_ReferredBy(ctx, dbx.UserCredit_ReferredBy(id[:]))
-	if err != nil {
-		return totalReferred, errs.Wrap(err)
-	}
-
-	return totalReferred, nil
-}
-
-// GetAvailableCredits returns all records of user credit that are not expired or used
-func (c *usercredits) GetAvailableCredits(ctx context.Context, referrerID uuid.UUID, expirationEndDate time.Time) ([]console.UserCredit, error) {
-	availableCredits, err := c.db.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx,
-		dbx.UserCredit_UserId(referrerID[:]),
-		dbx.UserCredit_ExpiresAt(expirationEndDate),
-	)
+// GetCreditUsage returns the total amount of referral a user has made based on user id, total available credits, and total used credits based on user id
+func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
+	usageRows, err := c.db.DB.QueryContext(ctx, c.db.Rebind(`SELECT a.used_credit, b.available_credit, c.referred
+		FROM (SELECT SUM(credits_used_in_cents) AS used_credit FROM user_credits WHERE user_id = ?) AS a,
+		(SELECT SUM(credits_earned_in_cents - credits_used_in_cents) AS available_credit FROM user_credits WHERE expires_at > ? AND user_id = ?) AS b,
+		(SELECT count(id) AS referred FROM user_credits WHERE user_credits.referred_by = ?) AS c;`), userID[:], expirationEndDate, userID[:], userID[:])
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	return userCreditsFromDBX(availableCredits)
+	usage := console.UserCreditUsage{}
+
+	for usageRows.Next() {
+
+		var (
+			usedCredit      sql.NullInt64
+			availableCredit sql.NullInt64
+			referred        sql.NullInt64
+		)
+		err = usageRows.Scan(&usedCredit, &availableCredit, &referred)
+		if err != nil {
+			return nil, errs.Wrap(err)
+		}
+
+		usage.UsedCredits += usedCredit.Int64
+		usage.Referred += referred.Int64
+		usage.AvailableCredits += availableCredit.Int64
+	}
+
+	return &usage, nil
 }
 
 // Create insert a new record of user credit
@@ -139,23 +149,6 @@ func generateQuery(totalRows int, toInt bool) (query string) {
 	}
 
 	return query
-}
-
-func userCreditsFromDBX(userCreditsDBX []*dbx.UserCredit) ([]console.UserCredit, error) {
-	var userCredits []console.UserCredit
-	errList := new(errs.Group)
-
-	for _, credit := range userCreditsDBX {
-
-		uc, err := convertDBCredit(credit)
-		if err != nil {
-			errList.Add(err)
-			continue
-		}
-		userCredits = append(userCredits, *uc)
-	}
-
-	return userCredits, errList.Err()
 }
 
 func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {

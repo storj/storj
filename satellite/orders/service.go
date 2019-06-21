@@ -368,6 +368,12 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
+			continue
+		}
+
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}

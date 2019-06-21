@@ -93,9 +93,10 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		return nil, err
 	}
 
+	// note: offlineNodes here will include disqualified nodes
 	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits, skip)
 	if len(offlineNodes) > 0 {
-		verifier.log.Debug("Verify: order limits not created for some nodes (offline)", zap.Strings("Node IDs", offlineNodes.Strings()))
+		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
 	shares, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)

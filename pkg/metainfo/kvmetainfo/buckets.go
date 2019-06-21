@@ -5,7 +5,8 @@ package kvmetainfo
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storj"
@@ -75,7 +76,7 @@ func validateBlockSize(redundancyScheme storj.RedundancyScheme, blockSize int32)
 	stripeSize := redundancyScheme.StripeSize()
 
 	if blockSize%stripeSize != 0 {
-		return fmt.Errorf("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
+		return errs.New("encryption BlockSize (%d) must be a multiple of RS ShareSize (%d) * RS RequiredShares (%d)",
 			blockSize, redundancyScheme.ShareSize, redundancyScheme.RequiredShares,
 		)
 	}
