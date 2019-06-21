@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
+	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -520,7 +521,9 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 }
 
 func TestBucketNameValidation(t *testing.T) {
-	t.Skip("Skip until bucket name validation is not enabled")
+	if !satMetainfo.BucketNameRestricted {
+		t.Skip("Skip until bucket name validation is not enabled")
+	}
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
