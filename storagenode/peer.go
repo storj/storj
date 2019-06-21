@@ -272,26 +272,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup vouchers
-		if config.Vouchers.Interval <= 0 {
-			return nil, errs.New("voucher service interval (%d) must be > 0", config.Vouchers.Interval)
-		}
-		intervalHours := config.Vouchers.Interval * 24
-		intervalDuration, err := time.ParseDuration(fmt.Sprintf("%dh", intervalHours))
+		interval := config.Vouchers.Interval
+		bufferHours := interval.Hours() + 1.0
+		bufferDuration, err := time.ParseDuration(fmt.Sprintf("%fh", bufferHours))
 		if err != nil {
-			return nil, err
+			return nil, errs.Combine(err, peer.Close())
 		}
-
-		if config.Vouchers.ExpirationBuffer <= 0 {
-			return nil, errs.New("voucher service expiration buffer (%d) must be > 0", config.Vouchers.ExpirationBuffer)
-		}
-		bufferHours := config.Vouchers.ExpirationBuffer * 24
-		bufferDuration, err := time.ParseDuration(fmt.Sprintf("%dh", bufferHours))
-		if err != nil {
-			return nil, err
-		}
-
 		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
-			peer.Storage2.Trust, intervalDuration, bufferDuration)
+			peer.Storage2.Trust, interval, bufferDuration)
 	}
 
 	// Storage Node Operator Dashboard

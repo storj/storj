@@ -39,8 +39,7 @@ type DB interface {
 
 // Config defines configuration for requesting vouchers.
 type Config struct {
-	Interval         int `help:"number of days between voucher service iterations" default:"7"`
-	ExpirationBuffer int `help:"buffer period of X days into the future. If a voucher would expire within this period, send a request for renewal" default:"7"`
+	Interval time.Duration `help:"interval between voucher service iterations" default:"168h0m0s"`
 }
 
 // Service is a service for requesting vouchers

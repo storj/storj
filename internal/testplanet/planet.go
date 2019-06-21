@@ -646,8 +646,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				},
 			},
 			Vouchers: snVouchers.Config{
-				Interval:         7,
-				ExpirationBuffer: 7,
+				Interval: time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
 		}
