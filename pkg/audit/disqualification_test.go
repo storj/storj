@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -43,8 +44,15 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
+		require.Len(t, projects, 1)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx)
+		encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
+		cipher := encScheme.Cipher
+		encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, "testbucket/test/path", cipher, &storj.Key{})
+		require.NoError(t, err)
+
+		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", encryptedAfterBucket)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, lastSegPath)
 		require.NoError(t, err)
 
 		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
@@ -59,7 +67,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 			MinimumVersion:       "", // semver or empty
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, request)
-		require.IsType(t, overlay.ErrNotEnoughNodes, err)
+		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
 
 		require.NotEmpty(t, nodes)
 		for _, node := range nodes {
@@ -74,8 +82,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 
 	// - mark a node as disqualified
-	// -
-	// - check we don't get it when we want to upload a segment (this should raise an error)
+	// - check that we have an error if we try to create a segment using all storage nodes
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
