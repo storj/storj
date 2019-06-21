@@ -4,33 +4,27 @@
 package audit_test
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
 
 // TestDisqualificationTooManyFailedAudits does the following:
-// * Uploads random data
-// * Select one stripe
-// * Delete the piece from one of the storage nodes to simulate a missing piece
-// * Create and use a verifier to audit such stripe and get a report
-// * Verify that the report contains an audit failure of node whose piece has
-//   has been deleted.
+// * Create a failed audit report for a storagenode
 // * Record the audit report several times and check that the node isn't
 //	 disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var auditDQCutOff float64
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, Reconfigure: testplanet.Reconfigure{
+		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				auditDQCutOff = config.Overlay.Node.AuditReputationDQ
 				// TODO: if/v3-1952-h1 this setting will go away once
@@ -42,48 +36,13 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
 
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
-
 		var (
-			ul  = planet.Uplinks[0]
-			sat = planet.Satellites[0]
+			sat    = planet.Satellites[0]
+			nodeID = planet.StorageNodes[0].ID()
+			report = &audit.Report{
+				Fails: storj.NodeIDList{nodeID},
+			}
 		)
-		err = ul.Upload(ctx, sat, "testbucket", "test/path", testData)
-		require.NoError(t, err)
-
-		cursor := audit.NewCursor(sat.Metainfo.Service)
-		stripe, _, err := cursor.NextStripe(ctx)
-		require.NoError(t, err)
-
-		// Get the id from a node
-		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
-		{ // delete the piece from the selected node
-			pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
-			node := getStorageNode(planet, nodeID)
-			err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
-			require.NoError(t, err)
-		}
-
-		verifier := audit.NewVerifier(
-			zap.L(),
-			sat.Metainfo.Service,
-			sat.Transport,
-			sat.Overlay.Service,
-			sat.DB.Containment(),
-			sat.Orders.Service,
-			sat.Identity,
-			128*memory.B,
-			5*time.Second,
-		)
-
-		report, err := verifier.Verify(ctx, stripe, nil)
-		require.NoError(t, err)
-		require.Len(t, report.Offlines, 0)
-		require.Len(t, report.PendingAudits, 0)
-		require.Len(t, report.Fails, 1)
-		require.Equal(t, nodeID, report.Fails[0])
 
 		dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
