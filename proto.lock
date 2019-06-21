@@ -2076,6 +2076,55 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:nodestats.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "UptimeRequest"
+          },
+          {
+            "name": "UptimeResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "ratio",
+                "type": "double"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "NodeStats",
+            "rpcs": [
+              {
+                "name": "UptimeCheck",
+                "in_type": "UptimeRequest",
+                "out_type": "UptimeResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "nodestats"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:orders.proto",
       "def": {
         "enums": [

@@ -1,0 +1,21 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package nodestats;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+service NodeStats {
+    rpc UptimeCheck(UptimeRequest) returns (UptimeResponse) {}
+}
+
+message UptimeRequest { }
+
+message UptimeResponse {
+    double ratio = 1;
+}
+

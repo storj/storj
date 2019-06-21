@@ -53,6 +53,7 @@ import (
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
@@ -212,6 +213,10 @@ type Peer struct {
 	Marketing struct {
 		Listener net.Listener
 		Endpoint *marketingweb.Server
+	}
+
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
 	}
 }
 
@@ -609,6 +614,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup node stats endpoint
+		log.Debug("Setting up node stats endpoint")
+
+		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
+			peer.Log.Named("nodestats:endpoint"),
+			peer.DB.OverlayCache())
+
+		pb.RegisterNodeStatsServer(peer.Server.PrivateGRPC(), peer.NodeStats.Endpoint)
 	}
 
 	return peer, nil
