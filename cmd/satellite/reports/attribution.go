@@ -48,7 +48,10 @@ func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID
 	}
 
 	for _, row := range rows {
-		record := csvRowToStringSlice(row)
+		record, err := csvRowToStringSlice(row)
+		if err != nil {
+			return err
+		}
 		if err := w.Write(record); err != nil {
 			return err
 		}
@@ -63,13 +66,29 @@ func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID
 	return err
 }
 
-func csvRowToStringSlice(p *attribution.ValueAttributionRow) []string {
+func csvRowToStringSlice(p *attribution.ValueAttributionRow) ([]string, error) {
+	projectID, err := bytesToUUID(p.ProjectID)
+	if err != nil {
+		return nil, errs.New("Invalid Project ID")
+	}
 	record := []string{
-		string(p.ProjectID),
+		string(projectID.String()),
 		string(p.BucketName),
 		strconv.FormatFloat(p.RemoteBytesPerHour, 'f', 2, 64),
 		strconv.FormatFloat(p.InlineBytesPerHour, 'f', 2, 64),
 		strconv.FormatInt(p.EgressData, 10),
 	}
-	return record
+	return record, nil
+}
+
+// bytesToUUID is used to convert []byte to UUID
+func bytesToUUID(data []byte) (uuid.UUID, error) {
+	var id uuid.UUID
+
+	copy(id[:], data)
+	if len(id) != len(data) {
+		return uuid.UUID{}, errs.New("Invalid uuid")
+	}
+
+	return id, nil
 }
