@@ -4,7 +4,6 @@
 package marketingweb_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -16,36 +15,40 @@ import (
 )
 
 type CreateRequest struct {
-    Path string
-    Values url.Values
+	Path   string
+	Values url.Values
 }
 
 func TestCreateOffer(t *testing.T) {
+	// We can't call this in testplanet
+	t.Parallel()
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		requests := []CreateRequest{
 			{
 				Path: "/create/referral-offer",
 				Values: url.Values{
-					"Name" : {"May Credit"},
-					"Description" : {"desc"},
-					"ExpiresAt" : {"2019-06-27"},
-					"InviteeCreditInCents" : {"50"},
-					"InviteeCreditDurationDays" : {"50"},
-					"AwardCreditInCents" : {"50"},
-					"AwardCreditDurationDays" : {"50"},
-					"RedeemableCap" : {"150"},
+					"Name":                      {"Referral Credit"},
+					"Description":               {"desc"},
+					"ExpiresAt":                 {"2019-06-27"},
+					"InviteeCreditInCents":      {"50"},
+					"InviteeCreditDurationDays": {"50"},
+					"AwardCreditInCents":        {"50"},
+					"AwardCreditDurationDays":   {"50"},
+					"RedeemableCap":             {"150"},
 				},
-			},{
-				Path: "/create/referral-offer",
+			}, {
+				Path: "/create/free-credit-offer",
 				Values: url.Values{
-					"Name" : {"May Credit"},
-					"Description" : {"desc"},
-					"ExpiresAt" : {"2019-06-27"},
-					"InviteeCreditInCents" : {"50"},
-					"InviteeCreditDurationDays" : {"50"},
-					"RedeemableCap" : {"150"},
+					"Name":                      {"Free Credit Credit"},
+					"Description":               {"desc"},
+					"ExpiresAt":                 {"2019-06-27"},
+					"InviteeCreditInCents":      {"50"},
+					"InviteeCreditDurationDays": {"50"},
+					"RedeemableCap":             {"150"},
 				},
 			},
 		}
@@ -54,16 +57,11 @@ func TestCreateOffer(t *testing.T) {
 
 			addr := planet.Satellites[0].Marketing.Listener.Addr()
 
-			url := "http://"+addr.String()+offer.Path
-			fmt.Printf("url : %v\n",url)
-			
-			resp, err := http.PostForm(url, offer.Values)
-			fmt.Printf("err : %v\n", err)
-			require.NoError(t,err)
+			url := "http://" + addr.String() + offer.Path
 
-			if resp.StatusCode != http.StatusSeeOther{
-				t.Fatalf("Expected status code : %d got %d instead", http.StatusSeeOther, resp.StatusCode)
-			}
+			resp, err := http.PostForm(url, offer.Values)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 	})
 }
