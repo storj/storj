@@ -83,7 +83,7 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 
 	trustedSatellites := service.trust.GetSatellites((ctx))
 
-	if len(trustedSatellites) <= 0 {
+	if len(trustedSatellites) == 0 {
 		service.log.Debug("No trusted satellites configured. No vouchers to request")
 		return nil
 	}
