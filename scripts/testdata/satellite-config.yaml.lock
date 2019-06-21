@@ -337,6 +337,6 @@ server.private-address: "127.0.0.1:7778"
 # server address to check its version against
 # version.server-address: "https://version.alpha.storj.io"
 
-# number of days before a voucher expires
-# vouchers.expiration: 30
+# length of time before a voucher expires
+# vouchers.expiration: 720h0m0s
 
