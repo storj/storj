@@ -119,7 +119,7 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 func TestUplinksParallel(t *testing.T) {
 	const uplinkCount = 3
-	const parallelCount = 3
+	const parallelCount = 2
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: uplinkCount,
