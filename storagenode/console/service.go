@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/storagenode/nodestats"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -18,6 +16,7 @@ import (
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/pieces"
 )
 
@@ -146,7 +145,6 @@ func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID sto
 // GetWalletAddress return wallet address of node operator
 func (s *Service) GetWalletAddress(ctx context.Context) string {
 	defer mon.Task()(&ctx)(nil)
-
 	return s.walletAddress
 }
 
@@ -156,7 +154,7 @@ func (s *Service) GetUptime(ctx context.Context) time.Duration {
 	return time.Now().Sub(s.startedAt)
 }
 
-//  GetUptimeCheckForSatellite returns uptime check for the satellite
+// GetUptimeCheckForSatellite returns uptime check for the satellite
 func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *nodestats.UptimeCheck, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -181,8 +179,8 @@ func (s *Service) GetVersion(ctx context.Context) version.Info {
 }
 
 // CheckVersion checks to make sure the version is still okay, returning an error if not
-func (s *Service) CheckVersion(ctx context.Context) error {
-	defer mon.Task()(&ctx)(nil)
+func (s *Service) CheckVersion(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return s.version.CheckVersion(ctx)
 }
 

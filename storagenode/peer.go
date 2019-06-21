@@ -7,7 +7,6 @@ import (
 	"context"
 	"net"
 	"time"
-	"storj.io/storj/storagenode/nodestats"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -32,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
