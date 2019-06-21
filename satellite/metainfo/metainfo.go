@@ -536,12 +536,16 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 				return nil, err
 			}
 
-			items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
+			items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 2, 0)
 			if err != nil {
 				return nil, err
 			}
 
-			if len(items) > 0 {
+			if len(items) == 0 {
+				return nil, Error.New("bucket doesnt exists")
+			}
+
+			if len(items) > 1 {
 				return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
 			}
 
