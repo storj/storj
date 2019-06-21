@@ -59,7 +59,7 @@ harmful in that:
 - It complicates the code.
 - It complicates deployment.
 - It decreases payout potential for storage node operators, reducing incentive.
-- The whitepaper already describes a mechanism to deal with hot objects.
+- Section 6.1 of the [whitepaper](https://storj.io/storjv3.pdf) already describes a mechanism to deal with hot objects.
 
 ## Implementation
 
