@@ -11,7 +11,6 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -337,20 +336,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		config := config.Vouchers
-		if config.Expiration < 0 {
-			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
-		}
-		expirationHours := config.Expiration * 24
-		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
-		if err != nil {
-			return nil, err
-		}
 		peer.Vouchers.Service = vouchers.NewService(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			duration,
+			config.Vouchers.Expiration,
 		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
 	}
