@@ -288,11 +288,6 @@ func TestCommitSegment(t *testing.T) {
 			require.Error(t, err)
 		}
 		{
-			// error if bucket contains slash
-			_, err = metainfo.CommitSegment(ctx, "bucket/storj", "path", -1, &pb.Pointer{}, []*pb.OrderLimit2{})
-			require.Error(t, err)
-		}
-		{
 			// error if number of remote pieces is lower then repair threshold
 			redundancy := &pb.RedundancyScheme{
 				MinReq:           1,
@@ -563,6 +558,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"a.b.", "test.bucket-.one",
 			"test.-bucket.one", "1.2.3.4",
 			"192.168.1.234", "testBUCKET",
+			"test/bucket",
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
