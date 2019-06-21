@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -43,7 +44,8 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -99,7 +101,8 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -166,7 +169,8 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -228,7 +232,8 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -306,6 +311,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
+		testPath := paths.NewUnencrypted("test/path")
 		// Upload with larger erasure share size to simulate longer download over slow transport client
 		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
 			MinThreshold:     1,
@@ -313,7 +319,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			SuccessThreshold: 3,
 			MaxThreshold:     4,
 			ErasureShareSize: 32 * memory.KiB,
-		}, "testbucket", "test/path", testData)
+		}, "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -379,7 +385,8 @@ func TestVerifierHappyPath(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -419,7 +426,8 @@ func TestVerifierOfflineNode(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -463,7 +471,8 @@ func TestVerifierMissingPiece(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -509,7 +518,8 @@ func TestVerifierDialTimeout(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -568,7 +578,8 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -586,7 +597,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 			5*time.Second)
 
 		// delete the file
-		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", testPath)
 		require.NoError(t, err)
 
 		report, err := verifier.Verify(ctx, stripe, nil)
@@ -607,7 +618,8 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
@@ -625,7 +637,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 			5*time.Second)
 
 		// replace the file
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		report, err := verifier.Verify(ctx, stripe, nil)
