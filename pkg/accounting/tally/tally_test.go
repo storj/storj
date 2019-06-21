@@ -5,7 +5,6 @@ package tally_test
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/encryption"
@@ -75,9 +75,7 @@ func TestOnlyInline(t *testing.T) {
 		projectID := []byte(project.ID.String())
 
 		// Setup: create data for the uplink to upload
-		expectedData := make([]byte, 1*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(1 * memory.KiB)
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		// Since the data is small enough to be stored inline, when it is encrypted, we only
@@ -131,9 +129,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		// Setup: create 50KiB of data for the uplink to upload
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(5 * memory.KiB)
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])

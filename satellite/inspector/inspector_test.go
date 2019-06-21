@@ -31,7 +31,7 @@ func TestInspectorStats(t *testing.T) {
 
 		bucket := "testbucket"
 
-		err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
 		require.NoError(t, err)
 
 		healthEndpoint := planet.Satellites[0].Inspector.Endpoint

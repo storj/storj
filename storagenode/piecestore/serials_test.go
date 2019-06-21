@@ -4,7 +4,6 @@
 package piecestore_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
@@ -30,9 +30,9 @@ func TestUsedSerials(t *testing.T) {
 		node0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion())
 		node1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion())
 
-		serial1 := newRandomSerial()
-		serial2 := newRandomSerial()
-		serial3 := newRandomSerial()
+		serial1 := testrand.SerialNumber()
+		serial2 := testrand.SerialNumber()
+		serial3 := testrand.SerialNumber()
 
 		now := time.Now()
 
@@ -67,7 +67,7 @@ func TestUsedSerials(t *testing.T) {
 
 		// duplicate adds should fail
 		for _, serial := range serialNumbers {
-			expirationDelta := time.Duration(rand.Intn(10)-5) * time.Hour
+			expirationDelta := time.Duration(testrand.Intn(10)-5) * time.Hour
 			err = usedSerials.Add(ctx, serial.SatelliteID, serial.SerialNumber, serial.Expiration.Add(expirationDelta))
 			assert.Error(t, err)
 		}
@@ -98,11 +98,4 @@ func TestUsedSerials(t *testing.T) {
 			{node1.ID, serial3, now.Add(8 * time.Minute)},
 		}, listedAfterDelete))
 	})
-}
-
-// TODO: move somewhere better
-func newRandomSerial() storj.SerialNumber {
-	var serial storj.SerialNumber
-	_, _ = rand.Read(serial[:])
-	return serial
 }
