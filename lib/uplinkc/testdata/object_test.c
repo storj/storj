@@ -57,17 +57,17 @@ void handle_project(ProjectRef project) {
             UploaderRef uploader = upload(bucket, object_paths[i], &opts, err);
             require_noerror(*err);
 
-            size_t uploaded = 0;
-            while (uploaded < data_len) {
-                size_t to_write_len = (data_len - uploaded > 256) ? 256 : data_len - uploaded;
-                size_t write_len = upload_write(uploader, (uint8_t *)data+uploaded, to_write_len, err);
+            size_t uploaded_total = 0;
+            while (uploaded_total < data_len) {
+                size_t size_to_write = (data_len - uploaded_total > 256) ? 256 : data_len - uploaded_total;
+                size_t write_size = upload_write(uploader, (uint8_t *)data+uploaded_total, size_to_write, err);
                 require_noerror(*err);
 
-                if (write_len == 0) {
+                if (write_size == 0) {
                     break;
                 }
 
-                uploaded += write_len;
+                uploaded_total += write_size;
             }
 
             upload_commit(uploader, err);
@@ -97,25 +97,25 @@ void handle_project(ProjectRef project) {
             DownloaderRef downloader = download(bucket, object_paths[i], err);
             require_noerror(*err);
 
-            uint8_t downloadedData[data_len];
-            memset(downloadedData, '\0', data_len);
-            size_t downloadedTotal = 0;
+            uint8_t downloaded_data[data_len];
+            memset(downloaded_data, '\0', data_len);
+            size_t downloaded_total = 0;
 
             size_t size_to_read = 256 + i;
             while (true) {
-                size_t downloadedSize = download_read(downloader, &downloadedData[downloadedTotal], size_to_read, err);
+                size_t read_size = download_read(downloader, &downloaded_data[downloaded_total], size_to_read, err);
                 require_noerror(*err);
 
-                if (downloadedSize == 0) {
+                if (read_size == 0) {
                     break;
                 }
 
-                downloadedTotal += downloadedSize;
+                downloaded_total += read_size;
             }
 
             download_close(downloader, err);
             require_noerror(*err);
-            require(memcmp(data, downloadedData, data_len) == 0);
+            require(memcmp(data, downloaded_data, data_len) == 0);
         }
 
         if (data != NULL) {
