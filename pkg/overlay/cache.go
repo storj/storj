@@ -90,7 +90,6 @@ type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditSuccess bool
 	IsUp         bool
-
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
@@ -117,10 +116,8 @@ type NodeDossier struct {
 // NodeStats contains statistics about a node.
 type NodeStats struct {
 	Latency90             int64
-	AuditSuccessRatio     float64
 	AuditSuccessCount     int64
 	AuditCount            int64
-	UptimeRatio           float64
 	UptimeSuccessCount    int64
 	UptimeCount           int64
 	LastContactSuccess    time.Time

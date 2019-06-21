@@ -241,9 +241,6 @@ kademlia.operator.wallet: ""
 # the normalization weight used to calculate the audit SNs reputation
 # overlay.node.audit-reputation-weight: 1
 
-# a node's ratio of successful audits
-# overlay.node.audit-success-ratio: 0.4
-
 # require distinct IPs when choosing nodes for upload
 # overlay.node.distinct-ip: true
 
@@ -258,9 +255,6 @@ kademlia.operator.wallet: ""
 
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 500
-
-# a node's ratio of being up/online vs. down/offline
-# overlay.node.uptime-ratio: 0.9
 
 # the initial shape 'alpha' used to calculate uptime SNs reputation
 # overlay.node.uptime-reputation-alpha0: 2
