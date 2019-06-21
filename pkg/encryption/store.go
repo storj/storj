@@ -5,6 +5,7 @@ package encryption
 
 import (
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
