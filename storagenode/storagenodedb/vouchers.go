@@ -67,7 +67,7 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 	row := db.db.QueryRow(`
 		SELECT satellite_id
 		FROM vouchers
-		WHERE satellite_id = ? AND expiration > ?
+		WHERE satellite_id = ? AND expiration >= ?
 	`, satelliteID, expiresBefore)
 
 	var bytes []byte
