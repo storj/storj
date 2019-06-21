@@ -131,13 +131,12 @@ func TestUplinksParallel(t *testing.T) {
 			uplink := planet.Uplinks[i]
 
 			for p := 0; p < parallelCount; p++ {
-				datasize := 100*memory.KiB.Int() + rand.Intn(100)*memory.KiB.Int()
 				suffix := fmt.Sprintf("-%d-%d", i, p)
 				group.Go(func() error {
-					r := rand.New(rand.NewSource(rand.Int63()))
+					random := rand.New(rand.NewSource(rand.Int63()))
 
-					data := make([]byte, datasize)
-					_, err := r.Read(data[:])
+					data := make([]byte, 100*memory.KiB.Int()+random.Intn(500)*memory.KiB.Int())
+					_, err := random.Read(data)
 					if err != nil {
 						return err
 					}
