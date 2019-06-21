@@ -49,6 +49,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketing/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	satorders "storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
@@ -483,6 +484,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
 				BwExpiration:         45,
+			},
+			Orders: satorders.Config{
+				Expiration: 45 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
 				Interval:            30 * time.Second,
