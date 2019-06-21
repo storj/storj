@@ -4,10 +4,11 @@
 package testplanet_test
 
 import (
+	"bytes"
 	"context"
-	"crypto/rand"
+	"fmt"
+	"math/rand"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -116,88 +117,48 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	})
 }
 
-func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		dataToUpload := make([][]byte, 5)
-		for i := 0; i < len(dataToUpload); i++ {
-			dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
-			_, err := rand.Read(dataToUpload[i])
-			require.NoError(t, err)
-		}
-
-		var group errgroup.Group
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[0]
-			satellite := planet.Satellites[0]
-
-			data := data
-			group.Go(func() error {
-				return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, data)
-			})
-		}
-		err := group.Wait()
-		require.NoError(t, err)
-
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[0]
-			satellite := planet.Satellites[0]
-
-			expectedData := data
-			group.Go(func() error {
-				data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
-				require.Equal(t, expectedData, data)
-				return err
-			})
-		}
-		err = group.Wait()
-		require.NoError(t, err)
-	})
-}
-
-func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
-	numberOfUplinks := 5
+func TestUplinksParallel(t *testing.T) {
+	const uplinkCount = 3
+	const parallelCount = 3
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: numberOfUplinks,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: uplinkCount,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		dataToUpload := make([][]byte, numberOfUplinks)
-		for i := 0; i < len(dataToUpload); i++ {
-			dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
-			_, err := rand.Read(dataToUpload[i])
-			require.NoError(t, err)
-		}
+		satellite := planet.Satellites[0]
 
 		var group errgroup.Group
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
+		for i := range planet.Uplinks {
 			uplink := planet.Uplinks[i]
-			satellite := planet.Satellites[0]
 
-			data := data
-			group.Go(func() error {
-				return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, data)
-			})
+			for p := 0; p < parallelCount; p++ {
+				datasize := 100*memory.KiB.Int() + rand.Intn(100)*memory.KiB.Int()
+				suffix := fmt.Sprintf("-%d-%d", i, p)
+				group.Go(func() error {
+					r := rand.New(rand.NewSource(rand.Int63()))
+
+					data := make([]byte, datasize)
+					_, err := r.Read(data[:])
+					if err != nil {
+						return err
+					}
+
+					err = uplink.Upload(ctx, satellite, "testbucket"+suffix, "test/path"+suffix, data)
+					if err != nil {
+						return err
+					}
+
+					downloaded, err := uplink.Download(ctx, satellite, "testbucket"+suffix, "test/path"+suffix)
+					if err != nil {
+						return err
+					}
+
+					if !bytes.Equal(data, downloaded) {
+						return fmt.Errorf("upload != download data: %s", suffix)
+					}
+				})
+			}
 		}
 		err := group.Wait()
-		require.NoError(t, err)
-
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[i]
-			satellite := planet.Satellites[0]
-
-			expectedData := data
-			group.Go(func() error {
-				data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
-				require.Equal(t, expectedData, data)
-				return err
-			})
-		}
-		err = group.Wait()
 		require.NoError(t, err)
 	})
 }
