@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -108,7 +109,8 @@ func TestVouchersService(t *testing.T) {
 		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Vouchers.Expiration = 1
+				config.Overlay.Node.AuditCount = 1
+				config.Audit.Interval = time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -121,15 +123,33 @@ func TestVouchersService(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// assert no vouchers
+		// run service and assert no vouchers (does not meet audit requirement)
+		err := node.Vouchers.RunOnce(ctx)
+		require.NoError(t, err)
+
 		for _, sat := range planet.Satellites {
 			voucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{sat.ID()})
 			require.NoError(t, err)
 			assert.Nil(t, voucher)
 		}
 
-		// run service and check vouchers have been received
-		err := node.Vouchers.RunOnce(ctx)
+		// update node's audit count above reputable threshold on each satellite
+		for _, sat := range planet.Satellites {
+			sat.Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
+				NodeID:       node.ID(),
+				IsUp:         true,
+				AuditSuccess: true,
+				AuditLambda:  0,
+				AuditWeight:  0,
+				AuditDQ:      0,
+				UptimeLambda: 0,
+				UptimeWeight: 0,
+				UptimeDQ:     0,
+			})
+		}
+
+		// Node is now vetted. Run service and check vouchers have been received
+		err = node.Vouchers.RunOnce(ctx)
 		require.NoError(t, err)
 
 		for _, sat := range planet.Satellites {
