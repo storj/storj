@@ -519,7 +519,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
 			Vouchers: satVouchers.Config{
-				Expiration: 30,
+				Expiration: 30 * 24 * time.Hour,
 			},
 			Marketing: marketingweb.Config{
 				Address: "127.0.0.1:0",

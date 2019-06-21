@@ -5,7 +5,6 @@ package storagenode
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"time"
 
@@ -273,13 +272,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
-		bufferHours := interval.Hours() + 1.0
-		bufferDuration, err := time.ParseDuration(fmt.Sprintf("%fh", bufferHours))
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
+		buffer := interval + time.Hour
 		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
-			peer.Storage2.Trust, interval, bufferDuration)
+			peer.Storage2.Trust, interval, buffer)
 	}
 
 	// Storage Node Operator Dashboard

@@ -20,7 +20,7 @@ import (
 
 // Config contains voucher service configuration parameters
 type Config struct {
-	Expiration int `help:"number of days before a voucher expires" default:"30"`
+	Expiration time.Duration `help:"length of time before a voucher expires" default:"720h0m0s"`
 }
 
 // Service for issuing signed vouchers
