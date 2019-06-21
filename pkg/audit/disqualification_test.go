@@ -28,9 +28,6 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				auditDQCutOff = config.Overlay.Node.AuditReputationDQ
-				// TODO: if/v3-1952-h1 this setting will go away once
-				// https://github.com/storj/storj/pull/2271 be merge
-				config.Audit.MaxRetriesStatDB = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
