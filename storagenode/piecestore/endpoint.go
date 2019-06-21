@@ -306,9 +306,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				Hash:    expectedHash,
 			})
 			if err != nil {
-				ignoreCancelContext := context.Background()
-				deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
-				return ErrInternal.Wrap(errs.Combine(err, deleteErr))
+				return ErrInternal.Wrap(err)
 			}
 
 			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
