@@ -74,7 +74,7 @@ func TestUnableToSendOrders(t *testing.T) {
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -121,7 +121,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")

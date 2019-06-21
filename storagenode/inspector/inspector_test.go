@@ -109,7 +109,7 @@ func TestInspectorDashboard(t *testing.T) {
 
 		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		for _, storageNode := range planet.StorageNodes {

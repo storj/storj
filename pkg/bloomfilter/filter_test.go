@@ -105,12 +105,12 @@ func TestApproximateFalsePositives(t *testing.T) {
 			for k := 0; k < measurements; k++ {
 				filter := bloomfilter.NewOptimal(n, p)
 				for i := 0; i < n; i++ {
-					filter.Add(newTestPieceID())
+					filter.Add(testrand.PieceID())
 				}
 
 				positive := 0
 				for k := 0; k < validation; k++ {
-					if filter.Contains(newTestPieceID()) {
+					if filter.Contains(testrand.PieceID()) {
 						positive++
 					}
 				}

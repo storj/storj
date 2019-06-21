@@ -36,7 +36,7 @@ func TestDataRepair(t *testing.T) {
 
 		testData := testrand.Bytes(1 * memory.MiB)
 
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  5,
 			SuccessThreshold: 7,

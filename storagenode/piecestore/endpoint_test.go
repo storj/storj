@@ -31,7 +31,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		assert.NoError(t, err)
 
 		var totalDownload int64

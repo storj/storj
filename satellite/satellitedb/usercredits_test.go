@@ -133,7 +133,7 @@ func TestUsercredits(t *testing.T) {
 		}
 
 		for i, vc := range validUserCredits {
-			_, err = consoleDB.UserCredits().Create(ctx, vc.userCredit)
+			_, err := consoleDB.UserCredits().Create(ctx, vc.userCredit)
 			require.NoError(t, err)
 
 			{

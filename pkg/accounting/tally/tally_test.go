@@ -99,7 +99,7 @@ func TestOnlyInline(t *testing.T) {
 		}
 
 		// Execute test: upload a file, then calculate at rest data
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
 		// Run calculate twice to test unique constraint issue
