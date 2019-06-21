@@ -6,7 +6,6 @@ package segments_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
 	io "io"
 	"io/ioutil"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
@@ -236,7 +236,7 @@ func TestCalcNeededNodes(t *testing.T) {
 }
 
 func createTestData(t *testing.T, size int64) []byte {
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, size))
+	data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), size))
 	require.NoError(t, err)
 	return data
 }

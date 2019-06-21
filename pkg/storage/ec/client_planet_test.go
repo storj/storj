@@ -6,7 +6,6 @@ package ecclient_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,6 +21,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -58,7 +58,7 @@ func TestECClient(t *testing.T) {
 	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, dataSize.Int64()))
+	data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
 	require.NoError(t, err)
 
 	// Erasure encode some random data and upload the pieces
