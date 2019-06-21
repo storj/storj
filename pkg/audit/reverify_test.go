@@ -73,7 +73,7 @@ func TestReverifySuccess(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
@@ -156,7 +156,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()

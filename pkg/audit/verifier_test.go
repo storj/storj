@@ -51,8 +51,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
-
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
@@ -108,7 +107,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
@@ -176,8 +175,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
-
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
@@ -239,7 +237,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
@@ -325,7 +323,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(projects[0].ID.String() + "/testbucket")
+		bucketID := paths.NewBucketID(projects[0].ID, "testbucket")
 
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
