@@ -25,7 +25,7 @@ import (
 type Project struct {
 	uplinkCfg     *Config
 	tc            transport.Client
-	metainfo      metainfo.Client
+	metainfo      *metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
 	encryptionKey *storj.Key

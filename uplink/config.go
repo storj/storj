@@ -94,10 +94,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
+	metainfo, err := metainfo.Dial(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
+	// TODO: close dialed metainfo
 
 	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
