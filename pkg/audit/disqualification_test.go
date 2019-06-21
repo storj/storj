@@ -26,14 +26,18 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
+		satellite := planet.Satellites[0]
+		disqualifiedNode := planet.StorageNodes[0]
+		uplinkNode := planet.Uplinks[0]
+
+		err := satellite.Audit.Service.Close()
 		require.NoError(t, err)
 
 		testData := make([]byte, 8*memory.KiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
 
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+		err = uplinkNode.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
@@ -41,31 +45,31 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		disqualifyNode(t, ctx, planet.Satellites[0], planet.StorageNodes[0].ID())
+		disqualifyNode(t, ctx, satellite, disqualifiedNode.ID())
 
-		listResponse, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, "", "", "", true, 0, 0)
+		listResponse, _, err := satellite.Metainfo.Service.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = planet.Satellites[0].Metainfo.Service.Get(ctx, path)
+			pointer, err = satellite.Metainfo.Service.Get(ctx, path)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
 			}
 		}
-		limits, err := planet.Satellites[0].Orders.Service.CreateGetOrderLimits(ctx, planet.Uplinks[0].Identity.PeerIdentity(), bucketID, pointer)
+		limits, err := satellite.Orders.Service.CreateGetOrderLimits(ctx, uplinkNode.Identity.PeerIdentity(), bucketID, pointer)
 		require.NoError(t, err)
 
 		for _, orderLimit := range limits {
-			require.NotEqual(t, orderLimit.StorageNodeAddress.Address, planet.StorageNodes[0].Addr())
+			require.NotEqual(t, orderLimit.StorageNodeAddress.Address, disqualifiedNode.Addr())
 		}
 
 	})
@@ -75,21 +79,25 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 
 	// - uploads random data
 	// - mark a node as disqualified
-	// - check we don't get it when we want to upload a segment
+	// - check we don't get it when we want to upload a segment (this should raise an error)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
+		satellite := planet.Satellites[0]
+		disqualifiedNode := planet.StorageNodes[0]
+		uplinkNode := planet.Uplinks[0]
+
+		err := satellite.Audit.Service.Close()
 		require.NoError(t, err)
 
-		disqualifyNode(t, ctx, planet.Satellites[0], planet.StorageNodes[0].ID())
+		disqualifyNode(t, ctx, satellite, disqualifiedNode.ID())
 
 		rs := &pb.RedundancyScheme{
 			MinReq:           1,
 			RepairThreshold:  1,
 			SuccessThreshold: 3,
-			Total:            3,
+			Total:            4,
 			ErasureShareSize: 1024,
 			Type:             pb.RedundancyScheme_RS,
 		}
@@ -113,17 +121,14 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 		require.NoError(t, err)
 
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey := uplinkNode.APIKey[satellite.ID()]
 
-		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfo, err := uplinkNode.DialMetainfo(ctx, satellite, apiKey)
 		require.NoError(t, err)
 
-		limits, _, err := metainfo.CreateSegment(ctx, "myBucketName", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
-		require.NoError(t, err)
+		_, _, err = metainfo.CreateSegment(ctx, "testbucket", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
+		require.Error(t, err)
 
-		for _, orderLimit := range limits {
-			require.NotEqual(t, orderLimit.StorageNodeAddress.Address, planet.StorageNodes[0].Addr())
-		}
 	})
 }
 
