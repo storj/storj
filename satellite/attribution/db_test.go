@@ -90,7 +90,7 @@ func TestQueryValueAttribution(t *testing.T) {
 		projectID1 := newUUID()
 		partnerID1 := newUUID()
 		bucketName1 := []byte("alpha")
-		bucketID1 := []byte(string(projectID1[:]) + "/" + string(bucketName1))
+		bucketID1 := []byte(projectID1.String() + "/" + string(bucketName1))
 
 		infos := []*attribution.Info{
 			{projectID1, bucketName1, partnerID1, time.Time{}},

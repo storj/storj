@@ -16,6 +16,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -71,12 +72,15 @@ func csvRowToStringSlice(p *attribution.ValueAttributionRow) ([]string, error) {
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
 	}
+	remoteGBPerHour := memory.Size(p.RemoteBytesPerHour).GB()
+	inlineGBPerHour := memory.Size(p.InlineBytesPerHour).GB()
+	egressGBData := memory.Size(p.EgressData).GB()
 	record := []string{
 		string(projectID.String()),
 		string(p.BucketName),
-		strconv.FormatFloat(p.RemoteBytesPerHour, 'f', 2, 64),
-		strconv.FormatFloat(p.InlineBytesPerHour, 'f', 2, 64),
-		strconv.FormatInt(p.EgressData, 10),
+		strconv.FormatFloat(remoteGBPerHour, 'f', 4, 64),
+		strconv.FormatFloat(inlineGBPerHour, 'f', 4, 64),
+		strconv.FormatFloat(egressGBData, 'f', 4, 64),
 	}
 	return record, nil
 }
