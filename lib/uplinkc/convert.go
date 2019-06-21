@@ -14,7 +14,7 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 	return C.BucketInfo{
 		name:         C.CString(bucket.Name),
 		created:      C.int64_t(bucket.Created.Unix()),
-		path_cipher:  C.uint8_t(bucket.PathCipher),
+		path_cipher:  C.Cipher(bucket.PathCipher),
 		segment_size: C.uint64_t(bucket.SegmentsSize),
 
 		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
@@ -39,7 +39,7 @@ func newObjectInfo(object *storj.Object) C.ObjectInfo {
 // convertEncryptionParameters converts Go EncryptionParameters to C.
 func convertEncryptionParameters(goParams *storj.EncryptionParameters) C.EncryptionParameters {
 	return C.EncryptionParameters{
-		cipher_suite: C.uint8_t(goParams.CipherSuite),
+		cipher_suite: C.CipherSuite(goParams.CipherSuite),
 		block_size:   C.int32_t(goParams.BlockSize),
 	}
 }
@@ -47,7 +47,7 @@ func convertEncryptionParameters(goParams *storj.EncryptionParameters) C.Encrypt
 // convertRedundancyScheme converts Go RedundancyScheme to C.
 func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme {
 	return C.RedundancyScheme{
-		algorithm:       C.uint8_t(scheme.Algorithm),
+		algorithm:       C.RedundancyAlgorithm(scheme.Algorithm),
 		share_size:      C.int32_t(scheme.ShareSize),
 		required_shares: C.int16_t(scheme.RequiredShares),
 		repair_shares:   C.int16_t(scheme.RepairShares),

@@ -6,6 +6,25 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef enum Cipher {
+    STORJ_UNENCRYPTED,
+    STORJ_AESGCM,
+    STORJ_SECRET_BOX,
+    STORJ_INVALID
+} Cipher;
+
+typedef enum CipherSuite {
+    STORJ_ENC_UNSPECIFIED,
+    STORJ_ENC_NULL,
+    STORJ_ENC_AESGCM,
+    STORJ_ENC_SECRET_BOX
+} CipherSuite;
+
+typedef enum RedundancyAlgorithm {
+    STORJ_INVALID_REDUNDANCY_ALGORITHM,
+    STORJ_REED_SOLOMON
+} RedundancyAlgorithm;
+
 typedef struct APIKey     { long _handle; } APIKeyRef;
 typedef struct Uplink     { long _handle; } UplinkRef;
 typedef struct Project    { long _handle; } ProjectRef;
@@ -19,6 +38,7 @@ typedef struct UplinkConfig {
         struct {
             bool SkipPeerCAWhitelist;
         } TLS;
+        // TODO: add support for MaxMemory
     } Volatile;
 } UplinkConfig;
 
@@ -27,30 +47,30 @@ typedef struct ProjectOptions {
 } ProjectOptions;
 
 typedef struct EncryptionParameters {
-    uint8_t cipher_suite;
-    int32_t block_size;
+    CipherSuite cipher_suite;
+    int32_t     block_size;
 } EncryptionParameters;
 
 typedef struct RedundancyScheme {
-    uint8_t algorithm;
-    int32_t share_size;
-    int16_t required_shares;
-    int16_t repair_shares;
-    int16_t optimal_shares;
-    int16_t total_shares;
+    RedundancyAlgorithm algorithm;
+    int32_t             share_size;
+    int16_t             required_shares;
+    int16_t             repair_shares;
+    int16_t             optimal_shares;
+    int16_t             total_shares;
 } RedundancyScheme;
 
 typedef struct BucketInfo {
     char                 *name;
     int64_t              created;
-    uint8_t              path_cipher;
+    Cipher               path_cipher;
     uint64_t             segment_size;
     EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketInfo;
 
 typedef struct BucketConfig {
-    uint8_t              path_cipher;
+    Cipher               path_cipher;
     EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketConfig;

@@ -8,12 +8,12 @@
 BucketConfig test_bucket_config() {
     BucketConfig config = {};
 
-    config.path_cipher = 1;
+    config.path_cipher = STORJ_AESGCM;
 
-    config.encryption_parameters.cipher_suite = 2; // TODO: make a named const
+    config.encryption_parameters.cipher_suite = STORJ_ENC_AESGCM;
     config.encryption_parameters.block_size = 2048;
 
-    config.redundancy_scheme.algorithm = 1; // TODO: make a named const
+    config.redundancy_scheme.algorithm = STORJ_REED_SOLOMON;
     config.redundancy_scheme.share_size = 1024;
     config.redundancy_scheme.required_shares = 2;
     config.redundancy_scheme.repair_shares = 4;
