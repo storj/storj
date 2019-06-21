@@ -54,7 +54,7 @@ func TestReportPendingAudits(t *testing.T) {
 	})
 }
 
-func TestRecordAuditsAtLeaseOnce(t *testing.T) {
+func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
