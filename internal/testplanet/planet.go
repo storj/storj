@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,6 +53,7 @@ import (
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
@@ -458,18 +458,18 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					OnlineWindow:      time.Hour,
 					DistinctIP:        false,
 
-					ReputationAuditRepairWeight:  1,
-					ReputationAuditUplinkWeight:  1,
-					ReputationAuditAlpha0:        1,
-					ReputationAuditBeta0:         0,
-					ReputationAuditLambda:        1,
-					ReputationAuditOmega:         1,
-					ReputationUptimeRepairWeight: 1,
-					ReputationUptimeUplinkWeight: 1,
-					ReputationUptimeAlpha0:       1,
-					ReputationUptimeBeta0:        0,
-					ReputationUptimeLambda:       1,
-					ReputationUptimeOmega:        1,
+					AuditReputationRepairWeight:  1,
+					AuditReputationUplinkWeight:  1,
+					AuditReputationAlpha0:        1,
+					AuditReputationBeta0:         0,
+					AuditReputationLambda:        1,
+					AuditReputationWeight:        1,
+					UptimeReputationRepairWeight: 1,
+					UptimeReputationUplinkWeight: 1,
+					UptimeReputationAlpha0:       1,
+					UptimeReputationBeta0:        0,
+					UptimeReputationLambda:       1,
+					UptimeReputationWeight:       1,
 				},
 			},
 			Discovery: discovery.Config{
@@ -511,14 +511,17 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				SMTPServerAddress: "smtp.mail.test:587",
 				From:              "Labs <storj@mail.test>",
 				AuthType:          "simulate",
+				TemplatePath:      filepath.Join(developmentRoot, "web/satellite/static/emails"),
 			},
 			Console: consoleweb.Config{
 				Address:         "127.0.0.1:0",
+				StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
 				PasswordCost:    console.TestPasswordCost,
 				AuthTokenSecret: "my-suppa-secret-key",
 			},
 			Marketing: marketingweb.Config{
-				Address: "127.0.0.1:0",
+				Address:   "127.0.0.1:0",
+				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
 			Vouchers: vouchers.Config{
 				Expiration: 30,
@@ -528,18 +531,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 		if planet.config.Reconfigure.Satellite != nil {
 			planet.config.Reconfigure.Satellite(log, i, &config)
 		}
-
-		// TODO: find source file, to set static path
-		_, filename, _, ok := runtime.Caller(0)
-		if !ok {
-			return xs, errs.New("no caller information")
-		}
-		storjRoot := strings.TrimSuffix(filename, "/internal/testplanet/planet.go")
-
-		// TODO: for development only
-		config.Marketing.StaticDir = filepath.Join(storjRoot, "web/marketing")
-		config.Console.StaticDir = filepath.Join(storjRoot, "web/satellite")
-		config.Mail.TemplatePath = filepath.Join(storjRoot, "web/satellite/static/emails")
 
 		verInfo := planet.NewVersionInfo()
 
@@ -623,7 +614,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			},
 			Storage: piecestore.OldConfig{
 				Path:                   "", // TODO: this argument won't be needed with master storagenodedb
-				AllocatedDiskSpace:     1500 * memory.GB,
+				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
 
@@ -632,6 +623,10 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,
+			},
+			Console: consoleserver.Config{
+				Address:   "127.0.0.1:0",
+				StaticDir: filepath.Join(developmentRoot, "web/operator/"),
 			},
 			Storage2: piecestore.Config{
 				Sender: orders.SenderConfig{

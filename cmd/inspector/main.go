@@ -376,7 +376,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthTable(w, redundancy, resp.GetSegments()); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, resp.GetSegments()); err != nil {
 		return err
 	}
 
@@ -432,7 +432,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthTable(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
 		return err
 	}
 
@@ -447,29 +447,74 @@ func csvOutput() (*os.File, error) {
 	return os.Create(CSVPath)
 }
 
-func printSegmentHealthTable(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
+func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
 	segmentTableHeader := []string{
-		"Segment Index", "Online Nodes", "Offline Nodes",
+		"Segment Index", "Healthy Nodes", "Unhealthy Nodes", "Offline Nodes",
 	}
 
 	if err := w.Write(segmentTableHeader); err != nil {
 		return fmt.Errorf("error writing record to csv: %s", err)
 	}
 
-	total := redundancy.TotalCount() // total amount of pieces we generated (n)
-
+	currentNodeIndex := 1                     // start at index 1 to leave first column empty
+	nodeIndices := make(map[storj.NodeID]int) // to keep track of node positions for node table
 	// Add each segment to the segmentTable
 	for _, segment := range segments {
-		onlineNodes := segment.GetOnlineNodes()          // amount of nodes with pieces currently online
+		healthyNodes := segment.HealthyIds               // healthy nodes with pieces currently online
+		unhealthyNodes := segment.UnhealthyIds           // unhealthy nodes with pieces currently online
+		offlineNodes := segment.OfflineIds               // offline nodes
 		segmentIndexPath := string(segment.GetSegment()) // path formatted Segment Index
-		offlineNodes := int32(total) - onlineNodes
 
 		row := []string{
 			segmentIndexPath,
-			strconv.FormatInt(int64(onlineNodes), 10),
-			strconv.FormatInt(int64(offlineNodes), 10),
+			strconv.FormatInt(int64(len(healthyNodes)), 10),
+			strconv.FormatInt(int64(len(unhealthyNodes)), 10),
+			strconv.FormatInt(int64(len(offlineNodes)), 10),
 		}
 
+		if err := w.Write(row); err != nil {
+			return fmt.Errorf("error writing record to csv: %s", err)
+		}
+
+		allNodes := append(healthyNodes, unhealthyNodes...)
+		allNodes = append(allNodes, offlineNodes...)
+		for _, id := range allNodes {
+			if nodeIndices[id] == 0 {
+				nodeIndices[id] = currentNodeIndex
+				currentNodeIndex++
+			}
+		}
+	}
+
+	if err := w.Write([]string{}); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
+	}
+
+	numNodes := len(nodeIndices)
+	nodeTableHeader := make([]string, numNodes+1)
+	for id, i := range nodeIndices {
+		nodeTableHeader[i] = id.String()
+	}
+	if err := w.Write(nodeTableHeader); err != nil {
+		return fmt.Errorf("error writing record to csv: %s", err)
+	}
+
+	// Add online/offline info to the node table
+	for _, segment := range segments {
+		row := make([]string, numNodes+1)
+		for _, id := range segment.HealthyIds {
+			i := nodeIndices[id]
+			row[i] = "healthy"
+		}
+		for _, id := range segment.UnhealthyIds {
+			i := nodeIndices[id]
+			row[i] = "unhealthy"
+		}
+		for _, id := range segment.OfflineIds {
+			i := nodeIndices[id]
+			row[i] = "offline"
+		}
+		row[0] = string(segment.GetSegment())
 		if err := w.Write(row); err != nil {
 			return fmt.Errorf("error writing record to csv: %s", err)
 		}

@@ -42,7 +42,7 @@ func BenchmarkOverlay(b *testing.B) {
 		}
 
 		for _, id := range all {
-			err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id})
+			err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
 		}
 
@@ -55,11 +55,9 @@ func BenchmarkOverlay(b *testing.B) {
 
 		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
 			criteria := &overlay.NodeCriteria{
-				AuditCount:         0,
-				AuditSuccessRatio:  0.5,
-				OnlineWindow:       1000 * time.Hour,
-				UptimeCount:        0,
-				UptimeSuccessRatio: 0.5,
+				AuditCount:   0,
+				OnlineWindow: 1000 * time.Hour,
+				UptimeCount:  0,
 			}
 			for i := 0; i < b.N; i++ {
 				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
@@ -71,7 +69,7 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateAddress", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id})
+				err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 			}
 		})
@@ -116,7 +114,7 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateUptime", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0)
+				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0, 1, 1, 0.5)
 				require.NoError(b, err)
 			}
 		})

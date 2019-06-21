@@ -472,8 +472,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 		// we repair when the number of healthy files is less than or equal to the repair threshold
 		// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && remote.Redundancy.RepairThreshold != remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces is less than or equal to the repair threshold: %v < %v",
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
 			)
@@ -507,8 +507,24 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	return storj.JoinPaths(entries...), nil
 }
 
+// SetAttribution tries to add attribution to the bucket.
+func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttributionRequest) (_ *pb.SetAttributionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = endpoint.checkBucketPointers(ctx, req)
+	if err != nil {
+		// TODO: return correct status code for GRPC
+		endpoint.log.Sugar().Debug("related bucket id already attributed \n")
+		return &pb.SetAttributionResponse{}, err
+	}
+
+	// TODO: add valueattribution DB access functions added in new PR.
+
+	return &pb.SetAttributionResponse{}, nil
+}
+
 // checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.ValueAttributionRequest) (resp bool, err error) {
+func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAttributionRequest) (resp bool, err error) {
 	//TODO: Logic of checking if bucket exists will be added in new PR.
 	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
 	defer mon.Task()(&ctx)(&err)
@@ -538,17 +554,4 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.Value
 	}
 
 	return true, nil
-}
-
-// ValueAttributeInfo commits segment metadata
-func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
-	_, err := endpoint.checkBucketPointers(ctx, req)
-	if err != nil {
-		endpoint.log.Sugar().Info("related bucket id already attributed \n")
-		return &pb.ValueAttributionResponse{}, err
-	}
-
-	// TODO: add valueattribution DB access functions added in new PR.
-
-	return &pb.ValueAttributionResponse{}, nil
 }
