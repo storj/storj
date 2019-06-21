@@ -21,6 +21,46 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
+const (
+	remoteSize int64 = 5368709120
+	inlineSize int64 = 1024
+	egressSize int64 = 2048
+)
+
+type ValueAttributionTestData struct {
+	name       string
+	partnerID  uuid.UUID
+	projectID  uuid.UUID
+	bucketName []byte
+	bucketID   []byte
+
+	start        time.Time
+	end          time.Time
+	dataInterval time.Time
+	bwStart      time.Time
+
+	hours       int64
+	hoursOfData int
+	padding     int
+
+	remoteSize int64
+	inlineSize int64
+	egressSize int64
+
+	dataCounter         int
+	expectedRemoteBytes int64
+	expectedInlineBytes int64
+	expectedEgress      int64
+}
+
+func (testData *ValueAttributionTestData) init() {
+	testData.bucketID = []byte(testData.projectID.String() + "/" + string(testData.bucketName))
+	testData.hours = int64(testData.end.Sub(testData.start).Hours())
+	testData.hoursOfData = int(testData.hours) + (testData.padding * 2)
+	testData.dataInterval = time.Date(testData.start.Year(), testData.start.Month(), testData.start.Day(), -testData.padding, -1, 0, 0, testData.start.Location())
+	testData.bwStart = time.Date(testData.start.Year(), testData.start.Month(), testData.start.Day(), -testData.padding, 0, 0, 0, testData.start.Location())
+}
+
 func TestDB(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -65,82 +105,139 @@ func TestQueryValueAttribution(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		attributionDB := db.Attribution()
-		projectAccoutingDB := db.ProjectAccounting()
-		orderDB := db.Orders()
-
-		now := time.Now().UTC()
-		hoursOfData := 28
-		var remoteSize int64 = 5368709120 // 5GB
-		var inlineSize int64 = 1024
-
-		//dataStart := time.Date(now.Year(), now.Month(), now.Day(), -2, 0, 0, 0, now.Location())
-		dataInterval := time.Date(now.Year(), now.Month(), now.Day(), -2, -1, 0, 0, now.Location())
-		bwStart := time.Date(now.Year(), now.Month(), now.Day(), -2, 0, 0, 0, now.Location())
-		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		end := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-		hours := int64(end.Sub(start).Hours())
-
 		newUUID := func() uuid.UUID {
 			v, err := uuid.New()
 			require.NoError(t, err)
 			return *v
 		}
 
-		projectID1 := newUUID()
-		partnerID1 := newUUID()
-		bucketName1 := []byte("alpha")
-		bucketID1 := []byte(projectID1.String() + "/" + string(bucketName1))
+		now := time.Now().UTC()
 
-		infos := []*attribution.Info{
-			{projectID1, bucketName1, partnerID1, time.Time{}},
-		}
+		projectID := newUUID()
+		partnerID := newUUID()
+		alphaBucket := []byte("alpha")
+		betaBucket := []byte("beta")
+		testData := []ValueAttributionTestData{
+			{
+				name:       "new partnerID, projectID, alpha",
+				partnerID:  newUUID(),
+				projectID:  projectID,
+				bucketName: alphaBucket,
 
-		for _, info := range infos {
-			_, err := attributionDB.Insert(ctx, info)
+				remoteSize: remoteSize,
+				inlineSize: inlineSize,
+				egressSize: egressSize,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "partnerID, new projectID, alpha",
+				partnerID:  partnerID,
+				projectID:  newUUID(),
+				bucketName: alphaBucket,
+
+				remoteSize: remoteSize,
+				inlineSize: inlineSize,
+				egressSize: egressSize,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "partnerID, new projectID, beta",
+				partnerID:  partnerID,
+				projectID:  newUUID(),
+				bucketName: betaBucket,
+
+				remoteSize: remoteSize,
+				inlineSize: inlineSize,
+				egressSize: egressSize,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			},
+			{
+				name:       "new partnerID, projectID, beta",
+				partnerID:  newUUID(),
+				projectID:  projectID,
+				bucketName: betaBucket,
+
+				remoteSize: remoteSize,
+				inlineSize: inlineSize,
+				egressSize: egressSize,
+
+				start:   time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()),
+				end:     time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()),
+				padding: 2,
+			}}
+
+		for _, td := range testData {
+			td.init()
+			info := attribution.Info{td.projectID, td.bucketName, td.partnerID, time.Time{}}
+			_, err := db.Attribution().Insert(ctx, &info)
 			require.NoError(t, err)
-		}
 
-		dataCounter := 0
-		var expectedRemoteBytes int64 = 0
-		var expectedInlineBytes int64 = 0
-		var expectedEgress int64 = 0
-		for i := 0; i < hoursOfData; i++ {
-			var egress int64 = 1
-			err := orderDB.UpdateBucketBandwidthSettle(ctx, bucketID1, pb.PieceAction_GET, egress, bwStart)
-			require.NoError(t, err)
-
-			bwStart = bwStart.Add(time.Hour)
-
-			dataCounter++
-			dataInterval = dataInterval.Add(time.Minute * 30)
-			_, err = createTallyData(ctx, projectAccoutingDB, projectID1, bucketName1, remoteSize*int64(dataCounter), inlineSize*int64(dataCounter), dataInterval)
-			require.NoError(t, err)
-
-			dataCounter++
-			dataInterval = dataInterval.Add(time.Minute * 30)
-			tally2, err := createTallyData(ctx, projectAccoutingDB, projectID1, bucketName1, remoteSize*int64(dataCounter), inlineSize*int64(dataCounter), dataInterval)
-			require.NoError(t, err)
-
-			if (dataInterval.After(start) || dataInterval.Equal(start)) && dataInterval.Before(end) {
-				expectedRemoteBytes += tally2.RemoteBytes
-				expectedInlineBytes += tally2.InlineBytes
-				expectedEgress += egress
+			for i := 0; i < td.hoursOfData; i++ {
+				createData(ctx, t, db, &td)
 			}
-		}
-		results, err := attributionDB.QueryValueAttribution(ctx, partnerID1, start, end)
-		require.NoError(t, err)
-		require.NotEqual(t, 0, len(results), "Results must not be empty.")
-		for _, r := range results {
-			projectID, _ := bytesToUUID(r.ProjectID)
-			fmt.Printf("EEEE: %v, %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour, r.EgressData)
-			assert.Equal(t, projectID1[:], r.ProjectID)
-			assert.Equal(t, bucketName1, r.BucketName)
-			assert.Equal(t, float64(expectedRemoteBytes/hours), r.RemoteBytesPerHour)
-			assert.Equal(t, float64(expectedInlineBytes/hours), r.InlineBytesPerHour)
-			assert.Equal(t, expectedEgress, r.EgressData)
+
+			verifyData(ctx, t, db.Attribution(), &td)
 		}
 	})
+}
+
+func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *ValueAttributionTestData) {
+	results, err := attributionDB.QueryValueAttribution(ctx, testData.partnerID, testData.start, testData.end)
+	require.NoError(t, err)
+	require.NotEqual(t, 0, len(results), "Results must not be empty.")
+	for _, r := range results {
+		projectID, _ := bytesToUUID(r.ProjectID)
+		// The query returns results by partnerID, so we need to filter out by projectID
+		if projectID != testData.projectID {
+			continue
+		}
+		fmt.Printf("EEEE: %v, %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour, r.EgressData)
+		// TODO assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
+		assert.Equal(t, testData.projectID[:], r.ProjectID, testData.name)
+		assert.Equal(t, testData.bucketName, r.BucketName, testData.name)
+		assert.Equal(t, float64(testData.expectedRemoteBytes/testData.hours), r.RemoteBytesPerHour, testData.name)
+		assert.Equal(t, float64(testData.expectedInlineBytes/testData.hours), r.InlineBytesPerHour, testData.name)
+		assert.Equal(t, testData.expectedEgress, r.EgressData, testData.name)
+	}
+}
+
+func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testData *ValueAttributionTestData) {
+	projectAccoutingDB := db.ProjectAccounting()
+	orderDB := db.Orders()
+
+	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.bucketID, pb.PieceAction_GET, testData.egressSize, testData.bwStart)
+	require.NoError(t, err)
+
+	// Only GET should be counted. So this should not effect results
+	err = orderDB.UpdateBucketBandwidthSettle(ctx, testData.bucketID, pb.PieceAction_GET_AUDIT, testData.egressSize, testData.bwStart)
+	require.NoError(t, err)
+
+	testData.bwStart = testData.bwStart.Add(time.Hour)
+
+	testData.dataCounter++
+	testData.dataInterval = testData.dataInterval.Add(time.Minute * 30)
+	_, err = createTallyData(ctx, projectAccoutingDB, testData.projectID, testData.bucketName, testData.remoteSize*int64(testData.dataCounter), testData.inlineSize*int64(testData.dataCounter), testData.dataInterval)
+	require.NoError(t, err)
+
+	testData.dataCounter++
+	testData.dataInterval = testData.dataInterval.Add(time.Minute * 30)
+	tally2, err := createTallyData(ctx, projectAccoutingDB, testData.projectID, testData.bucketName, testData.remoteSize*int64(testData.dataCounter), testData.inlineSize*int64(testData.dataCounter), testData.dataInterval)
+	require.NoError(t, err)
+
+	if (testData.dataInterval.After(testData.start) || testData.dataInterval.Equal(testData.start)) && testData.dataInterval.Before(testData.end) {
+		testData.expectedRemoteBytes += tally2.RemoteBytes
+		testData.expectedInlineBytes += tally2.InlineBytes
+		testData.expectedEgress += testData.egressSize
+	}
 }
 
 func createTallyData(ctx *testcontext.Context, projectAccoutingDB accounting.ProjectAccounting, projectID uuid.UUID, bucket []byte, remote int64, inline int64, dataIntervalStart time.Time) (_ accounting.BucketStorageTally, err error) {
