@@ -139,7 +139,7 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (bucketInfo
 		return storj.Bucket{}, err
 	}
 
-	return convertMeta(ctx, bucketName, objMeta)
+	return bucketFromMeta(ctx, bucketName, objMeta)
 }
 
 // ListBuckets lists buckets
@@ -183,7 +183,7 @@ func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOpti
 		if itm.IsPrefix {
 			continue
 		}
-		m, err := convertMeta(ctx, itm.Path, itm.Meta)
+		m, err := bucketFromMeta(ctx, itm.Path, itm.Meta)
 		if err != nil {
 			return storj.BucketList{}, err
 		}
@@ -193,7 +193,7 @@ func (db *Project) ListBuckets(ctx context.Context, options storj.BucketListOpti
 	return list, nil
 }
 
-func convertMeta(ctx context.Context, bucketName string, m objects.Meta) (out storj.Bucket, err error) {
+func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	out.Name = bucketName
