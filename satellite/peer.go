@@ -381,6 +381,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup orders
 		log.Debug("Setting up orders")
+		if config.Orders.Expiration <= 0 {
+			config.Orders.Expiration = 45 * 24 * time.Hour
+		}
 		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
