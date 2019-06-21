@@ -24,8 +24,8 @@ import (
 // * Create and use a verifier to audit such stripe and get a report
 // * Verify that the report contains an audit failure of node whose piece has
 //   has been deleted.
-// * Record the audit report several times and check that the node gets
-//   disqualified.
+// * Record the audit report several times and check that the node isn't
+//	 disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	var auditDQCutOff float64
 
