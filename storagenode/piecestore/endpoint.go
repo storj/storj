@@ -295,7 +295,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				}
 
 				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
-					return ErrInternal.Wrap(err)
+					ignoreCancelContext := context.Background()
+					deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
+					return ErrInternal.Wrap(errs.Combine(err, deleteErr))
 				}
 			}
 
@@ -304,7 +306,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				Hash:    expectedHash,
 			})
 			if err != nil {
-				return ErrInternal.Wrap(err)
+				ignoreCancelContext := context.Background()
+				deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
+				return ErrInternal.Wrap(errs.Combine(err, deleteErr))
 			}
 
 			closeErr := stream.SendAndClose(&pb.PieceUploadResponse{
