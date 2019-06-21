@@ -20,4 +20,8 @@ type EncryptionAccess struct {
 	// path from the top of the storage Bucket to this point. This is
 	// necessary to have in order to derive further encryption keys.
 	EncryptedPathPrefix storj.Path
+	// UnencryptedPathPrefix is the (possibly empty) unencrypted version of the
+	// path from the top of the storage Bucket to this point. This is
+	// necessary to have in order to derive further encryption keys.
+	UnencryptedPathPrefix storj.Path
 }
