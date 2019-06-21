@@ -37,7 +37,7 @@ func TestAuditSegment(t *testing.T) {
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
 		//populate metainfo with 10 non-expired pointers of test data
-		tests, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
+		tests, cursor, m := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -55,7 +55,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := metainfo.List(ctx, metainfo.Path{}, "", "", true, 10, meta.None)
+			list, _, err := m.List(ctx, metainfo.Path{}, "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -70,7 +70,8 @@ func TestAuditSegment(t *testing.T) {
 					t.Error("num error: failed to get num")
 				}
 				pointerItem := list[randomNum.Int64()]
-				path := pointerItem.Path
+				// path := pointerItem.Path
+				path := 
 				val := pathCount{path: path, count: 1}
 				pathCounter = append(pathCounter, val)
 			}
@@ -117,9 +118,9 @@ func TestDeleteExpired(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		//populate metainfo with 10 expired pointers of test data
-		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
+		_, cursor, m := populateTestData(t, planet, &timestamp.Timestamp{})
 		//make sure it they're in there
-		list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
+		list, _, err := m.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
 		// make sure an error and no pointer is returned
@@ -129,7 +130,7 @@ func TestDeleteExpired(t *testing.T) {
 			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
-		list, _, err = metainfo.List(ctx, "", "", "", true, 10, meta.None)
+		list, _, err = m.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 0)
 	})
@@ -154,8 +155,8 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 		{bm: "success-9", path: "Pictures/Animals/Dogs/dogs.png"},
 		{bm: "success-10", path: "Nada/ビデオ/😶"},
 	}
-	metainfo := planet.Satellites[0].Metainfo.Service
-	cursor := audit.NewCursor(metainfo)
+	m := planet.Satellites[0].Metainfo.Service
+	cursor := audit.NewCursor(m)
 
 	// put 10 pointers in db with expirations
 	t.Run("putToDB", func(t *testing.T) {
@@ -163,11 +164,11 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 			test := tt
 			t.Run(test.bm, func(t *testing.T) {
 				pointer := makePointer(test.path, expiration)
-				require.NoError(t, metainfo.Put(ctx, test.path, pointer))
+				require.NoError(t, m.Put(ctx, test.path, pointer))
 			})
 		}
 	})
-	return tests, cursor, metainfo
+	return tests, cursor, m
 }
 
 func makePointer(path metainfo.Path, expiration *timestamp.Timestamp) *pb.Pointer {
