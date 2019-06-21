@@ -46,7 +46,7 @@ Our partners will have connectors that their customers will use to store data on
 
 ### Connector
 
-Each partner will have a registered id, (which we will refer to as the partner id) that will identify a partners connector on the Storj network.  When a user uploads data to a specified bucket through the connector,  the connector will include the partner id in the context of the request. Before an upload occurs, the uplink will communicate the partner id and bucket name with the tardigrade satellite, checking for a previous attribution. If no attribution is found on the specified bucket and the bucket is currently void of data, the satellite will attribute the partners id to that bucket within the metadata struct. Concurrently to updating the metadata struct the satelitte will add the necessary data to the Attribution table. 
+Each partner will have a registered id, (which we will refer to as the partner id) that will identify a partners connector on the Storj network.  When a user uploads data to a specified bucket through the connector,  the connector will include the partner id in the content of the GRPC request. Before an upload occurs, the uplink will communicate the partner id and bucket name with the tardigrade satellite, checking for a previous attribution. If no attribution is found on the specified bucket and the bucket is currently void of data, the satellite will attribute the partners id to that bucket within the metadata struct. Concurrently to updating the metadata struct the satelitte will add the necessary data to the Attribution table. 
 
 
 ### Database
@@ -57,7 +57,6 @@ The attribution table will consist of data that allows for ease of calculating t
 | --------------- | ------------- |
 | project_id (pk) | uuid          |
 | bucket_name(pk) | bytes         |
-| user_id         | uuid          |
 | partner_id      | uuid          |
 | at_rest_data    | integer       |
 | egress_data     | integer       |
