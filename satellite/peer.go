@@ -52,11 +52,11 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/offers"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -93,7 +93,7 @@ type DB interface {
 	// Console returns database for satellite console
 	Console() console.DB
 	//  returns database for marketing admin GUI
-	Offers() offers.DB
+	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment

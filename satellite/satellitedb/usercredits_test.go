@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/offers"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -163,7 +163,7 @@ func TestUsercredits(t *testing.T) {
 	})
 }
 
-func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *offers.Offer) {
+func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *rewards.Offer) {
 	consoleDB := db.Console()
 	offersDB := db.Offers()
 	// create user
@@ -194,7 +194,7 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 	require.NoError(t, err)
 
 	// create offer
-	offer, err = offersDB.Create(ctx, &offers.NewOffer{
+	offer, err = offersDB.Create(ctx, &rewards.NewOffer{
 		Name:                      "test",
 		Description:               "test offer 1",
 		AwardCreditInCents:        100,
@@ -203,8 +203,8 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 		InviteeCreditDurationDays: 30,
 		RedeemableCap:             50,
 		ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-		Status:                    offers.Active,
-		Type:                      offers.Referral,
+		Status:                    rewards.Active,
+		Type:                      rewards.Referral,
 	})
 	require.NoError(t, err)
 

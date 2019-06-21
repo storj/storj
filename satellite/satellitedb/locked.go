@@ -25,8 +25,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/offers"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/rewards"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -681,49 +681,6 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
-// returns database for marketing admin GUI
-func (m *locked) Offers() offers.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedOffers{m.Locker, m.db.Offers()}
-}
-
-// lockedOffers implements locking wrapper for offers.DB
-type lockedOffers struct {
-	sync.Locker
-	db offers.DB
-}
-
-func (m *lockedOffers) Create(ctx context.Context, offer *offers.NewOffer) (*offers.Offer, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, offer)
-}
-
-func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Finish(ctx, offerID)
-}
-
-func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType offers.OfferType) (*offers.Offer, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetCurrentByType(ctx, offerType)
-}
-
-func (m *lockedOffers) ListAll(ctx context.Context) ([]offers.Offer, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ListAll(ctx)
-}
-
-func (m *lockedOffers) Redeem(ctx context.Context, offerID int, isDefault bool) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID, isDefault)
-}
-
 // Orders returns database for orders
 func (m *locked) Orders() orders.DB {
 	m.Lock()
@@ -984,6 +941,49 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectN(ctx, limit)
+}
+
+// returns database for marketing admin GUI
+func (m *locked) Rewards() rewards.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedRewards{m.Locker, m.db.Rewards()}
+}
+
+// lockedRewards implements locking wrapper for rewards.DB
+type lockedRewards struct {
+	sync.Locker
+	db rewards.DB
+}
+
+func (m *lockedRewards) Create(ctx context.Context, offer *rewards.NewOffer) (*rewards.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, offer)
+}
+
+func (m *lockedRewards) Finish(ctx context.Context, offerID int) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Finish(ctx, offerID)
+}
+
+func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCurrentByType(ctx, offerType)
+}
+
+func (m *lockedRewards) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListAll(ctx)
+}
+
+func (m *lockedRewards) Redeem(ctx context.Context, offerID int, isDefault bool) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Redeem(ctx, offerID, isDefault)
 }
 
 // StoragenodeAccounting returns database for storing information about storagenode use

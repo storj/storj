@@ -18,8 +18,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/offers"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -136,8 +136,8 @@ func (db *DB) Console() console.DB {
 	}
 }
 
-// Offers returns database for storing offersDB and credits
-func (db *DB) Offers() offers.DB {
+// Rewards returns database for storing offers
+func (db *DB) Rewards() rewards.DB {
 	return &offersDB{db: db.db}
 }
 

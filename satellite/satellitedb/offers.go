@@ -10,8 +10,13 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/offers"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
+)
+
+var (
+	// Error the default offers errs class
+	offerErr = errs.Class("offers error")
 )
 
 type offersDB struct {
@@ -19,17 +24,17 @@ type offersDB struct {
 }
 
 // ListAll returns all offersDB from the db
-func (db *offersDB) ListAll(ctx context.Context) ([]offers.Offer, error) {
+func (db *offersDB) ListAll(ctx context.Context) ([]rewards.Offer, error) {
 	offersDbx, err := db.db.All_Offer(ctx)
 	if err != nil {
-		return nil, offers.Err.Wrap(err)
+		return nil, offerErr.Wrap(err)
 	}
 
 	return offersFromDBX(offersDbx)
 }
 
 // GetCurrent returns an offer that has not expired based on offer type
-func (db *offersDB) GetCurrentByType(ctx context.Context, offerType offers.OfferType) (*offers.Offer, error) {
+func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
 	var statement string
 	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type"
 	statement = `
@@ -44,35 +49,35 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType offers.Offer
 			SELECT id FROM o
 		) order by created_at desc;`
 
-	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), offers.Active, offerType, time.Now().UTC(), offerType, offers.Default)
+	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 
-	o := offers.Offer{}
+	o := rewards.Offer{}
 	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCreditInCents, &o.InviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
-		return nil, offers.Err.New("no current offer")
+		return nil, offerErr.New("no current offer")
 	}
 	if err != nil {
-		return nil, offers.Err.Wrap(err)
+		return nil, offerErr.Wrap(err)
 	}
 
 	return &o, nil
 }
 
 // Create inserts a new offer into the db
-func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Offer, error) {
+func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.Offer, error) {
 	currentTime := time.Now()
 	if o.ExpiresAt.Before(currentTime) {
-		return nil, offers.Err.New("expiration time: %v can't be before: %v", o.ExpiresAt, currentTime)
+		return nil, offerErr.New("expiration time: %v can't be before: %v", o.ExpiresAt, currentTime)
 	}
 
-	if o.Status == offers.Default {
+	if o.Status == rewards.Default {
 		o.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
 		o.RedeemableCap = 1
 	}
 
 	tx, err := db.db.Open(ctx)
 	if err != nil {
-		return nil, offers.Err.Wrap(err)
+		return nil, offerErr.Wrap(err)
 	}
 
 	// If there's an existing current offer, update its status to Done and set its expires_at to be NOW()
@@ -80,9 +85,9 @@ func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Off
 		UPDATE offers SET status=?, expires_at=?
 		WHERE status=? AND type=? AND expires_at>?;
 	`)
-	_, err = tx.Tx.ExecContext(ctx, statement, offers.Done, currentTime, o.Status, o.Type, currentTime)
+	_, err = tx.Tx.ExecContext(ctx, statement, rewards.Done, currentTime, o.Status, o.Type, currentTime)
 	if err != nil {
-		return nil, offers.Err.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	offerDbx, err := tx.Create_Offer(ctx,
@@ -98,15 +103,15 @@ func (db *offersDB) Create(ctx context.Context, o *offers.NewOffer) (*offers.Off
 		dbx.Offer_Type(int(o.Type)),
 	)
 	if err != nil {
-		return nil, offers.Err.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
 	newOffer, err := convertDBOffer(offerDbx)
 	if err != nil {
-		return nil, offers.Err.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
 
-	return newOffer, offers.Err.Wrap(tx.Commit())
+	return newOffer, offerErr.Wrap(tx.Commit())
 }
 
 // Redeem adds 1 to the amount of offers redeemed based on offer id
@@ -119,9 +124,9 @@ func (db *offersDB) Redeem(ctx context.Context, oID int, isDefault bool) error {
 		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
 	)
 
-	_, err := db.db.DB.ExecContext(ctx, statement, oID, offers.Active)
+	_, err := db.db.DB.ExecContext(ctx, statement, oID, rewards.Active)
 	if err != nil {
-		return offers.Err.Wrap(err)
+		return offerErr.Wrap(err)
 	}
 
 	return nil
@@ -130,7 +135,7 @@ func (db *offersDB) Redeem(ctx context.Context, oID int, isDefault bool) error {
 // Finish changes the offer status to be Done and its expiration date to be now based on offer id
 func (db *offersDB) Finish(ctx context.Context, oID int) error {
 	updateFields := dbx.Offer_Update_Fields{
-		Status:    dbx.Offer_Status(int(offers.Done)),
+		Status:    dbx.Offer_Status(int(rewards.Done)),
 		ExpiresAt: dbx.Offer_ExpiresAt(time.Now().UTC()),
 	}
 
@@ -138,15 +143,15 @@ func (db *offersDB) Finish(ctx context.Context, oID int) error {
 
 	_, err := db.db.Update_Offer_By_Id(ctx, offerID, updateFields)
 	if err != nil {
-		return offers.Err.Wrap(err)
+		return offerErr.Wrap(err)
 	}
 
 	return nil
 }
 
-func offersFromDBX(offersDbx []*dbx.Offer) ([]offers.Offer, error) {
-	var offers []offers.Offer
-	var errList errs.Group
+func offersFromDBX(offersDbx []*dbx.Offer) ([]rewards.Offer, error) {
+	var offers []rewards.Offer
+	errList := new(errs.Group)
 
 	for _, offerDbx := range offersDbx {
 
@@ -161,12 +166,12 @@ func offersFromDBX(offersDbx []*dbx.Offer) ([]offers.Offer, error) {
 	return offers, errList.Err()
 }
 
-func convertDBOffer(offerDbx *dbx.Offer) (*offers.Offer, error) {
+func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 	if offerDbx == nil {
-		return nil, offers.Err.New("offerDbx parameter is nil")
+		return nil, offerErr.New("offerDbx parameter is nil")
 	}
 
-	o := offers.Offer{
+	o := rewards.Offer{
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
@@ -178,8 +183,8 @@ func convertDBOffer(offerDbx *dbx.Offer) (*offers.Offer, error) {
 		AwardCreditDurationDays:   offerDbx.AwardCreditDurationDays,
 		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
 		CreatedAt:                 offerDbx.CreatedAt,
-		Status:                    offers.OfferStatus(offerDbx.Status),
-		Type:                      offers.OfferType(offerDbx.Type),
+		Status:                    rewards.OfferStatus(offerDbx.Status),
+		Type:                      rewards.OfferType(offerDbx.Type),
 	}
 
 	return &o, nil

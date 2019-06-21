@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package offers_test
+package rewards_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/satellite/offers"
+	"storj.io/storj/satellite/reward"
 )
 
 func TestOffer_Database(t *testing.T) {
@@ -19,7 +19,7 @@ func TestOffer_Database(t *testing.T) {
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// Happy path
-		validOffers := []offers.NewOffer{
+		validOffers := []reward.NewOffer{
 			{
 				Name:                      "test",
 				Description:               "test offer 1",
@@ -29,8 +29,8 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-				Status:                    offers.Active,
-				Type:                      offers.Referral,
+				Status:                    reward.Active,
+				Type:                      reward.Referral,
 			},
 			{
 				Name:                      "test",
@@ -41,8 +41,8 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-				Status:                    offers.Default,
-				Type:                      offers.FreeCredit,
+				Status:                    reward.Default,
+				Type:                      reward.FreeCredit,
 			},
 		}
 
@@ -58,13 +58,13 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
-			update := &offers.UpdateOffer{
+			update := &reward.UpdateOffer{
 				ID:        new.ID,
-				Status:    offers.Done,
+				Status:    reward.Done,
 				ExpiresAt: time.Now(),
 			}
 
-			isDefault := update.Status == offers.Default
+			isDefault := update.Status == reward.Default
 			err = planet.Satellites[0].DB.Offers().Redeem(ctx, update.ID, isDefault)
 			require.NoError(t, err)
 
@@ -73,16 +73,16 @@ func TestOffer_Database(t *testing.T) {
 
 			current, err := planet.Satellites[0].DB.Offers().ListAll(ctx)
 			require.NoError(t, err)
-			if new.Status == offers.Default {
+			if new.Status == reward.Default {
 				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
 			} else {
 				require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
 			}
-			require.Equal(t, offers.Done, current[i].Status)
+			require.Equal(t, reward.Done, current[i].Status)
 		}
 
 		// create with expired offer
-		expiredOffers := []offers.NewOffer{
+		expiredOffers := []reward.NewOffer{
 			{
 				Name:                      "test",
 				Description:               "test offer",
@@ -92,8 +92,8 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
-				Status:                    offers.Active,
-				Type:                      offers.FreeCredit,
+				Status:                    reward.Active,
+				Type:                      reward.FreeCredit,
 			},
 			{
 				Name:                      "test",
@@ -104,8 +104,8 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
-				Status:                    offers.Default,
-				Type:                      offers.Referral,
+				Status:                    reward.Default,
+				Type:                      reward.Referral,
 			},
 		}
 

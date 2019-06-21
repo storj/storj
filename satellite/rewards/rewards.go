@@ -1,17 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package offers
+package rewards
 
 import (
 	"context"
 	"time"
-
-	"github.com/zeebo/errs"
 )
-
-// Err creates offer error class
-var Err = errs.Class("offers error")
 
 // DB holds information about offer
 type DB interface {
@@ -91,8 +86,3 @@ type Offer struct {
 	Status OfferStatus
 	Type   OfferType
 }
-
-var (
-	// Error the default offers errs class
-	Error = errs.Class("offers error")
-)
