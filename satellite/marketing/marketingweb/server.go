@@ -217,11 +217,11 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	reqType := mux.Vars(req)["offer_type"]
 
 	switch reqType {
-		case "referral-offer":
-			o.Type = marketing.Referral
-		case "free-credit":
-			o.Type = marketing.FreeCredit
-		}
+	case "referral-offer":
+		o.Type = marketing.Referral
+	case "free-credit":
+		o.Type = marketing.FreeCredit
+	}
 
 	if _, err := s.service.InsertNewOffer(req.Context(), &o); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
