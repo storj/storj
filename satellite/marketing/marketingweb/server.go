@@ -46,7 +46,7 @@ type Server struct {
 		home          *template.Template
 		pageNotFound  *template.Template
 		internalError *template.Template
-		badRequest	  *template.Template
+		badRequest    *template.Template
 	}
 }
 
@@ -155,8 +155,8 @@ func (s *Server) parseTemplates() (err error) {
 	)
 
 	badRequestFiles := append(s.commonPages(),
-	filepath.Join(s.templateDir, "bad-request.html"),
-)
+		filepath.Join(s.templateDir, "err.html"),
+	)
 
 	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
 	if err != nil {
