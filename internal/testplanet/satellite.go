@@ -1,7 +1,6 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-// Package testplanet implements the full network wiring for testing
 package testplanet
 
 import (
