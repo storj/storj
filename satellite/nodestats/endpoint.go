@@ -36,8 +36,8 @@ func NewEndpoint(log *zap.Logger, overlay overlay.DB) *Endpoint {
 	}
 }
 
-// UptimeCheck returns uptime checks ratio
-func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeRequest) (_ *pb.UptimeResponse, err error) {
+// UptimeCheck returns uptime checks information for client node
+func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) (_ *pb.UptimeCheckResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
@@ -50,7 +50,20 @@ func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeRequest) (_ *p
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	return &pb.UptimeResponse{
-		Ratio: node.Reputation.UptimeRatio,
+	reputationScore := calculateUptimeReputationScore(
+		node.Reputation.UptimeReputationAlpha,
+		node.Reputation.UptimeReputationBeta)
+
+	return &pb.UptimeCheckResponse{
+		TotalCount:      node.Reputation.UptimeCount,
+		SuccessCount:    node.Reputation.UptimeSuccessCount,
+		ReputationAlpha: node.Reputation.UptimeReputationAlpha,
+		ReputationBeta:  node.Reputation.UptimeReputationBeta,
+		ReputationScore: reputationScore,
 	}, nil
+}
+
+// calculateUptimeReputationScore is helper method to calculate reputation value for uptime checks
+func calculateUptimeReputationScore(alpha, beta float64) float64 {
+	return alpha / (alpha + beta)
 }

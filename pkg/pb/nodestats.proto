@@ -7,15 +7,18 @@ option go_package = "pb";
 package nodestats;
 
 import "gogo.proto";
-import "google/protobuf/timestamp.proto";
 
 service NodeStats {
-    rpc UptimeCheck(UptimeRequest) returns (UptimeResponse) {}
+    rpc UptimeCheck(UptimeCheckRequest) returns (UptimeCheckResponse) {}
 }
 
-message UptimeRequest { }
+message UptimeCheckRequest { }
 
-message UptimeResponse {
-    double ratio = 1;
+message UptimeCheckResponse {
+    int64 total_count = 1;
+    int64 success_count = 2;
+    double reputation_alpha = 3;
+    double reputation_beta = 4;
+    double reputation_score = 5;
 }
 
