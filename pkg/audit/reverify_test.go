@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"storj.io/storj/pkg/paths"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -41,8 +43,8 @@ func TestReverifySuccess(t *testing.T) {
 		testData := make([]byte, 1*memory.MiB)
 		_, err = rand.Read(testData)
 		require.NoError(t, err)
-
-		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		testPath := paths.NewUnencrypted("test/path")
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", testPath, testData)
 		require.NoError(t, err)
 
 		metainfo := planet.Satellites[0].Metainfo.Service

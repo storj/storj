@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -205,18 +206,20 @@ func makePointer(path metainfo.Path, expiration *timestamp.Timestamp) *pb.Pointe
 	}
 }
 
-func convertTestData(ctx context.Context, data []rawData) ([]testData, error) {
-	converted := []testData{}
+func convertTestData(ctx context.Context, data []rawData) (converted []testData, err error) {
 	//TODO: check all these parameter values
 	for _, entry := range data {
-		projectID := []byte("project")
-		bucket := entry.path
-		encPath := paths.NewEncrypted(entry.path)
-		x, err := metainfo.CreatePath(ctx, projectID, int64(0), bucket, encPath)
+		projectID, err := uuid.New()
 		if err != nil {
 			return converted, err
 		}
-		converted = append(converted, x)
+		bucket := entry.path // parse first part of path?
+		encPath := paths.NewEncrypted(entry.path) //encrypt after bucket?
+		x, err := metainfo.CreatePath(ctx, *projectID, int64(0), bucket, encPath) //where does segment index come from?
+		if err != nil {
+			return converted, err
+		}
+		converted = append(converted, testData{bm:entry.bm, path:x})
 	}
 	return converted, err
 }
