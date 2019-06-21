@@ -59,8 +59,8 @@ void handle_project(ProjectRef project) {
 
             size_t uploaded = 0;
             while (uploaded < data_len) {
-                int to_write_len = (data_len - uploaded > 256) ? 256 : data_len - uploaded;
-                int write_len = upload_write(uploader, (uint8_t *)data+uploaded, to_write_len, err);
+                size_t to_write_len = (data_len - uploaded > 256) ? 256 : data_len - uploaded;
+                size_t write_len = upload_write(uploader, (uint8_t *)data+uploaded, to_write_len, err);
                 require_noerror(*err);
 
                 if (write_len == 0) {
@@ -101,12 +101,12 @@ void handle_project(ProjectRef project) {
             memset(downloadedData, '\0', data_len);
             size_t downloadedTotal = 0;
 
-            uint64_t size_to_read = 256 + i;
+            size_t size_to_read = 256 + i;
             while (true) {
-                uint64_t downloadedSize = download_read(downloader, &downloadedData[downloadedTotal], size_to_read, err);
+                size_t downloadedSize = download_read(downloader, &downloadedData[downloadedTotal], size_to_read, err);
                 require_noerror(*err);
 
-                if (downloadedSize == EOF) {
+                if (downloadedSize == 0) {
                     break;
                 }
 

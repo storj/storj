@@ -135,7 +135,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.int, cErr *
 
 	n, err := upload.wc.Write(buf)
 	if err == io.EOF {
-		return C.EOF
+		return C.int(0)
 	}
 
 	return C.int(n)
@@ -252,7 +252,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.int, c
 
 	n, err := download.rc.Read(buf)
 	if err == io.EOF {
-		return C.EOF
+		return C.int(0)
 	}
 
 	return C.int(n)
