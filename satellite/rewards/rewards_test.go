@@ -11,7 +11,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/satellite/reward"
+	"storj.io/storj/satellite/rewards"
 )
 
 func TestOffer_Database(t *testing.T) {
@@ -19,7 +19,7 @@ func TestOffer_Database(t *testing.T) {
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// Happy path
-		validOffers := []reward.NewOffer{
+		validOffers := []rewards.NewOffer{
 			{
 				Name:                      "test",
 				Description:               "test offer 1",
@@ -29,8 +29,8 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-				Status:                    reward.Active,
-				Type:                      reward.Referral,
+				Status:                    rewards.Active,
+				Type:                      rewards.Referral,
 			},
 			{
 				Name:                      "test",
@@ -41,48 +41,48 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-				Status:                    reward.Default,
-				Type:                      reward.FreeCredit,
+				Status:                    rewards.Default,
+				Type:                      rewards.FreeCredit,
 			},
 		}
 
 		for i := range validOffers {
-			new, err := planet.Satellites[0].DB.Offers().Create(ctx, &validOffers[i])
+			new, err := planet.Satellites[0].DB.Rewards().Create(ctx, &validOffers[i])
 			require.NoError(t, err)
 
-			all, err := planet.Satellites[0].DB.Offers().ListAll(ctx)
+			all, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
 			require.Contains(t, all, *new)
 
-			c, err := planet.Satellites[0].DB.Offers().GetCurrentByType(ctx, new.Type)
+			c, err := planet.Satellites[0].DB.Rewards().GetCurrentByType(ctx, new.Type)
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
-			update := &reward.UpdateOffer{
+			update := &rewards.UpdateOffer{
 				ID:        new.ID,
-				Status:    reward.Done,
+				Status:    rewards.Done,
 				ExpiresAt: time.Now(),
 			}
 
-			isDefault := update.Status == reward.Default
-			err = planet.Satellites[0].DB.Offers().Redeem(ctx, update.ID, isDefault)
+			isDefault := update.Status == rewards.Default
+			err = planet.Satellites[0].DB.Rewards().Redeem(ctx, update.ID, isDefault)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.Offers().Finish(ctx, update.ID)
+			err = planet.Satellites[0].DB.Rewards().Finish(ctx, update.ID)
 			require.NoError(t, err)
 
-			current, err := planet.Satellites[0].DB.Offers().ListAll(ctx)
+			current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
-			if new.Status == reward.Default {
+			if new.Status == rewards.Default {
 				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
 			} else {
 				require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
 			}
-			require.Equal(t, reward.Done, current[i].Status)
+			require.Equal(t, rewards.Done, current[i].Status)
 		}
 
 		// create with expired offer
-		expiredOffers := []reward.NewOffer{
+		expiredOffers := []rewards.NewOffer{
 			{
 				Name:                      "test",
 				Description:               "test offer",
@@ -92,8 +92,8 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
-				Status:                    reward.Active,
-				Type:                      reward.FreeCredit,
+				Status:                    rewards.Active,
+				Type:                      rewards.FreeCredit,
 			},
 			{
 				Name:                      "test",
@@ -104,13 +104,13 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
-				Status:                    reward.Default,
-				Type:                      reward.Referral,
+				Status:                    rewards.Default,
+				Type:                      rewards.Referral,
 			},
 		}
 
 		for i := range expiredOffers {
-			output, err := planet.Satellites[0].DB.Offers().Create(ctx, &expiredOffers[i])
+			output, err := planet.Satellites[0].DB.Rewards().Create(ctx, &expiredOffers[i])
 			require.Error(t, err)
 			require.Nil(t, output)
 		}

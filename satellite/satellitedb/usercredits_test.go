@@ -165,7 +165,7 @@ func TestUsercredits(t *testing.T) {
 
 func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *rewards.Offer) {
 	consoleDB := db.Console()
-	offersDB := db.Offers()
+	offersDB := db.Rewards()
 	// create user
 	var userPassHash [8]byte
 	_, err := rand.Read(userPassHash[:])
