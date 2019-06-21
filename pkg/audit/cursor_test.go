@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -30,7 +29,7 @@ func TestAuditSegment(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		type pathCount struct {
-			path  storj.Path
+			path  metainfo.Path
 			count int
 		}
 
@@ -56,7 +55,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
+			list, _, err := metainfo.List(ctx, metainfo.Path{}, "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -138,7 +137,7 @@ func TestDeleteExpired(t *testing.T) {
 
 type testData struct {
 	bm   string
-	path storj.Path
+	path metainfo.Path
 }
 
 func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *metainfo.Service) {
@@ -171,7 +170,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 	return tests, cursor, metainfo
 }
 
-func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
+func makePointer(path metainfo.Path, expiration *timestamp.Timestamp) *pb.Pointer {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
