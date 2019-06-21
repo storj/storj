@@ -196,7 +196,7 @@ kademlia.operator.wallet: ""
 # the desired total pieces for a segment. o.
 # metainfo.rs.success-threshold: 80
 
-# toggle flag if rsconfig is enabled
+# validate redundancy scheme configuration
 # metainfo.rs.validate: true
 
 # address to send telemetry to
