@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -71,7 +70,7 @@ func TestReverifySuccess(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucketID := []byte(projects[0].ID.String() + "/testbucket")
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
@@ -154,7 +153,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+		bucketID := []byte(projects[0].ID.String() + "/testbucket")
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
