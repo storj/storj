@@ -22,12 +22,20 @@ import (
 // * Record the audit report several times and check that the node isn't
 //	 disqualified until the audit reputation reaches the cut-off value.
 func TestDisqualificationTooManyFailedAudits(t *testing.T) {
-	var auditDQCutOff float64
+	var (
+		auditDQCutOff float64 = 0.4
+		alpha0        float64 = 1
+		beta0         float64 = 0
+	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				auditDQCutOff = config.Overlay.Node.AuditReputationDQ
+				config.Overlay.Node.AuditReputationAlpha0 = alpha0
+				config.Overlay.Node.AuditReputationBeta0 = beta0
+				config.Overlay.Node.AuditReputationLambda = 1
+				config.Overlay.Node.AuditReputationWeight = 1
+				config.Overlay.Node.AuditReputationDQ = auditDQCutOff
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -45,11 +53,15 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := sat.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
+		require.Equal(t, alpha0, dossier.Reputation.AuditReputationAlpha)
+		require.Equal(t, beta0, dossier.Reputation.AuditReputationBeta)
+
 		prevReputation := calcReputation(dossier)
 
 		// Report the audit failure until the node gets disqualified due to many
 		// failed audits
-		for n := 0; ; n++ {
+		iterations := 1
+		for ; ; iterations++ {
 			_, err := sat.Audit.Service.Reporter.RecordAudits(ctx, report)
 			require.NoError(t, err)
 
@@ -59,13 +71,13 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			reputation := calcReputation(dossier)
 			require.Truef(t, prevReputation >= reputation,
 				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
-				n, prevReputation, reputation,
+				iterations, prevReputation, reputation,
 			)
 
 			if reputation <= auditDQCutOff || reputation == prevReputation {
 				require.NotNilf(t, dossier.Disqualified,
 					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
-					n, auditDQCutOff, prevReputation, reputation,
+					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 
 				require.True(t, time.Now().Sub(*dossier.Disqualified) >= 0,
@@ -78,6 +90,8 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			require.Nil(t, dossier.Disqualified, "Disqualified")
 			prevReputation = reputation
 		}
+
+		require.True(t, iterations > 1, "the number of iterations must be at least 2")
 	})
 }
 
