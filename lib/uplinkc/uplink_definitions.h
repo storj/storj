@@ -7,10 +7,10 @@
 #include <string.h>
 
 typedef enum CipherSuite {
-    STORJ_ENC_UNSPECIFIED,
-    STORJ_ENC_NULL,
-    STORJ_ENC_AESGCM,
-    STORJ_ENC_SECRET_BOX
+    STORJ_ENC_UNSPECIFIED = 0,
+    STORJ_ENC_NULL        = 1,
+    STORJ_ENC_AESGCM      = 2,
+    STORJ_ENC_SECRET_BOX  = 3
 } CipherSuite;
 
 typedef enum RedundancyAlgorithm {

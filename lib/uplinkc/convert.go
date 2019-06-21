@@ -14,7 +14,7 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 	return C.BucketInfo{
 		name:         C.CString(bucket.Name),
 		created:      C.int64_t(bucket.Created.Unix()),
-		path_cipher:  toCCipherSuite(bucket.PathCipher),
+		path_cipher:  cipherToCCipherSuite(bucket.PathCipher),
 		segment_size: C.uint64_t(bucket.SegmentsSize),
 
 		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
@@ -39,7 +39,7 @@ func newObjectInfo(object *storj.Object) C.ObjectInfo {
 // convertEncryptionParameters converts Go EncryptionParameters to C.
 func convertEncryptionParameters(goParams *storj.EncryptionParameters) C.EncryptionParameters {
 	return C.EncryptionParameters{
-		cipher_suite: C.CipherSuite(goParams.CipherSuite),
+		cipher_suite: toCCipherSuite(goParams.CipherSuite),
 		block_size:   C.int32_t(goParams.BlockSize),
 	}
 }
@@ -56,7 +56,12 @@ func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme 
 	}
 }
 
-// toCCipherSuite converts a go cipher to its respective C cipher suite.
-func toCCipherSuite(cipher storj.Cipher) C.CipherSuite {
+// cipherToCCipherSuite converts a go cipher to its respective C cipher suite.
+func cipherToCCipherSuite(cipher storj.Cipher) C.CipherSuite {
 	return C.CipherSuite(cipher.ToCipherSuite())
+}
+
+// cipherToCCipherSuite converts a go cipher to its respective C cipher suite.
+func toCCipherSuite(cipherSuite storj.CipherSuite) C.CipherSuite {
+	return C.CipherSuite(cipherSuite)
 }
