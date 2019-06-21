@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/metainfo"
 )
 
 func TestFailingAudit(t *testing.T) {
@@ -142,7 +141,7 @@ func TestCreatePendingAudits(t *testing.T) {
 				},
 			},
 		},
-		SegmentPath: metainfo.Path{},
+		SegmentPath: "test/path",
 	}
 
 	pending, err := createPendingAudits(ctx, contained, shares, &stripe)
