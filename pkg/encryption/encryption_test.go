@@ -7,18 +7,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"testing"
-
-	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/storj"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/storj"
 )
 
 const (
@@ -49,7 +48,7 @@ func TestCalcEncryptedSize(t *testing.T) {
 			encrypter, err := encryption.NewEncrypter(scheme.Cipher, new(storj.Key), new(storj.Nonce), int(scheme.BlockSize))
 			require.NoError(t, err, errTag)
 
-			randReader := ioutil.NopCloser(io.LimitReader(rand.New(rand.NewSource(rand.Int63())), dataSize))
+			randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader()), dataSize))
 			reader := encryption.TransformReader(eestream.PadReader(randReader, encrypter.InBlockSize()), encrypter, 0)
 
 			cipherData, err := ioutil.ReadAll(reader)

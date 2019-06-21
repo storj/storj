@@ -48,7 +48,7 @@ func ExampleThrottle() {
 			}
 
 			fmt.Println("+ producing", step, " left=", total)
-			time.Sleep(time.Duration(testrand.Intn(8)) * time.Millisecond)
+			time.Sleep(time.Duration(rand.Intn(8)) * time.Millisecond)
 		}
 
 		throttle.Fail(io.EOF)

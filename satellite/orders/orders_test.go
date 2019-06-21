@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -27,10 +27,10 @@ func TestSendingReceivingOrders(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := testrand.Bytes(50*memory.KiB)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		sumBeforeSend := 0
@@ -71,7 +71,7 @@ func TestUnableToSendOrders(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := expectedData := testrand.Bytes(50*memory.KiB)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
@@ -118,7 +118,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := expectedData := testrand.Bytes(50*memory.KiB)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		redundancy := noLongTailRedundancy(planet)
 		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &redundancy, "testbucket", "test/path", expectedData)
