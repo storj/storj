@@ -6,6 +6,7 @@ package accounting_test
 import (
 	"crypto/rand"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -146,7 +146,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	entries := make([]string, 0)
 	entries = append(entries, projectID.String())
 	entries = append(entries, string(bucket))
-	return []byte(storj.JoinPaths(entries...))
+	return []byte(strings.Join(entries, "/"))
 }
 
 func setUpStorageTallies(ctx *testcontext.Context, projectID uuid.UUID, acctDB accounting.ProjectAccounting, numberOfGB int, time time.Time) error {
@@ -190,8 +190,7 @@ func createBucketBandwidthRollups(ctx *testcontext.Context, satelliteDB satellit
 			bucketName = "testbucket"
 			intervalStart = now
 		}
-
-		bucketID := createBucketID(projectID, []byte(bucketName))
+		bucketID := paths.NewBucketID(projectID, bucketName)
 		err := ordersDB.UpdateBucketBandwidthAllocation(ctx,
 			bucketID, pb.PieceAction_GET, amount, intervalStart,
 		)
@@ -242,8 +241,7 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 	// Create many records that sum greater than project usage limit of 25GB
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := createBucketID(projectID, []byte(bucketName))
-
+		bucketID := paths.NewBucketID(projectID, bucketName)
 		// In order to exceed the project limits, create bandwidth allocation records
 		// that sum greater than the maxAlphaUsage * expansionFactor
 		amount := 10 * memory.GB.Int64() * accounting.ExpansionFactor
@@ -290,9 +288,9 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		expectedData := make([]byte, 50*memory.KiB)
 		_, err = rand.Read(expectedData)
 		require.NoError(t, err)
-
+		path := paths.NewUnencrypted("test/path")
 		// Execute test: check that the uplink gets an error when they have exceeded storage limits and try to upload a file
-		actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		actualErr := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", path, expectedData)
 		assert.Error(t, actualErr)
 	})
 }
