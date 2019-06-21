@@ -132,7 +132,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
-	return kvmetainfo.New(metainfo, streams, segments, key, blockSize, rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(project, metainfo, streams, segments, key), streams, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads

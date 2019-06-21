@@ -337,7 +337,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 		return nil, nil, err
 	}
 
-	return kvmetainfo.New(metainfo, streams, segments, key, int32(blockSize), rs, 64*memory.MiB.Int64()), streams, nil
+	return kvmetainfo.New(project, metainfo, streams, segments, key), streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {
