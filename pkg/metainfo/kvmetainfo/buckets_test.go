@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/storage/buckets"
@@ -367,17 +368,24 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, buckets.Store,
 	key := new(storj.Key)
 	copy(key[:], TestEncKey)
 
+	encryptionStore := encryption.NewStore()
+	encryptionStore.SetDefaultKey(key)
+
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), key, blockSize, storj.AESGCM, inlineThreshold)
+	segmentSize := 64 * memory.MiB.Int64()
+	streams, err := streams.NewStreamStore(segments, segmentSize, encryptionStore,
+		blockSize, storj.AESGCM, inlineThreshold,
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	buckets := buckets.NewStore(streams)
-
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, int32(blockSize), rs, 64*memory.MiB.Int64()), buckets, streams, nil
+	return kvmetainfo.New(metainfo, buckets, streams, segments,
+		encryptionStore, int32(blockSize), rs, 64*memory.MiB.Int64(),
+	), buckets, streams, nil
 }
 
 func forAllCiphers(test func(cipher storj.Cipher)) {
