@@ -137,7 +137,8 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := upload.wc.Write(buf)
-	if err == io.EOF {
+	if err != nil {
+		*cErr = C.CString(err.Error())
 		return C.size_t(0)
 	}
 
@@ -254,8 +255,12 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(buf)
-	if err == io.EOF {
-		return C.size_t(0)
+	if err != nil {
+		if err == io.EOF {
+			return C.size_t(0)
+		}
+		
+		*cErr = C.CString(err.Error())
 	}
 
 	return C.size_t(n)
