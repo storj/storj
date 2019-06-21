@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
+// Upload TODO needs a comment
 type Upload struct {
 	scope
 	wc io.WriteCloser // 🚽
@@ -89,6 +90,7 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 	}
 }
 
+// Download TODO needs a comment
 type Download struct {
 	scope
 	rc interface {
