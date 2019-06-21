@@ -1,3 +1,4 @@
+// testrand implements generating random base types for testing.
 package testrand
 
 import (
