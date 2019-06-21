@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -712,9 +711,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	buckets := buckets.NewStore(streams)
-
-	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, int32(blockSize), rs, 64*memory.MiB.Int64())
+	kvmetainfo := kvmetainfo.New(metainfo, streams, segments, encKey, int32(blockSize), rs, 64*memory.MiB.Int64())
 
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {
