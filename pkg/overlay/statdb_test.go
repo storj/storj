@@ -143,7 +143,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			UptimeLambda: 0.789, UptimeWeight: 0.876,
 			AuditDQ: 0, UptimeDQ: 0, // don't disqualify for any reason
 		}
-		_, err = cache.UpdateStats(ctx, updateReq)
+		stats, err := cache.UpdateStats(ctx, updateReq)
 		require.NoError(t, err)
 
 		expectedAuditAlpha := updateReq.AuditLambda*auditAlpha + updateReq.AuditWeight
