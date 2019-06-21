@@ -50,8 +50,8 @@ type Service struct {
 	kademlia  *kademlia.Kademlia
 	transport transport.Client
 
-	vdb   DB
-	trust *trust.Pool
+	vouchersdb DB
+	trust      *trust.Pool
 
 	expirationBuffer time.Duration
 
@@ -59,12 +59,12 @@ type Service struct {
 }
 
 // NewService creates a new voucher service
-func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vdb DB, trust *trust.Pool, interval, expirationBuffer time.Duration) *Service {
+func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vouchersdb DB, trust *trust.Pool, interval, expirationBuffer time.Duration) *Service {
 	return &Service{
 		log:              log,
 		kademlia:         kad,
 		transport:        transport,
-		vdb:              vdb,
+		vouchersdb:       vouchersdb,
 		trust:            trust,
 		expirationBuffer: expirationBuffer,
 		Loop:             *sync2.NewCycle(interval),
@@ -82,22 +82,22 @@ func (service *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	service.log.Info("Checking vouchers")
 
-	satellites := service.trust.GetSatellites((ctx))
+	trustedSatellites := service.trust.GetSatellites((ctx))
 
-	if len(satellites) > 0 {
+	if len(trustedSatellites) > 0 {
 		var group errgroup.Group
 		ctx, cancel := context.WithTimeout(ctx, time.Hour)
 		defer cancel()
-		for _, sat := range satellites {
-			sat := sat
-			need, err := service.vdb.NeedVoucher(ctx, sat, service.expirationBuffer)
+		for _, satellite := range trustedSatellites {
+			satellite := satellite
+			needVoucher, err := service.vouchersdb.NeedVoucher(ctx, satellite, service.expirationBuffer)
 			if err != nil {
 				service.log.Error("getting voucher status", zap.Error(err))
 				return nil
 			}
-			if need {
+			if needVoucher {
 				group.Go(func() error {
-					service.Request(ctx, sat)
+					service.Request(ctx, satellite)
 					return nil
 				})
 			}
@@ -152,7 +152,7 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 			return err
 		}
 
-		err = service.vdb.Put(ctx, voucher)
+		err = service.vouchersdb.Put(ctx, voucher)
 		if err != nil {
 			return err
 		}
