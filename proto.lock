@@ -2231,6 +2231,11 @@
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
+              },
+              {
+                "id": 11,
+                "name": "satellite_address",
+                "type": "node.NodeAddress"
               }
             ]
           },
@@ -2355,6 +2360,9 @@
           },
           {
             "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "node.proto"
           }
         ],
         "package": {
@@ -3040,6 +3048,24 @@
     {
       "protopath": "pkg:/:pb:/:vouchers.proto",
       "def": {
+        "enums": [
+          {
+            "name": "VoucherResponse.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "ACCEPTED",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
+          }
+        ],
         "messages": [
           {
             "name": "Voucher",
@@ -3088,6 +3114,21 @@
           },
           {
             "name": "VoucherRequest"
+          },
+          {
+            "name": "VoucherResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "voucher",
+                "type": "Voucher"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -3097,7 +3138,7 @@
               {
                 "name": "Request",
                 "in_type": "VoucherRequest",
-                "out_type": "Voucher"
+                "out_type": "VoucherResponse"
               }
             ]
           }
