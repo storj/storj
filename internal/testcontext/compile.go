@@ -11,6 +11,18 @@ import (
 	"testing"
 )
 
+var (
+	// Standard
+	CLibMath = Include{Standard: true, Library: "m"}
+
+	// Installed/shared
+	CLibJSON = Include{Standard: true, Library: "json-c"}
+	CLibNettle = Include{Standard: true, Library: "nettle"}
+	CLibUV = Include{Standard: true, Library: "uv"}
+	CLibCurl = Include{Standard: true, Library: "curl"}
+	CLibMicroHTTPD = Include{Standard: true, Library: "microhttpd"}
+)
+
 // Compile compiles the specified package and returns the executable name.
 func (ctx *Context) Compile(pkg string) string {
 	ctx.test.Helper()
@@ -57,10 +69,10 @@ func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include
 }
 
 // CompileC compiles file as with gcc and adds the includes.
-func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) string {
+func (ctx *Context) CompileC(t *testing.T, dest string, files []string, includes ...Include) string {
 	t.Helper()
 
-	exe := ctx.File("build", filepath.Base(file)+".exe")
+	exe := ctx.File("build", dest+".exe")
 
 	var args = []string{}
 	args = append(args, "-ggdb", "-Wall")
@@ -86,7 +98,7 @@ func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) str
 			}
 		}
 	}
-	args = append(args, file)
+	args = append(args, files...)
 
 	cmd := exec.Command("gcc", args...)
 	t.Log("exec:", cmd.Args)
