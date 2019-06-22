@@ -221,6 +221,10 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		o.Type = marketing.Referral
 	case "free-credit":
 		o.Type = marketing.FreeCredit
+	default:
+		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
+		s.serveBadRequest(w, req, err)
+		return
 	}
 
 	if _, err := s.service.InsertNewOffer(req.Context(), &o); err != nil {
