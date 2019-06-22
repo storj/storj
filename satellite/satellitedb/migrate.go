@@ -851,9 +851,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Fix reputations to preserve a baseline",
 				Version:     35,
 				Action: migrate.SQL{
-					`UPDATE nodes SET audit_reputation_alpha = GREATEST(audit_success_count, 1);`,
+					`UPDATE nodes SET audit_reputation_alpha = GREATEST(audit_success_count, 100);`,
 					`UPDATE nodes SET audit_reputation_beta = total_audit_count - audit_success_count;`,
-					`UPDATE nodes SET uptime_reputation_alpha = GREATEST(uptime_success_count, 1);`,
+					`UPDATE nodes SET uptime_reputation_alpha = GREATEST(uptime_success_count, 100);`,
 					`UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
 				},
 			},
