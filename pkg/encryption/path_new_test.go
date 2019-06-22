@@ -15,7 +15,9 @@ import (
 
 func newStore(key storj.Key) *Store {
 	store := NewStore()
-	store.Add("bucket", paths.Unencrypted{}, paths.Encrypted{}, key)
+	if err := store.Add("bucket", paths.Unencrypted{}, paths.Encrypted{}, key); err != nil {
+		panic(err)
+	}
 	return store
 }
 
