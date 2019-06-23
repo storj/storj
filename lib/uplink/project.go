@@ -221,6 +221,6 @@ func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string)
 		return false, Error.Wrap(err)
 	}
 
-	zap.S().Info("Atributed Partner ID: ", p.uplinkCfg.Volatile.PartnerID)
+	zap.S().Info("Attributed Partner ID: ", p.uplinkCfg.Volatile.PartnerID)
 	return true, nil
 }
