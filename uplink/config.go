@@ -97,7 +97,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
-	
+
 	project, err := kvmetainfo.SetupProject(m)
 	if err != nil {
 		return nil, nil, Error.New("failed to create project: %v", err)
