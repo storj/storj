@@ -55,5 +55,8 @@ func Example_deleteBucket() {
 	// The API key can be created in the web interface
 	apiKey := "qPSUM3k0bZyOIyil2xrVWiSuc9HuB2yBP3qDrA2Gc"
 
-	DeleteBucketExample(context.Background(), satelliteAddress, apiKey, &uplink.Config{}, os.Stdout)
+	err := DeleteBucketExample(context.Background(), satelliteAddress, apiKey, &uplink.Config{}, os.Stdout)
+	if err != nil {
+		panic(err)
+	}
 }
