@@ -24,7 +24,7 @@ BucketConfig test_bucket_config() {
 }
 
 // with_test_project opens default test project and calls handleProject callback.
-void with_test_project(void (*handleProject)(ProjectRef), ProjectOptions *project_opts) {
+void with_test_project(void (*handleProject)(ProjectRef)) {
     char *_err = "";
     char **err = &_err;
 
