@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -55,6 +56,73 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
 	copy(access.Key[:], encKey)
 	return access
+}
+
+func createPartnerID() (partnerID string, err error) {
+	id, err := uuid.New()
+	if err != nil {
+		return partnerID, err
+	}
+	return id.String(), err
+}
+
+// check that partner bucket attributes are stored and retrieved correctly.
+func TestPartnerBucketAttrs(t *testing.T) {
+	var (
+		access          = simpleEncryptionAccess("voxmachina")
+		bucketName      = "mightynein"
+		shareSize       = memory.KiB.Int32()
+		requiredShares  = 2
+		stripeSize      = shareSize * int32(requiredShares)
+		stripesPerBlock = 2
+		inBucketConfig  = BucketConfig{
+			PathCipher: storj.EncSecretBox,
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   int32(stripesPerBlock) * stripeSize,
+			},
+			Volatile: struct {
+				RedundancyScheme storj.RedundancyScheme
+				SegmentsSize     memory.Size
+			}{
+				RedundancyScheme: storj.RedundancyScheme{
+					Algorithm:      storj.ReedSolomon,
+					ShareSize:      shareSize,
+					RequiredShares: int16(requiredShares),
+					RepairShares:   3,
+					OptimalShares:  4,
+					TotalShares:    5,
+				},
+				SegmentsSize: 688894,
+			},
+		}
+	)
+
+	testPlanetWithLibUplink(t, testConfig{}, &access.Key,
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
+			require.NoError(t, err)
+
+			partnerID, err := createPartnerID()
+			require.NoError(t, err)
+
+			// partner ID set
+			proj.uplinkCfg.Volatile.PartnerID = partnerID
+			got, err := proj.OpenBucket(ctx, bucketName, &access)
+			require.NoError(t, err)
+			assert.True(t, got.Attribution)
+
+			got, err = proj.OpenBucket(ctx, bucketName, &access)
+			require.NoError(t, err)
+			assert.True(t, got.Attribution)
+
+			// partner ID NOT set
+			proj.uplinkCfg.Volatile.PartnerID = ""
+			got, err = proj.OpenBucket(ctx, bucketName, &access)
+			require.NoError(t, err)
+			assert.False(t, got.Attribution)
+			defer ctx.Check(got.Close)
+		})
 }
 
 // check that bucket attributes are stored and retrieved correctly.
