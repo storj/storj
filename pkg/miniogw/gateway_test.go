@@ -712,7 +712,9 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	}
 
 	p, err := kvmetainfo.SetupProject(m)
-	
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	kvm := kvmetainfo.New(p, m, strms, segments, encKey)
 
 	cfg := libuplink.Config{}
