@@ -151,7 +151,10 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	attribution, _ := p.CheckBucketAttribution(ctx, bucketName)
+	attribution, err := p.CheckBucketAttribution(ctx, bucketName)
+	if err != nil {
+		zap.S().Warn("Attribution error")
+	}
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
@@ -213,6 +216,10 @@ func (p *Project) Close() error {
 
 // CheckBucketAttribution Checks the bucket attribution
 func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string) (bool, error) {
+	if p.uplinkCfg.Volatile.PartnerID == "" {
+		return false, Error.New("Partner ID not set")
+	}
+
 	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
 	if err != nil {
 		return false, Error.Wrap(err)
