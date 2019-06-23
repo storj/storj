@@ -11,6 +11,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
@@ -211,11 +213,8 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 
 type Download struct {
 	scope
-	rc interface {
-		io.Reader
-		io.Seeker
-		io.Closer
-	}
+	obj io.Closer
+	rc  io.ReadCloser
 }
 
 // download returns an Object's data. A length of -1 will mean
@@ -230,14 +229,22 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.
 
 	scope := bucket.scope.child()
 
-	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
+	obj, err := bucket.OpenObject(scope.ctx, C.GoString(path))
 	if err != nil {
+		*cErr = C.CString(err.Error())
+		return
+	}
+
+	rc, err := obj.DownloadRange(scope.ctx, 0, -1)
+	if err != nil {
+		obj.Close()
 		*cErr = C.CString(err.Error())
 		return
 	}
 
 	return C.DownloaderRef{universe.Add(&Download{
 		scope: scope,
+		obj:   obj,
 		rc:    rc,
 	})}
 }
@@ -270,6 +277,7 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 	defer download.cancel()
 
 	err := download.rc.Close()
+	err = errs.Combine(err, download.obj.Close())
 	if err != nil {
 		*cErr = C.CString(err.Error())
 		return

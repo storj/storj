@@ -8,6 +8,8 @@ import (
 	"io"
 	"time"
 
+	"github.com/zeebo/errs"
+
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
@@ -322,23 +324,28 @@ type ReaderOptions struct {
 type Reader struct {
 	scope
 	readError error
-	reader    interface {
-		io.Reader
-		io.Seeker
-		io.Closer
-	}
+	object    io.Closer
+	reader    io.ReadCloser
 }
 
 // NewReader returns new reader for downloading object
 func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reader, error) {
 	scope := bucket.scope.child()
 
-	reader, err := bucket.lib.NewReader(scope.ctx, path)
+	object, err := bucket.lib.OpenObject(scope.ctx, path)
 	if err != nil {
 		return nil, safeError(err)
 	}
+
+	reader, err := object.DownloadRange(scope.ctx, 0, -1)
+	if err != nil {
+		object.Close()
+		return nil, safeError(err)
+	}
+
 	return &Reader{
 		scope:  scope,
+		object: object,
 		reader: reader,
 	}, nil
 }
@@ -372,5 +379,6 @@ func (r *Reader) Cancel() {
 // Close closes reader
 func (r *Reader) Close() error {
 	defer r.cancel()
-	return safeError(r.reader.Close())
+	err := r.reader.Close()
+	return safeError(errs.Combine(err, r.object.Close()))
 }
