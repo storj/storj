@@ -575,11 +575,21 @@ func TestSetAttribution(t *testing.T) {
 			require.NoError(t, err)
 		}
 		{
+			// already attributed bucket, adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
 			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			require.NoError(t, err)
+		}
+		{
+			//non attributed bucket, and adding files
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alphaNew", "path", []byte{1, 2, 3})
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.SetAttribution(ctx, "alphaNew", *partnerID)
 			require.Error(t, err)
 		}
 	})
