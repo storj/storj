@@ -237,7 +237,7 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.
 
 	rc, err := obj.DownloadRange(scope.ctx, 0, -1)
 	if err != nil {
-		obj.Close()
+		err = errs.Combine(err, obj.Close())
 		*cErr = C.CString(err.Error())
 		return
 	}

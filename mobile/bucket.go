@@ -339,7 +339,7 @@ func (bucket *Bucket) NewReader(path storj.Path, options *ReaderOptions) (*Reade
 
 	reader, err := object.DownloadRange(scope.ctx, 0, -1)
 	if err != nil {
-		object.Close()
+		err = errs.Combine(err, object.Close())
 		return nil, safeError(err)
 	}
 
