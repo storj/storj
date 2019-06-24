@@ -155,15 +155,15 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			node.Type.DPanicOnInvalid("order service get order limits")
 		}
 
-		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
-			continue
-		}
-
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
+		if !service.cache.IsOnline(node) {
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
 
