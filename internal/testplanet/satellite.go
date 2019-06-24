@@ -187,7 +187,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
 			Vouchers: vouchers.Config{
-				Expiration: 30,
+				Expiration: 30 * 24 * time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
 		}

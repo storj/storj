@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/vouchers"
 )
 
 // newStorageNodes initializes storage nodes
@@ -117,6 +118,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					MinimumDiskSpace: 100 * memory.MB,
 				},
 			},
+			Vouchers: vouchers.Config{
+				Interval: time.Hour,
+			},
 			Version: planet.NewVersionConfig(),
 		}
 		if planet.config.Reconfigure.StorageNode != nil {
@@ -126,8 +130,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 		newIPCount := planet.config.Reconfigure.NewIPCount
 		if newIPCount > 0 {
 			if i >= count-newIPCount {
-				config.Server.Address = fmt.Sprintf("127.0.0.%d:0", i+1)
-				config.Server.PrivateAddress = fmt.Sprintf("127.0.0.%d:0", i+1)
+				config.Server.Address = fmt.Sprintf("127.0.%d.1:0", i+1)
+				config.Server.PrivateAddress = fmt.Sprintf("127.0.%d.1:0", i+1)
 			}
 		}
 

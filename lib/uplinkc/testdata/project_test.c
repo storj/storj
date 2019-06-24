@@ -12,5 +12,5 @@ void handle_project(ProjectRef project)
 {};
 
 int main(int argc, char *argv[]) {
-    with_test_project(&handle_project, NULL);
+    with_test_project(&handle_project);
 }

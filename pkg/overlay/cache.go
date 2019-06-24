@@ -26,6 +26,9 @@ var ErrNodeNotFound = errs.Class("node not found")
 // ErrNodeOffline is returned if a nodes is offline
 var ErrNodeOffline = errs.Class("node is offline")
 
+// ErrNodeDisqualified is returned if a nodes is disqualified
+var ErrNodeDisqualified = errs.Class("node is disqualified")
+
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("bucket not found")
 
@@ -284,8 +287,8 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if value.Address == nil {
 		return errors.New("node has no address")
 	}
-	// Resolve IP Address to ensure it is set
-	value.LastIp, err = getIP(ctx, value.Address.Address)
+	// Resolve IP Address Network to ensure it is set
+	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
@@ -396,15 +399,39 @@ func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePie
 	return missingPieces, nil
 }
 
-func getIP(ctx context.Context, target string) (_ string, err error) {
+func getIP(ctx context.Context, target string) (ip net.IPAddr, err error) {
 	defer mon.Task()(&ctx)(&err)
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {
-		return "", err
+		return net.IPAddr{}, err
 	}
 	ipAddr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
+		return net.IPAddr{}, err
+	}
+	return *ipAddr, nil
+}
+
+// GetNetwork resolves the target address and determines its IP /24 Subnet
+func GetNetwork(ctx context.Context, target string) (network string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	addr, err := getIP(ctx, target)
+	if err != nil {
 		return "", err
 	}
-	return ipAddr.String(), nil
+
+	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
+	if ipv4 := addr.IP.To4(); ipv4 != nil {
+		//Filter all IPv4 Addresses into /24 Subnet's
+		mask := net.CIDRMask(24, 32)
+		return ipv4.Mask(mask).String(), nil
+	}
+	if ipv6 := addr.IP.To16(); ipv6 != nil {
+		//Filter all IPv6 Addresses into /64 Subnet's
+		mask := net.CIDRMask(64, 128)
+		return ipv6.Mask(mask).String(), nil
+	}
+
+	return "", errors.New("unable to get network for address " + addr.String())
 }

@@ -263,7 +263,7 @@ kademlia.operator.wallet: ""
 # overlay.node.uptime-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on uptime history
-# overlay.node.uptime-reputation-dq: 0.6
+# overlay.node.uptime-reputation-dq: 0.4
 
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 0.99
@@ -337,6 +337,6 @@ server.private-address: "127.0.0.1:7778"
 # server address to check its version against
 # version.server-address: "https://version.alpha.storj.io"
 
-# number of days before a voucher expires
-# vouchers.expiration: 30
+# length of time before a voucher expires
+# vouchers.expiration: 720h0m0s
 

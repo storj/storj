@@ -48,3 +48,14 @@ func VerifyPieceHashSignature(ctx context.Context, signee Signee, signed *pb.Pie
 
 	return signee.HashAndVerifySignature(ctx, bytes, signed.Signature)
 }
+
+// VerifyVoucher verifies that the signature inside voucher belongs to the satellite
+func VerifyVoucher(ctx context.Context, satellite Signee, signed *pb.Voucher) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeVoucher(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
+}

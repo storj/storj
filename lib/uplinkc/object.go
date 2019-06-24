@@ -87,6 +87,7 @@ func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 	}
 }
 
+// Upload stores writecloser and context scope for uploading
 type Upload struct {
 	scope
 	wc io.WriteCloser // 🚽
@@ -209,6 +210,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	}
 }
 
+// Download stores readcloser and context scope for downloading
 type Download struct {
 	scope
 	rc interface {

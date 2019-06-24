@@ -63,11 +63,11 @@
             },
             methods: {
                 setFullName: function (value: string) {
-                    this.$data.fullName = value;
+                    this.$data.fullName = value.trim();
                     this.$data.fullNameError = '';
                 },
                 setShortName: function (value: string) {
-                    this.$data.shortName = value;
+                    this.$data.shortName = value.trim();
                 },
                 cancel: function () {
                     this.$data.fullName = this.$data.originalFullName;

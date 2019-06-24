@@ -11,10 +11,7 @@
 void handle_project(ProjectRef project);
 
 int main(int argc, char *argv[]) {
-    ProjectOptions opts = {{0}};
-    memcpy(&opts.key, "hello", 5);
-
-    with_test_project(&handle_project, &opts);
+    with_test_project(&handle_project);
 }
 
 void handle_project(ProjectRef project) {
