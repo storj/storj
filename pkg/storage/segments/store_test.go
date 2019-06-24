@@ -41,7 +41,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		err        string
 	}{
 		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12), ""},
-		{"l/not_exists_path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
+		{"l/not-exists-path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
 		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {
 		test := tt
@@ -86,7 +86,7 @@ func TestSegmentStorePutGet(t *testing.T) {
 		content    []byte
 	}{
 		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
+		{"test remote put/get", "s0/test-bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -120,7 +120,7 @@ func TestSegmentStoreDelete(t *testing.T) {
 		content    []byte
 	}{
 		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
+		{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -156,11 +156,11 @@ func TestSegmentStoreList(t *testing.T) {
 			path    string
 			content []byte
 		}{
-			{"l/AAAA/afile1", []byte("content")},
-			{"l/AAAA/bfile2", []byte("content")},
-			{"l/BBBB/afile1", []byte("content")},
-			{"l/BBBB/bfile2", []byte("content")},
-			{"l/BBBB/bfolder/file1", []byte("content")},
+			{"l/aaaa/afile1", []byte("content")},
+			{"l/aaaa/bfile2", []byte("content")},
+			{"l/bbbb/afile1", []byte("content")},
+			{"l/bbbb/bfile2", []byte("content")},
+			{"l/bbbb/bfolder/file1", []byte("content")},
 		}
 		for _, seg := range segments {
 			segment := seg
@@ -189,19 +189,19 @@ func TestSegmentStoreList(t *testing.T) {
 		require.Equal(t, 2, len(items))
 
 		// should list only BBBB bucket
-		items, more, err = segmentStore.List(ctx, "l/BBBB", "", "", false, 10, meta.None)
+		items, more, err = segmentStore.List(ctx, "l/bbbb", "", "", false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 3, len(items))
 
 		// should list only BBBB bucket after afile1
-		items, more, err = segmentStore.List(ctx, "l/BBBB", "afile1", "", false, 10, meta.None)
+		items, more, err = segmentStore.List(ctx, "l/bbbb", "afile1", "", false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 2, len(items))
 
 		// should list nothing
-		items, more, err = segmentStore.List(ctx, "l/CCCC", "", "", true, 10, meta.None)
+		items, more, err = segmentStore.List(ctx, "l/cccc", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 0, len(items))
