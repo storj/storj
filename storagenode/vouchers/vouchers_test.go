@@ -140,12 +140,12 @@ func TestVouchersService(t *testing.T) {
 				NodeID:       node.ID(),
 				IsUp:         true,
 				AuditSuccess: true,
-				AuditLambda:  0,
-				AuditWeight:  0,
-				AuditDQ:      0,
-				UptimeLambda: 0,
-				UptimeWeight: 0,
-				UptimeDQ:     0,
+				AuditLambda:  1,
+				AuditWeight:  1,
+				AuditDQ:      0.5,
+				UptimeLambda: 1,
+				UptimeWeight: 1,
+				UptimeDQ:     0.5,
 			})
 			require.NoError(t, err)
 		}
