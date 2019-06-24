@@ -319,9 +319,15 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO more validation, use validation from eestream.NewRedundancyStrategy
-	if redundancy.ErasureShareSize <= 0 {
-		return Error.New("erasure share size cannot be less than 0")
+	if endpoint.rsConfig.Validate == true {
+		if endpoint.rsConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
+			endpoint.rsConfig.MaxThreshold != int(redundancy.Total) ||
+			endpoint.rsConfig.MinThreshold != int(redundancy.MinReq) ||
+			endpoint.rsConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
+			endpoint.rsConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
+			return Error.New("provided redundancy scheme parameters not allowed")
+		}
 	}
+
 	return nil
 }

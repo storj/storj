@@ -6,7 +6,7 @@
 
 #include "require.h"
 #include "uplink.h"
-#include "helpers2.h"
+#include "helpers.h"
 
 void handle_project(ProjectRef project);
 
@@ -22,7 +22,7 @@ void handle_project(ProjectRef project) {
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // TODO: test with different bucket configs
-    {// Create buckets
+    { // Create buckets
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
 

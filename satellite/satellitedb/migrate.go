@@ -839,6 +839,24 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN uptime_reputation_beta double precision NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				Description: "Remove ratio columns from node reputations",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_success_ratio;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_ratio;`,
+				},
+			},
+			{
+				Description: "Fix reputations to preserve a baseline",
+				Version:     35,
+				Action: migrate.SQL{
+					`UPDATE nodes SET audit_reputation_alpha = GREATEST(audit_success_count, 50);`,
+					`UPDATE nodes SET audit_reputation_beta = total_audit_count - audit_success_count;`,
+					`UPDATE nodes SET uptime_reputation_alpha = GREATEST(uptime_success_count, 100);`,
+					`UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
+				},
+			},
 		},
 	}
 }

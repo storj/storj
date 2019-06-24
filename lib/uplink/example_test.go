@@ -34,13 +34,8 @@ func WorkWithLibUplink(satelliteAddress string, encryptionKey *storj.Key, apiKey
 	}
 	defer logClose(upl.Close)
 
-	// It is temporarily required to set the encryption key in project options.
-	// This requirement will be removed in the future.
-	opts := uplink.ProjectOptions{}
-	opts.Volatile.EncryptionKey = encryptionKey
-
 	// Open up the Project we will be working with
-	proj, err := upl.OpenProject(ctx, satelliteAddress, apiKey, &opts)
+	proj, err := upl.OpenProject(ctx, satelliteAddress, apiKey)
 	if err != nil {
 		return fmt.Errorf("could not open project: %v", err)
 	}
