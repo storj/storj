@@ -4,6 +4,7 @@
 package datarepair_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -13,8 +14,10 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
 )
 
@@ -68,16 +71,26 @@ func TestDataRepair(t *testing.T) {
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
-		toKill := numPieces - (int(minReq) + 1)
+		// the +2 allows for one node to be disqualified
+		toKill := numPieces - (int(minReq) + 2)
+		fmt.Println("toKill", toKill)
+		// this number can be changed according to RS settings for this test
+		toDisqualify := 1
+		fmt.Println("toDQ", toDisqualify)
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill) >= numPieces)
+		assert.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
+		nodesToDisqualify := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
 		for i, piece := range remotePieces {
+			if i == 0 {
+				nodesToDisqualify[piece.NodeId] = true
+				continue
+			}
 			if i >= toKill {
 				nodesToKeepAlive[piece.NodeId] = true
 				continue
@@ -87,7 +100,11 @@ func TestDataRepair(t *testing.T) {
 		}
 
 		for _, node := range planet.StorageNodes {
+			if nodesToDisqualify[node.ID()] {
+				disqualifyNode(t, ctx, satellite, node.ID())
+			}
 			if nodesToKill[node.ID()] {
+				fmt.Println("killing a node")
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
@@ -128,4 +145,27 @@ func TestDataRepair(t *testing.T) {
 			assert.False(t, nodesToKill[piece.NodeId])
 		}
 	})
+}
+
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) bool {
+	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
+	require.NoError(t, err)
+
+	return node.Disqualified != nil
+}
+
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
+	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		NodeID:       nodeID,
+		IsUp:         true,
+		AuditSuccess: false,
+		AuditLambda:  0,
+		AuditWeight:  1,
+		AuditDQ:      0.5,
+		UptimeLambda: 1,
+		UptimeWeight: 1,
+		UptimeDQ:     0.5,
+	})
+	require.NoError(t, err)
+	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }
