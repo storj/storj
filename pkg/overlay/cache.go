@@ -423,16 +423,17 @@ func GetNetwork(ctx context.Context, target string) (network string, err error) 
 		return "", errors.New("invalid ip")
 	}
 
-	switch len(addr) {
-	case 4:
+	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
+	if addr.To4() != nil {
 		//Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
 		return addr.Mask(mask).String(), nil
-	case 16:
+	}
+	if addr.To16() != nil {
 		//Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
 		return addr.Mask(mask).String(), nil
-	default:
-		return "", errors.New("unable to get network for address " + addr.String())
 	}
+
+	return "", errors.New("unable to get network for address " + addr.String())
 }
