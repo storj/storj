@@ -45,5 +45,5 @@ type NodeSelectionConfig struct {
 	UptimeReputationBeta0        float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
 	UptimeReputationLambda       float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"0.99"`
 	UptimeReputationWeight       float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
-	UptimeReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on uptime history" default:"0.6"`
+	UptimeReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on uptime history" default:"0.4"`
 }
