@@ -147,9 +147,9 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "partnerID, new projectID, beta",
-				partnerID:  partnerID,
-				projectID:  newUUID(),
+				name:       "new partnerID, projectID, beta",
+				partnerID:  newUUID(),
+				projectID:  projectID,
 				bucketName: betaBucket,
 
 				remoteSize: remoteSize / 3,
@@ -161,9 +161,9 @@ func TestQueryAttribution(t *testing.T) {
 				padding: 2,
 			},
 			{
-				name:       "new partnerID, projectID, beta",
-				partnerID:  newUUID(),
-				projectID:  projectID,
+				name:       "partnerID, new projectID, beta",
+				partnerID:  partnerID,
+				projectID:  newUUID(),
 				bucketName: betaBucket,
 
 				remoteSize: remoteSize / 4,
