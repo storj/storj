@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/satellite/marketing"
 )
 
 type CreateRequest struct {
@@ -22,7 +21,7 @@ type CreateRequest struct {
 	Values url.Values
 }
 
-func TestCreateOffer(t *testing.T) {
+func TestCreateAndStop(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -56,8 +55,10 @@ func TestCreateOffer(t *testing.T) {
 		addr := planet.Satellites[0].Marketing.Listener.Addr()
 
 		var group errgroup.Group
-		for _, offer := range requests {
+		for index, offer := range requests {
 			o := offer
+			id := strconv.Itoa(index + 1)
+
 			group.Go(func() error {
 				baseURL := "http://" + addr.String()
 
@@ -71,45 +72,7 @@ func TestCreateOffer(t *testing.T) {
 					return err
 				}
 
-				return nil
-			})
-			err := group.Wait()
-			require.NoError(t, err)
-		}
-	})
-}
-
-func TestStopOffer(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		offersToStop := []marketing.Offer{
-			{
-				ID:   1,
-				Type: marketing.Referral,
-			}, {
-				ID:   1,
-				Type: marketing.FreeCredit,
-			},
-		}
-
-		addr := planet.Satellites[0].Marketing.Listener.Addr()
-
-		var group errgroup.Group
-		for _, offer := range offersToStop {
-			o := offer
-			group.Go(func() error {
-				baseURL := "http://" + addr.String()
-				endpoint := "/stop/"
-				param := strconv.Itoa(o.ID)
-
-				_, err := http.Get(baseURL + endpoint + param)
-				if err != nil {
-					return err
-				}
-
-				_, err = http.Get(baseURL)
+				_, err = http.Get(baseURL + "/stop/" + id)
 				if err != nil {
 					return err
 				}
