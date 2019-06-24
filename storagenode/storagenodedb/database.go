@@ -55,7 +55,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket)
+	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 	if err != nil {
 		return nil, err
 	}

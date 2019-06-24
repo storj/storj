@@ -302,7 +302,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				return nil, err
 			}
 
-			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
+			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
