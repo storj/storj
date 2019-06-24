@@ -23,29 +23,52 @@ func TestBucketExamples(t *testing.T) {
 			cfg := uplink.Config{}
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
+			satelliteAddr := planet.Satellites[0].Local().Address.Address
+			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
 			out := bytes.NewBuffer(nil)
-			err := ListBucketsExample(ctx, planet.Satellites[0].Local().Address.Address, planet.Uplinks[0].APIKey[planet.Satellites[0].ID()], &cfg, out)
+			err := ListBucketsExample(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "")
 
 			out = bytes.NewBuffer(nil)
-			err = CreateBucketExample(ctx, planet.Satellites[0].Local().Address.Address, planet.Uplinks[0].APIKey[planet.Satellites[0].ID()], &cfg, out)
+			err = CreateBucketExample(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = ListBucketsExample(ctx, planet.Satellites[0].Local().Address.Address, planet.Uplinks[0].APIKey[planet.Satellites[0].ID()], &cfg, out)
+			err = ListBucketsExample(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "Bucket: testbucket\n")
 
 			out = bytes.NewBuffer(nil)
-			err = DeleteBucketExample(ctx, planet.Satellites[0].Local().Address.Address, planet.Uplinks[0].APIKey[planet.Satellites[0].ID()], &cfg, out)
+			err = DeleteBucketExample(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = ListBucketsExample(ctx, planet.Satellites[0].Local().Address.Address, planet.Uplinks[0].APIKey[planet.Satellites[0].ID()], &cfg, out)
+			err = ListBucketsExample(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "")
+
+			out = bytes.NewBuffer(nil)
+			encCtx, err := CreateEncryptionKeyExample_Admin1(ctx, satelliteAddr, apiKey, &cfg, out)
+			require.NoError(t, err)
+			require.Equal(t, out.String(), "success!\n")
+
+			out = bytes.NewBuffer(nil)
+			err = CreateEncryptionKeyExample_Admin2(ctx, satelliteAddr, apiKey, encCtx, &cfg, out)
+			require.NoError(t, err)
+			require.Equal(t, out.String(), "hello world\n")
+
+			out = bytes.NewBuffer(nil)
+			userAPIKey, userEncCtx, err := RestrictAccessExample_Admin(ctx, satelliteAddr, apiKey, string(encCtx), &cfg, out)
+			require.NoError(t, err)
+			require.Equal(t, out.String(), "success!\n")
+
+			out = bytes.NewBuffer(nil)
+			err = RestrictAccessExample_User(ctx, satelliteAddr, userAPIKey, userEncCtx, &cfg, out)
+			require.NoError(t, err)
+			require.Equal(t, out.String(), "hello world\n")
 		})
 }

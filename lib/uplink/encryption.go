@@ -47,14 +47,14 @@ func (s *EncryptionCtx) Import(other *EncryptionCtx) error {
 // EncryptionRestriction represents a scenario where some set of objects
 // may need to be encrypted/decrypted
 type EncryptionRestriction struct {
-	Bucket                string
-	UnencryptedPathPrefix storj.Path
+	Bucket     string
+	PathPrefix storj.Path
 }
 
-// Export creates a new EncryptionCtx with no default key, where the key material
+// Restrict creates a new EncryptionCtx with no default key, where the key material
 // in the new context is just enough to allow someone to access all of the given
 // restrictions but no more.
-func (s *EncryptionCtx) Export(restrictions ...EncryptionRestriction) (*EncryptionCtx, error) {
+func (s *EncryptionCtx) Restrict(restrictions ...EncryptionRestriction) (*EncryptionCtx, error) {
 	panic("TODO")
 }
 

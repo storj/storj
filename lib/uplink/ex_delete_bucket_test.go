@@ -32,7 +32,7 @@ func DeleteBucketExample(ctx context.Context, satelliteAddress string, apiKey st
 	}
 
 	// Next, open the project in question. Projects are identified by a specific Satellite and API key
-	p, err := ul.OpenProject(ctx, satelliteAddress, key, nil)
+	p, err := ul.OpenProject(ctx, satelliteAddress, key)
 	if err != nil {
 		return err
 	}
