@@ -123,7 +123,7 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 			NodeID        string                `json:"nodeId"`
 			Satellites    storj.NodeIDList      `json:"satellites"`
 		} `json:"data"`
-		Error         string                `json:"error,omitempty"`
+		Error string `json:"error,omitempty"`
 	}
 
 	defer func() {
@@ -133,14 +133,44 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 		}
 	}()
 
-	space, err := s.service.GetUsedStorageTotal(ctx)
+	satelliteIDParam := req.URL.Query().Get("satelliteId")
+	s.log.Info("param: " + satelliteIDParam)
+	satelliteID, err := s.parseSatelliteIDParam(satelliteIDParam)
+	if satelliteID != nil {
+		s.log.Info("ID: " + satelliteID.String())
+	}
+	if err != nil {
+		s.log.Error("satellite id is not valid", zap.Error(err))
+		response.Error = "satellite id is not valid"
+		return
+	}
+
+	satellites, err := s.service.GetSatellites(ctx)
+	if satellites == nil {
+		s.log.Info("SATELLITES ARE NIL")
+	}
+	if err != nil {
+		s.log.Error("can not get satellites list", zap.Error(err))
+		response.Error = "can not get satellites list"
+		return
+	}
+
+	if satelliteID != nil {
+		if err = s.checkSatelliteID(satellites, *satelliteID); err != nil {
+			s.log.Error(err.Error())
+			response.Error = err.Error()
+			return
+		}
+	}
+
+	space, err := s.getStorage(ctx, satelliteID)
 	if err != nil {
 		s.log.Error("can not get disk space usage", zap.Error(err))
 		response.Error = "can not get disk space usage"
 		return
 	}
 
-	usage, err := s.service.GetUsedBandwidthTotal(ctx)
+	usage, err := s.getBandwidth(ctx, satelliteID)
 	if err != nil {
 		s.log.Error("can not get bandwidth usage", zap.Error(err))
 		response.Error = "can not get bandwidth usage"
@@ -153,21 +183,13 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 
 	err = s.service.CheckVersion(ctx)
 	if err != nil {
-		s.log.Error("can not check latest storagenode version", zap.Error(err))
-		response.Error = "can not check latest storagenode version"
+		s.log.Error("can not check latest storage node version", zap.Error(err))
+		response.Error = "can not check latest storage node version"
 		return
 	}
 
 	uptime := s.service.GetUptime(ctx)
-
 	nodeID := s.service.GetNodeID(ctx)
-
-	satellites, err := s.service.GetSatellites(ctx)
-	if err != nil {
-		s.log.Error("can not get satellites list", zap.Error(err))
-		response.Error = "can not get satellites list"
-		return
-	}
 
 	response.Data.DiskSpace = *space
 	response.Data.Bandwidth = *usage
@@ -177,4 +199,39 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 	response.Data.Uptime = uptime
 	response.Data.NodeID = nodeID.String()
 	response.Data.Satellites = satellites
+}
+
+func (s *Server) getBandwidth(ctx context.Context, satelliteID *storj.NodeID) (_ *console.BandwidthInfo, err error) {
+	if satelliteID != nil {
+		return s.service.GetBandwidthBySatellite(ctx, *satelliteID)
+	}
+
+	return s.service.GetUsedBandwidthTotal(ctx)
+}
+
+func (s *Server) getStorage(ctx context.Context, satelliteID *storj.NodeID) (_ *console.DiskSpaceInfo, err error) {
+	if satelliteID != nil {
+		return s.service.GetUsedStorageBySatellite(ctx, *satelliteID)
+	}
+
+	return s.service.GetUsedStorageTotal(ctx)
+}
+
+func (s *Server) checkSatelliteID(satelliteIDs storj.NodeIDList, satelliteID storj.NodeID) error {
+	for _, id := range satelliteIDs {
+		if satelliteID == id {
+			return nil
+		}
+	}
+
+	return errs.New("satellite id in not found in the available satellite list")
+}
+
+func (s *Server) parseSatelliteIDParam(satelliteID string) (*storj.NodeID, error) {
+	if satelliteID != "" {
+		id, err := storj.NodeIDFromString(satelliteID)
+		return &id, err
+	}
+
+	return nil, nil
 }
