@@ -67,7 +67,7 @@ type RoutingTable struct {
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
-	antechamber      antechamber
+	antechamber      storage.KeyValueStore
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -93,7 +93,7 @@ func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, nd
 
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
-		antechamber:  antechamber{db: adb},
+		antechamber:  adb,
 	}
 	ok, err := rt.addNode(context.TODO(), &localNode.Node)
 	if !ok || err != nil {

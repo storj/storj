@@ -4,19 +4,14 @@
 package kademlia
 
 import (
-	"storj.io/storj/storage"
+	"context"
+
+	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
-type antechamber struct {
-	db storage.KeyValueStore
-}
+func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) {} //attempts to add a node the antechamber. Only allowed in if within neighborhood
 
-func newAntechamber(db storage.KeyValueStore) *antechamber{
-	return &antechamber{db: db}
-}
+func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node) {} //removes a node from the antechamber. Called when node moves into RT or node is outside neighborhood
 
-func addNode(){}
-
-func removeNode(){}
-
-func updateNeighborhood(){}
+func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.NodeID, limit int) {}
