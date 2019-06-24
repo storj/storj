@@ -2,11 +2,24 @@
 
 //--- Value Attribution ---//
 model value_attribution (
-	key bucket_id
+	key project_id bucket_name
 
-	field bucket_id		blob
+	field project_id	blob
+	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp
+	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+)
+
+create value_attribution ()
+delete value_attribution ( 
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
+
+read one (
+    select value_attribution
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
 )
 
 //--- containment ---//
@@ -105,14 +118,14 @@ read all (
 model node (
 	key id
 
-	index ( 
+	index (
 		name node_last_ip
-		fields last_ip 
+		fields last_net
 	)
 
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
-	field last_ip        text  ( updatable )
+	field last_net       text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -130,10 +143,8 @@ model node (
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )
-	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field uptime_ratio         float64 ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
@@ -141,7 +152,12 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
-	field disqualified bool ( updatable )
+	field disqualified timestamp ( updatable, nullable )
+
+	field audit_reputation_alpha  float64 ( updatable )
+	field audit_reputation_beta   float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable )
+	field uptime_reputation_beta  float64 ( updatable )
 )
 
 create node ( )
@@ -643,12 +659,12 @@ delete reset_password_token ( where reset_password_token.secret = ? )
 
 model offer (
 	key id
-	
-	field id	serial 
+
+	field id	serial
 	field name text ( updatable )
 	field description text ( updatable )
-	
-	field award_credit_in_cents int ( updatable ) 
+
+	field award_credit_in_cents int ( updatable )
 	field invitee_credit_in_cents int ( updatable )
 
 	field award_credit_duration_days int ( updatable )
@@ -680,3 +696,37 @@ update offer (
 )
 
 create offer ( )
+
+
+//--- user credit table ---//
+
+model user_credit (
+	key	id
+
+	field id				serial
+
+	field user_id user.id	restrict
+	field offer_id offer.id	restrict
+	field referred_by user.id	restrict ( nullable )
+
+	field credits_earned_in_cents	int
+	field credits_used_in_cents	int ( updatable, autoinsert )
+
+	field expires_at		timestamp	( updatable )
+	field created_at		timestamp	( autoinsert )
+)
+
+read all (
+	select user_credit
+	where user_credit.user_id = ?
+    where user_credit.expires_at > ?
+    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
+    orderby asc user_credit.expires_at
+)
+
+read count (
+    select user_credit
+    where user_credit.referred_by = ?
+)
+
+create user_credit ()

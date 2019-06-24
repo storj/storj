@@ -24,7 +24,9 @@ import (
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/storage"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -33,6 +35,8 @@ var (
 
 	// ErrNotEnoughShares is the errs class for when not enough shares are available to do an audit
 	ErrNotEnoughShares = errs.Class("not enough shares for successful audit")
+	// ErrSegmentDeleted is the errs class when the audited segment was deleted during the audit
+	ErrSegmentDeleted = errs.Class("segment deleted during audit")
 )
 
 // Share represents required information about an audited share
@@ -46,6 +50,7 @@ type Share struct {
 // Verifier helps verify the correctness of a given stripe
 type Verifier struct {
 	log                *zap.Logger
+	metainfo           *metainfo.Service
 	orders             *orders.Service
 	auditor            *identity.PeerIdentity
 	transport          transport.Client
@@ -56,9 +61,10 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier
-func NewVerifier(log *zap.Logger, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metainfo *metainfo.Service, transport transport.Client, overlay *overlay.Cache, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
+		metainfo:           metainfo,
 		orders:             orders,
 		auditor:            id.PeerIdentity(),
 		transport:          transport,
@@ -87,14 +93,24 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		return nil, err
 	}
 
+	// note: offlineNodes here will include disqualified nodes
 	offlineNodes = getOfflineNodes(stripe.Segment, orderLimits, skip)
 	if len(offlineNodes) > 0 {
-		verifier.log.Debug("Verify: order limits not created for some nodes (offline)", zap.Strings("Node IDs", offlineNodes.Strings()))
+		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
 	shares, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
 	if err != nil {
-		return nil, err
+		return &Report{
+			Offlines: offlineNodes,
+		}, err
+	}
+
+	err = verifier.checkIfSegmentDeleted(ctx, stripe)
+	if err != nil {
+		return &Report{
+			Offlines: offlineNodes,
+		}, err
 	}
 
 	for pieceNum, share := range shares {
@@ -109,7 +125,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			}) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, share.NodeID)
-				verifier.log.Debug("Verify: dial timeout (offline)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
+				verifier.log.Debug("Verify: dial timeout (offline)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 				continue
 			}
 			if errs.IsFunc(share.Error, func(err error) bool {
@@ -117,12 +133,12 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			}) {
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, share.NodeID)
-				verifier.log.Debug("Verify: dial failed (offline)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
+				verifier.log.Debug("Verify: dial failed (offline)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 				continue
 			}
 			// unknown transport error
 			containedNodes[pieceNum] = share.NodeID
-			verifier.log.Debug("Verify: unknown transport error (contained)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
+			verifier.log.Debug("Verify: unknown transport error (contained)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 		}
 
 		if errs.IsFunc(share.Error, func(err error) bool {
@@ -130,7 +146,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		}) {
 			// missing share
 			failedNodes = append(failedNodes, share.NodeID)
-			verifier.log.Debug("Verify: piece not found (audit failed)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
+			verifier.log.Debug("Verify: piece not found (audit failed)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 			continue
 		}
 
@@ -139,13 +155,13 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		}) {
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = share.NodeID
-			verifier.log.Debug("Verify: download timeout (contained)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
+			verifier.log.Debug("Verify: download timeout (contained)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 			continue
 		}
 
 		// unknown error
 		containedNodes[pieceNum] = share.NodeID
-		verifier.log.Debug("Verify: unknown error (contained)", zap.String("Node ID", share.NodeID.String()), zap.Error(share.Error))
+		verifier.log.Debug("Verify: unknown error (contained)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 	}
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
@@ -193,6 +209,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)
 	mon.Meter("audit_fail_nodes_global").Mark(numFailed)
 	mon.Meter("audit_offline_nodes_global").Mark(numOffline)
+	mon.Meter("audit_contained_nodes_global").Mark(numContained)
 	mon.Meter("audit_total_nodes_global").Mark(totalAudited)
 	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer)
 
@@ -285,6 +302,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 
 	pieces := stripe.Segment.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
+	var containedInSegment int64
 
 	for _, piece := range pieces {
 		pending, err := verifier.containment.Get(ctx, piece.NodeId)
@@ -294,24 +312,50 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				continue
 			}
 			ch <- result{nodeID: piece.NodeId, status: erred, err: err}
-			verifier.log.Debug("Reverify: error getting from containment db", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+			verifier.log.Debug("Reverify: error getting from containment db", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 			continue
 		}
+		containedInSegment++
 
 		go func(pending *PendingAudit, piece *pb.RemotePiece) {
 			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, pending.PieceID, pending.ShareSize)
 			if err != nil {
+				if overlay.ErrNodeDisqualified.Has(err) {
+					_, errDelete := verifier.containment.Delete(ctx, piece.NodeId)
+					if errDelete != nil {
+						verifier.log.Debug("Error deleting disqualified node from containment db", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+						err = errs.Combine(err, errDelete)
+					}
+					ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+					verifier.log.Debug("Reverify: order limit not created (disqualified)", zap.Stringer("Node ID", piece.NodeId))
+					return
+				}
 				if overlay.ErrNodeOffline.Has(err) {
 					ch <- result{nodeID: piece.NodeId, status: offline}
-					verifier.log.Debug("Reverify: order limit not created (offline)", zap.String("Node ID", piece.NodeId.String()))
+					verifier.log.Debug("Reverify: order limit not created (offline)", zap.Stringer("Node ID", piece.NodeId))
 					return
 				}
 				ch <- result{nodeID: piece.NodeId, status: erred, err: err}
-				verifier.log.Debug("Reverify: error creating order limit", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+				verifier.log.Debug("Reverify: error creating order limit", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				return
 			}
 
 			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
+
+			// check if the pending audit was deleted while downloading the share
+			_, getErr := verifier.containment.Get(ctx, piece.NodeId)
+			if getErr != nil {
+				if ErrContainedNotFound.Has(getErr) {
+					ch <- result{nodeID: piece.NodeId, status: skipped}
+					verifier.log.Debug("Reverify: pending audit deleted during reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(getErr))
+					return
+				}
+				ch <- result{nodeID: piece.NodeId, status: erred, err: getErr}
+				verifier.log.Debug("Reverify: error getting from containment db", zap.Stringer("Node ID", piece.NodeId), zap.Error(getErr))
+				return
+			}
+
+			// analyze the error from GetShare
 			if err != nil {
 				if transport.Error.Has(err) {
 					if errs.IsFunc(err, func(err error) bool {
@@ -319,20 +363,20 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					}) {
 						// dial timeout
 						ch <- result{nodeID: piece.NodeId, status: offline}
-						verifier.log.Debug("Reverify: dial timeout (offline)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+						verifier.log.Debug("Reverify: dial timeout (offline)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						return
 					}
 					if errs.IsFunc(err, func(err error) bool {
 						return status.Code(err) == codes.Unknown
 					}) {
 						// dial failed -- offline node
-						verifier.log.Debug("Reverify: dial failed (offline)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+						verifier.log.Debug("Reverify: dial failed (offline)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						ch <- result{nodeID: piece.NodeId, status: offline}
 						return
 					}
 					// unknown transport error
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
-					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
 
@@ -341,7 +385,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				}) {
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
-					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
 
@@ -350,23 +394,23 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				}) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
-					verifier.log.Debug("Reverify: download timeout (contained)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+					verifier.log.Debug("Reverify: download timeout (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
 
 				// unknown error
 				ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
-				verifier.log.Debug("Reverify: unknown error (contained)", zap.String("Node ID", piece.NodeId.String()), zap.Error(err))
+				verifier.log.Debug("Reverify: unknown error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				return
 			}
 
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
 				ch <- result{nodeID: piece.NodeId, status: success}
-				verifier.log.Debug("Reverify: hashes match (audit success)", zap.String("Node ID", piece.NodeId.String()))
+				verifier.log.Debug("Reverify: hashes match (audit success)", zap.Stringer("Node ID", piece.NodeId))
 			} else {
 				ch <- result{nodeID: piece.NodeId, status: failed}
-				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.String("Node ID", piece.NodeId.String()),
+				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.Stringer("Node ID", piece.NodeId),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
 			}
 		}(pending, piece)
@@ -388,6 +432,19 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			err = errs.Combine(err, result.err)
 		}
 	}
+
+	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
+	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))
+	mon.Meter("reverify_fails_global").Mark(len(report.Fails))
+	mon.Meter("reverify_contained_global").Mark(len(report.PendingAudits))
+
+	mon.IntVal("reverify_successes").Observe(int64(len(report.Successes)))
+	mon.IntVal("reverify_offlines").Observe(int64(len(report.Offlines)))
+	mon.IntVal("reverify_fails").Observe(int64(len(report.Fails)))
+	mon.IntVal("reverify_contained").Observe(int64(len(report.PendingAudits)))
+
+	mon.IntVal("reverify_contained_in_segment").Observe(containedInSegment)
+	mon.IntVal("reverify_total_in_segment").Observe(int64(len(pieces)))
 
 	return report, err
 }
@@ -452,6 +509,26 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		NodeID:   storageNodeID,
 		Data:     buf,
 	}, nil
+}
+
+// checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.
+func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, stripe *Stripe) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pointer, err := verifier.metainfo.Get(ctx, stripe.SegmentPath)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return ErrSegmentDeleted.New(stripe.SegmentPath)
+		}
+		return err
+	}
+
+	if pointer.GetCreationDate().GetSeconds() != stripe.Segment.GetCreationDate().GetSeconds() ||
+		pointer.GetCreationDate().GetNanos() != stripe.Segment.GetCreationDate().GetNanos() {
+		return ErrSegmentDeleted.New(stripe.SegmentPath)
+	}
+
+	return nil
 }
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they

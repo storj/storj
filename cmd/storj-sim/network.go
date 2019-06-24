@@ -165,6 +165,12 @@ func networkDestroy(flags *Flags, args []string) error {
 
 // newNetwork creates a default network
 func newNetwork(flags *Flags) (*Processes, error) {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return nil, errs.New("no caller information")
+	}
+	storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
+
 	// with common adds all common arguments to the process
 	withCommon := func(dir string, all Arguments) Arguments {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
@@ -219,7 +225,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"--server.private-address", net.JoinHostPort(host, port(bootstrapPeer, 0, privateGRPC)),
 
 			"--kademlia.bootstrap-addr", bootstrap.Address,
-			"--kademlia.operator.email", "bootstrap@example.com",
+			"--kademlia.operator.email", "bootstrap@mail.test",
 			"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 
 			"--server.extensions.revocation=false",
@@ -252,13 +258,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		// satellite must wait for bootstrap to start
 		process.WaitForStart(bootstrap)
-
-		// TODO: find source file, to set static path
-		_, filename, _, ok := runtime.Caller(0)
-		if !ok {
-			return nil, errs.Combine(processes.Close(), errs.New("no caller information"))
-		}
-		storjRoot := strings.TrimSuffix(filename, "/cmd/storj-sim/network.go")
 
 		consoleAuthToken := "secure_token"
 
@@ -420,15 +419,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
 				"--identity-dir", process.Directory,
+				"--console.address", net.JoinHostPort(host, port(storagenodePeer, i, publicHTTP)),
+				"--console.static-dir", filepath.Join(storjRoot, "web/operator/"),
 				"--server.address", process.Address,
 				"--server.private-address", net.JoinHostPort(host, port(storagenodePeer, i, privateGRPC)),
 
 				"--kademlia.bootstrap-addr", bootstrap.Address,
-				"--kademlia.operator.email", fmt.Sprintf("storage%d@example.com", i),
+				"--kademlia.operator.email", fmt.Sprintf("storage%d@mail.test", i),
 				"--kademlia.operator.wallet", "0x0123456789012345678901234567890123456789",
 
-				"--storage2.monitor.minimum-disk-space", "25GB",
-				"--storage2.monitor.minimum-bandwidth", "25GB",
+				"--storage2.monitor.minimum-disk-space", "10GB",
+				"--storage2.monitor.minimum-bandwidth", "10GB",
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",

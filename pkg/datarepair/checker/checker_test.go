@@ -89,8 +89,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointer := &pb.Pointer{
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(4),
-					RepairThreshold: int32(8),
+					MinReq:           int32(3),
+					RepairThreshold:  int32(8),
+					SuccessThreshold: int32(9),
+					Total:            int32(10),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
@@ -136,8 +138,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointer = &pb.Pointer{
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(3),
-					RepairThreshold: int32(8),
+					MinReq:           int32(2),
+					RepairThreshold:  int32(8),
+					SuccessThreshold: int32(9),
+					Total:            int32(10),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
@@ -183,8 +187,10 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	pointer := &pb.Pointer{
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
-				MinReq:          int32(minReq),
-				RepairThreshold: int32(repairThreshold),
+				MinReq:           int32(minReq),
+				RepairThreshold:  int32(repairThreshold),
+				SuccessThreshold: int32(repairThreshold) + 1,
+				Total:            int32(repairThreshold) + 2,
 			},
 			RootPieceId:  teststorj.PieceIDFromString(pieceID),
 			RemotePieces: pieces,

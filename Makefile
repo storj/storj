@@ -45,7 +45,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -172,6 +172,7 @@ binary:
 	@if [ -z "${COMPONENT}" ]; then echo "Try one of the following targets instead:" \
 		&& for b in binaries ${BINARIES}; do echo "- $$b"; done && exit 1; fi
 	mkdir -p release/${TAG}
+	mkdir -p /tmp/go-cache /tmp/go-pkg
 	rm -f cmd/${COMPONENT}/resource.syso
 	if [ "${GOARCH}" = "amd64" ]; then sixtyfour="-64"; fi; \
 	[ "${GOARCH}" = "amd64" ] && goversioninfo $$sixtyfour -o cmd/${COMPONENT}/resource.syso \
@@ -182,6 +183,7 @@ binary:
 	resources/versioninfo.json || echo "goversioninfo is not installed, metadata will not be created"
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
 	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
+	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/release.sh build -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${COMPONENT}
@@ -229,6 +231,11 @@ OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm windows_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
 binaries: ${BINARIES} ## Build bootstrap, certificates, gateway, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+
+.PHONY: libuplink
+libuplink:
+	go build -buildmode c-shared -o uplink.so storj.io/storj/lib/uplinkc
+	cp lib/uplinkc/uplink_definitions.h uplink_definitions.h
 
 ##@ Deploy
 

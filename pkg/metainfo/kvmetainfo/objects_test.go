@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -40,7 +39,7 @@ func TestCreateObject(t *testing.T) {
 		BlockSize: stripesPerBlock * customRS.StripeSize(),
 	}
 
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
@@ -88,7 +87,7 @@ func TestCreateObject(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
@@ -115,7 +114,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectStream(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		data := make([]byte, 32*memory.KiB)
 		_, err := rand.Read(data)
 		require.NoError(t, err)
@@ -244,7 +243,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -270,7 +269,7 @@ func TestDeleteObject(t *testing.T) {
 }
 
 func TestListObjectsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
@@ -296,7 +295,7 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
 		require.NoError(t, err)
 

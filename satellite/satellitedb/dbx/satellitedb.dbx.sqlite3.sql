@@ -78,7 +78,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	address TEXT NOT NULL,
-	last_ip TEXT NOT NULL,
+	last_net TEXT NOT NULL,
 	protocol INTEGER NOT NULL,
 	type INTEGER NOT NULL,
 	email TEXT NOT NULL,
@@ -94,16 +94,18 @@ CREATE TABLE nodes (
 	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
 	total_audit_count INTEGER NOT NULL,
-	audit_success_ratio REAL NOT NULL,
 	uptime_success_count INTEGER NOT NULL,
 	total_uptime_count INTEGER NOT NULL,
-	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
-	disqualified INTEGER NOT NULL,
+	disqualified TIMESTAMP,
+	audit_reputation_alpha REAL NOT NULL,
+	audit_reputation_beta REAL NOT NULL,
+	uptime_reputation_alpha REAL NOT NULL,
+	uptime_reputation_beta REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -188,10 +190,11 @@ CREATE TABLE users (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
-	bucket_id BLOB NOT NULL,
+	project_id BLOB NOT NULL,
+	bucket_name BLOB NOT NULL,
 	partner_id BLOB NOT NULL,
 	last_updated TIMESTAMP NOT NULL,
-	PRIMARY KEY ( bucket_id )
+	PRIMARY KEY ( project_id, bucket_name )
 );
 CREATE TABLE api_keys (
 	id BLOB NOT NULL,
@@ -224,6 +227,17 @@ CREATE TABLE used_serials (
 	storage_node_id BLOB NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
+CREATE TABLE user_credits (
+	id INTEGER NOT NULL,
+	user_id BLOB NOT NULL REFERENCES users( id ),
+	offer_id INTEGER NOT NULL REFERENCES offers( id ),
+	referred_by BLOB REFERENCES users( id ),
+	credits_earned_in_cents INTEGER NOT NULL,
+	credits_used_in_cents INTEGER NOT NULL,
+	expires_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE user_payments (
 	user_id BLOB NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
 	customer_id BLOB NOT NULL,
@@ -240,7 +254,7 @@ CREATE TABLE project_payments (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
-CREATE INDEX node_last_ip ON nodes ( last_ip );
+CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );
