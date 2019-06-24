@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -150,12 +151,13 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		limits, err := satellite.Orders.Service.CreateGetOrderLimits(ctx, upl.Identity.PeerIdentity(), bucketID, pointer)
 		require.NoError(t, err)
+		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
 
 		for _, orderLimit := range limits {
 			reputable, err := satellite.Overlay.Service.IsVetted(ctx, orderLimit.Limit.StorageNodeId)
-			require.NoError(t, err)
-			require.True(t, reputable)
-			require.NotEqual(t, orderLimit.Limit.StorageNodeId, disqualifiedNode)
+			assert.NoError(t, err)
+			assert.True(t, reputable)
+			assert.NotEqual(t, orderLimit.Limit.StorageNodeId, disqualifiedNode)
 		}
 	})
 }
@@ -185,19 +187,23 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 			MinimumVersion:       "", // semver or empty
 		}
 		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, request)
-		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
+		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))
 
-		require.NotEmpty(t, nodes)
+		assert.Len(t, nodes, 3)
 		for _, node := range nodes {
-			reputable, err := satellite.Overlay.Service.IsVetted(ctx, node.Id)
-			require.NoError(t, err)
-			require.True(t, reputable)
-			require.NotEqual(t, node.Id, disqualifiedNode)
+			assert.False(t, isDisqualified(t, ctx, satellite, node.Id))
+			assert.NotEqual(t, node.Id, disqualifiedNode)
 		}
 
 	})
 }
 
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) bool {
+	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
+	require.NoError(t, err)
+
+	return node.Disqualified != nil
+}
 func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
 	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 		NodeID:       nodeID,
@@ -211,7 +217,5 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite
 		UptimeDQ:     0.5,
 	})
 	require.NoError(t, err)
-	reputable, err := satellite.Overlay.Service.IsVetted(ctx, nodeID)
-	require.NoError(t, err)
-	require.False(t, reputable)
+	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }
