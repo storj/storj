@@ -153,7 +153,7 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
+	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
 	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
 	    FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
@@ -176,7 +176,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		r := &accounting.CSVRow{}
 		var wallet sql.NullString
 		var disqualified *time.Time
-		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
+		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AtRestTotal, &r.GetRepairTotal,
 			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, &disqualified)
 		if err != nil {
 			return csv, Error.Wrap(err)

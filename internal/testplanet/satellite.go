@@ -101,9 +101,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			Overlay: overlay.Config{
 				Node: overlay.NodeSelectionConfig{
-					UptimeRatio:       0,
 					UptimeCount:       0,
-					AuditSuccessRatio: 0,
 					AuditCount:        0,
 					NewNodePercentage: 0,
 					OnlineWindow:      time.Hour,
@@ -136,6 +134,15 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
 				BwExpiration:         45,
+				RS: metainfo.RSConfig{
+					MaxBufferMem:     memory.Size(256),
+					ErasureShareSize: memory.Size(256),
+					MinThreshold:     (planet.config.StorageNodeCount * 1 / 5),
+					RepairThreshold:  (planet.config.StorageNodeCount * 2 / 5),
+					SuccessThreshold: (planet.config.StorageNodeCount * 3 / 5),
+					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
+					Validate:         false,
+				},
 			},
 			Orders: orders.Config{
 				Expiration: 45 * 24 * time.Hour,
@@ -180,7 +187,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
 			},
 			Vouchers: vouchers.Config{
-				Expiration: 30,
+				Expiration: 30 * 24 * time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
 		}
