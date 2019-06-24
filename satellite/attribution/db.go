@@ -41,5 +41,5 @@ type DB interface {
 	// Insert creates and stores new Info
 	Insert(ctx context.Context, info *Info) (*Info, error)
 	// QueryValueAttribution queries partner bucket attribution data
-	QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*ValueAttributionRow, err error)
+	QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*ValueAttributionRow, error)
 }
