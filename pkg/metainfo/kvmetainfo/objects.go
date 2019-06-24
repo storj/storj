@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storage/objects"
@@ -64,7 +65,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 		return nil, err
 	}
 
-	streamKey, err := encryption.DeriveContentKey(meta.fullpath, db.rootKey)
+	streamKey, err := encryption.StoreDeriveContentKey(bucket, meta.fullpath.UnencryptedPath(), db.encStore)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 	return &readonlyStream{
 		db:            db,
 		info:          info,
-		encryptedPath: meta.encryptedPath,
+		encryptedPath: meta.encryptedPath.Raw(),
 		streamKey:     streamKey,
 	}, nil
 }
@@ -222,8 +223,8 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 }
 
 type object struct {
-	fullpath        string
-	encryptedPath   string
+	fullpath        streams.Path
+	encryptedPath   paths.Encrypted
 	lastSegmentMeta segments.Meta
 	streamInfo      pb.StreamInfo
 	streamMeta      pb.StreamMeta
@@ -232,6 +233,7 @@ type object struct {
 func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO: we shouldn't need to go load the bucket metadata every time we get object info
 	bucketInfo, err := db.GetBucket(ctx, bucket)
 	if err != nil {
 		return object{}, storj.Object{}, err
@@ -241,14 +243,14 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		return object{}, storj.Object{}, storj.ErrNoPath.New("")
 	}
 
-	fullpath := bucket + "/" + path
+	fullpath := streams.CreatePath(bucket, paths.NewUnencrypted(path))
 
-	encryptedPath, err := streams.EncryptAfterBucket(ctx, fullpath, bucketInfo.PathCipher, db.rootKey)
+	encryptedPath, err := encryption.StoreEncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, storj.JoinPaths(storj.SplitPath(encryptedPath)[1:]...), -1)
+	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, encryptedPath.Raw(), -1)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)
@@ -278,7 +280,7 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 		Data:       pointer.GetMetadata(),
 	}
 
-	streamInfoData, streamMeta, err := streams.DecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.rootKey)
+	streamInfoData, streamMeta, err := streams.TypedDecryptStreamInfo(ctx, lastSegmentMeta.Data, fullpath, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

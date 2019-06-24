@@ -719,7 +719,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	kvm := kvmetainfo.New(p, m, strms, segments, encKey)
+	kvm := kvmetainfo.New(p, m, strms, segments, encStore)
 
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {
