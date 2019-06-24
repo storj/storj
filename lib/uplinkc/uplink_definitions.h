@@ -35,10 +35,6 @@ typedef struct UplinkConfig {
     } Volatile;
 } UplinkConfig;
 
-typedef struct ProjectOptions {
-    char key[32];
-} ProjectOptions;
-
 typedef struct EncryptionParameters {
     CipherSuite cipher_suite;
     int32_t     block_size;
