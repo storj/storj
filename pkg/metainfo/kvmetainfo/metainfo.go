@@ -10,7 +10,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -39,9 +38,9 @@ type DB struct {
 }
 
 // New creates a new metainfo database
-func New(metainfo metainfo.Client, streams streams.Store, segments segments.Store, rootKey *storj.Key, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *DB {
+func New(project *Project, metainfo metainfo.Client, streams streams.Store, segments segments.Store, rootKey *storj.Key) *DB {
 	return &DB{
-		project:  NewProject(streams, encryptedBlockSize, redundancy, segmentsSize),
+		project:  project,
 		metainfo: metainfo,
 		streams:  streams,
 		segments: segments,
