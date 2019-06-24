@@ -20,7 +20,9 @@ type projectMembers struct {
 	db      *dbx.DB
 }
 
-func (pm *projectMembers) GetByProjectIDTotal(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (*console.ProjectMembersPage, error) {
+func (pm *projectMembers) GetByProjectIDTotal(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	search := "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
 
 	if cursor.Limit > 50 {
@@ -54,7 +56,7 @@ func (pm *projectMembers) GetByProjectIDTotal(ctx context.Context, projectID uui
 		search,
 		search)
 
-	err := countRow.Scan(&page.TotalCount)
+	err = countRow.Scan(&page.TotalCount)
 	if err != nil {
 		return nil, err
 	}
