@@ -6,6 +6,7 @@ package marketingweb_test
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/satellite/marketing"
 )
 
 type CreateRequest struct {
@@ -54,12 +56,53 @@ func TestCreateOffer(t *testing.T) {
 		addr := planet.Satellites[0].Marketing.Listener.Addr()
 
 		var group errgroup.Group
-		for _, offer := range requests {
-			o := offer
+		for _, o := range requests {
 			group.Go(func() error {
 				baseURL := "http://" + addr.String()
 
 				_, err := http.PostForm(baseURL+o.Path, o.Values)
+				if err != nil {
+					return err
+				}
+
+				_, err = http.Get(baseURL)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+			err := group.Wait()
+			require.NoError(t, err)
+		}
+	})
+}
+
+func TestStopOffer(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		offersToStop := []marketing.Offer{
+			{
+				ID:   1,
+				Type: marketing.Referral,
+			}, {
+				ID:   1,
+				Type: marketing.FreeCredit,
+			},
+		}
+
+		addr := planet.Satellites[0].Marketing.Listener.Addr()
+
+		var group errgroup.Group
+		for _, offer := range offersToStop {
+			group.Go(func() error {
+				baseURL := "http://" + addr.String()
+				endpoint := "/stop/"
+				param := strconv.Itoa(offer.ID)
+
+				_, err := http.Get(baseURL + endpoint + param)
 				if err != nil {
 					return err
 				}
