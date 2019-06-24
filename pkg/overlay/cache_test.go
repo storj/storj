@@ -395,3 +395,12 @@ func TestNodeInfo(t *testing.T) {
 		assert.Equal(t, planet.StorageNodes[0].Local().Version.Version, node.Version.Version)
 	})
 }
+
+func TestAddrtoNetwork_Conversion(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	ip := "8.8.8.8:28967"
+	network, err := overlay.GetNetwork(ctx, ip)
+	require.Equal(t, "8.8.8.0", network)
+	require.NoError(t, err)
+}

@@ -285,7 +285,7 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 		return errors.New("node has no address")
 	}
 	// Resolve IP Address Network to ensure it is set
-	value.LastIp, err = getNetwork(ctx, value.Address.Address)
+	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
@@ -409,7 +409,7 @@ func getIP(ctx context.Context, target string) (ip string, err error) {
 	return ipAddr.String(), nil
 }
 
-func getNetwork(ctx context.Context, target string) (network string, err error) {
+func GetNetwork(ctx context.Context, target string) (network string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ip, err := getIP(ctx, target)
