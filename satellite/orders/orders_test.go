@@ -189,16 +189,14 @@ func TestSpliteBucketID(t *testing.T) {
 	})
 
 	t.Run("Valid input", func(t *testing.T) {
-		expectedBucketID, err := uuid.Parse("bb6218e3-4b4a-4819-abbb-fa68538e33c0")
+		expectedProjectID, err := uuid.Parse("bb6218e3-4b4a-4819-abbb-fa68538e33c0")
+		assert.NoError(t, err)
 		expectedBucketName := "bucket1"
+		bucketID := expectedProjectID.String() + "/" + expectedBucketName
+
+		actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
 		assert.NoError(t, err)
-
-		str := expectedBucketID.String() + "/" + expectedBucketName
-
-		bucketID, bucketName, err := orders.SplitBucketID([]byte(str))
-
-		assert.NoError(t, err)
-		assert.Equal(t, bucketID, expectedBucketID)
-		assert.Equal(t, bucketName, []byte(expectedBucketName))
+		assert.Equal(t, actualProjectID, expectedProjectID)
+		assert.Equal(t, actualBucketName, []byte(expectedBucketName))
 	})
 }
