@@ -256,11 +256,11 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	layout := "2006-01-02"
 	start, err := time.Parse(layout, args[1])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+		return errs.New("Invalid start date format. Please use YYYY-MM-DD")
 	}
 	end, err := time.Parse(layout, args[2])
 	if err != nil {
-		return errs.New("Invalid date format. Please use YYYY-MM-DD")
+		return errs.New("Invalid end date format. Please use YYYY-MM-DD")
 	}
 
 	// Ensure that start date is not after end date

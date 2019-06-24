@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	valueAttrQuery1 = `
+	valueAttrQuery = `
 	SELECT 
 		o.partner_id as partner_id, 
 		o.project_id as project_id, 
@@ -42,11 +43,7 @@ const (
 					-- Collapse entries by the latest record in the hour
 					SELECT 
 						va.partner_id, 
-	`
-	slHour          = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
-	pqHour          = "date_trunc('hour', bst.interval_start)"
-	valueAttrQuery2 = `
-						as hours, 
+						%v as hours, 
 						bst.project_id, 
 						bst.bucket_name, 
 						MAX(bst.interval_start) as max_interval 
@@ -108,9 +105,8 @@ const (
 		o.project_id, 
 		o.bucket_name;
 	`
-
-	slValueAttrQuery = valueAttrQuery1 + slHour + valueAttrQuery2
-	pqValueAttrQuery = valueAttrQuery1 + pqHour + valueAttrQuery2
+	slHour = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
+	pqHour = "date_trunc('hour', bst.interval_start)"
 )
 
 type attributionDB struct {
@@ -158,9 +154,9 @@ func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID 
 	var query string
 	switch t := keys.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
-		query = slValueAttrQuery
+		query = fmt.Sprintf(valueAttrQuery, slHour)
 	case *pq.Driver:
-		query = pqValueAttrQuery
+		query = fmt.Sprintf(valueAttrQuery, pqHour)
 	default:
 		return nil, Error.New("Unsupported database %t", t)
 	}
