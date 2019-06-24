@@ -94,8 +94,6 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 }
 
 // refresh updates the cache db with the current DHT.
-// We currently do not penalize nodes that are unresponsive,
-// but should in the future.
 func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -114,6 +112,11 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	for _, node := range list {
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+
+		if node.Disqualified != nil {
+			discovery.log.Debug("skip disqualified node", zap.Stringer("ID", node.Id))
+			continue
 		}
 
 		ping, err := discovery.kad.Ping(ctx, node.Node)
