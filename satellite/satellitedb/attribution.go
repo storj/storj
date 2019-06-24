@@ -151,8 +151,8 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 	return attributionFromDBX(dbxInfo)
 }
 
-// QueryValueAttribution queries partner bucket attribution data
-func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
+// QueryAttribution queries partner bucket attribution data
+func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var query string

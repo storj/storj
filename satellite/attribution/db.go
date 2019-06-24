@@ -23,7 +23,7 @@ type Info struct {
 	CreatedAt  time.Time
 }
 
-// CSVRow represents data from QueryValueAttribution without exposing dbx
+// CSVRow represents data from QueryAttribution without exposing dbx
 type CSVRow struct {
 	PartnerID          []byte
 	ProjectID          []byte
@@ -40,6 +40,6 @@ type DB interface {
 	Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*Info, error)
 	// Insert creates and stores new Info
 	Insert(ctx context.Context, info *Info) (*Info, error)
-	// QueryValueAttribution queries partner bucket attribution data
-	QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryAttribution queries partner bucket attribution data
+	QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*CSVRow, error)
 }

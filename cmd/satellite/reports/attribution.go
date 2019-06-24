@@ -21,8 +21,8 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
-// GenerateValueAttributionCSV creates a report with
-func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
+// GenerateAttributionCSV creates a report with
+func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
 	db, err := satellitedb.New(zap.L().Named("db"), database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
@@ -31,7 +31,7 @@ func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID
 		err = errs.Combine(err, db.Close())
 	}()
 
-	rows, err := db.Attribution().QueryValueAttribution(ctx, partnerID, start, end)
+	rows, err := db.Attribution().QueryAttribution(ctx, partnerID, start, end)
 	if err != nil {
 		return err
 	}

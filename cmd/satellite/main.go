@@ -270,7 +270,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 
 	// send output to stdout
 	if partnerAttribtionCfg.Output == "" {
-		return reports.GenerateValueAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, os.Stdout)
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, os.Stdout)
 	}
 
 	// send output to file
@@ -283,7 +283,7 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return reports.GenerateValueAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, file)
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, file)
 }
 
 func main() {

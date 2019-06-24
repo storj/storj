@@ -27,7 +27,7 @@ const (
 	egressSize int64 = 2048
 )
 
-type ValueAttributionTestData struct {
+type AttributionTestData struct {
 	name       string
 	partnerID  uuid.UUID
 	projectID  uuid.UUID
@@ -53,7 +53,7 @@ type ValueAttributionTestData struct {
 	expectedEgress      int64
 }
 
-func (testData *ValueAttributionTestData) init() {
+func (testData *AttributionTestData) init() {
 	testData.bucketID = []byte(testData.projectID.String() + "/" + string(testData.bucketName))
 	testData.hours = int64(testData.end.Sub(testData.start).Hours())
 	testData.hoursOfData = int(testData.hours) + (testData.padding * 2)
@@ -100,7 +100,7 @@ func TestDB(t *testing.T) {
 	})
 }
 
-func TestQueryValueAttribution(t *testing.T) {
+func TestQueryAttribution(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -117,7 +117,7 @@ func TestQueryValueAttribution(t *testing.T) {
 		partnerID := newUUID()
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
-		testData := []ValueAttributionTestData{
+		testData := []AttributionTestData{
 			{
 				name:       "new partnerID, projectID, alpha",
 				partnerID:  newUUID(),
@@ -191,8 +191,8 @@ func TestQueryValueAttribution(t *testing.T) {
 	})
 }
 
-func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *ValueAttributionTestData) {
-	results, err := attributionDB.QueryValueAttribution(ctx, testData.partnerID, testData.start, testData.end)
+func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attribution.DB, testData *AttributionTestData) {
+	results, err := attributionDB.QueryAttribution(ctx, testData.partnerID, testData.start, testData.end)
 	require.NoError(t, err)
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
 	count := 0
@@ -215,7 +215,7 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 	require.NotEqual(t, 0, len(results), "Results were returned, but did not match the projectID.")
 }
 
-func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testData *ValueAttributionTestData) {
+func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testData *AttributionTestData) {
 	projectAccoutingDB := db.ProjectAccounting()
 	orderDB := db.Orders()
 
