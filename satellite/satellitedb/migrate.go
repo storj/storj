@@ -857,6 +857,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
 				},
 			},
+			{
+				Description: "Update Last_IP column to be masked",
+				Version:     36,
+				Action: migrate.SQL{
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 24))) WHERE last_ip <> '' AND family(last_ip::INET) = 4;`,
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 64))) WHERE last_ip <> '' AND family(last_ip::INET) = 16;`,
+					`ALTER TABLE nodes RENAME last_ip TO last_net;`,
+				},
+			},
 		},
 	}
 }

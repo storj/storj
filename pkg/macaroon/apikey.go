@@ -33,16 +33,19 @@ var (
 type ActionType int
 
 const (
-	_ ActionType = iota // ActionType zero value
+	// not using iota because these values are persisted in macaroons
+	_ ActionType = 0
 
 	// ActionRead specifies a read operation
-	ActionRead
+	ActionRead ActionType = 1
 	// ActionWrite specifies a read operation
-	ActionWrite
+	ActionWrite ActionType = 2
 	// ActionList specifies a read operation
-	ActionList
+	ActionList ActionType = 3
 	// ActionDelete specifies a read operation
-	ActionDelete
+	ActionDelete ActionType = 4
+	// ActionProjectInfo requests project-level information
+	ActionProjectInfo ActionType = 5
 )
 
 // Action specifies the specific operation being performed that the Macaroon will validate
@@ -165,6 +168,8 @@ func (c *Caveat) Allows(action Action) bool {
 		if c.DisallowDeletes {
 			return false
 		}
+	case ActionProjectInfo:
+		// allow
 	default:
 		return false
 	}
