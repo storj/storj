@@ -8,7 +8,10 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
+	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -89,7 +92,7 @@ func (s *EncryptionCtx) Restrict(apiKey APIKey, restrictions ...EncryptionRestri
 			return APIKey{}, nil, err
 		}
 		caveat.AllowedPaths = append(caveat.AllowedPaths, &macaroon.Caveat_Path{
-			Bucket:              res.Bucket,
+			Bucket:              []byte(res.Bucket),
 			EncryptedPathPrefix: []byte(encPath.Raw()),
 		})
 	}
@@ -103,9 +106,9 @@ func (s *EncryptionCtx) Restrict(apiKey APIKey, restrictions ...EncryptionRestri
 }
 
 // Serialize turns an EncryptionCtx into base58
-func (s *EncryptionCtx) Serialize() ([]byte, error) {
+func (s *EncryptionCtx) Serialize() (string, error) {
 	var storeEntries []*pb.EncryptionCtx_StoreEntry
-	err := s.store.Iterate(func(bucket string, unenc, enc storj.Path, key storj.Key) error {
+	err := s.store.Iterate(func(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
 		storeEntries = append(storeEntries, &pb.EncryptionCtx_StoreEntry{
 			Bucket:          []byte(bucket),
 			UnencryptedPath: []byte(unenc.Raw()),
@@ -114,12 +117,16 @@ func (s *EncryptionCtx) Serialize() ([]byte, error) {
 		})
 		return nil
 	})
+	if err != nil {
+		return "", err
+	}
+
 	var defaultKey []byte
 	if key := s.store.GetDefaultKey(); key != nil {
 		defaultKey = key[:]
 	}
 
-	data, err := proto.Marshal(&pb.Scope{
+	data, err := proto.Marshal(&pb.EncryptionCtx{
 		DefaultKey:   defaultKey,
 		StoreEntries: storeEntries,
 	})
@@ -132,9 +139,8 @@ func (s *EncryptionCtx) Serialize() ([]byte, error) {
 }
 
 // ParseEncryptionCtx parses a base58 serialized encryption context into a working one.
-func ParseEncryptionCtx(data []byte) (*EncryptionCtx, error) {
-	// TODO(jeff): should parse operate on a string?
-	data, version, err := base58.CheckDecode(string(data))
+func ParseEncryptionCtx(b58data string) (*EncryptionCtx, error) {
+	data, version, err := base58.CheckDecode(b58data)
 	if err != nil || version != 0 {
 		return nil, errs.New("invalid encryption context format")
 	}
@@ -164,8 +170,8 @@ func ParseEncryptionCtx(data []byte) (*EncryptionCtx, error) {
 
 		err := encCtx.store.Add(
 			string(entry.Bucket),
-			paths.NewUnencrypted(entry.UnencryptedPath),
-			paths.NewEncrypted(entry.EncryptedPath),
+			paths.NewUnencrypted(string(entry.UnencryptedPath)),
+			paths.NewEncrypted(string(entry.EncryptedPath)),
 			key)
 		if err != nil {
 			return nil, errs.New("invalid encryption context entry: %v", err)

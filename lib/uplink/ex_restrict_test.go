@@ -16,11 +16,11 @@ import (
 	"storj.io/storj/pkg/macaroon"
 )
 
-func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (userAPIKey_ string, serializedEncCtx_ []byte, err error) {
+func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (userAPIKey_ string, serializedEncCtx_ string, err error) {
 	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 
 	// Restrict the API key to be read only and to be for just the prod and staging buckets
@@ -30,13 +30,13 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 		DisallowDeletes: true,
 	})
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 
 	// Load the existing encryption context
-	encCtx, err := uplink.ParseEncryptionCtx([]byte(adminEncCtx))
+	encCtx, err := uplink.ParseEncryptionCtx(adminEncCtx)
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 
 	// Restrict the encryption context to just the prod and staging buckets
@@ -46,19 +46,19 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 		uplink.EncryptionRestriction{Bucket: "staging", PathPrefix: "webserver/logs/"},
 	)
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 
 	// Serialize the encryption context
 	serializedUserEncCtx, err := userEncCtx.Serialize()
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 
 	return userAPIKey.Serialize(), serializedUserEncCtx, nil
 }
 
-func RestrictAccessExample_User(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx []byte, cfg *uplink.Config, out io.Writer) (err error) {
+func RestrictAccessExample_User(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.

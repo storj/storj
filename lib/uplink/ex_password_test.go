@@ -16,33 +16,33 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func CreateEncryptionKeyExample_Admin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedEncCtx []byte, err error) {
+func CreateEncryptionKeyExample_Admin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedEncCtx string, err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
 	ul, err := uplink.NewUplink(ctx, cfg)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer errCatch(ul.Close)
 
 	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Open the project in question. Projects are identified by a specific Satellite and API key
 	p, err := ul.OpenProject(ctx, satelliteAddress, key)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer errCatch(p.Close)
 
 	// Make a key
 	encKey, err := p.SaltedKeyFromPassphrase(ctx, "my secret passphrase")
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Make an encryption context
@@ -50,33 +50,33 @@ func CreateEncryptionKeyExample_Admin1(ctx context.Context, satelliteAddress, ap
 	// serialize it
 	serializedEncCtx, err = encCtx.Serialize()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Create a bucket
 	_, err = p.CreateBucket(ctx, "testbucket", nil)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Open bucket
 	bucket, err := p.OpenBucket(ctx, "testbucket", encCtx)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer errCatch(bucket.Close)
 
 	// Upload a file
 	err = bucket.UploadObject(ctx, "my/object", strings.NewReader("hello world"), nil)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	fmt.Fprintln(out, "success!")
 	return serializedEncCtx, nil
 }
 
-func CreateEncryptionKeyExample_Admin2(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx []byte, cfg *uplink.Config, out io.Writer) (err error) {
+func CreateEncryptionKeyExample_Admin2(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
