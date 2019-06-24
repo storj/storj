@@ -27,7 +27,6 @@ type Project struct {
 	metainfo      metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
-	encryptionKey *storj.Key
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -193,7 +192,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, streamStore, segmentStore, &access.Key, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, &access.Key),
 		streams:      streamStore,
 	}, nil
 }
