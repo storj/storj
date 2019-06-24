@@ -28,18 +28,16 @@ func TestVouchers(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		tests := []struct {
-			node        *storagenode.Peer
-			reputable   bool
-			expectedErr string
+			node      *storagenode.Peer
+			reputable bool
 		}{
 			{
 				node:      planet.StorageNodes[0],
 				reputable: true,
 			},
 			{
-				node:        planet.StorageNodes[1],
-				reputable:   false,
-				expectedErr: "rpc error: code = Unknown desc = vouchers error: Request rejected. Node not reputable",
+				node:      planet.StorageNodes[1],
+				reputable: false,
 			},
 		}
 
@@ -60,13 +58,16 @@ func TestVouchers(t *testing.T) {
 
 			client := pb.NewVouchersClient(conn)
 
-			voucher, err := client.Request(ctx, &pb.VoucherRequest{})
+			resp, err := client.Request(ctx, &pb.VoucherRequest{})
+			voucher := resp.GetVoucher()
 			if tt.reputable {
 				assert.NoError(t, err)
 				assert.NotNil(t, voucher)
+				assert.Equal(t, pb.VoucherResponse_ACCEPTED, resp.GetStatus())
 				assert.Equal(t, tt.node.ID(), voucher.StorageNodeId)
 			} else {
-				assert.Equal(t, tt.expectedErr, err.Error())
+				require.NoError(t, err)
+				assert.Equal(t, pb.VoucherResponse_REJECTED, resp.GetStatus())
 				assert.Nil(t, voucher)
 			}
 		}

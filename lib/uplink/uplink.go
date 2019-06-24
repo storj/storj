@@ -6,22 +6,12 @@ package uplink
 import (
 	"context"
 
-	"github.com/vivint/infectious"
-
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storage/segments"
-	"storj.io/storj/pkg/storage/streams"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/metainfo"
-)
-
-var (
-	maxBucketMetaSize = 10 * memory.MiB
 )
 
 // Config represents configuration options for an Uplink
@@ -130,56 +120,26 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	}, nil
 }
 
-// ProjectOptions allows configuration of various project options during opening
-type ProjectOptions struct {
-	Volatile struct {
-		EncryptionKey *storj.Key
-	}
-}
-
 // OpenProject returns a Project handle with the given APIKey
-func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey, opts *ProjectOptions) (p *Project, err error) {
+func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	metainfo, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
+	m, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: we shouldn't really need encoding parameters to manage buckets.
-	whoCares := 1
-	fc, err := infectious.NewFEC(whoCares, whoCares)
+	project, err := kvmetainfo.SetupProject(m)
 	if err != nil {
-		return nil, Error.New("failed to create erasure coding client: %v", err)
-	}
-	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, whoCares), whoCares, whoCares)
-	if err != nil {
-		return nil, Error.New("failed to create redundancy strategy: %v", err)
-	}
-	segments := segments.NewSegmentStore(metainfo, nil, rs, maxBucketMetaSize.Int(), maxBucketMetaSize.Int64())
-	var encryptionKey *storj.Key
-	if opts != nil {
-		encryptionKey = opts.Volatile.EncryptionKey
-	}
-	if encryptionKey == nil {
-		// volatile warning: we're setting an encryption key of all zeros when one isn't provided.
-		// TODO: fix before the final alpha network wipe
-		encryptionKey = new(storj.Key)
-	}
-	streams, err := streams.NewStreamStore(segments, maxBucketMetaSize.Int64(), encryptionKey,
-		memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int(),
-	)
-	if err != nil {
-		return nil, Error.New("failed to create stream store: %v", err)
+		return nil, err
 	}
 
 	return &Project{
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
-		metainfo:      metainfo,
-		project:       kvmetainfo.NewProject(streams, memory.KiB.Int32(), rs, 64*memory.MiB.Int64()),
+		metainfo:      m,
+		project:       project,
 		maxInlineSize: u.cfg.Volatile.MaxInlineSize,
-		encryptionKey: encryptionKey,
 	}, nil
 }
 

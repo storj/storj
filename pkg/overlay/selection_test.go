@@ -245,3 +245,17 @@ func TestDistinctIPs(t *testing.T) {
 		}
 	})
 }
+
+func TestAddrtoNetwork_Conversion(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	ip := "8.8.8.8:28967"
+	network, err := overlay.GetNetwork(ctx, ip)
+	require.Equal(t, "8.8.8.0", network)
+	require.NoError(t, err)
+
+	ipv6 := "[fc00::1:200]:28967"
+	network, err = overlay.GetNetwork(ctx, ipv6)
+	require.Equal(t, "fc00::", network)
+	require.NoError(t, err)
+}

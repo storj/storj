@@ -25,9 +25,7 @@ type Config struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select
 type NodeSelectionConfig struct {
-	UptimeRatio       float64       `help:"a node's ratio of being up/online vs. down/offline" releaseDefault:"0.9" devDefault:"0"`
 	UptimeCount       int64         `help:"the number of times a node's uptime has been checked to not be considered a New Node" releaseDefault:"500" devDefault:"0"`
-	AuditSuccessRatio float64       `help:"a node's ratio of successful audits" releaseDefault:"0.4" devDefault:"0"` // TODO: update after beta
 	AuditCount        int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"500" devDefault:"0"`
 	NewNodePercentage float64       `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
 	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
@@ -47,5 +45,5 @@ type NodeSelectionConfig struct {
 	UptimeReputationBeta0        float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
 	UptimeReputationLambda       float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"0.99"`
 	UptimeReputationWeight       float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
-	UptimeReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on uptime history" default:"0.6"`
+	UptimeReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on uptime history" default:"0.4"`
 }

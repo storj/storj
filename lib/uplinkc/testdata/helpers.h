@@ -8,12 +8,12 @@
 BucketConfig test_bucket_config() {
     BucketConfig config = {};
 
-    config.path_cipher = 0;
+    config.path_cipher = STORJ_ENC_AESGCM;
 
-    config.encryption_parameters.cipher_suite = 1; // TODO: make a named const
+    config.encryption_parameters.cipher_suite = STORJ_ENC_AESGCM;
     config.encryption_parameters.block_size = 2048;
 
-    config.redundancy_scheme.algorithm = 1; // TODO: make a named const
+    config.redundancy_scheme.algorithm = STORJ_REED_SOLOMON;
     config.redundancy_scheme.share_size = 1024;
     config.redundancy_scheme.required_shares = 2;
     config.redundancy_scheme.repair_shares = 4;
@@ -24,7 +24,7 @@ BucketConfig test_bucket_config() {
 }
 
 // with_test_project opens default test project and calls handleProject callback.
-void with_test_project(void (*handleProject)(ProjectRef), ProjectOptions *project_opts) {
+void with_test_project(void (*handleProject)(ProjectRef)) {
     char *_err = "";
     char **err = &_err;
 
@@ -51,7 +51,7 @@ void with_test_project(void (*handleProject)(ProjectRef), ProjectOptions *projec
 
             {
                 // open a project
-                ProjectRef project = open_project(uplink, satellite_addr, apikey, project_opts, err);
+                ProjectRef project = open_project(uplink, satellite_addr, apikey, err);
                 require_noerror(*err);
                 requiref(project._handle != 0, "got empty project\n");
 

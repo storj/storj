@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"strconv"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
@@ -55,25 +57,29 @@ type Endpoint struct {
 	metainfo       *Service
 	orders         *orders.Service
 	cache          *overlay.Cache
+	partnerinfo    attribution.DB
 	projectUsage   *accounting.ProjectUsage
 	containment    Containment
 	apiKeys        APIKeys
 	createRequests *createRequests
+	rsConfig       RSConfig
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
 		metainfo:       metainfo,
 		orders:         orders,
 		cache:          cache,
+		partnerinfo:    partnerinfo,
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
 		createRequests: newCreateRequests(),
+		rsConfig:       rsConfig,
 	}
 }
 
@@ -511,23 +517,11 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttributionRequest) (_ *pb.SetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = endpoint.checkBucketPointers(ctx, req)
+	// try to add an attribution that doesn't exist
+	partnerID, err := bytesToUUID(req.GetPartnerId())
 	if err != nil {
-		// TODO: return correct status code for GRPC
-		endpoint.log.Sugar().Debug("related bucket id already attributed \n")
-		return &pb.SetAttributionResponse{}, err
+		return nil, Error.Wrap(err)
 	}
-
-	// TODO: add valueattribution DB access functions added in new PR.
-
-	return &pb.SetAttributionResponse{}, nil
-}
-
-// checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAttributionRequest) (resp bool, err error) {
-	//TODO: Logic of checking if bucket exists will be added in new PR.
-	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
-	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
@@ -536,22 +530,72 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.SetAt
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return false, status.Errorf(codes.Unauthenticated, err.Error())
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// check if attribution is set for given bucket
+	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
+	if err == nil {
+		return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
+	}
+
+	if !attribution.ErrBucketNotAttributed.Has(err) {
+		// try only to set the attribution, when it's missing
+		return nil, Error.Wrap(err)
 	}
 
 	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
 	if err != nil {
-		return false, err
+		return nil, Error.Wrap(err)
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, string(""), string(""), true, 1, 0)
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
 	if err != nil {
-		return false, err
+		return nil, Error.Wrap(err)
 	}
 
 	if len(items) > 0 {
-		return false, errors.New("already attributed")
+		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.BucketName, req.PartnerId)
 	}
 
-	return true, nil
+	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: req.GetBucketName(),
+		PartnerID:  partnerID,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &pb.SetAttributionResponse{}, nil
+}
+
+// bytesToUUID is used to convert []byte to UUID
+func bytesToUUID(data []byte) (uuid.UUID, error) {
+	var id uuid.UUID
+
+	copy(id[:], data)
+	if len(id) != len(data) {
+		return uuid.UUID{}, errs.New("Invalid uuid")
+	}
+
+	return id, nil
+}
+
+// ProjectInfo returns allowed ProjectInfo for the provided API key
+func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:   macaroon.ActionProjectInfo,
+		Time: time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	salt := sha256.Sum256(keyInfo.ProjectID[:])
+
+	return &pb.ProjectInfoResponse{
+		ProjectSalt: salt[:],
+	}, nil
 }

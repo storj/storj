@@ -21,6 +21,19 @@ message Voucher {
 
 message VoucherRequest {}
 
+message VoucherResponse {
+    enum Status {
+        INVALID  = 0;
+        ACCEPTED = 1;
+        REJECTED = 2;
+    }
+
+    Voucher voucher = 1;
+
+    Status status = 2;
+}
+
+
 service Vouchers {
-    rpc Request(VoucherRequest) returns (Voucher) {}
+    rpc Request(VoucherRequest) returns (VoucherResponse) {}
 }
