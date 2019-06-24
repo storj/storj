@@ -26,6 +26,9 @@ var ErrNodeNotFound = errs.Class("node not found")
 // ErrNodeOffline is returned if a nodes is offline
 var ErrNodeOffline = errs.Class("node is offline")
 
+// ErrNodeDisqualified is returned if a nodes is disqualified
+var ErrNodeDisqualified = errs.Class("node is disqualified")
+
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("bucket not found")
 
