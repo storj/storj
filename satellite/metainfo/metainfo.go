@@ -596,6 +596,6 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	salt := sha256.Sum256([]byte(keyInfo.ProjectID.String()))
 
 	return &pb.ProjectInfoResponse{
-		ProjectSalt: []byte(salt[:]),
+		ProjectSalt: salt[:],
 	}, nil
 }
