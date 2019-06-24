@@ -304,7 +304,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
 			continue
 		}
 
