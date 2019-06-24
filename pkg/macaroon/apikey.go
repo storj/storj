@@ -168,6 +168,8 @@ func (c *Caveat) Allows(action Action) bool {
 		if c.DisallowDeletes {
 			return false
 		}
+	case ActionProjectInfo:
+		// allow
 	default:
 		return false
 	}
