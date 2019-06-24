@@ -593,7 +593,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	salt := sha256.Sum256([]byte(keyInfo.ProjectID.String()))
+	salt := sha256.Sum256(keyInfo.ProjectID[:])
 
 	return &pb.ProjectInfoResponse{
 		ProjectSalt: salt[:],
