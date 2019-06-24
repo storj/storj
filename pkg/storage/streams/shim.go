@@ -41,56 +41,35 @@ func NewStreamStore(segments segments.Store, segmentSize int64, encStore *encryp
 func (s *shimStore) Meta(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (_ Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamsPath, err := ParsePath(ctx, []byte(path))
-	if err != nil {
-		return Meta{}, err
-	}
-	return s.store.Meta(ctx, streamsPath, pathCipher)
+	return s.store.Meta(ctx, ParsePath(path), pathCipher)
 }
 
 // Get parses the passed in path and dispatches to the typed store.
 func (s *shimStore) Get(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (_ ranger.Ranger, _ Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamsPath, err := ParsePath(ctx, []byte(path))
-	if err != nil {
-		return nil, Meta{}, err
-	}
-	return s.store.Get(ctx, streamsPath, pathCipher)
+	return s.store.Get(ctx, ParsePath(path), pathCipher)
 }
 
 // Put parses the passed in path and dispatches to the typed store.
 func (s *shimStore) Put(ctx context.Context, path storj.Path, pathCipher storj.Cipher, data io.Reader, metadata []byte, expiration time.Time) (_ Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamsPath, err := ParsePath(ctx, []byte(path))
-	if err != nil {
-		return Meta{}, err
-	}
-	return s.store.Put(ctx, streamsPath, pathCipher, data, metadata, expiration)
+	return s.store.Put(ctx, ParsePath(path), pathCipher, data, metadata, expiration)
 }
 
 // Delete parses the passed in path and dispatches to the typed store.
 func (s *shimStore) Delete(ctx context.Context, path storj.Path, pathCipher storj.Cipher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamsPath, err := ParsePath(ctx, []byte(path))
-	if err != nil {
-		return err
-	}
-	return s.store.Delete(ctx, streamsPath, pathCipher)
+	return s.store.Delete(ctx, ParsePath(path), pathCipher)
 }
 
 // List parses the passed in path and dispatches to the typed store.
 func (s *shimStore) List(ctx context.Context, prefix storj.Path, startAfter storj.Path, endBefore storj.Path, pathCipher storj.Cipher, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO: list is maybe wrong?
-	streamsPrefix, err := ParsePath(ctx, []byte(prefix))
-	if err != nil {
-		return nil, false, err
-	}
-	return s.store.List(ctx, streamsPrefix, startAfter, endBefore, pathCipher, recursive, limit, metaFlags)
+	return s.store.List(ctx, ParsePath(prefix), startAfter, endBefore, pathCipher, recursive, limit, metaFlags)
 }
 
 // EncryptAfterBucket encrypts a path without encrypting its first element. This is a legacy function
@@ -118,13 +97,8 @@ func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path storj.P
 	streamInfo []byte, streamMeta pb.StreamMeta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamsPath, err := ParsePath(ctx, []byte(path))
-	if err != nil {
-		return nil, pb.StreamMeta{}, err
-	}
-
 	store := encryption.NewStore()
 	store.SetDefaultKey(rootKey)
 
-	return TypedDecryptStreamInfo(ctx, streamMetaBytes, streamsPath, store)
+	return TypedDecryptStreamInfo(ctx, streamMetaBytes, ParsePath(path), store)
 }

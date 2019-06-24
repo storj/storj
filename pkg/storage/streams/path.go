@@ -4,10 +4,10 @@
 package streams
 
 import (
-	"bytes"
-	"context"
+	"strings"
 
 	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/storj"
 )
 
 // Path is a representation of an object path within a bucket
@@ -30,19 +30,15 @@ func (p Path) Raw() []byte { return append([]byte(nil), p.raw...) }
 func (p Path) String() string { return string(p.raw) }
 
 // ParsePath returns a new Path with the given raw bytes.
-func ParsePath(ctx context.Context, raw []byte) (path Path, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// A path must contain a bucket and maybe an unencrypted path.
-	parts := bytes.SplitN(raw, []byte("/"), 2)
-
-	path.raw = raw
-	path.bucket = string(parts[0])
+func ParsePath(raw storj.Path) (path Path) {
+	// A path may contain a bucket and an unencrypted path.
+	parts := strings.SplitN(raw, "/", 2)
+	path.bucket = parts[0]
 	if len(parts) > 1 {
-		path.unencPath = paths.NewUnencrypted(string(parts[1]))
+		path.unencPath = paths.NewUnencrypted(parts[1])
 	}
-
-	return path, nil
+	path.raw = []byte(raw)
+	return path
 }
 
 // CreatePath will create a Path for the provided information.
