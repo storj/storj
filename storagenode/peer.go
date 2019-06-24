@@ -391,6 +391,11 @@ func (peer *Peer) Close() error {
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.Close())
 	}
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
+	}
 
 	return errlist.Err()
 }
