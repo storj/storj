@@ -12,6 +12,7 @@
                 <HeaderedInput
                     @setData="onChangeName"
                     label="Name"
+                    :error="errorMessage"
                     additionalLabel="Up To 20 Characters"
                     placeholder="Enter API Key Name"
                     class="full-input"
@@ -53,6 +54,7 @@ Vue.use(VueClipboards);
             return {
                 imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
                 name: '',
+                errorMessage: '',
                 key: '',
                 isLoading: false,
             };
@@ -63,6 +65,11 @@ Vue.use(VueClipboards);
             },
             onCreateClick: async function (): Promise<any> {
                 if (this.$data.isLoading) {
+                    return;
+                }
+
+                if(!this.$data.name) {
+                    this.$data.errorMessage = 'API Key name can`t be empty';
                     return;
                 }
 
@@ -83,7 +90,8 @@ Vue.use(VueClipboards);
                 this.$data.isLoading = false;
             },
             onChangeName: function (value: string): void {
-                this.$data.name = value;
+                this.$data.name = value.trim();
+                this.$data.errorMessage = '';
             },
         },
         components: {
