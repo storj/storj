@@ -19,9 +19,8 @@ import (
 // Bucket represents operations you can perform on a bucket
 type Bucket struct {
 	BucketConfig
-	Name        string
-	Attribution bool
-	Created     time.Time
+	Name    string
+	Created time.Time
 
 	bucket   storj.Bucket
 	metainfo *kvmetainfo.DB
