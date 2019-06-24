@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	// Error the default offers errs class
+	// offerErr is the default offer errors class
 	offerErr = errs.Class("offers error")
 )
 
