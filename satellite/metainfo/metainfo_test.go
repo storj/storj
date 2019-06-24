@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -295,11 +296,6 @@ func TestCommitSegment(t *testing.T) {
 			require.Error(t, err)
 		}
 		{
-			// error if bucket contains slash
-			_, err = metainfo.CommitSegment(ctx, "bucket/storj", "path", -1, &pb.Pointer{}, []*pb.OrderLimit2{})
-			require.Error(t, err)
-		}
-		{
 			// error if number of remote pieces is lower then repair threshold
 			redundancy := &pb.RedundancyScheme{
 				MinReq:           1,
@@ -456,10 +452,10 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
 
-		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing create request or request expired")
 	})
@@ -535,7 +531,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
-			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrorMessage)
 		}
@@ -587,7 +583,7 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Clien
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
 
-	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "myBucketName", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
+	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
@@ -628,4 +624,55 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		ExpirationDate: ptypes.TimestampNow(),
 	}
 	return pointer
+}
+
+func TestBucketNameValidation(t *testing.T) {
+	if !satMetainfo.BucketNameRestricted {
+		t.Skip("Skip until bucket name validation is not enabled")
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+
+		rs := &pb.RedundancyScheme{
+			MinReq:           1,
+			RepairThreshold:  1,
+			SuccessThreshold: 3,
+			Total:            4,
+			ErasureShareSize: 1024,
+			Type:             pb.RedundancyScheme_RS,
+		}
+
+		validNames := []string{
+			"tes", "testbucket",
+			"test-bucket", "testbucket9",
+			"9testbucket", "a.b",
+			"test.bucket", "test-one.bucket-one",
+			"test.bucket.one",
+			"testbucket-63-0123456789012345678901234567890123456789012345abc",
+		}
+		for _, name := range validNames {
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			require.NoError(t, err, "bucket name: %v", name)
+		}
+
+		invalidNames := []string{
+			"", "t", "te", "-testbucket",
+			"testbucket-", "-testbucket-",
+			"a.b.", "test.bucket-.one",
+			"test.-bucket.one", "1.2.3.4",
+			"192.168.1.234", "testBUCKET",
+			"test/bucket",
+			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
+		}
+		for _, name := range invalidNames {
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			require.Error(t, err, "bucket name: %v", name)
+		}
+	})
 }

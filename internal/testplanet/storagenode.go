@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/vouchers"
 )
 
 // newStorageNodes initializes storage nodes
@@ -116,6 +117,9 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
+			},
+			Vouchers: vouchers.Config{
+				Interval: time.Hour,
 			},
 			Version: planet.NewVersionConfig(),
 		}
