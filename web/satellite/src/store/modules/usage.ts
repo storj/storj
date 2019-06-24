@@ -127,7 +127,7 @@ export const creditUsageModule = {
         creditUsage: { referred: 0, usedCredits: 0, availableCredits: 0 } as CreditUsage
     },
     mutations: {
-        [CREDIT_USAGE_ACTIONS.FETCH]: function(state: any, creditUsage: CreditUsage) {
+        [CREDIT_USAGE_ACTIONS.FETCH](state: any, creditUsage: CreditUsage) {
             state.creditUsage = creditUsage;
         }
     },
