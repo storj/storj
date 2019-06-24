@@ -161,6 +161,12 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			continue
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
+		}
+
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
