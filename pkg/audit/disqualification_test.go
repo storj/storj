@@ -154,9 +154,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
 
 		for _, orderLimit := range limits {
-			reputable, err := satellite.Overlay.Service.IsVetted(ctx, orderLimit.Limit.StorageNodeId)
-			assert.NoError(t, err)
-			assert.True(t, reputable)
+			assert.False(t, isDisqualified(t, ctx, satellite, orderLimit.Limit.StorageNodeId))
 			assert.NotEqual(t, orderLimit.Limit.StorageNodeId, disqualifiedNode)
 		}
 	})
