@@ -25,11 +25,6 @@ import (
 	"storj.io/storj/storage"
 )
 
-const (
-	// commitedPrefix is prefix where completed object info is stored
-	committedPrefix = "l/"
-)
-
 // DefaultRS default values for RedundancyScheme
 var DefaultRS = storj.RedundancyScheme{
 	Algorithm:      storj.ReedSolomon,
@@ -51,7 +46,7 @@ var DefaultES = storj.EncryptionScheme{
 func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, info, err = db.getInfo(ctx, committedPrefix, bucket, path)
+	_, info, err = db.getInfo(ctx, bucket, path)
 
 	return info, err
 }
@@ -60,7 +55,7 @@ func (db *DB) GetObject(ctx context.Context, bucket string, path storj.Path) (in
 func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Path) (stream storj.ReadOnlyStream, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	meta, info, err := db.getInfo(ctx, committedPrefix, bucket, path)
+	meta, info, err := db.getInfo(ctx, bucket, path)
 	if err != nil {
 		return nil, err
 	}
@@ -71,10 +66,11 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 	}
 
 	return &readonlyStream{
-		db:            db,
-		info:          info,
-		encryptedPath: meta.encryptedPath.Raw(),
-		streamKey:     streamKey,
+		db:        db,
+		info:      info,
+		bucket:    meta.bucket,
+		encPath:   meta.encPath.Raw(),
+		streamKey: streamKey,
 	}, nil
 }
 
@@ -224,13 +220,14 @@ func (db *DB) ListObjects(ctx context.Context, bucket string, options storj.List
 
 type object struct {
 	fullpath        streams.Path
-	encryptedPath   paths.Encrypted
+	bucket          string
+	encPath         paths.Encrypted
 	lastSegmentMeta segments.Meta
 	streamInfo      pb.StreamInfo
 	streamMeta      pb.StreamMeta
 }
 
-func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
+func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj object, info storj.Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: we shouldn't need to go load the bucket metadata every time we get object info
@@ -245,12 +242,12 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 
 	fullpath := streams.CreatePath(bucket, paths.NewUnencrypted(path))
 
-	encryptedPath, err := encryption.StoreEncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
+	encPath, err := encryption.StoreEncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}
 
-	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, encryptedPath.Raw(), -1)
+	pointer, err := db.metainfo.SegmentInfo(ctx, bucket, encPath.Raw(), -1)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrObjectNotFound.Wrap(err)
@@ -298,7 +295,8 @@ func (db *DB) getInfo(ctx context.Context, prefix string, bucket string, path st
 
 	return object{
 		fullpath:        fullpath,
-		encryptedPath:   encryptedPath,
+		bucket:          bucket,
+		encPath:         encPath,
 		lastSegmentMeta: lastSegmentMeta,
 		streamInfo:      streamInfo,
 		streamMeta:      streamMeta,
@@ -420,7 +418,7 @@ func (object *mutableObject) DeleteStream(ctx context.Context) (err error) {
 
 func (object *mutableObject) Commit(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, info, err := object.db.getInfo(ctx, committedPrefix, object.info.Bucket.Name, object.info.Path)
+	_, info, err := object.db.getInfo(ctx, object.info.Bucket.Name, object.info.Path)
 	object.info = info
 	return err
 }
