@@ -1,5 +1,6 @@
 <template>
     <div class="referral-stats">
+        <p> {{ title }} </p>
         <div class="referral-stats__wrapper"
             v-for="(stat, key) in stats"
             :key="key"
@@ -22,6 +23,7 @@ import { CREDIT_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/ac
 @Component({
     data() {
       return {
+          title: `${this.$store.state.usersModule.fullName}, Here Are Your Referrals So Far`,
           stats: {
              referred: {
                  title: "referrals made",
