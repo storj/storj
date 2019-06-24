@@ -55,11 +55,10 @@ func TestCreateOffer(t *testing.T) {
 
 		var group errgroup.Group
 		for _, offer := range requests {
-			o := offer
 			group.Go(func() error {
 				baseURL := "http://" + addr.String()
 
-				_, err := http.PostForm(baseURL+o.Path, o.Values)
+				_, err := http.PostForm(baseURL+offer.Path, offer.Values)
 				if err != nil {
 					return err
 				}
