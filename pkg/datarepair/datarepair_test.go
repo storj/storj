@@ -4,7 +4,6 @@
 package datarepair_test
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -103,7 +102,6 @@ func TestDataRepair(t *testing.T) {
 				continue
 			}
 			if nodesToKill[node.ID()] {
-				fmt.Println("killing a node")
 				err = planet.StopPeer(node)
 				assert.NoError(t, err)
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
