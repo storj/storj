@@ -4,6 +4,7 @@
 package uplink
 
 import (
+	"github.com/zeebo/errs"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"
 )
@@ -54,7 +55,13 @@ type EncryptionRestriction struct {
 // Restrict creates a new EncryptionCtx with no default key, where the key material
 // in the new context is just enough to allow someone to access all of the given
 // restrictions but no more.
-func (s *EncryptionCtx) Restrict(restrictions ...EncryptionRestriction) (*EncryptionCtx, error) {
+func (s *EncryptionCtx) Restrict(apiKey APIKey, restrictions ...EncryptionRestriction) (APIKey, *EncryptionCtx, error) {
+	if len(restrictions) == 0 {
+		// Should the function signature be
+		// func (s *EncryptionCtx) Restrict(apiKey APIKey, restriction EncryptionRestriction, restrictions ...EncryptionRestriction) (APIKey, *EncryptionCtx, error) {
+		// so we don't have to do this test?
+		return APIKey{}, nil, errs.New("at least one restriction required")
+	}
 	panic("TODO")
 }
 

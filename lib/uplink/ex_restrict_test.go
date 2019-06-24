@@ -28,16 +28,7 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 	userAPIKey, err := key.Restrict(macaroon.Caveat{
 		DisallowWrites:  true,
 		DisallowDeletes: true,
-		AllowedPaths: []*macaroon.Caveat_Path{
-			&macaroon.Caveat_Path{
-				Bucket:              []byte("prod"),
-				EncryptedPathPrefix: []byte("what, rats, TODO(jt): we can't do api key restriction directly"),
-			},
-			&macaroon.Caveat_Path{
-				Bucket:              []byte("staging"),
-				EncryptedPathPrefix: []byte("what, rats, TODO(jt): we can't do api key restriction directly"),
-			},
-		}})
+	})
 	if err != nil {
 		return "", nil, err
 	}
@@ -50,7 +41,7 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 
 	// Restrict the encryption context to just the prod and staging buckets
 	// for webserver/logs/
-	userEncCtx, err := encCtx.Restrict(
+	userAPIKey, userEncCtx, err := encCtx.Restrict(userAPIKey,
 		uplink.EncryptionRestriction{Bucket: "prod", PathPrefix: "webserver/logs/"},
 		uplink.EncryptionRestriction{Bucket: "staging", PathPrefix: "webserver/logs/"},
 	)
