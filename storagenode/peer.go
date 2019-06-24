@@ -6,6 +6,7 @@ package storagenode
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -74,6 +75,8 @@ type Config struct {
 	Storage2  piecestore.Config
 	Collector collector.Config
 
+	Vouchers vouchers.Config
+
 	Console consoleserver.Config
 
 	Version version.Config
@@ -115,6 +118,8 @@ type Peer struct {
 		Monitor   *monitor.Service
 		Sender    *orders.Sender
 	}
+
+	Vouchers *vouchers.Service
 
 	Collector *collector.Service
 
@@ -265,6 +270,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 	}
 
+	{ // setup vouchers
+		interval := config.Vouchers.Interval
+		buffer := interval + time.Hour
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+			peer.Storage2.Trust, interval, buffer)
+	}
+
 	// Storage Node Operator Dashboard
 	{
 		peer.Console.Service, err = console.NewService(
@@ -327,6 +339,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
+	})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -357,6 +372,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Vouchers != nil {
+		errlist.Add(peer.Vouchers.Close())
+	}
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}
