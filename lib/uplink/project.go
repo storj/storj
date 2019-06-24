@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -28,7 +27,6 @@ type Project struct {
 	metainfo      metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
-	encryptionKey *storj.Key
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -70,9 +68,6 @@ func (cfg *BucketConfig) setDefaults() {
 	if cfg.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		cfg.EncryptionParameters.CipherSuite = defaultCipher
 	}
-	if cfg.EncryptionParameters.BlockSize == 0 {
-		cfg.EncryptionParameters.BlockSize = (1 * memory.KiB).Int32()
-	}
 	if cfg.Volatile.RedundancyScheme.RequiredShares == 0 {
 		cfg.Volatile.RedundancyScheme.RequiredShares = 29
 	}
@@ -87,6 +82,9 @@ func (cfg *BucketConfig) setDefaults() {
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
+	}
+	if cfg.EncryptionParameters.BlockSize == 0 {
+		cfg.EncryptionParameters.BlockSize = cfg.Volatile.RedundancyScheme.ShareSize * int32(cfg.Volatile.RedundancyScheme.RequiredShares)
 	}
 	if cfg.Volatile.SegmentsSize.Int() == 0 {
 		cfg.Volatile.SegmentsSize = 64 * memory.MiB
@@ -189,14 +187,12 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	bucketStore := buckets.NewStore(streamStore)
-
 	return &Bucket{
 		BucketConfig: *cfg,
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, bucketStore, streamStore, segmentStore, &access.Key, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, &access.Key),
 		streams:      streamStore,
 	}, nil
 }

@@ -1,16 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+#include <stdlib.h>
+#include <time.h>
+
 // test_bucket_config returns test bucket configuration.
 BucketConfig test_bucket_config() {
     BucketConfig config = {};
 
-    config.path_cipher = 0;
+    config.path_cipher = STORJ_ENC_AESGCM;
 
-    config.encryption_parameters.cipher_suite = 1; // TODO: make a named const
-    config.encryption_parameters.block_size = 4096;
+    config.encryption_parameters.cipher_suite = STORJ_ENC_AESGCM;
+    config.encryption_parameters.block_size = 2048;
 
-    config.redundancy_scheme.algorithm = 1; // TODO: make a named const
+    config.redundancy_scheme.algorithm = STORJ_REED_SOLOMON;
     config.redundancy_scheme.share_size = 1024;
     config.redundancy_scheme.required_shares = 2;
     config.redundancy_scheme.repair_shares = 4;
@@ -69,4 +72,20 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
     }
 
     requiref(internal_UniverseIsEmpty(), "universe is not empty\n");
+}
+
+void fill_random_data(uint8_t *buffer, size_t length) {
+     for(size_t i = 0; i < length; i++) {
+          buffer[i] = (uint8_t)i*31;
+     }
+}
+
+bool array_contains(char *item, char *array[], int array_size) {
+    for (int i = 0; i < array_size; i++) {
+        if(strcmp(array[i], item) == 0) {
+            return true;
+        }
+    }
+
+    return false;
 }
