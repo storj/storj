@@ -152,7 +152,7 @@ func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (
 }
 
 // QueryValueAttribution queries partner bucket attribution data
-func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.ValueAttributionRow, err error) {
+func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var query string
@@ -171,9 +171,9 @@ func (keys *attributionDB) QueryValueAttribution(ctx context.Context, partnerID 
 	}
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
-	results := make([]*attribution.ValueAttributionRow, 0, 0)
+	results := make([]*attribution.CSVRow, 0, 0)
 	for rows.Next() {
-		r := &attribution.ValueAttributionRow{}
+		r := &attribution.CSVRow{}
 		err := rows.Scan(&r.PartnerID, &r.ProjectID, &r.BucketName, &r.RemoteBytesPerHour, &r.InlineBytesPerHour, &r.EgressData)
 		if err != nil {
 			return results, Error.Wrap(err)

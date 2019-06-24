@@ -67,7 +67,7 @@ func GenerateValueAttributionCSV(ctx context.Context, database string, partnerID
 	return err
 }
 
-func csvRowToStringSlice(p *attribution.ValueAttributionRow) ([]string, error) {
+func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
 	projectID, err := bytesToUUID(p.ProjectID)
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
