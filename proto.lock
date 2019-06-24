@@ -185,6 +185,70 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:gc.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "RetainRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "creation_date",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "filter",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "RetainResponse"
+          }
+        ],
+        "services": [
+          {
+            "name": "GarbageCollection",
+            "rpcs": [
+              {
+                "name": "Retain",
+                "in_type": "RetainRequest",
+                "out_type": "RetainResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "gc"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:gogo.proto",
       "def": {
         "messages": [
@@ -1143,11 +1207,42 @@
             "fields": [
               {
                 "id": 1,
-                "name": "online_nodes",
-                "type": "int32"
+                "name": "healthy_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
               },
               {
                 "id": 2,
+                "name": "unhealthy_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "offline_ids",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 4,
                 "name": "segment",
                 "type": "bytes"
               }
@@ -1678,7 +1773,7 @@
             ]
           },
           {
-            "name": "ValueAttributionRequest",
+            "name": "SetAttributionRequest",
             "fields": [
               {
                 "id": 1,
@@ -1693,7 +1788,7 @@
             ]
           },
           {
-            "name": "ValueAttributionResponse"
+            "name": "SetAttributionResponse"
           }
         ],
         "services": [
@@ -1731,9 +1826,9 @@
                 "out_type": "ListSegmentsResponse"
               },
               {
-                "name": "ValueAttributeInfo",
-                "in_type": "ValueAttributionRequest",
-                "out_type": "ValueAttributionResponse"
+                "name": "SetAttribution",
+                "in_type": "SetAttributionRequest",
+                "out_type": "SetAttributionResponse"
               }
             ]
           }
@@ -2136,6 +2231,11 @@
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
+              },
+              {
+                "id": 11,
+                "name": "satellite_address",
+                "type": "node.NodeAddress"
               }
             ]
           },
@@ -2260,6 +2360,9 @@
           },
           {
             "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "node.proto"
           }
         ],
         "package": {
@@ -2945,6 +3048,24 @@
     {
       "protopath": "pkg:/:pb:/:vouchers.proto",
       "def": {
+        "enums": [
+          {
+            "name": "VoucherResponse.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "ACCEPTED",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
+          }
+        ],
         "messages": [
           {
             "name": "Voucher",
@@ -2993,6 +3114,21 @@
           },
           {
             "name": "VoucherRequest"
+          },
+          {
+            "name": "VoucherResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "voucher",
+                "type": "Voucher"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -3002,7 +3138,7 @@
               {
                 "name": "Request",
                 "in_type": "VoucherRequest",
-                "out_type": "Voucher"
+                "out_type": "VoucherResponse"
               }
             ]
           }

@@ -7,7 +7,19 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp
+	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+)
+
+create value_attribution ()
+delete value_attribution ( 
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
+
+read one (
+    select value_attribution
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
 )
 
 //--- containment ---//
@@ -106,9 +118,9 @@ read all (
 model node (
 	key id
 
-	index ( 
+	index (
 		name node_last_ip
-		fields last_ip 
+		fields last_ip
 	)
 
 	field id             blob
@@ -131,10 +143,8 @@ model node (
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )
-	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field uptime_ratio         float64 ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
@@ -142,7 +152,12 @@ model node (
 	field last_contact_failure timestamp ( updatable )
 
 	field contained bool ( updatable )
-	field disqualified bool ( updatable )
+	field disqualified timestamp ( updatable, nullable )
+
+	field audit_reputation_alpha  float64 ( updatable )
+	field audit_reputation_beta   float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable )
+	field uptime_reputation_beta  float64 ( updatable )
 )
 
 create node ( )
@@ -644,8 +659,8 @@ delete reset_password_token ( where reset_password_token.secret = ? )
 
 model offer (
 	key id
-	
-	field id	serial 
+
+	field id	serial
 	field name text ( updatable )
 	field description text ( updatable )
 

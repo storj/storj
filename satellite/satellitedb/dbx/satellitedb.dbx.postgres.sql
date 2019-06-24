@@ -94,16 +94,18 @@ CREATE TABLE nodes (
 	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,
 	total_audit_count bigint NOT NULL,
-	audit_success_ratio double precision NOT NULL,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
-	disqualified boolean NOT NULL,
+	disqualified timestamp with time zone,
+	audit_reputation_alpha double precision NOT NULL,
+	audit_reputation_beta double precision NOT NULL,
+	uptime_reputation_alpha double precision NOT NULL,
+	uptime_reputation_beta double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (

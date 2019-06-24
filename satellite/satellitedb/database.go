@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
@@ -95,6 +96,11 @@ func (db *DB) DropSchema(schema string) error {
 // CertDB is a getter for uplink's specific info like public key, id, etc...
 func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
+}
+
+// Attribution is a getter for value attribution repository
+func (db *DB) Attribution() attribution.DB {
+	return &attributionDB{db: db.db}
 }
 
 // OverlayCache is a getter for overlay cache repository

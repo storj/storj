@@ -94,16 +94,18 @@ CREATE TABLE nodes (
 	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
 	total_audit_count INTEGER NOT NULL,
-	audit_success_ratio REAL NOT NULL,
 	uptime_success_count INTEGER NOT NULL,
 	total_uptime_count INTEGER NOT NULL,
-	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
-	disqualified INTEGER NOT NULL,
+	disqualified TIMESTAMP,
+	audit_reputation_alpha REAL NOT NULL,
+	audit_reputation_beta REAL NOT NULL,
+	uptime_reputation_alpha REAL NOT NULL,
+	uptime_reputation_beta REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
