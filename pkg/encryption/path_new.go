@@ -43,7 +43,7 @@ func StoreEncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher
 	// to fold the bucket name into the key.
 	key := &base.Key
 	if !consumed.Valid() {
-		key, err = DeriveKey(key, "path:"+bucket)
+		key, err = derivePathKeyComponent(key, bucket)
 		if err != nil {
 			return paths.Encrypted{}, errs.Wrap(err)
 		}
@@ -81,7 +81,7 @@ func EncryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, er
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
-		key, err = DeriveKey(key, "path:"+component)
+		key, err = derivePathKeyComponent(key, component)
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
@@ -109,19 +109,19 @@ func StoreDecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, 
 
 	_, consumed, base := store.LookupEncrypted(bucket, path)
 	if base == nil {
-		return paths.Unencrypted{}, errs.New("unable to find encryption base for: %q", path)
+		return paths.Unencrypted{}, errs.New("unable to find decryption base for: %q", path)
 	}
 
 	remaining, ok := path.Consume(consumed)
 	if !ok {
-		return paths.Unencrypted{}, errs.New("unable to encrpt bucket path: %q", path)
+		return paths.Unencrypted{}, errs.New("unable to decrypt bucket path: %q", path)
 	}
 
 	// if we didn't consume any path, we're at the root of the bucket, and so we have
 	// to fold the bucket name into the key.
 	key := &base.Key
 	if !consumed.Valid() {
-		key, err = DeriveKey(key, "path:"+bucket)
+		key, err = derivePathKeyComponent(key, bucket)
 		if err != nil {
 			return paths.Unencrypted{}, errs.Wrap(err)
 		}
@@ -159,7 +159,7 @@ func DecryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, er
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
-		key, err = DeriveKey(key, "path:"+unencComponent)
+		key, err = derivePathKeyComponent(key, unencComponent)
 		if err != nil {
 			return "", errs.Wrap(err)
 		}
@@ -192,7 +192,7 @@ func StoreDerivePathKey(bucket string, path paths.Unencrypted, store *Store) (ke
 
 	// If asking for the key at the bucket, do that and return.
 	if !path.Valid() {
-		key, err = DeriveKey(&base.Key, "path:"+bucket)
+		key, err = derivePathKeyComponent(&base.Key, bucket)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
@@ -208,19 +208,26 @@ func StoreDerivePathKey(bucket string, path paths.Unencrypted, store *Store) (ke
 	// to fold the bucket name into the key.
 	key = &base.Key
 	if !consumed.Valid() {
-		key, err = DeriveKey(key, "path:"+bucket)
+		key, err = derivePathKeyComponent(key, bucket)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
 	}
 
 	for iter := remaining.Iterator(); !iter.Done(); {
-		key, err = DeriveKey(key, "path:"+iter.Next())
+		key, err = derivePathKeyComponent(key, iter.Next())
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
 	}
 	return key, nil
+}
+
+// derivePathKeyComponent derives a new key from the provided one using the component. It
+// should be preferred over DeriveKey when adding path components as it performs the
+// necessary transformation to the component.
+func derivePathKeyComponent(key *storj.Key, component string) (*storj.Key, error) {
+	return DeriveKey(key, "path:"+component)
 }
 
 // storeEncryptPathComponent encrypts a single path component with the provided cipher and key.
@@ -231,7 +238,7 @@ func storeEncryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 
 	// derive the key for the next path component. this is so that
 	// every encrypted component has a unique nonce.
-	derivedKey, err := DeriveKey(key, "path:"+comp)
+	derivedKey, err := derivePathKeyComponent(key, comp)
 	if err != nil {
 		return "", err
 	}
@@ -275,6 +282,9 @@ func storeDecryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 	nonceSize := storj.NonceSize
 	if cipher == storj.AESGCM {
 		nonceSize = AESGCMNonceSize
+	}
+	if len(data) < nonceSize || nonceSize < 0 {
+		return "", errs.New("component did not contain enough nonce bytes")
 	}
 
 	// extract the nonce from the cipher text

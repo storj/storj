@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
@@ -34,7 +36,6 @@ func abortIfError(err error) {
 
 func ExampleStore() {
 	s := NewStore()
-
 	ep := paths.NewEncrypted
 	up := paths.NewUnencrypted
 
@@ -92,7 +93,6 @@ func ExampleStore() {
 
 func TestStoreErrors(t *testing.T) {
 	s := NewStore()
-
 	ep := paths.NewEncrypted
 	up := paths.NewUnencrypted
 
@@ -106,4 +106,23 @@ func TestStoreErrors(t *testing.T) {
 	require.NoError(t, s.Add("b1", up("u1"), ep("e1"), storj.Key{}))
 	require.Error(t, s.Add("b1", up("u2"), ep("e1"), storj.Key{}))
 	require.Error(t, s.Add("b1", up("u1"), ep("f1"), storj.Key{}))
+}
+
+func TestStoreErrorState(t *testing.T) {
+	s := NewStore()
+	ep := paths.NewEncrypted
+	up := paths.NewUnencrypted
+
+	// Do an empty lookup.
+	revealed1, consumed1, base1 := s.LookupUnencrypted("b1", up("u1/u2"))
+
+	// Attempt to do an addition that fails.
+	require.Error(t, s.Add("b1", up("u1/u2"), ep("e1/e2/e3"), storj.Key{}))
+
+	// Ensure that we get the same results as before
+	revealed2, consumed2, base2 := s.LookupUnencrypted("b1", up("u1/u2"))
+
+	assert.Equal(t, revealed1, revealed2)
+	assert.Equal(t, consumed1, consumed2)
+	assert.Equal(t, base1, base2)
 }

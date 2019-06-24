@@ -80,8 +80,6 @@ func newNode() *node {
 }
 
 // SetDefaultKey adds a default key to be returned for any lookup that does not match a bucket.
-// This is a temporary measure and should be removed when projects no longer require keys
-// to operate to encrypt buckets.
 func (s *Store) SetDefaultKey(defaultKey *storj.Key) {
 	s.defaultKey = defaultKey
 }
@@ -91,14 +89,20 @@ func (s *Store) Add(bucket string, unenc paths.Unencrypted, enc paths.Encrypted,
 	root, ok := s.roots[bucket]
 	if !ok {
 		root = newNode()
-		s.roots[bucket] = root
 	}
 
-	return root.add(unenc.Iterator(), enc.Iterator(), &Base{
+	// Perform the addition starting at the root node.
+	if err := root.add(unenc.Iterator(), enc.Iterator(), &Base{
 		Unencrypted: unenc,
 		Encrypted:   enc,
 		Key:         key,
-	})
+	}); err != nil {
+		return err
+	}
+
+	// only update the root for the bucket if the add was successful.
+	s.roots[bucket] = root
+	return nil
 }
 
 // add places the paths and base into the node tree structure.
@@ -128,14 +132,19 @@ func (n *node) add(unenc, enc paths.Iterator, base *Base) error {
 	child, ok := n.unenc[unencPart]
 	if !ok {
 		child = newNode()
-		n.unencMap[unencPart] = encPart
-		n.encMap[encPart] = unencPart
-		n.unenc[unencPart] = child
-		n.enc[encPart] = child
 	}
 
 	// Recurse to the next node in the tree.
-	return child.add(unenc, enc, base)
+	if err := child.add(unenc, enc, base); err != nil {
+		return err
+	}
+
+	// Only add to the maps if the child add was successful.
+	n.unencMap[unencPart] = encPart
+	n.encMap[encPart] = unencPart
+	n.unenc[unencPart] = child
+	n.enc[encPart] = child
+	return nil
 }
 
 // LookupUnencrypted finds the matching most unencrypted path added to the Store, reports how
