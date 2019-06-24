@@ -299,14 +299,28 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	}
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT DISTINCT ON (last_ip) id,
-	type, address, last_ip, free_bandwidth, free_disk, total_audit_count, audit_success_count,
-	total_uptime_count, uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
-	uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT * FROM nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+	WITH candidates AS (
+		SELECT * FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
-		ORDER BY RANDOM()
-		LIMIT ?) n`), args...)
+	)
+	SELECT
+		id, type, address, last_ip, free_bandwidth, free_disk, total_audit_count,
+		audit_success_count, total_uptime_count, uptime_success_count,
+		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
+		uptime_reputation_beta
+	FROM (
+		SELECT * FROM (
+			SELECT DISTINCT ON (last_ip) *  -- choose at max 1 node from this IP or network
+			FROM candidates
+			WHERE last_ip <> ''             -- don't try to IP-filter nodes with no known IP yet
+			ORDER BY last_ip, RANDOM()      -- equal chance of choosing any qualified node at this IP or network
+		) ipfiltered
+		UNION ALL
+		SELECT * FROM candidates WHERE last_ip = ''
+	) filteredcandidates
+	ORDER BY RANDOM()                       -- do the actual node selection from filtered pool
+	LIMIT ?`), args...)
 
 	if err != nil {
 		return nil, err

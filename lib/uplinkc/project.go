@@ -6,10 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
-	"unsafe"
-
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 // Project is a scoped uplink.Project
@@ -20,7 +17,7 @@ type Project struct {
 
 //export open_project
 // open_project opens project using uplink
-func open_project(uplinkHandle C.UplinkRef, satelliteAddr *C.char, apikeyHandle C.APIKeyRef, cProjectOpts *C.ProjectOptions, cerr **C.char) C.ProjectRef {
+func open_project(uplinkHandle C.UplinkRef, satelliteAddr *C.char, apikeyHandle C.APIKeyRef, cerr **C.char) C.ProjectRef {
 	uplink, ok := universe.Get(uplinkHandle._handle).(*Uplink)
 	if !ok {
 		*cerr = C.CString("invalid uplink")
@@ -35,16 +32,7 @@ func open_project(uplinkHandle C.UplinkRef, satelliteAddr *C.char, apikeyHandle 
 
 	scope := uplink.scope.child()
 
-	var opts *libuplink.ProjectOptions
-	if unsafe.Pointer(cProjectOpts) != nil {
-		opts = &libuplink.ProjectOptions{}
-		opts.Volatile.EncryptionKey = new(storj.Key)
-		for i := range cProjectOpts.key {
-			opts.Volatile.EncryptionKey[i] = byte(cProjectOpts.key[i])
-		}
-	}
-
-	project, err := uplink.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey, opts)
+	project, err := uplink.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.ProjectRef{}
