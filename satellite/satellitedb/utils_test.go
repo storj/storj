@@ -36,6 +36,32 @@ func TestBytesToUUID(t *testing.T) {
 	})
 }
 
+func TestSpliteBucketID(t *testing.T) {
+	t.Run("Invalid input", func(t *testing.T) {
+		str := "not UUID string/bucket1"
+		bytes := []byte(str)
+
+		_, _, err := splitBucketID(bytes)
+
+		assert.NotNil(t, err)
+		assert.Error(t, err)
+	})
+
+	t.Run("Valid input", func(t *testing.T) {
+		expectedBucketID, err := uuid.Parse("bb6218e3-4b4a-4819-abbb-fa68538e33c0")
+		expectedBucketName := "bucket1"
+		assert.NoError(t, err)
+
+		str := expectedBucketID.String() + "/" + expectedBucketName
+
+		bucketID, bucketName, err := splitBucketID([]byte(str))
+
+		assert.NoError(t, err)
+		assert.Equal(t, bucketID, expectedBucketID)
+		assert.Equal(t, bucketName, []byte(expectedBucketName))
+	})
+}
+
 func TestPostgresNodeIDsArray(t *testing.T) {
 	ids := make(storj.NodeIDList, 10)
 	for i := range ids {

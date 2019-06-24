@@ -22,6 +22,11 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Config is a configuration struct for orders Service.
+type Config struct {
+	Expiration time.Duration `help:"how long until an order expires" default:"1080h"`
+}
+
 // Service for creating order limits.
 type Service struct {
 	log              *zap.Logger
@@ -148,6 +153,12 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service get order limits")
+		}
+
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
 		}
 
 		if !service.cache.IsOnline(node) {
@@ -291,6 +302,12 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
@@ -373,14 +390,14 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
+		if node != nil {
+			node.Type.DPanicOnInvalid("order service audit order limits")
+		}
+
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
 			continue
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
 		if !service.cache.IsOnline(node) {
@@ -451,6 +468,10 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 
 	if node != nil {
 		node.Type.DPanicOnInvalid("order service audit order limits")
+	}
+
+	if node.Disqualified != nil {
+		return nil, overlay.ErrNodeDisqualified.New(nodeID.String())
 	}
 
 	if !service.cache.IsOnline(node) {
@@ -526,6 +547,12 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service get repair order limits")
+		}
+
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
 		}
 
 		if !service.cache.IsOnline(node) {

@@ -26,6 +26,9 @@ var ErrNodeNotFound = errs.Class("node not found")
 // ErrNodeOffline is returned if a nodes is offline
 var ErrNodeOffline = errs.Class("node is offline")
 
+// ErrNodeDisqualified is returned if a nodes is disqualified
+var ErrNodeDisqualified = errs.Class("node is disqualified")
+
 // ErrBucketNotFound is returned if a bucket is unable to be found in the routing table
 var ErrBucketNotFound = errs.New("bucket not found")
 
@@ -90,7 +93,6 @@ type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditSuccess bool
 	IsUp         bool
-
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
@@ -117,10 +119,8 @@ type NodeDossier struct {
 // NodeStats contains statistics about a node.
 type NodeStats struct {
 	Latency90             int64
-	AuditSuccessRatio     float64
 	AuditSuccessCount     int64
 	AuditCount            int64
-	UptimeRatio           float64
 	UptimeSuccessCount    int64
 	UptimeCount           int64
 	LastContactSuccess    time.Time
