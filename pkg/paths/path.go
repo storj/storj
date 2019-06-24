@@ -141,13 +141,13 @@ func (pi *Iterator) Next() string {
 	}
 
 	rem := pi.Remaining()
-	if index := strings.IndexByte(rem, '/'); index == -1 {
+	index := strings.IndexByte(rem, '/')
+	if index == -1 {
 		pi.consumed += len(rem)
 		pi.lastEmpty = false
 		return rem
-	} else {
-		pi.consumed += index + 1
-		pi.lastEmpty = index == len(rem)-1
-		return rem[:index]
 	}
+	pi.consumed += index + 1
+	pi.lastEmpty = index == len(rem)-1
+	return rem[:index]
 }
