@@ -284,8 +284,8 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if value.Address == nil {
 		return errors.New("node has no address")
 	}
-	// Resolve IP Address to ensure it is set
-	value.LastIp, err = getIP(ctx, value.Address.Address)
+	// Resolve IP Address Network to ensure it is set
+	value.LastIp, err = getNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
@@ -396,7 +396,7 @@ func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePie
 	return missingPieces, nil
 }
 
-func getIP(ctx context.Context, target string) (_ string, err error) {
+func getIP(ctx context.Context, target string) (ip string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	host, _, err := net.SplitHostPort(target)
 	if err != nil {
@@ -407,4 +407,17 @@ func getIP(ctx context.Context, target string) (_ string, err error) {
 		return "", err
 	}
 	return ipAddr.String(), nil
+}
+
+func getNetwork(ctx context.Context, target string) (network string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	ip, err := getIP(ctx, target)
+
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		return "", errors.New("invalid ip")
+	}
+	//Filter all IP Addresses into /24 Subnet's
+	mask := net.CIDRMask(24, 32)
+	return addr.Mask(mask).String(), nil
 }
