@@ -11,11 +11,11 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
