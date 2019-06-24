@@ -8,12 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/orders"
 	"storj.io/storj/uplink"
 )
 
@@ -155,9 +158,8 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		require.NoError(t, err)
 
 		ordersDB := planet.Satellites[0].DB.Orders()
-		bucketID := storj.JoinPaths(projects[0].ID.String(), "testbucket")
 
-		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, []byte(bucketID), hourBeforeTest, time.Now().UTC())
+		bucketBandwidth, err := ordersDB.GetBucketBandwidth(ctx, projects[0].ID, []byte("testbucket"), hourBeforeTest, time.Now().UTC())
 		require.NoError(t, err)
 		require.Equal(t, expectedBucketBandwidth, bucketBandwidth)
 
@@ -173,4 +175,30 @@ func noLongTailRedundancy(planet *testplanet.Planet) uplink.RSConfig {
 	redundancy := planet.Uplinks[0].GetConfig(planet.Satellites[0]).RS
 	redundancy.SuccessThreshold = redundancy.MaxThreshold
 	return redundancy
+}
+
+func TestSpliteBucketID(t *testing.T) {
+	t.Run("Invalid input", func(t *testing.T) {
+		str := "not UUID string/bucket1"
+		bytes := []byte(str)
+
+		_, _, err := orders.SplitBucketID(bytes)
+
+		assert.NotNil(t, err)
+		assert.Error(t, err)
+	})
+
+	t.Run("Valid input", func(t *testing.T) {
+		expectedBucketID, err := uuid.Parse("bb6218e3-4b4a-4819-abbb-fa68538e33c0")
+		expectedBucketName := "bucket1"
+		assert.NoError(t, err)
+
+		str := expectedBucketID.String() + "/" + expectedBucketName
+
+		bucketID, bucketName, err := orders.SplitBucketID([]byte(str))
+
+		assert.NoError(t, err)
+		assert.Equal(t, bucketID, expectedBucketID)
+		assert.Equal(t, bucketName, []byte(expectedBucketName))
+	})
 }
