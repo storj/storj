@@ -34,26 +34,32 @@ This process including the Storage nodes transferring their pieces to other node
 
 ## Business Requirements/ Job Stories (MVP)
 
+
+### On Trigger
 - When a Storage node no longer wants to store data for a satellite I want them to have the ability to run graceful exit for a specific satellite so that they do not lose their escrow on that satellite. 
 - When a Storage Node runs the graceful exit command I want them to be prompted with a confirmation message so that we can avoid storage nodes running the command accidentally.
 - When a storage node triggers the graceful exits, the process cannot be canceled. The storage node must lead it to successful completion.
-- When a Storage Node gracefully exits the network I want all of the pieces they have been storing to be deleted from their hard drive so that their computers hard drive space is no longer used. 
 - When a Storage node triggers graceful exit I want them to be omitted from the node selection process for uploads so they are no longer selected to store new pieces.
 - When a Storage node triggers graceful exit I want their allocated bandwidth on the network to be ignored so that they can complete their graceful exit as quickly as possible.
-- When a node dose not complete the graceful exit entirely I want the satellite to keep track of this so that they are subject to be DQed and their escrow kept
-	- this includes the node sending bad data to other nodes
-	- the node not transferring some pieces it holds
+
+### During exit
+- When a Storage Node is in the process of gracefully exiting the network I want them to continue to be audited and their uptime checked so we can ensure they are still "good" nodes.
+- When A Storage Node is in the process of gracefully exiting the network I want them to be selected for download requests so that they can continue to contribute to the overall network.
+	- we need to be able to distinguish the bandwidth used for serving up data to clients vs bandwidth used for graceful exit. the node will NOT get paid for bandwidth used for graceful exit but will get paid for the bandwidth used to serve data to clients.
+- When a Storage Node is gracefully exiting the network I want all of the pieces they are storing to be deleted from their hard drive as they exit so that their computers hard drive space is no longer used.
+- When a Storage Node is exiting the network gracefully I want the satellite to have the ability to track how much egress they used for exiting so that we do not pay them for that bandwidth.
+
+### When Exited 
 - When a Storage Node leaves the network I want the ability to run a report on the satellite to get information about what Storage Nodes exited so that I can pay them their escrow amounts. 
 	- Create a report on the satellite to display which nodes have exited gracefully during a specified time frame. The report must include:
 		- NodeID
 		- Wallet address
 		- The date the node joined the network
 		- The date the node exited
-		- GB Transferred (amount of data the node transferred during exiting)		
-- When a Storage Node exits the network gracefully I want the satellite to have the ability to track how much egress they used for exiting so that we do not pay them for that bandwidth.
-- When A Storage Node is in the process of gracefully exiting the network I want them to be selected for download requests so that they can continue to contribute to the overall network.
-	- we need to be able to distinguish the bandwidth used for serving up data to clients vs bandwidth used for graceful exit. the node will NOT get paid for bandwidth used for graceful exit but will get paid for the bandwidth used to serve data to clients.
-- When a Storage Node is in the process of gracefully exiting the network I want them to continue to be audited and their uptime checked so we can ensure they are still "good" nodes.
+		- GB Transferred (amount of data the node transferred during exiting)	
+- When a node does not complete the graceful exit entirely I want the satellite to keep track of this so that they are subject to be DQed and their escrow kept
+	- this includes the node sending bad data to other nodes
+	- the node not transferring some pieces it holds
 - When the satellite determines the exiting node has completed the process I want the node to be informed so that it can delete the garbage data it is holding. 
 
 
