@@ -93,7 +93,7 @@ func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, nd
 
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
-		antechamber: adb,
+		antechamberDB: adb,
 	}
 	ok, err := rt.addNode(context.TODO(), &localNode.Node)
 	if !ok || err != nil {
