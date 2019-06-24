@@ -8,7 +8,6 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
@@ -153,9 +152,9 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	attribution, err := p.CheckBucketAttribution(ctx, bucketName)
+	err = p.CheckBucketAttribution(ctx, bucketName)
 	if err != nil {
-		zap.S().Warn("Attribution error")
+		return nil, err
 	}
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
@@ -204,7 +203,6 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		BucketConfig: *cfg,
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
-		Attribution:  attribution,
 		bucket:       bucketInfo,
 		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encStore),
 		streams:      streamStore,
@@ -212,22 +210,20 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 }
 
 // CheckBucketAttribution Checks the bucket attribution
-func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string) (bool, error) {
+func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string) error {
 	if p.uplinkCfg.Volatile.PartnerID == "" {
-		return false, Error.New("Partner ID not set")
+		return nil
 	}
 
 	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
 	if err != nil {
-		return false, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	err = p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
 	if err != nil {
-		zap.S().Warn("Not attributed Partner ID: ", p.uplinkCfg.Volatile.PartnerID)
-		return false, Error.Wrap(err)
+		return Error.Wrap(err)
 	}
 
-	zap.S().Info("Attributed Partner ID: ", p.uplinkCfg.Volatile.PartnerID)
-	return true, nil
+	return nil
 }
