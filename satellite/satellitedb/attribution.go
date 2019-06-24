@@ -20,16 +20,19 @@ import (
 
 const (
 	valueAttrQuery = `
+	-- A union of both the storage tally and badwidth rollups.
+	-- Should be 1 row per project/bucket by partner with the timeframe specified
 	SELECT 
 		o.partner_id as partner_id, 
 		o.project_id as project_id, 
 		o.bucket_name as bucket_name, 
-		SUM(o.remote) / SUM(o.hours) as remote, 
-		SUM(o.inline) / SUM(o.hours) as inline, 
+		SUM(o.remote) / SUM(o.hours) as remote,
+		SUM(o.inline) / SUM(o.hours) as inline,
 		SUM(o.settled) as settled 
 	FROM 
 		(
-			-- SUM the storage
+			-- SUM the storage and hours
+			-- Hours are used to calculate byte hours above
 			SELECT 
 				bsti.partner_id as partner_id, 
 				bsto.project_id as project_id, 
@@ -41,6 +44,7 @@ const (
 			FROM 
 				(
 					-- Collapse entries by the latest record in the hour
+					-- If there are 2 records within the hour, only the latest will be return
 					SELECT 
 						va.partner_id, 
 						%v as hours, 
@@ -75,7 +79,7 @@ const (
 				bsto.project_id, 
 				bsto.bucket_name 
 			UNION 
-				-- SUM the bandwidth
+			-- SUM the bandwidth for the timeframe specified
 			SELECT 
 				va.partner_id as partner_id, 
 				bbr.project_id as project_id, 
