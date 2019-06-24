@@ -163,7 +163,7 @@ func TestListBucketsEmpty(t *testing.T) {
 	})
 }
 
-func TestListBuckets(t *testing.T) {		
+func TestListBuckets(t *testing.T) {
 	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucketNames := []string{"a00", "aa0", "b00", "bb0", "c00"}
 
