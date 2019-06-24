@@ -59,6 +59,7 @@ type Client interface {
 	DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) ([]*pb.AddressedOrderLimit, error)
 	ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error)
 	SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) error
+	GetProjectInfo(ctx context.Context) (*pb.ProjectInfoResponse, error)
 }
 
 // NewClient initializes a new metainfo client
@@ -236,4 +237,11 @@ func (metainfo *Metainfo) SetAttribution(ctx context.Context, bucket string, par
 	})
 
 	return err
+}
+
+// GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
+func (metainfo *Metainfo) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return metainfo.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
 }

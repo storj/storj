@@ -578,6 +578,32 @@ func TestSetAttribution(t *testing.T) {
 	})
 }
 
+func TestGetProjectInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+
+		metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+		require.NoError(t, err)
+
+		metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+		require.NoError(t, err)
+
+		info0, err := metainfo0.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info0.ProjectSalt)
+
+		info1, err := metainfo1.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info1.ProjectSalt)
+
+		// Different projects should have different salts
+		require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
+	})
+}
+
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)

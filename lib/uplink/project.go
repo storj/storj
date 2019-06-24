@@ -199,7 +199,12 @@ func (p *Project) Close() error {
 
 func (p *Project) retrieveSalt(ctx context.Context) (salt []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	panic("TODO")
+
+	info, err := p.metainfo.GetProjectInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return info.ProjectSalt, nil
 }
 
 // SaltedKeyFromPassphrase returns a key generated from the given passphrase using a stable, project-specific salt
