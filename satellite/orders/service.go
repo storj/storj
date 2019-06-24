@@ -156,8 +156,8 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		}
 
 		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
 			continue
 		}
 
