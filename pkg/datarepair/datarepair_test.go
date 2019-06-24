@@ -71,12 +71,9 @@ func TestDataRepair(t *testing.T) {
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
-		// the +2 allows for one node to be disqualified
-		toKill := numPieces - (int(minReq) + 2)
-		fmt.Println("toKill", toKill)
-		// this number can be changed according to RS settings for this test
+		// disqualify one storage node
 		toDisqualify := 1
-		fmt.Println("toDQ", toDisqualify)
+		toKill := numPieces - (int(minReq+1) + toDisqualify)
 		// we should have enough storage nodes to repair on
 		assert.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
 
@@ -86,12 +83,13 @@ func TestDataRepair(t *testing.T) {
 		nodesToDisqualify := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
 
+		var numDisqualified int
 		for i, piece := range remotePieces {
-			if i == 0 {
-				nodesToDisqualify[piece.NodeId] = true
-				continue
-			}
 			if i >= toKill {
+				if numDisqualified < toDisqualify {
+					nodesToDisqualify[piece.NodeId] = true
+					numDisqualified++
+				}
 				nodesToKeepAlive[piece.NodeId] = true
 				continue
 			}
@@ -102,6 +100,7 @@ func TestDataRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToDisqualify[node.ID()] {
 				disqualifyNode(t, ctx, satellite, node.ID())
+				continue
 			}
 			if nodesToKill[node.ID()] {
 				fmt.Println("killing a node")
@@ -143,6 +142,7 @@ func TestDataRepair(t *testing.T) {
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
 			assert.False(t, nodesToKill[piece.NodeId])
+			assert.False(t, nodesToDisqualify[piece.NodeId])
 		}
 	})
 }
