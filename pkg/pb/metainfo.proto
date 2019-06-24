@@ -21,6 +21,7 @@ service Metainfo {
     rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
     rpc SetAttribution(SetAttributionRequest) returns (SetAttributionResponse);
+    rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
 }
 
 message AddressedOrderLimit {
@@ -55,7 +56,7 @@ message SegmentCommitResponse {
 }
 
 message SegmentDownloadRequest {
-    bytes bucket = 1; 
+    bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
 }
@@ -66,7 +67,7 @@ message SegmentDownloadResponse {
 }
 
 message SegmentInfoRequest {
-    bytes bucket = 1; 
+    bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
 }
@@ -101,7 +102,7 @@ message ListSegmentsResponse {
         pointerdb.Pointer pointer = 2;
         bool is_prefix = 3;
     }
-      
+
     repeated Item items = 1;
     bool more = 2;
 }
@@ -112,4 +113,11 @@ message SetAttributionRequest{
 }
 
 message SetAttributionResponse {
+}
+
+message ProjectInfoRequest {
+}
+
+message ProjectInfoResponse {
+    bytes project_salt = 1;
 }
