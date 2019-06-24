@@ -21,9 +21,7 @@ import (
 	"storj.io/storj/satellite/payments"
 )
 
-var (
-	mon = monkit.Package()
-)
+var mon = monkit.Package()
 
 const (
 	// maxLimit specifies the limit for all paged queries
@@ -457,6 +455,22 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	return
 }
 
+// GetUserCreditUsage is a method for querying users' credit information up until now
+func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := GetAuth(ctx)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now().UTC())
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return usage, nil
+}
+
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -469,16 +483,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	err = s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
 		return
-	}
-
-	pmInfo, err := s.store.UserPayments().Get(ctx, auth.User.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	defaultPayment, err := s.pm.GetCustomerDefaultPaymentMethod(ctx, pmInfo.CustomerID)
-	if err != nil {
-		return nil, err
 	}
 
 	tx, err := s.store.BeginTx(ctx)
@@ -501,12 +505,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		if err != nil {
 			return errs.New(internalErrMsg)
 		}
-
-		_, err = tx.ProjectPayments().Create(ctx, ProjectPayment{
-			ProjectID:       p.ID,
-			PayerID:         pmInfo.UserID,
-			PaymentMethodID: defaultPayment.ID,
-		})
 
 		return err
 	})
@@ -629,11 +627,6 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	projPaymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return err
-	}
-
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
@@ -644,12 +637,6 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		if err != nil {
 			userErr.Add(err)
 			continue
-		}
-
-		// abort if one of the members payment info
-		// attached to this project
-		if projPaymentInfo.PayerID == user.ID {
-			return errs.New("member with attached payment can not be deleted")
 		}
 
 		userIDs = append(userIDs, user.ID)

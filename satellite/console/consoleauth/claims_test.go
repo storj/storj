@@ -19,7 +19,7 @@ func TestClaims(t *testing.T) {
 
 	claims := Claims{
 		ID:         *id,
-		Email:      "someEmail@ukr.net",
+		Email:      "alice@mail.test",
 		Expiration: time.Now(),
 	}
 

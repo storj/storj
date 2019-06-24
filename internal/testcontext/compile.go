@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"testing"
 )
 
 // Compile compiles the specified package and returns the executable name.
@@ -34,28 +35,30 @@ func (ctx *Context) Compile(pkg string) string {
 }
 
 // CompileShared compiles pkg as c-shared.
-func (ctx *Context) CompileShared(name string, pkg string) Include {
-	ctx.test.Helper()
+// TODO: support inclusion from other directories
+//  (cgo header paths are currently relative to package root)
+func (ctx *Context) CompileShared(t *testing.T, name string, pkg string) Include {
+	t.Helper()
 
 	base := ctx.File("build", name)
 
 	// not using race detector for c-shared
 	cmd := exec.Command("go", "build", "-buildmode", "c-shared", "-o", base+".so", pkg)
-	ctx.test.Log("exec:", cmd.Args)
+	t.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		ctx.test.Error(string(out))
-		ctx.test.Fatal(err)
+		t.Error(string(out))
+		t.Fatal(err)
 	}
-	ctx.test.Log(string(out))
+	t.Log(string(out))
 
 	return Include{Header: base + ".h", Library: base + ".so"}
 }
 
 // CompileC compiles file as with gcc and adds the includes.
-func (ctx *Context) CompileC(file string, includes ...Include) string {
-	ctx.test.Helper()
+func (ctx *Context) CompileC(t *testing.T, file string, includes ...Include) string {
+	t.Helper()
 
 	exe := ctx.File("build", filepath.Base(file)+".exe")
 
@@ -67,6 +70,12 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 			args = append(args, "-I", filepath.Dir(inc.Header))
 		}
 		if inc.Library != "" {
+			if inc.Standard {
+				args = append(args,
+					"-l"+inc.Library,
+				)
+				continue
+			}
 			if runtime.GOOS == "windows" {
 				args = append(args,
 					"-L"+filepath.Dir(inc.Library),
@@ -80,20 +89,21 @@ func (ctx *Context) CompileC(file string, includes ...Include) string {
 	args = append(args, file)
 
 	cmd := exec.Command("gcc", args...)
-	ctx.test.Log("exec:", cmd.Args)
+	t.Log("exec:", cmd.Args)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		ctx.test.Error(string(out))
-		ctx.test.Fatal(err)
+		t.Error(string(out))
+		t.Fatal(err)
 	}
-	ctx.test.Log(string(out))
+	t.Log(string(out))
 
 	return exe
 }
 
 // Include defines an includable library for gcc.
 type Include struct {
-	Header  string
-	Library string
+	Header   string
+	Library  string
+	Standard bool
 }

@@ -65,6 +65,12 @@ func TestNodeSelection(t *testing.T) {
 					NodeID:       node.ID(),
 					IsUp:         true,
 					AuditSuccess: true,
+					AuditLambda:  1,
+					AuditWeight:  1,
+					AuditDQ:      0.5,
+					UptimeLambda: 1,
+					UptimeWeight: 1,
+					UptimeDQ:     0.5,
 				})
 				assert.NoError(t, err)
 			}
@@ -214,6 +220,12 @@ func TestDistinctIPs(t *testing.T) {
 				NodeID:       planet.StorageNodes[i].ID(),
 				IsUp:         true,
 				AuditSuccess: true,
+				AuditLambda:  1,
+				AuditWeight:  1,
+				AuditDQ:      0.5,
+				UptimeLambda: 1,
+				UptimeWeight: 1,
+				UptimeDQ:     0.5,
 			})
 			assert.NoError(t, err)
 		}
@@ -244,4 +256,18 @@ func TestDistinctIPs(t *testing.T) {
 			assert.Equal(t, tt.requestCount, len(response))
 		}
 	})
+}
+
+func TestAddrtoNetwork_Conversion(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	ip := "8.8.8.8:28967"
+	network, err := overlay.GetNetwork(ctx, ip)
+	require.Equal(t, "8.8.8.0", network)
+	require.NoError(t, err)
+
+	ipv6 := "[fc00::1:200]:28967"
+	network, err = overlay.GetNetwork(ctx, ipv6)
+	require.Equal(t, "fc00::", network)
+	require.NoError(t, err)
 }

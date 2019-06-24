@@ -1,9 +1,9 @@
 <!-- Copyright (C) 2019 Storj Labs, Inc.
 See LICENSE for copying information. -->
 
-{{define "refOffers"}}
+{{define "referralOffers"}}
 <div class="offers-table mt-2 mb-5 container">
-    <div class="row data-row">
+    <div class="row">
         <div class="col col-heading">Name</div>
         <div class="col col-heading">Give Credit</div> 
         <div class="col col-heading">Get Credit</div>
@@ -14,9 +14,9 @@ See LICENSE for copying information. -->
         <div class="col col-heading">Status</div>
     </div><hr>
     <div class="row offer-heading ">
-        <p class="offer-type">DEFAULT&nbsp;OFFER</p>
+        <p class="offer-type">default&nbsp;offer</p>
     </div>
-    {{range .RefOffers}}
+    {{range .ReferralOffers}}
         {{if eq .Status 1}}
             <div class="row data-row">
                 <div class="col ml-3">{{.Name}}</div>
@@ -30,9 +30,9 @@ See LICENSE for copying information. -->
         {{end}}
     {{end}}
     <div class="row offer-heading ">
-        <p class="offer-type">CURRENT&nbsp;OFFER</p>
+        <p class="offer-type">current&nbsp;offer</p>
     </div>
-    {{range .RefOffers}}
+    {{range .ReferralOffers}}
         {{if eq .Status 2}}
             <div class="row data-row">
                 <div class="col ml-3">{{.Name}}</div>
@@ -52,9 +52,9 @@ See LICENSE for copying information. -->
     {{end}}
     {{template "stopReferralOffer" .}}
     <div class="row offer-heading ">
-        <p class="offer-type">OTHER&nbsp;OFFERS</p>
+        <p class="offer-type">other&nbsp;offers</p>
     </div>
-    {{range .RefOffers}}
+    {{range .ReferralOffers}}
         {{if eq .Status 0}}
             <div class="row data-row">
                 <div class="col ml-3">{{.Name}}</div>

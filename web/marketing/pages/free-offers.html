@@ -3,32 +3,34 @@ See LICENSE for copying information. -->
 
 {{define "freeOffers"}}
 <div class="offers-table mt-2 mb-5 container">
-    <div class="row data-row">
-        <div class="col col-heading">Name</div>
-        <div class="col col-heading">Give Credit</div>
-        <div class="col col-heading">Referrals&nbsp;Used</div> 
-        <div class="col col-heading">Redeemable&nbsp;Capacity</div>
-        <div class="col col-heading">Created</div>
-        <div class="col col-heading">Expiration</div>
-        <div class="col col-heading">Status</div>
-    </div><hr>
-    <div class="row offer-heading ">
-        <p class="offer-type">DEFAULT&nbsp;OFFER</p>
-    </div>
-    {{range .FreeCredits}}
-        {{if eq .Status 1}}
-            <div class="row data-row">
-                <div class="col ml-3">{{.Name}}</div>
-                <div class="col">${{.InviteeCreditInCents}}</div>
-                <div class="col">{{.NumRedeemed}}</div> 
-                <div class="col">&#8734;</div>
-                <div class="col">{{printf "%.10s" .CreatedAt}}</div>
-                <div class="col">&#8734;</div>
-            </div><hr>
+        <div class="row">
+            <div class="col col-heading">Name</div>
+            <div class="col col-heading">Give Credit</div> 
+            <div class="col col-heading">Get Credit</div>
+            <div class="col col-heading">Referrals&nbsp;Used</div>
+            <div class="col col-heading">Redeemable&nbsp;Capacity</div>
+            <div class="col col-heading">Created</div>
+            <div class="col col-heading">Expiration</div>
+            <div class="col col-heading">Status</div>
+        </div><hr>
+        <div class="row offer-heading ">
+            <p class="offer-type">default&nbsp;offer</p>
+        </div>
+        {{range .FreeCredits}}
+            {{if eq .Status 1}}
+                <div class="row data-row">
+                    <div class="col ml-3">{{.Name}}</div>
+                    <div class="col">${{.InviteeCreditInCents}}</div>
+                    <div class="col">{{.NumRedeemed}}</div> 
+                    <div class="col">{{.RedeemableCap}}</div>
+                    <div class="col">{{printf "%.10s" .CreatedAt}}</div>
+                    <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
+                    <div class="col"><a href="#">{{if eq .Status 1}}<strong>Live &#183;</strong>{{else}}off{{end}}</a></div>
+                </div><hr>
+            {{end}}
         {{end}}
-    {{end}}
     <div class="row offer-heading ">
-        <p class="offer-type">CURRENT&nbsp;OFFER</p>
+        <p class="offer-type">current&nbsp;offer</p>
     </div>
     {{range .FreeCredits}}
         {{if eq .Status 2}}
@@ -49,7 +51,7 @@ See LICENSE for copying information. -->
     {{end}}
     {{template "stopFreeCredit" .}}
     <div class="row offer-heading ">
-        <p class="offer-type">OTHER&nbsp;OFFERS</p>
+        <p class="offer-type">other&nbsp;offers</p>
     </div>
     {{range .FreeCredits}}
         {{if eq .Status 0}}

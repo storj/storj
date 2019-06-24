@@ -1,104 +1,78 @@
-package marketingweb
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package marketingweb_test
 
 import (
 	"net/http"
-	"testing"
 	"net/url"
-	"strings"
-	"log"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testplanet"
 )
 
-
-func buildForm(isReferralOffer bool) url.Values{
-	form := url.Values{}
-	form.Add("Name","May Credit")
-	form.Add("Description","desc")
-	form.Add("ExpiresAt","2019-06-27")
-	form.Add("InviteeCreditInCents","50")
-	form.Add("InviteeCreditDurationDays","50")
-	form.Add("RedeemableCap","150")
-
-	if isReferralOffer {
-		form.Add("AwardCreditInCents","50")
-		form.Add("AwardCreditDurationDays","50")
-	}
-	return form
+type CreateRequest struct {
+	Path   string
+	Values url.Values
 }
 
-func buildResources(endpoint string, isReferralOffer bool) (url.URL, url.Values){
-	URL, err := url.ParseRequestURI("http://127.0.0.1:10003")
-	if err != nil{
-		log.Fatalf("URL parsing Err : %v\n", err)
-	}
-	URL.Path = endpoint
-	form := buildForm(isReferralOffer)
-	URL.RawQuery = form.Encode()
-	return *URL, form
-}
+func TestCreateOffer(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
-func callServer(t *testing.T,endpoint,params string, form url.Values) string{
-	c := http.Client{}
-	req, err := http.NewRequest("POST", endpoint, strings.NewReader(params))
-	if err != nil {
-		t.Fatalf("Err building request : %v\n", err)
-	}
-	req.PostForm = form
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		requests := []CreateRequest{
+			{
+				Path: "/create/referral-offer",
+				Values: url.Values{
+					"Name":                      {"Referral Credit"},
+					"Description":               {"desc"},
+					"ExpiresAt":                 {"2019-06-27"},
+					"InviteeCreditInCents":      {"50"},
+					"InviteeCreditDurationDays": {"50"},
+					"AwardCreditInCents":        {"50"},
+					"AwardCreditDurationDays":   {"50"},
+					"RedeemableCap":             {"150"},
+				},
+			}, {
+				Path: "/create/free-credit-offer",
+				Values: url.Values{
+					"Name":                      {"Free Credit Credit"},
+					"Description":               {"desc"},
+					"ExpiresAt":                 {"2019-06-27"},
+					"InviteeCreditInCents":      {"50"},
+					"InviteeCreditDurationDays": {"50"},
+					"RedeemableCap":             {"150"},
+				},
+			},
+		}
 
-	resp, err := c.Do(req)
-	if err != nil {
-		t.Fatalf("Resp Err : %v\n", err)
-	}
-	return resp.Status
-}
+		addr := planet.Satellites[0].Marketing.Listener.Addr()
 
-func TestCreateFreeCredit(t *testing.T){
-	URL,form := buildResources("/create/free-credit", false)
-	urlStr := URL.String()
-	respStatus := callServer(t,urlStr,URL.RawQuery,form)
+		var group errgroup.Group
+		for _, offer := range requests {
+			o := offer
+			group.Go(func() error {
+				baseURL := "http://" + addr.String()
 
-	if respStatus != "200 OK" {
-		t.Fatalf("response err : %v\n", respStatus)
-	}
-}
+				_, err := http.PostForm(baseURL+o.Path, o.Values)
+				if err != nil {
+					return err
+				}
 
-func TestCreateReferralOffer(t *testing.T){
-	URL,form := buildResources("/create/referral-offer", true)
-	urlStr := URL.String()
-	respStatus := callServer(t,urlStr,URL.RawQuery,form)
+				_, err = http.Get(baseURL)
+				if err != nil {
+					return err
+				}
 
-	if respStatus != "200 OK" {
-		t.Fatalf("response err : %v\n", respStatus)
-	}
-}
-
-func TestGetOffers(t *testing.T){
-	url := "http://127.0.0.1:10003/"
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("request err : %v\n", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.Status != "200 OK" {
-		t.Fatalf("response err : %v\n", err)
-	}
-}
-
-func TestStopOffer(t *testing.T){
-	url := "http://127.0.0.1:10003"
-	req,err := http.NewRequest("PUT",url+"/stop/1",nil)
-	if err != nil {
-		t.Fatalf("create request err : %v\n", err)
-	}
-
-	c := http.Client{}
-	resp, err := c.Do(req)
-	if err != nil {
-		t.Fatalf("response Err : %v\n", err)
-	}
-
-	if resp.Status != "200 OK"{
-		t.Fatalf("bad status code : %v\n", resp.Status)
-	}
+				return nil
+			})
+			err := group.Wait()
+			require.NoError(t, err)
+		}
+	})
 }

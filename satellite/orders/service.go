@@ -22,26 +22,33 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+// Config is a configuration struct for orders Service.
+type Config struct {
+	Expiration time.Duration `help:"how long until an order expires" default:"1080h"`
+}
+
 // Service for creating order limits.
 type Service struct {
-	log       *zap.Logger
-	satellite signing.Signer
-	cache     *overlay.Cache
-	certdb    certdb.DB
-	orders    DB
+	log              *zap.Logger
+	satellite        signing.Signer
+	cache            *overlay.Cache
+	certdb           certdb.DB
+	orders           DB
+	satelliteAddress *pb.NodeAddress
 
 	orderExpiration time.Duration
 }
 
 // NewService creates new service for creating order limits.
-func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, certdb certdb.DB, orders DB, orderExpiration time.Duration) *Service {
+func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, certdb certdb.DB, orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress) *Service {
 	return &Service{
-		log:             log,
-		satellite:       satellite,
-		cache:           cache,
-		certdb:          certdb,
-		orders:          orders,
-		orderExpiration: orderExpiration,
+		log:              log,
+		satellite:        satellite,
+		cache:            cache,
+		certdb:           certdb,
+		orders:           orders,
+		satelliteAddress: satelliteAddress,
+		orderExpiration:  orderExpiration,
 	}
 }
 
@@ -148,22 +155,29 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			node.Type.DPanicOnInvalid("order service get order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
 
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-			SerialNumber:    serialNumber,
-			SatelliteId:     service.satellite.ID(),
-			UplinkId:        uplink.ID,
-			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
-			Action:          pb.PieceAction_GET,
-			Limit:           pieceSize,
-			PieceExpiration: expiration,
-			OrderExpiration: orderExpiration,
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkId:         uplink.ID,
+			StorageNodeId:    piece.NodeId,
+			PieceId:          rootPieceID.Derive(piece.NodeId),
+			Action:           pb.PieceAction_GET,
+			Limit:            pieceSize,
+			PieceExpiration:  expiration,
+			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -217,15 +231,16 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	var pieceNum int32
 	for _, node := range nodes {
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-			SerialNumber:    serialNumber,
-			SatelliteId:     service.satellite.ID(),
-			UplinkId:        uplink.ID,
-			StorageNodeId:   node.Id,
-			PieceId:         rootPieceID.Derive(node.Id),
-			Action:          pb.PieceAction_PUT,
-			Limit:           maxPieceSize,
-			PieceExpiration: expiration,
-			OrderExpiration: orderExpiration,
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkId:         uplink.ID,
+			StorageNodeId:    node.Id,
+			PieceId:          rootPieceID.Derive(node.Id),
+			Action:           pb.PieceAction_PUT,
+			Limit:            maxPieceSize,
+			PieceExpiration:  expiration,
+			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
 			return storj.PieceID{}, nil, Error.Wrap(err)
@@ -287,22 +302,29 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
 
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-			SerialNumber:    serialNumber,
-			SatelliteId:     service.satellite.ID(),
-			UplinkId:        uplink.ID,
-			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
-			Action:          pb.PieceAction_DELETE,
-			Limit:           0,
-			PieceExpiration: expiration,
-			OrderExpiration: orderExpiration,
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkId:         uplink.ID,
+			StorageNodeId:    piece.NodeId,
+			PieceId:          rootPieceID.Derive(piece.NodeId),
+			Action:           pb.PieceAction_DELETE,
+			Limit:            0,
+			PieceExpiration:  expiration,
+			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -372,22 +394,29 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
 
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-			SerialNumber:    serialNumber,
-			SatelliteId:     service.satellite.ID(),
-			UplinkId:        auditor.ID,
-			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
-			Action:          pb.PieceAction_GET_AUDIT,
-			Limit:           int64(shareSize),
-			PieceExpiration: expiration,
-			OrderExpiration: orderExpiration,
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkId:         auditor.ID,
+			StorageNodeId:    piece.NodeId,
+			PieceId:          rootPieceID.Derive(piece.NodeId),
+			Action:           pb.PieceAction_GET_AUDIT,
+			Limit:            int64(shareSize),
+			PieceExpiration:  expiration,
+			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -441,19 +470,24 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		node.Type.DPanicOnInvalid("order service audit order limits")
 	}
 
+	if node.Disqualified != nil {
+		return nil, overlay.ErrNodeDisqualified.New(nodeID.String())
+	}
+
 	if !service.cache.IsOnline(node) {
 		return nil, overlay.ErrNodeOffline.New(nodeID.String())
 	}
 
 	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-		SerialNumber:    serialNumber,
-		SatelliteId:     service.satellite.ID(),
-		UplinkId:        auditor.ID,
-		StorageNodeId:   nodeID,
-		PieceId:         rootPieceID.Derive(nodeID),
-		Action:          pb.PieceAction_GET_AUDIT,
-		Limit:           int64(shareSize),
-		OrderExpiration: orderExpiration,
+		SerialNumber:     serialNumber,
+		SatelliteId:      service.satellite.ID(),
+		SatelliteAddress: service.satelliteAddress,
+		UplinkId:         auditor.ID,
+		StorageNodeId:    nodeID,
+		PieceId:          rootPieceID.Derive(nodeID),
+		Action:           pb.PieceAction_GET_AUDIT,
+		Limit:            int64(shareSize),
+		OrderExpiration:  orderExpiration,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -515,22 +549,29 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			node.Type.DPanicOnInvalid("order service get repair order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
-			service.log.Debug("node is offline", zap.String("ID", node.Id.String()))
+			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
 			continue
 		}
 
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-			SerialNumber:    serialNumber,
-			SatelliteId:     service.satellite.ID(),
-			UplinkId:        repairer.ID,
-			StorageNodeId:   piece.NodeId,
-			PieceId:         rootPieceID.Derive(piece.NodeId),
-			Action:          pb.PieceAction_GET_REPAIR,
-			Limit:           pieceSize,
-			PieceExpiration: expiration,
-			OrderExpiration: orderExpiration,
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkId:         repairer.ID,
+			StorageNodeId:    piece.NodeId,
+			PieceId:          rootPieceID.Derive(piece.NodeId),
+			Action:           pb.PieceAction_GET_REPAIR,
+			Limit:            pieceSize,
+			PieceExpiration:  expiration,
+			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -596,15 +637,16 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		}
 
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
-			SerialNumber:    serialNumber,
-			SatelliteId:     service.satellite.ID(),
-			UplinkId:        repairer.ID,
-			StorageNodeId:   node.Id,
-			PieceId:         rootPieceID.Derive(node.Id),
-			Action:          pb.PieceAction_PUT_REPAIR,
-			Limit:           pieceSize,
-			PieceExpiration: expiration,
-			OrderExpiration: orderExpiration,
+			SerialNumber:     serialNumber,
+			SatelliteId:      service.satellite.ID(),
+			SatelliteAddress: service.satelliteAddress,
+			UplinkId:         repairer.ID,
+			StorageNodeId:    node.Id,
+			PieceId:          rootPieceID.Derive(node.Id),
+			Action:           pb.PieceAction_PUT_REPAIR,
+			Limit:            pieceSize,
+			PieceExpiration:  expiration,
+			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)

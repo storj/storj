@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -45,7 +44,7 @@ const (
 var TestAPIKey = "test-api-key"
 
 func TestMakeBucketWithLocation(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when creating bucket with empty name
 		err := layer.MakeBucketWithLocation(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -55,7 +54,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that the bucket is created using the Metainfo API
-		bucket, err := metainfo.GetBucket(ctx, TestBucket)
+		bucket, err := m.GetBucket(ctx, TestBucket)
 		assert.NoError(t, err)
 		assert.Equal(t, TestBucket, bucket.Name)
 		assert.True(t, time.Since(bucket.Created) < 1*time.Minute)
@@ -68,7 +67,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 }
 
 func TestGetBucketInfo(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when getting info about bucket with empty name
 		_, err := layer.GetBucketInfo(ctx, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -78,7 +77,7 @@ func TestGetBucketInfo(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		info, err := metainfo.CreateBucket(ctx, TestBucket, nil)
+		info, err := m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the bucket info using the Minio API
@@ -91,7 +90,7 @@ func TestGetBucketInfo(t *testing.T) {
 }
 
 func TestDeleteBucket(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when deleting bucket with empty name
 		err := layer.DeleteBucket(ctx, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -101,10 +100,10 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create a bucket with a file using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, nil)
+		_, err = m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
-		_, err = createFile(ctx, metainfo, streams, TestBucket, TestFile, nil, nil)
+		_, err = createFile(ctx, m, strms, TestBucket, TestFile, nil, nil)
 		assert.NoError(t, err)
 
 		// Check the error when deleting non-empty bucket
@@ -112,7 +111,7 @@ func TestDeleteBucket(t *testing.T) {
 		assert.Equal(t, minio.BucketNotEmpty{Bucket: TestBucket}, err)
 
 		// Delete the file using the Metainfo API, so the bucket becomes empty
-		err = metainfo.DeleteObject(ctx, TestBucket, TestFile)
+		err = m.DeleteObject(ctx, TestBucket, TestFile)
 		assert.NoError(t, err)
 
 		// Delete the bucket info using the Minio API
@@ -120,23 +119,23 @@ func TestDeleteBucket(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that the bucket is deleted using the Metainfo API
-		_, err = metainfo.GetBucket(ctx, TestBucket)
+		_, err = m.GetBucket(ctx, TestBucket)
 		assert.True(t, storj.ErrBucketNotFound.Has(err))
 	})
 }
 
 func TestListBuckets(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check that empty list is return if no buckets exist yet
 		bucketInfos, err := layer.ListBuckets(ctx)
 		assert.NoError(t, err)
 		assert.Empty(t, bucketInfos)
 
 		// Create all expected buckets using the Metainfo API
-		bucketNames := []string{"bucket 1", "bucket 2", "bucket 3"}
+		bucketNames := []string{"bucket-1", "bucket-2", "bucket-3"}
 		buckets := make([]storj.Bucket, len(bucketNames))
 		for i, bucketName := range bucketNames {
-			bucket, err := metainfo.CreateBucket(ctx, bucketName, nil)
+			bucket, err := m.CreateBucket(ctx, bucketName, nil)
 			buckets[i] = bucket
 			assert.NoError(t, err)
 		}
@@ -176,7 +175,7 @@ func TestPutObject(t *testing.T) {
 		},
 	}
 
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when putting an object to a bucket with empty name
 		_, err := layer.PutObject(ctx, "", "", nil, nil)
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -186,7 +185,7 @@ func TestPutObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, nil)
+		_, err = m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when putting an object with empty name
@@ -207,7 +206,7 @@ func TestPutObject(t *testing.T) {
 		}
 
 		// Check that the object is uploaded using the Metainfo API
-		obj, err := metainfo.GetObject(ctx, TestBucket, TestFile)
+		obj, err := m.GetObject(ctx, TestBucket, TestFile)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestFile, obj.Path)
 			assert.Equal(t, TestBucket, obj.Bucket.Name)
@@ -222,7 +221,7 @@ func TestPutObject(t *testing.T) {
 }
 
 func TestGetObjectInfo(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when getting an object from a bucket with empty name
 		_, err := layer.GetObjectInfo(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -232,7 +231,7 @@ func TestGetObjectInfo(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, nil)
+		_, err = m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when getting an object with empty name
@@ -248,7 +247,7 @@ func TestGetObjectInfo(t *testing.T) {
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
-		obj, err := createFile(ctx, metainfo, streams, TestBucket, TestFile, &createInfo, []byte("test"))
+		obj, err := createFile(ctx, m, strms, TestBucket, TestFile, &createInfo, []byte("test"))
 		assert.NoError(t, err)
 
 		// Get the object info using the Minio API
@@ -267,7 +266,7 @@ func TestGetObjectInfo(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when getting an object from a bucket with empty name
 		err := layer.GetObject(ctx, "", "", 0, 0, nil, "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -277,7 +276,7 @@ func TestGetObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, nil)
+		_, err = m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when getting an object with empty name
@@ -293,7 +292,7 @@ func TestGetObject(t *testing.T) {
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
-		_, err = createFile(ctx, metainfo, streams, TestBucket, TestFile, &createInfo, []byte("abcdef"))
+		_, err = createFile(ctx, m, strms, TestBucket, TestFile, &createInfo, []byte("abcdef"))
 		assert.NoError(t, err)
 
 		for i, tt := range []struct {
@@ -330,7 +329,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestCopyObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when copying an object from a bucket with empty name
 		_, err := layer.CopyObject(ctx, "", TestFile, DestBucket, DestFile, minio.ObjectInfo{})
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -340,7 +339,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the source bucket using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, nil)
+		_, err = m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when copying an object with empty name
@@ -352,7 +351,7 @@ func TestCopyObject(t *testing.T) {
 			ContentType: "text/plain",
 			Metadata:    map[string]string{"key1": "value1", "key2": "value2"},
 		}
-		obj, err := createFile(ctx, metainfo, streams, TestBucket, TestFile, &createInfo, []byte("test"))
+		obj, err := createFile(ctx, m, strms, TestBucket, TestFile, &createInfo, []byte("test"))
 		assert.NoError(t, err)
 
 		// Get the source object info using the Minio API
@@ -368,7 +367,7 @@ func TestCopyObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: DestBucket}, err)
 
 		// Create the destination bucket using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, DestBucket, nil)
+		_, err = m.CreateBucket(ctx, DestBucket, nil)
 		assert.NoError(t, err)
 
 		// Copy the object using the Minio API
@@ -385,7 +384,7 @@ func TestCopyObject(t *testing.T) {
 		}
 
 		// Check that the destination object is uploaded using the Metainfo API
-		obj, err = metainfo.GetObject(ctx, DestBucket, DestFile)
+		obj, err = m.GetObject(ctx, DestBucket, DestFile)
 		if assert.NoError(t, err) {
 			assert.Equal(t, DestFile, obj.Path)
 			assert.Equal(t, DestBucket, obj.Bucket.Name)
@@ -400,7 +399,7 @@ func TestCopyObject(t *testing.T) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when deleting an object from a bucket with empty name
 		err := layer.DeleteObject(ctx, "", "")
 		assert.Equal(t, minio.BucketNameInvalid{}, err)
@@ -410,7 +409,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, nil)
+		_, err = m.CreateBucket(ctx, TestBucket, nil)
 		assert.NoError(t, err)
 
 		// Check the error when deleting an object with empty name
@@ -422,7 +421,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.Equal(t, minio.ObjectNotFound{Bucket: TestBucket, Object: TestFile}, err)
 
 		// Create the object using the Metainfo API
-		_, err = createFile(ctx, metainfo, streams, TestBucket, TestFile, nil, nil)
+		_, err = createFile(ctx, m, strms, TestBucket, TestFile, nil, nil)
 		assert.NoError(t, err)
 
 		// Delete the object info using the Minio API
@@ -430,7 +429,7 @@ func TestDeleteObject(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Check that the object is deleted using the Metainfo API
-		_, err = metainfo.GetObject(ctx, TestBucket, TestFile)
+		_, err = m.GetObject(ctx, TestBucket, TestFile)
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 	})
 }
@@ -456,7 +455,7 @@ func TestListObjectsV2(t *testing.T) {
 }
 
 func testListObjects(t *testing.T, listObjects func(context.Context, minio.ObjectLayer, string, string, string, string, int) ([]string, []minio.ObjectInfo, bool, error)) {
-	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, metainfo storj.Metainfo, streams streams.Store) {
+	runTest(t, func(ctx context.Context, layer minio.ObjectLayer, m storj.Metainfo, strms streams.Store) {
 		// Check the error when listing objects with unsupported delimiter
 		_, err := layer.ListObjects(ctx, TestBucket, "", "", "#", 0)
 		assert.Equal(t, minio.UnsupportedDelimiter{Delimiter: "#"}, err)
@@ -470,7 +469,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket and files using the Metainfo API
-		_, err = metainfo.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
+		_, err = m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
 		assert.NoError(t, err)
 
 		filePaths := []string{
@@ -486,7 +485,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		}
 
 		for _, filePath := range filePaths {
-			file, err := createFile(ctx, metainfo, streams, TestBucket, filePath, &createInfo, []byte("test"))
+			file, err := createFile(ctx, m, strms, TestBucket, filePath, &createInfo, []byte("test"))
 			files[filePath] = file
 			assert.NoError(t, err)
 		}
@@ -649,12 +648,12 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, metainfo, streams, err := initEnv(ctx, planet)
+	layer, m, strms, err := initEnv(ctx, planet)
 	if !assert.NoError(t, err) {
 		return
 	}
 
-	test(ctx, layer, metainfo, streams)
+	test(ctx, layer, m, strms)
 }
 
 func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
@@ -684,7 +683,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.Serialize())
+	m, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey.Serialize())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -700,20 +699,23 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	segments := segments.NewSegmentStore(metainfo, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
+	segments := segments.NewSegmentStore(m, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
 	encKey := new(storj.Key)
 	copy(encKey[:], TestEncKey)
 
 	blockSize := rs.StripeSize()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM)
+	inlineThreshold := 4 * memory.KiB.Int()
+	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	buckets := buckets.NewStore(streams)
-
-	kvmetainfo := kvmetainfo.New(metainfo, buckets, streams, segments, encKey, int32(blockSize), rs, 64*memory.MiB.Int64())
+	p, err := kvmetainfo.SetupProject(m)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	kvm := kvmetainfo.New(p, m, strms, segments, encKey)
 
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {
@@ -733,9 +735,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		return nil, nil, nil, err
 	}
 
-	var projectOptions libuplink.ProjectOptions
-	projectOptions.Volatile.EncryptionKey = encKey
-	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey, &projectOptions)
+	proj, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), parsedAPIKey)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -763,16 +763,16 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	layer, err := gateway.NewGatewayLayer(auth.Credentials{})
 
-	return layer, kvmetainfo, streams, err
+	return layer, kvm, strms, err
 }
 
-func createFile(ctx context.Context, metainfo storj.Metainfo, streams streams.Store, bucket string, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
-	mutableObject, err := metainfo.CreateObject(ctx, bucket, path, createInfo)
+func createFile(ctx context.Context, m storj.Metainfo, strms streams.Store, bucket string, path storj.Path, createInfo *storj.CreateObject, data []byte) (storj.Object, error) {
+	mutableObject, err := m.CreateObject(ctx, bucket, path, createInfo)
 	if err != nil {
 		return storj.Object{}, err
 	}
 
-	err = upload(ctx, streams, mutableObject, bytes.NewReader(data))
+	err = upload(ctx, strms, mutableObject, bytes.NewReader(data))
 	if err != nil {
 		return storj.Object{}, err
 	}

@@ -20,12 +20,12 @@ func TestUserRepository(t *testing.T) {
 	//testing constants
 	const (
 		lastName    = "lastName"
-		email       = "email@ukr.net"
+		email       = "email@mail.test"
 		passValid   = "123456"
 		name        = "name"
 		newName     = "newName"
 		newLastName = "newLastName"
-		newEmail    = "newEmail@ukr.net"
+		newEmail    = "newEmail@mail.test"
 		newPass     = "newPass1234567890123456789012345"
 	)
 
