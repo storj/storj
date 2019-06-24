@@ -411,12 +411,17 @@ func getIP(ctx context.Context, target string) (ip string, err error) {
 
 func getNetwork(ctx context.Context, target string) (network string, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	ip, err := getIP(ctx, target)
+	if err != nil {
+		return "", err
+	}
 
 	addr := net.ParseIP(ip)
 	if addr == nil {
 		return "", errors.New("invalid ip")
 	}
+
 	//Filter all IP Addresses into /24 Subnet's
 	mask := net.CIDRMask(24, 32)
 	return addr.Mask(mask).String(), nil
