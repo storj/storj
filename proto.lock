@@ -1789,6 +1789,19 @@
           },
           {
             "name": "SetAttributionResponse"
+          },
+          {
+            "name": "ProjectInfoRequest"
+          },
+          {
+            "name": "ProjectInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "project_salt",
+                "type": "bytes"
+              }
+            ]
           }
         ],
         "services": [
@@ -1829,6 +1842,11 @@
                 "name": "SetAttribution",
                 "in_type": "SetAttributionRequest",
                 "out_type": "SetAttributionResponse"
+              },
+              {
+                "name": "ProjectInfo",
+                "in_type": "ProjectInfoRequest",
+                "out_type": "ProjectInfoResponse"
               }
             ]
           }
