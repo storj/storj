@@ -111,23 +111,23 @@ func TestLibstorj(t *testing.T) {
 	}
 
 	srcFiles := []string{
-		"bip39.c",
-		"crypto.c",
-		"downloader.c",
-		"http.c",
-		"rs.c",
+		//"bip39.c",
+		//"crypto.c",
+		//"downloader.c",
+		//"http.c",
+		//"rs.c",
 		"storj.c",
-		"uploader.c",
-		"utils.c",
+		//"uploader.c",
+		//"utils.c",
 	}
 	for i, base := range srcFiles {
 		srcFiles[i] = filepath.Join(currentdir, "..", "libstorj", "src", base)
 	}
 
 	testHeaders := []string{
-		"storjtests.h",
-		"mockbridge.json.h",
-		"mockbridgeinfo.json.h",
+		//"storjtests.h",
+		//"mockbridge.json.h",
+		//"mockbridgeinfo.json.h",
 	}
 	for _, headerPath := range testHeaders {
 		libstorjIncludes = append(libstorjIncludes, testcontext.Include{
@@ -136,8 +136,8 @@ func TestLibstorj(t *testing.T) {
 	}
 
 	testFiles := []string{
-		"mockbridge.c",
-		"mockfarmer.c",
+		//"mockbridge.c",
+		//"mockfarmer.c",
 		"tests.c",
 	}
 	for i, base := range testFiles {
@@ -169,7 +169,6 @@ func TestLibstorj(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-			"TMPDIR="+ctx.Dir(""),
 		)
 
 		out, err := cmd.CombinedOutput()
