@@ -6,7 +6,6 @@ package main
 import (
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -66,7 +65,11 @@ func TestC(t *testing.T) {
 			t.Run(testName, func(t *testing.T) {
 				t.Parallel()
 
-				testexe := ctx.CompileC(t, testName, []string{ctest}, libuplink, definition)
+				testexe := ctx.CompileC(t, testcontext.CompileCOptions{
+					Dest:     testName,
+					Sources:  []string{ctest},
+					Includes: []testcontext.Include{libuplink, definition},
+				})
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
 					cmd := exec.Command(testexe)
@@ -102,66 +105,79 @@ func TestLibstorj(t *testing.T) {
 		Header: filepath.Join(currentdir, "uplink_definitions.h"),
 	}
 
-	libstorjHeaders, err := filepath.Glob(filepath.Join(currentdir, "..", "libstorj", "src", "*.h"))
-	require.NoError(t, err)
-
-	testHeaders, err := filepath.Glob(filepath.Join(currentdir, "..", "libstorj", "test", "*.h"))
-	require.NoError(t, err)
-
 	var libstorjIncludes []testcontext.Include
-	for _, headerPath := range append(libstorjHeaders, testHeaders...) {
+	libstorjHeader := testcontext.Include{
+		Header: filepath.Join(currentdir, "..", "libstorj", "src", "storj.h"),
+	}
+
+	srcFiles := []string{
+		"bip39.c",
+		"crypto.c",
+		"downloader.c",
+		"http.c",
+		"rs.c",
+		"storj.c",
+		"uploader.c",
+		"utils.c",
+	}
+	for i, base := range srcFiles {
+		srcFiles[i] = filepath.Join(currentdir, "..", "libstorj", "src", base)
+	}
+
+	testHeaders := []string{
+		"storjtests.h",
+		"mockbridge.json.h",
+		"mockbridgeinfo.json.h",
+	}
+	for _, headerPath := range testHeaders {
 		libstorjIncludes = append(libstorjIncludes, testcontext.Include{
 			Header: headerPath,
 		})
 	}
 
-	libstorjSrc, err := filepath.Glob(filepath.Join("..", "libstorj", "src", "*.c"))
-	require.NoError(t, err)
+	testFiles := []string{
+		"mockbridge.c",
+		"mockfarmer.c",
+		"tests.c",
+	}
+	for i, base := range testFiles {
+		testFiles[i] = filepath.Join(currentdir, "..", "libstorj", "test", base)
+	}
 
-	libstorjTestSrc, err := filepath.Glob(filepath.Join("..", "libstorj", "test", "*.c"))
-	require.NoError(t, err)
+	includes := append([]testcontext.Include{
+		libuplink,
+		definition,
+		testcontext.CLibJSON,
+		testcontext.CLibNettle,
+		testcontext.CLibUV,
+		testcontext.CLibCurl,
+		testcontext.CLibMath,
+		testcontext.CLibMicroHTTPD,
+		libstorjHeader,
+	}, libstorjIncludes...)
 
-	// TODO: remove "tests.c" from `libstorjTestSrc` slice
-	ctests := []string{filepath.Join("..", "libstorj", "test", "tests.c")}
-	require.NoError(t, err)
+	testexe := ctx.CompileC(t, testcontext.CompileCOptions{
+		Dest:     "libstorj",
+		Sources:  append(srcFiles, testFiles...),
+		Includes: includes,
+		NoWarn:   true,
+	})
 
-	t.Run("ALL", func(t *testing.T) {
-		for _, ctest := range ctests {
-			ctest := ctest
-			t.Run(filepath.Base(ctest), func(t *testing.T) {
-				t.Parallel()
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		cmd := exec.Command(testexe)
+		cmd.Dir = filepath.Dir(testexe)
+		cmd.Env = append(os.Environ(),
+			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
+			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+			"TMPDIR="+ctx.Dir(""),
+		)
 
-				srcFiles := append(libstorjSrc, libstorjTestSrc...)
-				includes := append([]testcontext.Include{
-					libuplink,
-					definition,
-					testcontext.CLibJSON,
-					testcontext.CLibNettle,
-					testcontext.CLibUV,
-					testcontext.CLibCurl,
-					testcontext.CLibMath,
-					testcontext.CLibMicroHTTPD,
-				}, libstorjIncludes...)
-
-				testexe := ctx.CompileC(t, path.Base(ctest), srcFiles, includes...)
-
-				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
-					cmd := exec.Command(testexe)
-					cmd.Dir = filepath.Dir(testexe)
-					cmd.Env = append(os.Environ(),
-						"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
-						"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-					)
-
-					out, err := cmd.CombinedOutput()
-					if err != nil {
-						t.Error(string(out))
-						t.Fatal(err)
-					} else {
-						t.Log(string(out))
-					}
-				})
-			})
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Error(string(out))
+			t.Fatal(err)
+		} else {
+			t.Log(string(out))
 		}
 	})
 }
