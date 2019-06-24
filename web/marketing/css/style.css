@@ -168,6 +168,7 @@ input{
 
 .offer-type{
     margin-left:35px;
+    text-transform: uppercase;
 }
 
 .edit-offer{

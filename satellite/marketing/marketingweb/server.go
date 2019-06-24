@@ -52,7 +52,7 @@ type Server struct {
 
 // offerSet provides a separation of marketing offers by type.
 type offerSet struct {
-	RefOffers, FreeCredits []marketing.Offer
+	ReferralOffers, FreeCredits []marketing.Offer
 }
 
 // init safely registers convertStringToTime for the decoder.
@@ -71,7 +71,7 @@ func organizeOffers(offers []marketing.Offer) offerSet {
 			os.FreeCredits = append(os.FreeCredits, offer)
 
 		case marketing.Referral:
-			os.RefOffers = append(os.RefOffers, offer)
+			os.ReferralOffers = append(os.ReferralOffers, offer)
 		}
 
 	}
@@ -250,7 +250,6 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 
 // serveInternalError handles 500 errors and renders err to the internal-server-error template.
 func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, errMsg error) {
-
 	w.WriteHeader(http.StatusInternalServerError)
 
 	if err := s.templates.internalError.ExecuteTemplate(w, "base", errMsg); err != nil {
@@ -260,7 +259,6 @@ func (s *Server) serveInternalError(w http.ResponseWriter, req *http.Request, er
 
 // serveBadRequest handles 400 errors and renders err to the bad-request template.
 func (s *Server) serveBadRequest(w http.ResponseWriter, req *http.Request, errMsg error) {
-
 	w.WriteHeader(http.StatusBadRequest)
 
 	if err := s.templates.badRequest.ExecuteTemplate(w, "base", errMsg); err != nil {
