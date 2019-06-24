@@ -143,10 +143,8 @@ model node (
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )
-	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field uptime_ratio         float64 ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
