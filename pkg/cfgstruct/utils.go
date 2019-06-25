@@ -54,16 +54,28 @@ func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 // PromptForSatellite handles user input for a satellite address to be used with wizards
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
+	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
+
 	_, err := fmt.Print(`
 Pick satellite to use:
-  [1] us-central-1.tardigrade.io
-  [2] europe-west-1.tardigrade.io
-  [3] asia-east-1.tardigrade.io
-Please enter numeric choice or enter satellite address manually [1]: `)
+`)
 	if err != nil {
 		return "", err
 	}
-	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
+
+	for iterator, value := range satellites {
+		_, err := fmt.Printf(`[%d] %s
+`, iterator, value)
+		if err != nil {
+			return "", nil
+		}
+	}
+
+	_, err = fmt.Print(`Please enter numeric choice or enter satellite address manually [1]: `)
+	if err != nil {
+		return "", err
+	}
+
 	var satelliteAddress string
 	n, err := fmt.Scanln(&satelliteAddress)
 	if err != nil {
