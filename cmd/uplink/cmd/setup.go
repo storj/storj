@@ -117,14 +117,14 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
 	_, err := fmt.Print(`
 Pick satellite to use:
-	[1] mars.tardigrade.io
-	[2] jupiter.tardigrade.io
-	[3] saturn.tardigrade.io
+	[1] us-central-1.tardigrade.io
+	[2] europe-west-1.tardigrade.io
+	[3] asia-east-1.tardigrade.io
 Please enter numeric choice or enter satellite address manually [1]: `)
 	if err != nil {
 		return err
 	}
-	satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
+	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
 	var satelliteAddress string
 	n, err := fmt.Scanln(&satelliteAddress)
 	if err != nil {
