@@ -49,6 +49,7 @@ func main() {
 		Mode:       packages.LoadAllSyntax,
 		Env:        os.Environ(),
 		BuildFlags: buildFlags,
+		Tests:      true,
 	}, pkgNames...)
 
 	if err != nil {
@@ -91,8 +92,11 @@ func main() {
 	}
 
 	if !correct {
-		fmt.Fprintln(os.Stderr, "Error: imports are not in the correct order for package/s: ", incorrectPkgs)
-		fmt.Fprintln(os.Stderr, "Correct order should be: std packages -> external packages -> storj.io packages.")
+		fmt.Fprintln(os.Stderr, "Error: imports are not in the correct order for package/s: ")
+		for _, pkg := range incorrectPkgs {
+			fmt.Fprintln(os.Stderr, "\t"+pkg)
+		}
+		fmt.Fprintln(os.Stderr, "Correct order should be: \n\tstd packages -> external packages -> storj.io packages.")
 		os.Exit(1)
 	}
 }
