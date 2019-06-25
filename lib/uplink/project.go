@@ -149,7 +149,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionCtx) (b *Bucket, err error) {
+func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *EncryptionCtx) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
@@ -179,7 +179,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encCtx.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, access.store),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encCtx.store),
 		streams:      streamStore,
 	}, nil
 }

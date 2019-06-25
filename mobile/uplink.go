@@ -117,16 +117,10 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) (*Bu
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (project *Project) OpenBucket(bucketName string, options *BucketAccess) (*Bucket, error) {
+func (project *Project) OpenBucket(bucketName string, encCtx *EncryptionCtx) (*Bucket, error) {
 	scope := project.scope.child()
 
-	opts := libuplink.EncryptionAccess{}
-	if options != nil {
-		copy(opts.Key[:], options.PathEncryptionKey) // TODO: error check
-		opts.EncryptedPathPrefix = options.EncryptedPathPrefix
-	}
-
-	bucket, err := project.lib.OpenBucket(scope.ctx, bucketName, &opts)
+	bucket, err := project.lib.OpenBucket(scope.ctx, bucketName, encCtx.lib)
 	if err != nil {
 		return nil, safeError(err)
 	}
