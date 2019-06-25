@@ -5548,49 +5548,6 @@ func (obj *postgresImpl) Create_UserCredit(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_ValueAttribution_By_BucketName(ctx context.Context,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	value_attribution *ValueAttribution, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE value_attributions.bucket_name = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, value_attribution_bucket_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	value_attribution = &ValueAttribution{}
-	err = __rows.Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ValueAttribution_By_BucketName")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return value_attribution, nil
-
-}
-
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -8975,49 +8932,6 @@ func (obj *sqlite3Impl) Create_UserCredit(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastUserCredit(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Get_ValueAttribution_By_BucketName(ctx context.Context,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	value_attribution *ValueAttribution, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT value_attributions.project_id, value_attributions.bucket_name, value_attributions.partner_id, value_attributions.last_updated FROM value_attributions WHERE value_attributions.bucket_name = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, value_attribution_bucket_name.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.Query(__stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	value_attribution = &ValueAttribution{}
-	err = __rows.Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("ValueAttribution_By_BucketName")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return value_attribution, nil
 
 }
 
@@ -13126,16 +13040,6 @@ func (rx *Rx) Get_User_By_Id(ctx context.Context,
 	return tx.Get_User_By_Id(ctx, user_id)
 }
 
-func (rx *Rx) Get_ValueAttribution_By_BucketName(ctx context.Context,
-	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-	value_attribution *ValueAttribution, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_ValueAttribution_By_BucketName(ctx, value_attribution_bucket_name)
-}
-
 func (rx *Rx) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -13741,10 +13645,6 @@ type Methods interface {
 	Get_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		user *User, err error)
-
-	Get_ValueAttribution_By_BucketName(ctx context.Context,
-		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
-		value_attribution *ValueAttribution, err error)
 
 	Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
