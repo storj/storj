@@ -71,7 +71,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 	}
 
 	if output != os.Stdout {
-		fmt.Println("Generated node usage report for partner attribution")
+		fmt.Println("Generated report for partner attribution")
 	}
 	return errs.Wrap(err)
 }
