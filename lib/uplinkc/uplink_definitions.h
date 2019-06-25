@@ -29,12 +29,14 @@ typedef struct Uploader   { long _handle; } UploaderRef;
 typedef uint8_t UUID[16];
 
 typedef struct UplinkConfig {
-    UUID partner_id;
     struct {
         struct {
+            // TODO: should be snake_case
             bool SkipPeerCAWhitelist;
         } TLS;
+        char *partner_id;
         // TODO: add support for MaxMemory
+    // TODO: `Volatile` should be lower case but it's a reserved word in C
     } Volatile;
 } UplinkConfig;
 
