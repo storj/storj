@@ -4,19 +4,21 @@
 package main
 
 import (
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/satellite/attribution"
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
@@ -57,6 +59,8 @@ func TestC(t *testing.T) {
 		Header: filepath.Join(currentdir, "uplink_definitions.h"),
 	}
 
+	// TODO: combine all C tests into a single test executable
+	//  (NB: a single failing test shouldn't fail the rest)
 	ctests, err := filepath.Glob(filepath.Join("testdata", "*_test.c"))
 	require.NoError(t, err)
 
@@ -113,7 +117,26 @@ func TestCBucketAttribution(t *testing.T) {
 	testexe := ctx.CompileC(t, bucketTest, libuplink, definition)
 
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
-		// TODO: cleanup
+		checkPartnerID := func(expectedID *uuid.UUID) {
+			projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+			require.NoError(t, err)
+			require.Len(t, projects, 1)
+
+			projectID := projects[0].ID
+
+			// TODO: remove duplicated, hard-coded bucket name
+			bucketName := []byte("test-bucket1")
+			attrInfo, err := planet.Satellites[0].DB.Attribution().Get(ctx, projectID, bucketName)
+
+			if expectedID != nil {
+				require.NotNil(t, attrInfo)
+				require.NoError(t, err)
+				assert.Equal(t, attrInfo.PartnerID, *expectedID)
+			} else {
+				assert.True(t, attribution.ErrBucketNotAttributed.Has(err))
+			}
+		}
+
 		{ // no partner id
 			cmd := exec.Command(testexe)
 			cmd.Dir = filepath.Dir(testexe)
@@ -129,16 +152,18 @@ func TestCBucketAttribution(t *testing.T) {
 			}
 			t.Log(string(out))
 
-			// TODO: assert that bucket attribution happened correctly (i.e. check DB)!
+			checkPartnerID(nil)
 		}
 
 		{ // valid partner id
+			partnerID := newUUID()
+
 			cmd := exec.Command(testexe)
 			cmd.Dir = filepath.Dir(testexe)
 			cmd.Env = append(os.Environ(),
 				"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 				"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-				"PARTNER_ID_STR="+newUUID().String(),
+				"PARTNER_ID_STR="+partnerID.String(),
 			)
 
 			out, err := cmd.CombinedOutput()
@@ -148,7 +173,7 @@ func TestCBucketAttribution(t *testing.T) {
 			}
 			t.Log(string(out))
 
-			// TODO: assert that bucket attribution happened correctly (i.e. check DB)!
+			checkPartnerID(&partnerID)
 		}
 	})
 }

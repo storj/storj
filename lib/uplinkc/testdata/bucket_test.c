@@ -22,7 +22,7 @@ void handle_project(ProjectRef project) {
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // TODO: test with different bucket configs
-    { // Create buckets
+    { // Create and open buckets
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
 
@@ -44,6 +44,15 @@ void handle_project(ProjectRef project) {
             require(config.redundancy_scheme.total_shares     == info.redundancy_scheme.total_shares);
 
             free_bucket_info(&info);
+
+            EncryptionAccess access = {{0}};
+            memcpy(&access.key, "hello", 5);
+
+            BucketRef bucket_ref = open_bucket(project, bucket_name, access, err);
+            require_noerror(*err);
+
+            close_bucket(bucket_ref, err);
+            require_noerror(*err);
         }
     }
 
