@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
@@ -38,7 +37,7 @@ func TestDataRepair(t *testing.T) {
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
@@ -58,7 +57,7 @@ func TestDataRepair(t *testing.T) {
 		for _, v := range listResponse {
 			path = v.GetPath()
 			pointer, err = metainfo.Get(ctx, path)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
 			}
@@ -73,8 +72,9 @@ func TestDataRepair(t *testing.T) {
 		// disqualify one storage node
 		toDisqualify := 1
 		toKill := numPieces - (int(minReq+1) + toDisqualify)
+		require.True(t, toKill >= 1)
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
+		require.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32
@@ -103,9 +103,9 @@ func TestDataRepair(t *testing.T) {
 			}
 			if nodesToKill[node.ID()] {
 				err = planet.StopPeer(node)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		}
 
@@ -121,26 +121,26 @@ func TestDataRepair(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		}
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
-		assert.Equal(t, newData, testData)
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
 		pointer, err = metainfo.Get(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
-			assert.False(t, nodesToKill[piece.NodeId])
-			assert.False(t, nodesToDisqualify[piece.NodeId])
+			require.False(t, nodesToKill[piece.NodeId])
+			require.False(t, nodesToDisqualify[piece.NodeId])
 		}
 	})
 }
@@ -163,7 +163,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 
 		testData := make([]byte, 1*memory.MiB)
 		_, err := rand.Read(testData)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
@@ -183,7 +183,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		for _, v := range listResponse {
 			path = v.GetPath()
 			pointer, err = metainfo.Get(ctx, path)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
 			}
@@ -197,7 +197,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		numPieces := len(remotePieces)
 		toDisqualify := numPieces - (int(minReq + 1))
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toDisqualify) >= numPieces)
+		require.True(t, (numStorageNodes-toDisqualify) >= numPieces)
 
 		// disqualify nodes and track lost pieces
 		var lostPieces []int32
@@ -231,25 +231,25 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		for _, node := range planet.StorageNodes {
 			if nodesToKeepAlive[node.ID()] {
 				err = planet.StopPeer(node)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		}
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
-		assert.Equal(t, newData, testData)
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 
-		// updated pointer should not contain any of the killed nodes
+		// updated pointer should not contain any of the disqualified nodes
 		pointer, err = metainfo.Get(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
-			assert.False(t, nodesToDisqualify[piece.NodeId])
+			require.False(t, nodesToDisqualify[piece.NodeId])
 		}
 	})
 }
@@ -274,5 +274,5 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite
 		UptimeDQ:     0.5,
 	})
 	require.NoError(t, err)
-	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
+	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

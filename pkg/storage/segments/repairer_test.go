@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
@@ -73,8 +72,9 @@ func TestSegmentStoreRepair(t *testing.T) {
 		// disqualify one storage node
 		toDisqualify := 1
 		toKill := numPieces - (int(minReq+1) + toDisqualify)
+		require.True(t, toKill >= 1)
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
+		require.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32
@@ -113,10 +113,10 @@ func TestSegmentStoreRepair(t *testing.T) {
 		oc := satellite.Overlay.Service
 		ec := ecclient.NewClient(satellite.Transport, 0)
 		repairer := segments.NewSegmentRepairer(metainfo, os, oc, ec, satellite.Identity, time.Minute)
-		assert.NotNil(t, repairer)
+		require.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// kill one of the nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
@@ -131,17 +131,17 @@ func TestSegmentStoreRepair(t *testing.T) {
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
-		assert.Equal(t, newData, testData)
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
 		pointer, err = metainfo.Get(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
-			assert.False(t, nodesToKill[piece.NodeId])
-			assert.False(t, nodesToDisqualify[piece.NodeId])
+			require.False(t, nodesToKill[piece.NodeId])
+			require.False(t, nodesToDisqualify[piece.NodeId])
 		}
 	})
 }
@@ -166,5 +166,5 @@ func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite
 		UptimeDQ:     0.5,
 	})
 	require.NoError(t, err)
-	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
+	require.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }
