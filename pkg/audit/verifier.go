@@ -320,6 +320,16 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 		go func(pending *PendingAudit, piece *pb.RemotePiece) {
 			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, pending.PieceID, pending.ShareSize)
 			if err != nil {
+				if overlay.ErrNodeDisqualified.Has(err) {
+					_, errDelete := verifier.containment.Delete(ctx, piece.NodeId)
+					if errDelete != nil {
+						verifier.log.Debug("Error deleting disqualified node from containment db", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+						err = errs.Combine(err, errDelete)
+					}
+					ch <- result{nodeID: piece.NodeId, status: erred, err: err}
+					verifier.log.Debug("Reverify: order limit not created (disqualified)", zap.Stringer("Node ID", piece.NodeId))
+					return
+				}
 				if overlay.ErrNodeOffline.Has(err) {
 					ch <- result{nodeID: piece.NodeId, status: offline}
 					verifier.log.Debug("Reverify: order limit not created (offline)", zap.Stringer("Node ID", piece.NodeId))
