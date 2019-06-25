@@ -124,7 +124,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	m, err := metainfo.NewClient(ctx, u.tc, satelliteAddr, apiKey.Serialize())
+	m, err := metainfo.Dial(ctx, u.tc, satelliteAddr, apiKey.Serialize())
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +143,12 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}, nil
 }
 
-// Close closes the Uplink. This may not do anything at present, but should
-// still be called to allow forward compatibility. No Project or Bucket
-// objects using this Uplink should be used after calling Close.
+// Close closes the Project. Opened buckets or objects must not be used after calling Close.
+func (p *Project) Close() error {
+	return p.metainfo.Close()
+}
+
+// Close closes the Uplink. Opened projects, buckets or objects must not be used after calling Close.
 func (u *Uplink) Close() error {
 	return nil
 }

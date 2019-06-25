@@ -147,9 +147,9 @@ func (uplink *Uplink) Local() pb.Node { return uplink.Info }
 func (uplink *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
-func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {
+func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (*metainfo.Client, error) {
 	// TODO: handle disconnect
-	return metainfo.NewClient(ctx, uplink.Transport, destination.Addr(), apikey)
+	return metainfo.Dial(ctx, uplink.Transport, destination.Addr(), apikey)
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.

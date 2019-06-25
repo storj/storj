@@ -24,7 +24,7 @@ import (
 type Project struct {
 	uplinkCfg     *Config
 	tc            transport.Client
-	metainfo      metainfo.Client
+	metainfo      *metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
 }
@@ -199,9 +199,4 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encStore),
 		streams:      streamStore,
 	}, nil
-}
-
-// Close closes the Project.
-func (p *Project) Close() error {
-	return nil
 }
