@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -98,7 +99,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		// repair segment
 		os := satellite.Orders.Service
 		oc := satellite.Overlay.Service
-		ec := ecclient.NewClient(satellite.Transport, 0)
+		ec := ecclient.NewClient(zap.L(), satellite.Transport, 0)
 		repairer := segments.NewSegmentRepairer(metainfo, os, oc, ec, satellite.Identity, time.Minute)
 		assert.NotNil(t, repairer)
 
