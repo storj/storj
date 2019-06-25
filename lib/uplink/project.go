@@ -144,6 +144,8 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 	return b, cfg, nil
 }
 
+// TODO: move the bucket related OpenBucket to bucket.go
+
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {

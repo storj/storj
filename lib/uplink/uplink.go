@@ -120,6 +120,8 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	}, nil
 }
 
+// TODO: move the project related OpenProject and Close to project.go
+
 // OpenProject returns a Project handle with the given APIKey
 func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey APIKey) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
