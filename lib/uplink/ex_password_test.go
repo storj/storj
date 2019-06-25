@@ -54,20 +54,20 @@ func CreateEncryptionKeyExample_Admin1(ctx context.Context, satelliteAddress, ap
 	}
 
 	// Create a bucket
-	_, err = p.CreateBucket(ctx, "testbucket", nil)
+	_, err = p.CreateBucket(ctx, "prod", nil)
 	if err != nil {
 		return "", err
 	}
 
 	// Open bucket
-	bucket, err := p.OpenBucket(ctx, "testbucket", encCtx)
+	bucket, err := p.OpenBucket(ctx, "prod", encCtx)
 	if err != nil {
 		return "", err
 	}
 	defer errCatch(bucket.Close)
 
 	// Upload a file
-	err = bucket.UploadObject(ctx, "my/object", strings.NewReader("hello world"), nil)
+	err = bucket.UploadObject(ctx, "webserver/logs/log.txt", strings.NewReader("hello world"), nil)
 	if err != nil {
 		return "", err
 	}
@@ -106,14 +106,14 @@ func CreateEncryptionKeyExample_Admin2(ctx context.Context, satelliteAddress, ap
 	}
 
 	// Open bucket
-	bucket, err := p.OpenBucket(ctx, "testbucket", encCtx)
+	bucket, err := p.OpenBucket(ctx, "prod", encCtx)
 	if err != nil {
 		return err
 	}
 	defer errCatch(bucket.Close)
 
 	// Open file
-	obj, err := bucket.OpenObject(ctx, "my/object")
+	obj, err := bucket.OpenObject(ctx, "webserver/logs/log.txt")
 	if err != nil {
 		return err
 	}

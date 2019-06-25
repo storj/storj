@@ -42,8 +42,8 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 	// Restrict the encryption context to just the prod and staging buckets
 	// for webserver/logs/
 	userAPIKey, userEncCtx, err := encCtx.Restrict(userAPIKey,
-		uplink.EncryptionRestriction{Bucket: "prod", PathPrefix: "webserver/logs/"},
-		uplink.EncryptionRestriction{Bucket: "staging", PathPrefix: "webserver/logs/"},
+		uplink.EncryptionRestriction{Bucket: "prod", PathPrefix: "webserver/logs"},
+		uplink.EncryptionRestriction{Bucket: "staging", PathPrefix: "webserver/logs"},
 	)
 	if err != nil {
 		return "", "", err
@@ -55,6 +55,7 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 		return "", "", err
 	}
 
+	fmt.Fprintln(out, "success!")
 	return userAPIKey.Serialize(), serializedUserEncCtx, nil
 }
 
