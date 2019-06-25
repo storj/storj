@@ -148,7 +148,6 @@ func (uplink *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
 func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (*metainfo.Client, error) {
-	// TODO: handle disconnect
 	return metainfo.Dial(ctx, uplink.Transport, destination.Addr(), apikey)
 }
 

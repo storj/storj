@@ -44,9 +44,9 @@ type ListItem struct {
 }
 
 // New used as a public function
-func New(gcclient pb.MetainfoClient) *Client {
+func New(client pb.MetainfoClient) *Client {
 	return &Client{
-		client: gcclient,
+		client: client,
 	}
 }
 
