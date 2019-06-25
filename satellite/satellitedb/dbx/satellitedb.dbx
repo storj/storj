@@ -15,12 +15,6 @@ delete value_attribution (
 	where value_attribution.project_id = ?
 	where value_attribution.bucket_name = ?
 )
-
-read one (
-    select value_attribution
-	where value_attribution.bucket_name = ?
-)
-
 read one (
     select value_attribution
 	where value_attribution.project_id = ?
