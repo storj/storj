@@ -65,7 +65,7 @@ Pick satellite to use:
 
 	for iterator, value := range satellites {
 		_, err := fmt.Printf(`[%d] %s
-`, iterator, value)
+`, iterator+1, value)
 		if err != nil {
 			return "", nil
 		}
