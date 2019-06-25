@@ -21,50 +21,59 @@ import (
 	"storj.io/storj/satellite/satellitedb"
 )
 
+var headers = []string{
+	"projectID",
+	"bucketName",
+	"byte-hours:Remote",
+	"byte-hours:Inline",
+	"bytes:BWEgress",
+}
+
 // GenerateAttributionCSV creates a report with
 func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
-	db, err := satellitedb.New(zap.L().Named("db"), database)
+	log := zap.L().Named("db")
+	db, err := satellitedb.New(log, database)
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
+		if err != nil {
+			log.Sugar().Errorf("error closing satellite DB connection after retrieving partner value attribution data: %+v", err)
+		}
 	}()
 
 	rows, err := db.Attribution().QueryAttribution(ctx, partnerID, start, end)
 	if err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	w := csv.NewWriter(output)
-	headers := []string{
-		"projectID",
-		"bucketName",
-		"byte-hours:Remote",
-		"byte-hours:Inline",
-		"bytes:BWEgress",
-	}
+	defer func() {
+		w.Flush()
+	}()
+
 	if err := w.Write(headers); err != nil {
-		return err
+		return errs.Wrap(err)
 	}
 
 	for _, row := range rows {
 		record, err := csvRowToStringSlice(row)
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 		if err := w.Write(record); err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 	}
 	if err := w.Error(); err != nil {
-		return err
+		return errs.Wrap(err)
 	}
-	w.Flush()
+
 	if output != os.Stdout {
 		fmt.Println("Generated node usage report for partner attribution")
 	}
-	return err
+	return errs.Wrap(err)
 }
 
 func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {

@@ -246,7 +246,7 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 
 func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 	ctx := process.Ctx(cmd)
-
+	log := zap.L().Named("satellite-cli")
 	// Parse the UUID
 	partnerID, err := uuid.Parse(args[0])
 	if err != nil {
@@ -281,6 +281,9 @@ func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
 
 	defer func() {
 		err = errs.Combine(err, file.Close())
+		if err != nil {
+			log.Sugar().Errorf("error closing the file %v after retrieving partner value attribution data: %+v", partnerAttribtionCfg.Output, err)
+		}
 	}()
 
 	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, file)
