@@ -67,6 +67,13 @@ func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) 
 	return m.db.Insert(ctx, info)
 }
 
+// QueryAttribution queries partner bucket value attribution data
+func (m *lockedAttribution) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*attribution.CSVRow, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryAttribution(ctx, partnerID, start, end)
+}
+
 // CertDB returns database for storing uplink's public key & ID
 func (m *locked) CertDB() certdb.DB {
 	m.Lock()
