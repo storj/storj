@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package cfgstruct
+package wizard
 
 import (
 	"bytes"
@@ -56,22 +56,19 @@ func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	satellites := []string{"us-central-1.tardigrade.io", "europe-west-1.tardigrade.io", "asia-east-1.tardigrade.io"}
 
-	_, err := fmt.Print(`
-Pick satellite to use:
-`)
+	_, err := fmt.Print("Pick a satellite to use:\n")
 	if err != nil {
 		return "", err
 	}
 
 	for iterator, value := range satellites {
-		_, err := fmt.Printf(`[%d] %s
-`, iterator+1, value)
+		_, err := fmt.Printf("\t[%d] %s\n", iterator+1, value)
 		if err != nil {
 			return "", nil
 		}
 	}
 
-	_, err = fmt.Print(`Please enter numeric choice or enter satellite address manually [1]: `)
+	_, err = fmt.Print("Please enter numeric choice or enter satellite address manually [1]: ")
 	if err != nil {
 		return "", err
 	}
