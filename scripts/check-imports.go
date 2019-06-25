@@ -49,6 +49,7 @@ func main() {
 		Mode:       packages.LoadAllSyntax,
 		Env:        os.Environ(),
 		BuildFlags: buildFlags,
+		Tests:      true,
 	}, pkgNames...)
 
 	if err != nil {
@@ -85,19 +86,30 @@ func main() {
 	incorrectPkgs := []string{}
 	for _, pkg := range pkgs {
 		if !correctPackage(pkg) {
-			incorrectPkgs = append(incorrectPkgs, pkg.String())
+			incorrectPkgs = append(incorrectPkgs, pkg.PkgPath)
 			correct = false
 		}
 	}
 
 	if !correct {
-		fmt.Fprintln(os.Stderr, "Error: imports are not in the correct order for package/s: ", incorrectPkgs)
-		fmt.Fprintln(os.Stderr, "Correct order should be: std packages -> external packages -> storj.io packages.")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Error: imports are not in the correct order for package/s: ")
+		for _, pkg := range incorrectPkgs {
+			fmt.Fprintln(os.Stderr, "\t"+pkg)
+		}
+
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Correct order should be: \n\tstd packages -> external packages -> storj.io packages.")
 		os.Exit(1)
 	}
 }
 
 func correctPackage(pkg *packages.Package) bool {
+	// ignore generated test binaries
+	if strings.HasSuffix(pkg.ID, ".test") {
+		return true
+	}
+
 	correct := true
 	for i, file := range pkg.Syntax {
 		path := pkg.CompiledGoFiles[i]
@@ -160,6 +172,7 @@ func correctOrder(specgroups [][]ast.Spec) bool {
 		}
 		specgroups = specgroups[1:]
 	}
+
 	if len(specgroups) == 0 {
 		return true
 	}
@@ -182,7 +195,18 @@ func correctOrder(specgroups [][]ast.Spec) bool {
 	}
 
 	std, other, storj = countGroup(specgroups[0])
-	return other > 0 && std+storj == 0
+	return other >= 0 && std+storj == 0
+}
+
+func printAll(groups [][]ast.Spec) {
+	defer fmt.Println("---")
+	for i, group := range groups {
+		fmt.Println("===", i)
+		for _, imp := range group {
+			imp := imp.(*ast.ImportSpec)
+			fmt.Println("\t", imp.Path.Value)
+		}
+	}
 }
 
 func countGroup(p []ast.Spec) (std, other, storj int) {

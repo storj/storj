@@ -96,6 +96,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		ReadSegmentAllowed   bool
 		DeleteSegmentAllowed bool
 		ListSegmentsAllowed  bool
+		ReadBucketAllowed    bool
 	}{
 		{ // Everything disallowed
 			Caveat: macaroon.Caveat{
@@ -104,6 +105,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 				DisallowLists:   true,
 				DisallowDeletes: true,
 			},
+			ReadBucketAllowed: true,
 		},
 
 		{ // Read only
@@ -114,6 +116,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 			SegmentInfoAllowed:  true,
 			ReadSegmentAllowed:  true,
 			ListSegmentsAllowed: true,
+			ReadBucketAllowed:   true,
 		},
 
 		{ // Write only
@@ -124,6 +127,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 			CreateSegmentAllowed: true,
 			CommitSegmentAllowed: true,
 			DeleteSegmentAllowed: true,
+			ReadBucketAllowed:    true,
 		},
 
 		{ // Bucket restriction
@@ -141,6 +145,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 					EncryptedPathPrefix: []byte("otherpath"),
 				}},
 			},
+			ReadBucketAllowed: true,
 		},
 
 		{ // Time restriction after
@@ -181,6 +186,8 @@ func TestRestrictedAPIKey(t *testing.T) {
 		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
+		_, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
+		assertUnauthenticated(t, err, test.ReadBucketAllowed)
 	}
 }
 
