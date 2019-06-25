@@ -4,15 +4,20 @@
 package audit_test
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -102,4 +107,113 @@ func calcReputation(dossier *overlay.NodeDossier) float64 {
 	)
 
 	return alpha / (alpha + beta)
+}
+
+func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
+
+	// - uploads random data
+	// - mark a node as disqualified
+	// - check we don't get it when we require order limit
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+
+		err := satellite.Audit.Service.Close()
+		require.NoError(t, err)
+
+		testData := make([]byte, 8*memory.KiB)
+		_, err = rand.Read(testData)
+		require.NoError(t, err)
+
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
+
+		encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
+		cipher := encScheme.Cipher
+		encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, "testbucket/test/path", cipher, &storj.Key{})
+		require.NoError(t, err)
+
+		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", encryptedAfterBucket)
+		pointer, err := satellite.Metainfo.Service.Get(ctx, lastSegPath)
+		require.NoError(t, err)
+
+		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
+		disqualifyNode(t, ctx, satellite, disqualifiedNode)
+
+		limits, err := satellite.Orders.Service.CreateGetOrderLimits(ctx, upl.Identity.PeerIdentity(), bucketID, pointer)
+		require.NoError(t, err)
+		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
+
+		for _, orderLimit := range limits {
+			assert.False(t, isDisqualified(t, ctx, satellite, orderLimit.Limit.StorageNodeId))
+			assert.NotEqual(t, orderLimit.Limit.StorageNodeId, disqualifiedNode)
+		}
+	})
+}
+
+func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
+
+	// - mark a node as disqualified
+	// - check that we have an error if we try to create a segment using all storage nodes
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		disqualifiedNode := planet.StorageNodes[0]
+
+		err := satellite.Audit.Service.Close()
+		require.NoError(t, err)
+
+		disqualifyNode(t, ctx, satellite, disqualifiedNode.ID())
+
+		request := overlay.FindStorageNodesRequest{
+			MinimumRequiredNodes: 4,
+			RequestedCount:       0,
+			FreeBandwidth:        0,
+			FreeDisk:             0,
+			ExcludedNodes:        nil,
+			MinimumVersion:       "", // semver or empty
+		}
+		nodes, err := satellite.Overlay.Service.FindStorageNodes(ctx, request)
+		assert.True(t, overlay.ErrNotEnoughNodes.Has(err))
+
+		assert.Len(t, nodes, 3)
+		for _, node := range nodes {
+			assert.False(t, isDisqualified(t, ctx, satellite, node.Id))
+			assert.NotEqual(t, node.Id, disqualifiedNode)
+		}
+
+	})
+}
+
+func isDisqualified(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) bool {
+	node, err := satellite.Overlay.Service.Get(ctx, nodeID)
+	require.NoError(t, err)
+
+	return node.Disqualified != nil
+}
+func disqualifyNode(t *testing.T, ctx *testcontext.Context, satellite *satellite.Peer, nodeID storj.NodeID) {
+	_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		NodeID:       nodeID,
+		IsUp:         true,
+		AuditSuccess: false,
+		AuditLambda:  0,
+		AuditWeight:  1,
+		AuditDQ:      0.5,
+		UptimeLambda: 1,
+		UptimeWeight: 1,
+		UptimeDQ:     0.5,
+	})
+	require.NoError(t, err)
+	assert.True(t, isDisqualified(t, ctx, satellite, nodeID))
 }

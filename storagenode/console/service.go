@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
@@ -17,6 +18,8 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/pieces"
 )
+
+var mon = monkit.Package()
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
@@ -69,6 +72,7 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 
 	return &Service{
 		log:                log,
+		consoleDB:          consoleDB,
 		bandwidthDB:        bandwidth,
 		pieceInfoDB:        pieceInfo,
 		kademlia:           kademlia,
@@ -82,7 +86,9 @@ func NewService(log *zap.Logger, consoleDB DB, bandwidth bandwidth.DB, pieceInfo
 }
 
 // GetUsedBandwidthTotal returns all info about storage node bandwidth usage
-func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (*BandwidthInfo, error) {
+func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (_ *BandwidthInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	usage, err := bandwidth.TotalMonthlySummary(ctx, s.bandwidthDB)
 	if err != nil {
 		return nil, err
@@ -93,6 +99,8 @@ func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (*BandwidthInfo, er
 
 // GetBandwidthBySatellite returns all info about storage node bandwidth usage by satellite
 func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *BandwidthInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	summaries, err := s.bandwidthDB.SummaryBySatellite(ctx, time.Time{}, time.Now())
 	if err != nil {
 		return nil, err
@@ -103,7 +111,9 @@ func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj
 }
 
 // GetUsedStorageTotal returns all info about storagenode disk space usage
-func (s *Service) GetUsedStorageTotal(ctx context.Context) (*DiskSpaceInfo, error) {
+func (s *Service) GetUsedStorageTotal(ctx context.Context) (_ *DiskSpaceInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	spaceUsed, err := s.pieceInfoDB.SpaceUsed(ctx)
 	if err != nil {
 		return nil, err
@@ -113,7 +123,9 @@ func (s *Service) GetUsedStorageTotal(ctx context.Context) (*DiskSpaceInfo, erro
 }
 
 // GetUsedStorageBySatellite returns all info about storagenode disk space usage
-func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (*DiskSpaceInfo, error) {
+func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *DiskSpaceInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	spaceUsed, err := s.pieceInfoDB.SpaceUsedBySatellite(ctx, satelliteID)
 	if err != nil {
 		return nil, err
@@ -122,32 +134,43 @@ func (s *Service) GetUsedStorageBySatellite(ctx context.Context, satelliteID sto
 	return &DiskSpaceInfo{Available: s.allocatedDiskSpace.Int64() - spaceUsed, Used: spaceUsed}, nil
 }
 
-// GetWalletNumber return wallet number of node operator
-func (s *Service) GetWalletNumber(ctx context.Context) string {
+// GetWalletAddress return wallet address of node operator
+func (s *Service) GetWalletAddress(ctx context.Context) string {
+	defer mon.Task()(&ctx)(nil)
+
 	return s.walletAddress
 }
 
 // GetUptime return wallet number of node operator
 func (s *Service) GetUptime(ctx context.Context) time.Duration {
+	defer mon.Task()(&ctx)(nil)
+
 	return time.Now().Sub(s.startedAt)
 }
 
 // GetNodeID return current node id
 func (s *Service) GetNodeID(ctx context.Context) storj.NodeID {
+	defer mon.Task()(&ctx)(nil)
+
 	return s.kademlia.Local().Id
 }
 
 // GetVersion return current node version
 func (s *Service) GetVersion(ctx context.Context) version.Info {
+	defer mon.Task()(&ctx)(nil)
 	return s.versionInfo
 }
 
 // CheckVersion checks to make sure the version is still okay, returning an error if not
-func (s *Service) CheckVersion(ctx context.Context) error {
+func (s *Service) CheckVersion(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return s.version.CheckVersion(ctx)
 }
 
 // GetSatellites used to retrieve satellites list
 func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
 }
