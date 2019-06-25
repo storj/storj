@@ -19,6 +19,13 @@ import (
 	"storj.io/storj/uplink"
 )
 
+// TestDataRepair does the following:
+// - Uploads test data to 7 nodes
+// - Kills 2 nodes and disqualifies 1
+// - Triggers data repair, which repairs the data from the remaining 4 nodes to additional 3 new nodes
+// - Shuts down the 4 nodes from which the data was repaired
+// - Now we have just the 3 new nodes to which the data was repaired
+// - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
 func TestDataRepair(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -145,6 +152,13 @@ func TestDataRepair(t *testing.T) {
 	})
 }
 
+// TestRepairMultipleDisqualified does the following:
+// - Uploads test data to 7 nodes
+// - Disqualifies 3 nodes
+// - Triggers data repair, which repairs the data from the remaining 4 nodes to additional 3 new nodes
+// - Shuts down the 4 nodes from which the data was repaired
+// - Now we have just the 3 new nodes to which the data was repaired
+// - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
 func TestRepairMultipleDisqualified(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
