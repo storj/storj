@@ -75,7 +75,7 @@ var (
 )
 
 // GetMetainfo returns an implementation of storj.Metainfo
-func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
+func (c Config) GetMetainfo(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tlsOpts, err := tlsopts.NewOptions(identity, c.TLS)
@@ -105,7 +105,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create project: %v", err)
 	}
 
-	ec := ecclient.NewClient(zap.L(), tc, c.RS.MaxBufferMem.Int())
+	ec := ecclient.NewClient(log, tc, c.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
 	if err != nil {
 		return nil, nil, Error.New("failed to create erasure coding client: %v", err)
