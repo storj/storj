@@ -72,7 +72,7 @@ func TestDataRepair(t *testing.T) {
 		numPieces := len(remotePieces)
 		toKill := numPieces - (int(minReq) + 1)
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill) >= numPieces)
+		require.True(t, (numStorageNodes-toKill) >= numPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32
@@ -118,12 +118,12 @@ func TestDataRepair(t *testing.T) {
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
-		assert.Equal(t, newData, testData)
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
 		pointer, err = metainfo.Get(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
