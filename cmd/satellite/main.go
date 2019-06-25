@@ -65,10 +65,10 @@ var (
 		RunE:  cmdNodeUsage,
 	}
 	partnerAttributionCmd = &cobra.Command{
-		Use:   "partner-attribution [start] [end]",
+		Use:   "partner-attribution [partner ID] [start] [end]",
 		Short: "Generate a partner attribution report for a given period to use for payments",
 		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD",
-		Args:  cobra.MinimumNArgs(2),
+		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
 

@@ -31,7 +31,6 @@ type CSVRow struct {
 	RemoteBytesPerHour float64
 	InlineBytesPerHour float64
 	EgressData         int64
-	LastUpdated        time.Time
 }
 
 // DB implements the database for value attribution table
