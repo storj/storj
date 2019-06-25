@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -67,16 +68,16 @@ func TestOnlyInline(t *testing.T) {
 		tallySvc := planet.Satellites[0].Accounting.Tally
 		uplink := planet.Uplinks[0]
 
-		ps, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		projects, err1 := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		if err1 != nil {
 			assert.NoError(t, err1)
 		}
-		project := ps[0]
-		projectID := []byte(project.ID.String())
+		projectID, err := uuid.Parse(projects[0].ID.String())
+		require.NoError(t, err)
 
 		// Setup: create data for the uplink to upload
 		expectedData := make([]byte, 1*memory.KiB)
-		_, err := rand.Read(expectedData)
+		_, err = rand.Read(expectedData)
 		require.NoError(t, err)
 
 		// Setup: get the expected size of the data that will be stored in pointer
@@ -90,7 +91,7 @@ func TestOnlyInline(t *testing.T) {
 		expectedBucketName := "testbucket"
 		expectedTally := accounting.BucketTally{
 			BucketName:     []byte(expectedBucketName),
-			ProjectID:      projectID,
+			ProjectID:      projectID[:],
 			Segments:       1,
 			InlineSegments: 1,
 			Files:          1,
@@ -99,6 +100,8 @@ func TestOnlyInline(t *testing.T) {
 			InlineBytes:    int64(expectedTotalBytes),
 			MetadataSize:   111, // brittle, this is hardcoded since its too difficult to get this value progamatically
 		}
+		// The projectID should be the 16 bytes uuid representation, not 36 byte string representation
+		assert.Equal(t, 16, len(projectID[:]))
 
 		// Execute test: upload a file, then calculate at rest data
 		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
@@ -164,18 +167,18 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 func TestCalculateBucketAtRestData(t *testing.T) {
 	var testCases = []struct {
 		name         string
-		projectID    string
+		project      string
 		segmentIndex string
 		bucketName   string
 		objectName   string
 		inline       bool
 		last         bool
 	}{
-		{"bucket, no objects", "mockProjectID", "", "mockBucketName", "", true, false},
-		{"inline, same project, same bucket", "mockProjectID", "l", "mockBucketName", "mockObjectName", true, true},
-		{"remote, same project, same bucket", "mockProjectID", "s0", "mockBucketName", "mockObjectName1", false, false},
-		{"last segment, same project, different bucket", "mockProjectID", "l", "mockBucketName1", "mockObjectName2", false, true},
-		{"different project", "mockProjectID1", "s0", "mockBucketName", "mockObjectName", false, false},
+		{"bucket, no objects", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "", "mockBucketName", "", true, false},
+		{"inline, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName", "mockObjectName", true, true},
+		{"remote, same project, same bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "s0", "mockBucketName", "mockObjectName1", false, false},
+		{"last segment, same project, different bucket", "9656af6e-2d9c-42fa-91f2-bfd516a722d7", "l", "mockBucketName1", "mockObjectName2", false, true},
+		{"different project", "9656af6e-2d9c-42fa-91f2-bfd516a722d1", "s0", "mockBucketName", "mockObjectName", false, false},
 	}
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
@@ -187,24 +190,26 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 			tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
 
 			t.Run(tt.name, func(t *testing.T) {
+				projectID, err := uuid.Parse(tt.project)
+				require.NoError(t, err)
 
 				// setup: create a pointer and save it to pointerDB
 				pointer, _ := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
 				metainfo := satellitePeer.Metainfo.Service
-				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.projectID, tt.segmentIndex, tt.bucketName, tt.objectName)
+				objectPath := fmt.Sprintf("%s/%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName, tt.objectName)
 				if tt.objectName == "" {
-					objectPath = fmt.Sprintf("%s/%s/%s", tt.projectID, tt.segmentIndex, tt.bucketName)
+					objectPath = fmt.Sprintf("%s/%s/%s", tt.project, tt.segmentIndex, tt.bucketName)
 				}
-				err := metainfo.Put(ctx, objectPath, pointer)
+				err = metainfo.Put(ctx, objectPath, pointer)
 				require.NoError(t, err)
 
 				// setup: create expected bucket tally for the pointer just created, but only if
 				// the pointer was for an object and not just for a bucket
 				if tt.objectName != "" {
-					bucketID := fmt.Sprintf("%s/%s", tt.projectID, tt.bucketName)
+					bucketID := fmt.Sprintf("%s/%s", tt.project, tt.bucketName)
 					newTally := addBucketTally(expectedBucketTallies[bucketID], tt.inline, tt.last)
 					newTally.BucketName = []byte(tt.bucketName)
-					newTally.ProjectID = []byte(tt.projectID)
+					newTally.ProjectID = projectID[:]
 					expectedBucketTallies[bucketID] = newTally
 				}
 
