@@ -93,10 +93,11 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	m, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
+	m, err := metainfo.Dial(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
 	}
+	// TODO: handle closing of m
 
 	project, err := kvmetainfo.SetupProject(m)
 	if err != nil {

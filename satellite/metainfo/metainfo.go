@@ -258,9 +258,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if req.Pointer.Type == pb.Pointer_INLINE {
-		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		// TODO or maybe use pointer.SegmentSize ??
-		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
+		err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(req.Pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -326,7 +325,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	if pointer.Type == pb.Pointer_INLINE {
 		// TODO or maybe use pointer.SegmentSize ??
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucketID, int64(len(pointer.InlineSegment)))
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
