@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -116,17 +117,17 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 // or to a default path whose directory tree exists.
 func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
 
-	satelliteAddress, err := cfgstruct.PromptForSatellite(cmd)
+	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return err
 	}
 
-	apiKey, err := cfgstruct.PromptForAPIKey()
+	apiKey, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return err
 	}
 
-	humanReadableKey, err := cfgstruct.PromptForEncryptionKey()
+	humanReadableKey, err := wizard.PromptForEncryptionKey()
 	if err != nil {
 		return err
 	}
