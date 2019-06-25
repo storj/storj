@@ -18,7 +18,7 @@ type SlowDB struct {
 	blobs *SlowBlobs
 }
 
-// NewSlowDB creates a new slow storage node DB wrapping apping the provided db.
+// NewSlowDB creates a new slow storage node DB wrapping the provided db.
 // When the Slow method is called, all piece operations are delayed with the
 // provided duration.
 func NewSlowDB(db storagenode.DB, latency time.Duration) *SlowDB {
