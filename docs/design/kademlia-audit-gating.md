@@ -32,7 +32,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 **Node Neighborhood** - *The k-closest nodes to self where distance is measured by XOR. A node is within the node neighborhood if it is closer than the furthest node in the neighborhood. The vetted node neighborhood is the k-closest nodes that are currently in the Routing Table.*
 
-<img src="./kad-audit.jpg" alt="node neighborhood" width="500"/>
+<img src="./images/kademlia-audit-gating.jpg" alt="node neighborhood" width="500"/>
 
 ## Design
 
@@ -42,6 +42,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
    - Audit success ratio and uptime count thresholds are per-satellite
    - The vouchers issued by the satellite should have an expiration on them (tunable by satellite)
    - Nodes are expected to get up to date vouchers
+
 ```go
    // Satellite
    // IsVetted returns whether or not the node reaches reputable thresholds
@@ -50,12 +51,12 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
    // Storagenode
    // DB implements storing and retrieving vouchers
    type DB interface {
-   // Put inserts or updates a voucher from a satellite
-   Put(context.Context, *pb.Voucher) error
-   // GetExpiring retrieves all vouchers that are expired or about to expire
-   GetExpiring(context.Context) ([]storj.NodeID, error)
-   // GetValid returns one valid voucher from the list of approved satellites
-   GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
+      // Put inserts or updates a voucher from a satellite
+      Put(context.Context, *pb.Voucher) error
+      // GetExpiring retrieves all vouchers that are expired or about to expire
+      GetExpiring(context.Context) ([]storj.NodeID, error)
+      // GetValid returns one valid voucher from the list of approved satellites
+      GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
    }
 ```
 
