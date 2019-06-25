@@ -168,6 +168,7 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
 
+	// TODO(leak): unclear ownership semantics
 	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
 }
 
