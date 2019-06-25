@@ -220,10 +220,5 @@ func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string)
 		return Error.Wrap(err)
 	}
 
-	err = p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
 }

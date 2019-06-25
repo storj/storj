@@ -60,6 +60,13 @@ func (m *lockedAttribution) Get(ctx context.Context, projectID uuid.UUID, bucket
 	return m.db.Get(ctx, projectID, bucketName)
 }
 
+// Get retrieves attribution info using project id and bucket name.
+func (m *lockedAttribution) GetByBucket(ctx context.Context, bucketName []byte) (*attribution.Info, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByBucket(ctx, bucketName)
+}
+
 // Insert creates and stores new Info
 func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) (*attribution.Info, error) {
 	m.Lock()

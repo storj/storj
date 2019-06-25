@@ -118,6 +118,21 @@ type attributionDB struct {
 	db *dbx.DB
 }
 
+// GetByBucket retrieves attribution info using bucket name.
+func (keys *attributionDB) GetByBucket(ctx context.Context, bucketName []byte) (info *attribution.Info, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxInfo, err := keys.db.Get_ValueAttribution_By_BucketName(ctx, dbx.ValueAttribution_BucketName(bucketName))
+	if err == sql.ErrNoRows {
+		return nil, attribution.ErrBucketNotAttributed.New(string(bucketName))
+	}
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return attributionFromDBX(dbxInfo)
+}
+
 // Get reads the partner info
 func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (info *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)

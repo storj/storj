@@ -81,12 +81,16 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			partnerID, err := createPartnerID()
 			require.NoError(t, err)
 
+			db := planet.Satellites[0].DB.Attribution()
+			_, err = db.GetByBucket(ctx, []byte(bucketName))
+			require.Error(t, err)
+
 			// partner ID set
 			proj.uplinkCfg.Volatile.PartnerID = partnerID
 			got, err := proj.OpenBucket(ctx, bucketName, &access)
 			require.NoError(t, err)
 
-			got, err = proj.OpenBucket(ctx, bucketName, &access)
+			_, err = db.GetByBucket(ctx, []byte(bucketName))
 			require.NoError(t, err)
 
 			// partner ID NOT set
