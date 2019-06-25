@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/macaroon"
 )
 
-func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (userAPIKey_ string, serializedEncCtx_ string, err error) {
+func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (serializedUserAPIKey string, serializedEncCtx string, err error) {
 	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {

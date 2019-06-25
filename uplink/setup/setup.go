@@ -17,7 +17,9 @@ import (
 )
 
 var (
-	mon   = monkit.Package()
+	mon = monkit.Package()
+
+	// Error is the class of errors returned by this package
 	Error = errs.Class("uplink setup")
 )
 

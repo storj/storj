@@ -6,14 +6,10 @@ package uplink
 import (
 	"time"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
-
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 )
-
-var mon = monkit.Package()
 
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
