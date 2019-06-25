@@ -163,7 +163,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -310,7 +310,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -396,13 +396,13 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
 			continue
 		}
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -557,7 +557,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
