@@ -151,13 +151,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			continue
 		}
 
-		if node != nil {
-			err := Error.New("invalid node")
-			service.log.Error("got empty node from cache", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
@@ -301,13 +294,6 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			continue
 		}
 
-		if node != nil {
-			err := Error.New("invalid node")
-			service.log.Error("got empty node from cache", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
@@ -395,12 +381,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
-		if node != nil {
-			err := Error.New("invalid node")
-			service.log.Error("got empty node from cache", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
 
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
@@ -472,11 +452,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 	node, err := service.cache.Get(ctx, nodeID)
 	if err != nil {
 		return nil, Error.Wrap(err)
-	}
-	if node != nil {
-		err := Error.New("invalid node")
-		service.log.Error("got empty node from cache", zap.Error(err))
-		return nil, err
 	}
 
 	if node.Disqualified != nil {
@@ -550,13 +525,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
 			service.log.Error("error getting node from the overlay cache", zap.Error(err))
-			combinedErrs = errs.Combine(combinedErrs, err)
-			continue
-		}
-
-		if node != nil {
-			err := Error.New("invalid node")
-			service.log.Error("got empty node from cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
