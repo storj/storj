@@ -196,7 +196,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 	})
 }
 
-func TestDisqualifiedNodesRemainsDisqualified(t *testing.T) {
+func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 	// - mark a node as disqualified
 	// - give it high uptime and audit rate
@@ -213,7 +213,7 @@ func TestDisqualifiedNodesRemainsDisqualified(t *testing.T) {
 		disqualifiedNode := planet.StorageNodes[0]
 		disqualifyNode(t, ctx, satellite, disqualifiedNode.ID())
 
-		_, err = satellite.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 1, 1, 1)
+		_, err = satellite.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 0, 1, 0)
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellite, disqualifiedNode.ID()))
@@ -222,12 +222,12 @@ func TestDisqualifiedNodesRemainsDisqualified(t *testing.T) {
 			NodeID:       disqualifiedNode.ID(),
 			IsUp:         true,
 			AuditSuccess: true,
-			AuditLambda:  1,
+			AuditLambda:  0, // forget about history
 			AuditWeight:  1,
-			AuditDQ:      1,
-			UptimeLambda: 1,
+			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
+			UptimeLambda: 0, // forget about history
 			UptimeWeight: 1,
-			UptimeDQ:     1,
+			UptimeDQ:     0, // make sure new reputation scores are larger than the DQ thresholds
 		})
 		require.NoError(t, err)
 
