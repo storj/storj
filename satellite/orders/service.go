@@ -152,7 +152,10 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		}
 
 		if node != nil {
-			node.Type.DPanicOnInvalid("order service get order limits")
+			err := Error.New("invalid node")
+			service.log.Error("got empty node from cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node.Disqualified != nil {
@@ -293,13 +296,16 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Debug("error getting node from overlay cache", zap.Error(err))
+			service.log.Error("error getting node from overlay cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
 
 		if node != nil {
-			node.Type.DPanicOnInvalid("order service delete order limits")
+			err := Error.New("invalid node")
+			service.log.Error("got empty node from cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node.Disqualified != nil {
@@ -389,9 +395,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
 		}
-
 		if node != nil {
-			node.Type.DPanicOnInvalid("order service audit order limits")
+			err := Error.New("invalid node")
+			service.log.Error("got empty node from cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node.Disqualified != nil {
@@ -465,9 +473,10 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
 	if node != nil {
-		node.Type.DPanicOnInvalid("order service audit order limits")
+		err := Error.New("invalid node")
+		service.log.Error("got empty node from cache", zap.Error(err))
+		return nil, err
 	}
 
 	if node.Disqualified != nil {
@@ -546,7 +555,10 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		}
 
 		if node != nil {
-			node.Type.DPanicOnInvalid("order service get repair order limits")
+			err := Error.New("invalid node")
+			service.log.Error("got empty node from cache", zap.Error(err))
+			combinedErrs = errs.Combine(combinedErrs, err)
+			continue
 		}
 
 		if node.Disqualified != nil {
