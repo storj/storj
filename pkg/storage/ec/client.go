@@ -130,7 +130,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}
 
 		if info.err != nil {
-			ec.log.Debug(fmt.Sprintf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err))
+			ec.log.Sugar().Debugf("Upload to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
 
@@ -248,7 +248,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		if info.err != nil {
-			ec.log.Debug(fmt.Sprintf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err))
+			ec.log.Sugar().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
 
@@ -307,14 +307,14 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		Address: limit.GetStorageNodeAddress(),
 	})
 	if err != nil {
-		ec.log.Debug(fmt.Sprintf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err))
+		ec.log.Sugar().Debugf("Failed dialing for putting piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
 	upload, err := ps.Upload(ctx, limit.GetLimit())
 	if err != nil {
-		ec.log.Debug(fmt.Sprintf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err))
+		ec.log.Sugar().Debugf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
 	}
 	defer func() {
@@ -343,7 +343,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if limit.GetStorageNodeAddress() != nil {
 			nodeAddress = limit.GetStorageNodeAddress().GetAddress()
 		}
-		ec.log.Debug(fmt.Sprintf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err))
+		ec.log.Sugar().Debugf("Failed uploading piece %s to node %s (%+v): %v", pieceID, storageNodeID, nodeAddress, err)
 	}
 
 	return hash, err
