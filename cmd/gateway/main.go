@@ -297,6 +297,7 @@ func (flags GatewayFlags) interactive(
 
 	overrides["satellite-addr"] = satelliteAddress
 	overrides["api-key"] = apiKey
+	overrides["enc.key-filepath"] = encryptionKeyFilepath
 
 	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {

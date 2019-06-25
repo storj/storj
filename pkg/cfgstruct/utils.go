@@ -52,7 +52,7 @@ func applyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
 }
 
-// PromptForSatellite handles user input for a satelitte address to be used with wizards
+// PromptForSatellite handles user input for a satellite address to be used with wizards
 func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	_, err := fmt.Print(`
 Pick satellite to use:
@@ -146,7 +146,7 @@ func PromptForEncryptionKey() (string, error) {
 	}
 
 	if !bytes.Equal(encKey, repeatedEncKey) {
-		return "", errs.New("encryption passphrases doesn't match")
+		return "", errs.New("encryption passphrase does not match")
 	}
 
 	return string(encKey), nil
