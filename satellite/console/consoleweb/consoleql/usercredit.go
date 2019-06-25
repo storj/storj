@@ -10,10 +10,10 @@ import (
 const (
 	// CreditUsageType is a graphql type for user credit
 	CreditUsageType = "creditUsage"
-	// FieldAvailableCredit is a field name for available credit
-	FieldAvailableCredit = "availableCredit"
-	// FieldUsedCredit is a field name for used credit
-	FieldUsedCredit = "usedCredit"
+	// FieldAvailableCreditInCent is a field name for available credit
+	FieldAvailableCreditInCent = "availableCreditInCent"
+	// FieldUsedCreditInCent is a field name for used credit
+	FieldUsedCreditInCent = "usedCreditInCent"
 	// FieldReferred is a field name for total referred number
 	FieldReferred = "referred"
 )
@@ -22,10 +22,10 @@ func graphqlCreditUsage() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: CreditUsageType,
 		Fields: graphql.Fields{
-			FieldAvailableCredit: &graphql.Field{
+			FieldAvailableCreditInCent: &graphql.Field{
 				Type: graphql.Int,
 			},
-			FieldUsedCredit: &graphql.Field{
+			FieldUsedCreditInCent: &graphql.Field{
 				Type: graphql.Int,
 			},
 			FieldReferred: &graphql.Field{

@@ -75,7 +75,12 @@ import { CREDIT_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/ac
             return name.length > 0 ? `${name}, ${text}` : text; 
         },
         usage() {
-            return this.$store.state.creditUsageModule.creditUsage;
+            let { creditUsage } = this.$store.state.creditUsageModule;
+            return {
+                referred: creditUsage.referred,
+                availableCredits: creditUsage.availableCreditInCent * 100,
+                usedCredits: creditUsage.usedCreditInCent * 100
+            };
         }
     }
 })

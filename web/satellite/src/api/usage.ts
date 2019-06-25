@@ -102,8 +102,8 @@ export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> 
         isSuccess: false,
         data: {
             referred: 0,
-            usedCredits: 0,
-            availableCredits: 0,
+            usedCreditInCent: 0,
+            availableCreditInCent: 0,
         }
     };
 
@@ -113,8 +113,8 @@ export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> 
                 query {
                     creditUsage {
                         referred,
-                        usedCredit,
-                        availableCredit,
+                        usedCreditInCent,
+                        availableCreditInCent,
                     }
                 }`
             ),
@@ -131,4 +131,4 @@ export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> 
     }
 
     return result;
-}
+};

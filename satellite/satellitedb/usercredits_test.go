@@ -85,9 +85,9 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					remainingCharge: 20,
 					usage: console.UserCreditUsage{
-						AvailableCredits: 0,
-						UsedCredits:      100,
-						Referred:         0,
+						AvailableCreditInCent: 0,
+						UsedCreditInCent:      100,
+						Referred:              0,
 					},
 					hasErr: false,
 				},
@@ -105,9 +105,9 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					remainingCharge: 60,
 					usage: console.UserCreditUsage{
-						AvailableCredits: 0,
-						UsedCredits:      100,
-						Referred:         0,
+						AvailableCreditInCent: 0,
+						UsedCreditInCent:      100,
+						Referred:              0,
 					},
 					hasErr: true,
 				},
@@ -125,9 +125,9 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					remainingCharge: 0,
 					usage: console.UserCreditUsage{
-						AvailableCredits: 20,
-						UsedCredits:      180,
-						Referred:         0,
+						AvailableCreditInCent: 20,
+						UsedCreditInCent:      180,
+						Referred:              0,
 					},
 					hasErr: false,
 				},

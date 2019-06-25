@@ -124,11 +124,11 @@ export const bucketUsageModule = {
 
 export const creditUsageModule = {
     state: {
-        creditUsage: { referred: 0, usedCredits: 0, availableCredits: 0 } as CreditUsage
+        creditUsage: { referred: 0, usedCreditInCent: 0, availableCreditInCent: 0 } as CreditUsage
     },
     mutations: {
-        [CREDIT_USAGE_ACTIONS.FETCH](state: any, creditUsage: CreditUsage) {
-            state.creditUsage = creditUsage;
+        [CREDIT_USAGE_ACTIONS.FETCH](state: any, creditUsageInCent: CreditUsage) {
+            state.creditUsageInCent = creditUsageInCent;
         }
     },
     actions: {

@@ -41,6 +41,6 @@ declare type BucketUsageCursor = {
 
 declare type CreditUsage = {
     referred: number,
-    usedCredits: number,
-    availableCredits: number,
+    usedCreditInCent: number,
+    availableCreditInCent: number,
 };

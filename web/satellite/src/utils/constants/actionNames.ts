@@ -82,4 +82,4 @@ export const BUCKET_USAGE_ACTIONS = {
 
 export const CREDIT_USAGE_ACTIONS = {
     FETCH: 'fetchCreditUsage',
-}
+};
