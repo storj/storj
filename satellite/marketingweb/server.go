@@ -19,13 +19,13 @@ import (
 // Error is satellite marketing error type
 var Error = errs.Class("satellite marketing error")
 
-// Config contains configuration for marketing offersweb server
+// Config contains configuration for marketingweb server
 type Config struct {
 	Address   string `help:"server address of the marketing Admin GUI" default:"127.0.0.1:8090"`
 	StaticDir string `help:"path to static resources" default:""`
 }
 
-// Server represents marketing offersweb server
+// Server represents marketingweb server
 type Server struct {
 	log *zap.Logger
 
@@ -52,7 +52,7 @@ func (s *Server) commonPages() []string {
 	}
 }
 
-// NewServer creates new instance of offersweb server
+// NewServer creates new instance of marketingweb server
 func NewServer(logger *zap.Logger, config Config, listener net.Listener) (*Server, error) {
 	s := &Server{
 		log:      logger,

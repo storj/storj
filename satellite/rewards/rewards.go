@@ -1,24 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package marketing
+package rewards
 
 import (
 	"context"
 	"time"
-
-	"github.com/zeebo/errs"
 )
 
-// OffersErr creates offer error class
-var OffersErr = errs.Class("offers error")
-
-// Offers holds information about offer
-type Offers interface {
+// DB holds information about offer
+type DB interface {
 	ListAll(ctx context.Context) ([]Offer, error)
 	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
-	Redeem(ctx context.Context, offerID int) error
+	Redeem(ctx context.Context, offerID int, isDefault bool) error
 	Finish(ctx context.Context, offerID int) error
 }
 
