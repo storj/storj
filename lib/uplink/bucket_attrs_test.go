@@ -97,7 +97,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = db.Get(ctx, project.ID, []byte(bucketName))
-			require.Error(t, err)
+			require.NoError(t, err)
 
 			// partner ID NOT set
 			proj.uplinkCfg.Volatile.PartnerID = ""
