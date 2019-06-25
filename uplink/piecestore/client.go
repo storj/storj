@@ -51,6 +51,7 @@ func NewClient(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, co
 	return &Client{
 		log:    log,
 		signer: signer,
+		// TODO(leak): unclear ownership semantics
 		conn:   conn,
 		client: pb.NewPiecestoreClient(conn),
 		config: config,
