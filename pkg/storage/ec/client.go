@@ -65,6 +65,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Cl
 	if err != nil {
 		return nil, err
 	}
+	// TODO(leak): unclear ownership semantics
 	return piecestore.NewClient(
 		zap.L().Named(n.Id.String()),
 		signing.SignerFromFullIdentity(ec.transport.Identity()),
