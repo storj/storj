@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"testing"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -25,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 )
 
 const (
