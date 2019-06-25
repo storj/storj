@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"strconv"
 	"time"
@@ -578,4 +579,23 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+// ProjectInfo returns allowed ProjectInfo for the provided API key
+func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:   macaroon.ActionProjectInfo,
+		Time: time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	salt := sha256.Sum256(keyInfo.ProjectID[:])
+
+	return &pb.ProjectInfoResponse{
+		ProjectSalt: salt[:],
+	}, nil
 }

@@ -25,8 +25,8 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/rewards"
 )
 
 // locked implements a locking wrapper around satellite.DB.
@@ -688,61 +688,6 @@ func (m *lockedIrreparable) IncrementRepairAttempts(ctx context.Context, segment
 	return m.db.IncrementRepairAttempts(ctx, segmentInfo)
 }
 
-// Marketing returns database for marketing admin GUI
-func (m *locked) Marketing() marketing.DB {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedMarketing{m.Locker, m.db.Marketing()}
-}
-
-// lockedMarketing implements locking wrapper for marketing.DB
-type lockedMarketing struct {
-	sync.Locker
-	db marketing.DB
-}
-
-func (m *lockedMarketing) Offers() marketing.Offers {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedOffers{m.Locker, m.db.Offers()}
-}
-
-// lockedOffers implements locking wrapper for marketing.Offers
-type lockedOffers struct {
-	sync.Locker
-	db marketing.Offers
-}
-
-func (m *lockedOffers) Create(ctx context.Context, offer *marketing.NewOffer) (*marketing.Offer, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, offer)
-}
-
-func (m *lockedOffers) Finish(ctx context.Context, offerID int) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Finish(ctx, offerID)
-}
-
-func (m *lockedOffers) GetCurrentByType(ctx context.Context, offerType marketing.OfferType) (*marketing.Offer, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetCurrentByType(ctx, offerType)
-}
-
-func (m *lockedOffers) ListAll(ctx context.Context) ([]marketing.Offer, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.ListAll(ctx)
-}
-
-func (m *lockedOffers) Redeem(ctx context.Context, offerID int) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID)
-}
-
 // Orders returns database for orders
 func (m *locked) Orders() orders.DB {
 	m.Lock()
@@ -1003,6 +948,49 @@ func (m *lockedRepairQueue) SelectN(ctx context.Context, limit int) ([]pb.Injure
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SelectN(ctx, limit)
+}
+
+// returns database for marketing admin GUI
+func (m *locked) Rewards() rewards.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedRewards{m.Locker, m.db.Rewards()}
+}
+
+// lockedRewards implements locking wrapper for rewards.DB
+type lockedRewards struct {
+	sync.Locker
+	db rewards.DB
+}
+
+func (m *lockedRewards) Create(ctx context.Context, offer *rewards.NewOffer) (*rewards.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, offer)
+}
+
+func (m *lockedRewards) Finish(ctx context.Context, offerID int) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Finish(ctx, offerID)
+}
+
+func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetCurrentByType(ctx, offerType)
+}
+
+func (m *lockedRewards) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListAll(ctx)
+}
+
+func (m *lockedRewards) Redeem(ctx context.Context, offerID int, isDefault bool) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Redeem(ctx, offerID, isDefault)
 }
 
 // StoragenodeAccounting returns database for storing information about storagenode use
