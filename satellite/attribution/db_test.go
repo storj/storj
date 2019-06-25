@@ -217,11 +217,11 @@ func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testDat
 	projectAccoutingDB := db.ProjectAccounting()
 	orderDB := db.Orders()
 
-	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.bucketID, pb.PieceAction_GET, testData.egressSize, testData.bwStart)
+	err := orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET, testData.egressSize, testData.bwStart)
 	require.NoError(t, err)
 
 	// Only GET should be counted. So this should not effect results
-	err = orderDB.UpdateBucketBandwidthSettle(ctx, testData.bucketID, pb.PieceAction_GET_AUDIT, testData.egressSize, testData.bwStart)
+	err = orderDB.UpdateBucketBandwidthSettle(ctx, testData.projectID, testData.bucketName, pb.PieceAction_GET_AUDIT, testData.egressSize, testData.bwStart)
 	require.NoError(t, err)
 
 	testData.bwStart = testData.bwStart.Add(time.Hour)
