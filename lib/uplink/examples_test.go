@@ -52,22 +52,22 @@ func TestBucketExamples(t *testing.T) {
 			require.Equal(t, out.String(), "")
 
 			out = bytes.NewBuffer(nil)
-			encCtx, err := CreateEncryptionKeyExample_Admin1(ctx, satelliteAddr, apiKey, &cfg, out)
+			encCtx, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = CreateEncryptionKeyExample_Admin2(ctx, satelliteAddr, apiKey, encCtx, &cfg, out)
+			err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddr, apiKey, encCtx, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "hello world\n")
 
 			out = bytes.NewBuffer(nil)
-			userAPIKey, userEncCtx, err := RestrictAccessExample_Admin(ctx, satelliteAddr, apiKey, string(encCtx), &cfg, out)
+			userAPIKey, userEncCtx, err := RestrictAccessExampleByAdmin(ctx, satelliteAddr, apiKey, encCtx, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = RestrictAccessExample_User(ctx, satelliteAddr, userAPIKey, userEncCtx, &cfg, out)
+			err = RestrictAccessExampleByUser(ctx, satelliteAddr, userAPIKey, userEncCtx, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "hello world\n")
 		})

@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
@@ -34,9 +33,10 @@ var (
 	cfg     UplinkFlags
 	confDir string
 
-	mon      = monkit.Package()
 	defaults = cfgstruct.DefaultsFlag(RootCmd)
-	Error    = errs.Class("uplink")
+
+	// Error is the class of errors returned by this package
+	Error = errs.Class("uplink")
 )
 
 func init() {

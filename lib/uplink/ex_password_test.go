@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func CreateEncryptionKeyExample_Admin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedEncCtx string, err error) {
+func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedEncCtx string, err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -76,7 +76,7 @@ func CreateEncryptionKeyExample_Admin1(ctx context.Context, satelliteAddress, ap
 	return serializedEncCtx, nil
 }
 
-func CreateEncryptionKeyExample_Admin2(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
+func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -148,13 +148,13 @@ func Example_createEncryptionKey() {
 	ctx := context.Background()
 
 	// Admin1 is going to create an encryption context and share it
-	encCtx, err := CreateEncryptionKeyExample_Admin1(ctx, satelliteAddress, admin1APIKey, &uplink.Config{}, os.Stdout)
+	encCtx, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddress, admin1APIKey, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}
 
 	// Admin2 is going to use the provided encryption context to load the uploaded file
-	err = CreateEncryptionKeyExample_Admin2(ctx, satelliteAddress, admin2APIKey, encCtx, &uplink.Config{}, os.Stdout)
+	err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddress, admin2APIKey, encCtx, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}

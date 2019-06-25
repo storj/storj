@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/macaroon"
 )
 
-func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (userAPIKey_ string, serializedEncCtx_ string, err error) {
+func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (userAPIKey_ string, serializedEncCtx_ string, err error) {
 	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {
@@ -59,7 +59,7 @@ func RestrictAccessExample_Admin(ctx context.Context, satelliteAddress, apiKey s
 	return userAPIKey.Serialize(), serializedUserEncCtx, nil
 }
 
-func RestrictAccessExample_User(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
+func RestrictAccessExampleByUser(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -134,13 +134,13 @@ func Example_restrictAccess() {
 	ctx := context.Background()
 
 	// Admin1 is going to create an encryption context and share it
-	userAPIKey, encCtx, err := RestrictAccessExample_Admin(ctx, satelliteAddress, adminAPIKey, adminEncCtx, &uplink.Config{}, os.Stdout)
+	userAPIKey, encCtx, err := RestrictAccessExampleByAdmin(ctx, satelliteAddress, adminAPIKey, adminEncCtx, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}
 
 	// Admin2 is going to use the provided encryption context to load the uploaded file
-	err = RestrictAccessExample_User(ctx, satelliteAddress, userAPIKey, encCtx, &uplink.Config{}, os.Stdout)
+	err = RestrictAccessExampleByUser(ctx, satelliteAddress, userAPIKey, encCtx, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}

@@ -32,7 +32,7 @@ func NewEncryptionCtx() *EncryptionCtx {
 	}
 }
 
-// NewEncryptionCtx creates an encryption ctx with a default key set
+// NewEncryptionCtxWithDefaultKey creates an encryption ctx with a default key set
 func NewEncryptionCtxWithDefaultKey(defaultKey storj.Key) *EncryptionCtx {
 	ec := NewEncryptionCtx()
 	ec.SetDefaultKey(defaultKey)
