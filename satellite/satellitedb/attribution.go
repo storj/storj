@@ -20,8 +20,8 @@ import (
 
 const (
 	valueAttrQuery = `
-	-- A union of both the storage tally and badwidth rollups.
-	-- Should be 1 row per project/bucket by partner with the timeframe specified
+	-- A union of both the storage tally and bandwidth rollups.
+	-- Should be 1 row per project/bucket by partner within the timeframe specified
 	SELECT 
 		o.partner_id as partner_id, 
 		o.project_id as project_id, 
@@ -44,7 +44,7 @@ const (
 			FROM 
 				(
 					-- Collapse entries by the latest record in the hour
-					-- If there are 2 records within the hour, only the latest will be return
+					-- If there are more than 1 records within the hour, only the latest will be considered
 					SELECT 
 						va.partner_id, 
 						%v as hours, 
@@ -79,7 +79,7 @@ const (
 				bsto.project_id, 
 				bsto.bucket_name 
 			UNION 
-			-- SUM the bandwidth for the timeframe specified
+			-- SUM the bandwidth for the timeframe specified grouping by the partner_id, project_id, and bucket_name
 			SELECT 
 				va.partner_id as partner_id, 
 				bbr.project_id as project_id, 
@@ -109,6 +109,7 @@ const (
 		o.project_id, 
 		o.bucket_name;
 	`
+	// DB specific date/time truncations
 	slHour = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
 	pqHour = "date_trunc('hour', bst.interval_start)"
 )
