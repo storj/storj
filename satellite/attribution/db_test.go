@@ -233,12 +233,12 @@ func createData(ctx *testcontext.Context, t *testing.T, db satellite.DB, testDat
 
 	testData.dataCounter++
 	testData.dataInterval = testData.dataInterval.Add(time.Minute * 30)
-	tally2, err := createTallyData(ctx, projectAccoutingDB, testData.projectID, testData.bucketName, testData.remoteSize*int64(testData.dataCounter), testData.inlineSize*int64(testData.dataCounter), testData.dataInterval)
+	tally, err := createTallyData(ctx, projectAccoutingDB, testData.projectID, testData.bucketName, testData.remoteSize*int64(testData.dataCounter), testData.inlineSize*int64(testData.dataCounter), testData.dataInterval)
 	require.NoError(t, err)
 
 	if (testData.dataInterval.After(testData.start) || testData.dataInterval.Equal(testData.start)) && testData.dataInterval.Before(testData.end) {
-		testData.expectedRemoteBytes += tally2.RemoteBytes
-		testData.expectedInlineBytes += tally2.InlineBytes
+		testData.expectedRemoteBytes += tally.RemoteBytes
+		testData.expectedInlineBytes += tally.InlineBytes
 		testData.expectedEgress += testData.egressSize
 	}
 }
