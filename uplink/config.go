@@ -11,6 +11,7 @@ import (
 
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
@@ -103,7 +104,7 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, Error.New("failed to create project: %v", err)
 	}
 
-	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
+	ec := ecclient.NewClient(zap.L(), tc, c.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(c.RS.MinThreshold, c.RS.MaxThreshold)
 	if err != nil {
 		return nil, nil, Error.New("failed to create erasure coding client: %v", err)

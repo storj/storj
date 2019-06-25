@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -47,7 +48,7 @@ func TestECClient(t *testing.T) {
 
 	planet.Start(ctx)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(zap.L(), planet.Uplinks[0].Transport, 0)
 
 	k := storageNodes / 2
 	n := storageNodes
