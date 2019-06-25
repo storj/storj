@@ -688,6 +688,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// TODO: close m somehow
 
 	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)

@@ -54,6 +54,7 @@ func TestInvalidAPIKey(t *testing.T) {
 	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], invalidAPIKey)
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now())
 		assertUnauthenticated(t, err, false)
@@ -167,6 +168,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey.Serialize())
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now())
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
@@ -296,6 +298,7 @@ func TestCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		{
 			// error if pointer is nil
@@ -362,6 +365,7 @@ func TestCreateSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		for _, r := range []struct {
 			rs   *pb.RedundancyScheme
@@ -456,6 +460,7 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
@@ -533,6 +538,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		for _, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
@@ -561,6 +567,7 @@ func TestSetAttribution(t *testing.T) {
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
 
 		partnerID, err := uuid.New()
 		require.NoError(t, err)
@@ -645,6 +652,7 @@ func TestBucketNameValidation(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		rs := &pb.RedundancyScheme{
 			MinReq:           1,
