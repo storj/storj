@@ -4,10 +4,12 @@
 package encryption
 
 import (
+	"encoding/base64"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -98,4 +100,60 @@ func forAllCiphers(test func(cipher storj.Cipher)) {
 	} {
 		test(cipher)
 	}
+}
+
+func TestSegmentEncoding(t *testing.T) {
+	segments := [][]byte{
+		[]byte{},
+		[]byte{'a'},
+		[]byte{0},
+		[]byte{'/'},
+		[]byte{'a', 'b', 'c', 'd', '1', '2', '3', '4', '5'},
+
+		[]byte{'/', '/', '/', '/', '/'},
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0},
+
+		[]byte{'a', '/', 'a', '2', 'a', 'a', 0, '1', 'b', 255},
+		[]byte{'/', '/', 'a', 0, 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', '/'},
+		[]byte{0, '/', 'a', '0', 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', 0},
+	}
+
+	for _, segment := range segments {
+		encoded := encodeSegment(segment)
+		decoded := decodeSegment(encoded)
+		require.Equal(t, segment, decoded)
+	}
+}
+
+func BenchmarkSegmentEncoding(b *testing.B) {
+	segments := [][]byte{
+		[]byte{},
+		[]byte{'a'},
+		[]byte{0},
+		[]byte{'/'},
+		[]byte{'a', 'b', 'c', 'd', '1', '2', '3', '4', '5'},
+
+		[]byte{'/', '/', '/', '/', '/'},
+		[]byte{0, 0, 0, 0, 0, 0, 0, 0, 0},
+
+		[]byte{'a', '/', 'a', '2', 'a', 'a', 0, '1', 'b', 255},
+		[]byte{'/', '/', 'a', 0, 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', '/'},
+		[]byte{0, '/', 'a', '0', 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', 0},
+	}
+	b.Run("Loop", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, segment := range segments {
+				encoded := encodeSegment(segment)
+				_ = decodeSegment(encoded)
+			}
+		}
+	})
+	b.Run("Base64", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for _, segment := range segments {
+				encoded := base64.RawURLEncoding.EncodeToString(segment)
+				_, _ = base64.RawURLEncoding.DecodeString(encoded)
+			}
+		}
+	})
 }

@@ -6,7 +6,6 @@ package encryption
 import (
 	"crypto/hmac"
 	"crypto/sha512"
-	"encoding/base64"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -265,7 +264,7 @@ func storeEncryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 	}
 
 	// keep the nonce together with the cipher text
-	return base64.RawURLEncoding.EncodeToString(append(nonce[:nonceSize], cipherText...)), nil
+	return string(encodeSegment(append(nonce[:nonceSize], cipherText...))), nil
 }
 
 // storeDecryptPathComponent decrypts a single path component with the provided cipher and key.
@@ -274,10 +273,7 @@ func storeDecryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 		return "", nil
 	}
 
-	data, err := base64.RawURLEncoding.DecodeString(comp)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
+	data := decodeSegment([]byte(comp))
 
 	nonceSize := storj.NonceSize
 	if cipher == storj.AESGCM {

@@ -6,7 +6,6 @@ package encryption
 import (
 	"crypto/hmac"
 	"crypto/sha512"
-	"encoding/base64"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -130,7 +129,7 @@ func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 	}
 
 	// keep the nonce together with the cipher text
-	return base64.RawURLEncoding.EncodeToString(append(nonce[:nonceSize], cipherText...)), nil
+	return string(encodeSegment(append(nonce[:nonceSize], cipherText...))), nil
 }
 
 func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
@@ -138,10 +137,7 @@ func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 		return "", nil
 	}
 
-	data, err := base64.RawURLEncoding.DecodeString(comp)
-	if err != nil {
-		return "", Error.Wrap(err)
-	}
+	data := decodeSegment([]byte(comp))
 
 	nonceSize := storj.NonceSize
 	if cipher == storj.AESGCM {
@@ -158,4 +154,47 @@ func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 	}
 
 	return string(decrypted), nil
+}
+
+func encodeSegment(segment []byte) []byte {
+	if len(segment) == 0 {
+		return segment
+	}
+
+	result := make([]byte, 0, len(segment)*2)
+	for i := 0; i < len(segment); i++ {
+		switch {
+		case segment[i] == 0:
+			result = append(result, []byte{0, 1}...)
+		case segment[i] == '/':
+			result = append(result, []byte{0, 2}...)
+		default:
+			result = append(result, segment[i])
+		}
+	}
+	return result
+}
+
+func decodeSegment(segment []byte) []byte {
+	if len(segment) == 0 {
+		return segment
+	}
+
+	result := make([]byte, 0, len(segment))
+	for i := 0; i < len(segment); i++ {
+		switch {
+		case i == len(segment)-1:
+			result = append(result, segment[i])
+		case segment[i] == 0:
+			if segment[i+1] == 1 {
+				result = append(result, 0)
+			} else if segment[i+1] == 2 {
+				result = append(result, '/')
+			}
+			i++
+		default:
+			result = append(result, segment[i])
+		}
+	}
+	return result
 }
