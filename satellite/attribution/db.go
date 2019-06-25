@@ -25,6 +25,8 @@ type Info struct {
 
 // DB implements the database for value attribution table
 type DB interface {
+	// GetByBucket retrieves attribution info using bucket name.
+	GetByBucket(ctx context.Context, bucketName []byte) (*Info, error)
 	// Get retrieves attribution info using project id and bucket name.
 	Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (*Info, error)
 	// Insert creates and stores new Info
