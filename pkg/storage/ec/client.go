@@ -89,8 +89,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	ec.log.Info(fmt.Sprintf("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
-		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold()))
+	ec.log.Sugar().Infof("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
+		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs)
@@ -142,7 +142,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 
 		switch int(atomic.AddInt32(&successfulCount, 1)) {
 		case rs.OptimalThreshold():
-			ec.log.Info(fmt.Sprintf("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold()))
+			ec.log.Sugar().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
 			if timer != nil {
 				timer.Stop()
 			}
@@ -151,12 +151,12 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 			elapsed := time.Since(start)
 			more := elapsed * 3 / 2
 
-			ec.log.Info(fmt.Sprintf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
-				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold()))
+			ec.log.Sugar().Infof("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 			timer = time.AfterFunc(more, func() {
 				if ctx.Err() != context.Canceled {
-					ec.log.Info(fmt.Sprintf("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount)))
+					ec.log.Sugar().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
 					cancel()
 				}
 			})
@@ -230,12 +230,12 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	// how many nodes must be repaired to reach the success threshold: o - (n - r)
 	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
 
-	ec.log.Info(fmt.Sprintf("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
-		timeout, path, optimalCount, rs.OptimalThreshold()))
+	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
+		timeout, path, optimalCount, rs.OptimalThreshold())
 
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			ec.log.Info(fmt.Sprintf("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount)))
+			ec.log.Sugar().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
@@ -282,7 +282,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		return nil, nil, Error.New("repair %v to all nodes failed", path)
 	}
 
-	ec.log.Info(fmt.Sprintf("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount)))
+	ec.log.Sugar().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
 
 	return successfulNodes, successfulHashes, nil
 }
@@ -333,9 +333,9 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	// to slow connection. No error logging for this case.
 	if ctx.Err() == context.Canceled {
 		if parent.Err() == context.Canceled {
-			ec.log.Info(fmt.Sprintf("Upload to node %s canceled by user.", storageNodeID))
+			ec.log.Sugar().Infof("Upload to node %s canceled by user.", storageNodeID)
 		} else {
-			ec.log.Info(fmt.Sprintf("Node %s cut from upload due to slow connection.", storageNodeID))
+			ec.log.Sugar().Infof("Node %s cut from upload due to slow connection.", storageNodeID)
 		}
 		err = context.Canceled
 	} else if err != nil {

@@ -17,7 +17,7 @@ import (
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -650,7 +650,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, m, strms, err := initEnv(ctx, planet)
+	layer, m, strms, err := initEnv(ctx, planet, t)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -658,7 +658,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, m, strms)
 }
 
-func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, planet *testplanet.Planet, t *testing.T) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
@@ -691,7 +691,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	}
 	// TODO(leak): close m metainfo.Client somehow
 
-	ec := ecclient.NewClient(zap.L(), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(zaptest.NewLogger(t), planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, nil, err

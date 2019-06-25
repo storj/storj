@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
-	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -271,7 +271,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		ec := ecclient.NewClient(zap.L(), planet.Uplinks[0].Transport, 0)
+		ec := ecclient.NewClient(zaptest.NewLogger(t), planet.Uplinks[0].Transport, 0)
 		fc, err := infectious.NewFEC(2, 4)
 		require.NoError(t, err)
 
