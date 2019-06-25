@@ -275,7 +275,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 func (flags GatewayFlags) interactive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
-	satelliteAddress, err := cfgstruct.PromptForSatelitte(cmd)
+	satelliteAddress, err := cfgstruct.PromptForSatellite(cmd)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -297,6 +297,7 @@ func (flags GatewayFlags) interactive(
 
 	overrides["satellite-addr"] = satelliteAddress
 	overrides["api-key"] = apiKey
+	overrides["enc.key-filepath"] = encryptionKeyFilepath
 
 	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {
