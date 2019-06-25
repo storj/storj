@@ -26,7 +26,10 @@ typedef struct Object     { long _handle; } ObjectRef;
 typedef struct Downloader { long _handle; } DownloaderRef;
 typedef struct Uploader   { long _handle; } UploaderRef;
 
+typedef uint8_t UUID[16];
+
 typedef struct UplinkConfig {
+    UUID partner_id;
     struct {
         struct {
             bool SkipPeerCAWhitelist;

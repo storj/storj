@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -46,6 +47,7 @@ func TestC(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
+	// TODO: compile libuplink only once
 	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
@@ -83,6 +85,70 @@ func TestC(t *testing.T) {
 					}
 				})
 			})
+		}
+	})
+}
+
+func TestCBucketAttribution(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	newUUID := func() uuid.UUID {
+		v, err := uuid.New()
+		require.NoError(t, err)
+		return *v
+	}
+
+	// TODO: compile libuplink only once
+	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+
+	currentdir, err := os.Getwd()
+	require.NoError(t, err)
+
+	definition := testcontext.Include{
+		Header: filepath.Join(currentdir, "uplink_definitions.h"),
+	}
+
+	bucketTest := filepath.Join("testdata", "bucket_test.c")
+	testexe := ctx.CompileC(t, bucketTest, libuplink, definition)
+
+	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		// TODO: cleanup
+		{ // no partner id
+			cmd := exec.Command(testexe)
+			cmd.Dir = filepath.Dir(testexe)
+			cmd.Env = append(os.Environ(),
+				"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
+				"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+			)
+
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Error(string(out))
+				t.Fatal(err)
+			}
+			t.Log(string(out))
+
+			// TODO: assert that bucket attribution happened correctly (i.e. check DB)!
+		}
+
+		{ // valid partner id
+			cmd := exec.Command(testexe)
+			cmd.Dir = filepath.Dir(testexe)
+			cmd.Env = append(os.Environ(),
+				"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
+				"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+				"PARTNER_ID_STR="+newUUID().String(),
+			)
+
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Error(string(out))
+				t.Fatal(err)
+			}
+			t.Log(string(out))
+
+			// TODO: assert that bucket attribution happened correctly (i.e. check DB)!
 		}
 	})
 }

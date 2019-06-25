@@ -21,19 +21,19 @@ int main(int argc, char *argv[])
     char *_err = "";
     char **err = &_err;
 
-    char *apikeyStr = "13YqeKQiA3ANSuDu4rqX6eGs3YWox9GRi9rEUKy1HidXiNNm6a5SiE49Hk9gomHZVcQhq4eFQh8yhDgfGKg268j6vqWKEhnJjFPLqAP";
+    char *apikey_str = "13YqeKQiA3ANSuDu4rqX6eGs3YWox9GRi9rEUKy1HidXiNNm6a5SiE49Hk9gomHZVcQhq4eFQh8yhDgfGKg268j6vqWKEhnJjFPLqAP";
 
     {
         // parse api key
-        APIKeyRef apikey = parse_api_key(apikeyStr, err);
+        APIKeyRef apikey = parse_api_key(apikey_str, err);
         require_noerror(*err);
         requiref(apikey._handle != 0, "got empty apikey\n");
 
         char *apikeySerialized = serialize_api_key(apikey, err);
         require_noerror(*err);
 
-        requiref(strcmp(apikeySerialized, apikeyStr) == 0,
-            "got invalid serialized %s expected %s\n", apikeySerialized, apikeyStr);
+        requiref(strcmp(apikeySerialized, apikey_str) == 0,
+            "got invalid serialized %s expected %s\n", apikeySerialized, apikey_str);
         free(apikeySerialized);
 
         // free api key

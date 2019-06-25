@@ -6,6 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -64,4 +65,15 @@ func cipherToCCipherSuite(cipher storj.Cipher) C.CipherSuite {
 // cipherToCCipherSuite converts a go cipher to its respective C cipher suite.
 func toCCipherSuite(cipherSuite storj.CipherSuite) C.CipherSuite {
 	return C.CipherSuite(cipherSuite)
+}
+
+//export parse_uuid
+func parse_uuid(uuidStr *C.char, cUUID *C.UUID, cerr **C.char) {
+	_, err := uuid.Parse(C.GoString(uuidStr))
+	if err != nil {
+		*cerr = C.CString(err.Error())
+		return
+	}
+
+	//copy((*[16]byte)(cUUID)[:], goUUID[:])
 }

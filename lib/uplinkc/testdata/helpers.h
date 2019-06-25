@@ -29,14 +29,21 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
     char **err = &_err;
 
     char *satellite_addr = getenv("SATELLITE_0_ADDR");
-    char *apikeyStr = getenv("GATEWAY_0_API_KEY");
+    char *apikey_str = getenv("GATEWAY_0_API_KEY");
+    char *partner_id_str = getenv("PARTNER_ID_STR");
 
     printf("using SATELLITE_0_ADDR: %s\n", satellite_addr);
-    printf("using GATEWAY_0_API_KEY: %s\n", apikeyStr);
+    printf("using GATEWAY_0_API_KEY: %s\n", apikey_str);
+    printf("using PARTNER_ID: %s\n", partner_id_str);
 
     {
         UplinkConfig cfg = {};
         cfg.Volatile.TLS.SkipPeerCAWhitelist = true; // TODO: add CA Whitelist
+
+        if (partner_id_str != NULL) {
+            parse_uuid(partner_id_str, &cfg.partner_id, err);
+            require_noerror(*err);
+        }
 
         // New uplink
         UplinkRef uplink = new_uplink(cfg, err);
@@ -45,7 +52,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
 
         {
             // parse api key
-            APIKeyRef apikey = parse_api_key(apikeyStr, err);
+            APIKeyRef apikey = parse_api_key(apikey_str, err);
             require_noerror(*err);
             requiref(apikey._handle != 0, "got empty apikey\n");
 
