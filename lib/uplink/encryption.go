@@ -39,6 +39,11 @@ func NewEncryptionCtxWithDefaultKey(defaultKey storj.Key) *EncryptionCtx {
 	return ec
 }
 
+// Store returns the underlying encryption store for the context.
+func (s *EncryptionCtx) Store() *encryption.Store {
+	return s.store
+}
+
 // SetDefaultKey sets the default key for the encryption context.
 func (s *EncryptionCtx) SetDefaultKey(defaultKey storj.Key) {
 	s.store.SetDefaultKey(&defaultKey)

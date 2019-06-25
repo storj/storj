@@ -30,10 +30,10 @@ var (
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(project *uplink.Project, rootEncKey *storj.Key, pathCipher storj.CipherSuite, encryption storj.EncryptionParameters, redundancy storj.RedundancyScheme, segmentSize memory.Size) *Gateway {
+func NewStorjGateway(project *uplink.Project, encCtx *uplink.EncryptionCtx, pathCipher storj.CipherSuite, encryption storj.EncryptionParameters, redundancy storj.RedundancyScheme, segmentSize memory.Size) *Gateway {
 	return &Gateway{
 		project:     project,
-		rootEncKey:  rootEncKey,
+		encCtx:      encCtx,
 		pathCipher:  pathCipher,
 		encryption:  encryption,
 		redundancy:  redundancy,
@@ -45,7 +45,7 @@ func NewStorjGateway(project *uplink.Project, rootEncKey *storj.Key, pathCipher 
 // Gateway is the implementation of a minio cmd.Gateway
 type Gateway struct {
 	project     *uplink.Project
-	rootEncKey  *storj.Key
+	encCtx      *uplink.EncryptionCtx
 	pathCipher  storj.CipherSuite
 	encryption  storj.EncryptionParameters
 	redundancy  storj.RedundancyScheme
@@ -93,8 +93,7 @@ func (layer *gatewayLayer) DeleteBucket(ctx context.Context, bucketName string) 
 func (layer *gatewayLayer) bucketEmpty(ctx context.Context, bucketName string) (empty bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return false, convertError(err, bucketName, "")
 	}
@@ -111,8 +110,7 @@ func (layer *gatewayLayer) bucketEmpty(ctx context.Context, bucketName string) (
 func (layer *gatewayLayer) DeleteObject(ctx context.Context, bucketName, objectPath string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return convertError(err, bucketName, "")
 	}
@@ -138,8 +136,7 @@ func (layer *gatewayLayer) GetBucketInfo(ctx context.Context, bucketName string)
 func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath string, startOffset int64, length int64, writer io.Writer, etag string) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return convertError(err, bucketName, "")
 	}
@@ -173,8 +170,7 @@ func (layer *gatewayLayer) GetObject(ctx context.Context, bucketName, objectPath
 func (layer *gatewayLayer) GetObjectInfo(ctx context.Context, bucketName, objectPath string) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return minio.ObjectInfo{}, convertError(err, bucketName, "")
 	}
@@ -229,8 +225,7 @@ func (layer *gatewayLayer) ListObjects(ctx context.Context, bucketName, prefix, 
 		return minio.ListObjectsInfo{}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return minio.ListObjectsInfo{}, convertError(err, bucketName, "")
 	}
@@ -296,8 +291,7 @@ func (layer *gatewayLayer) ListObjectsV2(ctx context.Context, bucketName, prefix
 		return minio.ListObjectsV2Info{ContinuationToken: continuationToken}, minio.UnsupportedDelimiter{Delimiter: delimiter}
 	}
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return minio.ListObjectsV2Info{}, convertError(err, bucketName, "")
 	}
@@ -398,8 +392,7 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketNam
 func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject, destBucket, destObject string, srcInfo minio.ObjectInfo) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, srcBucket, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, srcBucket, layer.gateway.encCtx)
 	if err != nil {
 		return minio.ObjectInfo{}, convertError(err, srcBucket, "")
 	}
@@ -431,8 +424,7 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 func (layer *gatewayLayer) putObject(ctx context.Context, bucketName, objectPath string, reader io.Reader, opts *uplink.UploadOptions) (objInfo minio.ObjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*layer.gateway.rootEncKey)
-	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := layer.gateway.project.OpenBucket(ctx, bucketName, layer.gateway.encCtx)
 	if err != nil {
 		return minio.ObjectInfo{}, convertError(err, bucketName, "")
 	}

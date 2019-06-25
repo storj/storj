@@ -12,6 +12,9 @@ import (
 	"runtime/pprof"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
@@ -27,7 +30,19 @@ type UplinkFlags struct {
 	uplink.Config
 }
 
-var cfg UplinkFlags
+var (
+	cfg     UplinkFlags
+	confDir string
+
+	mon      = monkit.Package()
+	defaults = cfgstruct.DefaultsFlag(RootCmd)
+	Error    = errs.Class("uplink")
+)
+
+func init() {
+	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
+	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
+}
 
 var cpuProfile = flag.String("profile.cpu", "", "file path of the cpu profile to be created")
 var memoryProfile = flag.String("profile.mem", "", "file path of the memory profile to be created")
@@ -97,7 +112,7 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
+func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, encCtx *libuplink.EncryptionCtx) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
 	project, err = cliCfg.GetProject(ctx)
 	if err != nil {
 		return project, bucket, err
@@ -111,7 +126,7 @@ func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName s
 		}
 	}()
 
-	bucket, err = project.OpenBucket(ctx, bucketName, &access)
+	bucket, err = project.OpenBucket(ctx, bucketName, encCtx)
 	if err != nil {
 		return project, bucket, err
 	}
