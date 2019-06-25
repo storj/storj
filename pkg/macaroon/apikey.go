@@ -33,16 +33,19 @@ var (
 type ActionType int
 
 const (
-	_ ActionType = iota // ActionType zero value
+	// not using iota because these values are persisted in macaroons
+	_ ActionType = 0
 
 	// ActionRead specifies a read operation
-	ActionRead
+	ActionRead ActionType = 1
 	// ActionWrite specifies a read operation
-	ActionWrite
+	ActionWrite ActionType = 2
 	// ActionList specifies a read operation
-	ActionList
+	ActionList ActionType = 3
 	// ActionDelete specifies a read operation
-	ActionDelete
+	ActionDelete ActionType = 4
+	// ActionProjectInfo requests project-level information
+	ActionProjectInfo ActionType = 5
 )
 
 // Action specifies the specific operation being performed that the Macaroon will validate
@@ -148,6 +151,30 @@ func (a *APIKey) Serialize() string {
 
 // Allows returns true if the provided action is allowed by the caveat.
 func (c *Caveat) Allows(action Action) bool {
+	// if the action is after the caveat's "not after" field, then it is invalid
+	if c.NotAfter != nil && action.Time.After(*c.NotAfter) {
+		return false
+	}
+	// if the caveat's "not before" field is *after* the action, then the action
+	// is before the "not before" field and it is invalid
+	if c.NotBefore != nil && c.NotBefore.After(action.Time) {
+		return false
+	}
+
+	// we want to always allow reads for bucket metadata, perhaps filtered by the
+	// buckets in the allowed paths.
+	if action.Op == ActionRead && len(action.EncryptedPath) == 0 {
+		if len(c.AllowedPaths) == 0 {
+			return true
+		}
+		for _, path := range c.AllowedPaths {
+			if bytes.Equal(path.Bucket, action.Bucket) {
+				return true
+			}
+		}
+		return false
+	}
+
 	switch action.Op {
 	case ActionRead:
 		if c.DisallowReads {
@@ -165,21 +192,13 @@ func (c *Caveat) Allows(action Action) bool {
 		if c.DisallowDeletes {
 			return false
 		}
+	case ActionProjectInfo:
+		// allow
 	default:
 		return false
 	}
 
-	// if the action is after the caveat's "not after" field, then it is invalid
-	if c.NotAfter != nil && action.Time.After(*c.NotAfter) {
-		return false
-	}
-	// if the caveat's "not before" field is *after* the action, then the action
-	// is before the "not before" field and it is invalid
-	if c.NotBefore != nil && c.NotBefore.After(action.Time) {
-		return false
-	}
-
-	if len(c.AllowedPaths) > 0 {
+	if len(c.AllowedPaths) > 0 && action.Op != ActionProjectInfo {
 		found := false
 		for _, path := range c.AllowedPaths {
 			if bytes.Equal(action.Bucket, path.Bucket) &&
