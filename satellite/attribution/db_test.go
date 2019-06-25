@@ -4,7 +4,6 @@
 package attribution_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -12,10 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"storj.io/storj/pkg/pb"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -204,7 +203,6 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 		}
 		count++
 
-		fmt.Printf("EEEE: %v, %v, %v, %v, %v\n", projectID, string(r.BucketName), r.RemoteBytesPerHour, r.InlineBytesPerHour, r.EgressData)
 		assert.Equal(t, testData.partnerID[:], r.PartnerID, testData.name)
 		assert.Equal(t, testData.projectID[:], r.ProjectID, testData.name)
 		assert.Equal(t, testData.bucketName, r.BucketName, testData.name)
