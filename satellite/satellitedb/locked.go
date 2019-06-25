@@ -709,10 +709,10 @@ func (m *lockedOrders) CreateSerialInfo(ctx context.Context, serialNumber storj.
 }
 
 // GetBucketBandwidth gets total bucket bandwidth from period of time
-func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, bucketID []byte, from time.Time, to time.Time) (int64, error) {
+func (m *lockedOrders) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from time.Time, to time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetBucketBandwidth(ctx, bucketID, from, to)
+	return m.db.GetBucketBandwidth(ctx, projectID, bucketName, from, to)
 }
 
 // GetStorageNodeBandwidth gets total storage node bandwidth from period of time
@@ -730,24 +730,24 @@ func (m *lockedOrders) UnuseSerialNumber(ctx context.Context, serialNumber storj
 }
 
 // UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
+	return m.db.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthInline(ctx, bucketID, action, amount, intervalStart)
+	return m.db.UpdateBucketBandwidthInline(ctx, projectID, bucketName, action, amount, intervalStart)
 }
 
 // UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
-func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, bucketID []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
+func (m *lockedOrders) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.UpdateBucketBandwidthSettle(ctx, bucketID, action, amount, intervalStart)
+	return m.db.UpdateBucketBandwidthSettle(ctx, projectID, bucketName, action, amount, intervalStart)
 }
 
 // UpdateStoragenodeBandwidthAllocation updates 'allocated' bandwidth for given storage nodes
@@ -882,10 +882,10 @@ func (m *lockedProjectAccounting) CreateStorageTally(ctx context.Context, tally 
 }
 
 // GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
-func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error) {
+func (m *lockedProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+	return m.db.GetAllocatedBandwidthTotal(ctx, projectID, from)
 }
 
 // GetProjectUsageLimits returns project usage limit
