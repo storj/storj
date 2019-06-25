@@ -299,7 +299,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			NewStorageNodeDB: func(index int, db storagenode.DB) (storagenode.DB, error) {
-				storageNodeDB = testblobs.NewSlowDB(db, 110*time.Millisecond)
+				storageNodeDB = testblobs.NewSlowDB(db)
 				return storageNodeDB, nil
 			},
 		},
@@ -343,7 +343,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		// make downloads slow
-		storageNodeDB.Slow()
+		storageNodeDB.SetLatency(110 * time.Millisecond)
 
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
