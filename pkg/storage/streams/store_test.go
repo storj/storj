@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
@@ -24,6 +25,12 @@ import (
 var (
 	ctx = context.Background()
 )
+
+func newStore() *encryption.Store {
+	store := encryption.NewStore()
+	store.SetDefaultKey(new(storj.Key))
+	return store
+}
 
 func TestStreamStoreMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -89,7 +96,7 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, storj.AESGCM, 4)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, storj.AESGCM, 4)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +176,7 @@ func TestStreamStorePut(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher, inlineSize)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newStore(), encBlockSize, dataCipher, inlineSize)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -279,7 +286,7 @@ func TestStreamStoreGet(t *testing.T) {
 
 		gomock.InOrder(calls...)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, segSize, new(storj.Key), encBlockSize, dataCipher, inlineSize)
+		streamStore, err := NewStreamStore(mockSegmentStore, segSize, newStore(), encBlockSize, dataCipher, inlineSize)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -328,7 +335,7 @@ func TestStreamStoreDelete(t *testing.T) {
 			Delete(gomock.Any(), gomock.Any()).
 			Return(test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, 0, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -372,7 +379,7 @@ func TestStreamStoreList(t *testing.T) {
 			List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(test.segments, test.segmentMore, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, new(storj.Key), 10, 0, 0)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, 0, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
