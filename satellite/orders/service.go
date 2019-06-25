@@ -695,7 +695,9 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid
 // SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
 func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
 	pathElements := bytes.Split(bucketID, []byte("/"))
-	bucketName = pathElements[1]
+	if len(pathElements) > 1 {
+		bucketName = pathElements[1]
+	}
 	projectID, err = uuid.Parse(string(pathElements[0]))
 	if err != nil {
 		return nil, nil, err

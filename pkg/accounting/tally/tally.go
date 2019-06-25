@@ -145,7 +145,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 					bucketTally := bucketTallies[bucketID]
 					projectID, err := uuid.Parse(project)
 					if err != nil {
-						return err
+						return Error.Wrap(err)
 					}
 					if bucketTally == nil {
 						bucketTally = &accounting.BucketTally{}

@@ -177,26 +177,47 @@ func noLongTailRedundancy(planet *testplanet.Planet) uplink.RSConfig {
 	return redundancy
 }
 
-func TestSpliteBucketID(t *testing.T) {
-	t.Run("Invalid input", func(t *testing.T) {
-		str := "not UUID string/bucket1"
-		bytes := []byte(str)
+func TestSplitBucketIDInvalid(t *testing.T) {
+	var testCases = []struct {
+		name     string
+		bucketID []byte
+	}{
+		{"invalid, not valid UUID", []byte("not UUID string/bucket1")},
+		{"invalid, not valid UUID, no bucket", []byte("not UUID string")},
+		{"invalid, no project, no bucket", []byte("")},
+	}
+	for _, tt := range testCases {
+		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := orders.SplitBucketID(tt.bucketID)
+			assert.NotNil(t, err)
+			assert.Error(t, err)
+		})
+	}
+}
 
-		_, _, err := orders.SplitBucketID(bytes)
+func TestSplitBucketIDValid(t *testing.T) {
+	var testCases = []struct {
+		name               string
+		project            string
+		bucketName         string
+		expectedBucketName string
+	}{
+		{"valid, no bucket, no objects", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "", ""},
+		{"valid, with bucket", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket", "testbucket"},
+		{"valid, with object", "bb6218e3-4b4a-4819-abbb-fa68538e33c0", "testbucket/foo/bar.txt", "testbucket"},
+	}
+	for _, tt := range testCases {
+		tt := tt // avoid scopelint error, ref: https://github.com/golangci/golangci-lint/issues/281
+		t.Run(tt.name, func(t *testing.T) {
+			expectedProjectID, err := uuid.Parse(tt.project)
+			assert.NoError(t, err)
+			bucketID := expectedProjectID.String() + "/" + tt.bucketName
 
-		assert.NotNil(t, err)
-		assert.Error(t, err)
-	})
-
-	t.Run("Valid input", func(t *testing.T) {
-		expectedProjectID, err := uuid.Parse("bb6218e3-4b4a-4819-abbb-fa68538e33c0")
-		assert.NoError(t, err)
-		expectedBucketName := "bucket1"
-		bucketID := expectedProjectID.String() + "/" + expectedBucketName
-
-		actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
-		assert.NoError(t, err)
-		assert.Equal(t, actualProjectID, expectedProjectID)
-		assert.Equal(t, actualBucketName, []byte(expectedBucketName))
-	})
+			actualProjectID, actualBucketName, err := orders.SplitBucketID([]byte(bucketID))
+			assert.NoError(t, err)
+			assert.Equal(t, actualProjectID, expectedProjectID)
+			assert.Equal(t, actualBucketName, []byte(tt.expectedBucketName))
+		})
+	}
 }
