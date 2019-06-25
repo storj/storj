@@ -50,14 +50,14 @@ type SemVer struct {
 	Patch int64 `json:"patch"`
 }
 
-// AllowedVersions provides a list of SemVer per Service
+// AllowedVersions provides the Minimum SemVer per Service
 type AllowedVersions struct {
-	Bootstrap   []SemVer
-	Satellite   []SemVer
-	Storagenode []SemVer
-	Uplink      []SemVer
-	Gateway     []SemVer
-	Identity    []SemVer
+	Bootstrap   SemVer
+	Satellite   SemVer
+	Storagenode SemVer
+	Uplink      SemVer
+	Gateway     SemVer
+	Identity    SemVer
 }
 
 // SemVerRegex is the regular expression used to parse a semantic version.
@@ -130,26 +130,9 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 	}, nil
 }
 
-// containsVersion compares the allowed version array against the passed version
-func containsVersion(all []SemVer, x SemVer) bool {
-	for _, n := range all {
-		if x == n {
-			return true
-		}
-	}
-	return false
-}
-
-// StrToSemVerList converts a list of versions to a list of SemVer
-func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
-	for _, subversion := range serviceVersions {
-		sVer, err := NewSemVer(subversion)
-		if err != nil {
-			return nil, err
-		}
-		versions = append(versions, *sVer)
-	}
-	return versions, err
+// matchesVersion compares and checks if the passed version is greater/equal than the minimum required version
+func matchesVersion(test SemVer, target SemVer) bool {
+	return test.Major > target.Major || (test.Major == test.Major && test.Minor > test.Minor) || (test.Minor == target.Minor && test.Patch >= target.Patch)
 }
 
 func init() {
