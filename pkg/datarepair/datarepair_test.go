@@ -27,6 +27,8 @@ import (
 // - Now we have just the 3 new nodes to which the data was repaired
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
 func TestDataRepair(t *testing.T) {
+	t.Skip("flaky")
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
