@@ -5,7 +5,6 @@ package tally_test
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/encryption"
@@ -72,13 +72,10 @@ func TestOnlyInline(t *testing.T) {
 		if err1 != nil {
 			assert.NoError(t, err1)
 		}
-		projectID, err := uuid.Parse(projects[0].ID.String())
-		require.NoError(t, err)
+		projectID := projects[0].ID
 
 		// Setup: create data for the uplink to upload
-		expectedData := make([]byte, 1*memory.KiB)
-		_, err = rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(1 * memory.KiB)
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		// Since the data is small enough to be stored inline, when it is encrypted, we only
@@ -104,7 +101,7 @@ func TestOnlyInline(t *testing.T) {
 		assert.Equal(t, 16, len(projectID[:]))
 
 		// Execute test: upload a file, then calculate at rest data
-		err = uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
+		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "test/path", expectedData)
 		assert.NoError(t, err)
 
 		// Run calculate twice to test unique constraint issue
@@ -134,9 +131,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		// Setup: create 50KiB of data for the uplink to upload
-		expectedData := make([]byte, 50*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])

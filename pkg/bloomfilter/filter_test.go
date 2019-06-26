@@ -5,13 +5,13 @@ package bloomfilter_test
 
 import (
 	"flag"
-	"math/rand"
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/storj"
 )
@@ -36,7 +36,7 @@ func TestBytes(t *testing.T) {
 	for _, count := range []int{0, 100, 1000, 10000} {
 		filter := bloomfilter.NewOptimal(count, 0.1)
 		for i := 0; i < count; i++ {
-			id := newTestPieceID()
+			id := testrand.PieceID()
 			filter.Add(id)
 		}
 
@@ -66,16 +66,9 @@ func TestBytes_Failing(t *testing.T) {
 func generateTestIDs(n int) []storj.PieceID {
 	ids := make([]storj.PieceID, n)
 	for i := range ids {
-		ids[i] = newTestPieceID()
+		ids[i] = testrand.PieceID()
 	}
 	return ids
-}
-
-func newTestPieceID() storj.PieceID {
-	var id storj.PieceID
-	// using math/rand, for less overhead
-	_, _ = rand.Read(id[:])
-	return id
 }
 
 func BenchmarkFilterAdd(b *testing.B) {
@@ -112,12 +105,12 @@ func TestApproximateFalsePositives(t *testing.T) {
 			for k := 0; k < measurements; k++ {
 				filter := bloomfilter.NewOptimal(n, p)
 				for i := 0; i < n; i++ {
-					filter.Add(newTestPieceID())
+					filter.Add(testrand.PieceID())
 				}
 
 				positive := 0
 				for k := 0; k < validation; k++ {
-					if filter.Contains(newTestPieceID()) {
+					if filter.Contains(testrand.PieceID()) {
 						positive++
 					}
 				}

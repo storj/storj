@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
@@ -67,14 +68,8 @@ func TestDB(t *testing.T) {
 
 		attributionDB := db.Attribution()
 
-		newUUID := func() uuid.UUID {
-			v, err := uuid.New()
-			require.NoError(t, err)
-			return *v
-		}
-
-		project1, project2 := newUUID(), newUUID()
-		partner1, partner2 := newUUID(), newUUID()
+		project1, project2 := testrand.UUID(), testrand.UUID()
+		partner1, partner2 := testrand.UUID(), testrand.UUID()
 
 		infos := []*attribution.Info{
 			{project1, []byte("alpha"), partner1, time.Time{}},
@@ -104,22 +99,16 @@ func TestQueryAttribution(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		newUUID := func() uuid.UUID {
-			v, err := uuid.New()
-			require.NoError(t, err)
-			return *v
-		}
-
 		now := time.Now().UTC()
 
-		projectID := newUUID()
-		partnerID := newUUID()
+		projectID := testrand.UUID()
+		partnerID := testrand.UUID()
 		alphaBucket := []byte("alpha")
 		betaBucket := []byte("beta")
 		testData := []AttributionTestData{
 			{
 				name:       "new partnerID, projectID, alpha",
-				partnerID:  newUUID(),
+				partnerID:  testrand.UUID(),
 				projectID:  projectID,
 				bucketName: alphaBucket,
 
@@ -134,7 +123,7 @@ func TestQueryAttribution(t *testing.T) {
 			{
 				name:       "partnerID, new projectID, alpha",
 				partnerID:  partnerID,
-				projectID:  newUUID(),
+				projectID:  testrand.UUID(),
 				bucketName: alphaBucket,
 
 				remoteSize: remoteSize / 2,
@@ -147,7 +136,7 @@ func TestQueryAttribution(t *testing.T) {
 			},
 			{
 				name:       "new partnerID, projectID, beta",
-				partnerID:  newUUID(),
+				partnerID:  testrand.UUID(),
 				projectID:  projectID,
 				bucketName: betaBucket,
 
@@ -162,7 +151,7 @@ func TestQueryAttribution(t *testing.T) {
 			{
 				name:       "partnerID, new projectID, beta",
 				partnerID:  partnerID,
-				projectID:  newUUID(),
+				projectID:  testrand.UUID(),
 				bucketName: betaBucket,
 
 				remoteSize: remoteSize / 4,
