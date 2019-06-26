@@ -64,8 +64,8 @@ func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to ti
 	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	since, _ := getDateEdges(from)
-	_, before := getDateEdges(to)
+	since, _ := getDateEdges(from.UTC())
+	_, before := getDateEdges(to.UTC())
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT action, SUM(amount), created_at
@@ -135,8 +135,8 @@ func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID stor
 	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	since, _ := getDateEdges(from)
-	_, before := getDateEdges(to)
+	since, _ := getDateEdges(from.UTC())
+	_, before := getDateEdges(to.UTC())
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT action, SUM(amount), created_at
