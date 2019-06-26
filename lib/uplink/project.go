@@ -152,7 +152,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = p.CheckBucketAttribution(ctx, bucketName)
+	err = p.checkBucketAttribution(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +209,10 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}, nil
 }
 
-// CheckBucketAttribution Checks the bucket attribution
-func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string) error {
+// checkBucketAttribution Checks the bucket attribution
+func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if p.uplinkCfg.Volatile.PartnerID == "" {
 		return nil
 	}
