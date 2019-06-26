@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
+	"storj.io/storj/internal/errs2"
 )
 
 // LoadSchemaFromSQL inserts script into connstr and loads schema.
@@ -80,7 +81,7 @@ func QueryData(db dbschema.Queryer, schema *dbschema.Schema) (*dbschema.Data, er
 
 // IsConstraintError checks if given error is about constraint violation
 func IsConstraintError(err error) bool {
-	return errs.IsFunc(err, func(err error) bool {
+	return errs2.IsFunc(err, func(err error) bool {
 		if e, ok := err.(sqlite3.Error); ok {
 			if e.Code == sqlite3.ErrConstraint {
 				return true
