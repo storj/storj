@@ -22,7 +22,7 @@ type testConfig struct {
 	uplinkCfg Config
 }
 
-func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
+func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
@@ -42,9 +42,7 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig, encKey *storj.Key,
 			t.Fatalf("could not create new Uplink object: %v", err)
 		}
 		defer ctx.Check(uplink.Close)
-		var projectOptions ProjectOptions
-		projectOptions.Volatile.EncryptionKey = encKey
-		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey, &projectOptions)
+		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey)
 		if err != nil {
 			t.Fatalf("could not open project from libuplink under testplanet: %v", err)
 		}
@@ -62,13 +60,17 @@ func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
 // check that bucket attributes are stored and retrieved correctly.
 func TestBucketAttrs(t *testing.T) {
 	var (
-		access         = simpleEncryptionAccess("voxmachina")
-		bucketName     = "mightynein"
-		inBucketConfig = BucketConfig{
+		access          = simpleEncryptionAccess("voxmachina")
+		bucketName      = "mightynein"
+		shareSize       = memory.KiB.Int32()
+		requiredShares  = 2
+		stripeSize      = shareSize * int32(requiredShares)
+		stripesPerBlock = 2
+		inBucketConfig  = BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
-				BlockSize:   512,
+				BlockSize:   int32(stripesPerBlock) * stripeSize,
 			},
 			Volatile: struct {
 				RedundancyScheme storj.RedundancyScheme
@@ -76,8 +78,8 @@ func TestBucketAttrs(t *testing.T) {
 			}{
 				RedundancyScheme: storj.RedundancyScheme{
 					Algorithm:      storj.ReedSolomon,
-					ShareSize:      memory.KiB.Int32(),
-					RequiredShares: 2,
+					ShareSize:      shareSize,
+					RequiredShares: int16(requiredShares),
 					RepairShares:   3,
 					OptimalShares:  4,
 					TotalShares:    5,
@@ -87,7 +89,7 @@ func TestBucketAttrs(t *testing.T) {
 		}
 	)
 
-	testPlanetWithLibUplink(t, testConfig{}, &access.Key,
+	testPlanetWithLibUplink(t, testConfig{},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
 			before := time.Now()
 			bucket, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
@@ -116,15 +118,19 @@ func TestBucketAttrs(t *testing.T) {
 // specific config, the specific config applies and not the bucket attrs.
 func TestBucketAttrsApply(t *testing.T) {
 	var (
-		access         = simpleEncryptionAccess("howdoyouwanttodothis")
-		bucketName     = "dodecahedron"
-		objectPath1    = "vax/vex/vox"
-		objectContents = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
-		inBucketConfig = BucketConfig{
+		access          = simpleEncryptionAccess("howdoyouwanttodothis")
+		bucketName      = "dodecahedron"
+		objectPath1     = "vax/vex/vox"
+		objectContents  = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
+		shareSize       = 3 * memory.KiB.Int32()
+		requiredShares  = 3
+		stripeSize      = shareSize * int32(requiredShares)
+		stripesPerBlock = 2
+		inBucketConfig  = BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncSecretBox,
-				BlockSize:   768,
+				BlockSize:   int32(stripesPerBlock) * stripeSize,
 			},
 			Volatile: struct {
 				RedundancyScheme storj.RedundancyScheme
@@ -132,8 +138,8 @@ func TestBucketAttrsApply(t *testing.T) {
 			}{
 				RedundancyScheme: storj.RedundancyScheme{
 					Algorithm:      storj.ReedSolomon,
-					ShareSize:      (3 * memory.KiB).Int32(),
-					RequiredShares: 3,
+					ShareSize:      shareSize,
+					RequiredShares: int16(requiredShares),
 					RepairShares:   4,
 					OptimalShares:  5,
 					TotalShares:    5,
@@ -146,7 +152,7 @@ func TestBucketAttrsApply(t *testing.T) {
 	// so our test object will not be inlined (otherwise it will lose its RS params)
 	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1
 
-	testPlanetWithLibUplink(t, testConfig, &access.Key,
+	testPlanetWithLibUplink(t, testConfig,
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
 			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)

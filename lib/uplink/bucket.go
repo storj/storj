@@ -27,6 +27,8 @@ type Bucket struct {
 	streams  streams.Store
 }
 
+// TODO: move the object related OpenObject to object.go
+
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -119,7 +121,7 @@ type ListOptions = storj.ListOptions
 func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cfg == nil {
-		cfg = &storj.ListOptions{}
+		cfg = &storj.ListOptions{Direction: storj.Forward}
 	}
 	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
 }

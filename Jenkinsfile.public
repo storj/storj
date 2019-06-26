@@ -2,7 +2,8 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            label 'main'
         }
     }
     options {
@@ -32,13 +33,15 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
+                        sh 'go run ./scripts/check-large-files.go'
                         sh 'go run ./scripts/check-imports.go -race ./...'
                         sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
-                        sh 'protolock status'
+                        sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
                         sh 'golangci-lint -j=4 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
+                        sh 'make check-satellite-config-lock'
                     }
                 }
 
@@ -64,17 +67,6 @@ pipeline {
                                 if(fileExists(".build/coverprofile")){
                                     sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-
-                                    sh script: 'gocov-html < .build/cover.json > .build/cover.html', returnStatus: true
-                                    publishHTML target: [
-                                        allowMissing: false,
-                                        alwaysLinkToLastBuild: false,
-                                        keepAll: false,
-                                        reportDir: '.build',
-                                        reportFiles: 'cover.html',
-                                        reportName: 'Coverage Details'
-                                    ]
-
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml'
                                 }
@@ -95,7 +87,6 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
-                        sh 'make test-satellite-cfg-change'
                     }
                 }
             }

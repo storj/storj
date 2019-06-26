@@ -58,8 +58,8 @@ type PaymentMethod struct {
 // CreateProjectInvoiceParams contains info needed to create project invoice
 type CreateProjectInvoiceParams struct {
 	ProjectName     string
-	CustomerID      string
-	PaymentMethodID string
+	CustomerID      []byte
+	PaymentMethodID []byte
 
 	Storage     float64
 	Egress      float64

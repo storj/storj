@@ -36,11 +36,11 @@ import (
 var (
 	idents = testidentity.NewPregeneratedIdentities(storj.LatestIDVersion())
 	t1     = Token{
-		UserID: "user@example.com",
+		UserID: "user@mail.test",
 		Data:   [tokenDataLength]byte{1, 2, 3},
 	}
 	t2 = Token{
-		UserID: "user2@example.com",
+		UserID: "user2@mail.test",
 		Data:   [tokenDataLength]byte{4, 5, 6},
 	}
 )
@@ -77,25 +77,25 @@ func TestAuthorizationDB_Create(t *testing.T) {
 	}{
 		{
 			"first authorization",
-			"user1@example.com",
+			"user1@mail.test",
 			0, 1, 1, 1,
 			nil, nil,
 		},
 		{
 			"second authorization",
-			"user1@example.com",
+			"user1@mail.test",
 			1, 2, 2, 3,
 			nil, nil,
 		},
 		{
 			"large authorization",
-			"user2@example.com",
+			"user2@mail.test",
 			0, 5, 5, 5,
 			nil, nil,
 		},
 		{
 			"authorization error",
-			"user2@example.com",
+			"user2@mail.test",
 			5, -1, 0, 5,
 			&ErrAuthorizationDB, ErrAuthorizationCount,
 		},
@@ -107,10 +107,10 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			emailKey := storage.Key(testCase.email)
 
 			if testCase.startCount == 0 {
-				_, err = authDB.DB.Get(emailKey)
+				_, err = authDB.DB.Get(ctx, emailKey)
 				assert.Error(t, err)
 			} else {
-				v, err := authDB.DB.Get(emailKey)
+				v, err := authDB.DB.Get(ctx, emailKey)
 				require.NoError(t, err)
 				require.NotEmpty(t, v)
 
@@ -120,7 +120,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 				require.Len(t, existingAuths, testCase.startCount)
 			}
 
-			expectedAuths, err := authDB.Create(testCase.email, testCase.incCount)
+			expectedAuths, err := authDB.Create(ctx, testCase.email, testCase.incCount)
 			if testCase.errClass != nil {
 				assert.True(t, testCase.errClass.Has(err))
 			}
@@ -132,7 +132,7 @@ func TestAuthorizationDB_Create(t *testing.T) {
 			}
 			assert.Len(t, expectedAuths, testCase.newCount)
 
-			v, err := authDB.DB.Get(emailKey)
+			v, err := authDB.DB.Get(ctx, emailKey)
 			assert.NoError(t, err)
 			assert.NotEmpty(t, v)
 
@@ -162,7 +162,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	authsBytes, err := expectedAuths.Marshal()
 	require.NoError(t, err)
 
-	err = authDB.DB.Put(storage.Key("user@example.com"), authsBytes)
+	err = authDB.DB.Put(ctx, storage.Key("user@mail.test"), authsBytes)
 	require.NoError(t, err)
 
 	cases := []struct {
@@ -171,13 +171,13 @@ func TestAuthorizationDB_Get(t *testing.T) {
 		result Authorizations
 	}{
 		{
-			"Non-existant email",
-			"nouser@example.com",
+			"Non-existent email",
+			"nouser@mail.test",
 			nil,
 		},
 		{
-			"Exising email",
-			"user@example.com",
+			"Existing email",
+			"user@mail.test",
 			expectedAuths,
 		},
 	}
@@ -185,7 +185,7 @@ func TestAuthorizationDB_Get(t *testing.T) {
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
-			auths, err := authDB.Get(testCase.email)
+			auths, err := authDB.Get(ctx, testCase.email)
 			require.NoError(t, err)
 			if testCase.result != nil {
 				assert.NotEmpty(t, auths)
@@ -205,9 +205,9 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(authDB.Close)
 
-	userID := "user@example.com"
+	userID := "user@mail.test"
 
-	auths, err := authDB.Create(userID, 1)
+	auths, err := authDB.Create(ctx, userID, 1)
 	require.NoError(t, err)
 	require.NotEmpty(t, auths)
 
@@ -236,7 +236,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	difficulty, err := ident.ID.Difficulty()
 	require.NoError(t, err)
 
-	err = authDB.Claim(&ClaimOpts{
+	err = authDB.Claim(ctx, &ClaimOpts{
 		Req:           req,
 		Peer:          grpcPeer,
 		ChainBytes:    [][]byte{ident.CA.Raw},
@@ -244,7 +244,7 @@ func TestAuthorizationDB_Claim_Valid(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	updatedAuths, err := authDB.Get(userID)
+	updatedAuths, err := authDB.Get(ctx, userID)
 	require.NoError(t, err)
 	require.NotEmpty(t, updatedAuths)
 	assert.Equal(t, auths[0].Token, updatedAuths[0].Token)
@@ -268,7 +268,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(authDB.Close)
 
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	claimedTime := int64(1000000)
 	claimedAddr := "6.7.8.9:0"
 
@@ -281,7 +281,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 		Leaf: ident1.Leaf,
 	}
 
-	auths, err := authDB.Create(userID, 2)
+	auths, err := authDB.Create(ctx, userID, 2)
 	require.NoError(t, err)
 	require.NotEmpty(t, auths)
 
@@ -293,7 +293,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 		Identity:         claimedIdent,
 		SignedChainBytes: [][]byte{claimedIdent.CA.Raw},
 	}
-	err = authDB.put(userID, auths)
+	err = authDB.put(ctx, userID, auths)
 	require.NoError(t, err)
 
 	ident2, err := testidentity.NewTestIdentity(ctx)
@@ -317,7 +317,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("double claim", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
+		err = authDB.Claim(ctx, &ClaimOpts{
 			Req: &pb.SigningRequest{
 				AuthToken: auths[claimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
@@ -332,7 +332,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			assert.NotContains(t, err.Error(), auths[claimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		updatedAuths, err := authDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.NotEmpty(t, updatedAuths)
 
@@ -345,7 +345,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	})
 
 	t.Run("invalid timestamp", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
+		err = authDB.Claim(ctx, &ClaimOpts{
 			Req: &pb.SigningRequest{
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				// NB: 1 day ago
@@ -361,7 +361,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		updatedAuths, err := authDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.NotEmpty(t, updatedAuths)
 
@@ -370,7 +370,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 	})
 
 	t.Run("invalid difficulty", func(t *testing.T) {
-		err = authDB.Claim(&ClaimOpts{
+		err = authDB.Claim(ctx, &ClaimOpts{
 			Req: &pb.SigningRequest{
 				AuthToken: auths[unclaimedIndex].Token.String(),
 				Timestamp: time.Now().Unix(),
@@ -385,7 +385,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 			assert.NotContains(t, err.Error(), auths[unclaimedIndex].Token.String())
 		}
 
-		updatedAuths, err := authDB.Get(userID)
+		updatedAuths, err := authDB.Get(ctx, userID)
 		require.NoError(t, err)
 		require.NotEmpty(t, updatedAuths)
 
@@ -395,7 +395,7 @@ func TestAuthorizationDB_Claim_Invalid(t *testing.T) {
 }
 
 func TestNewAuthorization(t *testing.T) {
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	auth, err := NewAuthorization(userID)
 	require.NoError(t, err)
 	require.NotNil(t, auth)
@@ -476,20 +476,20 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 
 	var authErrs errs.Group
 	for i := 0; i < 5; i++ {
-		_, err := authDB.Create(fmt.Sprintf("user%d@example.com", i), 1)
+		_, err := authDB.Create(ctx, fmt.Sprintf("user%d@mail.test", i), 1)
 		if err != nil {
 			authErrs.Add(err)
 		}
 	}
 	require.NoError(t, authErrs.Err())
 
-	userIDs, err := authDB.UserIDs()
+	userIDs, err := authDB.UserIDs(ctx)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, userIDs)
 }
 
 func TestParseToken_Valid(t *testing.T) {
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	data := [tokenDataLength]byte{1, 2, 3}
 
 	cases := []struct {
@@ -502,7 +502,7 @@ func TestParseToken_Valid(t *testing.T) {
 		},
 		{
 			"multiple delimiters",
-			"us" + tokenDelimiter + "er@example.com",
+			"us" + tokenDelimiter + "er@mail.test",
 		},
 	}
 
@@ -522,7 +522,7 @@ func TestParseToken_Valid(t *testing.T) {
 }
 
 func TestParseToken_Invalid(t *testing.T) {
-	userID := "user@example.com"
+	userID := "user@mail.test"
 	data := [tokenDataLength]byte{1, 2, 3}
 
 	cases := []struct {
@@ -576,7 +576,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 
 				caCert := ctx.File("ca.cert")
 				caKey := ctx.File("ca.key")
-				userID := "user@example.com"
+				userID := "user@mail.test"
 				signerCAConfig := identity.FullCAConfig{
 					CertPath: caCert,
 					KeyPath:  caKey,
@@ -591,7 +591,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				authDB, err := config.NewAuthDB()
 				require.NoError(t, err)
 
-				auths, err := authDB.Create("user@example.com", 1)
+				auths, err := authDB.Create(ctx, "user@mail.test", 1)
 				require.NoError(t, err)
 				require.NotEmpty(t, auths)
 
@@ -653,7 +653,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				defer ctx.Check(authDB.Close)
 				require.NotNil(t, authDB)
 
-				updatedAuths, err := authDB.Get(userID)
+				updatedAuths, err := authDB.Get(ctx, userID)
 				require.NoError(t, err)
 				require.NotEmpty(t, updatedAuths)
 				require.NotNil(t, updatedAuths[0].Claim)
@@ -741,7 +741,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			userID := "user@example.com"
+			userID := "user@mail.test"
 			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
 			config := CertServerConfig{
 				AuthorizationDBURL: "bolt://" + ctx.File("authorizations.db"),
@@ -752,7 +752,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			defer ctx.Check(authDB.Close)
 			require.NotNil(t, authDB)
 
-			auths, err := authDB.Create(userID, 1)
+			auths, err := authDB.Create(ctx, userID, 1)
 			require.NoError(t, err)
 			require.NotEmpty(t, auths)
 
@@ -791,7 +791,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			err = signedChain[0].CheckSignatureFrom(signer.Cert)
 			require.NoError(t, err)
 
-			updatedAuths, err := authDB.Get(userID)
+			updatedAuths, err := authDB.Get(ctx, userID)
 			require.NoError(t, err)
 			require.NotEmpty(t, updatedAuths)
 			require.NotNil(t, updatedAuths[0].Claim)

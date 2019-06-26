@@ -36,7 +36,7 @@ var (
 
 // Sender sends emails
 type Sender interface {
-	SendEmail(msg *post.Message) error
+	SendEmail(ctx context.Context, msg *post.Message) error
 	FromAddress() post.Address
 }
 
@@ -86,7 +86,7 @@ func (service *Service) Close() error {
 // Send is generalized method for sending custom email message
 func (service *Service) Send(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.sender.SendEmail(msg)
+	return service.sender.SendEmail(ctx, msg)
 }
 
 // SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously
@@ -128,7 +128,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		},
 	}
 
-	err = service.sender.SendEmail(m)
+	err = service.sender.SendEmail(ctx, m)
 
 	// log error
 	var recipients []string
@@ -138,8 +138,8 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 
 	if err != nil {
 		service.log.Error("fail sending email",
-			zap.String("error", err.Error()),
-			zap.Strings("recipients", recipients))
+			zap.Strings("recipients", recipients),
+			zap.Error(err))
 	} else {
 		service.log.Info("email sent successfully",
 			zap.Strings("recipients", recipients))

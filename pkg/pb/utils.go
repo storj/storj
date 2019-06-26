@@ -4,10 +4,34 @@
 package pb
 
 import (
-	"go.uber.org/zap"
+	"bytes"
+	"reflect"
+
+	"github.com/gogo/protobuf/proto"
 
 	"storj.io/storj/pkg/storj"
 )
+
+// Equal compares two Protobuf messages via serialization
+func Equal(msg1, msg2 proto.Message) bool {
+	//reflect.DeepEqual and proto.Equal don't seem work in all cases
+	//todo:  see how slow this is compared to custom equality checks
+	if msg1 == nil {
+		return msg2 == nil
+	}
+	if reflect.TypeOf(msg1) != reflect.TypeOf(msg2) {
+		return false
+	}
+	msg1Bytes, err := proto.Marshal(msg1)
+	if err != nil {
+		return false
+	}
+	msg2Bytes, err := proto.Marshal(msg2)
+	if err != nil {
+		return false
+	}
+	return bytes.Compare(msg1Bytes, msg2Bytes) == 0
+}
 
 // NodesToIDs extracts Node-s into a list of ids
 func NodesToIDs(nodes []*Node) storj.NodeIDList {
@@ -36,15 +60,6 @@ func CopyNode(src *Node) (dst *Node) {
 	}
 
 	return &node
-}
-
-// DPanicOnInvalid panics if NodeType is invalid if zap is in development mode,
-// otherwise it logs.
-func (nt NodeType) DPanicOnInvalid(from string) {
-	// TODO: Remove all references
-	if nt == NodeType_INVALID {
-		zap.L().DPanic("INVALID NODE TYPE: " + from)
-	}
 }
 
 // AddressEqual compares two node addresses

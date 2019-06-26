@@ -4,9 +4,8 @@
 package audit_test
 
 import (
-	"crypto/rand"
+	"context"
 	"math"
-	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
@@ -55,7 +55,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := metainfo.List("", "", "", true, 10, meta.None)
+			list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -65,11 +65,7 @@ func TestAuditSegment(t *testing.T) {
 
 			// get a list of 100 paths generated from random
 			for i := 0; i < 100; i++ {
-				randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
-				if err != nil {
-					t.Error("num error: failed to get num")
-				}
-				pointerItem := list[randomNum.Int64()]
+				pointerItem := list[testrand.Int63n(int64(len(list)))]
 				path := pointerItem.Path
 				val := pathCount{path: path, count: 1}
 				pathCounter = append(pathCounter, val)
@@ -119,7 +115,7 @@ func TestDeleteExpired(t *testing.T) {
 		//populate metainfo with 10 expired pointers of test data
 		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
 		//make sure it they're in there
-		list, _, err := metainfo.List("", "", "", true, 10, meta.None)
+		list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
 		// make sure an error and no pointer is returned
@@ -129,7 +125,7 @@ func TestDeleteExpired(t *testing.T) {
 			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
-		list, _, err = metainfo.List("", "", "", true, 10, meta.None)
+		list, _, err = metainfo.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 0)
 	})
@@ -141,6 +137,7 @@ type testData struct {
 }
 
 func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *metainfo.Service) {
+	ctx := context.TODO()
 	tests := []testData{
 		{bm: "success-1", path: "folder1/file1"},
 		{bm: "success-2", path: "foodFolder1/file1/file2"},
@@ -162,7 +159,7 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 			test := tt
 			t.Run(test.bm, func(t *testing.T) {
 				pointer := makePointer(test.path, expiration)
-				require.NoError(t, metainfo.Put(test.path, pointer))
+				require.NoError(t, metainfo.Put(ctx, test.path, pointer))
 			})
 		}
 	})

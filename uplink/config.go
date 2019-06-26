@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/peertls/tlsopts"
-	"storj.io/storj/pkg/storage/buckets"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
@@ -31,22 +30,21 @@ import (
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
 type RSConfig struct {
-	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
-	ErasureShareSize memory.Size `help:"the size of each new erasure sure in bytes" default:"1KiB"`
-	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`
-	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6"`
-	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8"`
-	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10"`
+	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB" hidden:"true"`
+	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B" hidden:"true"`
+	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4" hidden:"true"`
+	RepairThreshold  int         `help:"the minimum safe pieces before a repair is triggered. m." releaseDefault:"35" devDefault:"6" hidden:"true"`
+	SuccessThreshold int         `help:"the desired total pieces for a segment. o." releaseDefault:"80" devDefault:"8" hidden:"true"`
+	MaxThreshold     int         `help:"the largest amount of pieces to encode to. n." releaseDefault:"130" devDefault:"10" hidden:"true"`
 }
 
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey string      `help:"the root key for encrypting the data; when set, it overrides the key stored in the file indicated by the key-filepath flag"`
-	KeyFilepath   string      `help:"the path to the file which contains the root key for encrypting the data"`
-	BlockSize     memory.Size `help:"size (in bytes) of encrypted blocks" default:"1KiB"`
-	DataType      int         `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType      int         `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncryptionKey string `help:"the root key for encrypting the data which will be stored in KeyFilePath" setup:"true"`
+	KeyFilepath   string `help:"the path to the file which contains the root key for encrypting the data"`
+	DataType      int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType      int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -95,9 +93,15 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 		return nil, nil, errors.New("satellite address not specified")
 	}
 
-	metainfo, err := metainfo.NewClient(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
+	m, err := metainfo.Dial(ctx, tc, c.Client.SatelliteAddr, c.Client.APIKey)
 	if err != nil {
 		return nil, nil, Error.New("failed to connect to metainfo service: %v", err)
+	}
+	// TODO: handle closing of m
+
+	project, err := kvmetainfo.SetupProject(m)
+	if err != nil {
+		return nil, nil, Error.New("failed to create project: %v", err)
 	}
 
 	ec := ecclient.NewClient(tc, c.RS.MaxBufferMem.Int())
@@ -114,32 +118,36 @@ func (c Config) GetMetainfo(ctx context.Context, identity *identity.FullIdentity
 	if err != nil {
 		return nil, nil, Error.New("failed to calculate max encrypted segment size: %v", err)
 	}
-	segments := segments.NewSegmentStore(metainfo, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
+	segment := segments.NewSegmentStore(m, ec, rs, c.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	if c.RS.ErasureShareSize.Int()*c.RS.MinThreshold%c.Enc.BlockSize.Int() != 0 {
+	blockSize := c.GetEncryptionScheme().BlockSize
+	if int(blockSize)%c.RS.ErasureShareSize.Int()*c.RS.MinThreshold != 0 {
 		err = Error.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, nil, err
 	}
 
-	key, err := UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
+	key, err := LoadEncryptionKey(c.Enc.KeyFilepath)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	streams, err := streams.NewStreamStore(segments, c.Client.SegmentSize.Int64(), key, c.Enc.BlockSize.Int(), storj.Cipher(c.Enc.DataType))
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(key)
+	strms, err := streams.NewStreamStore(segment, c.Client.SegmentSize.Int64(), encStore,
+		int(blockSize), storj.Cipher(c.Enc.DataType), c.Client.MaxInlineSize.Int(),
+	)
 	if err != nil {
 		return nil, nil, Error.New("failed to create stream store: %v", err)
 	}
 
-	buckets := buckets.NewStore(streams)
-
-	return kvmetainfo.New(metainfo, buckets, streams, segments, key, c.Enc.BlockSize.Int32(), rs, c.Client.SegmentSize.Int64()), streams, nil
+	return kvmetainfo.New(project, m, strms, segment, encStore), strms, nil
 }
 
 // GetRedundancyScheme returns the configured redundancy scheme for new uploads
 func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 	return storj.RedundancyScheme{
 		Algorithm:      storj.ReedSolomon,
+		ShareSize:      c.RS.ErasureShareSize.Int32(),
 		RequiredShares: int16(c.RS.MinThreshold),
 		RepairShares:   int16(c.RS.RepairThreshold),
 		OptimalShares:  int16(c.RS.SuccessThreshold),
@@ -147,12 +155,26 @@ func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 	}
 }
 
+// GetPathCipherSuite returns the cipher suite used for path encryption for bucket objects
+func (c Config) GetPathCipherSuite() storj.CipherSuite {
+	return storj.Cipher(c.Enc.PathType).ToCipherSuite()
+}
+
 // GetEncryptionScheme returns the configured encryption scheme for new uploads
+// Blocksize should align with the stripe size therefore multiples of stripes
+// should fit in every encryption block. Instead of lettings users configure this
+// multiple value, we hardcode stripesPerBlock as 2 for simplicity.
 func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
+	const stripesPerBlock = 2
 	return storj.EncryptionScheme{
 		Cipher:    storj.Cipher(c.Enc.DataType),
-		BlockSize: int32(c.Enc.BlockSize),
+		BlockSize: c.GetRedundancyScheme().StripeSize() * stripesPerBlock,
 	}
+}
+
+// GetSegmentSize returns the segment size set in uplink config
+func (c Config) GetSegmentSize() memory.Size {
+	return c.Client.SegmentSize
 }
 
 // LoadEncryptionKey loads the encryption key stored in the file pointed by
@@ -170,20 +192,4 @@ func LoadEncryptionKey(filepath string) (key *storj.Key, error error) {
 	}
 
 	return storj.NewKey(rawKey)
-}
-
-// UseOrLoadEncryptionKey return an encryption key from humanReadableKey when
-// it isn't empty otherwise try to load the key from the file pointed by
-// filepath calling LoadEncryptionKey function.
-func UseOrLoadEncryptionKey(humanReadableKey string, filepath string) (*storj.Key, error) {
-	if humanReadableKey != "" {
-		key, err := storj.NewKey([]byte(humanReadableKey))
-		if err != nil {
-			return nil, err
-		}
-
-		return key, nil
-	}
-
-	return LoadEncryptionKey(filepath)
 }

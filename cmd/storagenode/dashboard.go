@@ -17,6 +17,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
@@ -29,13 +30,10 @@ const contactWindow = time.Minute * 10
 
 type dashboardClient struct {
 	client pb.PieceStoreInspectorClient
+	conn   *grpc.ClientConn
 }
 
-func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
-}
-
-func newDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
+func dialDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
 	conn, err := transport.DialAddressInsecure(ctx, address)
 	if err != nil {
 		return &dashboardClient{}, err
@@ -43,7 +41,16 @@ func newDashboardClient(ctx context.Context, address string) (*dashboardClient, 
 
 	return &dashboardClient{
 		client: pb.NewPieceStoreInspectorClient(conn),
+		conn:   conn,
 	}, nil
+}
+
+func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
+	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+}
+
+func (dash *dashboardClient) close() error {
+	return dash.conn.Close()
 }
 
 func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
@@ -56,10 +63,15 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	client, err := newDashboardClient(ctx, dashboardCfg.Address)
+	client, err := dialDashboardClient(ctx, dashboardCfg.Address)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := client.close(); err != nil {
+			zap.S().Debug("closing dashboard client failed", err)
+		}
+	}()
 
 	for {
 		data, err := client.dashboard(ctx)

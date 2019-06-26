@@ -11,11 +11,11 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/post"
@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/irreparable"
@@ -43,21 +42,27 @@ import (
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 )
+
+var mon = monkit.Package()
 
 // DB is the master database for the satellite
 type DB interface {
@@ -71,12 +76,12 @@ type DB interface {
 	// DropSchema drops the schema
 	DropSchema(schema string) error
 
-	// BandwidthAgreement returns database for storing bandwidth agreements
-	BandwidthAgreement() bwagreement.DB
 	// CertDB returns database for storing uplink's public key & ID
 	CertDB() certdb.DB
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// Attribution returns database for partner keys information
+	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
 	StoragenodeAccounting() accounting.StoragenodeAccounting
 	// ProjectAccounting returns database for storing information about project data use
@@ -87,6 +92,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
+	//  returns database for marketing admin GUI
+	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -96,16 +103,14 @@ type DB interface {
 // Config is the global config satellite
 type Config struct {
 	Identity identity.Config
-
-	// TODO: switch to using server.Config when Identity has been removed from it
-	Server server.Config
+	Server   server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	Metainfo    metainfo.Config
-	BwAgreement bwagreement.Config // TODO: decide whether to keep empty configs for consistency
+	Metainfo metainfo.Config
+	Orders   orders.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -118,7 +123,8 @@ type Config struct {
 	Mail    mailservice.Config
 	Console consoleweb.Config
 
-	Vouchers vouchers.Config
+	Marketing marketingweb.Config
+	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -165,10 +171,6 @@ type Peer struct {
 		Endpoint *inspector.Endpoint
 	}
 
-	Agreements struct {
-		Endpoint *bwagreement.Server
-	}
-
 	Orders struct {
 		Endpoint *orders.Endpoint
 		Service  *orders.Service
@@ -206,6 +208,15 @@ type Peer struct {
 		Service  *console.Service
 		Endpoint *consoleweb.Server
 	}
+
+	Marketing struct {
+		Listener net.Listener
+		Endpoint *marketingweb.Server
+	}
+
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
+	}
 }
 
 // New creates a new satellite
@@ -237,7 +248,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.Transport = transport.NewClient(options)
 
-		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, grpcauth.NewAPIKeyInterceptor())
+		unaryInterceptor := grpcauth.NewAPIKeyInterceptor()
+		if sc.DebugLogTraffic {
+			unaryInterceptor = server.CombineInterceptors(unaryInterceptor, server.UnaryMessageLoggingInterceptor(log))
+		}
+		peer.Server, err = server.New(options, sc.Address, sc.PrivateAddress, unaryInterceptor)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -276,6 +291,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			},
 			Type: pb.NodeType_SATELLITE,
 			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,
@@ -325,20 +341,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		config := config.Vouchers
-		if config.Expiration < 0 {
-			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
-		}
-		expirationHours := config.Expiration * 24
-		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
-		if err != nil {
-			return nil, err
-		}
 		peer.Vouchers.Service = vouchers.NewService(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			duration,
+			config.Vouchers.Expiration,
 		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
 	}
@@ -377,7 +384,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.CertDB(),
 			peer.DB.Orders(),
-			45*24*time.Hour, // TODO: make it configurable?
+			config.Orders.Expiration,
+			&pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   config.Kademlia.ExternalAddress,
+			},
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -397,19 +408,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
+			peer.DB.Attribution(),
 			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
+			config.Metainfo.RS,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
-	}
-
-	{ // setup agreements
-		log.Debug("Setting up agreements")
-		bwServer := bwagreement.NewServer(peer.DB.BandwidthAgreement(), peer.DB.CertDB(), peer.Identity.Leaf.PublicKey, peer.Log.Named("agreements"), peer.Identity.ID)
-		peer.Agreements.Endpoint = bwServer
-		pb.RegisterBandwidthServer(peer.Server.GRPC(), peer.Agreements.Endpoint)
 	}
 
 	{ // setup datarepair
@@ -498,7 +504,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				ClientSecret: mailConfig.ClientSecret,
 				TokenURI:     mailConfig.TokenURI,
 			}
-			token, err := oauth2.RefreshToken(creds, mailConfig.RefreshToken)
+			token, err := oauth2.RefreshToken(context.TODO(), creds, mailConfig.RefreshToken)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -583,11 +589,42 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 	}
 
+	{ // setup marketing portal
+		log.Debug("Setting up marketing server")
+		marketingConfig := config.Marketing
+
+		peer.Marketing.Listener, err = net.Listen("tcp", marketingConfig.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Marketing.Endpoint, err = marketingweb.NewServer(
+			peer.Log.Named("marketing:endpoint"),
+			marketingConfig,
+			peer.Marketing.Listener,
+		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
+
+	{ // setup node stats endpoint
+		log.Debug("Setting up node stats endpoint")
+
+		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
+			peer.Log.Named("nodestats:endpoint"),
+			peer.DB.OverlayCache())
+
+		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
+	}
+
 	return peer, nil
 }
 
-// Run runs storage node until it's either closed or it errors.
-func (peer *Peer) Run(ctx context.Context) error {
+// Run runs satellite until it's either closed or it errors.
+func (peer *Peer) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
@@ -628,6 +665,9 @@ func (peer *Peer) Run(ctx context.Context) error {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Marketing.Endpoint.Run(ctx))
+	})
 
 	return group.Wait()
 }
@@ -653,16 +693,18 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Mail.Service.Close())
 	}
 
+	if peer.Marketing.Endpoint != nil {
+		errlist.Add(peer.Marketing.Endpoint.Close())
+	} else if peer.Marketing.Listener != nil {
+		errlist.Add(peer.Marketing.Listener.Close())
+	}
+
 	// close services in reverse initialization order
 	if peer.Repair.Repairer != nil {
 		errlist.Add(peer.Repair.Repairer.Close())
 	}
 	if peer.Repair.Checker != nil {
 		errlist.Add(peer.Repair.Checker.Close())
-	}
-
-	if peer.Agreements.Endpoint != nil {
-		errlist.Add(peer.Agreements.Endpoint.Close())
 	}
 
 	if peer.Metainfo.Database != nil {

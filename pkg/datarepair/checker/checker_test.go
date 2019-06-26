@@ -22,7 +22,6 @@ import (
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
-	t.Skip()
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -90,8 +89,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointer := &pb.Pointer{
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(4),
-					RepairThreshold: int32(8),
+					MinReq:           int32(3),
+					RepairThreshold:  int32(8),
+					SuccessThreshold: int32(9),
+					Total:            int32(10),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
@@ -100,7 +101,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put("fake-piece-id", pointer)
+		err := metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -137,8 +138,10 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointer = &pb.Pointer{
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
-					MinReq:          int32(3),
-					RepairThreshold: int32(8),
+					MinReq:           int32(2),
+					RepairThreshold:  int32(8),
+					SuccessThreshold: int32(9),
+					Total:            int32(10),
 				},
 				RootPieceId:  teststorj.PieceIDFromString("fake-piece-id"),
 				RemotePieces: pieces,
@@ -146,7 +149,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		}
 		// put test pointer to db
 		metainfo = planet.Satellites[0].Metainfo.Service
-		err = metainfo.Put("fake-piece-id", pointer)
+		err = metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -158,6 +161,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 }
 
 func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, createLost bool) {
+	ctx := context.TODO()
 	numOfStorageNodes := len(planet.StorageNodes)
 	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
 	// use online nodes
@@ -183,8 +187,10 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	pointer := &pb.Pointer{
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
-				MinReq:          int32(minReq),
-				RepairThreshold: int32(repairThreshold),
+				MinReq:           int32(minReq),
+				RepairThreshold:  int32(repairThreshold),
+				SuccessThreshold: int32(repairThreshold) + 1,
+				Total:            int32(repairThreshold) + 2,
 			},
 			RootPieceId:  teststorj.PieceIDFromString(pieceID),
 			RemotePieces: pieces,
@@ -192,7 +198,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 	}
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(pieceID, pointer)
+	err := pointerdb.Put(ctx, pieceID, pointer)
 	require.NoError(t, err)
 }
 

@@ -43,7 +43,7 @@ type ErasureScheme interface {
 	// from Decode.
 	StripeSize() int
 
-	// Encode will generate this many pieces
+	// Encode will generate this many erasure shares and therefore this many pieces
 	TotalCount() int
 
 	// Decode requires at least this many pieces
@@ -119,6 +119,7 @@ func (rs *RedundancyStrategy) OptimalThreshold() int {
 }
 
 type encodedReader struct {
+	ctx    context.Context
 	rs     RedundancyStrategy
 	pieces map[int]*encodedPiece
 }
@@ -126,7 +127,10 @@ type encodedReader struct {
 // EncodeReader takes a Reader and a RedundancyStrategy and returns a slice of
 // io.ReadClosers.
 func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	er := &encodedReader{
+		ctx:    ctx,
 		rs:     rs,
 		pieces: make(map[int]*encodedPiece, rs.TotalCount()),
 	}
@@ -166,7 +170,9 @@ func EncodeReader(ctx context.Context, r io.Reader, rs RedundancyStrategy) (_ []
 }
 
 func (er *encodedReader) fillBuffer(ctx context.Context, r io.Reader, w sync2.PipeWriter) {
-	_, err := sync2.Copy(ctx, w, r)
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	_, err = sync2.Copy(ctx, w, r)
 	err = w.CloseWithError(err)
 	if err != nil {
 		zap.S().Error(err)
@@ -185,6 +191,8 @@ type encodedPiece struct {
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
+	ctx := ep.er.ctx
+	defer mon.Task()(&ctx)(&err)
 	if ep.err != nil {
 		return 0, ep.err
 	}
@@ -214,7 +222,9 @@ func (ep *encodedPiece) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (ep *encodedPiece) Close() error {
+func (ep *encodedPiece) Close() (err error) {
+	ctx := ep.er.ctx
+	defer mon.Task()(&ctx)(&err)
 	return ep.pipeReader.Close()
 }
 
@@ -247,7 +257,8 @@ func (er *EncodedRanger) OutputSize() int64 {
 }
 
 // Range is like Ranger.Range, but returns a slice of Readers
-func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) ([]io.ReadCloser, error) {
+func (er *EncodedRanger) Range(ctx context.Context, offset, length int64) (_ []io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// the offset and length given may not be block-aligned, so let's figure
 	// out which blocks contain the request.
 	firstBlock, blockCount := encryption.CalcEncompassingBlocks(

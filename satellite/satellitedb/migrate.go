@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
 // ErrMigrate is for tracking migration errors
@@ -221,7 +222,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 									return ErrMigrate.Wrap(err)
 								}
 
-								var rba pb.Order
+								var rba pbold.Order
 								if err := proto.Unmarshal(data, &rba); err != nil {
 									return ErrMigrate.Wrap(err)
 								}
@@ -724,6 +725,153 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     25,
 				Action: migrate.SQL{
 					`ALTER TABLE nodes ADD disqualified boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				Description: "Add invitee_credit_in_gb and award_credit_in_gb columns, delete type and credit_in_cents columns",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP COLUMN credit_in_cents;`,
+					`ALTER TABLE offers ADD COLUMN award_credit_in_cents integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE offers ADD COLUMN invitee_credit_in_cents integer NOT NULL DEFAULT 0;`,
+					`ALTER TABLE offers ALTER COLUMN expires_at SET NOT NULL;`,
+				},
+			},
+			{
+				Description: "Create value attribution table",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE TABLE value_attributions (
+						bucket_id bytea NOT NULL,
+						partner_id bytea NOT NULL,
+						last_updated timestamp NOT NULL,
+						PRIMARY KEY ( bucket_id )
+					)`,
+				},
+			},
+			{
+				Description: "Remove agreements table",
+				Version:     28,
+				Action: migrate.SQL{
+					`DROP TABLE bwagreements`,
+				},
+			},
+			{
+				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
+				Version:     29,
+				Action: migrate.SQL{
+					`CREATE TABLE user_payments (
+						user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+						customer_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( user_id ),
+						UNIQUE ( customer_id )
+					);`,
+					`CREATE TABLE project_payments (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+						payment_method_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id )
+					);`,
+					`CREATE TABLE project_invoice_stamps (
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						invoice_id bytea NOT NULL,
+						start_date timestamp with time zone NOT NULL,
+						end_date timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( project_id, start_date, end_date ),
+						UNIQUE ( invoice_id )
+					);`,
+				},
+			},
+			{
+				Description: "Alter value attribution table. Remove bucket_id. Add project_id and bucket_name as primary key",
+				Version:     30,
+				Action: migrate.SQL{
+					`ALTER TABLE value_attributions DROP CONSTRAINT value_attributions_pkey;`,
+					`ALTER TABLE value_attributions ADD project_id bytea;`,
+					`UPDATE value_attributions SET project_id=SUBSTRING(bucket_id FROM 1 FOR 16);`,
+					`ALTER TABLE value_attributions ALTER COLUMN project_id SET NOT NULL;`,
+					`ALTER TABLE value_attributions RENAME COLUMN bucket_id TO bucket_name;`,
+					`UPDATE value_attributions SET bucket_name=SUBSTRING(bucket_name from 18);`,
+					`ALTER TABLE value_attributions ADD PRIMARY KEY (project_id, bucket_name);`,
+				},
+			},
+			{
+				Description: "Add user_credit table",
+				Version:     31,
+				Action: migrate.SQL{
+					`CREATE TABLE user_credits (
+						id serial NOT NULL,
+						user_id bytea NOT NULL REFERENCES users( id ),
+						offer_id integer NOT NULL REFERENCES offers( id ),
+						referred_by bytea REFERENCES users( id ),
+						credits_earned_in_cents integer NOT NULL,
+						credits_used_in_cents integer NOT NULL,
+						expires_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Change type of disqualified column of nodes table to timestamp",
+				Version:     32,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes
+						ALTER COLUMN disqualified DROP DEFAULT,
+						ALTER COLUMN disqualified DROP NOT NULL,
+						ALTER COLUMN disqualified TYPE timestamp with time zone USING
+							CASE disqualified
+								WHEN true THEN TIMESTAMP WITH TIME ZONE '2019-06-15 00:00:00+00'
+								ELSE NULL
+							END`,
+				},
+			},
+			{
+				Description: "Add alpha and beta columns for reputations",
+				Version:     33,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN audit_reputation_beta double precision NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN uptime_reputation_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN uptime_reputation_beta double precision NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Remove ratio columns from node reputations",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_success_ratio;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_ratio;`,
+				},
+			},
+			{
+				Description: "Fix reputations to preserve a baseline",
+				Version:     35,
+				Action: migrate.SQL{
+					`UPDATE nodes SET audit_reputation_alpha = GREATEST(audit_success_count, 50);`,
+					`UPDATE nodes SET audit_reputation_beta = total_audit_count - audit_success_count;`,
+					`UPDATE nodes SET uptime_reputation_alpha = GREATEST(uptime_success_count, 100);`,
+					`UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
+				},
+			},
+			{
+				Description: "Update Last_IP column to be masked",
+				Version:     36,
+				Action: migrate.SQL{
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 24))) WHERE last_ip <> '' AND family(last_ip::INET) = 4;`,
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 64))) WHERE last_ip <> '' AND family(last_ip::INET) = 16;`,
+					`ALTER TABLE nodes RENAME last_ip TO last_net;`,
+				},
+			},
+			{
+				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
+				Version:     37,
+				Action: migrate.SQL{
+					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 				},
 			},
 		},

@@ -5,7 +5,6 @@ package peertls_test
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -18,6 +17,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/testpeertls"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/pkcrypto"
@@ -185,13 +185,7 @@ func TestAddExtraExtension(t *testing.T) {
 	cert := chain[0]
 	extLen := len(cert.Extensions)
 
-	randBytes := make([]byte, 10)
-	_, err = rand.Read(randBytes)
-	require.NoError(t, err)
-	if !assert.NoError(t, err) {
-		t.FailNow()
-	}
-
+	randBytes := testrand.Bytes(10)
 	ext := pkix.Extension{
 		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
 		Value: randBytes,

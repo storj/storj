@@ -8,10 +8,16 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/dbutil/sqliteutil"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storagenode/trust"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 type certdb struct {
@@ -26,6 +32,8 @@ func (db *InfoDB) CertDB() trust.CertDB { return &certdb{db} }
 
 // Include includes the certificate in the table and returns an unique id.
 func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certid int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	chain := encodePeerIdentity(pi)
 
 	defer db.locked()()
@@ -43,11 +51,13 @@ func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certi
 }
 
 // LookupByCertID finds certificate by the certid returned by Include.
-func (db *certdb) LookupByCertID(ctx context.Context, id int64) (*identity.PeerIdentity, error) {
+func (db *certdb) LookupByCertID(ctx context.Context, id int64) (_ *identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var pem *[]byte
 
 	db.mu.Lock()
-	err := db.db.QueryRow(`SELECT peer_identity FROM certificate WHERE cert_id = ?`, id).Scan(&pem)
+	err = db.db.QueryRow(`SELECT peer_identity FROM certificate WHERE cert_id = ?`, id).Scan(&pem)
 	db.mu.Unlock()
 
 	if err != nil {
@@ -57,7 +67,7 @@ func (db *certdb) LookupByCertID(ctx context.Context, id int64) (*identity.PeerI
 		return nil, ErrInfo.New("did not find certificate")
 	}
 
-	peer, err := decodePeerIdentity(*pem)
+	peer, err := decodePeerIdentity(ctx, *pem)
 	return peer, ErrInfo.Wrap(err)
 }
 
@@ -72,7 +82,9 @@ func encodePeerIdentity(pi *identity.PeerIdentity) []byte {
 	return chain
 }
 
-func decodePeerIdentity(chain []byte) (*identity.PeerIdentity, error) {
+func decodePeerIdentity(ctx context.Context, chain []byte) (_ *identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	var certs []*x509.Certificate
 	for len(chain) > 0 {
 		var raw asn1.RawValue

@@ -25,7 +25,8 @@ func (db *DB) PieceInfo() pieces.DB { return db.info.PieceInfo() }
 func (db *InfoDB) PieceInfo() pieces.DB { return &pieceinfo{db} }
 
 // Add inserts piece information into the database.
-func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
+func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	certdb := db.CertDB()
 	certid, err := certdb.Include(ctx, info.Uplink)
 	if err != nil {
@@ -49,7 +50,8 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) error {
 }
 
 // Get gets piece information by satellite id and piece id.
-func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*pieces.Info, error) {
+func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
+	defer mon.Task()(&ctx)(&err)
 	info := &pieces.Info{}
 	info.SatelliteID = satelliteID
 	info.PieceID = pieceID
@@ -58,7 +60,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 	var uplinkIdentity []byte
 
 	db.mu.Lock()
-	err := db.db.QueryRowContext(ctx, db.Rebind(`
+	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT piece_size, piece_expiration, uplink_piece_hash, certificate.peer_identity
 		FROM pieceinfo
 		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
@@ -76,7 +78,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	info.Uplink, err = decodePeerIdentity(uplinkIdentity)
+	info.Uplink, err = decodePeerIdentity(ctx, uplinkIdentity)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -85,12 +87,13 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 }
 
 // Delete deletes piece information.
-func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error {
+func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	_, err := db.db.ExecContext(ctx, db.Rebind(`
-		DELETE FROM pieceinfo 
-		WHERE satellite_id = ? 
+	_, err = db.db.ExecContext(ctx, db.Rebind(`
+		DELETE FROM pieceinfo
+		WHERE satellite_id = ?
 		  AND piece_id = ?
 	`), satelliteID, pieceID)
 
@@ -98,13 +101,14 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 }
 
 // DeleteFailed marks piece as a failed deletion.
-func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) error {
+func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, now time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	_, err := db.db.ExecContext(ctx, db.Rebind(`
-		UPDATE pieceinfo 
+	_, err = db.db.ExecContext(ctx, db.Rebind(`
+		UPDATE pieceinfo
 		SET deletion_failed_at = ?
-		WHERE satellite_id = ? 
+		WHERE satellite_id = ?
 		  AND piece_id = ?
 	`), now, satelliteID, pieceID)
 
@@ -113,6 +117,7 @@ func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID,
 
 // GetExpired gets pieceinformation identites that are expired.
 func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit int64) (infos []pieces.ExpiredInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
@@ -138,17 +143,36 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 }
 
 // SpaceUsed calculates disk space used by all pieces
-func (db *pieceinfo) SpaceUsed(ctx context.Context) (int64, error) {
+func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	defer db.locked()()
 
-	var sum *int64
-	err := db.db.QueryRowContext(ctx, db.Rebind(`
+	var sum sql.NullInt64
+	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT SUM(piece_size)
 		FROM pieceinfo
 	`)).Scan(&sum)
 
-	if err == sql.ErrNoRows || sum == nil {
+	if err == sql.ErrNoRows || !sum.Valid {
 		return 0, nil
 	}
-	return *sum, err
+	return sum.Int64, err
+}
+
+// SpaceUsed calculates disk space used by all pieces
+func (db *pieceinfo) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	defer db.locked()()
+
+	var sum sql.NullInt64
+	err = db.db.QueryRowContext(ctx, db.Rebind(`
+		SELECT SUM(piece_size)
+		FROM pieceinfo
+		WHERE satellite_id = ?
+	`), satelliteID).Scan(&sum)
+
+	if err == sql.ErrNoRows || !sum.Valid {
+		return 0, nil
+	}
+	return sum.Int64, err
 }

@@ -4,7 +4,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -14,11 +13,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
 
+	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink"
 )
 
 var (
@@ -76,106 +76,63 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	if setupCfg.NonInteractive {
-		override := map[string]interface{}{
-			"enc.key-filepath": usedEncryptionKeyFilepath,
-		}
-		return process.SaveConfigWithAllDefaults(
-			cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+		return cmdSetupNonInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
 	}
 
-	_, err = fmt.Print(`
-Pick satellite to use:
-	[1] mars.tardigrade.io
-	[2] jupiter.tardigrade.io
-	[3] saturn.tardigrade.io
-Please enter numeric choice or enter satellite address manually [1]: `)
-	if err != nil {
-		return err
-	}
-	satellites := []string{"mars.tardigrade.io", "jupiter.tardigrade.io", "saturn.tardigrade.io"}
-	var satelliteAddress string
-	n, err := fmt.Scanln(&satelliteAddress)
-	if err != nil {
-		if n == 0 {
-			// fmt.Scanln cannot handle empty input
-			satelliteAddress = satellites[0]
-		} else {
+	return cmdSetupInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
+}
+
+// cmdSetupNonInteractive sets up uplink non-interactively.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+	if setupCfg.Enc.EncryptionKey != "" {
+		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+		if err != nil {
 			return err
 		}
 	}
 
-	// TODO add better validation
-	if satelliteAddress == "" {
-		return errs.New("satellite address cannot be empty")
-	} else if len(satelliteAddress) == 1 {
-		switch satelliteAddress {
-		case "1":
-			satelliteAddress = satellites[0]
-		case "2":
-			satelliteAddress = satellites[1]
-		case "3":
-			satelliteAddress = satellites[2]
-		default:
-			return errs.New("Satellite address cannot be one character")
-		}
+	override := map[string]interface{}{
+		"enc.key-filepath": encryptionKeyFilepath,
 	}
 
-	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
-		satelliteAddress, cmd.Flags().Lookup("satellite-addr").Value.String())
+	err := process.SaveConfigWithAllDefaults(
+		cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
 	if err != nil {
 		return err
 	}
 
-	_, err = fmt.Print("Enter your API key: ")
-	if err != nil {
-		return err
-	}
-	var apiKey string
-	n, err = fmt.Scanln(&apiKey)
-	if err != nil && n != 0 {
-		return err
+	if setupCfg.Enc.EncryptionKey != "" {
+		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
 	}
 
-	if apiKey == "" {
-		return errs.New("API key cannot be empty")
-	}
+	return nil
+}
 
-	_, err = fmt.Print("Enter your encryption key: ")
-	if err != nil {
-		return err
-	}
-	humanReadableKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+// cmdSetupInteractive sets up uplink interactively.
+//
+// encryptionKeyFilepath should be set to the filepath indicated by the user or
+// or to a default path whose directory tree exists.
+func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+
+	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return err
 	}
 
-	_, err = fmt.Println()
+	apiKey, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return err
 	}
 
-	if len(humanReadableKey) == 0 {
-		return errs.New("Encryption key cannot be empty")
-	}
-
-	_, err = fmt.Print("Enter your encryption key again: ")
-	if err != nil {
-		return err
-	}
-	repeatedHumanReadableKey, err := terminal.ReadPassword(int(os.Stdin.Fd()))
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Println()
+	humanReadableKey, err := wizard.PromptForEncryptionKey()
 	if err != nil {
 		return err
 	}
 
-	if !bytes.Equal(humanReadableKey, repeatedHumanReadableKey) {
-		return errs.New("encryption keys don't match")
-	}
-
-	err = saveEncryptionKey(humanReadableKey, usedEncryptionKeyFilepath)
+	err = uplink.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
 	if err != nil {
 		return err
 	}
@@ -183,7 +140,7 @@ Please enter numeric choice or enter satellite address manually [1]: `)
 	var override = map[string]interface{}{
 		"api-key":          apiKey,
 		"satellite-addr":   satelliteAddress,
-		"enc.key-filepath": usedEncryptionKeyFilepath,
+		"enc.key-filepath": encryptionKeyFilepath,
 	}
 
 	err = process.SaveConfigWithAllDefaults(
@@ -204,7 +161,7 @@ Some things to try next:
 * Run 'uplink --help' to see the operations that can be performed
 
 * See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
-	`, usedEncryptionKeyFilepath)
+	`, encryptionKeyFilepath)
 
 	return nil
 }
@@ -265,35 +222,4 @@ func ApplyDefaultHostAndPortToAddr(address, defaultAddress string) (string, erro
 
 	// address is host:
 	return net.JoinHostPort(addressParts[0], defaultPort), nil
-}
-
-// saveEncryptionKey generates a Storj key from the inputKey and save it into a
-// new file created in filepath.
-func saveEncryptionKey(inputKey []byte, filepath string) error {
-	switch {
-	case len(inputKey) == 0:
-		return Error.New("inputKey is empty")
-	case filepath == "":
-		return Error.New("filepath is empty")
-	}
-
-	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return Error.New("directory path doesn't exist. %+v", err)
-		}
-
-		if os.IsExist(err) {
-			return Error.New("file key already exists. %+v", err)
-		}
-
-		return Error.Wrap(err)
-	}
-
-	defer func() {
-		err = Error.Wrap(errs.Combine(err, file.Close()))
-	}()
-
-	_, err = file.Write(inputKey)
-	return err
 }

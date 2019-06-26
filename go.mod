@@ -43,7 +43,7 @@ require (
 	github.com/google/go-cmp v0.3.0
 	github.com/gopherjs/gopherjs v0.0.0-20181103185306-d547d1d9531e // indirect
 	github.com/gorilla/handlers v1.4.0 // indirect
-	github.com/gorilla/mux v1.7.0 // indirect
+	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/rpc v1.1.0 // indirect
 	github.com/hanwen/go-fuse v1.0.0
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
@@ -104,7 +104,7 @@ require (
 	github.com/vivint/infectious v0.0.0-20190108171102-2455b059135b
 	github.com/yuin/gopher-lua v0.0.0-20180918061612-799fa34954fb // indirect
 	github.com/zeebo/admission v0.0.0-20180821192747-f24f2a94a40c
-	github.com/zeebo/errs v1.1.1
+	github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/structs v1.0.1
@@ -112,19 +112,19 @@ require (
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190513172903-22d7a77e9e5f
-	golang.org/x/net v0.0.0-20190514140710-3ec191127204 // indirect
+	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
+	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190516110030-61b9204099cb
+	golang.org/x/sys v0.0.0-20190614160838-b47fdc937951
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190517183331-d88f79806bbd
+	golang.org/x/tools v0.0.0-20190614152001-1edc8e83c897
 	google.golang.org/appengine v1.6.0 // indirect
-	google.golang.org/genproto v0.0.0-20190516172635-bb713bdc0e52 // indirect
-	google.golang.org/grpc v1.20.1
+	google.golang.org/genproto v0.0.0-20190530194941-fb225487d101 // indirect
+	google.golang.org/grpc v1.21.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
-	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20180827161543-6ebf5a752f9b
+	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )

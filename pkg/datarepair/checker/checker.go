@@ -31,8 +31,8 @@ var (
 
 // Config contains configurable values for checker
 type Config struct {
-	Interval            time.Duration `help:"how frequently checker should audit segments" releaseDefault:"30s" devDefault:"0h0m10s"`
-	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"15s" devDefault:"0h0m5s"`
+	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
 }
 
 // durabilityStats remote segment information
@@ -101,13 +101,13 @@ func (checker *Checker) Close() error {
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = checker.metainfo.Iterate("", checker.lastChecked, true, false,
-		func(it storage.Iterator) error {
+	err = checker.metainfo.Iterate(ctx, "", checker.lastChecked, true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
 			defer func() {
 				var nextItem storage.ListItem
-				it.Next(&nextItem)
+				it.Next(ctx, &nextItem)
 				// start at the next item in the next call
 				checker.lastChecked = nextItem.Key.String()
 				// if we have finished iterating, send and reset durability stats
@@ -124,7 +124,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				}
 			}()
 
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -158,6 +158,7 @@ func contains(a []string, x string) bool {
 }
 
 func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
 	if remote == nil {
 		return nil
@@ -184,7 +185,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	redundancy := pointer.Remote.Redundancy
 	// we repair when the number of healthy files is less than or equal to the repair threshold
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy >= redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && redundancy.RepairThreshold != redundancy.SuccessThreshold {
+	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
 			checker.logger.Warn("Missing pieces is zero in checker, but this should be impossible -- bad redundancy scheme.")
 			return nil
@@ -203,7 +204,9 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
-	} else if numHealthy < redundancy.MinReq {
+		// we need one additional piece for error correction. If only the minimum is remaining the file can't be repaired and is lost.
+		// except for the case when minimum and repair thresholds are the same (a case usually seen during testing)
+	} else if numHealthy <= redundancy.MinReq && numHealthy < redundancy.RepairThreshold {
 		// check to make sure there are at least *4* path elements. the first three
 		// are project, segment, and bucket name, but we want to make sure we're talking
 		// about an actual object, and that there's an object name specified

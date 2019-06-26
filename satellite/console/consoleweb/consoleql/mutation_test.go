@@ -5,6 +5,7 @@ package consoleql_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ import (
 type discardSender struct{}
 
 // SendEmail immediately returns with nil error
-func (*discardSender) SendEmail(msg *post.Message) error {
+func (*discardSender) SendEmail(ctx context.Context, msg *post.Message) error {
 	return nil
 }
 
@@ -72,7 +73,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			UserInfo: console.UserInfo{
 				FullName:  "John Roll",
 				ShortName: "Roll",
-				Email:     "test@email.com",
+				Email:     "test@mail.test",
 			},
 			Password: "123a123",
 		}
@@ -102,7 +103,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				UserInfo: console.UserInfo{
 					FullName:  "Green Mickey",
 					ShortName: "Green",
-					Email:     "u1@email.com",
+					Email:     "u1@mail.test",
 				},
 				Password: "123a123",
 			}
@@ -162,7 +163,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		}
 
 		t.Run("Update account mutation email only", func(t *testing.T) {
-			email := "new@email.com"
+			email := "new@mail.test"
 			query := fmt.Sprintf(
 				"mutation {updateAccount(input:{email:\"%s\"}){id,email,fullName,shortName,createdAt}}",
 				email,
@@ -340,7 +341,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName: "User1",
-				Email:    "u1@email.net",
+				Email:    "u1@mail.test",
 			},
 			Password: "123a123",
 		}, regTokenUser1.Secret)
@@ -350,14 +351,14 @@ func TestGrapqhlMutation(t *testing.T) {
 			activationToken1, err := service.GenerateActivationToken(
 				ctx,
 				user1.ID,
-				"u1@email.net",
+				"u1@mail.test",
 			)
 			require.NoError(t, err)
 
 			err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 
-			user1.Email = "u1@email.net"
+			user1.Email = "u1@mail.test"
 		})
 
 		regTokenUser2, err := service.CreateRegToken(ctx, 1)
@@ -366,7 +367,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
 			UserInfo: console.UserInfo{
 				FullName: "User1",
-				Email:    "u2@email.net",
+				Email:    "u2@mail.test",
 			},
 			Password: "123a123",
 		}, regTokenUser2.Secret)
@@ -376,14 +377,14 @@ func TestGrapqhlMutation(t *testing.T) {
 			activationToken2, err := service.GenerateActivationToken(
 				ctx,
 				user2.ID,
-				"u2@email.net",
+				"u2@mail.test",
 			)
 			require.NoError(t, err)
 
 			err = service.ActivateAccount(ctx, activationToken2)
 			require.NoError(t, err)
 
-			user2.Email = "u2@email.net"
+			user2.Email = "u2@mail.test"
 		})
 
 		t.Run("Add project members mutation", func(t *testing.T) {

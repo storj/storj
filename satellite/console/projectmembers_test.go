@@ -7,10 +7,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -29,19 +29,17 @@ func TestProjectMembersRepository(t *testing.T) {
 		createdUsers, createdProjects := prepareUsersAndProjects(ctx, t, users, projects)
 
 		t.Run("Can't insert projectMember without memberID", func(t *testing.T) {
-			unexistingUserID, err := uuid.New()
-			assert.NoError(t, err)
+			missingUserID := testrand.UUID()
 
-			projMember, err := projectMembers.Insert(ctx, *unexistingUserID, createdProjects[0].ID)
+			projMember, err := projectMembers.Insert(ctx, missingUserID, createdProjects[0].ID)
 			assert.Nil(t, projMember)
 			assert.Error(t, err)
 		})
 
 		t.Run("Can't insert projectMember without projectID", func(t *testing.T) {
-			unexistingProjectID, err := uuid.New()
-			assert.NoError(t, err)
+			missingProjectID := testrand.UUID()
 
-			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, *unexistingProjectID)
+			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, missingProjectID)
 			assert.Nil(t, projMember)
 			assert.Error(t, err)
 		})
@@ -156,32 +154,32 @@ func TestProjectMembersRepository(t *testing.T) {
 
 func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Users, projects console.Projects) ([]*console.User, []*console.Project) {
 	usersList := []*console.User{{
-		Email:        "2email2@ukr.net",
+		Email:        "2email2@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Liam",
 		FullName:     "Liam Jameson",
 	}, {
-		Email:        "1email1@ukr.net",
+		Email:        "1email1@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "William",
 		FullName:     "Noahson William",
 	}, {
-		Email:        "email3@ukr.net",
+		Email:        "email3@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Mason",
 		FullName:     "Mason Elijahson",
 	}, {
-		Email:        "email4@ukr.net",
+		Email:        "email4@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Oliver",
 		FullName:     "Oliver Jacobson",
 	}, {
-		Email:        "email5@ukr.net",
+		Email:        "email5@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Lucas",
 		FullName:     "Michaelson Lucas",
 	}, {
-		Email:        "email6@ukr.net",
+		Email:        "email6@mail.test",
 		PasswordHash: []byte("some_readable_hash"),
 		ShortName:    "Alexander",
 		FullName:     "Alexander Ethanson",

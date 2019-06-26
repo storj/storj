@@ -11,14 +11,15 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/bwagreement"
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -53,7 +54,7 @@ func New(log *zap.Logger, databaseURL string) (satellite.DB, error) {
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	db.SetMaxIdleConns(dbutil.DefaultMaxIdleConns)
+	dbutil.Configure(db.DB, mon)
 
 	core := &DB{log: log, db: db, driver: driver, source: source}
 	if driver == "sqlite3" {
@@ -92,20 +93,15 @@ func (db *DB) DropSchema(schema string) error {
 	return nil
 }
 
-// BandwidthAgreement is a getter for bandwidth agreement repository
-func (db *DB) BandwidthAgreement() bwagreement.DB {
-	return &bandwidthagreement{db: db.db}
-}
-
 // CertDB is a getter for uplink's specific info like public key, id, etc...
 func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
 }
 
-// // PointerDB is a getter for PointerDB repository
-// func (db *DB) PointerDB() pointerdb.DB {
-// 	return &pointerDB{db: db.db}
-// }
+// Attribution is a getter for value attribution repository
+func (db *DB) Attribution() attribution.DB {
+	return &attributionDB{db: db.db}
+}
 
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {
@@ -138,6 +134,11 @@ func (db *DB) Console() console.DB {
 		db:      db.db,
 		methods: db.db,
 	}
+}
+
+// Rewards returns database for storing offers
+func (db *DB) Rewards() rewards.DB {
+	return &offersDB{db: db.db}
 }
 
 // Orders returns database for storing orders

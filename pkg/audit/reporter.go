@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
@@ -18,6 +19,7 @@ type reporter interface {
 
 // Reporter records audit reports in overlay and implements the reporter interface
 type Reporter struct {
+	log              *zap.Logger
 	overlay          *overlay.Cache
 	containment      Containment
 	maxRetries       int
@@ -33,12 +35,20 @@ type Report struct {
 }
 
 // NewReporter instantiates a reporter
-func NewReporter(overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
-	return &Reporter{overlay: overlay, containment: containment, maxRetries: maxRetries, maxReverifyCount: maxReverifyCount}
+func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containment, maxRetries int, maxReverifyCount int32) *Reporter {
+	return &Reporter{
+		log:              log,
+		overlay:          overlay,
+		containment:      containment,
+		maxRetries:       maxRetries,
+		maxReverifyCount: maxReverifyCount}
 }
 
-// RecordAudits saves audit details to overlay
-func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+// RecordAudits saves audit results to overlay cache. When no error, it returns
+// nil for both return values, otherwise it returns the report with the fields
+// set to the values which have been saved and the error.
+func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Report, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if req == nil {
 		return nil, nil
 	}
@@ -48,11 +58,18 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
 
+	reporter.log.Debug("Reporting audits",
+		zap.Int("successes", len(successes)),
+		zap.Int("failures", len(fails)),
+		zap.Int("offlines", len(offlines)),
+		zap.Int("pending", len(pendingAudits)),
+	)
+
 	var errlist errs.Group
 
-	retries := 0
-	for retries < reporter.maxRetries {
-		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 {
+	tries := 0
+	for tries <= reporter.maxRetries {
+		if len(successes) == 0 && len(fails) == 0 && len(offlines) == 0 && len(pendingAudits) == 0 {
 			return nil, nil
 		}
 
@@ -83,11 +100,11 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 			}
 		}
 
-		retries++
+		tries++
 	}
 
 	err = errlist.Err()
-	if retries >= reporter.maxRetries && err != nil {
+	if tries >= reporter.maxRetries && err != nil {
 		return &Report{
 			Successes:     successes,
 			Fails:         fails,
@@ -100,6 +117,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed
 
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range failedAuditNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -127,6 +145,7 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 
 // recordOfflineStatus updates nodeIDs in overlay with isup=false
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range offlineNodeIDs {
 		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
@@ -143,6 +162,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, nodeID := range successNodeIDs {
 		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
@@ -170,6 +190,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 
 // recordPendingAudits updates the containment status of nodes with pending audits
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
+	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
 	for _, pendingAudit := range pendingAudits {
 		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {
