@@ -13,7 +13,7 @@ import (
 
 // IgnoreCanceled returns nil, when the operation was about canceling.
 func IgnoreCanceled(err error) error {
-	if IsFunc(err, func(err error) bool {
+	if errs.IsFunc(err, func(err error) bool {
 		return err == context.Canceled ||
 			err == grpc.ErrServerStopped ||
 			err == http.ErrServerClosed
@@ -22,21 +22,4 @@ func IgnoreCanceled(err error) error {
 	}
 
 	return err
-}
-
-// IsFunc checks whether any of the underlying errors matches the func
-func IsFunc(err error, is func(err error) bool) bool {
-	if err == nil {
-		return is(err)
-	}
-	for {
-		if is(err) {
-			return true
-		}
-		unwrapped := errs.Unwrap(err)
-		if unwrapped == nil || unwrapped == err {
-			return false
-		}
-		err = unwrapped
-	}
 }
