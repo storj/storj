@@ -12,6 +12,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"

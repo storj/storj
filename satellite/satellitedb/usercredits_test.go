@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -165,11 +164,8 @@ func TestUsercredits(t *testing.T) {
 func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *rewards.Offer) {
 	consoleDB := db.Console()
 	offersDB := db.Rewards()
-	// create user
-	var userPassHash [8]byte
-	_, err := rand.Read(userPassHash[:])
-	require.NoError(t, err)
 
+	// create user
 	userPassHash := testrand.Bytes(8)
 	referrerPassHash := testrand.Bytes(8)
 

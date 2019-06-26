@@ -115,9 +115,7 @@ func TestGetObject(t *testing.T) {
 
 func TestGetObjectStream(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		data := make([]byte, 32*memory.KiB)
-		_, err := rand.Read(data)
-		require.NoError(t, err)
+		data := testrand.Bytes(32 * memory.KiB)
 
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)

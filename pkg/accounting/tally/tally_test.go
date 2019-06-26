@@ -72,13 +72,10 @@ func TestOnlyInline(t *testing.T) {
 		if err1 != nil {
 			assert.NoError(t, err1)
 		}
-		projectID, err := uuid.Parse(projects[0].ID.String())
-		require.NoError(t, err)
+		projectID := projects[0].ID
 
 		// Setup: create data for the uplink to upload
-		expectedData := make([]byte, 1*memory.KiB)
-		_, err = rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(1 * memory.KiB)
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		// Since the data is small enough to be stored inline, when it is encrypted, we only
@@ -134,7 +131,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		// Setup: create 50KiB of data for the uplink to upload
-		expectedData := testrand.Bytes(5 * memory.KiB)
+		expectedData := testrand.Bytes(50 * memory.KiB)
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
