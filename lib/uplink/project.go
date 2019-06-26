@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 	"go.uber.org/zap"
 
@@ -153,6 +154,11 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = p.CheckBucketAttribution(ctx, bucketName)
+	if err != nil {
+		return nil, err
+	}
+
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
 		return nil, err
@@ -203,4 +209,18 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encStore),
 		streams:      streamStore,
 	}, nil
+}
+
+// CheckBucketAttribution Checks the bucket attribution
+func (p *Project) CheckBucketAttribution(ctx context.Context, bucketName string) error {
+	if p.uplinkCfg.Volatile.PartnerID == "" {
+		return nil
+	}
+
+	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
 }
