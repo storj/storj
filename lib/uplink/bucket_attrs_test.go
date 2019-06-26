@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -58,6 +59,46 @@ func simpleEncryptionAccess(encKey string) (access *EncryptionCtx) {
 		panic(err)
 	}
 	return NewEncryptionCtxWithDefaultKey(*key)
+}
+
+// check that partner bucket attributes are stored and retrieved correctly.
+func TestPartnerBucketAttrs(t *testing.T) {
+	var (
+		access     = simpleEncryptionAccess("voxmachina")
+		bucketName = "mightynein"
+	)
+
+	testPlanetWithLibUplink(t, testConfig{},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+			_, err := proj.CreateBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+
+			partnerID := testrand.UUID().String()
+
+			consoleProjects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+			assert.NoError(t, err)
+
+			consoleProject := consoleProjects[0]
+
+			db := planet.Satellites[0].DB.Attribution()
+			_, err = db.Get(ctx, consoleProject.ID, []byte(bucketName))
+			require.Error(t, err)
+
+			// partner ID set
+			proj.uplinkCfg.Volatile.PartnerID = partnerID
+			got, err := proj.OpenBucket(ctx, bucketName, &access)
+			require.NoError(t, err)
+
+			info, err := db.Get(ctx, consoleProject.ID, []byte(bucketName))
+			require.NoError(t, err)
+			assert.Equal(t, info.PartnerID.String(), partnerID)
+
+			// partner ID NOT set
+			proj.uplinkCfg.Volatile.PartnerID = ""
+			got, err = proj.OpenBucket(ctx, bucketName, &access)
+			require.NoError(t, err)
+			defer ctx.Check(got.Close)
+		})
 }
 
 // check that bucket attributes are stored and retrieved correctly.

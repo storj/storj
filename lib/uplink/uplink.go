@@ -53,6 +53,10 @@ type Config struct {
 		// be used. If set to a negative value, the system will use the
 		// smallest amount of memory it can.
 		MaxMemory memory.Size
+
+		// PartnerID is the identity given to the partner for value
+		// attribution
+		PartnerID string
 	}
 }
 

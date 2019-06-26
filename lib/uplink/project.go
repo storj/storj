@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
 
@@ -152,6 +153,11 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *EncryptionCtx) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = p.checkBucketAttribution(ctx, bucketName)
+	if err != nil {
+		return nil, err
+	}
+
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
 		return nil, err
@@ -221,4 +227,20 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	var result storj.Key
 	copy(result[:], key)
 	return &result, nil
+}
+
+// checkBucketAttribution Checks the bucket attribution
+func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if p.uplinkCfg.Volatile.PartnerID == "" {
+		return nil
+	}
+
+	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
 }
