@@ -4,8 +4,7 @@
 ## Abstract
 
 Right now, referral program only works per satellite meaning a user on us-east-1 satellite can only refer people to join us-ease-1. 
-However, it's crucial for the tardigrade branded network to be able to handle cross-satellite referrals. Therefore, we plan to have a program running in
-GCP along with tardigrade satellites to handle this issue.
+However, it's crucial for the tardigrade branded network to be able to handle cross-satellite referrals. Therefore, we plan to have a program running in GCP along with tardigrade satellites to handle this issue.
 
 ## Background
 
@@ -46,5 +45,4 @@ they would like to register an account with. Below design is built based on the 
 
 
 ## Open issues (if applicable)
-1. Should we also store referral offers information in referral manager so all tardigrade satellites will have the same
-offer running? What technical concerns that would arise?
+1. Should we also store referral offers information in referral manager so all tardigrade satellites will have the same offer running? What technical concerns that would arise?
