@@ -133,9 +133,6 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 	if info.identity == nil {
 		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
 		if err != nil {
-			if err == context.Canceled {
-				return nil, err
-			}
 			return nil, Error.Wrap(err)
 		}
 		info.identity = identity
