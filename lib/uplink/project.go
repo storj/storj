@@ -165,7 +165,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		}
 
 		// update the bucket with attribution info
-		bucketInfo, err = p.UpdateBucket(ctx, bucketInfo)
+		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -234,8 +234,8 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
 }
 
-// UpdateBucket updates an existing bucket's attribution info.
-func (p *Project) UpdateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
+// updateBucket updates an existing bucket's attribution info.
+func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bucket = storj.Bucket{
