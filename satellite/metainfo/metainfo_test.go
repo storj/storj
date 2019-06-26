@@ -20,8 +20,8 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -289,11 +289,6 @@ func TestServiceList(t *testing.T) {
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RS.Validate = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -328,7 +323,7 @@ func TestCommitSegment(t *testing.T) {
 					NodeId:   limit.Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
 						PieceId:   limit.Limit.PieceId,
-						PieceSize: 20,
+						PieceSize: 256,
 						Timestamp: time.Now(),
 					},
 				}
@@ -541,21 +536,21 @@ func TestCommitSegmentPointer(t *testing.T) {
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash = nil
 			},
-			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
 		},
 		{
 			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
 			},
-			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
 		},
 		{
 			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
 			Modify: func(pointer *pb.Pointer) {
 				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
 			},
-			ErrorMessage: "Number of valid pieces is less than or equal to the repair threshold: 1 < 1",
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
 		},
 		{
 			Modify: func(pointer *pb.Pointer) {
