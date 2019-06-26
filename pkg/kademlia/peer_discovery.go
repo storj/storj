@@ -96,6 +96,11 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 						)
 					}
 				} else {
+					if next.Id == lookup.target {
+						lookup.cond.L.Lock()
+						allDone = true
+						lookup.cond.L.Unlock()
+					}
 					lookup.queue.QuerySuccess(next, neighbors...)
 				}
 
@@ -110,11 +115,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 
 	wg.Wait()
 
-	err = ctx.Err()
-	if err == context.Canceled {
-		err = nil
-	}
-	return lookup.queue.ClosestQueried(), err
+	return lookup.queue.ClosestQueried(), ctx.Err()
 }
 
 func isDone(ctx context.Context) bool {
