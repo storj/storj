@@ -4,12 +4,12 @@
 package storj_test
 
 import (
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -33,9 +33,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("humanReadableKey is of KeySize length", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := make([]byte, storj.KeySize)
-		_, err := rand.Read(humanReadableKey)
-		require.NoError(t, err)
+		humanReadableKey := testrand.Bytes(storj.KeySize)
 
 		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
@@ -45,9 +43,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("humanReadableKey is shorter than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := make([]byte, rand.Intn(storj.KeySize))
-		_, err := rand.Read(humanReadableKey)
-		require.NoError(t, err)
+		humanReadableKey := testrand.BytesInt(testrand.Intn(storj.KeySize))
 
 		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
@@ -57,9 +53,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("humanReadableKey is larger than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := make([]byte, rand.Intn(10)+storj.KeySize+1)
-		_, err := rand.Read(humanReadableKey)
-		require.NoError(t, err)
+		humanReadableKey := testrand.BytesInt(testrand.Intn(10) + storj.KeySize + 1)
 
 		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
@@ -69,9 +63,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("same human readable key produce the same key", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := make([]byte, rand.Intn(storj.KeySize)+10)
-		_, err := rand.Read(humanReadableKey)
-		require.NoError(t, err)
+		humanReadableKey := testrand.BytesInt(testrand.Intn(10) + storj.KeySize + 1)
 
 		key1, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)

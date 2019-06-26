@@ -4,7 +4,6 @@
 package audit_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storage/streams"
@@ -110,10 +110,9 @@ func calcReputation(dossier *overlay.NodeDossier) float64 {
 }
 
 func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
-
-	// - uploads random data
-	// - mark a node as disqualified
-	// - check we don't get it when we require order limit
+	// Uploads random data.
+	// Mark a node as disqualified.
+	// Check we don't get it when we require order limit.
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -124,9 +123,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err := satellite.Audit.Service.Close()
 		require.NoError(t, err)
 
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -193,6 +190,45 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 			assert.NotEqual(t, node.Id, disqualifiedNode)
 		}
 
+	})
+}
+
+func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
+
+	// - mark a node as disqualified
+	// - give it high uptime and audit rate
+	// - check that the node remains disqualified
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		err := satellite.Audit.Service.Close()
+		require.NoError(t, err)
+
+		disqualifiedNode := planet.StorageNodes[0]
+		disqualifyNode(t, ctx, satellite, disqualifiedNode.ID())
+
+		_, err = satellite.DB.OverlayCache().UpdateUptime(ctx, disqualifiedNode.ID(), true, 0, 1, 0)
+		require.NoError(t, err)
+
+		assert.True(t, isDisqualified(t, ctx, satellite, disqualifiedNode.ID()))
+
+		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+			NodeID:       disqualifiedNode.ID(),
+			IsUp:         true,
+			AuditSuccess: true,
+			AuditLambda:  0, // forget about history
+			AuditWeight:  1,
+			AuditDQ:      0, // make sure new reputation scores are larger than the DQ thresholds
+			UptimeLambda: 0, // forget about history
+			UptimeWeight: 1,
+			UptimeDQ:     0, // make sure new reputation scores are larger than the DQ thresholds
+		})
+		require.NoError(t, err)
+
+		assert.True(t, isDisqualified(t, ctx, satellite, disqualifiedNode.ID()))
 	})
 }
 

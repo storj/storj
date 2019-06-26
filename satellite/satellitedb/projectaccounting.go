@@ -30,13 +30,9 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 
 	var result []accounting.BucketTally
 
-	for bucketID, info := range bucketTallies {
-		pid, bn, err := splitBucketID([]byte(bucketID))
-		if err != nil {
-			return nil, err
-		}
-		bucketName := dbx.BucketStorageTally_BucketName(bn)
-		projectID := dbx.BucketStorageTally_ProjectId(pid[:])
+	for _, info := range bucketTallies {
+		bucketName := dbx.BucketStorageTally_BucketName(info.BucketName)
+		projectID := dbx.BucketStorageTally_ProjectId(info.ProjectID)
 		interval := dbx.BucketStorageTally_IntervalStart(intervalStart)
 		inlineBytes := dbx.BucketStorageTally_Inline(uint64(info.InlineBytes))
 		remoteBytes := dbx.BucketStorageTally_Remote(uint64(info.RemoteBytes))
@@ -85,12 +81,8 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 }
 
 // GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID for a time frame
-func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (_ int64, err error) {
+func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	projectID, _, err := splitBucketID(bucketID)
-	if err != nil {
-		return 0, err
-	}
 	var sum *int64
 	query := `SELECT SUM(allocated) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start > ?;`
 	err = db.db.QueryRow(db.db.Rebind(query), projectID[:], pb.PieceAction_GET, from).Scan(&sum)

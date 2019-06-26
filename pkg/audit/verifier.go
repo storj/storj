@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -120,17 +120,13 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			continue
 		}
 		if transport.Error.Has(share.Error) {
-			if errs.IsFunc(share.Error, func(err error) bool {
-				return err == context.DeadlineExceeded
-			}) {
+			if errs.Is(share.Error, context.DeadlineExceeded) {
 				// dial timeout
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial timeout (offline)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 				continue
 			}
-			if errs.IsFunc(share.Error, func(err error) bool {
-				return status.Code(err) == codes.Unknown
-			}) {
+			if errs2.IsRPC(share.Error, codes.Unknown) {
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial failed (offline)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
@@ -141,18 +137,14 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 			verifier.log.Debug("Verify: unknown transport error (contained)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 		}
 
-		if errs.IsFunc(share.Error, func(err error) bool {
-			return status.Code(err) == codes.NotFound
-		}) {
+		if errs2.IsRPC(share.Error, codes.NotFound) {
 			// missing share
 			failedNodes = append(failedNodes, share.NodeID)
 			verifier.log.Debug("Verify: piece not found (audit failed)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
 			continue
 		}
 
-		if errs.IsFunc(share.Error, func(err error) bool {
-			return status.Code(err) == codes.DeadlineExceeded
-		}) {
+		if errs2.IsRPC(share.Error, codes.DeadlineExceeded) {
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = share.NodeID
 			verifier.log.Debug("Verify: download timeout (contained)", zap.Stringer("Node ID", share.NodeID), zap.Error(share.Error))
@@ -358,17 +350,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			// analyze the error from GetShare
 			if err != nil {
 				if transport.Error.Has(err) {
-					if errs.IsFunc(err, func(err error) bool {
-						return err == context.DeadlineExceeded
-					}) {
+					if errs.Is(err, context.DeadlineExceeded) {
 						// dial timeout
 						ch <- result{nodeID: piece.NodeId, status: offline}
 						verifier.log.Debug("Reverify: dial timeout (offline)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						return
 					}
-					if errs.IsFunc(err, func(err error) bool {
-						return status.Code(err) == codes.Unknown
-					}) {
+					if errs2.IsRPC(err, codes.Unknown) {
 						// dial failed -- offline node
 						verifier.log.Debug("Reverify: dial failed (offline)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						ch <- result{nodeID: piece.NodeId, status: offline}
@@ -380,18 +368,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					return
 				}
 
-				if errs.IsFunc(err, func(err error) bool {
-					return status.Code(err) == codes.NotFound
-				}) {
+				if errs2.IsRPC(err, codes.NotFound) {
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
 					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
 
-				if errs.IsFunc(err, func(err error) bool {
-					return status.Code(err) == codes.DeadlineExceeded
-				}) {
+				if errs2.IsRPC(err, codes.DeadlineExceeded) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 					verifier.log.Debug("Reverify: download timeout (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
@@ -468,20 +452,14 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	}
 
 	storageNodeID := limit.GetLimit().StorageNodeId
+	log := verifier.log.Named(storageNodeID.String())
+	target := &pb.Node{Id: storageNodeID, Address: limit.GetStorageNodeAddress()}
+	signer := signing.SignerFromFullIdentity(verifier.transport.Identity())
 
-	conn, err := verifier.transport.DialNode(timedCtx, &pb.Node{
-		Id:      storageNodeID,
-		Address: limit.GetStorageNodeAddress(),
-	})
+	ps, err := piecestore.Dial(timedCtx, verifier.transport, target, log, signer, piecestore.DefaultConfig)
 	if err != nil {
-		return Share{}, err
+		return Share{}, Error.Wrap(err)
 	}
-	ps := piecestore.NewClient(
-		verifier.log.Named(storageNodeID.String()),
-		signing.SignerFromFullIdentity(verifier.transport.Identity()),
-		conn,
-		piecestore.DefaultConfig,
-	)
 	defer func() {
 		err := ps.Close()
 		if err != nil {
