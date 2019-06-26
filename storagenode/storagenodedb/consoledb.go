@@ -139,11 +139,11 @@ func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID stor
 	_, before := getDateEdges(to)
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT action, SUM(amount), CAST(DATE(created_at) as TIMESTAMP) as date
+		SELECT action, SUM(amount), created_at
 		FROM bandwidth_usage
 		WHERE satellite_id = ?
 		WHERE ? <= created_at AND created_at <= ?
-		GROUP BY date, action
+		GROUP BY DATE(created_at), action
 		ORDER BY created_at ASC`), satelliteID, since, before)
 	if err != nil {
 		return nil, err
