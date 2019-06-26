@@ -91,7 +91,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified. Use format sj://bucket/")
 	}
 
-	access, err := useOrLoadEncryptionAccess(cfg.Enc.EncryptionKey, cfg.Enc.KeyFilepath)
+	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
 	if err != nil {
 		return err
 	}
@@ -510,16 +510,7 @@ func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error
 		return nil, err
 	}
 
-	opts := &libuplink.ProjectOptions{}
-
-	encKey, err := uplink.UseOrLoadEncryptionKey(c.Enc.EncryptionKey, c.Enc.KeyFilepath)
-	if err != nil {
-		return nil, err
-	}
-
-	opts.Volatile.EncryptionKey = encKey
-
-	project, err := uplk.OpenProject(ctx, satelliteAddr, apiKey, opts)
+	project, err := uplk.OpenProject(ctx, satelliteAddr, apiKey)
 
 	if err != nil {
 		if err := uplk.Close(); err != nil {
