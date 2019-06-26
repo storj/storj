@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 
+	"go.uber.org/zap"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
@@ -77,6 +78,7 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
+	log   *zap.Logger
 	ident *identity.FullIdentity
 	tc    transport.Client
 	cfg   *Config
@@ -85,6 +87,12 @@ type Uplink struct {
 // NewUplink creates a new Uplink. This is the first step to create an uplink
 // session with a user specified config or with default config, if nil config
 func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
+	return NewUplinkWithLogger(ctx, zap.L(), cfg)
+}
+
+// NewUplinkWithLogger creates a new Uplink with a zap logger. This is the first step to create an uplink
+// session with a user specified config or with default config, if nil config
+func NewUplinkWithLogger(ctx context.Context, log *zap.Logger, cfg *Config) (_ *Uplink, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
@@ -114,6 +122,7 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
+		log:   log,
 		ident: ident,
 		tc:    tc,
 		cfg:   cfg,
@@ -137,6 +146,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	return &Project{
+		log:           u.log,
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      m,
