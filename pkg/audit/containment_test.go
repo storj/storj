@@ -4,13 +4,13 @@
 package audit_test
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
@@ -20,22 +20,16 @@ func TestContainIncrementAndGet(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		randBytes := make([]byte, 10)
-		_, err := rand.Read(randBytes)
-		require.NoError(t, err)
-		someHash := pkcrypto.SHA256Hash(randBytes)
-
 		input := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
 			PieceID:           storj.PieceID{},
 			StripeIndex:       0,
 			ShareSize:         0,
-			ExpectedShareHash: someHash,
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, input)
+		err := planet.Satellites[0].DB.Containment().IncrementPending(ctx, input)
 		require.NoError(t, err)
 
 		output, err := planet.Satellites[0].DB.Containment().Get(ctx, input.NodeID)
@@ -59,35 +53,24 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		randBytes := make([]byte, 10)
-		_, err := rand.Read(randBytes)
-		require.NoError(t, err)
-		hash1 := pkcrypto.SHA256Hash(randBytes)
-
 		info1 := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
 			PieceID:           storj.PieceID{},
 			StripeIndex:       0,
 			ShareSize:         0,
-			ExpectedShareHash: hash1,
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
+		err := planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
-
-		randBytes = make([]byte, 10)
-		_, err = rand.Read(randBytes)
-		require.NoError(t, err)
-		hash2 := pkcrypto.SHA256Hash(randBytes)
 
 		info2 := &audit.PendingAudit{
 			NodeID:            info1.NodeID,
 			PieceID:           storj.PieceID{},
 			StripeIndex:       1,
 			ShareSize:         1,
-			ExpectedShareHash: hash2,
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
@@ -114,22 +97,16 @@ func TestContainDelete(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		randBytes := make([]byte, 10)
-		_, err := rand.Read(randBytes)
-		require.NoError(t, err)
-		hash1 := pkcrypto.SHA256Hash(randBytes)
-
 		info1 := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
 			PieceID:           storj.PieceID{},
 			StripeIndex:       0,
 			ShareSize:         0,
-			ExpectedShareHash: hash1,
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
-		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
+		err := planet.Satellites[0].DB.Containment().IncrementPending(ctx, info1)
 		require.NoError(t, err)
 
 		// check contained flag set to true
