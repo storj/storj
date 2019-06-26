@@ -290,8 +290,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			NewStorageNodeDB: func(index int, db storagenode.DB) (storagenode.DB, error) {
-				storageNodeDB = testblobs.NewSlowDB(db)
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				storageNodeDB = testblobs.NewSlowDB(log.Named("slowdb"), db)
 				return storageNodeDB, nil
 			},
 		},

@@ -56,7 +56,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 		}
 
 		if planet.config.Reconfigure.NewStorageNodeDB != nil {
-			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db)
+			db, err = planet.config.Reconfigure.NewStorageNodeDB(i, db, planet.log)
 			if err != nil {
 				return nil, err
 			}

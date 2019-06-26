@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.uber.org/zap"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -20,10 +21,10 @@ type SlowDB struct {
 
 // NewSlowDB creates a new slow storage node DB wrapping the provided db.
 // Use SetLatency to dynamically configure the latency of all piece operations.
-func NewSlowDB(db storagenode.DB) *SlowDB {
+func NewSlowDB(log *zap.Logger, db storagenode.DB) *SlowDB {
 	return &SlowDB{
 		DB:    db,
-		blobs: NewSlowBlobs(db.Pieces()),
+		blobs: NewSlowBlobs(log, db.Pieces()),
 	}
 }
 
@@ -42,12 +43,14 @@ func (slow *SlowDB) SetLatency(delay time.Duration) {
 type SlowBlobs struct {
 	delay int64 // time.Duration
 	blobs storage.Blobs
+	log   *zap.Logger
 }
 
 // NewSlowBlobs creates a new slow blob store wrapping the provided blobs.
 // Use SetLatency to dynamically configure the latency of all operations.
-func NewSlowBlobs(blobs storage.Blobs) *SlowBlobs {
+func NewSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
 	return &SlowBlobs{
+		log:   log,
 		blobs: blobs,
 	}
 }
@@ -86,5 +89,7 @@ func (slow *SlowBlobs) SetLatency(delay time.Duration) {
 // sleep sleeps for the duration set to slow.delay
 func (slow *SlowBlobs) sleep() {
 	delay := time.Duration(atomic.LoadInt64(&slow.delay))
+	slow.log.Debug("sleeping", zap.Duration("delay", delay))
 	time.Sleep(delay)
+	slow.log.Debug("woke up")
 }
