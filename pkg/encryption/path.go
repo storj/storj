@@ -10,6 +10,13 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
+var (
+	zero        = byte(0)
+	slash       = byte('/')
+	zeroEscape  = []byte{0, 1}
+	slashEscape = []byte{0, 2}
+)
+
 // EncryptPath encrypts path with the given key
 func EncryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (encrypted storj.Path, err error) {
 	// do not encrypt empty paths
@@ -167,10 +174,10 @@ func encodeSegment(segment []byte) []byte {
 	result := make([]byte, 0, len(segment)*2)
 	for i := 0; i < len(segment); i++ {
 		switch {
-		case segment[i] == 0:
-			result = append(result, []byte{0, 1}...)
-		case segment[i] == '/':
-			result = append(result, []byte{0, 2}...)
+		case segment[i] == zero:
+			result = append(result, zeroEscape...)
+		case segment[i] == slash:
+			result = append(result, slashEscape...)
 		default:
 			result = append(result, segment[i])
 		}
@@ -188,12 +195,11 @@ func decodeSegment(segment []byte) []byte {
 		switch {
 		case i == len(segment)-1:
 			result = append(result, segment[i])
-		case segment[i] == 0:
-			if segment[i+1] == 1 {
-				result = append(result, 0)
-			} else if segment[i+1] == 2 {
-				result = append(result, '/')
-			}
+		case segment[i] == zeroEscape[0] && segment[i+1] == zeroEscape[1]:
+			result = append(result, zero)
+			i++
+		case segment[i] == slashEscape[0] && segment[i+1] == slashEscape[1]:
+			result = append(result, slash)
 			i++
 		default:
 			result = append(result, segment[i])
