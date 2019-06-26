@@ -381,6 +381,8 @@ github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6 h1:bs7mSHVrLRQHxqWcm0
 github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6/go.mod h1:yssERNPivllc1yU3BvpjYI5BUW+zglcz6QWqeVRL5t0=
 github.com/zeebo/errs v1.1.1 h1:Cs5Noqj/tj3Ql/hLkD9WdumKlssx/IN2zr7CRGNOKZA=
 github.com/zeebo/errs v1.1.1/go.mod h1:Yj8dHrUQwls1bF3dr/vcSIu+qf4mI7idnTcHfoACc6I=
+github.com/zeebo/errs v1.2.0 h1:Tk8UszIOLEjtx6DWnvfmMJe6N8q7vu03Bj95HMWDUkc=
+github.com/zeebo/errs v1.2.0/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
 github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680 h1:nLsPSuW22yF+MmUX0sFaTfnMKL83XuHtx8B1YvNtYys=
 github.com/zeebo/errs v1.2.1-0.20190617123220-06a113fed680/go.mod h1:sgbWHsvVuTPHcqJJGQ1WhI5KbWlHYz+2+2C/LSEtCw4=
 github.com/zeebo/float16 v0.1.0 h1:kRqxv5og6z1emEyz5FpW0/BVHe5VfxEAw6b1ljCZlUc=
