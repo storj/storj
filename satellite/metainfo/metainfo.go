@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"strconv"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
@@ -55,25 +57,29 @@ type Endpoint struct {
 	metainfo       *Service
 	orders         *orders.Service
 	cache          *overlay.Cache
+	partnerinfo    attribution.DB
 	projectUsage   *accounting.ProjectUsage
 	containment    Containment
 	apiKeys        APIKeys
 	createRequests *createRequests
+	rsConfig       RSConfig
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, containment Containment,
-	apiKeys APIKeys, projectUsage *accounting.ProjectUsage) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
 		metainfo:       metainfo,
 		orders:         orders,
 		cache:          cache,
+		partnerinfo:    partnerinfo,
 		containment:    containment,
 		apiKeys:        apiKeys,
 		projectUsage:   projectUsage,
 		createRequests: newCreateRequests(),
+		rsConfig:       rsConfig,
 	}
 }
 
@@ -252,9 +258,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if req.Pointer.Type == pb.Pointer_INLINE {
-		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		// TODO or maybe use pointer.SegmentSize ??
-		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
+		err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(req.Pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -320,7 +325,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	if pointer.Type == pb.Pointer_INLINE {
 		// TODO or maybe use pointer.SegmentSize ??
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucketID, int64(len(pointer.InlineSegment)))
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -472,8 +477,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 		// we repair when the number of healthy files is less than or equal to the repair threshold
 		// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && remote.Redundancy.RepairThreshold != remote.Redundancy.SuccessThreshold {
-			return Error.New("Number of valid pieces is less than or equal to the repair threshold: %v < %v",
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
 			)
@@ -507,11 +512,15 @@ func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bu
 	return storj.JoinPaths(entries...), nil
 }
 
-// checks if bucket has any pointers(entries)
-func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.ValueAttributionRequest) (resp bool, err error) {
-	//TODO: Logic of checking if bucket exists will be added in new PR.
-	// write into value attribution DB only if bucket exists but no segments or no bucket and no segments exits
+// SetAttribution tries to add attribution to the bucket.
+func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttributionRequest) (_ *pb.SetAttributionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// try to add an attribution that doesn't exist
+	partnerID, err := bytesToUUID(req.GetPartnerId())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionList,
@@ -520,35 +529,72 @@ func (endpoint *Endpoint) checkBucketPointers(ctx context.Context, req *pb.Value
 		Time:          time.Now(),
 	})
 	if err != nil {
-		return false, status.Errorf(codes.Unauthenticated, err.Error())
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// check if attribution is set for given bucket
+	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
+	if err == nil {
+		return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
+	}
+
+	if !attribution.ErrBucketNotAttributed.Has(err) {
+		// try only to set the attribution, when it's missing
+		return nil, Error.Wrap(err)
 	}
 
 	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
 	if err != nil {
-		return false, err
+		return nil, Error.Wrap(err)
 	}
 
-	items, _, err := endpoint.metainfo.List(ctx, prefix, string(""), string(""), true, 1, 0)
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
 	if err != nil {
-		return false, err
+		return nil, Error.Wrap(err)
 	}
 
 	if len(items) > 0 {
-		return false, errors.New("already attributed")
+		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.BucketName, req.PartnerId)
 	}
 
-	return true, nil
+	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: req.GetBucketName(),
+		PartnerID:  partnerID,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &pb.SetAttributionResponse{}, nil
 }
 
-// ValueAttributeInfo commits segment metadata
-func (endpoint *Endpoint) ValueAttributeInfo(ctx context.Context, req *pb.ValueAttributionRequest) (*pb.ValueAttributionResponse, error) {
-	_, err := endpoint.checkBucketPointers(ctx, req)
-	if err != nil {
-		endpoint.log.Sugar().Info("related bucket id already attributed \n")
-		return &pb.ValueAttributionResponse{}, err
+// bytesToUUID is used to convert []byte to UUID
+func bytesToUUID(data []byte) (uuid.UUID, error) {
+	var id uuid.UUID
+
+	copy(id[:], data)
+	if len(id) != len(data) {
+		return uuid.UUID{}, errs.New("Invalid uuid")
 	}
 
-	// TODO: add valueattribution DB access functions added in new PR.
+	return id, nil
+}
 
-	return &pb.ValueAttributionResponse{}, nil
+// ProjectInfo returns allowed ProjectInfo for the provided API key
+func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:   macaroon.ActionProjectInfo,
+		Time: time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	salt := sha256.Sum256(keyInfo.ProjectID[:])
+
+	return &pb.ProjectInfoResponse{
+		ProjectSalt: salt[:],
+	}, nil
 }

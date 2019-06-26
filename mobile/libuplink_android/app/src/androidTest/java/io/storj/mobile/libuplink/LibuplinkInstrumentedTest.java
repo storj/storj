@@ -36,13 +36,10 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            ProjectOptions options = new ProjectOptions();
-            options.setEncryptionKey("TestEncryptionKey".getBytes());
-
             Project project = null;
             try {
                 // 10.0.2.2 refers to not existing satellite
-                project = uplink.openProject("10.0.2.2:1", VALID_API_KEY, options);
+                project = uplink.openProject("10.0.2.2:1", VALID_API_KEY);
                 fail("exception expected");
             } catch (Exception e) {
                 // skip
@@ -62,12 +59,9 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            ProjectOptions options = new ProjectOptions();
-            options.setEncryptionKey("TestEncryptionKey".getBytes());
-
             Project project = null;
             try {
-                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+                project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
 
                 String expectedBucket = "testBucket";
                 project.createBucket(expectedBucket, new BucketConfig());
@@ -97,10 +91,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            ProjectOptions options = new ProjectOptions();
-            options.setEncryptionKey("TestEncryptionKey".getBytes());
-
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
                 BucketConfig bucketConfig = new BucketConfig();
                 Set<String> expectedBuckets = new HashSet<>();
@@ -140,10 +131,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            ProjectOptions options = new ProjectOptions();
-            options.setEncryptionKey("TestEncryptionKey".getBytes());
-
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
                 BucketAccess access = new BucketAccess();
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());
@@ -207,10 +195,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            ProjectOptions options = new ProjectOptions();
-            options.setEncryptionKey("TestEncryptionKey".getBytes());
-
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
                 BucketAccess access = new BucketAccess();
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());
@@ -280,10 +265,7 @@ public class LibuplinkInstrumentedTest {
 
         Uplink uplink = new Uplink(config, filesDir);
         try {
-            ProjectOptions options = new ProjectOptions();
-            options.setEncryptionKey("TestEncryptionKey".getBytes());
-
-            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY, options);
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
                 BucketAccess access = new BucketAccess();
                 access.setPathEncryptionKey("TestEncryptionKey".getBytes());

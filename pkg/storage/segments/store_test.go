@@ -6,9 +6,7 @@ package segments_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
-	io "io"
 	"io/ioutil"
 	"strconv"
 	"testing"
@@ -21,6 +19,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
@@ -41,7 +40,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		err        string
 	}{
 		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12), ""},
-		{"l/not_exists_path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
+		{"l/not-exists-path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
 		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {
 		test := tt
@@ -85,8 +84,8 @@ func TestSegmentStorePutGet(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote put/get", "s0/test_bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote put/get", "s0/test-bucket/mypath/1", []byte("metadata-remote"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -119,8 +118,8 @@ func TestSegmentStoreDelete(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote delete", "s0/test_bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -156,11 +155,11 @@ func TestSegmentStoreList(t *testing.T) {
 			path    string
 			content []byte
 		}{
-			{"l/AAAA/afile1", []byte("content")},
-			{"l/AAAA/bfile2", []byte("content")},
-			{"l/BBBB/afile1", []byte("content")},
-			{"l/BBBB/bfile2", []byte("content")},
-			{"l/BBBB/bfolder/file1", []byte("content")},
+			{"l/aaaa/afile1", []byte("content")},
+			{"l/aaaa/bfile2", []byte("content")},
+			{"l/bbbb/afile1", []byte("content")},
+			{"l/bbbb/bfile2", []byte("content")},
+			{"l/bbbb/bfolder/file1", []byte("content")},
 		}
 		for _, seg := range segments {
 			segment := seg
@@ -189,19 +188,19 @@ func TestSegmentStoreList(t *testing.T) {
 		require.Equal(t, 2, len(items))
 
 		// should list only BBBB bucket
-		items, more, err = segmentStore.List(ctx, "l/BBBB", "", "", false, 10, meta.None)
+		items, more, err = segmentStore.List(ctx, "l/bbbb", "", "", false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 3, len(items))
 
 		// should list only BBBB bucket after afile1
-		items, more, err = segmentStore.List(ctx, "l/BBBB", "afile1", "", false, 10, meta.None)
+		items, more, err = segmentStore.List(ctx, "l/bbbb", "afile1", "", false, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 2, len(items))
 
 		// should list nothing
-		items, more, err = segmentStore.List(ctx, "l/CCCC", "", "", true, 10, meta.None)
+		items, more, err = segmentStore.List(ctx, "l/cccc", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.False(t, more)
 		require.Equal(t, 0, len(items))
@@ -235,12 +234,6 @@ func TestCalcNeededNodes(t *testing.T) {
 	}
 }
 
-func createTestData(t *testing.T, size int64) []byte {
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, size))
-	require.NoError(t, err)
-	return data
-}
-
 func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -268,6 +261,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(context.Background(), planet.Satellites[0], TestAPIKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 		fc, err := infectious.NewFEC(2, 4)

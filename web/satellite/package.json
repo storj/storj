@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "serve": "rm -rf dist/ && npm run build && vue-cli-service serve -s dist",
+    "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint",
     "test:unit": "vue-cli-service test:unit",
     "test": "jest",
-    "build": "webpack --config webpack.config.dev.js"
+    "build": "vue-cli-service build --mode=production"
   },
   "dependencies": {
     "@types/graphql": "^14.0.3",

@@ -5,13 +5,13 @@ package overlay_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -33,8 +33,7 @@ func BenchmarkOverlay(b *testing.B) {
 		var all []storj.NodeID
 		var check []storj.NodeID
 		for i := 0; i < TotalNodeCount; i++ {
-			var id storj.NodeID
-			_, _ = rand.Read(id[:]) // math/rand never returns error
+			id := testrand.NodeID()
 			all = append(all, id)
 			if i < OnlineCount {
 				check = append(check, id)
@@ -42,24 +41,20 @@ func BenchmarkOverlay(b *testing.B) {
 		}
 
 		for _, id := range all {
-			err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id})
+			err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
 			require.NoError(b, err)
 		}
 
 		// create random offline node ids to check
 		for i := 0; i < OfflineCount; i++ {
-			var id storj.NodeID
-			_, _ = rand.Read(id[:]) // math/rand never returns error
-			check = append(check, id)
+			check = append(check, testrand.NodeID())
 		}
 
 		b.Run("KnownUnreliableOrOffline", func(b *testing.B) {
 			criteria := &overlay.NodeCriteria{
-				AuditCount:         0,
-				AuditSuccessRatio:  0.5,
-				OnlineWindow:       1000 * time.Hour,
-				UptimeCount:        0,
-				UptimeSuccessRatio: 0.5,
+				AuditCount:   0,
+				OnlineWindow: 1000 * time.Hour,
+				UptimeCount:  0,
 			}
 			for i := 0; i < b.N; i++ {
 				badNodes, err := overlaydb.KnownUnreliableOrOffline(ctx, criteria, check)
@@ -71,7 +66,7 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateAddress", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id})
+				err := overlaydb.UpdateAddress(ctx, &pb.Node{Id: id}, overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
 			}
 		})
@@ -116,7 +111,7 @@ func BenchmarkOverlay(b *testing.B) {
 		b.Run("UpdateUptime", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0)
+				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0, 1, 1, 0.5)
 				require.NoError(b, err)
 			}
 		})

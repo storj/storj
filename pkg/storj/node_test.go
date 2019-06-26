@@ -4,7 +4,6 @@
 package storj_test
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -159,10 +159,7 @@ func TestNodeID_UnmarshalJSON(t *testing.T) {
 }
 
 func TestNewVersionedID(t *testing.T) {
-	nodeID := storj.NodeID{}
-	_, err := rand.Read(nodeID[:])
-	require.NoError(t, err)
-	nodeID[storj.NodeIDSize-1] = 0
+	nodeID := testrand.NodeID()
 
 	assert.Equal(t, storj.V0, nodeID.Version().Number)
 

@@ -78,7 +78,7 @@ CREATE TABLE irreparabledbs (
 CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	address TEXT NOT NULL,
-	last_ip TEXT NOT NULL,
+	last_net TEXT NOT NULL,
 	protocol INTEGER NOT NULL,
 	type INTEGER NOT NULL,
 	email TEXT NOT NULL,
@@ -94,16 +94,18 @@ CREATE TABLE nodes (
 	latency_90 INTEGER NOT NULL,
 	audit_success_count INTEGER NOT NULL,
 	total_audit_count INTEGER NOT NULL,
-	audit_success_ratio REAL NOT NULL,
 	uptime_success_count INTEGER NOT NULL,
 	total_uptime_count INTEGER NOT NULL,
-	uptime_ratio REAL NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	updated_at TIMESTAMP NOT NULL,
 	last_contact_success TIMESTAMP NOT NULL,
 	last_contact_failure TIMESTAMP NOT NULL,
 	contained INTEGER NOT NULL,
-	disqualified INTEGER NOT NULL,
+	disqualified TIMESTAMP,
+	audit_reputation_alpha REAL NOT NULL,
+	audit_reputation_beta REAL NOT NULL,
+	uptime_reputation_alpha REAL NOT NULL,
+	uptime_reputation_beta REAL NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
@@ -252,7 +254,7 @@ CREATE TABLE project_payments (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
-CREATE INDEX node_last_ip ON nodes ( last_ip );
+CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_id_interval_start_interval_seconds ON storagenode_bandwidth_rollups ( storagenode_id, interval_start, interval_seconds );

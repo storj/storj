@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,15 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
-
-func randomValue() []byte {
-	var id [32]byte
-	_, _ = rand.Read(id[:])
-	return id[:]
-}
 
 func TestStoreLoad(t *testing.T) {
 	const blobSize = 8 << 10
@@ -35,18 +29,18 @@ func TestStoreLoad(t *testing.T) {
 	store, err := filestore.NewAt(ctx.Dir("store"))
 	require.NoError(t, err)
 
-	data := make([]byte, blobSize)
+	data := testrand.Bytes(blobSize)
 	temp := make([]byte, len(data))
-	_, _ = rand.Read(data)
 
 	refs := []storage.BlobRef{}
 
-	namespace := randomValue()
+	namespace := testrand.Bytes(32)
+
 	// store without size
 	for i := 0; i < repeatCount; i++ {
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 		refs = append(refs, ref)
 
@@ -64,12 +58,12 @@ func TestStoreLoad(t *testing.T) {
 		require.Error(t, writer.Commit(ctx))
 	}
 
-	namespace = randomValue()
+	namespace = testrand.Bytes(32)
 	// store with size
 	for i := 0; i < repeatCount; i++ {
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 		refs = append(refs, ref)
 
@@ -83,12 +77,12 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, writer.Commit(ctx))
 	}
 
-	namespace = randomValue()
+	namespace = testrand.Bytes(32)
 	// store with larger size
 	{
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 		refs = append(refs, ref)
 
@@ -102,12 +96,12 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, writer.Commit(ctx))
 	}
 
-	namespace = randomValue()
+	namespace = testrand.Bytes(32)
 	// store with error
 	{
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 
 		writer, err := store.Create(ctx, ref, -1)
@@ -164,8 +158,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	store, err := filestore.NewAt(ctx.Dir("store"))
 	require.NoError(t, err)
 
-	data := make([]byte, blobSize)
-	_, _ = rand.Read(data)
+	data := testrand.Bytes(blobSize)
 
 	ref := storage.BlobRef{
 		Namespace: []byte{0},
