@@ -86,7 +86,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 
 			// partner ID set
 			proj.uplinkCfg.Volatile.PartnerID = partnerID
-			got, err := proj.OpenBucket(ctx, bucketName, &access)
+			got, err := proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 
 			info, err := db.Get(ctx, consoleProject.ID, []byte(bucketName))
@@ -95,7 +95,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 
 			// partner ID NOT set
 			proj.uplinkCfg.Volatile.PartnerID = ""
-			got, err = proj.OpenBucket(ctx, bucketName, &access)
+			got, err = proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 			defer ctx.Check(got.Close)
 		})
