@@ -9,10 +9,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"storj.io/storj/internal/testcontext"
-
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/internal/testcontext"
 )
 
 func setenv(key, value string) func() {

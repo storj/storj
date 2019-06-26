@@ -7,12 +7,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"log"
-	"math/rand"
 	"os"
 	"testing"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/s3client"
+	"storj.io/storj/internal/testrand"
 )
 
 var benchmarkCases = []struct {
@@ -33,12 +33,7 @@ var testObjects = createObjects()
 func createObjects() map[string][]byte {
 	objects := make(map[string][]byte)
 	for _, bm := range benchmarkCases {
-		data := make([]byte, bm.objectsize)
-		_, err := rand.Read(data)
-		if err != nil {
-			log.Fatalf("failed to read random bytes: %+v\n", err)
-		}
-		objects[bm.name] = data
+		objects[bm.name] = testrand.Bytes(bm.objectsize)
 	}
 	return objects
 }
@@ -155,8 +150,7 @@ func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, upload
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				// make some random bytes so the objectPath is unique
-				randomBytes := make([]byte, 16)
-				rand.Read(randomBytes)
+				randomBytes := testrand.Bytes(16)
 				uniquePathPart := hex.EncodeToString(randomBytes)
 				objectPath := "folder/data" + uniquePathPart + "_" + benchmark.name
 				err := client.Upload(bucket, objectPath, testObjects[benchmark.name])

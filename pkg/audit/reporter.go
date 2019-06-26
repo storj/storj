@@ -44,8 +44,10 @@ func NewReporter(log *zap.Logger, overlay *overlay.Cache, containment Containmen
 		maxReverifyCount: maxReverifyCount}
 }
 
-// RecordAudits saves audit details to overlay
-func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (failed *Report, err error) {
+// RecordAudits saves audit results to overlay cache. When no error, it returns
+// nil for both return values, otherwise it returns the report with the fields
+// set to the values which have been saved and the error.
+func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if req == nil {
 		return nil, nil

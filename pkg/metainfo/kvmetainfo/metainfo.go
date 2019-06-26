@@ -10,6 +10,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
@@ -29,22 +30,22 @@ var _ storj.Metainfo = (*DB)(nil)
 type DB struct {
 	project *Project
 
-	metainfo metainfo.Client
+	metainfo *metainfo.Client
 
 	streams  streams.Store
 	segments segments.Store
 
-	rootKey *storj.Key
+	encStore *encryption.Store
 }
 
 // New creates a new metainfo database
-func New(project *Project, metainfo metainfo.Client, streams streams.Store, segments segments.Store, rootKey *storj.Key) *DB {
+func New(project *Project, metainfo *metainfo.Client, streams streams.Store, segments segments.Store, encStore *encryption.Store) *DB {
 	return &DB{
 		project:  project,
 		metainfo: metainfo,
 		streams:  streams,
 		segments: segments,
-		rootKey:  rootKey,
+		encStore: encStore,
 	}
 }
 
