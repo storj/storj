@@ -866,6 +866,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes RENAME last_ip TO last_net;`,
 				},
 			},
+			{
+				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
+				Version:     37,
+				Action: migrate.SQL{
+					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+				},
+			},
 		},
 	}
 }

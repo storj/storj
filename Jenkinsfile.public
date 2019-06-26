@@ -33,6 +33,7 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
+                        sh 'go run ./scripts/check-large-files.go'
                         sh 'go run ./scripts/check-imports.go -race ./...'
                         sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
