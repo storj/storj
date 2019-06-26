@@ -335,7 +335,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		// make downloads slow
-		storageNodeDB.SetLatency(100 * time.Millisecond)
+		storageNodeDB.SetLatency(200 * time.Millisecond)
 
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
