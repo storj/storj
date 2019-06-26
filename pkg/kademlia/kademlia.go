@@ -288,7 +288,7 @@ func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node
 		return pb.Node{}, err
 	}
 	if len(results) < 1 {
-		return pb.Node{}, NodeNotFound.New("")
+		return pb.Node{}, NodeNotFound.Wrap(err)
 	}
 	return *results[0], nil
 }
@@ -305,6 +305,7 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID) (_ []*pb.Nod
 	if err != nil {
 		return nil, err
 	}
+
 	self := k.routingTable.Local().Node
 	lookup := newPeerDiscovery(k.log, k.dialer, nodeID, nodes, k.routingTable.K(), k.alpha, &self)
 	results, err := lookup.Run(ctx)

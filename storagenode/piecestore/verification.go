@@ -135,7 +135,7 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
-		if err == context.Canceled {
+		if errs2.IsCanceled(err) {
 			return err
 		}
 		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report grpc status bad message

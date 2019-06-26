@@ -43,7 +43,7 @@ func (service *Service) VerifyVoucher(ctx context.Context, satellite storj.NodeI
 
 	signee, err := service.trust.GetSignee(ctx, voucher.SatelliteId)
 	if err != nil {
-		if err != context.Canceled {
+		if errs2.IsCanceled(err) {
 			return err
 		}
 		return ErrVerify.New("unable to get signee: %v", err) // TODO: report grpc status bad message

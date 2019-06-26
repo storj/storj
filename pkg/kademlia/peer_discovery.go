@@ -5,6 +5,7 @@ package kademlia
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -110,11 +111,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 
 	wg.Wait()
 
-	err = ctx.Err()
-	if err == context.Canceled {
-		err = nil
-	}
-	return lookup.queue.ClosestQueried(), err
+	return lookup.queue.ClosestQueried(), ctx.Err()
 }
 
 func isDone(ctx context.Context) bool {
