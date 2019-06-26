@@ -46,8 +46,8 @@ func Bytes(size memory.Size) []byte {
 	return data
 }
 
-// BytesN generates size amount of random data.
-func BytesN(size int) []byte {
+// BytesInt generates size amount of random data.
+func BytesInt(size int) []byte {
 	return Bytes(memory.Size(size))
 }
 

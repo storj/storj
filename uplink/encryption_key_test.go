@@ -20,7 +20,7 @@ import (
 
 func TestSaveEncryptionKey(t *testing.T) {
 	generateInputKey := func() string {
-		return string(testrand.BytesN(testrand.Intn(storj.KeySize*3) + 1))
+		return string(testrand.BytesInt(testrand.Intn(storj.KeySize*3) + 1))
 	}
 
 	t.Run("ok", func(t *testing.T) {

@@ -29,7 +29,7 @@ func TestLoadEncryptionKey(t *testing.T) {
 	}
 
 	t.Run("ok: reading from file", func(t *testing.T) {
-		passphrase := testrand.BytesN(1 + testrand.Intn(100))
+		passphrase := testrand.BytesInt(1 + testrand.Intn(100))
 
 		expectedKey, err := storj.NewKey(passphrase)
 		require.NoError(t, err)

@@ -20,7 +20,7 @@ func TestSecretbox(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data := testrand.BytesN(encrypter.InBlockSize() * 10)
+	data := testrand.BytesInt(encrypter.InBlockSize() * 10)
 
 	encrypted := TransformReader(ioutil.NopCloser(bytes.NewReader(data)), encrypter, 0)
 

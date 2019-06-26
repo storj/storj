@@ -87,7 +87,7 @@ func TestUploadDownload(t *testing.T) {
 	uplinkCfg.Client.APIKey = "apiKey"
 
 	// Encryption key
-	passphrase := testrand.BytesN(testrand.Intn(100) + 1)
+	passphrase := testrand.BytesInt(testrand.Intn(100) + 1)
 
 	encryptionKey, err := storj.NewKey(passphrase)
 	require.NoError(t, err)

@@ -43,7 +43,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("humanReadableKey is shorter than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := testrand.BytesN(testrand.Intn(storj.KeySize))
+		humanReadableKey := testrand.BytesInt(testrand.Intn(storj.KeySize))
 
 		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("humanReadableKey is larger than KeySize", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := testrand.BytesN(testrand.Intn(10) + storj.KeySize + 1)
+		humanReadableKey := testrand.BytesInt(testrand.Intn(10) + storj.KeySize + 1)
 
 		key, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestNewKey(t *testing.T) {
 	t.Run("same human readable key produce the same key", func(t *testing.T) {
 		t.Parallel()
 
-		humanReadableKey := testrand.BytesN(testrand.Intn(10) + storj.KeySize + 1)
+		humanReadableKey := testrand.BytesInt(testrand.Intn(10) + storj.KeySize + 1)
 
 		key1, err := storj.NewKey(humanReadableKey)
 		require.NoError(t, err)

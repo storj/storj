@@ -303,7 +303,7 @@ func TestRSLateEOF(t *testing.T) {
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
 			// extend the input with random number of random bytes
-			random := testrand.BytesN(1 + testrand.Intn(10000))
+			random := testrand.BytesInt(1 + testrand.Intn(10000))
 			extended := append(in, random...)
 			return ioutil.NopCloser(bytes.NewReader(extended))
 		})
@@ -334,7 +334,7 @@ func TestRSRandomData(t *testing.T) {
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
 			// return random data instead of expected one
-			return ioutil.NopCloser(bytes.NewReader(testrand.BytesN(len(in))))
+			return ioutil.NopCloser(bytes.NewReader(testrand.BytesInt(len(in))))
 		})
 	}
 }
@@ -376,7 +376,7 @@ type problematicReadCloser func([]byte) io.ReadCloser
 func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadCloser) {
 	errTag := fmt.Sprintf("Test case #%d", i)
 	ctx := context.Background()
-	data := testrand.BytesN(tt.dataSize)
+	data := testrand.BytesInt(tt.dataSize)
 	fc, err := infectious.NewFEC(tt.required, tt.total)
 	if !assert.NoError(t, err, errTag) {
 		return

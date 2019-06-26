@@ -21,7 +21,7 @@ func TestLoadEncryptionKeyIntoEncryptionAccess(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		passphrase := testrand.BytesN(testrand.Intn(100) + 1)
+		passphrase := testrand.BytesInt(testrand.Intn(100) + 1)
 
 		expectedKey, err := storj.NewKey(passphrase)
 		require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestSaveLoadEncryptionKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	inputKey := string(testrand.BytesN(testrand.Intn(storj.KeySize)*3 + 1))
+	inputKey := string(testrand.BytesInt(testrand.Intn(storj.KeySize)*3 + 1))
 
 	filename := ctx.File("storj-test-cmd-uplink", "encryption.key")
 	err := uplink.SaveEncryptionKey(inputKey, filename)
