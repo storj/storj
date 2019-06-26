@@ -5,13 +5,13 @@ package uplink_test
 
 import (
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -29,9 +29,7 @@ func TestLoadEncryptionKey(t *testing.T) {
 	}
 
 	t.Run("ok: reading from file", func(t *testing.T) {
-		passphrase := make([]byte, rand.Intn(100)+1)
-		_, err := rand.Read(passphrase)
-		require.NoError(t, err)
+		passphrase := testrand.BytesInt(1 + testrand.Intn(100))
 
 		expectedKey, err := storj.NewKey(passphrase)
 		require.NoError(t, err)

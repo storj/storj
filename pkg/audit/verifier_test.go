@@ -5,7 +5,6 @@ package audit_test
 
 import (
 	"context"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
@@ -37,9 +37,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -93,9 +91,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -157,9 +153,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -217,9 +211,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -293,9 +285,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 32*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(32 * memory.KiB)
 
 		// Upload with larger erasure share size to simulate longer download over slow transport client
 		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
@@ -364,9 +354,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -404,9 +392,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -448,9 +434,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -494,9 +478,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -553,9 +535,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -592,9 +572,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
