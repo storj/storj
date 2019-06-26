@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -22,6 +21,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testpeertls"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -245,9 +245,7 @@ func TestManageablePeerIdentity_AddExtension(t *testing.T) {
 	oldLeaf := manageablePeerIdentity.Leaf
 	assert.Len(t, manageablePeerIdentity.CA.Cert.ExtraExtensions, 0)
 
-	randBytes := make([]byte, 10)
-	_, err = rand.Read(randBytes)
-	require.NoError(t, err)
+	randBytes := testrand.Bytes(10)
 	randExt := pkix.Extension{
 		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
 		Value: randBytes,

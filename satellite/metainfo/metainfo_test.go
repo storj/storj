@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -54,6 +54,7 @@ func TestInvalidAPIKey(t *testing.T) {
 	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], invalidAPIKey)
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now())
 		assertUnauthenticated(t, err, false)
@@ -167,6 +168,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey.Serialize())
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now())
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
@@ -296,6 +298,7 @@ func TestCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		{
 			// error if pointer is nil
@@ -362,6 +365,7 @@ func TestCreateSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		for _, r := range []struct {
 			rs   *pb.RedundancyScheme
@@ -456,6 +460,7 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
@@ -533,6 +538,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		for _, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
@@ -561,17 +567,16 @@ func TestSetAttribution(t *testing.T) {
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
 
-		partnerID, err := uuid.New()
-		require.NoError(t, err)
-
+		partnerID := testrand.UUID()
 		{
 			// bucket with no items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.SetAttribution(ctx, "beta", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "beta", partnerID)
 			require.NoError(t, err)
 		}
 		{
@@ -579,13 +584,13 @@ func TestSetAttribution(t *testing.T) {
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
 			require.Error(t, err)
 		}
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
@@ -645,6 +650,7 @@ func TestBucketNameValidation(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		rs := &pb.RedundancyScheme{
 			MinReq:           1,

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -94,7 +94,7 @@ func TestGetBucket(t *testing.T) {
 
 func RandomNode() pb.Node {
 	node := pb.Node{}
-	rand.Read(node.Id[:])
+	node.Id = testrand.NodeID()
 	return node
 }
 func TestKademliaFindNear(t *testing.T) {
