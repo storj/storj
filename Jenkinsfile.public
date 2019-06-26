@@ -14,7 +14,7 @@ pipeline {
             steps {
                 checkout scm
 
-                sh 'mkdir .build'
+                sh 'mkdir -p .build'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
