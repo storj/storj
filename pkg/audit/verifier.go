@@ -452,21 +452,14 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	}
 
 	storageNodeID := limit.GetLimit().StorageNodeId
+	log := verifier.log.Named(storageNodeID.String())
+	target := &pb.Node{Id: storageNodeID, Address: limit.GetStorageNodeAddress()}
+	signer := signing.SignerFromFullIdentity(verifier.transport.Identity())
 
-	conn, err := verifier.transport.DialNode(timedCtx, &pb.Node{
-		Id:      storageNodeID,
-		Address: limit.GetStorageNodeAddress(),
-	})
+	ps, err := piecestore.Dial(timedCtx, verifier.transport, target, log, signer, piecestore.DefaultConfig)
 	if err != nil {
-		return Share{}, err
+		return Share{}, Error.Wrap(err)
 	}
-	// TODO(leak): unclear ownership semantics
-	ps := piecestore.NewClient(
-		verifier.log.Named(storageNodeID.String()),
-		signing.SignerFromFullIdentity(verifier.transport.Identity()),
-		conn,
-		piecestore.DefaultConfig,
-	)
 	defer func() {
 		err := ps.Close()
 		if err != nil {

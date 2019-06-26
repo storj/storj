@@ -4,7 +4,6 @@
 package collector_test
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
@@ -28,12 +28,10 @@ func TestCollector(t *testing.T) {
 			storageNode.Storage2.Sender.Loop.Pause()
 		}
 
-		expectedData := make([]byte, 100*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
 		// upload some data to exactly 2 nodes that expires in 8 days
-		err = planet.Uplinks[0].UploadWithExpirationAndConfig(ctx,
+		err := planet.Uplinks[0].UploadWithExpirationAndConfig(ctx,
 			planet.Satellites[0],
 			&uplink.RSConfig{
 				MinThreshold:     1,
