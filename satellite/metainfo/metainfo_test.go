@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -569,16 +569,14 @@ func TestSetAttribution(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		partnerID, err := uuid.New()
-		require.NoError(t, err)
-
+		partnerID := testrand.UUID()
 		{
 			// bucket with no items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.SetAttribution(ctx, "beta", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "beta", partnerID)
 			require.NoError(t, err)
 		}
 		{
@@ -586,7 +584,7 @@ func TestSetAttribution(t *testing.T) {
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
 			require.Error(t, err)
 		}
 	})

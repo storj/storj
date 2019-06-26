@@ -6,9 +6,7 @@ package segments_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
-	io "io"
 	"io/ioutil"
 	"strconv"
 	"testing"
@@ -21,6 +19,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
@@ -85,8 +84,8 @@ func TestSegmentStorePutGet(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote put/get", "s0/test-bucket/mypath/1", []byte("metadata-remote"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline put/get", "l/path/1", []byte("metadata-intline"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote put/get", "s0/test-bucket/mypath/1", []byte("metadata-remote"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -119,8 +118,8 @@ func TestSegmentStoreDelete(t *testing.T) {
 		expiration time.Time
 		content    []byte
 	}{
-		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, createTestData(t, 2*memory.KiB.Int64())},
-		{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, createTestData(t, 100*memory.KiB.Int64())},
+		{"test inline delete", "l/path/1", []byte("metadata"), time.Time{}, testrand.Bytes(2 * memory.KiB)},
+		{"test remote delete", "s0/test-bucket/mypath/1", []byte("metadata"), time.Time{}, testrand.Bytes(100 * memory.KiB)},
 	} {
 		test := tt
 		runTest(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store) {
@@ -233,12 +232,6 @@ func TestCalcNeededNodes(t *testing.T) {
 
 		assert.Equal(t, tt.needed, segments.CalcNeededNodes(&rs), tag)
 	}
-}
-
-func createTestData(t *testing.T, size int64) []byte {
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, size))
-	require.NoError(t, err)
-	return data
 }
 
 func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, segmentStore segments.Store)) {

@@ -4,13 +4,13 @@
 package console_test
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -21,23 +21,15 @@ func TestProjectPaymentInfos(t *testing.T) {
 		ctx := testcontext.New(t)
 		consoleDB := db.Console()
 
-		var customerID [8]byte
-		_, err := rand.Read(customerID[:])
-		require.NoError(t, err)
-
-		var paymentMethodID [8]byte
-		_, err = rand.Read(paymentMethodID[:])
-		require.NoError(t, err)
-
-		var passHash [8]byte
-		_, err = rand.Read(passHash[:])
-		require.NoError(t, err)
+		customerID := testrand.Bytes(8)
+		paymentMethodID := testrand.Bytes(8)
+		passHash := testrand.Bytes(8)
 
 		// create user
 		user, err := consoleDB.Users().Insert(ctx, &console.User{
 			FullName:     "John Doe",
 			Email:        "john@mail.test",
-			PasswordHash: passHash[:],
+			PasswordHash: passHash,
 			Status:       console.Active,
 		})
 		require.NoError(t, err)
@@ -45,7 +37,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 		// create user payment info
 		userPmInfo, err := consoleDB.UserPayments().Create(ctx, console.UserPayment{
 			UserID:     user.ID,
-			CustomerID: customerID[:],
+			CustomerID: customerID,
 		})
 		require.NoError(t, err)
 
@@ -59,13 +51,13 @@ func TestProjectPaymentInfos(t *testing.T) {
 			info, err := consoleDB.ProjectPayments().Create(ctx, console.ProjectPayment{
 				ProjectID:       proj.ID,
 				PayerID:         userPmInfo.UserID,
-				PaymentMethodID: paymentMethodID[:],
+				PaymentMethodID: paymentMethodID,
 			})
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
 			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID[:], info.PaymentMethodID)
+			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
 		})
 
 		t.Run("get by project id", func(t *testing.T) {
@@ -74,7 +66,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
 			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID[:], info.PaymentMethodID)
+			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
 		})
 
 		t.Run("get by payer id", func(t *testing.T) {
@@ -83,7 +75,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
 			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID[:], info.PaymentMethodID)
+			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
 		})
 	})
 }

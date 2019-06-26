@@ -8,7 +8,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -162,8 +162,7 @@ func TestFullCertificateAuthority_AddExtension(t *testing.T) {
 	oldCert := ca.Cert
 	assert.Len(t, ca.Cert.ExtraExtensions, 0)
 
-	randBytes := make([]byte, 10)
-	rand.Read(randBytes)
+	randBytes := testrand.Bytes(10)
 	randExt := pkix.Extension{
 		Id:    asn1.ObjectIdentifier{2, 999, int(randBytes[0])},
 		Value: randBytes,

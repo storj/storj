@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -87,9 +87,7 @@ func TestUploadDownload(t *testing.T) {
 	uplinkCfg.Client.APIKey = "apiKey"
 
 	// Encryption key
-	passphrase := make([]byte, rand.Intn(100)+1)
-	_, err = rand.Read(passphrase)
-	require.NoError(t, err)
+	passphrase := testrand.BytesInt(testrand.Intn(100) + 1)
 
 	encryptionKey, err := storj.NewKey(passphrase)
 	require.NoError(t, err)
