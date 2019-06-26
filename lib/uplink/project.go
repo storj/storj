@@ -152,7 +152,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = p.CheckBucketAttribution(ctx, bucketName)
+	err = p.checkBucketAttribution(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
