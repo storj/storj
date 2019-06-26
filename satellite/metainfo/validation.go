@@ -6,12 +6,12 @@ package metainfo
 import (
 	"bytes"
 	"context"
+	"regexp"
 	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,7 +23,16 @@ import (
 	"storj.io/storj/satellite/console"
 )
 
-const requestTTL = time.Hour * 4
+const (
+	// BucketNameRestricted feature flag to toggle bucket name validation
+	BucketNameRestricted = false
+
+	requestTTL = time.Hour * 4
+)
+
+var (
+	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
+)
 
 // TTLItem keeps association between serial number and ttl
 type TTLItem struct {
@@ -223,12 +232,62 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 	defer mon.Task()(&ctx)(&err)
 
 	if len(bucket) == 0 {
-		return errs.New("bucket not specified")
+		return Error.New("bucket not specified")
 	}
-	if bytes.ContainsAny(bucket, "/") {
-		return errs.New("bucket should not contain slash")
+
+	if !BucketNameRestricted {
+		return nil
 	}
+
+	if len(bucket) < 3 || len(bucket) > 63 {
+		return Error.New("bucket name must be at least 3 and no more than 63 characters long")
+	}
+
+	// Regexp not used because benchmark shows it will be slower for valid bucket names
+	// https://gist.github.com/mniewrzal/49de3af95f36e63e88fac24f565e444c
+	labels := bytes.Split(bucket, []byte("."))
+	for _, label := range labels {
+		err = validateBucketLabel(label)
+		if err != nil {
+			return err
+		}
+	}
+
+	if ipRegexp.MatchString(string(bucket)) {
+		return Error.New("bucket name cannot be formatted as an IP address")
+	}
+
 	return nil
+}
+
+func validateBucketLabel(label []byte) error {
+	if len(label) == 0 {
+		return Error.New("bucket label cannot be empty")
+	}
+
+	if !isLowerLetter(label[0]) && !isDigit(label[0]) {
+		return Error.New("bucket label must start with a lowercase letter or number")
+	}
+
+	if label[0] == '-' || label[len(label)-1] == '-' {
+		return Error.New("bucket label cannot start or end with a hyphen")
+	}
+
+	for i := 1; i < len(label)-1; i++ {
+		if !isLowerLetter(label[i]) && !isDigit(label[i]) && (label[i] != '-') && (label[i] != '.') {
+			return Error.New("bucket name must contain only lowercase letters, numbers or hyphens")
+		}
+	}
+
+	return nil
+}
+
+func isLowerLetter(r byte) bool {
+	return r >= 'a' && r <= 'z'
+}
+
+func isDigit(r byte) bool {
+	return r >= '0' && r <= '9'
 }
 
 func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer) (err error) {
@@ -258,10 +317,16 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb.RedundancyScheme) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO more validation, use validation from eestream.NewRedundancyStrategy
-	if redundancy.ErasureShareSize <= 0 {
-		return Error.New("erasure share size cannot be less than 0")
+	if endpoint.rsConfig.Validate == true {
+		if endpoint.rsConfig.ErasureShareSize.Int32() != redundancy.ErasureShareSize ||
+			endpoint.rsConfig.MaxThreshold != int(redundancy.Total) ||
+			endpoint.rsConfig.MinThreshold != int(redundancy.MinReq) ||
+			endpoint.rsConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
+			endpoint.rsConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
+			return Error.New("provided redundancy scheme parameters not allowed")
+		}
 	}
+
 	return nil
 }
 

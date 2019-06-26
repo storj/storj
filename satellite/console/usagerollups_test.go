@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
@@ -35,15 +35,8 @@ func TestUsageRollups(t *testing.T) {
 		now := time.Now()
 		start := now.Add(tallyInterval * time.Duration(-tallyIntervals))
 
-		project1, err := uuid.New()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		project2, err := uuid.New()
-		if err != nil {
-			t.Fatal(err)
-		}
+		project1 := testrand.UUID()
+		project2 := testrand.UUID()
 
 		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
 		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48
@@ -65,12 +58,12 @@ func TestUsageRollups(t *testing.T) {
 			bucketName := fmt.Sprintf("bucket_%d", i)
 
 			// project 1
-			bucketID := []byte(project1.String() + "/" + bucketName)
 			for _, action := range actions {
 				value := getValue(0, i, p1base)
 
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx,
-					bucketID,
+					project1,
+					[]byte(bucketName),
 					action,
 					value*6,
 					now,
@@ -80,7 +73,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthSettle(ctx,
-					bucketID,
+					project1,
+					[]byte(bucketName),
 					action,
 					value*3,
 					now,
@@ -90,7 +84,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx,
-					bucketID,
+					project1,
+					[]byte(bucketName),
 					action,
 					value,
 					now,
@@ -101,12 +96,12 @@ func TestUsageRollups(t *testing.T) {
 			}
 
 			// project 2
-			bucketID = []byte(project2.String() + "/" + bucketName)
 			for _, action := range actions {
 				value := getValue(1, i, p2base)
 
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx,
-					bucketID,
+					project2,
+					[]byte(bucketName),
 					action,
 					value*6,
 					now,
@@ -116,7 +111,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthSettle(ctx,
-					bucketID,
+					project2,
+					[]byte(bucketName),
 					action,
 					value*3,
 					now,
@@ -126,7 +122,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx,
-					bucketID,
+					project2,
+					[]byte(bucketName),
 					action,
 					value,
 					now,
@@ -150,6 +147,8 @@ func TestUsageRollups(t *testing.T) {
 				value2 := getValue(i, j, p2base) * 10
 
 				tally1 := &accounting.BucketTally{
+					BucketName:     []byte(bucket),
+					ProjectID:      project1[:],
 					Segments:       value1,
 					InlineSegments: value1,
 					RemoteSegments: value1,
@@ -163,6 +162,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				tally2 := &accounting.BucketTally{
+					BucketName:     []byte(bucket),
+					ProjectID:      project2[:],
 					Segments:       value2,
 					InlineSegments: value2,
 					RemoteSegments: value2,
@@ -191,21 +192,21 @@ func TestUsageRollups(t *testing.T) {
 		usageRollups := db.Console().UsageRollups()
 
 		t.Run("test project total", func(t *testing.T) {
-			projTotal1, err := usageRollups.GetProjectTotal(ctx, *project1, start, now)
+			projTotal1, err := usageRollups.GetProjectTotal(ctx, project1, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, projTotal1)
 
-			projTotal2, err := usageRollups.GetProjectTotal(ctx, *project2, start, now)
+			projTotal2, err := usageRollups.GetProjectTotal(ctx, project2, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, projTotal2)
 		})
 
 		t.Run("test bucket usage rollups", func(t *testing.T) {
-			rollups1, err := usageRollups.GetBucketUsageRollups(ctx, *project1, start, now)
+			rollups1, err := usageRollups.GetBucketUsageRollups(ctx, project1, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, rollups1)
 
-			rollups2, err := usageRollups.GetBucketUsageRollups(ctx, *project2, start, now)
+			rollups2, err := usageRollups.GetBucketUsageRollups(ctx, project2, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, rollups2)
 		})
@@ -216,11 +217,11 @@ func TestUsageRollups(t *testing.T) {
 				Page:  1,
 			}
 
-			totals1, err := usageRollups.GetBucketTotals(ctx, *project1, cursor, start, now)
+			totals1, err := usageRollups.GetBucketTotals(ctx, project1, cursor, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, totals1)
 
-			totals2, err := usageRollups.GetBucketTotals(ctx, *project2, cursor, start, now)
+			totals2, err := usageRollups.GetBucketTotals(ctx, project2, cursor, start, now)
 			assert.NoError(t, err)
 			assert.NotNil(t, totals2)
 		})

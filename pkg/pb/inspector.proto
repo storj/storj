@@ -202,8 +202,10 @@ message SegmentHealthRequest {
 }
 
 message SegmentHealth {
-  int32 online_nodes = 1; // amount of pieces with nodes that are online
-  bytes segment = 2;      // path formatted segment index
+  repeated bytes healthy_ids = 1 [(gogoproto.customtype) = "NodeID"];   // online + not disqualified
+  repeated bytes unhealthy_ids = 2 [(gogoproto.customtype) = "NodeID"]; // online + disqualified
+  repeated bytes offline_ids = 3 [(gogoproto.customtype) = "NodeID"];   // offline
+  bytes segment = 4;                                                    // path formatted segment index
 }
 
 message SegmentHealthResponse {

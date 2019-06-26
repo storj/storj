@@ -815,6 +815,65 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Change type of disqualified column of nodes table to timestamp",
+				Version:     32,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes
+						ALTER COLUMN disqualified DROP DEFAULT,
+						ALTER COLUMN disqualified DROP NOT NULL,
+						ALTER COLUMN disqualified TYPE timestamp with time zone USING
+							CASE disqualified
+								WHEN true THEN TIMESTAMP WITH TIME ZONE '2019-06-15 00:00:00+00'
+								ELSE NULL
+							END`,
+				},
+			},
+			{
+				Description: "Add alpha and beta columns for reputations",
+				Version:     33,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN audit_reputation_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN audit_reputation_beta double precision NOT NULL DEFAULT 0;`,
+					`ALTER TABLE nodes ADD COLUMN uptime_reputation_alpha double precision NOT NULL DEFAULT 1;`,
+					`ALTER TABLE nodes ADD COLUMN uptime_reputation_beta double precision NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				Description: "Remove ratio columns from node reputations",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN audit_success_ratio;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_ratio;`,
+				},
+			},
+			{
+				Description: "Fix reputations to preserve a baseline",
+				Version:     35,
+				Action: migrate.SQL{
+					`UPDATE nodes SET audit_reputation_alpha = GREATEST(audit_success_count, 50);`,
+					`UPDATE nodes SET audit_reputation_beta = total_audit_count - audit_success_count;`,
+					`UPDATE nodes SET uptime_reputation_alpha = GREATEST(uptime_success_count, 100);`,
+					`UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
+				},
+			},
+			{
+				Description: "Update Last_IP column to be masked",
+				Version:     36,
+				Action: migrate.SQL{
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 24))) WHERE last_ip <> '' AND family(last_ip::INET) = 4;`,
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 64))) WHERE last_ip <> '' AND family(last_ip::INET) = 16;`,
+					`ALTER TABLE nodes RENAME last_ip TO last_net;`,
+				},
+			},
+			{
+				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
+				Version:     37,
+				Action: migrate.SQL{
+					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+				},
+			},
 		},
 	}
 }

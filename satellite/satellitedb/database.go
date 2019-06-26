@@ -16,9 +16,10 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/marketing"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -97,6 +98,11 @@ func (db *DB) CertDB() certdb.DB {
 	return &certDB{db: db.db}
 }
 
+// Attribution is a getter for value attribution repository
+func (db *DB) Attribution() attribution.DB {
+	return &attributionDB{db: db.db}
+}
+
 // OverlayCache is a getter for overlay cache repository
 func (db *DB) OverlayCache() overlay.DB {
 	return &overlaycache{db: db.db}
@@ -130,12 +136,9 @@ func (db *DB) Console() console.DB {
 	}
 }
 
-// Marketing returns database for storing offers and credits
-func (db *DB) Marketing() marketing.DB {
-	return &MarketingDB{
-		db:      db.db,
-		methods: db.db,
-	}
+// Rewards returns database for storing offers
+func (db *DB) Rewards() rewards.DB {
+	return &offersDB{db: db.db}
 }
 
 // Orders returns database for storing orders

@@ -8,6 +8,7 @@ package orders;
 
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
+import "node.proto";
 
 // PieceAction is an enumeration of all possible executed actions on storage node
 enum PieceAction {
@@ -25,22 +26,26 @@ message OrderLimit2 {
     // unique serial to avoid replay attacks
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
     // satellite who issued this order limit allowing orderer to do the specified action
-    bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false]; 
+    bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     // uplink who requested or whom behalf the order limit to do an action
     bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     // storage node who can reclaim the order limit specified by serial
     bytes storage_node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  
+
     // piece which is allowed to be touched
     bytes piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
     // limit in bytes how much can be changed
     int64  limit = 6;
     PieceAction action = 7;
-  
+
     google.protobuf.Timestamp piece_expiration = 8;
     google.protobuf.Timestamp order_expiration = 9;
-  
+
     bytes satellite_signature = 10;
+
+    // satellites aren't necessarily discoverable in kademlia. this allows
+    // a storage node to find a satellite and handshake with it to get its key.
+    node.NodeAddress satellite_address = 11;
 }
 
 // Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber

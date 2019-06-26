@@ -62,6 +62,7 @@ func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Cl
 	if err != nil {
 		return nil, err
 	}
+	// TODO(leak): unclear ownership semantics
 	return piecestore.NewClient(
 		zap.L().Named(n.Id.String()),
 		signing.SignerFromFullIdentity(ec.transport.Identity()),
@@ -77,15 +78,16 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
 	}
 
-	if nonNilCount(limits) < rs.RepairThreshold() {
-		return nil, nil, Error.New("number of non-nil limits (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(limits), rs.RepairThreshold())
+	nonNilLimits := nonNilCount(limits)
+	if nonNilLimits <= rs.RepairThreshold() && nonNilLimits < rs.OptimalThreshold() {
+		return nil, nil, Error.New("number of non-nil limits (%d) is less than or equal to the repair threshold (%d) of erasure scheme", nonNilLimits, rs.RepairThreshold())
 	}
 
 	if !unique(limits) {
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	zap.S().Infof("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
+	zap.S().Debugf("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
 		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
@@ -137,23 +139,25 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		successfulHashes[info.i] = info.hash
 
 		switch int(atomic.AddInt32(&successfulCount, 1)) {
-		case rs.RepairThreshold():
+		case rs.OptimalThreshold():
+			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+			if timer != nil {
+				timer.Stop()
+			}
+			cancel()
+		case rs.RepairThreshold() + 1:
 			elapsed := time.Since(start)
 			more := elapsed * 3 / 2
 
-			zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+			zap.S().Debugf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
 				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 			timer = time.AfterFunc(more, func() {
 				if ctx.Err() != context.Canceled {
-					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+					zap.S().Debugf("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
 					cancel()
 				}
 			})
-		case rs.OptimalThreshold():
-			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-			timer.Stop()
-			cancel()
 		}
 	}
 
@@ -175,8 +179,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}
 	}()
 
-	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", atomic.LoadInt32(&successfulCount), rs.RepairThreshold())
+	successes := int(atomic.LoadInt32(&successfulCount))
+	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
@@ -328,7 +333,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if parent.Err() == context.Canceled {
 			zap.S().Infof("Upload to node %s canceled by user.", storageNodeID)
 		} else {
-			zap.S().Infof("Node %s cut from upload due to slow connection.", storageNodeID)
+			zap.S().Debugf("Node %s cut from upload due to slow connection.", storageNodeID)
 		}
 		err = context.Canceled
 	} else if err != nil {

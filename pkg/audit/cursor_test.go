@@ -5,9 +5,7 @@ package audit_test
 
 import (
 	"context"
-	"crypto/rand"
 	"math"
-	"math/big"
 	"reflect"
 	"testing"
 	"time"
@@ -17,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/pb"
@@ -66,11 +65,7 @@ func TestAuditSegment(t *testing.T) {
 
 			// get a list of 100 paths generated from random
 			for i := 0; i < 100; i++ {
-				randomNum, err := rand.Int(rand.Reader, big.NewInt(int64(len(list))))
-				if err != nil {
-					t.Error("num error: failed to get num")
-				}
-				pointerItem := list[randomNum.Int64()]
+				pointerItem := list[testrand.Int63n(int64(len(list)))]
 				path := pointerItem.Path
 				val := pathCount{path: path, count: 1}
 				pathCounter = append(pathCounter, val)
