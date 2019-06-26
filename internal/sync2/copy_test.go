@@ -5,7 +5,6 @@ package sync2_test
 
 import (
 	"context"
-	"crypto/rand"
 	"io"
 	"io/ioutil"
 	"testing"
@@ -14,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
+	"storj.io/storj/internal/testrand"
 )
 
 func TestCopy(t *testing.T) {
@@ -22,7 +22,7 @@ func TestCopy(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	r := io.LimitReader(rand.Reader, 32*memory.KiB.Int64())
+	r := io.LimitReader(testrand.Reader(), 32*memory.KiB.Int64())
 
 	n, err := sync2.Copy(ctx, ioutil.Discard, r)
 
@@ -36,7 +36,7 @@ func TestCopy_Cancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	r := io.LimitReader(rand.Reader, 32*memory.KiB.Int64())
+	r := io.LimitReader(testrand.Reader(), 32*memory.KiB.Int64())
 
 	n, err := sync2.Copy(ctx, ioutil.Discard, r)
 

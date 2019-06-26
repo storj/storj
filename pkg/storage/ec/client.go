@@ -36,7 +36,7 @@ type Client interface {
 	WithForceErrorDetection(force bool) Client
 }
 
-type psClientHelper func(context.Context, *pb.Node) (*piecestore.Client, error)
+type dialPiecestoreFunc func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
 	transport           transport.Client
@@ -57,17 +57,10 @@ func (ec *ecClient) WithForceErrorDetection(force bool) Client {
 	return ec
 }
 
-func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
-	conn, err := ec.transport.DialNode(ctx, n)
-	if err != nil {
-		return nil, err
-	}
-	return piecestore.NewClient(
-		zap.L().Named(n.Id.String()),
-		signing.SignerFromFullIdentity(ec.transport.Identity()),
-		conn,
-		piecestore.DefaultConfig,
-	), nil
+func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
+	logger := zap.L().Named(n.Id.String())
+	signer := signing.SignerFromFullIdentity(ec.transport.Identity())
+	return piecestore.Dial(ctx, ec.transport, n, logger, signer, piecestore.DefaultConfig)
 }
 
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
@@ -86,7 +79,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	zap.S().Infof("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
+	zap.S().Debugf("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
 		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
@@ -148,12 +141,12 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 			elapsed := time.Since(start)
 			more := elapsed * 3 / 2
 
-			zap.S().Infof("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+			zap.S().Debugf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
 				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 			timer = time.AfterFunc(more, func() {
 				if ctx.Err() != context.Canceled {
-					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+					zap.S().Debugf("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
 					cancel()
 				}
 			})
@@ -299,7 +292,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
-	ps, err := ec.newPSClient(ctx, &pb.Node{
+	ps, err := ec.dialPiecestore(ctx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
 	})
@@ -332,7 +325,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if parent.Err() == context.Canceled {
 			zap.S().Infof("Upload to node %s canceled by user.", storageNodeID)
 		} else {
-			zap.S().Infof("Node %s cut from upload due to slow connection.", storageNodeID)
+			zap.S().Debugf("Node %s cut from upload due to slow connection.", storageNodeID)
 		}
 		err = context.Canceled
 	} else if err != nil {
@@ -367,9 +360,9 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		}
 
 		rrs[i] = &lazyPieceRanger{
-			newPSClientHelper: ec.newPSClient,
-			limit:             addressedLimit,
-			size:              pieceSize,
+			dialPiecestore: ec.dialPiecestore,
+			limit:          addressedLimit,
+			size:           pieceSize,
 		}
 	}
 
@@ -393,7 +386,7 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 		go func(addressedLimit *pb.AddressedOrderLimit) {
 			limit := addressedLimit.GetLimit()
-			ps, err := ec.newPSClient(ctx, &pb.Node{
+			ps, err := ec.dialPiecestore(ctx, &pb.Node{
 				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
 			})
@@ -462,9 +455,9 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 type lazyPieceRanger struct {
-	newPSClientHelper psClientHelper
-	limit             *pb.AddressedOrderLimit
-	size              int64
+	dialPiecestore dialPiecestoreFunc
+	limit          *pb.AddressedOrderLimit
+	size           int64
 }
 
 // Size implements Ranger.Size
@@ -475,7 +468,7 @@ func (lr *lazyPieceRanger) Size() int64 {
 // Range implements Ranger.Range to be lazily connected
 func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
-	ps, err := lr.newPSClientHelper(ctx, &pb.Node{
+	ps, err := lr.dialPiecestore(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),
 	})
