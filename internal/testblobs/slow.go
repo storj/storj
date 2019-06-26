@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
@@ -83,6 +84,7 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 // SetLatency configures the blob store to sleep for delay duration for all
 // operations. A zero or negative delay means no sleep.
 func (slow *SlowBlobs) SetLatency(delay time.Duration) {
+	slow.log.Debug("set latency", zap.Duration("delay", delay))
 	atomic.StoreInt64(&slow.delay, int64(delay))
 }
 
