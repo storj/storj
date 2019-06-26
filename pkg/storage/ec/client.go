@@ -5,7 +5,6 @@ package ecclient
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -394,14 +393,14 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 				Address: addressedLimit.GetStorageNodeAddress(),
 			})
 			if err != nil {
-				ec.log.Error(fmt.Sprintf("Failed dialing for deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err))
+				ec.log.Sugar().Errorf("Failed dialing for deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
 				errch <- err
 				return
 			}
 			err = ps.Delete(ctx, limit)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
-				ec.log.Error(fmt.Sprintf("Failed deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err))
+				ec.log.Sugar().Errorf("Failed deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
 			}
 			errch <- err
 		}(addressedLimit)
