@@ -63,7 +63,8 @@ hr{
     font-style: normal;
 }
 
-.data-row{
+.data-row,
+.data-row .col a{
     font-weight: normal;
     font-size: 14px;
     line-height: 49px;
