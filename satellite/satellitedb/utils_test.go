@@ -29,7 +29,7 @@ func TestBytesToUUID(t *testing.T) {
 		id := testrand.UUID()
 		result, err := bytesToUUID(id[:])
 		assert.NoError(t, err)
-		assert.Equal(t, result, *id)
+		assert.Equal(t, result, id)
 	})
 }
 

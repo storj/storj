@@ -47,7 +47,7 @@ func TestBucketUsage(t *testing.T) {
 		t.Run("add rollup", func(t *testing.T) {
 			var err error
 			data := accounting.BucketRollup{
-				BucketID:         *bucketID,
+				BucketID:         bucketID,
 				RollupEndTime:    now,
 				RemoteStoredData: 5,
 				InlineStoredData: 6,
@@ -81,7 +81,7 @@ func TestBucketUsage(t *testing.T) {
 		t.Run("add rollups", func(t *testing.T) {
 			for i := 0; i < count; i++ {
 				data := accounting.BucketRollup{
-					BucketID:         *bucketID,
+					BucketID:         bucketID,
 					RollupEndTime:    now.Add(time.Hour * time.Duration(i+1)),
 					RemoteStoredData: uint64(i),
 					InlineStoredData: uint64(i + 1),
@@ -105,7 +105,7 @@ func TestBucketUsage(t *testing.T) {
 		t.Run("retrieve rollup", func(t *testing.T) {
 			t.Run("first 30 backward", func(t *testing.T) {
 				cursor := &accounting.BucketRollupCursor{
-					BucketID: *bucketID,
+					BucketID: bucketID,
 					Before:   now.Add(time.Hour * 30),
 					Order:    accounting.Desc,
 					PageSize: 10,
@@ -135,7 +135,7 @@ func TestBucketUsage(t *testing.T) {
 
 			t.Run("last 30 forward", func(t *testing.T) {
 				cursor := &accounting.BucketRollupCursor{
-					BucketID: *bucketID,
+					BucketID: bucketID,
 					After:    now.Add(time.Hour * 20),
 					Before:   now.Add(time.Hour * time.Duration(count+1)),
 					Order:    accounting.Asc,

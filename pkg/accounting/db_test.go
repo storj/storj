@@ -27,7 +27,7 @@ func TestSaveBucketTallies(t *testing.T) {
 		// Setup: create bucket storage tallies
 		projectID := testrand.UUID()
 
-		bucketTallies, expectedTallies, err := createBucketStorageTallies(*projectID)
+		bucketTallies, expectedTallies, err := createBucketStorageTallies(projectID)
 		require.NoError(t, err)
 
 		// Execute test:  retrieve the save tallies and confirm they contains the expected data

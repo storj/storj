@@ -218,12 +218,12 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		projectID := testrand.UUID()
 
 		// Setup: create bucket bandwidth rollup records
-		expectedTotal, err := createBucketBandwidthRollups(ctx, db, *projectID)
+		expectedTotal, err := createBucketBandwidthRollups(ctx, db, projectID)
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
 		from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, *projectID, from)
+		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, projectID, from)
 		require.NoError(t, err)
 		require.Equal(t, actualBandwidthTotal, expectedTotal)
 	})
