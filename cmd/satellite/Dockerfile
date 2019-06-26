@@ -2,6 +2,7 @@
 FROM node:10.15.1 as satellite-ui
 WORKDIR /app
 COPY web/satellite/ /app
+COPY web/marketing/ /app/marketing
 # Need to clean up (or ignore) local folders like node_modules, etc...
 RUN npm install
 RUN npm run build
@@ -23,6 +24,7 @@ EXPOSE 10100
 WORKDIR /app
 COPY --from=satellite-ui /app/static /app/static
 COPY --from=satellite-ui /app/dist /app/dist
+COPY --from=satellite-ui /app/marketing /app/marketing
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
 COPY cmd/satellite/entrypoint /entrypoint

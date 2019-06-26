@@ -5,7 +5,6 @@ package piecestore_test
 
 import (
 	"io"
-	"math/rand"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
@@ -29,11 +29,9 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		expectedData := make([]byte, 100*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		assert.NoError(t, err)
 
 		var totalDownload int64
@@ -99,6 +97,7 @@ func TestUpload(t *testing.T) {
 
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
 	for _, tt := range []struct {
 		pieceID       storj.PieceID
@@ -125,13 +124,9 @@ func TestUpload(t *testing.T) {
 			err:           "expected put or put repair action got GET",
 		},
 	} {
-		data := make([]byte, tt.contentLength.Int64())
-		_, _ = rand.Read(data)
-
+		data := testrand.Bytes(tt.contentLength)
 		expectedHash := pkcrypto.SHA256Hash(data)
-
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		orderLimit := GenerateOrderLimit(
 			t,
@@ -183,12 +178,10 @@ func TestDownload(t *testing.T) {
 	// upload test piece
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
-	var serialNumber storj.SerialNumber
-	_, _ = rand.Read(serialNumber[:])
-
-	expectedData := make([]byte, 10*memory.KiB)
-	_, _ = rand.Read(expectedData)
+	expectedData := testrand.Bytes(10 * memory.KiB)
+	serialNumber := testrand.SerialNumber()
 
 	orderLimit := GenerateOrderLimit(
 		t,
@@ -235,8 +228,7 @@ func TestDownload(t *testing.T) {
 			errs:    []string{"expected get or get repair or audit action got PUT"},
 		},
 	} {
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		orderLimit := GenerateOrderLimit(
 			t,
@@ -289,12 +281,10 @@ func TestDelete(t *testing.T) {
 	// upload test piece
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
-	var serialNumber storj.SerialNumber
-	_, _ = rand.Read(serialNumber[:])
-
-	expectedData := make([]byte, 10*memory.KiB)
-	_, _ = rand.Read(expectedData)
+	expectedData := testrand.Bytes(10 * memory.KiB)
+	serialNumber := testrand.SerialNumber()
 
 	orderLimit := GenerateOrderLimit(
 		t,
@@ -342,8 +332,7 @@ func TestDelete(t *testing.T) {
 			err:     "expected delete action got GET",
 		},
 	} {
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		orderLimit := GenerateOrderLimit(
 			t,

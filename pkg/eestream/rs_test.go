@@ -23,23 +23,15 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storj"
 )
 
-func randData(amount int) []byte {
-	buf := make([]byte, amount)
-	_, err := rand.Read(buf)
-	if err != nil {
-		panic(err)
-	}
-	return buf
-}
-
 func TestRS(t *testing.T) {
 	ctx := context.Background()
-	data := randData(32 * 1024)
+	data := testrand.Bytes(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +62,7 @@ func TestRS(t *testing.T) {
 // if DecodeReaders return less data than expected.
 func TestRSUnexpectedEOF(t *testing.T) {
 	ctx := context.Background()
-	data := randData(32 * 1024)
+	data := testrand.Bytes(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +90,7 @@ func TestRSUnexpectedEOF(t *testing.T) {
 
 func TestRSRanger(t *testing.T) {
 	ctx := context.Background()
-	data := randData(32 * 1024)
+	data := testrand.Bytes(32 * 1024)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		t.Fatal(err)
@@ -311,7 +303,7 @@ func TestRSLateEOF(t *testing.T) {
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
 			// extend the input with random number of random bytes
-			random := randData(1 + rand.Intn(10000))
+			random := testrand.BytesInt(1 + testrand.Intn(10000))
 			extended := append(in, random...)
 			return ioutil.NopCloser(bytes.NewReader(extended))
 		})
@@ -342,7 +334,7 @@ func TestRSRandomData(t *testing.T) {
 	} {
 		testRSProblematic(t, tt, i, func(in []byte) io.ReadCloser {
 			// return random data instead of expected one
-			return ioutil.NopCloser(bytes.NewReader(randData(len(in))))
+			return ioutil.NopCloser(bytes.NewReader(testrand.BytesInt(len(in))))
 		})
 	}
 }
@@ -384,7 +376,7 @@ type problematicReadCloser func([]byte) io.ReadCloser
 func testRSProblematic(t *testing.T, tt testCase, i int, fn problematicReadCloser) {
 	errTag := fmt.Sprintf("Test case #%d", i)
 	ctx := context.Background()
-	data := randData(tt.dataSize)
+	data := testrand.BytesInt(tt.dataSize)
 	fc, err := infectious.NewFEC(tt.required, tt.total)
 	if !assert.NoError(t, err, errTag) {
 		return
@@ -460,7 +452,7 @@ func (s *slowReader) Read(p []byte) (n int, err error) {
 
 func TestEncoderStalledReaders(t *testing.T) {
 	ctx := context.Background()
-	data := randData(120 * 1024)
+	data := testrand.Bytes(120 * 1024)
 	fc, err := infectious.NewFEC(30, 60)
 	if err != nil {
 		t.Fatal(err)
@@ -506,7 +498,7 @@ func readAllStalled(readers []io.ReadCloser, stalled int) ([][]byte, error) {
 
 func TestDecoderErrorWithStalledReaders(t *testing.T) {
 	ctx := context.Background()
-	data := randData(10 * 1024)
+	data := testrand.Bytes(10 * 1024)
 	fc, err := infectious.NewFEC(10, 20)
 	if err != nil {
 		t.Fatal(err)
@@ -554,7 +546,7 @@ func TestDecoderErrorWithStalledReaders(t *testing.T) {
 }
 
 func BenchmarkReedSolomonErasureScheme(b *testing.B) {
-	data := randData(8 << 20)
+	data := testrand.Bytes(8 << 20)
 	output := make([]byte, 8<<20)
 
 	confs := []struct{ required, total int }{
@@ -670,7 +662,7 @@ func TestCalcPieceSize(t *testing.T) {
 
 		calculatedSize := CalcPieceSize(dataSize, es)
 
-		randReader := ioutil.NopCloser(io.LimitReader(rand.New(rand.NewSource(rand.Int63())), dataSize))
+		randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader(), dataSize))
 		readers, err := EncodeReader(ctx, PadReader(randReader, es.StripeSize()), rs)
 		require.NoError(t, err, errTag)
 
