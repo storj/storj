@@ -148,20 +148,20 @@ func (rt *RoutingTable) removeNode(ctx context.Context, node *pb.Node) (err erro
 
 }
 
-// putNode: helper, adds or updates Node and ID to nodeBucketDB
-func (rt *RoutingTable) putNode(ctx context.Context, node *pb.Node) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	v, err := proto.Marshal(node)
-	if err != nil {
-		return RoutingErr.Wrap(err)
-	}
-
-	err = rt.nodeBucketDB.Put(ctx, node.Id.Bytes(), v)
-	if err != nil {
-		return RoutingErr.New("could not add key value pair to nodeBucketDB: %s", err)
-	}
-	return nil
-}
+//// putNode: helper, adds or updates Node and ID to nodeBucketDB
+//func (rt *RoutingTable) putNode(ctx context.Context, node *pb.Node) (err error) {
+//	defer mon.Task()(&ctx)(&err)
+//	v, err := proto.Marshal(node)
+//	if err != nil {
+//		return RoutingErr.Wrap(err)
+//	}
+//
+//	err = rt.nodeBucketDB.Put(ctx, node.Id.Bytes(), v)
+//	if err != nil {
+//		return RoutingErr.New("could not add key value pair to nodeBucketDB: %s", err)
+//	}
+//	return nil
+//}
 
 // createOrUpdateKBucket: helper, adds or updates given kbucket
 func (rt *RoutingTable) createOrUpdateKBucket(ctx context.Context, bID bucketID, now time.Time) (err error) {

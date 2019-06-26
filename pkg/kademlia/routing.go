@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/kademliadb"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -57,8 +58,8 @@ type RoutingTableConfig struct {
 type RoutingTable struct {
 	log              *zap.Logger
 	self             *overlay.NodeDossier
-	kadBucketDB      storage.KeyValueStore
-	nodeBucketDB     storage.KeyValueStore
+	kadBucketDB      kademliadb.KBuckets
+	nodesDB     	 kademliadb.Nodes
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
 	rcMutex          *sync.Mutex
