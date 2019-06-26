@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -27,10 +27,7 @@ func TestBucketUsage(t *testing.T) {
 			t.Fail()
 		}
 
-		bucketID, err := uuid.New()
-		if err != nil {
-			t.Fail()
-		}
+		bucketID := testrand.UUID()
 
 		compareRollups := func(t *testing.T, expected *accounting.BucketRollup, actual *accounting.BucketRollup) {
 			assert.Equal(t, expected.BucketID, actual.BucketID)

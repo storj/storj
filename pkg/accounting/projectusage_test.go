@@ -215,8 +215,7 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		defer ctx.Cleanup()
 
 		pdb := db.ProjectAccounting()
-		projectID, err := uuid.New()
-		require.NoError(t, err)
+		projectID := testrand.UUID()
 
 		// Setup: create bucket bandwidth rollup records
 		expectedTotal, err := createBucketBandwidthRollups(ctx, db, *projectID)

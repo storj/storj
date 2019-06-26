@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
@@ -35,15 +35,8 @@ func TestUsageRollups(t *testing.T) {
 		now := time.Now()
 		start := now.Add(tallyInterval * time.Duration(-tallyIntervals))
 
-		project1, err := uuid.New()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		project2, err := uuid.New()
-		if err != nil {
-			t.Fatal(err)
-		}
+		project1 := testrand.UUID()
+		project2 := testrand.UUID()
 
 		p1base := binary.BigEndian.Uint64(project1[:8]) >> 48
 		p2base := binary.BigEndian.Uint64(project2[:8]) >> 48

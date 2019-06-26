@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
@@ -24,8 +25,8 @@ func TestSaveBucketTallies(t *testing.T) {
 		defer ctx.Cleanup()
 
 		// Setup: create bucket storage tallies
-		projectID, err := uuid.New()
-		require.NoError(t, err)
+		projectID := testrand.UUID()
+
 		bucketTallies, expectedTallies, err := createBucketStorageTallies(*projectID)
 		require.NoError(t, err)
 

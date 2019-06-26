@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/lib/pq"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -27,9 +26,7 @@ func TestBytesToUUID(t *testing.T) {
 	})
 
 	t.Run("Valid input", func(t *testing.T) {
-		id, err := uuid.New()
-		assert.NoError(t, err)
-
+		id := testrand.UUID()
 		result, err := bytesToUUID(id[:])
 		assert.NoError(t, err)
 		assert.Equal(t, result, *id)

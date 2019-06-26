@@ -29,8 +29,7 @@ func TestProjectMembersRepository(t *testing.T) {
 		createdUsers, createdProjects := prepareUsersAndProjects(ctx, t, users, projects)
 
 		t.Run("Can't insert projectMember without memberID", func(t *testing.T) {
-			unexistingUserID, err := uuid.New()
-			assert.NoError(t, err)
+			unexistingUserID := testrand.UUID()
 
 			projMember, err := projectMembers.Insert(ctx, *unexistingUserID, createdProjects[0].ID)
 			assert.Nil(t, projMember)
@@ -38,8 +37,7 @@ func TestProjectMembersRepository(t *testing.T) {
 		})
 
 		t.Run("Can't insert projectMember without projectID", func(t *testing.T) {
-			unexistingProjectID, err := uuid.New()
-			assert.NoError(t, err)
+			unexistingProjectID := testrand.UUID()
 
 			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, *unexistingProjectID)
 			assert.Nil(t, projMember)
