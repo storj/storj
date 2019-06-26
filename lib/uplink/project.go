@@ -152,14 +152,23 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = p.checkBucketAttribution(ctx, bucketName)
+	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
-	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
-	if err != nil {
-		return nil, err
+	// partnerID set and bucket's attribution is not set
+	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.Attribution == "" {
+		err = p.checkBucketAttribution(ctx, bucketName)
+		if err != nil {
+			return nil, err
+		}
+
+		// update the bucket with attribution info
+		bucketInfo, err = p.UpdateBucket(ctx, bucketInfo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if access == nil || access.Key == (storj.Key{}) {
@@ -223,4 +232,18 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 	}
 
 	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
+}
+
+// UpdateBucket updates an existing bucket's attribution info.
+func (p *Project) UpdateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucket = storj.Bucket{
+		Attribution:          p.uplinkCfg.Volatile.PartnerID,
+		PathCipher:           bucketInfo.PathCipher,
+		EncryptionParameters: bucketInfo.EncryptionParameters,
+		RedundancyScheme:     bucketInfo.RedundancyScheme,
+		SegmentsSize:         bucketInfo.SegmentsSize,
+	}
+	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

@@ -72,28 +72,17 @@ func TestPartnerBucketAttrs(t *testing.T) {
 
 			partnerID := testrand.UUID().String()
 
-			consoleProjects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-			assert.NoError(t, err)
-
-			consoleProject := consoleProjects[0]
-
-			db := planet.Satellites[0].DB.Attribution()
-			_, err = db.Get(ctx, consoleProject.ID, []byte(bucketName))
-			require.Error(t, err)
-
 			// partner ID set
 			proj.uplinkCfg.Volatile.PartnerID = partnerID
 			got, err := proj.OpenBucket(ctx, bucketName, &access)
 			require.NoError(t, err)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
 
-			info, err := db.Get(ctx, consoleProject.ID, []byte(bucketName))
-			require.NoError(t, err)
-			assert.Equal(t, info.PartnerID.String(), partnerID)
-
-			// partner ID NOT set
+			// partner ID not set but bucket's attribution already set(from above)
 			proj.uplinkCfg.Volatile.PartnerID = ""
 			got, err = proj.OpenBucket(ctx, bucketName, &access)
 			require.NoError(t, err)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
 			defer ctx.Check(got.Close)
 		})
 }
