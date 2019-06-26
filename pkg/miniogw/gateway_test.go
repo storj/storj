@@ -650,7 +650,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, m, strms, err := initEnv(ctx, planet, t)
+	layer, m, strms, err := initEnv(ctx, t, planet)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -658,7 +658,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, m, strms)
 }
 
-func initEnv(ctx context.Context, planet *testplanet.Planet, t *testing.T) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
