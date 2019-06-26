@@ -161,6 +161,9 @@ func encodeSegment(segment []byte) []byte {
 		return segment
 	}
 
+	// escape 0x00 to `{0x00, 0x01}`
+	// escape `/` to `{0x00, 0x02}`
+
 	result := make([]byte, 0, len(segment)*2)
 	for i := 0; i < len(segment); i++ {
 		switch {
