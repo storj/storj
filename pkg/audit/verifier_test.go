@@ -6,6 +6,7 @@ package audit_test
 import (
 	"context"
 	"math/rand"
+	"reflect"
 	"testing"
 	"time"
 
@@ -336,7 +337,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		// make downloads slow
 		delay := 200 * time.Millisecond
-		planet.Satellites[0].Log.Debug("TestDownloadSharesDownloadTimeout SetLatency", zap.Duration("delay", delay))
+		planet.Satellites[0].Log.Debug("TestDownloadSharesDownloadTimeout SetLatency", zap.Duration("delay", delay), zap.Stringer("Type", reflect.TypeOf(storageNodeDB)))
 		storageNodeDB.SetLatency(delay)
 
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
