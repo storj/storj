@@ -4,7 +4,6 @@
 package datarepair_test
 
 import (
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +12,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
@@ -36,11 +36,9 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		assert.NoError(t, err)
+		testData := testrand.Bytes(1 * memory.MiB)
 
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  5,
 			SuccessThreshold: 7,

@@ -154,16 +154,8 @@ func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
-
-	conn, err := uplink.Transport.DialNode(ctx, &node.Node)
-	if err != nil {
-		return nil, err
-	}
-
 	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
-
-	// TODO(leak): unclear ownership semantics
-	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
+	return piecestore.Dial(ctx, uplink.Transport, &node.Node, uplink.Log.Named("uplink>piecestore"), signer, piecestore.DefaultConfig)
 }
 
 // Upload data to specific satellite

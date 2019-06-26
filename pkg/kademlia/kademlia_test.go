@@ -6,7 +6,6 @@ package kademlia
 import (
 	"bytes"
 	"context"
-	"math/rand"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -21,6 +20,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
@@ -118,7 +118,7 @@ func TestPeerDiscovery(t *testing.T) {
 		},
 	}
 	for _, v := range cases {
-		_, err := k.lookup(ctx, v.target, true)
+		_, err := k.lookup(ctx, v.target)
 		assert.Equal(t, v.expectedErr, err)
 	}
 }
@@ -357,8 +357,8 @@ func TestRandomIds(t *testing.T) {
 	for x := 0; x < 1000; x++ {
 		var start, end bucketID
 		// many valid options
-		rand.Read(start[:])
-		rand.Read(end[:])
+		start = testrand.NodeID()
+		end = testrand.NodeID()
 		if bytes.Compare(start[:], end[:]) > 0 {
 			start, end = end, start
 		}

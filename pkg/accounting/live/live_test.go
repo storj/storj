@@ -5,7 +5,6 @@ package live
 
 import (
 	"context"
-	"encoding/binary"
 	"math/rand"
 	"testing"
 
@@ -14,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/internal/testrand"
 )
 
 func TestPlainMemoryLiveAccounting(t *testing.T) {
@@ -43,9 +44,7 @@ func TestPlainMemoryLiveAccounting(t *testing.T) {
 	// make up some project IDs
 	projectIDs := make([]uuid.UUID, numProjects)
 	for i := range projectIDs {
-		var u uuid.UUID
-		binary.BigEndian.PutUint64(u[len(u)-8:], uint64(i))
-		projectIDs[i] = u
+		projectIDs[i] = testrand.UUID()
 	}
 
 	// send lots of space used updates for all of these projects to the live
@@ -92,8 +91,8 @@ func TestResetTotals(t *testing.T) {
 	require.True(t, ok)
 
 	ctx := context.Background()
-	projID, err := uuid.New()
-	require.NoError(t, err)
-	err = service.AddProjectStorageUsage(ctx, *projID, 0, -20)
+
+	projectID := testrand.UUID()
+	err = service.AddProjectStorageUsage(ctx, projectID, 0, -20)
 	require.NoError(t, err)
 }

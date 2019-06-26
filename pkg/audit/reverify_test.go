@@ -4,7 +4,6 @@
 package audit_test
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/pkcrypto"
@@ -39,9 +39,7 @@ func TestReverifySuccess(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(memory.MiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -122,9 +120,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(memory.MiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -211,9 +207,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(memory.MiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -243,16 +237,12 @@ func TestReverifyFailBadData(t *testing.T) {
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
 		redundancy := stripe.Segment.GetRemote().GetRedundancy()
 
-		randBytes := make([]byte, 10)
-		_, err = rand.Read(randBytes)
-		require.NoError(t, err)
-
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
 			StripeIndex:       stripe.Index,
 			ShareSize:         redundancy.ErasureShareSize,
-			ExpectedShareHash: pkcrypto.SHA256Hash(randBytes),
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
@@ -286,9 +276,7 @@ func TestReverifyOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(memory.MiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -317,16 +305,12 @@ func TestReverifyOffline(t *testing.T) {
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
 		redundancy := stripe.Segment.GetRemote().GetRedundancy()
 
-		randBytes := make([]byte, 10)
-		_, err = rand.Read(randBytes)
-		require.NoError(t, err)
-
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
 			StripeIndex:       stripe.Index,
 			ShareSize:         redundancy.ErasureShareSize,
-			ExpectedShareHash: pkcrypto.SHA256Hash(randBytes),
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
@@ -363,9 +347,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(memory.MiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -413,16 +395,12 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
 		redundancy := stripe.Segment.GetRemote().GetRedundancy()
 
-		randBytes := make([]byte, 10)
-		_, err = rand.Read(randBytes)
-		require.NoError(t, err)
-
 		pending := &audit.PendingAudit{
 			NodeID:            pieces[0].NodeId,
 			PieceID:           rootPieceID,
 			StripeIndex:       stripe.Index,
 			ShareSize:         redundancy.ErasureShareSize,
-			ExpectedShareHash: pkcrypto.SHA256Hash(randBytes),
+			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
 		}
 
@@ -456,9 +434,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -521,9 +497,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
