@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -78,8 +79,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			_, err := proj.CreateBucket(ctx, bucketName, nil)
 			require.NoError(t, err)
 
-			partnerID, err := createPartnerID()
-			require.NoError(t, err)
+			partnerID := testrand.UUID().String()
 
 			consoleProjects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 			assert.NoError(t, err)
