@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"testing"
 
-	"storj.io/storj/satellite/console"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -25,6 +23,7 @@ import (
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/console"
 )
 
 const (
@@ -313,6 +312,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	if err != nil {
 		return nil, nil, err
 	}
+	// TODO(leak): call metainfo.Close somehow
 
 	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)

@@ -10,15 +10,14 @@ import (
 	"math/rand"
 	"testing"
 
-	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/storj"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/storj"
 )
 
 const (
