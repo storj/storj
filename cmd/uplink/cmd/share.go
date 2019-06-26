@@ -81,11 +81,6 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 	var restrictions []libuplink.EncryptionRestriction
 	for _, path := range shareCfg.AllowedPathPrefix {
-		// TODO(jeff): i hate this bug
-		if path == "[]" {
-			continue
-		}
-
 		p, err := fpath.New(path)
 		if err != nil {
 			return err
