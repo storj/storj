@@ -14,13 +14,12 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/pkg/peertls/tlsopts"
-
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
@@ -105,8 +104,6 @@ func TestDialer(t *testing.T) {
 			group.Go(func() error {
 				for _, target := range peers {
 					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
-					peer.Local().Type.DPanicOnInvalid("test client peer")
-					target.Local().Type.DPanicOnInvalid("test client target")
 
 					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					if err != nil {
@@ -147,7 +144,7 @@ func TestDialer(t *testing.T) {
 				peer := peer
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
-					peer.Local().Type.DPanicOnInvalid("peer info")
+
 					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, pb.Node{Id: target})
 					if err != nil {
 						return errs.Combine(errTag, err)
@@ -278,9 +275,6 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			peer := peer
 			group.Go(func() error {
 				for _, target := range peers {
-					peer.Local().Type.DPanicOnInvalid("test client peer")
-					target.Local().Type.DPanicOnInvalid("test client target")
-
 					_, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
 						return errs.New("invalid error: %v (peer:%s target:%s)", err, peer.ID(), target.ID())

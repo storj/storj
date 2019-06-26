@@ -460,6 +460,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	if err != nil {
 		return Share{}, err
 	}
+	// TODO(leak): unclear ownership semantics
 	ps := piecestore.NewClient(
 		verifier.log.Named(storageNodeID.String()),
 		signing.SignerFromFullIdentity(verifier.transport.Identity()),
