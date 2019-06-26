@@ -22,7 +22,7 @@ var (
 )
 
 // SetupProject creates a project with temporary values until we can figure out how to bypass encryption related setup
-func SetupProject(m metainfo.Client) (*Project, error) {
+func SetupProject(m *metainfo.Client) (*Project, error) {
 	whoCares := 1 // TODO: find a better way to do this
 	fc, err := infectious.NewFEC(whoCares, whoCares)
 	if err != nil {

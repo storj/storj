@@ -55,6 +55,7 @@ func TestVouchers(t *testing.T) {
 
 			conn, err := tt.node.Transport.DialNode(ctx, &satellite)
 			require.NoError(t, err)
+			defer ctx.Check(conn.Close)
 
 			client := pb.NewVouchersClient(conn)
 

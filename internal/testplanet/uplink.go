@@ -147,9 +147,8 @@ func (uplink *Uplink) Local() pb.Node { return uplink.Info }
 func (uplink *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
-func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (metainfo.Client, error) {
-	// TODO: handle disconnect
-	return metainfo.NewClient(ctx, uplink.Transport, destination.Addr(), apikey)
+func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (*metainfo.Client, error) {
+	return metainfo.Dial(ctx, uplink.Transport, destination.Addr(), apikey)
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
@@ -163,6 +162,7 @@ func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 
 	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
 
+	// TODO(leak): unclear ownership semantics
 	return piecestore.NewClient(uplink.Log.Named("uplink>piecestore"), signer, conn, piecestore.DefaultConfig), nil
 }
 
