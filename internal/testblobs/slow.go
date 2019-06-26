@@ -18,6 +18,7 @@ import (
 type SlowDB struct {
 	storagenode.DB
 	blobs *SlowBlobs
+	log   *zap.Logger
 }
 
 // NewSlowDB creates a new slow storage node DB wrapping the provided db.
@@ -26,6 +27,7 @@ func NewSlowDB(log *zap.Logger, db storagenode.DB) *SlowDB {
 	return &SlowDB{
 		DB:    db,
 		blobs: NewSlowBlobs(log, db.Pieces()),
+		log:   log,
 	}
 }
 
@@ -37,6 +39,7 @@ func (slow *SlowDB) Pieces() storage.Blobs {
 // SetLatency enables a sleep for delay duration for all piece operations.
 // A zero or negative delay means no sleep.
 func (slow *SlowDB) SetLatency(delay time.Duration) {
+	slow.log.Debug("SlowDB SetLatency", zap.Duration("delay", delay))
 	slow.blobs.SetLatency(delay)
 }
 
@@ -84,7 +87,7 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 // SetLatency configures the blob store to sleep for delay duration for all
 // operations. A zero or negative delay means no sleep.
 func (slow *SlowBlobs) SetLatency(delay time.Duration) {
-	slow.log.Debug("set latency", zap.Duration("delay", delay))
+	slow.log.Debug("SlowBlobs SetLatency", zap.Duration("delay", delay))
 	atomic.StoreInt64(&slow.delay, int64(delay))
 }
 
