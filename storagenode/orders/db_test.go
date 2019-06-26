@@ -6,14 +6,12 @@ package orders_test
 import (
 	"testing"
 
-	"storj.io/storj/internal/testidentity"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"

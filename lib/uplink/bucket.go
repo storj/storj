@@ -27,6 +27,8 @@ type Bucket struct {
 	streams  streams.Store
 }
 
+// TODO: move the object related OpenObject to object.go
+
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)

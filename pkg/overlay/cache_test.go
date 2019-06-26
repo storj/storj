@@ -37,9 +37,7 @@ func TestCache_Database(t *testing.T) {
 // returns a NodeSelectionConfig with sensible test values
 func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distinctIP bool) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
-		UptimeRatio:       0,
 		UptimeCount:       0,
-		AuditSuccessRatio: 0,
 		AuditCount:        auditCount,
 		NewNodePercentage: newNodePercentage,
 		OnlineWindow:      time.Hour,

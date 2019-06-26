@@ -24,10 +24,9 @@ import (
 type Project struct {
 	uplinkCfg     *Config
 	tc            transport.Client
-	metainfo      metainfo.Client
+	metainfo      *metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
-	encryptionKey *storj.Key
 }
 
 // BucketConfig holds information about a bucket's configuration. This is
@@ -145,6 +144,8 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 	return b, cfg, nil
 }
 
+// TODO: move the bucket related OpenBucket to bucket.go
+
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
@@ -183,7 +184,11 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	// TODO(jeff): this is where we would load scope information in.
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(&access.Key)
+
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encStore, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +198,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.metainfo, streamStore, segmentStore, &access.Key, encryptionScheme.BlockSize, rs, cfg.Volatile.SegmentsSize.Int64()),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encStore),
 		streams:      streamStore,
 	}, nil
-}
-
-// Close closes the Project.
-func (p *Project) Close() error {
-	return nil
 }

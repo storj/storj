@@ -65,12 +65,12 @@ func TestUsageRollups(t *testing.T) {
 			bucketName := fmt.Sprintf("bucket_%d", i)
 
 			// project 1
-			bucketID := []byte(project1.String() + "/" + bucketName)
 			for _, action := range actions {
 				value := getValue(0, i, p1base)
 
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx,
-					bucketID,
+					*project1,
+					[]byte(bucketName),
 					action,
 					value*6,
 					now,
@@ -80,7 +80,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthSettle(ctx,
-					bucketID,
+					*project1,
+					[]byte(bucketName),
 					action,
 					value*3,
 					now,
@@ -90,7 +91,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx,
-					bucketID,
+					*project1,
+					[]byte(bucketName),
 					action,
 					value,
 					now,
@@ -101,12 +103,12 @@ func TestUsageRollups(t *testing.T) {
 			}
 
 			// project 2
-			bucketID = []byte(project2.String() + "/" + bucketName)
 			for _, action := range actions {
 				value := getValue(1, i, p2base)
 
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx,
-					bucketID,
+					*project2,
+					[]byte(bucketName),
 					action,
 					value*6,
 					now,
@@ -116,7 +118,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthSettle(ctx,
-					bucketID,
+					*project2,
+					[]byte(bucketName),
 					action,
 					value*3,
 					now,
@@ -126,7 +129,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx,
-					bucketID,
+					*project2,
+					[]byte(bucketName),
 					action,
 					value,
 					now,
@@ -150,6 +154,8 @@ func TestUsageRollups(t *testing.T) {
 				value2 := getValue(i, j, p2base) * 10
 
 				tally1 := &accounting.BucketTally{
+					BucketName:     []byte(bucket),
+					ProjectID:      project1[:],
 					Segments:       value1,
 					InlineSegments: value1,
 					RemoteSegments: value1,
@@ -163,6 +169,8 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				tally2 := &accounting.BucketTally{
+					BucketName:     []byte(bucket),
+					ProjectID:      project2[:],
 					Segments:       value2,
 					InlineSegments: value2,
 					RemoteSegments: value2,

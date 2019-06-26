@@ -186,21 +186,20 @@ func createBucketBandwidthRollups(ctx *testcontext.Context, satelliteDB satellit
 			intervalStart = now
 		}
 
-		bucketID := createBucketID(projectID, []byte(bucketName))
 		err := ordersDB.UpdateBucketBandwidthAllocation(ctx,
-			bucketID, pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
 		}
 		err = ordersDB.UpdateBucketBandwidthSettle(ctx,
-			bucketID, pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
 		}
 		err = ordersDB.UpdateBucketBandwidthInline(ctx,
-			bucketID, pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
@@ -224,9 +223,8 @@ func TestProjectBandwidthTotal(t *testing.T) {
 		require.NoError(t, err)
 
 		// Execute test: get project bandwidth total
-		bucketID := createBucketID(*projectID, []byte("testbucket"))
 		from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+		actualBandwidthTotal, err := pdb.GetAllocatedBandwidthTotal(ctx, *projectID, from)
 		require.NoError(t, err)
 		require.Equal(t, actualBandwidthTotal, expectedTotal)
 	})
@@ -237,14 +235,13 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 	// Create many records that sum greater than project usage limit of 25GB
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := createBucketID(projectID, []byte(bucketName))
 
 		// In order to exceed the project limits, create bandwidth allocation records
 		// that sum greater than the maxAlphaUsage * expansionFactor
 		amount := 10 * memory.GB.Int64() * accounting.ExpansionFactor
 		action := pb.PieceAction_GET
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-		err := orderDB.UpdateBucketBandwidthAllocation(ctx, bucketID, action, amount, intervalStart)
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, intervalStart)
 		if err != nil {
 			return err
 		}

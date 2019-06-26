@@ -14,7 +14,6 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/storj"

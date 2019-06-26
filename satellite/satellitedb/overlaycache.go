@@ -161,10 +161,9 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	args = append(args, count)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id,
-	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-	uptime_success_count, disqualified, audit_reputation_alpha,
+	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net, 
+	free_bandwidth, free_disk, total_audit_count, audit_success_count, 
+	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM nodes
 	`+safeQuery+safeExcludeNodes+`
@@ -179,8 +178,7 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
@@ -230,7 +228,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 
 	safeExcludeIPs := ""
 	if len(excludedIPs) > 0 {
-		safeExcludeIPs = ` AND last_ip NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
+		safeExcludeIPs = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
 		for _, ip := range excludedIPs {
 			args = append(args, ip)
 		}
@@ -238,12 +236,11 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id,
-	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-	uptime_success_count, disqualified, audit_reputation_alpha,
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net, 
+	free_bandwidth, free_disk, total_audit_count, audit_success_count, 
+	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT *, Row_number() OVER(PARTITION BY last_ip ORDER BY RANDOM()) rn
+	FROM (SELECT *, Row_number() OVER(PARTITION BY last_net ORDER BY RANDOM()) rn
 		FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`) n
 	WHERE rn = 1
@@ -258,8 +255,7 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount, &dbNode.Disqualified,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
@@ -296,22 +292,35 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 
 	safeExcludeIPs := ""
 	if len(excludedIPs) > 0 {
-		safeExcludeIPs = ` AND last_ip NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
+		safeExcludeIPs = ` AND last_net NOT IN (?` + strings.Repeat(", ?", len(excludedIPs)-1) + `)`
 		for _, ip := range excludedIPs {
 			args = append(args, ip)
 		}
 	}
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT DISTINCT ON (last_ip) id,
-	type, address, last_ip, free_bandwidth, free_disk, audit_success_ratio,
-	uptime_ratio, total_audit_count, audit_success_count, total_uptime_count,
-	uptime_success_count, audit_reputation_alpha, audit_reputation_beta, 
-	uptime_reputation_alpha, uptime_reputation_beta
-	FROM (SELECT * FROM nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+	WITH candidates AS (
+		SELECT * FROM nodes
 		`+safeQuery+safeExcludeNodes+safeExcludeIPs+`
-		ORDER BY RANDOM()
-		LIMIT ?) n`), args...)
+	)
+	SELECT
+		id, type, address, last_net, free_bandwidth, free_disk, total_audit_count,
+		audit_success_count, total_uptime_count, uptime_success_count,
+		audit_reputation_alpha, audit_reputation_beta, uptime_reputation_alpha,
+		uptime_reputation_beta
+	FROM (
+		SELECT * FROM (
+			SELECT DISTINCT ON (last_net) *  -- choose at max 1 node from this IP or network
+			FROM candidates
+			WHERE last_net <> ''             -- don't try to IP-filter nodes with no known IP yet
+			ORDER BY last_net, RANDOM()      -- equal chance of choosing any qualified node at this IP or network
+		) ipfiltered
+		UNION ALL
+		SELECT * FROM candidates WHERE last_net = ''
+	) filteredcandidates
+	ORDER BY RANDOM()                       -- do the actual node selection from filtered pool
+	LIMIT ?`), args...)
 
 	if err != nil {
 		return nil, err
@@ -321,8 +330,7 @@ func (cache *overlaycache) postgresQueryNodesDistinct(ctx context.Context, exclu
 	for rows.Next() {
 		dbNode := &dbx.Node{}
 		err = rows.Scan(&dbNode.Id, &dbNode.Type,
-			&dbNode.Address, &dbNode.LastIp, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
-			&dbNode.AuditSuccessRatio, &dbNode.UptimeRatio,
+			&dbNode.Address, &dbNode.LastNet, &dbNode.FreeBandwidth, &dbNode.FreeDisk,
 			&dbNode.TotalAuditCount, &dbNode.AuditSuccessCount,
 			&dbNode.TotalUptimeCount, &dbNode.UptimeSuccessCount,
 			&dbNode.AuditReputationAlpha, &dbNode.AuditReputationBeta,
@@ -559,7 +567,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			ctx,
 			dbx.Node_Id(info.Id.Bytes()),
 			dbx.Node_Address(address.Address),
-			dbx.Node_LastIp(info.LastIp),
+			dbx.Node_LastNet(info.LastIp),
 			dbx.Node_Protocol(int(address.Transport)),
 			dbx.Node_Type(int(pb.NodeType_INVALID)),
 			dbx.Node_Email(""),
@@ -575,10 +583,8 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 			dbx.Node_Latency90(0),
 			dbx.Node_AuditSuccessCount(0),
 			dbx.Node_TotalAuditCount(0),
-			dbx.Node_AuditSuccessRatio(1),
 			dbx.Node_UptimeSuccessCount(0),
 			dbx.Node_TotalUptimeCount(0),
-			dbx.Node_UptimeRatio(1),
 			dbx.Node_LastContactSuccess(time.Now()),
 			dbx.Node_LastContactFailure(time.Time{}),
 			dbx.Node_Contained(false),
@@ -596,7 +602,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 	} else {
 		update := dbx.Node_Update_Fields{
 			Address:  dbx.Node_Address(address.Address),
-			LastIp:   dbx.Node_LastIp(info.LastIp),
+			LastNet:  dbx.Node_LastNet(info.LastIp),
 			Protocol: dbx.Node_Protocol(int(address.Transport)),
 		}
 
@@ -846,7 +852,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
-			LastIp: info.LastIp,
+			LastIp: info.LastNet,
 			Address: &pb.NodeAddress{
 				Address:   info.Address,
 				Transport: pb.NodeTransport(info.Protocol),

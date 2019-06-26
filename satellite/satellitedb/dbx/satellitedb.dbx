@@ -120,12 +120,12 @@ model node (
 
 	index (
 		name node_last_ip
-		fields last_ip
+		fields last_net
 	)
 
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
-	field last_ip        text  ( updatable )
+	field last_net       text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -143,10 +143,8 @@ model node (
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )
-	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field uptime_ratio         float64 ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )

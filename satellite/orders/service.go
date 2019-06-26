@@ -4,6 +4,7 @@
 package orders
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -72,7 +73,7 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
-func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
+func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(addressedOrderLimits) == 0 {
 		return nil
@@ -105,7 +106,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
-	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
+	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, action, bucketAllocation, intervalStart); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -155,9 +156,15 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			node.Type.DPanicOnInvalid("order service get order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -198,7 +205,11 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -257,7 +268,11 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return rootPieceID, limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
@@ -296,9 +311,15 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -378,19 +399,19 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
-		if node.Disqualified != nil {
-			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
-			continue
-		}
-
 		if node != nil {
 			node.Type.DPanicOnInvalid("order service audit order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -427,7 +448,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -456,6 +481,10 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 
 	if node != nil {
 		node.Type.DPanicOnInvalid("order service audit order limits")
+	}
+
+	if node.Disqualified != nil {
+		return nil, overlay.ErrNodeDisqualified.New(nodeID.String())
 	}
 
 	if !service.cache.IsOnline(node) {
@@ -487,7 +516,11 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limit); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limit, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -533,9 +566,15 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			node.Type.DPanicOnInvalid("order service get repair order limits")
 		}
 
+		if node.Disqualified != nil {
+			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
+			continue
+		}
+
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
@@ -572,7 +611,11 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -642,7 +685,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -650,19 +697,32 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 }
 
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
-func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_GET, amount, intervalStart)
+	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
 }
 
 // UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
-func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_PUT, amount, intervalStart)
+	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, intervalStart)
+}
+
+// SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
+func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	if len(pathElements) > 1 {
+		bucketName = pathElements[1]
+	}
+	projectID, err = uuid.Parse(string(pathElements[0]))
+	if err != nil {
+		return nil, nil, err
+	}
+	return projectID, bucketName, nil
 }

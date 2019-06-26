@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/marketing"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -161,9 +162,13 @@ func TestUsercredits(t *testing.T) {
 	})
 }
 
-func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer) {
+func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *rewards.Offer) {
 	consoleDB := db.Console()
-	marketingDB := db.Marketing()
+	offersDB := db.Rewards()
+	// create user
+	var userPassHash [8]byte
+	_, err := rand.Read(userPassHash[:])
+	require.NoError(t, err)
 
 	userPassHash := testrand.Bytes(8)
 	referrerPassHash := testrand.Bytes(8)
@@ -189,7 +194,7 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 	require.NoError(t, err)
 
 	// create offer
-	offer, err = marketingDB.Offers().Create(ctx, &marketing.NewOffer{
+	offer, err = offersDB.Create(ctx, &rewards.NewOffer{
 		Name:                      "test",
 		Description:               "test offer 1",
 		AwardCreditInCents:        100,
@@ -198,8 +203,8 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 		InviteeCreditDurationDays: 30,
 		RedeemableCap:             50,
 		ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-		Status:                    marketing.Active,
-		Type:                      marketing.Referral,
+		Status:                    rewards.Active,
+		Type:                      rewards.Referral,
 	})
 	require.NoError(t, err)
 

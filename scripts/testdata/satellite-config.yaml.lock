@@ -178,6 +178,27 @@ kademlia.operator.wallet: ""
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
+# the size of each new erasure share in bytes
+# metainfo.rs.erasure-share-size: 256 B
+
+# maximum buffer memory (in bytes) to be allocated for read buffers
+# metainfo.rs.max-buffer-mem: 4.0 MiB
+
+# the largest amount of pieces to encode to. n.
+# metainfo.rs.max-threshold: 130
+
+# the minimum pieces required to recover a segment. k.
+# metainfo.rs.min-threshold: 29
+
+# the minimum safe pieces before a repair is triggered. m.
+# metainfo.rs.repair-threshold: 35
+
+# the desired total pieces for a segment. o.
+# metainfo.rs.success-threshold: 80
+
+# validate redundancy scheme configuration
+# metainfo.rs.validate: true
+
 # address to send telemetry to
 # metrics.addr: "collectora.storj.io:9000"
 
@@ -186,6 +207,9 @@ kademlia.operator.wallet: ""
 
 # application suffix
 # metrics.app-suffix: "-release"
+
+# instance id prefix
+# metrics.instance-prefix: ""
 
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
@@ -220,9 +244,6 @@ kademlia.operator.wallet: ""
 # the normalization weight used to calculate the audit SNs reputation
 # overlay.node.audit-reputation-weight: 1
 
-# a node's ratio of successful audits
-# overlay.node.audit-success-ratio: 0.4
-
 # require distinct IPs when choosing nodes for upload
 # overlay.node.distinct-ip: true
 
@@ -238,9 +259,6 @@ kademlia.operator.wallet: ""
 # the number of times a node's uptime has been checked to not be considered a New Node
 # overlay.node.uptime-count: 500
 
-# a node's ratio of being up/online vs. down/offline
-# overlay.node.uptime-ratio: 0.9
-
 # the initial shape 'alpha' used to calculate uptime SNs reputation
 # overlay.node.uptime-reputation-alpha0: 2
 
@@ -248,7 +266,7 @@ kademlia.operator.wallet: ""
 # overlay.node.uptime-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on uptime history
-# overlay.node.uptime-reputation-dq: 0.6
+# overlay.node.uptime-reputation-dq: 0.4
 
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 0.99
@@ -322,6 +340,6 @@ server.private-address: "127.0.0.1:7778"
 # server address to check its version against
 # version.server-address: "https://version.alpha.storj.io"
 
-# number of days before a voucher expires
-# vouchers.expiration: 30
+# length of time before a voucher expires
+# vouchers.expiration: 720h0m0s
 

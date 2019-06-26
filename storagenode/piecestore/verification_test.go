@@ -129,6 +129,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
@@ -199,6 +200,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	{ // upload test piece
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
@@ -252,6 +254,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	} {
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
