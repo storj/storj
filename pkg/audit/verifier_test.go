@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
@@ -215,7 +214,8 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		// downloading from new nodes.
 		minBytesPerSecond := 100 * memory.KiB
 
-		verifier := audit.NewVerifier(zap.L(),
+		verifier := audit.NewVerifier(
+			planet.Satellites[0].Log.Named("verifier"),
 			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
@@ -292,7 +292,8 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		// downloading from new nodes.
 		minBytesPerSecond := 1 * memory.MiB
 
-		verifier := audit.NewVerifier(zap.L(),
+		verifier := audit.NewVerifier(
+			planet.Satellites[0].Log.Named("verifier"),
 			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
@@ -448,7 +449,8 @@ func TestVerifierDialTimeout(t *testing.T) {
 		// downloading from new nodes.
 		minBytesPerSecond := 100 * memory.KiB
 
-		verifier := audit.NewVerifier(zap.L(),
+		verifier := audit.NewVerifier(
+			planet.Satellites[0].Log.Named("verifier"),
 			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,

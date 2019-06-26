@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -318,7 +317,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		// downloading from new nodes.
 		minBytesPerSecond := 100 * memory.KiB
 
-		verifier := audit.NewVerifier(zap.L(),
+		verifier := audit.NewVerifier(
+			planet.Satellites[0].Log.Named("verifier"),
 			planet.Satellites[0].Metainfo.Service,
 			slowClient,
 			planet.Satellites[0].Overlay.Service,
