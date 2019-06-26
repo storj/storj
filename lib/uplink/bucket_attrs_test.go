@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -57,14 +56,6 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
 	copy(access.Key[:], encKey)
 	return access
-}
-
-func createPartnerID() (partnerID string, err error) {
-	id, err := uuid.New()
-	if err != nil {
-		return partnerID, err
-	}
-	return id.String(), err
 }
 
 // check that partner bucket attributes are stored and retrieved correctly.
