@@ -5,6 +5,7 @@
 package testrand
 
 import (
+	cryptorand "crypto/rand"
 	"io"
 	"math/rand"
 
@@ -28,15 +29,8 @@ func Int63n(n int64) int64 {
 
 // Read reads pseudo-random data into data.
 func Read(data []byte) {
-	const newSourceThreshold = 64
-	if len(data) < newSourceThreshold {
-		_, _ = rand.Read(data)
-		return
-	}
-
-	src := rand.NewSource(rand.Int63())
-	r := rand.New(src)
-	_, _ = r.Read(data)
+	// using cryptorand here because it plays nicer with `-race`
+	_, _ = cryptorand.Read(data)
 }
 
 // Bytes generates size amount of random data.
@@ -53,7 +47,7 @@ func BytesInt(size int) []byte {
 
 // Reader creates a new random data reader.
 func Reader() io.Reader {
-	return rand.New(rand.NewSource(rand.Int63()))
+	return cryptorand.Reader
 }
 
 // NodeID creates a random node id.
