@@ -5,7 +5,6 @@ package kademlia
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 

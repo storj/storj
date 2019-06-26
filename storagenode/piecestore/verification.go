@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"

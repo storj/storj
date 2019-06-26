@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/errs2"
