@@ -105,8 +105,7 @@ func TestDialer(t *testing.T) {
 				for _, target := range peers {
 					errTag := fmt.Errorf("lookup peer:%s target:%s", peer.ID(), target.ID())
 
-					selfnode := self.Local().Node
-					results, err := dialer.Lookup(ctx, &selfnode, peer.Local().Node, target.Local().Node.Id, self.Kademlia.RoutingTable.K())
+					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					if err != nil {
 						return errs.Combine(errTag, err)
 					}
@@ -146,8 +145,7 @@ func TestDialer(t *testing.T) {
 				group.Go(func() error {
 					errTag := fmt.Errorf("invalid lookup peer:%s target:%s", peer.ID(), target)
 
-					selfnode := self.Local().Node
-					results, err := dialer.Lookup(ctx, &selfnode, peer.Local().Node, target, self.Kademlia.RoutingTable.K())
+					results, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, pb.Node{Id: target})
 					if err != nil {
 						return errs.Combine(errTag, err)
 					}
@@ -277,8 +275,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 			peer := peer
 			group.Go(func() error {
 				for _, target := range peers {
-					selfnode := self.Local().Node
-					_, err := dialer.Lookup(ctx, &selfnode, peer.Local().Node, target.Local().Node.Id, self.Kademlia.RoutingTable.K())
+					_, err := dialer.Lookup(ctx, self.Local().Node, peer.Local().Node, target.Local().Node)
 					if !transport.Error.Has(err) || errs.Unwrap(err) != context.DeadlineExceeded {
 						return errs.New("invalid error: %v (peer:%s target:%s)", err, peer.ID(), target.ID())
 					}

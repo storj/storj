@@ -18,11 +18,10 @@ import (
 type peerDiscovery struct {
 	log *zap.Logger
 
-	dialer      *Dialer
-	self        *pb.Node
-	target      storj.NodeID
-	k           int
-	concurrency int
+	dialer *Dialer
+	self   pb.Node
+	target storj.NodeID
+	opts   discoveryOptions
 
 	cond  sync.Cond
 	queue discoveryQueue
@@ -31,35 +30,36 @@ type peerDiscovery struct {
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(log *zap.Logger, dialer *Dialer, target storj.NodeID, startingNodes []*pb.Node, k, alpha int, self *pb.Node) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, self pb.Node, nodes []*pb.Node, dialer *Dialer, target storj.NodeID, opts discoveryOptions) *peerDiscovery {
 	discovery := &peerDiscovery{
-		log:         log,
-		dialer:      dialer,
-		self:        self,
-		target:      target,
-		k:           k,
-		concurrency: alpha,
-		cond:        sync.Cond{L: &sync.Mutex{}},
-		queue:       *newDiscoveryQueue(target, k),
+		log:    log,
+		dialer: dialer,
+		self:   self,
+		target: target,
+		opts:   opts,
+		cond:   sync.Cond{L: &sync.Mutex{}},
+		queue:  *newDiscoveryQueue(opts.concurrency),
 	}
-	discovery.queue.Insert(startingNodes...)
+	discovery.queue.Insert(target, nodes...)
 	return discovery
 }
 
-func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) {
+func (lookup *peerDiscovery) Run(ctx context.Context) (target *pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if lookup.queue.Unqueried() == 0 {
-		return nil, nil
+	if lookup.queue.Len() == 0 {
+		return nil, nil // TODO: should we return an error here?
 	}
 
 	// protected by `lookup.cond.L`
 	working := 0
 	allDone := false
+	target = nil
 
 	wg := sync.WaitGroup{}
-	wg.Add(lookup.concurrency)
+	wg.Add(lookup.opts.concurrency)
+	defer wg.Wait()
 
-	for i := 0; i < lookup.concurrency; i++ {
+	for i := 0; i < lookup.opts.concurrency; i++ {
 		go func() {
 			defer wg.Done()
 			for {
@@ -73,7 +73,13 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 						return
 					}
 
-					next = lookup.queue.ClosestUnqueried()
+					next = lookup.queue.Closest()
+
+					if !lookup.opts.bootstrap && next != nil && next.Id == lookup.target {
+						allDone = true
+						target = next
+						break // closest node is the target and is already in routing table (i.e. no lookup required)
+					}
 
 					if next != nil {
 						working++
@@ -83,11 +89,13 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 					lookup.cond.Wait()
 				}
 				lookup.cond.L.Unlock()
+				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, pb.Node{Id: lookup.target})
 
-				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, lookup.target, lookup.k)
-				if err != nil {
-					lookup.queue.QueryFailure(next)
-					if !isDone(ctx) {
+				if err != nil && !isDone(ctx) {
+					// TODO: reenable retry after fixing logic
+					// ok := lookup.queue.Reinsert(lookup.target, next, lookup.opts.retries)
+					ok := false
+					if !ok {
 						lookup.log.Debug("connecting to node failed",
 							zap.Any("target", lookup.target),
 							zap.Any("dial-node", next.Id),
@@ -95,22 +103,20 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 							zap.Error(err),
 						)
 					}
-				} else {
-					lookup.queue.QuerySuccess(next, neighbors...)
 				}
+
+				lookup.queue.Insert(lookup.target, neighbors...)
 
 				lookup.cond.L.Lock()
 				working--
-				allDone = allDone || isDone(ctx) || (working == 0 && lookup.queue.Unqueried() == 0)
+				allDone = allDone || isDone(ctx) || working == 0 && lookup.queue.Len() == 0
 				lookup.cond.L.Unlock()
 				lookup.cond.Broadcast()
 			}
 		}()
 	}
 
-	wg.Wait()
-
-	return lookup.queue.ClosestQueried(), ctx.Err()
+	return target, ctx.Err()
 }
 
 func isDone(ctx context.Context) bool {
@@ -122,21 +128,11 @@ func isDone(ctx context.Context) bool {
 	}
 }
 
-type queueState int
-
-const (
-	stateUnqueried queueState = iota
-	stateQuerying
-	stateSuccess
-	stateFailure
-)
-
 // discoveryQueue is a limited priority queue for nodes with xor distance
 type discoveryQueue struct {
-	target storj.NodeID
 	maxLen int
 	mu     sync.Mutex
-	state  map[storj.NodeID]queueState
+	added  map[storj.NodeID]int
 	items  []queueItem
 }
 
@@ -147,37 +143,57 @@ type queueItem struct {
 }
 
 // newDiscoveryQueue returns a items with priority based on XOR from targetBytes
-func newDiscoveryQueue(target storj.NodeID, size int) *discoveryQueue {
+func newDiscoveryQueue(size int) *discoveryQueue {
 	return &discoveryQueue{
-		target: target,
-		state:  make(map[storj.NodeID]queueState),
+		added:  make(map[storj.NodeID]int),
 		maxLen: size,
 	}
 }
 
 // Insert adds nodes into the queue.
-func (queue *discoveryQueue) Insert(nodes ...*pb.Node) {
+func (queue *discoveryQueue) Insert(target storj.NodeID, nodes ...*pb.Node) {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
-	queue.insert(nodes...)
+
+	unique := nodes[:0]
+	for _, node := range nodes {
+		if _, added := queue.added[node.Id]; added {
+			continue
+		}
+		unique = append(unique, node)
+	}
+
+	queue.insert(target, unique...)
+
+	// update counts for the new items that are in the queue
+	for _, item := range queue.items {
+		if _, added := queue.added[item.node.Id]; !added {
+			queue.added[item.node.Id] = 1
+		}
+	}
 }
 
-// insert requires the mutex to be locked
-func (queue *discoveryQueue) insert(nodes ...*pb.Node) {
-	for _, node := range nodes {
-		// TODO: empty node ids should be semantically different from the
-		// technically valid node id that is all zeros
-		if node.Id == (storj.NodeID{}) {
-			continue
-		}
-		if _, added := queue.state[node.Id]; added {
-			continue
-		}
-		queue.state[node.Id] = stateUnqueried
+// Reinsert adds a Nodes into the queue, only if it's has been added less than limit times.
+func (queue *discoveryQueue) Reinsert(target storj.NodeID, node *pb.Node, limit int) bool {
+	queue.mu.Lock()
+	defer queue.mu.Unlock()
 
+	nodeID := node.Id
+	if queue.added[nodeID] >= limit {
+		return false
+	}
+	queue.added[nodeID]++
+
+	queue.insert(target, node)
+	return true
+}
+
+// insert must hold lock while adding
+func (queue *discoveryQueue) insert(target storj.NodeID, nodes ...*pb.Node) {
+	for _, node := range nodes {
 		queue.items = append(queue.items, queueItem{
 			node:     node,
-			priority: xorNodeID(queue.target, node.Id),
+			priority: xorNodeID(target, node.Id),
 		})
 	}
 
@@ -190,62 +206,24 @@ func (queue *discoveryQueue) insert(nodes ...*pb.Node) {
 	}
 }
 
-// ClosestUnqueried returns the closest unqueried item in the queue
-func (queue *discoveryQueue) ClosestUnqueried() *pb.Node {
+// Closest returns the closest item in the queue
+func (queue *discoveryQueue) Closest() *pb.Node {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
-	for _, item := range queue.items {
-		if queue.state[item.node.Id] == stateUnqueried {
-			queue.state[item.node.Id] = stateQuerying
-			return item.node
-		}
+	if len(queue.items) == 0 {
+		return nil
 	}
 
-	return nil
+	var item queueItem
+	item, queue.items = queue.items[0], queue.items[1:]
+	return item.node
 }
 
-// ClosestQueried returns the closest queried items in the queue
-func (queue *discoveryQueue) ClosestQueried() []*pb.Node {
+// Len returns the number of items in the queue
+func (queue *discoveryQueue) Len() int {
 	queue.mu.Lock()
 	defer queue.mu.Unlock()
 
-	rv := make([]*pb.Node, 0, len(queue.items))
-	for _, item := range queue.items {
-		if queue.state[item.node.Id] == stateSuccess {
-			rv = append(rv, item.node)
-		}
-	}
-
-	return rv
-}
-
-// QuerySuccess marks the node as successfully queried, and adds the results to the queue
-// QuerySuccess marks nodes with a zero node ID as ignored, and ignores incoming
-// nodes with a zero id.
-func (queue *discoveryQueue) QuerySuccess(node *pb.Node, nodes ...*pb.Node) {
-	queue.mu.Lock()
-	defer queue.mu.Unlock()
-	queue.state[node.Id] = stateSuccess
-	queue.insert(nodes...)
-}
-
-// QueryFailure marks the node as failing query
-func (queue *discoveryQueue) QueryFailure(node *pb.Node) {
-	queue.mu.Lock()
-	queue.state[node.Id] = stateFailure
-	queue.mu.Unlock()
-}
-
-// Unqueried returns the number of unqueried items in the queue
-func (queue *discoveryQueue) Unqueried() (amount int) {
-	queue.mu.Lock()
-	defer queue.mu.Unlock()
-
-	for _, item := range queue.items {
-		if queue.state[item.node.Id] == stateUnqueried {
-			amount++
-		}
-	}
-	return amount
+	return len(queue.items)
 }

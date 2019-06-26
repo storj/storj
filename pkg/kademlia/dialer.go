@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -48,37 +47,29 @@ func (dialer *Dialer) Close() error {
 }
 
 // Lookup queries ask about find, and also sends information about self.
-// If self is nil, pingback will be false.
-func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, find storj.NodeID, limit int) (_ []*pb.Node, err error) {
+func (dialer *Dialer) Lookup(ctx context.Context, self pb.Node, ask pb.Node, find pb.Node) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
 		return nil, context.Canceled
 	}
 	defer dialer.limit.Unlock()
 
-	req := pb.QueryRequest{
-		Limit:  int64(limit),
-		Target: &pb.Node{Id: find}, // TODO: should not be a Node protobuf!
-	}
-	if self != nil {
-		req.Pingback = true
-		req.Sender = self
-	}
-
 	conn, err := dialer.dialNode(ctx, ask)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, conn.disconnect())
-	}()
 
-	resp, err := conn.client.Query(ctx, &req)
+	resp, err := conn.client.Query(ctx, &pb.QueryRequest{
+		Limit:    20, // TODO: should not be hardcoded, but instead kademlia k value, routing table depth, etc
+		Sender:   &self,
+		Target:   &find,
+		Pingback: true, // should only be true during bucket refreshing
+	})
 	if err != nil {
-		return nil, err
+		return nil, errs.Combine(err, conn.disconnect())
 	}
 
-	return resp.Response, nil
+	return resp.Response, conn.disconnect()
 }
 
 // PingNode pings target.

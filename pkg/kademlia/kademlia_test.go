@@ -118,7 +118,7 @@ func TestPeerDiscovery(t *testing.T) {
 		},
 	}
 	for _, v := range cases {
-		_, err := k.lookup(ctx, v.target)
+		_, err := k.lookup(ctx, v.target, true)
 		assert.Equal(t, v.expectedErr, err)
 	}
 }

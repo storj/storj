@@ -28,8 +28,6 @@ type Client interface {
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *identity.FullIdentity
 	WithObservers(obs ...Observer) Client
-	AlertSuccess(ctx context.Context, node *pb.Node)
-	AlertFail(ctx context.Context, node *pb.Node, err error)
 }
 
 // Timeouts contains all of the timeouts configurable for a transport
@@ -103,11 +101,11 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		if err == context.Canceled {
 			return nil, err
 		}
-		transport.AlertFail(timedCtx, node, err)
+		alertFail(timedCtx, transport.observers, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	transport.AlertSuccess(timedCtx, node)
+	alertSuccess(timedCtx, transport.observers, node)
 
 	return conn, nil
 }
@@ -136,8 +134,6 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()
 
-	// TODO: this should also call alertFail or alertSuccess with the node id. We should be able
-	// to get gRPC to give us the node id after dialing?
 	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
 		return nil, err
@@ -158,18 +154,14 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 	return tr
 }
 
-// AlertFail alerts any subscribed observers of the failure 'err' for 'node'
-func (transport *Transport) AlertFail(ctx context.Context, node *pb.Node, err error) {
-	defer mon.Task()(&ctx)(nil)
-	for _, o := range transport.observers {
+func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
+	for _, o := range obs {
 		o.ConnFailure(ctx, node, err)
 	}
 }
 
-// AlertSuccess alerts any subscribed observers of success for 'node'
-func (transport *Transport) AlertSuccess(ctx context.Context, node *pb.Node) {
-	defer mon.Task()(&ctx)(nil)
-	for _, o := range transport.observers {
+func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
+	for _, o := range obs {
 		o.ConnSuccess(ctx, node)
 	}
 }
