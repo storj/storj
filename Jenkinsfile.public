@@ -21,7 +21,7 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'go install -v -race ./...'
+                sh 'make -j2 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
