@@ -92,14 +92,14 @@ type Uplink struct {
 // NewUplink creates a new Uplink. This is the first step to create an uplink
 // session with a user specified config or with default config, if nil config
 func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
-	defer mon.Task()(&ctx)(&err)
+	// 	defer mon.Task()(&ctx)(&err)
 
-	return NewUplinkWithLogger(ctx, zap.L(), cfg)
-}
+	// 	return NewUplinkWithLogger(ctx, zap.L(), cfg)
+	// }
 
-// NewUplinkWithLogger creates a new Uplink with a zap logger. This is the first step to create an uplink
-// session with a user specified config or with default config, if nil config
-func NewUplinkWithLogger(ctx context.Context, log *zap.Logger, cfg *Config) (_ *Uplink, err error) {
+	// // NewUplinkWithLogger creates a new Uplink with a zap logger. This is the first step to create an uplink
+	// // session with a user specified config or with default config, if nil config
+	// func NewUplinkWithLogger(ctx context.Context, log *zap.Logger, cfg *Config) (_ *Uplink, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
@@ -129,7 +129,7 @@ func NewUplinkWithLogger(ctx context.Context, log *zap.Logger, cfg *Config) (_ *
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
-		log:   log,
+		log:   zap.L(),
 		ident: ident,
 		tc:    tc,
 		cfg:   cfg,
