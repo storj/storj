@@ -18,6 +18,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
@@ -275,17 +276,17 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 func (flags GatewayFlags) interactive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
-	satelliteAddress, err := cfgstruct.PromptForSatelitte(cmd)
+	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	apiKey, err := cfgstruct.PromptForAPIKey()
+	apiKey, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	humanReadableKey, err := cfgstruct.PromptForEncryptionKey()
+	humanReadableKey, err := wizard.PromptForEncryptionKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -297,6 +298,7 @@ func (flags GatewayFlags) interactive(
 
 	overrides["satellite-addr"] = satelliteAddress
 	overrides["api-key"] = apiKey
+	overrides["enc.key-filepath"] = encryptionKeyFilepath
 
 	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {

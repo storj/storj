@@ -6,6 +6,7 @@ package uplink
 import (
 	"context"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 
 	"storj.io/storj/internal/memory"
@@ -24,7 +25,7 @@ import (
 type Project struct {
 	uplinkCfg     *Config
 	tc            transport.Client
-	metainfo      metainfo.Client
+	metainfo      *metainfo.Client
 	project       *kvmetainfo.Project
 	maxInlineSize memory.Size
 }
@@ -144,10 +145,17 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 	return b, cfg, nil
 }
 
+// TODO: move the bucket related OpenBucket to bucket.go
+
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
 func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = p.checkBucketAttribution(ctx, bucketName)
+	if err != nil {
+		return nil, err
+	}
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
@@ -182,7 +190,11 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), &access.Key, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	// TODO(jeff): this is where we would load scope information in.
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(&access.Key)
+
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encStore, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -192,12 +204,23 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, &access.Key),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encStore),
 		streams:      streamStore,
 	}, nil
 }
 
-// Close closes the Project.
-func (p *Project) Close() error {
-	return nil
+// checkBucketAttribution Checks the bucket attribution
+func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if p.uplinkCfg.Volatile.PartnerID == "" {
+		return nil
+	}
+
+	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
 }

@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
@@ -687,6 +688,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// TODO(leak): close m metainfo.Client somehow
 
 	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
@@ -704,9 +706,12 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	encKey := new(storj.Key)
 	copy(encKey[:], TestEncKey)
 
+	encStore := encryption.NewStore()
+	encStore.SetDefaultKey(encKey)
+
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.AESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -715,7 +720,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	kvm := kvmetainfo.New(p, m, strms, segments, encKey)
+	kvm := kvmetainfo.New(p, m, strms, segments, encStore)
 
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {

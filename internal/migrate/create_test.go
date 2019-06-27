@@ -8,15 +8,14 @@ import (
 	"strconv"
 	"testing"
 
+	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/dbutil/pgutil/pgtest"
 	"storj.io/storj/internal/migrate"
-
-	_ "github.com/lib/pq"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestCreate_Sqlite(t *testing.T) {

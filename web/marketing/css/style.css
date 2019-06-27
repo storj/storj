@@ -61,6 +61,7 @@ hr{
 .col-heading {
     font-family: 'Roboto';
     font-style: normal;
+    white-space: nowrap;
 }
 
 .data-row,
@@ -170,6 +171,7 @@ input{
 .offer-type{
     margin-left:35px;
     text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .edit-offer{

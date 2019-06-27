@@ -49,13 +49,14 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketing"
-	"storj.io/storj/satellite/marketing/marketingweb"
+	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -91,8 +92,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	// Marketing returns database for marketing admin GUI
-	Marketing() marketing.DB
+	//  returns database for marketing admin GUI
+	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -211,7 +212,10 @@ type Peer struct {
 	Marketing struct {
 		Listener net.Listener
 		Endpoint *marketingweb.Server
-		Service  *marketing.Service
+	}
+
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
 	}
 }
 
@@ -594,24 +598,25 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		peer.Marketing.Service, err = marketing.NewService(
-			peer.Log.Named("marketing:service"),
-			peer.DB.Marketing(),
-		)
-
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
 		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
-			peer.Marketing.Service,
+			peer.DB.Rewards(),
 			peer.Marketing.Listener,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup node stats endpoint
+		log.Debug("Setting up node stats endpoint")
+
+		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
+			peer.Log.Named("nodestats:endpoint"),
+			peer.DB.OverlayCache())
+
+		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 	}
 
 	return peer, nil
