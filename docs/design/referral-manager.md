@@ -56,7 +56,80 @@ they would like to register an account with. Below design is built based on the 
 #### Requirements:
 
 1. The referral manager program should use node id authentication to make sure that the node id the referral manager is talking to is one of our approved satellites
-∑∑
+
+#### Referral Manager grpc Definition
+````grpc
+package referralmanager;
+
+import "gogo.proto";
+
+message ReferralCode {
+    string satellite_id = 1;
+    string referral_code = 2;
+}
+
+message ReferralCodeRequest {
+    string user_id = 1;
+    string satellite_id = 2;
+}
+
+message ReferralCodeResponse {
+    enum Status {
+        INVALID  = 0;
+        ACCEPTED = 1;
+    }
+
+    ReferralCode referral_code = 1;
+    
+    string user_id = 2;
+
+    Status status = 3;
+}
+
+message InformReferrerRequest {
+    ReferralCode referral_code = 1;
+}
+
+message InformReferrerResponse {
+    enum Status {
+        INVALID = 0;
+        SUCCESS = 1;
+    }
+    
+    Status status = 1;
+}
+
+
+
+
+service ReferralManager {
+    rpc Request(ReferralCodeRequest) returns (ReferralCodeResponse) {}
+    rpc Inform(InformReferrerRequest) returns (InformReferrerResponse) {}
+}
+````
+
+#### Satellite grpc Endpoint Definition
+````grpc
+package referral
+
+service Referral {
+    rpc Update(ReferralRequest) returns (ReferralResponse) {}
+}
+
+message ReferralRequest {
+    strings referral_code = 1;
+    strings user_id = 2;
+}
+
+message ReferralResponse {
+    enum Status {
+        INVALID = 0;
+        SUCCESS = 1;
+    }
+    
+    Status status = 1;
+}
+````
 
 ## Open issues (if applicable)
 1. Should we also store referral offers information in referral manager so all tardigrade satellites will have the same offer running? What technical concerns that would arise?
