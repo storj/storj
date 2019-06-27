@@ -90,7 +90,7 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedGrouped := map[storj.NodeID][]*orders.Info{
-			satellite0.ID: []*orders.Info{
+			satellite0.ID: {
 				{Limit: limit, Order: order},
 			},
 		}

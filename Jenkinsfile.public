@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --stop-timeout 1200 --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
             label 'main'
         }
     }
@@ -14,14 +14,14 @@ pipeline {
             steps {
                 checkout scm
 
-                sh 'mkdir .build'
+                sh 'mkdir -p .build'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'go install -v -race ./...'
+                sh 'make -j2 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
@@ -39,7 +39,7 @@ pipeline {
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=4 run'
+                        sh 'golangci-lint -j=2 run --verbose'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }

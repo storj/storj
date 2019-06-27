@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink/setup"
 )
 
 func init() {
@@ -36,12 +37,12 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("No bucket specified, use format sj://bucket/")
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), encCtx)
 	if err != nil {
 		return convertError(err, dst)
 	}
