@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -112,9 +113,10 @@ type Config struct {
 	Metainfo metainfo.Config
 	Orders   orders.Config
 
-	Checker  checker.Config
-	Repairer repairer.Config
-	Audit    audit.Config
+	Checker           checker.Config
+	Repairer          repairer.Config
+	Audit             audit.Config
+	GarbageCollection gc.Config
 
 	Tally          tally.Config
 	Rollup         rollup.Config
@@ -427,7 +429,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval,
-			config.Checker.IrreparableInterval)
+			config.Checker.IrreparableInterval,
+			config.GarbageCollection,
+		)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.DB.RepairQueue(),
