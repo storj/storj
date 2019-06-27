@@ -200,7 +200,7 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 		}
 	}
 
-	metainfo, streams, err := GetMetainfo(ctx, uplink.Log, config, uplink.Identity)
+	metainfo, streams, err := GetMetainfo(ctx, config, uplink.Identity)
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 // DownloadStream returns stream for downloading data.
 func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
 	config := uplink.GetConfig(satellite)
-	metainfo, streams, err := GetMetainfo(ctx, uplink.Log, config, uplink.Identity)
+	metainfo, streams, err := GetMetainfo(ctx, config, uplink.Identity)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 // Delete data to specific satellite
 func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
 	config := uplink.GetConfig(satellite)
-	metainfo, _, err := GetMetainfo(ctx, uplink.Log, config, uplink.Identity)
+	metainfo, _, err := GetMetainfo(ctx, config, uplink.Identity)
 	if err != nil {
 		return err
 	}
@@ -329,7 +329,7 @@ func atLeastOne(value int) int {
 }
 
 // GetMetainfo returns a metainfo and streams store for the given configuration and identity.
-func GetMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
+func GetMetainfo(ctx context.Context, config uplink.Config, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
 	tlsOpts, err := tlsopts.NewOptions(identity, config.TLS)
 	if err != nil {
 		return nil, nil, err
@@ -361,7 +361,7 @@ func GetMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, ide
 		return nil, nil, errs.New("failed to create project: %v", err)
 	}
 
-	ec := ecclient.NewClient(log, tc, config.RS.MaxBufferMem.Int())
+	ec := ecclient.NewClient(tc, config.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(config.RS.MinThreshold, config.RS.MaxThreshold)
 	if err != nil {
 		return nil, nil, errs.New("failed to create erasure coding client: %v", err)
