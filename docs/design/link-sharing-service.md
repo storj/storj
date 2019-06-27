@@ -29,7 +29,7 @@ is defined as follows:
 import "encryption_ctx.proto";
 
 message Scope {
-    string satellite_url = 1;
+    string satellite_addr = 1;
 
     bytes api_key = 2;
 
