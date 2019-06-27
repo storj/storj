@@ -71,8 +71,8 @@ func TestCreateOffer(t *testing.T) {
 
 				return nil
 			})
-			err := group.Wait()
-			require.NoError(t, err)
 		}
+		err := group.Wait()
+		require.NoError(t, err)
 	})
 }
