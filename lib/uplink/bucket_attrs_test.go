@@ -53,12 +53,12 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 	})
 }
 
-func simpleEncryptionAccess(encKey string) (access *EncryptionCtx) {
+func simpleEncryptionAccess(encKey string) (access *EncryptionAccess) {
 	key, err := storj.NewKey([]byte(encKey))
 	if err != nil {
 		panic(err)
 	}
-	return NewEncryptionCtxWithDefaultKey(*key)
+	return NewEncryptionAccessWithDefaultKey(*key)
 }
 
 // check that partner bucket attributes are stored and retrieved correctly.

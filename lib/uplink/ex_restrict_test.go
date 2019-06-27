@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/pkg/macaroon"
 )
 
-func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey string, adminEncCtx string, cfg *uplink.Config, out io.Writer) (serializedUserAPIKey string, serializedEncCtx string, err error) {
+func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey string, adminAccess string, cfg *uplink.Config, out io.Writer) (serializedUserAPIKey string, serializedAccess string, err error) {
 	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {
@@ -34,14 +34,14 @@ func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey 
 	}
 
 	// Load the existing encryption context
-	encCtx, err := uplink.ParseEncryptionCtx(adminEncCtx)
+	access, err := uplink.ParseEncryptionAccess(adminAccess)
 	if err != nil {
 		return "", "", err
 	}
 
 	// Restrict the encryption context to just the prod and staging buckets
 	// for webserver/logs/
-	userAPIKey, userEncCtx, err := encCtx.Restrict(userAPIKey,
+	userAPIKey, useraccess, err := access.Restrict(userAPIKey,
 		uplink.EncryptionRestriction{Bucket: "prod", PathPrefix: "webserver/logs"},
 		uplink.EncryptionRestriction{Bucket: "staging", PathPrefix: "webserver/logs"},
 	)
@@ -50,16 +50,16 @@ func RestrictAccessExampleByAdmin(ctx context.Context, satelliteAddress, apiKey 
 	}
 
 	// Serialize the encryption context
-	serializedUserEncCtx, err := userEncCtx.Serialize()
+	serializedUserAccess, err := useraccess.Serialize()
 	if err != nil {
 		return "", "", err
 	}
 
 	fmt.Fprintln(out, "success!")
-	return userAPIKey.Serialize(), serializedUserEncCtx, nil
+	return userAPIKey.Serialize(), serializedUserAccess, nil
 }
 
-func RestrictAccessExampleByUser(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
+func RestrictAccessExampleByUser(ctx context.Context, satelliteAddress, apiKey string, serializedAccess string, cfg *uplink.Config, out io.Writer) (err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -83,13 +83,13 @@ func RestrictAccessExampleByUser(ctx context.Context, satelliteAddress, apiKey s
 	defer errCatch(p.Close)
 
 	// Parse the encryption context
-	encCtx, err := uplink.ParseEncryptionCtx(serializedEncCtx)
+	access, err := uplink.ParseEncryptionAccess(serializedAccess)
 	if err != nil {
 		return err
 	}
 
 	// Open bucket
-	bucket, err := p.OpenBucket(ctx, "prod", encCtx)
+	bucket, err := p.OpenBucket(ctx, "prod", access)
 	if err != nil {
 		return err
 	}
@@ -127,20 +127,20 @@ func Example_restrictAccess() {
 	// The API key can be created in the web interface
 	adminAPIKey := "qPSUM3k0bZyOIyil2xrVWiSuc9HuB2yBP3qDrA2Gc"
 
-	// The encryption context was created using NewEncryptionCtxWithDefaultKey and
+	// The encryption context was created using NewEncryptionAccessWithDefaultKey and
 	// (*Project).SaltedKeyFromPassphrase() earlier
-	adminEncCtx := "HYGoqCEz43mCE40Hc5lQD3DtUYynx9Vo1GjOx75hQ"
+	adminAccess := "HYGoqCEz43mCE40Hc5lQD3DtUYynx9Vo1GjOx75hQ"
 
 	ctx := context.Background()
 
 	// Admin1 is going to create an encryption context and share it
-	userAPIKey, encCtx, err := RestrictAccessExampleByAdmin(ctx, satelliteAddress, adminAPIKey, adminEncCtx, &uplink.Config{}, os.Stdout)
+	userAPIKey, access, err := RestrictAccessExampleByAdmin(ctx, satelliteAddress, adminAPIKey, adminAccess, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}
 
 	// Admin2 is going to use the provided encryption context to load the uploaded file
-	err = RestrictAccessExampleByUser(ctx, satelliteAddress, userAPIKey, encCtx, &uplink.Config{}, os.Stdout)
+	err = RestrictAccessExampleByUser(ctx, satelliteAddress, userAPIKey, access, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}

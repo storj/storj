@@ -16,7 +16,7 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedEncCtx string, err error) {
+func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedAccess string, err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -46,9 +46,9 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, a
 	}
 
 	// Make an encryption context
-	encCtx := uplink.NewEncryptionCtxWithDefaultKey(*encKey)
+	access := uplink.NewEncryptionAccessWithDefaultKey(*encKey)
 	// serialize it
-	serializedEncCtx, err = encCtx.Serialize()
+	serializedAccess, err = access.Serialize()
 	if err != nil {
 		return "", err
 	}
@@ -60,7 +60,7 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, a
 	}
 
 	// Open bucket
-	bucket, err := p.OpenBucket(ctx, "prod", encCtx)
+	bucket, err := p.OpenBucket(ctx, "prod", access)
 	if err != nil {
 		return "", err
 	}
@@ -73,10 +73,10 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, a
 	}
 
 	fmt.Fprintln(out, "success!")
-	return serializedEncCtx, nil
+	return serializedAccess, nil
 }
 
-func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, apiKey string, serializedEncCtx string, cfg *uplink.Config, out io.Writer) (err error) {
+func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, apiKey string, serializedAccess string, cfg *uplink.Config, out io.Writer) (err error) {
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -100,13 +100,13 @@ func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, a
 	defer errCatch(p.Close)
 
 	// Parse the encryption context
-	encCtx, err := uplink.ParseEncryptionCtx(serializedEncCtx)
+	access, err := uplink.ParseEncryptionAccess(serializedAccess)
 	if err != nil {
 		return err
 	}
 
 	// Open bucket
-	bucket, err := p.OpenBucket(ctx, "prod", encCtx)
+	bucket, err := p.OpenBucket(ctx, "prod", access)
 	if err != nil {
 		return err
 	}
@@ -148,13 +148,13 @@ func Example_createEncryptionKey() {
 	ctx := context.Background()
 
 	// Admin1 is going to create an encryption context and share it
-	encCtx, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddress, admin1APIKey, &uplink.Config{}, os.Stdout)
+	access, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddress, admin1APIKey, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}
 
 	// Admin2 is going to use the provided encryption context to load the uploaded file
-	err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddress, admin2APIKey, encCtx, &uplink.Config{}, os.Stdout)
+	err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddress, admin2APIKey, access, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}

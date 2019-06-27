@@ -9,7 +9,7 @@ package encryption_ctx;
 
 import "gogo.proto";
 
-message EncryptionCtx {
+message EncryptionAccess {
     message StoreEntry {
         bytes bucket = 1;
         bytes unencrypted_path = 2;
