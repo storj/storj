@@ -5,7 +5,7 @@ syntax = "proto3";
 
 option go_package = "pb";
 
-package encryption_ctx;
+package encryption_access;
 
 import "gogo.proto";
 
