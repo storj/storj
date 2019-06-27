@@ -6,7 +6,6 @@ package rewards
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"time"
 )
@@ -14,7 +13,7 @@ import (
 // ToCents converts USD credit amounts to cents.
 func ToCents(dollar int) int {
 	cents := float64(dollar) * 100
-    return int(math.Round(cents))
+    return int(cents)
 }
 
 // ToDollars converts credit amounts in cents to USD.
