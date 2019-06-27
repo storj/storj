@@ -21,10 +21,10 @@ they would like to register an account with. Below design is built based on the 
 #### User Flow
 1. Sign up
 
-    After new user Alice chose to register on satellite B and clicked on the create account button:
+    After new user Alice chose to register on satellite B and clicked on the create account button:∑
     - Satellite B sends a request with its satellite id to referral manager for a referral code for Alice
-    - Referral manager receives the request from satellite B, generates a unique referral code 11111111, and then store that code, 11111111 along with the satellite B's id into referral manager's database 
-    - After successfully storing the referral code and satellite B's id, referral manager sends a response with the generated referral code, 11111111, back to satellite B 
+    - Referral manager receives the request from satellite B, generates a unique referral code 11111111, and then store that code, 11111111 along with the satellite B's address into referral manager's database 
+    - After successfully storing the referral code and satellite B's address, referral manager sends a response with the generated referral code, 11111111, back to satellite B 
     - Satellite B receives the referral code, 11111111, from referral manager and then store it along with Alice's information into user table in satellitedb
         - Signed up WITHOUT referral link:
             - Satellite B will store Alice's credit into user_credit table with a null value in referred_by column
@@ -37,11 +37,11 @@ they would like to register an account with. Below design is built based on the 
     After user Alice has used up their free credits:
     
     - Satellite B will send a request with the referral code, 22222222, to referral manager
-    - Referral manager receives the request from, satellite B and use the referral code, 22222222, to look up the satellite id that's associated with the referral code, 22222222, in its database
+    - Referral manager receives the request from, satellite B and use the referral code, 22222222, to look up the satellite address that's associated with the referral code, 22222222, in its database
         - If no referral code can be found in referral manager's database that's equal to 22222222
             - referral manager sends back a NOT FOUND response to satellite B
         
-        - If a satellite id, C, is found through the referral code 22222222
+        - If a satellite address, C, is found through the referral code 22222222
             - referral manager sends the referral code 22222222 to satellite C
             - referral manager sends back a OK response to satellite B
             - satellite C receives the referral code 22222222
@@ -56,7 +56,7 @@ they would like to register an account with. Below design is built based on the 
 #### Requirements:
 
 1. The referral manager program should use node id authentication to make sure that the node id the referral manager is talking to is one of our approved satellites
-
+∑∑
 
 ## Open issues (if applicable)
 1. Should we also store referral offers information in referral manager so all tardigrade satellites will have the same offer running? What technical concerns that would arise?
