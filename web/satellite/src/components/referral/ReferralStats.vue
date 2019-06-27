@@ -66,7 +66,7 @@ import { CREDIT_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/ac
         }
     },
     mounted() {
-        this.fetch();
+        (this as any).fetch();
     },
     computed: {
         title() {

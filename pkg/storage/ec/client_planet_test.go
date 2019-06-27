@@ -6,7 +6,6 @@ package ecclient_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -22,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -58,7 +57,7 @@ func TestECClient(t *testing.T) {
 	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, dataSize.Int64()))
+	data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
 	require.NoError(t, err)
 
 	// Erasure encode some random data and upload the pieces
@@ -149,16 +148,14 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 
 func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
-	serialNumber, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
+	serialNumber := testrand.SerialNumber()
+
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(24 * time.Hour))
 	if err != nil {
 		return nil, err
 	}
 	limit := &pb.OrderLimit2{
-		SerialNumber:    storj.SerialNumber(*serialNumber),
+		SerialNumber:    serialNumber,
 		SatelliteId:     satellite.ID(),
 		UplinkId:        uplink.ID(),
 		StorageNodeId:   storageNode.ID(),

@@ -42,12 +42,6 @@ type Bucket struct {
 	lib *libuplink.Bucket
 }
 
-// BucketAccess defines access to bucket
-type BucketAccess struct {
-	PathEncryptionKey   []byte
-	EncryptedPathPrefix storj.Path
-}
-
 // BucketInfo bucket meta struct
 type BucketInfo struct {
 	Name                 string

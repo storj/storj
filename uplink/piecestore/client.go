@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/transport"
 )
 
 // Error is the default error class for piecestore client.
@@ -41,20 +42,25 @@ var DefaultConfig = Config{
 type Client struct {
 	log    *zap.Logger
 	signer signing.Signer
-	conn   *grpc.ClientConn
 	client pb.PiecestoreClient
+	conn   *grpc.ClientConn
 	config Config
 }
 
-// NewClient creates a new piecestore client from a grpc client connection.
-func NewClient(log *zap.Logger, signer signing.Signer, conn *grpc.ClientConn, config Config) *Client {
+// Dial dials the target piecestore endpoint.
+func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log *zap.Logger, signer signing.Signer, config Config) (*Client, error) {
+	conn, err := transport.DialNode(ctx, target)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	return &Client{
 		log:    log,
 		signer: signer,
-		conn:   conn,
 		client: pb.NewPiecestoreClient(conn),
+		conn:   conn,
 		config: config,
-	}
+	}, nil
 }
 
 // Delete uses delete order limit to delete a piece on piece store.

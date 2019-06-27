@@ -185,6 +185,70 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:encryption_ctx.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "EncryptionCtx",
+            "fields": [
+              {
+                "id": 1,
+                "name": "default_key",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "store_entries",
+                "type": "StoreEntry",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "StoreEntry",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bucket",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "unencrypted_path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 3,
+                    "name": "encrypted_path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 4,
+                    "name": "key",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "encryption_ctx"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:gc.proto",
       "def": {
         "messages": [
@@ -2084,6 +2148,72 @@
         ],
         "package": {
           "name": "node"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:nodestats.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "UptimeCheckRequest"
+          },
+          {
+            "name": "UptimeCheckResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total_count",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "success_count",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "reputation_alpha",
+                "type": "double"
+              },
+              {
+                "id": 4,
+                "name": "reputation_beta",
+                "type": "double"
+              },
+              {
+                "id": 5,
+                "name": "reputation_score",
+                "type": "double"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "NodeStats",
+            "rpcs": [
+              {
+                "name": "UptimeCheck",
+                "in_type": "UptimeCheckRequest",
+                "out_type": "UptimeCheckResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "nodestats"
         },
         "options": [
           {

@@ -4,7 +4,6 @@
 package inspector_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/uplink"
 )
@@ -49,9 +49,7 @@ func TestInspectorStats(t *testing.T) {
 		availableSpace = response.AvailableSpace
 	}
 
-	expectedData := make([]byte, 100*memory.KiB)
-	_, err = rand.Read(expectedData)
-	require.NoError(t, err)
+	expectedData := testrand.Bytes(100 * memory.KiB)
 
 	rs := &uplink.RSConfig{
 		MinThreshold:     2,
@@ -109,11 +107,9 @@ func TestInspectorDashboard(t *testing.T) {
 			assert.NotNil(t, response.Stats)
 		}
 
-		expectedData := make([]byte, 100*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
 		for _, storageNode := range planet.StorageNodes {
