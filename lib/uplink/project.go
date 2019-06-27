@@ -168,7 +168,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *Enc
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
 	p.log = zap.L()
-	ec := ecclient.NewClient(p.log, p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
+	ec := ecclient.NewClient(zap.L(), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err
