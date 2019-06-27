@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --stop-timeout 1200 --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
             label 'main'
         }
     }
@@ -14,7 +14,7 @@ pipeline {
             steps {
                 checkout scm
 
-                sh 'mkdir .build'
+                sh 'mkdir -p .build'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
