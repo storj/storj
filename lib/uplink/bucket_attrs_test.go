@@ -95,8 +95,8 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			proj.uplinkCfg.Volatile.PartnerID = ""
 			got, err = proj.OpenBucket(ctx, bucketName, &access)
 			require.NoError(t, err)
-			assert.Equal(t, got.bucket.Attribution, partnerID)
 			defer ctx.Check(got.Close)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
 		})
 }
 
