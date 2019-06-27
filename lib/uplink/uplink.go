@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
