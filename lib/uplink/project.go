@@ -25,7 +25,6 @@ import (
 
 // Project represents a specific project access session.
 type Project struct {
-	log           *zap.Logger
 	uplinkCfg     *Config
 	tc            transport.Client
 	metainfo      *metainfo.Client
@@ -167,7 +166,6 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *Enc
 
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
-	p.log = zap.L()
 	ec := ecclient.NewClient(zap.L(), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
