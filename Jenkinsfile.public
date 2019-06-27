@@ -2,7 +2,7 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root --stop-timeout 1200 --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
             label 'main'
         }
     }
