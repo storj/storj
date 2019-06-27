@@ -194,7 +194,7 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 		}
 	}
 
-	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Log, uplink.Identity)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 // DownloadStream returns stream for downloading data.
 func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
 	config := uplink.GetConfig(satellite)
-	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Identity)
+	metainfo, streams, err := config.GetMetainfo(ctx, uplink.Log, uplink.Identity)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +281,7 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 // Delete data to specific satellite
 func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
 	config := uplink.GetConfig(satellite)
-	metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+	metainfo, _, err := config.GetMetainfo(ctx, uplink.Log, uplink.Identity)
 	if err != nil {
 		return err
 	}
