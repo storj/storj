@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
 )
 
@@ -35,6 +36,8 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, ErrInfo.Wrap(err)
 	}
 
+	dbutil.Configure(db, mon)
+
 	return &InfoDB{db: db}, nil
 }
 
@@ -44,6 +47,8 @@ func NewInfoInMemory() (*InfoDB, error) {
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
+
+	dbutil.Configure(db, mon)
 
 	return &InfoDB{db: db}, nil
 }
@@ -148,15 +153,15 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE TABLE order_archive (
 						satellite_id  BLOB NOT NULL,
 						serial_number BLOB NOT NULL,
-						
+
 						order_limit_serialized BLOB NOT NULL, -- serialized pb.OrderLimit
 						order_serialized       BLOB NOT NULL, -- serialized pb.Order
-						
+
 						uplink_cert_id INTEGER NOT NULL,
-						
+
 						status      INTEGER   NOT NULL, -- accepted, rejected, confirmed
 						archived_at TIMESTAMP NOT NULL, -- when was it rejected
-						
+
 						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 					)`,
 					`CREATE INDEX idx_order_archive_satellite ON order_archive(satellite_id)`,
@@ -175,6 +180,36 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Version:     2,
 				Action: migrate.SQL{
 					`ALTER TABLE pieceinfo ADD COLUMN deletion_failed_at TIMESTAMP`,
+				},
+			},
+			{
+				Description: "Add vouchersDB for storing and retrieving vouchers.",
+				Version:     3,
+				Action: migrate.SQL{
+					`CREATE TABLE vouchers (
+						satellite_id BLOB PRIMARY KEY NOT NULL,
+						voucher_serialized BLOB NOT NULL,
+						expiration TIMESTAMP NOT NULL
+					)`,
+				},
+			},
+			{
+				Description: "Add index on pieceinfo expireation",
+				Version:     4,
+				Action: migrate.SQL{
+					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(piece_expiration)`,
+					`CREATE INDEX idx_pieceinfo_deletion_failed ON pieceinfo(deletion_failed_at)`,
+				},
+			},
+			{
+				Description: "Partial Network Wipe - Tardigrade Satellites",
+				Version:     5,
+				Action: migrate.SQL{
+					`UPDATE pieceinfo SET piece_expiration = '2019-06-25 00:00:00.000000+00:00' WHERE satellite_id 
+						IN (x'84A74C2CD43C5BA76535E1F42F5DF7C287ED68D33522782F4AFABFDB40000000', 
+							x'A28B4F04E10BAE85D67F4C6CB82BF8D4C0F0F47A8EA72627524DEB6EC0000000', 
+							x'AF2C42003EFC826AB4361F73F9D890942146FE0EBE806786F8E7190800000000'
+					)`,
 				},
 			},
 		},

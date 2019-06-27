@@ -14,6 +14,7 @@ import (
 type UsageRollups interface {
 	GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (*ProjectUsage, error)
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
+	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
 }
 
 // ProjectUsage consist of period total storage, egress
@@ -25,6 +26,40 @@ type ProjectUsage struct {
 
 	Since  time.Time
 	Before time.Time
+}
+
+// BucketUsage consist of total bucket usage for period
+type BucketUsage struct {
+	ProjectID  uuid.UUID
+	BucketName string
+
+	Storage     float64
+	Egress      float64
+	ObjectCount int64
+
+	Since  time.Time
+	Before time.Time
+}
+
+// BucketUsageCursor holds info for bucket usage
+// cursor pagination
+type BucketUsageCursor struct {
+	Search string
+	Limit  uint
+	Page   uint
+}
+
+// BucketUsagePage represents bucket usage page result
+type BucketUsagePage struct {
+	BucketUsages []BucketUsage
+
+	Search string
+	Limit  uint
+	Offset uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
 }
 
 // BucketUsageRollup is total bucket usage info

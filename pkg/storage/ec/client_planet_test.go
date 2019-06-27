@@ -6,7 +6,6 @@ package ecclient_test
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -22,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -58,7 +57,7 @@ func TestECClient(t *testing.T) {
 	rs, err := eestream.NewRedundancyStrategy(es, 0, 0)
 	require.NoError(t, err)
 
-	data, err := ioutil.ReadAll(io.LimitReader(rand.Reader, dataSize.Int64()))
+	data, err := ioutil.ReadAll(io.LimitReader(testrand.Reader(), dataSize.Int64()))
 	require.NoError(t, err)
 
 	// Erasure encode some random data and upload the pieces
@@ -75,7 +74,7 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	var err error
 	limits := make([]*pb.AddressedOrderLimit, rs.TotalCount())
 	for i := 0; i < len(limits); i++ {
-		limits[i], err = newAddressedOrderLimit(pb.PieceAction_PUT, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], storj.NewPieceID())
+		limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_PUT, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], storj.NewPieceID())
 		require.NoError(t, err)
 	}
 
@@ -115,7 +114,7 @@ func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 	limits := make([]*pb.AddressedOrderLimit, es.TotalCount())
 	for i := 0; i < len(limits); i++ {
 		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(pb.PieceAction_GET, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
+			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_GET, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
 			require.NoError(t, err)
 		}
 	}
@@ -137,7 +136,7 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	limits := make([]*pb.AddressedOrderLimit, len(successfulNodes))
 	for i := 0; i < len(limits); i++ {
 		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(pb.PieceAction_DELETE, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
+			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_DELETE, planet.Satellites[0], planet.Uplinks[0], planet.StorageNodes[i], successfulHashes[i].PieceId)
 			require.NoError(t, err)
 		}
 	}
@@ -147,18 +146,16 @@ func testDelete(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec
 	require.NoError(t, err)
 }
 
-func newAddressedOrderLimit(action pb.PieceAction, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
+func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellite *satellite.Peer, uplink *testplanet.Uplink, storageNode *storagenode.Peer, pieceID storj.PieceID) (*pb.AddressedOrderLimit, error) {
 	// TODO refactor to avoid OrderLimit duplication
-	serialNumber, err := uuid.New()
-	if err != nil {
-		return nil, err
-	}
+	serialNumber := testrand.SerialNumber()
+
 	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(24 * time.Hour))
 	if err != nil {
 		return nil, err
 	}
 	limit := &pb.OrderLimit2{
-		SerialNumber:    storj.SerialNumber(*serialNumber),
+		SerialNumber:    serialNumber,
 		SatelliteId:     satellite.ID(),
 		UplinkId:        uplink.ID(),
 		StorageNodeId:   storageNode.ID(),
@@ -169,7 +166,7 @@ func newAddressedOrderLimit(action pb.PieceAction, satellite *satellite.Peer, up
 		OrderExpiration: orderExpiration,
 	}
 
-	limit, err = signing.SignOrderLimit(signing.SignerFromFullIdentity(satellite.Identity), limit)
+	limit, err = signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
 	if err != nil {
 		return nil, err
 	}

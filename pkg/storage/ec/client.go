@@ -30,16 +30,18 @@ var mon = monkit.Package()
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
 	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
-	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
+	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
 	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
+	WithForceErrorDetection(force bool) Client
 }
 
-type psClientHelper func(context.Context, *pb.Node) (*piecestore.Client, error)
+type dialPiecestoreFunc func(context.Context, *pb.Node) (*piecestore.Client, error)
 
 type ecClient struct {
-	transport   transport.Client
-	memoryLimit int
+	transport           transport.Client
+	memoryLimit         int
+	forceErrorDetection bool
 }
 
 // NewClient from the given identity and max buffer memory
@@ -50,17 +52,15 @@ func NewClient(tc transport.Client, memoryLimit int) Client {
 	}
 }
 
-func (ec *ecClient) newPSClient(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
-	conn, err := ec.transport.DialNode(ctx, n)
-	if err != nil {
-		return nil, err
-	}
-	return piecestore.NewClient(
-		zap.L().Named(n.Id.String()),
-		signing.SignerFromFullIdentity(ec.transport.Identity()),
-		conn,
-		piecestore.DefaultConfig,
-	), nil
+func (ec *ecClient) WithForceErrorDetection(force bool) Client {
+	ec.forceErrorDetection = force
+	return ec
+}
+
+func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
+	logger := zap.L().Named(n.Id.String())
+	signer := signing.SignerFromFullIdentity(ec.transport.Identity())
+	return piecestore.Dial(ctx, ec.transport, n, logger, signer, piecestore.DefaultConfig)
 }
 
 func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
@@ -70,13 +70,17 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("size of limits slice (%d) does not match total count (%d) of erasure scheme", len(limits), rs.TotalCount())
 	}
 
-	if nonNilCount(limits) < rs.RepairThreshold() {
-		return nil, nil, Error.New("number of non-nil limits (%d) is less than repair threshold (%d) of erasure scheme", nonNilCount(limits), rs.RepairThreshold())
+	nonNilLimits := nonNilCount(limits)
+	if nonNilLimits <= rs.RepairThreshold() && nonNilLimits < rs.OptimalThreshold() {
+		return nil, nil, Error.New("number of non-nil limits (%d) is less than or equal to the repair threshold (%d) of erasure scheme", nonNilLimits, rs.RepairThreshold())
 	}
 
 	if !unique(limits) {
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
+
+	zap.S().Debugf("Uploading to storage nodes using ErasureShareSize: %d StripeSize: %d RepairThreshold: %d OptimalThreshold: %d",
+		rs.ErasureShareSize(), rs.StripeSize(), rs.RepairThreshold(), rs.OptimalThreshold())
 
 	padded := eestream.PadReader(ioutil.NopCloser(data), rs.StripeSize())
 	readers, err := eestream.EncodeReader(ctx, padded, rs)
@@ -127,23 +131,25 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		successfulHashes[info.i] = info.hash
 
 		switch int(atomic.AddInt32(&successfulCount, 1)) {
-		case rs.RepairThreshold():
+		case rs.OptimalThreshold():
+			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
+			if timer != nil {
+				timer.Stop()
+			}
+			cancel()
+		case rs.RepairThreshold() + 1:
 			elapsed := time.Since(start)
 			more := elapsed * 3 / 2
 
-			zap.S().Infof("Repair threshold (%d nodes) reached in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
+			zap.S().Debugf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
 				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
 
 			timer = time.AfterFunc(more, func() {
 				if ctx.Err() != context.Canceled {
-					zap.S().Infof("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+					zap.S().Debugf("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
 					cancel()
 				}
 			})
-		case rs.OptimalThreshold():
-			zap.S().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-			timer.Stop()
-			cancel()
 		}
 	}
 
@@ -165,14 +171,15 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}
 	}()
 
-	if int(atomic.LoadInt32(&successfulCount)) < rs.RepairThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than repair threshold (%d)", successfulCount, rs.RepairThreshold())
+	successes := int(atomic.LoadInt32(&successfulCount))
+	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != rs.TotalCount() {
@@ -213,12 +220,12 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	// how many nodes must be repaired to reach the success threshold: o - (n - r)
 	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
 
-	zap.S().Infof("Starting a timer for %s for repairing to %d nodes to reach the success threshold (%d nodes)...",
-		timeout, optimalCount, rs.OptimalThreshold())
+	zap.S().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
+		timeout, path, optimalCount, rs.OptimalThreshold())
 
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
-			zap.S().Infof("Timer expired. Successfully repaired to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
+			zap.S().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
@@ -231,7 +238,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 
 		if info.err != nil {
-			zap.S().Debugf("Repair to storage node %s failed: %v", limits[info.i].GetLimit().StorageNodeId, info.err)
+			zap.S().Debugf("Repair %s to storage node %s failed: %v", path, limits[info.i].GetLimit().StorageNodeId, info.err)
 			continue
 		}
 
@@ -240,13 +247,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
-
-		if int(atomic.AddInt32(&successfulCount, 1)) == optimalCount {
-			zap.S().Infof("Success threshold (%d nodes) reached by repairing to %d nodes. Canceling the long tail...",
-				rs.OptimalThreshold(), optimalCount)
-			timer.Stop()
-			cancel()
-		}
+		atomic.AddInt32(&successfulCount, 1)
 	}
 
 	// Ensure timer is stopped in the case the success threshold is not reached
@@ -267,14 +268,21 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}
 	}()
 
-	if successfulCount < int32(optimalCount) {
-		return nil, nil, Error.New("successful nodes count (%d) does not match optimal count (%d) of erasure scheme", successfulCount, optimalCount)
+	if atomic.LoadInt32(&successfulCount) == 0 {
+		return nil, nil, Error.New("repair %v to all nodes failed", path)
 	}
+
+	zap.S().Infof("Successfully repaired %s to %d nodes.", path, atomic.LoadInt32(&successfulCount))
 
 	return successfulNodes, successfulHashes, nil
 }
 
 func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
+	nodeName := "nil"
+	if limit != nil {
+		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
+	}
+	defer mon.Task()(&ctx, "node: "+nodeName)(&err)
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
@@ -284,7 +292,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 
 	storageNodeID := limit.GetLimit().StorageNodeId
 	pieceID := limit.GetLimit().PieceId
-	ps, err := ec.newPSClient(ctx, &pb.Node{
+	ps, err := ec.dialPiecestore(ctx, &pb.Node{
 		Id:      storageNodeID,
 		Address: limit.GetStorageNodeAddress(),
 	})
@@ -302,10 +310,10 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	defer func() {
 		if ctx.Err() != nil || err != nil {
 			hash = nil
-			err = errs.Combine(err, upload.Cancel())
+			err = errs.Combine(err, upload.Cancel(ctx))
 			return
 		}
-		h, closeErr := upload.Commit()
+		h, closeErr := upload.Commit(ctx)
 		hash = h
 		err = errs.Combine(err, closeErr)
 	}()
@@ -317,7 +325,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 		if parent.Err() == context.Canceled {
 			zap.S().Infof("Upload to node %s canceled by user.", storageNodeID)
 		} else {
-			zap.S().Infof("Node %s cut from upload due to slow connection.", storageNodeID)
+			zap.S().Debugf("Node %s cut from upload due to slow connection.", storageNodeID)
 		}
 		err = context.Canceled
 	} else if err != nil {
@@ -352,13 +360,13 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		}
 
 		rrs[i] = &lazyPieceRanger{
-			newPSClientHelper: ec.newPSClient,
-			limit:             addressedLimit,
-			size:              pieceSize,
+			dialPiecestore: ec.dialPiecestore,
+			limit:          addressedLimit,
+			size:           pieceSize,
 		}
 	}
 
-	rr, err = eestream.Decode(rrs, es, ec.memoryLimit)
+	rr, err = eestream.Decode(rrs, es, ec.memoryLimit, ec.forceErrorDetection)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +386,7 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 		go func(addressedLimit *pb.AddressedOrderLimit) {
 			limit := addressedLimit.GetLimit()
-			ps, err := ec.newPSClient(ctx, &pb.Node{
+			ps, err := ec.dialPiecestore(ctx, &pb.Node{
 				Id:      limit.StorageNodeId,
 				Address: addressedLimit.GetStorageNodeAddress(),
 			})
@@ -447,9 +455,9 @@ func calcPadded(size int64, blockSize int) int64 {
 }
 
 type lazyPieceRanger struct {
-	newPSClientHelper psClientHelper
-	limit             *pb.AddressedOrderLimit
-	size              int64
+	dialPiecestore dialPiecestoreFunc
+	limit          *pb.AddressedOrderLimit
+	size           int64
 }
 
 // Size implements Ranger.Size
@@ -458,8 +466,9 @@ func (lr *lazyPieceRanger) Size() int64 {
 }
 
 // Range implements Ranger.Range to be lazily connected
-func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
-	ps, err := lr.newPSClientHelper(ctx, &pb.Node{
+func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+	ps, err := lr.dialPiecestore(ctx, &pb.Node{
 		Id:      lr.limit.GetLimit().StorageNodeId,
 		Address: lr.limit.GetStorageNodeAddress(),
 	})

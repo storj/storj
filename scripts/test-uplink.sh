@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ueo pipefail
 
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -25,7 +25,7 @@ random_bytes_file () {
 random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
 random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
 
-uplink --config-dir "$GATEWAY_0_DIR" mb "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR"  mb "sj://$BUCKET/"
 
 uplink --config-dir "$GATEWAY_0_DIR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
 uplink --config-dir "$GATEWAY_0_DIR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"

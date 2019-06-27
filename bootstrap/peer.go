@@ -139,6 +139,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			},
 			Type: pb.NodeType_BOOTSTRAP,
 			Operator: pb.NodeOperator{
+				Email:  config.Operator.Email,
 				Wallet: config.Operator.Wallet,
 			},
 			Version: *pbVersion,
@@ -233,10 +234,8 @@ func (peer *Peer) Close() error {
 
 	if peer.Web.Endpoint != nil {
 		errlist.Add(peer.Web.Endpoint.Close())
-	} else {
-		if peer.Web.Listener != nil {
-			errlist.Add(peer.Web.Listener.Close())
-		}
+	} else if peer.Web.Listener != nil {
+		errlist.Add(peer.Web.Listener.Close())
 	}
 
 	// close services in reverse initialization order

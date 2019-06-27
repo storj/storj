@@ -21,11 +21,12 @@ type StoragenodeAccounting struct {
 }
 
 // SaveTallies records raw tallies of at rest data to the database
-func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) error {
+func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally time.Time, nodeData map[storj.NodeID]float64) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(nodeData) == 0 {
 		return Error.New("In SaveTallies with empty nodeData")
 	}
-	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for k, v := range nodeData {
 			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
 			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
@@ -43,7 +44,8 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 }
 
 // GetTallies retrieves all raw tallies
-func (db *StoragenodeAccounting) GetTallies(ctx context.Context) ([]*accounting.StoragenodeStorageTally, error) {
+func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accounting.StoragenodeStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
 	raws, err := db.db.All_StoragenodeStorageTally(ctx)
 	out := make([]*accounting.StoragenodeStorageTally, len(raws))
 	for i, r := range raws {
@@ -62,7 +64,8 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) ([]*accounting.
 }
 
 // GetTalliesSince retrieves all raw tallies since latestRollup
-func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeStorageTally, error) {
+func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeStorageTally, err error) {
+	defer mon.Task()(&ctx)(&err)
 	raws, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
 	out := make([]*accounting.StoragenodeStorageTally, len(raws))
 	for i, r := range raws {
@@ -81,7 +84,8 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 }
 
 // GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
-func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*accounting.StoragenodeBandwidthRollup, error) {
+func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
 	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
 	out := make([]*accounting.StoragenodeBandwidthRollup, len(rollups))
 	for i, r := range rollups {
@@ -100,11 +104,12 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 }
 
 // SaveRollup records raw tallies of at rest data to the database
-func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup time.Time, stats accounting.RollupStats) error {
+func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup time.Time, stats accounting.RollupStats) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
-	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, arsByDate := range stats {
 			for _, ar := range arsByDate {
 				nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
@@ -129,9 +134,10 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 }
 
 // LastTimestamp records the greatest last tallied time
-func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (time.Time, error) {
+func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (_ time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
 	lastTally := time.Time{}
-	err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lt == nil {
 			update := dbx.AccountingTimestamps_Value(lastTally)
@@ -145,9 +151,10 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 }
 
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID
-func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
-	var sqlStmt = `SELECT n.id, n.created_at, n.audit_success_ratio, r.at_rest_total, r.get_repair_total,
-	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet
+func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
+	    r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
 	    FROM (
 			SELECT node_id, SUM(at_rest_total) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
 			SUM(put_repair_total) AS put_repair_total, SUM(get_audit_total) AS get_audit_total,
@@ -168,8 +175,9 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 		var nodeID []byte
 		r := &accounting.CSVRow{}
 		var wallet sql.NullString
-		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AuditSuccessRatio, &r.AtRestTotal, &r.GetRepairTotal,
-			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet)
+		var disqualified *time.Time
+		err := rows.Scan(&nodeID, &r.NodeCreationDate, &r.AtRestTotal, &r.GetRepairTotal,
+			&r.PutRepairTotal, &r.GetAuditTotal, &r.PutTotal, &r.GetTotal, &wallet, &disqualified)
 		if err != nil {
 			return csv, Error.Wrap(err)
 		}
@@ -181,14 +189,16 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 			return csv, Error.Wrap(err)
 		}
 		r.NodeID = id
+		r.Disqualified = disqualified
 		csv = append(csv, r)
 	}
 	return csv, nil
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time
-func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error {
+func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var deleteRawSQL = `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
-	_, err := db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
 }

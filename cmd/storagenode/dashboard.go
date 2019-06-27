@@ -17,6 +17,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
@@ -29,13 +30,10 @@ const contactWindow = time.Minute * 10
 
 type dashboardClient struct {
 	client pb.PieceStoreInspectorClient
+	conn   *grpc.ClientConn
 }
 
-func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
-}
-
-func newDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
+func dialDashboardClient(ctx context.Context, address string) (*dashboardClient, error) {
 	conn, err := transport.DialAddressInsecure(ctx, address)
 	if err != nil {
 		return &dashboardClient{}, err
@@ -43,7 +41,16 @@ func newDashboardClient(ctx context.Context, address string) (*dashboardClient, 
 
 	return &dashboardClient{
 		client: pb.NewPieceStoreInspectorClient(conn),
+		conn:   conn,
 	}, nil
+}
+
+func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
+	return dash.client.Dashboard(ctx, &pb.DashboardRequest{})
+}
+
+func (dash *dashboardClient) close() error {
+	return dash.conn.Close()
 }
 
 func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
@@ -56,10 +63,15 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Info("Node ID: ", ident.ID)
 	}
 
-	client, err := newDashboardClient(ctx, dashboardCfg.Address)
+	client, err := dialDashboardClient(ctx, dashboardCfg.Address)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := client.close(); err != nil {
+			zap.S().Debug("closing dashboard client failed", err)
+		}
+	}()
 
 	for {
 		data, err := client.dashboard(ctx)
@@ -78,6 +90,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 
 func printDashboard(data *pb.DashboardResponse) error {
 	clearScreen()
+	var warnFlag bool
 	color.NoColor = !useColor
 
 	heading := color.New(color.FgGreen, color.Bold)
@@ -121,8 +134,13 @@ func printDashboard(data *pb.DashboardResponse) error {
 
 	stats := data.GetStats()
 	if stats != nil {
-		availableBandwidth := color.WhiteString(memory.Size(stats.GetAvailableBandwidth()).Base10String())
+		availBW := memory.Size(stats.GetAvailableBandwidth())
 		usedBandwidth := color.WhiteString(memory.Size(stats.GetUsedBandwidth()).Base10String())
+		if availBW < 0 {
+			warnFlag = true
+			availBW = 0
+		}
+		availableBandwidth := color.WhiteString((availBW).Base10String())
 		availableSpace := color.WhiteString(memory.Size(stats.GetAvailableSpace()).Base10String())
 		usedSpace := color.WhiteString(memory.Size(stats.GetUsedSpace()).Base10String())
 		usedEgress := color.WhiteString(memory.Size(stats.GetUsedEgress()).Base10String())
@@ -148,6 +166,10 @@ func printDashboard(data *pb.DashboardResponse) error {
 	fmt.Fprintf(w, "\nNeighborhood Size %+v\n", whiteInt(data.GetNodeConnections()))
 	if err = w.Flush(); err != nil {
 		return err
+	}
+
+	if warnFlag {
+		fmt.Fprintf(w, "\nWARNING!!!!! %s\n", color.WhiteString("Increase your bandwidth"))
 	}
 
 	return nil

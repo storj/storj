@@ -9,6 +9,7 @@ import (
 	"crypto/sha512"
 	"database/sql/driver"
 	"encoding/base32"
+	"encoding/json"
 
 	"github.com/zeebo/errs"
 )
@@ -50,7 +51,7 @@ func PieceIDFromBytes(b []byte) (PieceID, error) {
 	}
 
 	var id PieceID
-	copy(id[:], b[:])
+	copy(id[:], b)
 	return id, nil
 }
 
@@ -105,8 +106,13 @@ func (id PieceID) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON deserializes a json string (as bytes) to a piece ID
 func (id *PieceID) UnmarshalJSON(data []byte) error {
-	var err error
-	*id, err = PieceIDFromString(string(data))
+	var unquoted string
+	err := json.Unmarshal(data, &unquoted)
+	if err != nil {
+		return err
+	}
+
+	*id, err = PieceIDFromString(unquoted)
 	if err != nil {
 		return err
 	}

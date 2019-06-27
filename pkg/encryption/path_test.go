@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -26,15 +27,14 @@ func TestEncryption(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, path)
 
-			key := new(storj.Key)
-			copy(key[:], randData(storj.KeySize))
+			key := testrand.Key()
 
-			encrypted, err := EncryptPath(path, cipher, key)
+			encrypted, err := EncryptPath(path, cipher, &key)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			decrypted, err := DecryptPath(encrypted, cipher, key)
+			decrypted, err := DecryptPath(encrypted, cipher, &key)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
@@ -61,15 +61,14 @@ func TestDeriveKey(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
 
-			key := new(storj.Key)
-			copy(key[:], randData(storj.KeySize))
+			key := testrand.Key()
 
-			encrypted, err := EncryptPath(tt.path, cipher, key)
+			encrypted, err := EncryptPath(tt.path, cipher, &key)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			derivedKey, err := DerivePathKey(tt.path, key, tt.depth)
+			derivedKey, err := DerivePathKey(tt.path, &key, tt.depth)
 			if tt.errString != "" {
 				assert.EqualError(t, err, tt.errString, errTag)
 				continue

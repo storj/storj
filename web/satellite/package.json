@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "serve": "rm -rf dist/ && npm run build && vue-cli-service serve -s dist",
+    "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint",
     "test:unit": "vue-cli-service test:unit",
     "test": "jest",
-    "build": "webpack --config webpack.config.dev.js"
+    "build": "vue-cli-service build --mode=production"
   },
   "dependencies": {
     "@types/graphql": "^14.0.3",
@@ -50,6 +50,7 @@
     "typescript": "^3.0.0",
     "vue-html-webpack-plugin": "^3.2.2",
     "vue-loader": "^15.4.2",
+    "vue-segment-analytics": "^0.3.2",
     "vue-style-loader": "^4.1.2",
     "vue-template-compiler": "^2.5.17",
     "vue-tslint": "^0.3.2",

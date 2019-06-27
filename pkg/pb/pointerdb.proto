@@ -9,7 +9,6 @@ package pointerdb;
 import "google/protobuf/timestamp.proto";
 import "gogo.proto";
 import "node.proto";
-import "piecestore.proto";
 import "orders.proto";
 
 message RedundancyScheme {

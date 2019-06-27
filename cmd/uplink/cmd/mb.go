@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
@@ -45,7 +46,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	project, err := cfg.GetProject(ctx)
 	if err != nil {
-		return fmt.Errorf("error setting up project: %+v", err)
+		return errs.New("error setting up project: %+v", err)
 	}
 	defer func() {
 		if err := project.Close(); err != nil {
@@ -54,12 +55,14 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	}()
 
 	bucketCfg := &uplink.BucketConfig{}
-	//TODO (alex): make segment size customizable
+	bucketCfg.PathCipher = cfg.GetPathCipherSuite()
+	bucketCfg.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
 	bucketCfg.Volatile = struct {
 		RedundancyScheme storj.RedundancyScheme
 		SegmentsSize     memory.Size
 	}{
 		RedundancyScheme: cfg.GetRedundancyScheme(),
+		SegmentsSize:     cfg.GetSegmentSize(),
 	}
 
 	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,15 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
-
-func randomValue() []byte {
-	var id [32]byte
-	_, _ = rand.Read(id[:])
-	return id[:]
-}
 
 func TestStoreLoad(t *testing.T) {
 	const blobSize = 8 << 10
@@ -35,18 +29,18 @@ func TestStoreLoad(t *testing.T) {
 	store, err := filestore.NewAt(ctx.Dir("store"))
 	require.NoError(t, err)
 
-	data := make([]byte, blobSize)
+	data := testrand.Bytes(blobSize)
 	temp := make([]byte, len(data))
-	_, _ = rand.Read(data)
 
 	refs := []storage.BlobRef{}
 
-	namespace := randomValue()
+	namespace := testrand.Bytes(32)
+
 	// store without size
 	for i := 0; i < repeatCount; i++ {
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 		refs = append(refs, ref)
 
@@ -57,19 +51,19 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 		// after committing we should be able to call cancel without an error
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 		// two commits should fail
-		require.Error(t, writer.Commit())
+		require.Error(t, writer.Commit(ctx))
 	}
 
-	namespace = randomValue()
+	namespace = testrand.Bytes(32)
 	// store with size
 	for i := 0; i < repeatCount; i++ {
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 		refs = append(refs, ref)
 
@@ -80,15 +74,15 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 	}
 
-	namespace = randomValue()
+	namespace = testrand.Bytes(32)
 	// store with larger size
 	{
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 		refs = append(refs, ref)
 
@@ -99,15 +93,15 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Commit())
+		require.NoError(t, writer.Commit(ctx))
 	}
 
-	namespace = randomValue()
+	namespace = testrand.Bytes(32)
 	// store with error
 	{
 		ref := storage.BlobRef{
 			Namespace: namespace,
-			Key:       randomValue(),
+			Key:       testrand.Bytes(32),
 		}
 
 		writer, err := store.Create(ctx, ref, -1)
@@ -117,9 +111,9 @@ func TestStoreLoad(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, n, len(data))
 
-		require.NoError(t, writer.Cancel())
+		require.NoError(t, writer.Cancel(ctx))
 		// commit after cancel should return an error
-		require.Error(t, writer.Commit())
+		require.Error(t, writer.Commit(ctx))
 
 		_, err = store.Open(ctx, ref)
 		require.Error(t, err)
@@ -164,8 +158,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	store, err := filestore.NewAt(ctx.Dir("store"))
 	require.NoError(t, err)
 
-	data := make([]byte, blobSize)
-	_, _ = rand.Read(data)
+	data := testrand.Bytes(blobSize)
 
 	ref := storage.BlobRef{
 		Namespace: []byte{0},
@@ -183,7 +176,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	require.Error(t, err, "loading uncommitted file should fail")
 
 	// commit the file
-	err = writer.Commit()
+	err = writer.Commit(ctx)
 	require.NoError(t, err, "commit the file")
 
 	// open a reader

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 CHANGES=$(grep -r --include="*.dbx.go" regexp.MustCompile .)
 

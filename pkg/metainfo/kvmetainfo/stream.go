@@ -19,9 +19,10 @@ var _ storj.ReadOnlyStream = (*readonlyStream)(nil)
 type readonlyStream struct {
 	db *DB
 
-	info          storj.Object
-	encryptedPath storj.Path
-	streamKey     *storj.Key // lazySegmentReader derivedKey
+	info      storj.Object
+	bucket    string
+	encPath   storj.Path
+	streamKey *storj.Key // lazySegmentReader derivedKey
 }
 
 func (stream *readonlyStream) Info() storj.Object { return stream.info }
@@ -44,10 +45,9 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		Index: index,
 	}
 
-	var segmentPath storj.Path
 	isLastSegment := segment.Index+1 == stream.info.SegmentCount
 	if !isLastSegment {
-		segmentPath = getSegmentPath(stream.encryptedPath, index)
+		segmentPath := getSegmentPath(storj.JoinPaths(stream.bucket, stream.encPath), index)
 		_, meta, err := stream.db.segments.Get(ctx, segmentPath)
 		if err != nil {
 			return segment, err
@@ -79,15 +79,11 @@ func (stream *readonlyStream) segment(ctx context.Context, index int64) (segment
 		return segment, err
 	}
 
-	pathComponents := storj.SplitPath(stream.encryptedPath)
-	bucket := pathComponents[0]
-	segmentPath = storj.JoinPaths(pathComponents[1:]...)
-
 	if isLastSegment {
 		index = -1
 	}
 
-	pointer, err := stream.db.metainfo.SegmentInfo(ctx, bucket, segmentPath, index)
+	pointer, err := stream.db.metainfo.SegmentInfo(ctx, stream.bucket, stream.encPath, index)
 	if err != nil {
 		return segment, err
 	}
@@ -141,10 +137,12 @@ type mutableStream struct {
 
 func (stream *mutableStream) Info() storj.Object { return stream.info }
 
-func (stream *mutableStream) AddSegments(ctx context.Context, segments ...storj.Segment) error {
+func (stream *mutableStream) AddSegments(ctx context.Context, segments ...storj.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return errors.New("not implemented")
 }
 
-func (stream *mutableStream) UpdateSegments(ctx context.Context, segments ...storj.Segment) error {
+func (stream *mutableStream) UpdateSegments(ctx context.Context, segments ...storj.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return errors.New("not implemented")
 }

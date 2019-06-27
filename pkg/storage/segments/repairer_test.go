@@ -4,7 +4,6 @@
 package segments_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
@@ -22,7 +22,6 @@ import (
 )
 
 func TestSegmentStoreRepair(t *testing.T) {
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -33,12 +32,11 @@ func TestSegmentStoreRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Stop()
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
+		satellite.Discovery.Service.Refresh.Stop()
 
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(1 * memory.MiB)
 
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
@@ -48,14 +46,14 @@ func TestSegmentStoreRepair(t *testing.T) {
 
 		// get a remote segment from metainfo
 		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List("", "", "", true, 0, 0)
+		listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = metainfo.Get(path)
+			pointer, err = metainfo.Get(ctx, path)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -68,7 +66,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
-		toKill := numPieces - int(minReq)
+		toKill := numPieces - (int(minReq) + 1)
 		// we should have enough storage nodes to repair on
 		assert.True(t, (numStorageNodes-toKill) >= numPieces)
 
@@ -100,7 +98,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		repairer := segments.NewSegmentRepairer(metainfo, os, oc, ec, satellite.Identity, time.Minute)
 		assert.NotNil(t, repairer)
 
-		err = repairer.Repair(ctx, path, lostPieces)
+		err = repairer.Repair(ctx, path)
 		assert.NoError(t, err)
 
 		// kill one of the nodes kept alive to ensure repair worked
@@ -120,7 +118,7 @@ func TestSegmentStoreRepair(t *testing.T) {
 		assert.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
-		pointer, err = metainfo.Get(path)
+		pointer, err = metainfo.Get(ctx, path)
 		assert.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()

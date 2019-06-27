@@ -4,8 +4,8 @@
 package metainfo
 
 import (
-	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"strconv"
 	"time"
@@ -17,15 +17,14 @@ import (
 	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/accounting"
-	"storj.io/storj/pkg/accounting/live"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/storage"
@@ -39,84 +38,80 @@ var (
 
 // APIKeys is api keys store methods used by endpoint
 type APIKeys interface {
-	GetByKey(ctx context.Context, key console.APIKey) (*console.APIKeyInfo, error)
+	GetByHead(ctx context.Context, head []byte) (*console.APIKeyInfo, error)
+}
+
+// Revocations is the revocations store methods used by the endpoint
+type Revocations interface {
+	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([][]byte, error)
+}
+
+// Containment is a copy/paste of containment interface to avoid import cycle error
+type Containment interface {
+	Delete(ctx context.Context, nodeID pb.NodeID) (bool, error)
 }
 
 // Endpoint metainfo endpoint
 type Endpoint struct {
-	log                     *zap.Logger
-	metainfo                *Service
-	orders                  *orders.Service
-	cache                   *overlay.Cache
-	apiKeys                 APIKeys
-	storagenodeAccountingDB accounting.StoragenodeAccounting
-	projectAccountingDB     accounting.ProjectAccounting
-	liveAccounting          live.Service
-	maxAlphaUsage           memory.Size
+	log            *zap.Logger
+	metainfo       *Service
+	orders         *orders.Service
+	cache          *overlay.Cache
+	partnerinfo    attribution.DB
+	projectUsage   *accounting.ProjectUsage
+	containment    Containment
+	apiKeys        APIKeys
+	createRequests *createRequests
+	rsConfig       RSConfig
 }
 
 // NewEndpoint creates new metainfo endpoint instance
-func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, apiKeys APIKeys, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *Endpoint {
+func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
-		log:                     log,
-		metainfo:                metainfo,
-		orders:                  orders,
-		cache:                   cache,
-		apiKeys:                 apiKeys,
-		storagenodeAccountingDB: sdb,
-		projectAccountingDB:     pdb,
-		liveAccounting:          liveAccounting,
-		maxAlphaUsage:           maxAlphaUsage,
+		log:            log,
+		metainfo:       metainfo,
+		orders:         orders,
+		cache:          cache,
+		partnerinfo:    partnerinfo,
+		containment:    containment,
+		apiKeys:        apiKeys,
+		projectUsage:   projectUsage,
+		createRequests: newCreateRequests(),
+		rsConfig:       rsConfig,
 	}
 }
 
 // Close closes resources
 func (endpoint *Endpoint) Close() error { return nil }
 
-func (endpoint *Endpoint) validateAuth(ctx context.Context) (*console.APIKeyInfo, error) {
-	APIKey, ok := auth.GetAPIKey(ctx)
-	if !ok {
-		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	key, err := console.APIKeyFromBase32(string(APIKey))
-	if err != nil {
-		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, "Invalid API credential")))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	keyInfo, err := endpoint.apiKeys.GetByKey(ctx, *key)
-	if err != nil {
-		endpoint.log.Error("unauthorized request: ", zap.Error(status.Errorf(codes.Unauthenticated, err.Error())))
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
-	}
-
-	return keyInfo, nil
-}
-
 // SegmentInfo returns segment metadata info
 func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRequest) (resp *pb.SegmentInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -131,36 +126,35 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.validateRedundancy(req.Redundancy)
+	err = endpoint.validateRedundancy(ctx, req.Redundancy)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// Check if this projectID has exceeded alpha usage limits, i.e. 25GB of bandwidth or storage used in the past month
-	// TODO: remove this code once we no longer need usage limiting for alpha release
-	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-	inlineTotal, remoteTotal, err := endpoint.getProjectStorageTotals(ctx, keyInfo.ProjectID)
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
 	if err != nil {
 		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
-
 	}
-	exceeded, resource := accounting.ExceedsAlphaUsage(0, inlineTotal, remoteTotal, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for %s for projectID %s.",
-			endpoint.maxAlphaUsage.String(),
-			resource, keyInfo.ProjectID,
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s",
+			limit, keyInfo.ProjectID,
 		)
-		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(req.GetRedundancy())
@@ -191,19 +185,14 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 		return nil, Error.Wrap(err)
 	}
 
-	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
-}
+	if len(addressedLimits) > 0 {
+		endpoint.createRequests.Put(addressedLimits[0].Limit.SerialNumber, &createRequest{
+			Expiration: req.Expiration,
+			Redundancy: req.Redundancy,
+		})
+	}
 
-func (endpoint *Endpoint) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error) {
-	lastCountInline, lastCountRemote, err := endpoint.projectAccountingDB.GetStorageTotals(ctx, projectID)
-	if err != nil {
-		return 0, 0, err
-	}
-	rtInline, rtRemote, err := endpoint.liveAccounting.GetProjectStorageUsage(ctx, projectID)
-	if err != nil {
-		return 0, 0, err
-	}
-	return lastCountInline + rtInline, lastCountRemote + rtRemote, nil
+	return &pb.SegmentWriteResponse{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
 }
 
 func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
@@ -226,55 +215,63 @@ func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.validateCommit(req)
+	err = endpoint.validateCommitSegment(ctx, req)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.filterValidPieces(req.Pointer)
+	err = endpoint.filterValidPieces(ctx, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
-	if err := endpoint.liveAccounting.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	err = endpoint.metainfo.Put(path, req.Pointer)
+	err = endpoint.metainfo.Put(ctx, path, req.Pointer)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	if req.Pointer.Type == pb.Pointer_INLINE {
-		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		// TODO or maybe use pointer.SegmentSize ??
-		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
+		err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(req.Pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 	}
 
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	if len(req.OriginalLimits) > 0 {
+		endpoint.createRequests.Remove(req.OriginalLimits[0].SerialNumber)
 	}
 
 	return &pb.SegmentCommitResponse{Pointer: pointer}, nil
@@ -284,40 +281,41 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	// Check if this projectID has exceeded alpha usage limits for bandwidth or storage used in the past month
-	// TODO: remove this code once we no longer need usage limiting for alpha release
-	// Ref: https://storjlabs.atlassian.net/browse/V3-1274
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-	from := time.Now().AddDate(0, 0, -accounting.AverageDaysInMonth) // past 30 days
-	bandwidthTotal, err := endpoint.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, bucketID, from)
+
+	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID, bucketID)
 	if err != nil {
-		endpoint.log.Error("retrieving ProjectBandwidthTotal", zap.Error(err))
+		endpoint.log.Error("retrieving project bandwidth total", zap.Error(err))
 	}
-	exceeded, resource := accounting.ExceedsAlphaUsage(bandwidthTotal, 0, 0, endpoint.maxAlphaUsage)
 	if exceeded {
-		endpoint.log.Sugar().Errorf("monthly project usage limit has been exceeded for resource: %s, for project: %d. Contact customer support to increase the limit.",
-			resource, keyInfo.ProjectID,
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for bandwidth for projectID %s.",
+			limit, keyInfo.ProjectID,
 		)
-		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Alpha Usage Limit")
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -327,7 +325,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	if pointer.Type == pb.Pointer_INLINE {
 		// TODO or maybe use pointer.SegmentSize ??
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucketID, int64(len(pointer.InlineSegment)))
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -352,23 +350,28 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDeleteRequest) (resp *pb.SegmentDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Path,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(req.Bucket)
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	path, err := CreatePath(keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
+	path, err := CreatePath(ctx, keyInfo.ProjectID, req.Segment, req.Bucket, req.Path)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	// TODO refactor to use []byte directly
-	pointer, err := endpoint.metainfo.Get(path)
+	pointer, err := endpoint.metainfo.Get(ctx, path)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
 			return nil, status.Errorf(codes.NotFound, err.Error())
@@ -376,7 +379,8 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.metainfo.Delete(path)
+	err = endpoint.metainfo.Delete(ctx, path)
+
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -385,6 +389,13 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			_, err := endpoint.containment.Delete(ctx, piece.NodeId)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
 		}
 
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
@@ -403,17 +414,22 @@ func (endpoint *Endpoint) DeleteSegment(ctx context.Context, req *pb.SegmentDele
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.ListSegmentsRequest) (resp *pb.ListSegmentsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	keyInfo, err := endpoint.validateAuth(ctx)
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Prefix,
+		Time:          time.Now(),
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	prefix, err := CreatePath(keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.Prefix)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	items, more, err := endpoint.metainfo.List(prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
+	items, more, err := endpoint.metainfo.List(ctx, prefix, string(req.StartAfter), string(req.EndBefore), req.Recursive, req.Limit, req.MetaFlags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListV2: %v", err)
 	}
@@ -437,7 +453,9 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
@@ -457,8 +475,10 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 			remotePieces = append(remotePieces, piece)
 		}
 
-		if int32(len(remotePieces)) < remote.Redundancy.RepairThreshold {
-			return Error.New("Number of valid pieces is lower then repair threshold: %v < %v",
+		// we repair when the number of healthy files is less than or equal to the repair threshold
+		// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
+		if int32(len(remotePieces)) <= remote.Redundancy.RepairThreshold && int32(len(remotePieces)) < remote.Redundancy.SuccessThreshold {
+			return Error.New("Number of valid pieces (%d) is less than or equal to the repair threshold (%d)",
 				len(remotePieces),
 				remote.Redundancy.RepairThreshold,
 			)
@@ -469,77 +489,9 @@ func (endpoint *Endpoint) filterValidPieces(pointer *pb.Pointer) error {
 	return nil
 }
 
-func (endpoint *Endpoint) validateBucket(bucket []byte) error {
-	if len(bucket) == 0 {
-		return errs.New("bucket not specified")
-	}
-	if bytes.ContainsAny(bucket, "/") {
-		return errs.New("bucket should not contain slash")
-	}
-	return nil
-}
-
-func (endpoint *Endpoint) validateCommit(req *pb.SegmentCommitRequest) error {
-	err := endpoint.validatePointer(req.Pointer)
-	if err != nil {
-		return err
-	}
-
-	if req.Pointer.Type == pb.Pointer_REMOTE {
-		remote := req.Pointer.Remote
-
-		if len(req.OriginalLimits) == 0 {
-			return Error.New("no order limits")
-		}
-		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
-			return Error.New("invalid no order limit for piece")
-		}
-
-		for _, piece := range remote.RemotePieces {
-			limit := req.OriginalLimits[piece.PieceNum]
-
-			err := endpoint.orders.VerifyOrderLimitSignature(limit)
-			if err != nil {
-				return err
-			}
-
-			if limit == nil {
-				return Error.New("invalid no order limit for piece")
-			}
-			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId)
-			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
-				return Error.New("invalid order limit piece id")
-			}
-			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
-				return Error.New("piece NodeID != order limit NodeID")
-			}
-		}
-	}
-	return nil
-}
-
-func (endpoint *Endpoint) validatePointer(pointer *pb.Pointer) error {
-	if pointer == nil {
-		return Error.New("no pointer specified")
-	}
-
-	// TODO does it all?
-	if pointer.Type == pb.Pointer_REMOTE {
-		if pointer.Remote == nil {
-			return Error.New("no remote segment specified")
-		}
-		if pointer.Remote.RemotePieces == nil {
-			return Error.New("no remote segment pieces specified")
-		}
-		if pointer.Remote.Redundancy == nil {
-			return Error.New("no redundancy scheme specified")
-		}
-	}
-	return nil
-}
-
 // CreatePath will create a Segment path
-func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (storj.Path, error) {
+func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ storj.Path, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if segmentIndex < -1 {
 		return "", errors.New("invalid segment index")
 	}
@@ -560,10 +512,90 @@ func CreatePath(projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (s
 	return storj.JoinPaths(entries...), nil
 }
 
-func (endpoint *Endpoint) validateRedundancy(redundancy *pb.RedundancyScheme) error {
-	// TODO more validation, use validation from eestream.NewRedundancyStrategy
-	if redundancy.ErasureShareSize <= 0 {
-		return Error.New("erasure share size cannot be less than 0")
+// SetAttribution tries to add attribution to the bucket.
+func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttributionRequest) (_ *pb.SetAttributionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// try to add an attribution that doesn't exist
+	partnerID, err := bytesToUUID(req.GetPartnerId())
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
-	return nil
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.BucketName,
+		EncryptedPath: []byte(""),
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// check if attribution is set for given bucket
+	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
+	if err == nil {
+		endpoint.log.Sugar().Info("Bucket:", string(req.BucketName), " PartnerID:", partnerID.String(), "already attributed")
+		return &pb.SetAttributionResponse{}, nil
+	}
+
+	if !attribution.ErrBucketNotAttributed.Has(err) {
+		// try only to set the attribution, when it's missing
+		return nil, Error.Wrap(err)
+	}
+
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.BucketName, []byte(""))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	items, _, err := endpoint.metainfo.List(ctx, prefix, "", "", true, 1, 0)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if len(items) > 0 {
+		return nil, Error.New("Bucket(%q) , PartnerID(%s) cannot be attributed", req.BucketName, req.PartnerId)
+	}
+
+	_, err = endpoint.partnerinfo.Insert(ctx, &attribution.Info{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: req.GetBucketName(),
+		PartnerID:  partnerID,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &pb.SetAttributionResponse{}, nil
+}
+
+// bytesToUUID is used to convert []byte to UUID
+func bytesToUUID(data []byte) (uuid.UUID, error) {
+	var id uuid.UUID
+
+	copy(id[:], data)
+	if len(id) != len(data) {
+		return uuid.UUID{}, errs.New("Invalid uuid")
+	}
+
+	return id, nil
+}
+
+// ProjectInfo returns allowed ProjectInfo for the provided API key
+func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:   macaroon.ActionProjectInfo,
+		Time: time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	salt := sha256.Sum256(keyInfo.ProjectID[:])
+
+	return &pb.ProjectInfoResponse{
+		ProjectSalt: salt[:],
+	}, nil
 }

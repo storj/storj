@@ -28,6 +28,8 @@ type Client interface {
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	Identity() *identity.FullIdentity
 	WithObservers(obs ...Observer) Client
+	AlertSuccess(ctx context.Context, node *pb.Node)
+	AlertFail(ctx context.Context, node *pb.Node, err error)
 }
 
 // Timeouts contains all of the timeouts configurable for a transport
@@ -70,7 +72,7 @@ func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...O
 // DialAddress. The connection will be established successfully only if the
 // target node has the private key for the requested node ID.
 func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, "node: "+node.Id.String()[0:8])(&err)
 
 	if node.Address == nil || node.Address.Address == "" {
 		return nil, Error.New("no address")
@@ -101,11 +103,11 @@ func (transport *Transport) DialNode(ctx context.Context, node *pb.Node, opts ..
 		if err == context.Canceled {
 			return nil, err
 		}
-		alertFail(timedCtx, transport.observers, node, err)
+		transport.AlertFail(timedCtx, node, err)
 		return nil, Error.Wrap(err)
 	}
 
-	alertSuccess(timedCtx, transport.observers, node)
+	transport.AlertSuccess(timedCtx, node)
 
 	return conn, nil
 }
@@ -134,6 +136,8 @@ func (transport *Transport) DialAddress(ctx context.Context, address string, opt
 	timedCtx, cancel := context.WithTimeout(ctx, transport.timeouts.Dial)
 	defer cancel()
 
+	// TODO: this should also call alertFail or alertSuccess with the node id. We should be able
+	// to get gRPC to give us the node id after dialing?
 	conn, err = grpc.DialContext(timedCtx, address, options...)
 	if err == context.Canceled {
 		return nil, err
@@ -154,14 +158,18 @@ func (transport *Transport) WithObservers(obs ...Observer) Client {
 	return tr
 }
 
-func alertFail(ctx context.Context, obs []Observer, node *pb.Node, err error) {
-	for _, o := range obs {
+// AlertFail alerts any subscribed observers of the failure 'err' for 'node'
+func (transport *Transport) AlertFail(ctx context.Context, node *pb.Node, err error) {
+	defer mon.Task()(&ctx)(nil)
+	for _, o := range transport.observers {
 		o.ConnFailure(ctx, node, err)
 	}
 }
 
-func alertSuccess(ctx context.Context, obs []Observer, node *pb.Node) {
-	for _, o := range obs {
+// AlertSuccess alerts any subscribed observers of success for 'node'
+func (transport *Transport) AlertSuccess(ctx context.Context, node *pb.Node) {
+	defer mon.Task()(&ctx)(nil)
+	for _, o := range transport.observers {
 		o.ConnSuccess(ctx, node)
 	}
 }

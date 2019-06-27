@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -53,8 +54,8 @@ func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accountin
 
 // Run the tally service loop
 func (t *Service) Run(ctx context.Context) (err error) {
-	t.logger.Info("Tally service starting up")
 	defer mon.Task()(&ctx)(&err)
+	t.logger.Info("Tally service starting up")
 
 	for {
 		if err = t.Tally(ctx); err != nil {
@@ -69,7 +70,8 @@ func (t *Service) Run(ctx context.Context) (err error) {
 }
 
 // Tally calculates data-at-rest usage once
-func (t *Service) Tally(ctx context.Context) error {
+func (t *Service) Tally(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// The live accounting store will only keep a delta to space used relative
 	// to the latest tally. Since a new tally is beginning, we will zero it out
 	// now. There is a window between this call and the point where the tally DB
@@ -90,6 +92,7 @@ func (t *Service) Tally(ctx context.Context) error {
 				errAtRest = errs.New("Saving storage node data-at-rest failed : %v", err)
 			}
 		}
+
 		if len(bucketData) > 0 {
 			_, err = t.projectAccountingDB.SaveTallies(ctx, latestTally, bucketData)
 			if err != nil {
@@ -112,14 +115,13 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	nodeData = make(map[storj.NodeID]float64)
 	bucketTallies = make(map[string]*accounting.BucketTally)
 
-	var currentBucket string
 	var bucketCount int64
-	var totalTallies, currentBucketTally accounting.BucketTally
+	var totalTallies accounting.BucketTally
 
-	err = t.metainfo.Iterate("", "", true, false,
-		func(it storage.Iterator) error {
+	err = t.metainfo.Iterate(ctx, "", "", true, false,
+		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
-			for it.Next(&item) {
+			for it.Next(ctx, &item) {
 
 				pointer := &pb.Pointer{}
 				err = proto.Unmarshal(item.Value, pointer)
@@ -136,27 +138,24 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 				if len(pathElements) == 3 {
 					bucketCount++
 				} else if len(pathElements) >= 4 {
-
 					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
+
 					bucketID := storj.JoinPaths(project, bucketName)
 
-					// paths are iterated in order, so everything in a bucket is
-					// iterated together. When a project or bucket changes,
-					// the previous bucket is completely finished.
-					if currentBucket != bucketID {
-						if currentBucket != "" {
-							// report the previous bucket and add to the totals
-							currentBucketTally.Report("bucket")
-							totalTallies.Combine(&currentBucketTally)
+					bucketTally := bucketTallies[bucketID]
+					projectID, err := uuid.Parse(project)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+					if bucketTally == nil {
+						bucketTally = &accounting.BucketTally{}
+						bucketTally.ProjectID = projectID[:]
+						bucketTally.BucketName = []byte(bucketName)
 
-							// add currentBucketTally to bucketTallies
-							bucketTallies[currentBucket] = &currentBucketTally
-							currentBucketTally = accounting.BucketTally{}
-						}
-						currentBucket = bucketID
+						bucketTallies[bucketID] = bucketTally
 					}
 
-					currentBucketTally.AddSegment(pointer, segment == "l")
+					bucketTally.AddSegment(pointer, segment == "l")
 				}
 
 				remote := pointer.GetRemote()
@@ -191,11 +190,11 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 		return latestTally, nodeData, bucketTallies, Error.Wrap(err)
 	}
 
-	if currentBucket != "" {
-		// wrap up the last bucket
-		totalTallies.Combine(&currentBucketTally)
-		bucketTallies[currentBucket] = &currentBucketTally
+	for _, bucketTally := range bucketTallies {
+		bucketTally.Report("bucket")
+		totalTallies.Combine(bucketTally)
 	}
+
 	totalTallies.Report("total")
 	mon.IntVal("bucket_count").Observe(bucketCount)
 

@@ -131,12 +131,28 @@ const (
 	NonceSize = 24
 )
 
+// NewKey creates a new Storj key from humanReadableKey.
+func NewKey(humanReadableKey []byte) (*Key, error) {
+	var key Key
+
+	// Because of backward compatibility the key is filled with 0 or truncated if
+	// humanReadableKey isn't of the same size that KeySize.
+	// See https://github.com/storj/storj/pull/1967#discussion_r285544849
+	copy(key[:], humanReadableKey)
+	return &key, nil
+}
+
 // Key represents the largest key used by any encryption protocol
 type Key [KeySize]byte
 
 // Raw returns the key as a raw byte array pointer
 func (key *Key) Raw() *[KeySize]byte {
 	return (*[KeySize]byte)(key)
+}
+
+// IsZero returns true if key is nil or it points to its zero value
+func (key *Key) IsZero() bool {
+	return key == nil || *key == (Key{})
 }
 
 // Nonce represents the largest nonce used by any encryption protocol

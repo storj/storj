@@ -6,8 +6,12 @@ package satellitedb
 import (
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestBytesToUUID(t *testing.T) {
@@ -22,11 +26,24 @@ func TestBytesToUUID(t *testing.T) {
 	})
 
 	t.Run("Valid input", func(t *testing.T) {
-		id, err := uuid.New()
-		assert.NoError(t, err)
-
+		id := testrand.UUID()
 		result, err := bytesToUUID(id[:])
 		assert.NoError(t, err)
-		assert.Equal(t, result, *id)
+		assert.Equal(t, result, id)
 	})
+}
+
+func TestPostgresNodeIDsArray(t *testing.T) {
+	ids := make(storj.NodeIDList, 10)
+	for i := range ids {
+		ids[i] = testrand.NodeID()
+	}
+
+	got, err := postgresNodeIDList(ids).Value() // returns a []byte
+	require.NoError(t, err)
+
+	expected, err := pq.ByteaArray(ids.Bytes()).Value() // returns a string
+	require.NoError(t, err)
+
+	assert.Equal(t, expected.(string), string(got.([]byte)))
 }

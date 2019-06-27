@@ -5,7 +5,6 @@ package cfgstruct
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -94,23 +93,6 @@ func TestConfDir(t *testing.T) {
 	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, "2confpath3")
 }
 
-func TestNesting(t *testing.T) {
-	f := pflag.NewFlagSet("test", pflag.PanicOnError)
-	var c struct {
-		String    string `default:"-$CONFDIR+"`
-		MyStruct1 struct {
-			String    string `default:"1${CONFDIR}2"`
-			MyStruct2 struct {
-				String string `default:"2${CONFDIR}3"`
-			}
-		}
-	}
-	Bind(f, &c, UseReleaseDefaults(), ConfDirNested("confpath"))
-	assertEqual(f.Lookup("string").DefValue, "-confpath+")
-	assertEqual(f.Lookup("my-struct1.string").DefValue, filepath.FromSlash("1confpath/my-struct12"))
-	assertEqual(f.Lookup("my-struct1.my-struct2.string").DefValue, filepath.FromSlash("2confpath/my-struct1/my-struct23"))
-}
-
 func TestBindDevDefaults(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
@@ -167,4 +149,50 @@ func TestBindDevDefaults(t *testing.T) {
 	assertEqual(c.Struct.AnotherString, string("1"))
 	assertEqual(c.Fields[0].AnotherInt, int(6))
 	assertEqual(c.Fields[3].AnotherInt, int(1))
+}
+
+func TestHiddenDev(t *testing.T) {
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
+	var c struct {
+		String  string `default:"dev" hidden:"true"`
+		String2 string `default:"dev" hidden:"false"`
+		Bool    bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64   int64  `releaseDefault:"0" devDefault:"1"`
+		Int     int    `default:"2"`
+	}
+	Bind(f, &c, UseDevDefaults())
+
+	flagString := f.Lookup("string")
+	flagStringHide := f.Lookup("string2")
+	flagBool := f.Lookup("bool")
+	flagInt64 := f.Lookup("int64")
+	flagInt := f.Lookup("int")
+	assertEqual(flagString.Hidden, true)
+	assertEqual(flagStringHide.Hidden, false)
+	assertEqual(flagBool.Hidden, true)
+	assertEqual(flagInt64.Hidden, false)
+	assertEqual(flagInt.Hidden, false)
+}
+
+func TestHiddenRelease(t *testing.T) {
+	f := pflag.NewFlagSet("test", pflag.PanicOnError)
+	var c struct {
+		String  string `default:"dev" hidden:"false"`
+		String2 string `default:"dev" hidden:"true"`
+		Bool    bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64   int64  `releaseDefault:"0" devDefault:"1"`
+		Int     int    `default:"2"`
+	}
+	Bind(f, &c, UseReleaseDefaults())
+
+	flagString := f.Lookup("string")
+	flagStringHide := f.Lookup("string2")
+	flagBool := f.Lookup("bool")
+	flagInt64 := f.Lookup("int64")
+	flagInt := f.Lookup("int")
+	assertEqual(flagString.Hidden, false)
+	assertEqual(flagStringHide.Hidden, true)
+	assertEqual(flagBool.Hidden, true)
+	assertEqual(flagInt64.Hidden, false)
+	assertEqual(flagInt.Hidden, false)
 }

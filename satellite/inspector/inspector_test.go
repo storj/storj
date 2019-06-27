@@ -5,7 +5,7 @@ package inspector_test
 
 import (
 	"bytes"
-	"crypto/rand"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -26,22 +27,20 @@ func TestInspectorStats(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(1 * memory.MiB)
 
 		bucket := "testbucket"
 
-		err = uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
+		err := uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
 		require.NoError(t, err)
 
 		healthEndpoint := planet.Satellites[0].Inspector.Endpoint
 
 		// Get path of random segment we just uploaded and check the health
-		_ = planet.Satellites[0].Metainfo.Database.Iterate(storage.IterateOptions{Recurse: true},
-			func(it storage.Iterator) error {
+		_ = planet.Satellites[0].Metainfo.Database.Iterate(ctx, storage.IterateOptions{Recurse: true},
+			func(ctx context.Context, it storage.Iterator) error {
 				var item storage.ListItem
-				for it.Next(&item) {
+				for it.Next(ctx, &item) {
 					if bytes.Contains(item.Key, []byte(fmt.Sprintf("%s/", bucket))) {
 						break
 					}

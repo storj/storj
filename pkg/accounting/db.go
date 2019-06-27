@@ -9,6 +9,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -71,7 +72,9 @@ type ProjectAccounting interface {
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
-	GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error)
+	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
+	// GetProjectUsageLimits returns project usage limit
+	GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (memory.Size, error)
 }

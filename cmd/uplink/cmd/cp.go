@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -82,10 +83,12 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	if err != nil {
+		return err
+	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), encCtx)
 	if err != nil {
 		return err
 	}
@@ -95,7 +98,8 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
 	if showProgress {
-		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(fileInfo.Size()).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(reader)
 	}
@@ -132,10 +136,12 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	if err != nil {
+		return err
+	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), encCtx)
 	if err != nil {
 		return err
 	}
@@ -156,7 +162,8 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES)
+		bar = progressbar.New64(object.Meta.Size).SetUnits(progressbar.U_BYTES).SetWidth(80)
+		bar.ShowSpeed = true
 		bar.Start()
 		reader = bar.NewProxyReader(rc)
 	} else {
@@ -208,10 +215,12 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	if err != nil {
+		return err
+	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), encCtx)
 	if err != nil {
 		return err
 	}

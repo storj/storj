@@ -4,10 +4,10 @@
 package testplanet_test
 
 import (
+	"bytes"
 	"context"
-	"crypto/rand"
+	"fmt"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
@@ -26,21 +27,46 @@ import (
 	"storj.io/storj/uplink"
 )
 
-func TestUploadDownload(t *testing.T) {
+func TestUplinksParallel(t *testing.T) {
+	t.Skip("flaky")
+
+	const uplinkCount = 3
+	const parallelCount = 2
+
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: uplinkCount,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		expectedData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(expectedData)
-		assert.NoError(t, err)
+		satellite := planet.Satellites[0]
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
-		assert.NoError(t, err)
+		var group errgroup.Group
+		for i := range planet.Uplinks {
+			uplink := planet.Uplinks[i]
 
-		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path")
-		assert.NoError(t, err)
+			for p := 0; p < parallelCount; p++ {
+				suffix := fmt.Sprintf("-%d-%d", i, p)
+				group.Go(func() error {
+					data := testrand.Bytes(memory.Size(100+testrand.Intn(500)) * memory.KiB)
 
-		assert.Equal(t, expectedData, data)
+					err := uplink.Upload(ctx, satellite, "testbucket"+suffix, "test/path"+suffix, data)
+					if err != nil {
+						return err
+					}
+
+					downloaded, err := uplink.Download(ctx, satellite, "testbucket"+suffix, "test/path"+suffix)
+					if err != nil {
+						return err
+					}
+
+					if !bytes.Equal(data, downloaded) {
+						return fmt.Errorf("upload != download data: %s", suffix)
+					}
+
+					return nil
+				})
+			}
+		}
+		err := group.Wait()
+		require.NoError(t, err)
 	})
 }
 
@@ -55,11 +81,9 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
 
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(memory.MiB)
 
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
@@ -69,14 +93,14 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := satellite.Metainfo.Service
-		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = pdb.Get(path)
+			pointer, err = pdb.Get(ctx, path)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break
@@ -116,92 +140,6 @@ func TestDownloadWithSomeNodesOffline(t *testing.T) {
 	})
 }
 
-func TestUploadDownloadOneUplinksInParallel(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		dataToUpload := make([][]byte, 5)
-		for i := 0; i < len(dataToUpload); i++ {
-			dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
-			_, err := rand.Read(dataToUpload[i])
-			require.NoError(t, err)
-		}
-
-		var group errgroup.Group
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[0]
-			satellite := planet.Satellites[0]
-
-			data := data
-			group.Go(func() error {
-				return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, data)
-			})
-		}
-		err := group.Wait()
-		require.NoError(t, err)
-
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[0]
-			satellite := planet.Satellites[0]
-
-			expectedData := data
-			group.Go(func() error {
-				data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
-				require.Equal(t, expectedData, data)
-				return err
-			})
-		}
-		err = group.Wait()
-		require.NoError(t, err)
-	})
-}
-
-func TestUploadDownloadMultipleUplinksInParallel(t *testing.T) {
-	numberOfUplinks := 5
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: numberOfUplinks,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		dataToUpload := make([][]byte, numberOfUplinks)
-		for i := 0; i < len(dataToUpload); i++ {
-			dataToUpload[i] = make([]byte, 100*memory.KiB.Int()+(i*100*memory.KiB.Int()))
-			_, err := rand.Read(dataToUpload[i])
-			require.NoError(t, err)
-		}
-
-		var group errgroup.Group
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[i]
-			satellite := planet.Satellites[0]
-
-			data := data
-			group.Go(func() error {
-				return uplink.Upload(ctx, satellite, "testbucket"+index, "test/path"+index, data)
-			})
-		}
-		err := group.Wait()
-		require.NoError(t, err)
-
-		for i, data := range dataToUpload {
-			index := strconv.Itoa(i)
-			uplink := planet.Uplinks[i]
-			satellite := planet.Satellites[0]
-
-			expectedData := data
-			group.Go(func() error {
-				data, err := uplink.Download(ctx, satellite, "testbucket"+index, "test/path"+index)
-				require.Equal(t, expectedData, data)
-				return err
-			})
-		}
-		err = group.Wait()
-		require.NoError(t, err)
-	})
-}
-
 type piecestoreMock struct {
 }
 
@@ -227,12 +165,9 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		expectedData := testrand.Bytes(memory.MiB)
 
-		expectedData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(expectedData)
-		assert.NoError(t, err)
-
-		err = planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
+		err := planet.Uplinks[0].UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
 			MinThreshold:     2,
 			RepairThreshold:  3,
 			SuccessThreshold: 4,
@@ -242,14 +177,14 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 
 		// get a remote segment from pointerdb
 		pdb := planet.Satellites[0].Metainfo.Service
-		listResponse, _, err := pdb.List("", "", "", true, 0, 0)
+		listResponse, _, err := pdb.List(ctx, "", "", "", true, 0, 0)
 		require.NoError(t, err)
 
 		var path string
 		var pointer *pb.Pointer
 		for _, v := range listResponse {
 			path = v.GetPath()
-			pointer, err = pdb.Get(path)
+			pointer, err = pdb.Get(ctx, path)
 			require.NoError(t, err)
 			if pointer.GetType() == pb.Pointer_REMOTE {
 				break

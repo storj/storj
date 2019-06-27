@@ -5,10 +5,12 @@ package pieces
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
@@ -23,8 +25,12 @@ const (
 	preallocSize    = 4 * memory.MiB
 )
 
-// Error is the default error class.
-var Error = errs.Class("pieces error")
+var (
+	// Error is the default error class.
+	Error = errs.Class("pieces error")
+
+	mon = monkit.Package()
+)
 
 // Info contains all the information we need to know about a Piece to manage them.
 type Info struct {
@@ -57,6 +63,8 @@ type DB interface {
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
 	// SpaceUsed calculates disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
+	// SpaceUsedBySatellite calculates disk space used by all pieces by satellite
+	SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error)
 	// GetExpired gets orders that are expired and were created before some time
 	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
 }
@@ -76,7 +84,8 @@ func NewStore(log *zap.Logger, blobs storage.Blobs) *Store {
 }
 
 // Writer returns a new piece writer.
-func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Writer, error) {
+func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Writer, err error) {
+	defer mon.Task()(&ctx)(&err)
 	blob, err := store.blobs.Create(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
@@ -90,12 +99,16 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 }
 
 // Reader returns a new piece reader.
-func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (*Reader, error) {
+func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ *Reader, err error) {
+	defer mon.Task()(&ctx)(&err)
 	blob, err := store.blobs.Open(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	})
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, err
+		}
 		return nil, Error.Wrap(err)
 	}
 
@@ -104,8 +117,9 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 }
 
 // Delete deletes the specified piece.
-func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) error {
-	err := store.blobs.Delete(ctx, storage.BlobRef{
+func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	err = store.blobs.Delete(ctx, storage.BlobRef{
 		Namespace: satellite.Bytes(),
 		Key:       pieceID.Bytes(),
 	})
@@ -119,7 +133,8 @@ type StorageStatus struct {
 }
 
 // StorageStatus returns information about the disk.
-func (store *Store) StorageStatus() (StorageStatus, error) {
+func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err error) {
+	defer mon.Task()(&ctx)(&err)
 	diskFree, err := store.blobs.FreeSpace()
 	if err != nil {
 		return StorageStatus{}, err

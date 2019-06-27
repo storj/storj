@@ -27,6 +27,8 @@ type Bucket struct {
 	streams  streams.Store
 }
 
+// TODO: move the object related OpenObject to object.go
+
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -96,6 +98,38 @@ type UploadOptions struct {
 func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Reader, opts *UploadOptions) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	upload, err := b.NewWriter(ctx, path, opts)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(upload, data)
+
+	return errs.Combine(err, upload.Close())
+}
+
+// DeleteObject removes an object, if authorized.
+func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
+}
+
+// ListOptions controls options for the ListObjects() call.
+type ListOptions = storj.ListOptions
+
+// ListObjects lists objects a user is authorized to see.
+func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if cfg == nil {
+		cfg = &storj.ListOptions{Direction: storj.Forward}
+	}
+	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
+}
+
+// NewWriter creates a writer which uploads the object.
+func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOptions) (_ io.WriteCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if opts == nil {
 		opts = &UploadOptions{}
 	}
@@ -134,37 +168,35 @@ func (b *Bucket) UploadObject(ctx context.Context, path storj.Path, data io.Read
 
 	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	mutableStream, err := obj.CreateStream(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	upload := stream.NewUpload(ctx, mutableStream, b.streams)
-
-	_, err = io.Copy(upload, data)
-
-	return errs.Combine(err, upload.Close())
+	return upload, nil
 }
 
-// DeleteObject removes an object, if authorized.
-func (b *Bucket) DeleteObject(ctx context.Context, path storj.Path) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return b.metainfo.DeleteObject(ctx, b.bucket.Name, path)
+// ReadSeekCloser combines interfaces io.Reader, io.Seeker, io.Closer
+type ReadSeekCloser interface {
+	io.Reader
+	io.Seeker
+	io.Closer
 }
 
-// ListOptions controls options for the ListObjects() call.
-type ListOptions = storj.ListOptions
-
-// ListObjects lists objects a user is authorized to see.
-func (b *Bucket) ListObjects(ctx context.Context, cfg *ListOptions) (list storj.ObjectList, err error) {
+// NewReader creates a new reader that downloads the object data.
+func (b *Bucket) NewReader(ctx context.Context, path storj.Path) (_ ReadSeekCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
-	if cfg == nil {
-		cfg = &storj.ListOptions{}
+
+	segmentStream, err := b.metainfo.GetObjectStream(ctx, b.Name, path)
+	if err != nil {
+		return nil, err
 	}
-	return b.metainfo.ListObjects(ctx, b.bucket.Name, *cfg)
+
+	return stream.NewDownload(ctx, segmentStream, b.streams), nil
 }
 
 // Close closes the Bucket session.

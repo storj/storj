@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	minio "github.com/minio/minio/cmd"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
@@ -22,9 +24,11 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/miniogw"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/console"
@@ -51,17 +55,19 @@ func TestUploadDownload(t *testing.T) {
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
 		Name: "testProject",
 	})
-
 	assert.NoError(t, err)
 
-	apiKey := console.APIKey{}
+	apiKey, err := macaroon.NewAPIKey([]byte("testSecret"))
+	assert.NoError(t, err)
+
 	apiKeyInfo := console.APIKeyInfo{
 		ProjectID: project.ID,
 		Name:      "testKey",
+		Secret:    []byte("testSecret"),
 	}
 
 	// add api key to db
-	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey, apiKeyInfo)
+	_, err = planet.Satellites[0].DB.Console().APIKeys().Create(context.Background(), apiKey.Head(), apiKeyInfo)
 	assert.NoError(t, err)
 
 	// bind default values to config
@@ -79,7 +85,16 @@ func TestUploadDownload(t *testing.T) {
 
 	// keys
 	uplinkCfg.Client.APIKey = "apiKey"
-	uplinkCfg.Enc.Key = "encKey"
+
+	// Encryption key
+	passphrase := testrand.BytesInt(testrand.Intn(100) + 1)
+
+	encryptionKey, err := storj.NewKey(passphrase)
+	require.NoError(t, err)
+	filename := ctx.File("encryption.key")
+	err = ioutil.WriteFile(filename, encryptionKey[:], os.FileMode(0400))
+	require.NoError(t, err)
+	uplinkCfg.Enc.KeyFilepath = filename
 
 	// redundancy
 	uplinkCfg.RS.MinThreshold = 7
@@ -112,7 +127,7 @@ func TestUploadDownload(t *testing.T) {
 		AccessKey:     gwCfg.Minio.AccessKey,
 		SecretKey:     gwCfg.Minio.SecretKey,
 		APIKey:        uplinkCfg.Client.APIKey,
-		EncryptionKey: uplinkCfg.Enc.Key,
+		EncryptionKey: string(encryptionKey[:]),
 		NoSSL:         true,
 	})
 	assert.NoError(t, err)
@@ -190,19 +205,14 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	encKey := new(storj.Key)
-	copy(encKey[:], uplinkCfg.Enc.Key)
-
-	var projectOptions libuplink.ProjectOptions
-	projectOptions.Volatile.EncryptionKey = encKey
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey, &projectOptions)
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		return err
 	}
 
 	gw := miniogw.NewStorjGateway(
 		project,
-		encKey,
+		libuplink.NewEncryptionCtxWithDefaultKey(storj.Key{}),
 		storj.Cipher(uplinkCfg.Enc.PathType).ToCipherSuite(),
 		uplinkCfg.GetEncryptionScheme().ToEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),

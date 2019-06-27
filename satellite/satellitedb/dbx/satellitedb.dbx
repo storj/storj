@@ -1,19 +1,46 @@
 // dbx.v1 golang satellitedb.dbx .
 
-//--- bwagreement ---//
+//--- Value Attribution ---//
+model value_attribution (
+	key project_id bucket_name
 
-model bwagreement (
-	key serialnum
-
-	field serialnum       text
-	field storage_node_id blob
-	field uplink_id       blob
-	field action          int64
-	field total           int64
-	field created_at      timestamp ( autoinsert )
-	field expires_at      timestamp
+	field project_id	blob
+	field bucket_name	blob
+	field partner_id	blob
+	field last_updated 	utimestamp  ( autoinsert, autoupdate )
 )
 
+create value_attribution ()
+delete value_attribution ( 
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
+
+read one (
+    select value_attribution
+	where value_attribution.project_id = ?
+	where value_attribution.bucket_name = ?
+)
+
+//--- containment ---//
+model pending_audits (
+	key node_id
+
+	field node_id             blob
+	field piece_id            blob
+	field stripe_index        int64
+	field share_size          int64
+	field expected_share_hash blob
+	field reverify_count      int64 ( updatable )
+)
+
+create pending_audits ( )
+update pending_audits ( where pending_audits.node_id = ? )
+delete pending_audits ( where pending_audits.node_id = ? )
+read one (
+	select pending_audits
+	where  pending_audits.node_id = ?
+)
 
 //--- irreparableDB ---//
 
@@ -91,8 +118,14 @@ read all (
 model node (
 	key id
 
+	index (
+		name node_last_ip
+		fields last_net
+	)
+
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
+	field last_net       text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -110,15 +143,21 @@ model node (
 	field latency_90           int64   ( updatable )
 	field audit_success_count  int64   ( updatable )
 	field total_audit_count    int64   ( updatable )
-	field audit_success_ratio  float64 ( updatable )
 	field uptime_success_count int64   ( updatable )
 	field total_uptime_count   int64   ( updatable )
-	field uptime_ratio         float64 ( updatable )
 
 	field created_at           timestamp ( autoinsert )
 	field updated_at           timestamp ( autoinsert, autoupdate )
 	field last_contact_success timestamp ( updatable )
 	field last_contact_failure timestamp ( updatable )
+
+	field contained bool ( updatable )
+	field disqualified timestamp ( updatable, nullable )
+
+	field audit_reputation_alpha  float64 ( updatable )
+	field audit_reputation_beta   float64 ( updatable )
+	field uptime_reputation_alpha float64 ( updatable )
+	field uptime_reputation_beta  float64 ( updatable )
 )
 
 create node ( )
@@ -157,16 +196,20 @@ model user (
     key id
 
     field id               blob
+    field email            text      ( updatable )
     field full_name        text      ( updatable )
     field short_name       text      ( updatable, nullable )
-
-    field email            text      ( updatable )
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
 
     field created_at       timestamp ( autoinsert )
 )
+
+create user ( )
+update user ( where user.id = ? )
+delete user ( where user.id = ? )
+
 read one (
     select user
     where user.email = ?
@@ -176,10 +219,24 @@ read one (
     select user
     where user.id = ?
 )
-create user ( )
-update user ( where user.id = ? )
-delete user ( where user.id = ? )
 
+// add payment method id to indentify if it has been set up
+model user_payment (
+    key    user_id
+    unique customer_id
+
+    field user_id       user.id   cascade
+    field customer_id   blob
+
+    field created_at    timestamp ( autoinsert )
+)
+
+create user_payment ( )
+
+read one (
+    select user_payment
+    where  user_payment.user_id = ?
+)
 
 model project (
     key id
@@ -188,25 +245,82 @@ model project (
 
     field name           text
     field description    text      ( updatable )
+    field usage_limit    int64     ( updatable )
 
     field created_at     timestamp ( autoinsert )
 )
-read all ( select project)
+
+create project ( )
+update project ( where project.id = ? )
+delete project ( where project.id = ? )
+
 read one (
     select project
     where project.id = ?
 )
-
+read all (
+    select project
+)
+read all (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
+)
 read all (
     select project
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
 )
-create project ( )
-update project ( where project.id = ? )
-delete project ( where project.id = ? )
 
+// add is default, make composite key
+model project_payment (
+    key project_id
+
+    field project_id        project.id              cascade
+    field payer_id          user_payment.user_id    cascade
+    field payment_method_id blob
+
+    field created_at        timestamp  ( autoinsert )
+)
+
+create project_payment ( )
+
+read one (
+    select project_payment
+    where project_payment.project_id = ?
+)
+read one (
+    select project_payment
+    where project_payment.payer_id = ?
+)
+
+model project_invoice_stamp (
+    key    project_id start_date end_date
+    unique invoice_id
+
+    field  project_id project.id  cascade
+    field  invoice_id blob
+
+    field  start_date timestamp
+    field  end_date   timestamp
+
+    field  created_at timestamp
+)
+
+create project_invoice_stamp ( )
+
+read one (
+    select project_invoice_stamp
+    where  project_invoice_stamp.project_id = ?
+    where  project_invoice_stamp.start_date = ?
+)
+// pagination ?
+read all (
+    select project_invoice_stamp
+    where  project_invoice_stamp.project_id = ?
+    orderby desc project_invoice_stamp.start_date
+)
 
 model project_member (
     key member_id project_id
@@ -217,6 +331,12 @@ model project_member (
     field created_at           timestamp ( autoinsert )
 )
 
+create project_member ( )
+delete project_member (
+    where project_member.member_id = ?
+    where project_member.project_id = ?
+)
+
 read all (
     select project_member
     where project_member.member_id = ?
@@ -225,24 +345,17 @@ read limitoffset (
     select project_member
     where project_member.project_id = ?
 )
-create project_member ( )
-delete project_member (
-    where project_member.member_id = ?
-    where project_member.project_id = ?
-)
 
 model api_key (
     key    id
-    unique key
+    unique head
     unique name project_id
 
     field  id          blob
     field  project_id  project.id cascade
-
-    field  key         blob
-
+    field  head        blob
     field  name        text       (updatable)
-
+    field  secret      blob
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -256,7 +369,7 @@ read one (
 )
 read one (
     select api_key
-    where api_key.key = ?
+    where api_key.head = ?
 )
 read all (
     select api_key
@@ -297,7 +410,6 @@ read one (
     select bucket_usage
     where  bucket_usage.id = ?
 )
-
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
@@ -305,7 +417,6 @@ read limitoffset (
     where bucket_usage.rollup_end_time <= ?
     orderby asc bucket_usage.rollup_end_time
 )
-
 read limitoffset (
     select bucket_usage
     where bucket_usage.bucket_id = ?
@@ -455,7 +566,7 @@ read all (
 
 model storagenode_storage_tally (
 	key   id
-	
+
 	field id								serial64
 	field node_id						blob
 	field interval_end_time	timestamp
@@ -542,3 +653,80 @@ read one (
     where reset_password_token.owner_id = ?
 )
 delete reset_password_token ( where reset_password_token.secret = ? )
+
+
+//--- offer table ---//
+
+model offer (
+	key id
+
+	field id	serial
+	field name text ( updatable )
+	field description text ( updatable )
+
+	field award_credit_in_cents int ( updatable )
+	field invitee_credit_in_cents int ( updatable )
+
+	field award_credit_duration_days int ( updatable )
+	field invitee_credit_duration_days int ( updatable )
+
+	field redeemable_cap int ( updatable )
+	field num_redeemed int ( updatable, autoinsert )
+
+	field expires_at timestamp ( updatable )
+	field created_at timestamp ( autoinsert )
+
+	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	field status int ( updatable )
+	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	field type int ( updatable )
+)
+
+read one (
+    select offer
+    where offer.id = ?
+)
+
+read all (
+	select offer
+)
+
+update offer (
+	where offer.id = ?
+)
+
+create offer ( )
+
+
+//--- user credit table ---//
+
+model user_credit (
+	key	id
+
+	field id				serial
+
+	field user_id user.id	restrict
+	field offer_id offer.id	restrict
+	field referred_by user.id	restrict ( nullable )
+
+	field credits_earned_in_cents	int
+	field credits_used_in_cents	int ( updatable, autoinsert )
+
+	field expires_at		timestamp	( updatable )
+	field created_at		timestamp	( autoinsert )
+)
+
+read all (
+	select user_credit
+	where user_credit.user_id = ?
+    where user_credit.expires_at > ?
+    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
+    orderby asc user_credit.expires_at
+)
+
+read count (
+    select user_credit
+    where user_credit.referred_by = ?
+)
+
+create user_credit ()

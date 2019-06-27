@@ -11,10 +11,12 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/cfgstruct"
@@ -46,11 +48,6 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-	diagCmd = &cobra.Command{
-		Use:   "diag",
-		Short: "Diagnostic Tool support",
-		RunE:  cmdDiag,
-	}
 	qdiagCmd = &cobra.Command{
 		Use:   "qdiag",
 		Short: "Repair Queue Diagnostic Tool support",
@@ -67,18 +64,26 @@ var (
 		Args:  cobra.MinimumNArgs(2),
 		RunE:  cmdNodeUsage,
 	}
+	partnerAttributionCmd = &cobra.Command{
+		Use:   "partner-attribution [partner ID] [start] [end]",
+		Short: "Generate a partner attribution report for a given period to use for payments",
+		Long:  "Generate a partner attribution report for a given period to use for payments. Format dates using YYYY-MM-DD",
+		Args:  cobra.MinimumNArgs(3),
+		RunE:  cmdValueAttribution,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
 
-	diagCfg struct {
-		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
-	}
 	qdiagCfg struct {
 		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		QListLimit int    `help:"maximum segments that can be requested" default:"1000"`
 	}
 	nodeUsageCfg struct {
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
+		Output   string `help:"destination of report output" default:""`
+	}
+	partnerAttribtionCfg struct {
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"sqlite3://$CONFDIR/master.db"`
 		Output   string `help:"destination of report output" default:""`
 	}
@@ -94,15 +99,15 @@ func init() {
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
-	rootCmd.AddCommand(diagCmd)
 	rootCmd.AddCommand(qdiagCmd)
 	rootCmd.AddCommand(reportsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
-	cfgstruct.Bind(runCmd.Flags(), &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.BindSetup(setupCmd.Flags(), &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(diagCmd.Flags(), &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(qdiagCmd.Flags(), &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	cfgstruct.Bind(nodeUsageCmd.Flags(), &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	reportsCmd.AddCommand(partnerAttributionCmd)
+	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
+	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -168,39 +173,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), nil)
-}
-
-func cmdDiag(cmd *cobra.Command, args []string) (err error) {
-	database, err := satellitedb.New(zap.L().Named("db"), diagCfg.Database)
-	if err != nil {
-		return errs.New("error connecting to master database on satellite: %+v", err)
-	}
-	defer func() {
-		err := database.Close()
-		if err != nil {
-			fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
-		}
-	}()
-
-	//get all bandwidth agreements rows already ordered
-	stats, err := database.BandwidthAgreement().GetUplinkStats(context.Background(), time.Time{}, time.Now())
-	if err != nil {
-		fmt.Printf("error reading satellite database %v: %v\n", diagCfg.Database, err)
-		return err
-	}
-
-	// initialize the table header (fields)
-	const padding = 3
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "UplinkID\tTotal\t# Of Transactions\tPUT Action\tGET Action\t")
-
-	// populate the row fields
-	for _, s := range stats {
-		fmt.Fprint(w, s.NodeID, "\t", s.TotalBytes, "\t", s.TotalTransactions, "\t", s.PutActionCount, "\t", s.GetActionCount, "\t\n")
-	}
-
-	// display the data
-	return w.Flush()
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
@@ -270,6 +242,51 @@ func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	return generateCSV(ctx, start, end, file)
+}
+
+func cmdValueAttribution(cmd *cobra.Command, args []string) (err error) {
+	ctx := process.Ctx(cmd)
+	log := zap.L().Named("satellite-cli")
+	// Parse the UUID
+	partnerID, err := uuid.Parse(args[0])
+	if err != nil {
+		return errs.Combine(errs.New("Invalid Partner ID format. %s", args[0]), err)
+	}
+
+	layout := "2006-01-02"
+	start, err := time.Parse(layout, args[1])
+	if err != nil {
+		return errs.New("Invalid start date format. Please use YYYY-MM-DD")
+	}
+	end, err := time.Parse(layout, args[2])
+	if err != nil {
+		return errs.New("Invalid end date format. Please use YYYY-MM-DD")
+	}
+
+	// Ensure that start date is not after end date
+	if start.After(end) {
+		return errs.New("Invalid time period (%v) - (%v)", start, end)
+	}
+
+	// send output to stdout
+	if partnerAttribtionCfg.Output == "" {
+		return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, os.Stdout)
+	}
+
+	// send output to file
+	file, err := os.Create(partnerAttribtionCfg.Output)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		err = errs.Combine(err, file.Close())
+		if err != nil {
+			log.Sugar().Errorf("error closing the file %v after retrieving partner value attribution data: %+v", partnerAttribtionCfg.Output, err)
+		}
+	}()
+
+	return reports.GenerateAttributionCSV(ctx, partnerAttribtionCfg.Database, *partnerID, start, end, file)
 }
 
 func main() {

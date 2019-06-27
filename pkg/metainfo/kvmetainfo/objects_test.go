@@ -5,7 +5,6 @@ package kvmetainfo_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
 	"testing"
@@ -15,8 +14,8 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
-	"storj.io/storj/pkg/storage/buckets"
 	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/stream"
@@ -34,12 +33,13 @@ func TestCreateObject(t *testing.T) {
 		ShareSize:      2 * memory.KiB.Int32(),
 	}
 
+	const stripesPerBlock = 2
 	customES := storj.EncryptionScheme{
 		Cipher:    storj.Unencrypted,
-		BlockSize: 1 * memory.KiB.Int32(),
+		BlockSize: stripesPerBlock * customRS.StripeSize(),
 	}
 
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
@@ -52,18 +52,21 @@ func TestCreateObject(t *testing.T) {
 				create:     nil,
 				expectedRS: kvmetainfo.DefaultRS,
 				expectedES: kvmetainfo.DefaultES,
-			}, {
+			},
+			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionScheme: customES},
 				expectedRS: customRS,
 				expectedES: customES,
-			}, {
+			},
+			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
-				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: customRS.ShareSize},
-			}, {
+				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
+			},
+			{
 				create:     &storj.CreateObject{EncryptionScheme: customES},
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: customES,
+				expectedES: storj.EncryptionScheme{Cipher: customES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
@@ -84,7 +87,7 @@ func TestCreateObject(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 		upload(ctx, t, db, streams, bucket, TestFile, nil)
@@ -111,10 +114,8 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectStream(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
-		data := make([]byte, 32*memory.KiB)
-		_, err := rand.Read(data)
-		require.NoError(t, err)
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
+		data := testrand.Bytes(32 * memory.KiB)
 
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
@@ -240,7 +241,7 @@ func assertRemoteSegment(t *testing.T, segment storj.Segment) {
 }
 
 func TestDeleteObject(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		if !assert.NoError(t, err) {
 			return
@@ -266,7 +267,7 @@ func TestDeleteObject(t *testing.T) {
 }
 
 func TestListObjectsEmpty(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, nil)
 		require.NoError(t, err)
 
@@ -292,7 +293,7 @@ func TestListObjectsEmpty(t *testing.T) {
 }
 
 func TestListObjects(t *testing.T) {
-	runTest(t, func(ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, buckets buckets.Store, streams streams.Store) {
+	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
 		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
 		require.NoError(t, err)
 

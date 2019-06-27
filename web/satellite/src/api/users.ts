@@ -111,11 +111,11 @@ export async function forgotPasswordRequest(email: string): Promise<RequestRespo
 }
 
 // Performs Create user graqhQL request.
-export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
+export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<string>> {
+    let result: RequestResponse<string> = {
         errorMessage: '',
         isSuccess: false,
-        data: null
+        data: ''
     };
 
     let response = await apolloManager.mutate(
@@ -130,7 +130,7 @@ export async function createUserRequest(user: User, password: string, secret: st
                         shortName: "${user.shortName}",
                     },
                     secret: "${secret}",
-                ){email}
+                ){email, id}
             }`
             ),
             fetchPolicy: 'no-cache',
@@ -142,6 +142,9 @@ export async function createUserRequest(user: User, password: string, secret: st
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
+        if (response.data) {
+            result.data = response.data.createUser.id;
+        }
     }
 
     return result;
@@ -235,6 +238,34 @@ export async function deleteAccountRequest(password: string): Promise<RequestRes
                     deleteAccount(password: "${password}") {
                         email
                     }
+                }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all',
+        }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
+}
+
+export async function resendEmailRequest(userID: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
+
+    let response = await apolloManager.query(
+        {
+            query: gql(`
+                query {
+                    resendAccountActivationEmail(id: "${userID}")
                 }`
             ),
             fetchPolicy: 'no-cache',

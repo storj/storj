@@ -38,6 +38,7 @@ func main() {
 
 // Main is the exported CLI executable function
 func Main() error {
+	ctx := context.Background()
 	encKey := storj.Key(sha256.Sum256([]byte(*key)))
 	fc, err := infectious.NewFEC(*rsk, *rsn)
 	if err != nil {
@@ -60,7 +61,7 @@ func Main() error {
 	for i := 0; i < *rsn; i++ {
 		go func(i int) {
 			url := fmt.Sprintf("http://18.184.133.99:%d", 10000+i)
-			rr, err := ranger.HTTPRanger(url)
+			rr, err := ranger.HTTPRanger(ctx, url)
 			result <- indexRangerError{i: i, rr: rr, err: err}
 		}(i)
 	}
@@ -73,7 +74,7 @@ func Main() error {
 		}
 		rrs[res.i] = res.rr
 	}
-	rc, err := eestream.Decode(rrs, es, 4*1024*1024)
+	rc, err := eestream.Decode(rrs, es, 4*1024*1024, false)
 	if err != nil {
 		return err
 	}
@@ -81,7 +82,6 @@ func Main() error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
 	rr, err = eestream.UnpadSlow(ctx, rr)
 	if err != nil {
 		return err
