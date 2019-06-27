@@ -10,24 +10,26 @@ See LICENSE for copying information. -->
                 <p class="mt-3">
                         Replace 
                         <strong>
-                            {{range .ReferralOffers}}{{if eq .Status 2}}{{.Name}}{{end}}{{end}}
+                            {{$currentOffer := .ReferralOffers.GetCurrentFromSet}}
+                            {{$currentOffer.Name}}
                         </strong>
                         with 
                         <strong>
-                            {{range .ReferralOffers}}{{if eq .Status 1}}{{.Name}}{{end}}{{end}}
+                            {{$defaultOffer := .ReferralOffers.GetDefaultFromSet}}
+                            {{$defaultOffer.Name}}
                         </strong> ?
                     </p>
-                <div class="mt-2 mb-2">
+                <div class="mt-2 mb-2 d-flex">
                     <a href="/">
                         <button class="btn btn-outline-secondary mr-1">
                             <strong>X</strong>
                         </button>
                     </a>
-                    <a href="/stop/{{range .ReferralOffers}}{{if eq .Status 2}}{{.ID}}{{end}}{{end}}">
-                        <button class="btn btn-primary mr-4">
+                    <form method="POST" action="/stop/{{$currentOffer.ID}}">
+                        <button class="btn btn-primary mr-4" type="submit">
                             &#10004;
                         </button>
-                    </a>
+                    </form>
                 </div>
             </div>
         </div>

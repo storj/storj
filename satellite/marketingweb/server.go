@@ -52,8 +52,8 @@ type Server struct {
 
 // offerSet provides a separation of marketing offers by type.
 type offerSet struct {
-	ReferralOffers []rewards.Offer
-	FreeCredits    []rewards.Offer
+	ReferralOffers rewards.Offers
+	FreeCredits    rewards.Offers
 }
 
 // init safely registers convertStringToTime for the decoder.
@@ -69,10 +69,10 @@ func organizeOffers(offers []rewards.Offer) offerSet {
 
 		switch offer.Type {
 		case rewards.FreeCredit:
-			os.FreeCredits = append(os.FreeCredits, offer)
+			os.FreeCredits.Set = append(os.FreeCredits.Set, offer)
 		case rewards.Referral:
 			offer.InviteeCreditInCents = rewards.ToDollars(offer.InviteeCreditInCents)
-			os.ReferralOffers = append(os.ReferralOffers, offer)
+			os.ReferralOffers.Set = append(os.ReferralOffers.Set, offer)
 		default:
 			continue
 		}

@@ -105,3 +105,54 @@ type Offer struct {
 	Status OfferStatus
 	Type   OfferType
 }
+
+// IsDefault evaluates the default status of offers for templates.
+func (o Offer) IsDefault() bool {
+	if o.Status == Default {
+		return true
+	}
+	return false
+}
+
+// IsCurrent evaluates the current status of offers for templates.
+func (o Offer) IsCurrent() bool {
+	if o.Status == Active {
+		return true
+	}
+	return false
+}
+
+// IsDone evaluates the done status of offers for templates.
+func (o Offer) IsDone() bool {
+	if o.Status == Done {
+		return true
+	}
+	return false
+}
+
+// Offers holds a set of organized offers.
+type Offers struct {
+	Set	[]Offer
+}
+
+// GetCurrentFromSet returns the current offer from an organized set.
+func (offers Offers) GetCurrentFromSet() Offer{
+	var o Offer
+	for _, offer := range offers.Set {
+		if offer.IsCurrent() {
+			o = offer
+		}
+	}
+	return o
+}
+
+// GetDefaultFromSet returns the current offer from an organized set.
+func (offers Offers) GetDefaultFromSet() Offer{
+	var o Offer
+	for _, offer := range offers.Set {
+		if offer.IsDefault() {
+			o = offer
+		}
+	}
+	return o
+}
