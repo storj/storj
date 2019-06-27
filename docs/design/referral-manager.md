@@ -50,12 +50,32 @@ they would like to register an account with. Below design is built based on the 
             
 ## Rationale
 1. Will this overload satellites?
-2. Should we just have satellites communicate with each other directly? 
+2. Should we just have satellites communicate with each other directly?
 
 ## Implementation
-#### Requirements:
 
-1. The referral manager program should use node id authentication to make sure that the node id the referral manager is talking to is one of our approved satellites
+#### node id authentication 
+_to make sure that the node id the referral manager is talking to is one of our approved satellites_
+
+````golang
+var approvedSatellites  map[storj.NodeID]satelliteAddress
+var mu sync.RWMutex
+func VerifySatelliteID(ctx context.Context, id storj.NodeID) (err error) {
+	if approvedSatellites {
+		return nil
+	}
+
+	mu.RLock()
+	defer mu.RUnlock()
+
+	_, ok := approvedSatellites[id]
+	if !ok {
+		return fmt.Errorf("satellite %q is unapproved", id)
+	}
+	return nil
+}
+````
+
 
 #### Referral Manager grpc Definition
 ````grpc
@@ -64,13 +84,13 @@ package referralmanager;
 import "gogo.proto";
 
 message ReferralCode {
-    string satellite_id = 1;
+    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     string referral_code = 2;
 }
 
 message ReferralCodeRequest {
-    string user_id = 1;
-    string satellite_id = 2;
+    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    string user_id = 2;
 }
 
 message ReferralCodeResponse {
@@ -131,5 +151,19 @@ message ReferralResponse {
 }
 ````
 
+#### Referral Manager DB Design
+1. table referral_codes
+````sql
+    referral_code uuid PRIMARY KEY 
+    satellite_id blob
+````
+
+2. table satellite_info
+````sql
+    satellite_id blob PRIMARY KEY 
+    satellite_address text
+````
+
 ## Open issues (if applicable)
 1. Should we also store referral offers information in referral manager so all tardigrade satellites will have the same offer running? What technical concerns that would arise?
+2. Should we use signed message for the communication between satellites and referral manager?
