@@ -6,6 +6,8 @@ package uplink
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
@@ -141,6 +143,7 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	return &Project{
+		log:           zap.L(),
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      m,
