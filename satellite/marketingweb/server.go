@@ -6,7 +6,6 @@ package marketingweb
 import (
 	"context"
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -52,7 +51,8 @@ type Server struct {
 
 // offerSet provides a separation of marketing offers by type.
 type offerSet struct {
-	ReferralOffers, FreeCredits []rewards.Offer
+	ReferralOffers []rewards.Offer
+	FreeCredits    []rewards.Offer
 }
 
 // init safely registers convertStringToTime for the decoder.
@@ -64,14 +64,16 @@ func init() {
 func organizeOffers(offers []rewards.Offer) offerSet {
 	var os offerSet
 	for _, offer := range offers {
+		offer.AwardCreditInCents = rewards.ToDollars(offer.AwardCreditInCents)
 
 		switch offer.Type {
-
 		case rewards.FreeCredit:
 			os.FreeCredits = append(os.FreeCredits, offer)
-
 		case rewards.Referral:
+			offer.InviteeCreditInCents = rewards.ToDollars(offer.InviteeCreditInCents)
 			os.ReferralOffers = append(os.ReferralOffers, offer)
+		default:
+			continue
 		}
 
 	}
@@ -185,14 +187,14 @@ func (s *Server) parseTemplates() (err error) {
 func convertStringToTime(value string) reflect.Value {
 	v, err := time.Parse("2006-01-02", value)
 	if err != nil {
-		log.Println("invalid decoder value")
+		// invalid decoder value
 		return reflect.Value{}
 	}
 	return reflect.ValueOf(v)
 }
 
-// formToStruct decodes POST form data into a new offer.
-func formToStruct(w http.ResponseWriter, req *http.Request) (o rewards.NewOffer, e error) {
+// parseOfferForm decodes POST form data into a new offer.
+func parseOfferForm(w http.ResponseWriter, req *http.Request) (o rewards.NewOffer, e error) {
 	err := req.ParseForm()
 	if err != nil {
 		return o, err
@@ -206,28 +208,33 @@ func formToStruct(w http.ResponseWriter, req *http.Request) (o rewards.NewOffer,
 
 // CreateOffer handles requests to create new offers.
 func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
-	o, err := formToStruct(w, req)
+	offer, err := parseOfferForm(w, req)
 	if err != nil {
 		s.log.Error("failed to convert form to struct", zap.Error(err))
 		s.serveBadRequest(w, req, err)
 		return
 	}
+	inviteeCredits := offer.InviteeCreditInCents
+	awardCredits := offer.AwardCreditInCents
 
-	o.Status = rewards.Active
-	reqType := mux.Vars(req)["offer_type"]
+	offer.Status = rewards.Active
+	offerType := mux.Vars(req)["offer_type"]
 
-	switch reqType {
+	offer.AwardCreditInCents = rewards.ToCents(awardCredits)
+
+	switch offerType {
 	case "referral-offer":
-		o.Type = rewards.Referral
+		offer.InviteeCreditInCents = rewards.ToCents(inviteeCredits)
+		offer.Type = rewards.Referral
 	case "free-credit":
-		o.Type = rewards.FreeCredit
+		offer.Type = rewards.FreeCredit
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
 		s.serveBadRequest(w, req, err)
 		return
 	}
 
-	if _, err := s.db.Create(req.Context(), &o); err != nil {
+	if _, err := s.db.Create(req.Context(), &offer); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
 		s.serveBadRequest(w, req, err)
 		return
@@ -243,8 +250,6 @@ func (s *Server) serveNotFound(w http.ResponseWriter, req *http.Request) {
 	err := s.templates.pageNotFound.ExecuteTemplate(w, "base", nil)
 	if err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
-		s.serveInternalError(w, req, err)
-		return
 	}
 }
 

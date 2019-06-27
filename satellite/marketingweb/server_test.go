@@ -31,7 +31,7 @@ func TestCreateOffer(t *testing.T) {
 				Values: url.Values{
 					"Name":                      {"Referral Credit"},
 					"Description":               {"desc"},
-					"ExpiresAt":                 {"2019-06-27"},
+					"ExpiresAt":                 {"2119-06-27"},
 					"InviteeCreditInCents":      {"50"},
 					"InviteeCreditDurationDays": {"50"},
 					"AwardCreditInCents":        {"50"},
@@ -43,7 +43,7 @@ func TestCreateOffer(t *testing.T) {
 				Values: url.Values{
 					"Name":                      {"Free Credit Credit"},
 					"Description":               {"desc"},
-					"ExpiresAt":                 {"2019-06-27"},
+					"ExpiresAt":                 {"2119-06-27"},
 					"InviteeCreditInCents":      {"50"},
 					"InviteeCreditDurationDays": {"50"},
 					"RedeemableCap":             {"150"},

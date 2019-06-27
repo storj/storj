@@ -5,8 +5,27 @@ package rewards
 
 import (
 	"context"
+	"fmt"
+	"math"
+	"strconv"
 	"time"
 )
+
+// ToCents converts USD credit amounts to cents.
+func ToCents(dollar int) int {
+	cents := float64(dollar) * 100
+    return int(math.Round(cents))
+}
+
+// ToDollars converts credit amounts in cents to USD.
+func ToDollars(cents int) int {
+	formattedAmount := fmt.Sprintf("%d.%d",(cents / 100),(cents % 100))
+	dollars, err := strconv.ParseFloat(formattedAmount,64)
+	if err != nil {
+		return 0
+	}
+	return int(dollars)
+}
 
 // DB holds information about offer
 type DB interface {
