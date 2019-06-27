@@ -238,7 +238,7 @@
           }
         ],
         "package": {
-          "name": "encryption_ctx"
+          "name": "encryption_access"
         },
         "options": [
           {
