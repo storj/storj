@@ -29,6 +29,7 @@ linters:
     #TODO#- maligned    # check for better memory usage
     #TODO#- prealloc    # easy optimizations
   disable:
+    - goimports
     - goconst     # check for things that could be replaced by constants
     - gocyclo     # needs tweaking
     - depguard    # unused
