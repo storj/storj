@@ -7,14 +7,14 @@ See LICENSE for copying information. -->
         <div class="col col-heading">Name</div>
         <div class="col col-heading">Give Credit</div> 
         <div class="col col-heading">Award Credit</div>
-        <div class="col col-heading">Referrals&nbsp;Used</div>
-        <div class="col col-heading">Redeemable&nbsp;Capacity</div>
+        <div class="col col-heading">Referrals Used</div>
+        <div class="col col-heading">Redeemable Capacity</div>
         <div class="col col-heading">Created</div>
         <div class="col col-heading">Expiration</div>
         <div class="col col-heading">Status</div>
     </div><hr>
     <div class="row offer-heading ">
-        <p class="offer-type">default&nbsp;offer</p>
+        <p class="offer-type">default offer</p>
     </div>
     {{range .ReferralOffers}}
         {{if eq .Status 2}}
@@ -31,7 +31,7 @@ See LICENSE for copying information. -->
         {{end}}
     {{end}}
     <div class="row offer-heading ">
-        <p class="offer-type">other&nbsp;offers</p>
+        <p class="offer-type">other offers</p>
     </div>
     {{range .ReferralOffers}}
     <div class="row data-row">
