@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -274,14 +275,14 @@ func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Pl
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, streams, err := newMetainfoParts(planet)
+		db, streams, err := newMetainfoParts(t, planet)
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
 	})
 }
 
-func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
+func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
@@ -314,7 +315,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	}
 	// TODO(leak): call metainfo.Close somehow
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(zaptest.NewLogger(t), planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, err
