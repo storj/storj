@@ -133,8 +133,8 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
-                BucketAccess access = new BucketAccess();
-                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+                EncryptionCtx encCtx = new EncryptionCtx();
+                encCtx.setDefaultKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
                 scheme.setRequiredShares((short) 2);
@@ -147,7 +147,7 @@ public class LibuplinkInstrumentedTest {
 
                 project.createBucket("test", bucketConfig);
 
-                Bucket bucket = project.openBucket("test", access);
+                Bucket bucket = project.openBucket("test", encCtx);
 
                 byte[] expectedData = new byte[1024];
                 Random random = new Random();
@@ -197,8 +197,8 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
-                BucketAccess access = new BucketAccess();
-                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+                EncryptionCtx encCtx = new EncryptionCtx();
+                encCtx.setDefaultKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
                 scheme.setRequiredShares((short) 2);
@@ -211,7 +211,7 @@ public class LibuplinkInstrumentedTest {
 
                 project.createBucket("test", bucketConfig);
 
-                Bucket bucket = project.openBucket("test", access);
+                Bucket bucket = project.openBucket("test", encCtx);
 
                 byte[] expectedData = new byte[1024 * 100];
                 Random random = new Random();
@@ -267,8 +267,8 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
-                BucketAccess access = new BucketAccess();
-                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+                EncryptionCtx encCtx = new EncryptionCtx();
+                encCtx.setDefaultKey("TestEncryptionKey".getBytes());
 
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(new RedundancyScheme());
@@ -276,7 +276,7 @@ public class LibuplinkInstrumentedTest {
                 BucketInfo bucketInfo = project.createBucket("testBucket", bucketConfig);
                 assertEquals("testBucket", bucketInfo.getName());
 
-                Bucket bucket = project.openBucket("testBucket", access);
+                Bucket bucket = project.openBucket("testBucket", encCtx);
 
                 long before = System.currentTimeMillis();
 

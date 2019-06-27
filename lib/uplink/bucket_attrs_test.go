@@ -52,9 +52,12 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 	})
 }
 
-func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
-	copy(access.Key[:], encKey)
-	return access
+func simpleEncryptionAccess(encKey string) (access *EncryptionCtx) {
+	key, err := storj.NewKey([]byte(encKey))
+	if err != nil {
+		panic(err)
+	}
+	return NewEncryptionCtxWithDefaultKey(*key)
 }
 
 // check that bucket attributes are stored and retrieved correctly.
@@ -98,7 +101,7 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, bucketName, bucket.Name)
 			assert.Falsef(t, bucket.Created.Before(before), "impossible creation time %v", bucket.Created)
 
-			got, err := proj.OpenBucket(ctx, bucketName, &access)
+			got, err := proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 			defer ctx.Check(got.Close)
 
@@ -157,7 +160,7 @@ func TestBucketAttrsApply(t *testing.T) {
 			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)
 
-			bucket, err := proj.OpenBucket(ctx, bucketName, &access)
+			bucket, err := proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 			defer ctx.Check(bucket.Close)
 
