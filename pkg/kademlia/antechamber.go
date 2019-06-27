@@ -5,13 +5,23 @@ package kademlia
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
+	//"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	//"storj.io/storj/storagenode/trust"
 )
+
+// AntechamberErr is the class for all errors pertaining to antechamber operations
+var AntechamberErr = errs.Class("antechamber error")
 
 // Attempts to add a node the antechamber. Only allowed in if within rt neighborhood.
 func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) error {
@@ -20,21 +30,20 @@ func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) e
 	defer rt.mutex.Unlock()
 	inNeighborhood, err := rt.wouldBeInNearestK(ctx, node.Id)
 	if err != nil {
-		return RoutingErr.New("could not check node neighborhood: %s", err)
+		return AntechamberErr.New("could not check node neighborhood: %s", err)
 	}
 	if inNeighborhood {
 		v, err := proto.Marshal(node)
 		if err != nil {
-			return RoutingErr.New("could not marshall node: %s", err)
+			return AntechamberErr.New("could not marshall node: %s", err)
 		}
 		err = rt.antechamber.Put(ctx, node.Id.Bytes(), v)
 		if err != nil {
-			return RoutingErr.New("could not add key value pair to antechamber: %s", err)
+			return AntechamberErr.New("could not add key value pair to antechamber: %s", err)
 		}
 	}
 	return nil
 }
-
 
 // Removes a node from the antechamber.
 // Called when node moves into RT, node is outside neighborhood (check when any node is added to RT), or node failed contact
@@ -44,7 +53,7 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node
 	defer rt.mutex.Unlock()
 	err = rt.antechamber.Delete(ctx, node.Id.Bytes())
 	if err != nil {
-		return RoutingErr.New("could not delete node %s", err)
+		return AntechamberErr.New("could not delete node %s", err)
 	}
 	return nil
 }
@@ -80,10 +89,22 @@ func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.No
 }
 
 // checks whether the node in question has a valid voucher.
-func (rt *RoutingTable) hasAcceptableVoucher(ctx context.Context, node *pb.Node) bool {
-	// TODO
-	// If true, call addNode
-	// If false, call antechamberAddNode
+// If true, call addNode
+// If false, call antechamberAddNode
+func (rt *RoutingTable) hasAcceptableVoucher(ctx context.Context, node *pb.Node, vouchers []*pb.Voucher) bool {
+	// TODO: method not fully implementable until trust package removes kademlia parameter. Commented out code in progress.
+	//defer mon.Task()(&ctx)(&err)
+	//if len(vouchers) == 0 {
+	//	return false
+	//}
+	//satelliteIds := trust.GetSatellites()
+	//for _, satelliteId := range satelliteIds {
+	//	for _, voucher := range vouchers {
+	//		if voucher.SatelliteId == satelliteId && voucher.StorageNodeId == node.Id && time.Now().Sub(convertTime(voucher.Expiration)) < 0  && signing.VerifyVoucher() == nil {
+	//			return true
+	//		}
+	//	}
+	//}
 	return false
 }
 
@@ -105,4 +126,16 @@ func (rt *RoutingTable) iterateAntechamber(ctx context.Context, start storj.Node
 			return nil
 		},
 	)
+}
+
+// convertTime converts gRPC timestamp to Go time
+func convertTime(ts *timestamp.Timestamp) time.Time {
+	if ts == nil {
+		return time.Time{}
+	}
+	t, err := ptypes.Timestamp(ts)
+	if err != nil {
+		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
+	}
+	return t
 }
