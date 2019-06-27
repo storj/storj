@@ -57,8 +57,8 @@ func convertRedundancyScheme(scheme *storj.RedundancyScheme) C.RedundancyScheme 
 }
 
 // cipherToCCipherSuite converts a go cipher to its respective C cipher suite.
-func cipherToCCipherSuite(cipher storj.Cipher) C.CipherSuite {
-	return C.CipherSuite(cipher.ToCipherSuite())
+func cipherToCCipherSuite(cipher storj.CipherSuite) C.CipherSuite {
+	return C.CipherSuite(cipher)
 }
 
 // cipherToCCipherSuite converts a go cipher to its respective C cipher suite.

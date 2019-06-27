@@ -135,7 +135,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 
 		// Setup: get the expected size of the data that will be stored in pointer
 		uplinkConfig := uplink.GetConfig(planet.Satellites[0])
-		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionScheme())
+		expectedTotalBytes, err := encryption.CalcEncryptedSize(int64(len(expectedData)), uplinkConfig.GetEncryptionParameters())
 		require.NoError(t, err)
 
 		// Execute test: upload a file, then calculate at rest data

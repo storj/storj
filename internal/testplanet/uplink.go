@@ -209,13 +209,13 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	}()
 
 	redScheme := config.GetRedundancyScheme()
-	encScheme := config.GetEncryptionScheme()
+	encScheme := config.GetEncryptionParameters()
 
 	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
-			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.CipherSuite})
 			if err != nil {
 				return err
 			}
@@ -225,9 +225,9 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	}
 
 	createInfo := storj.CreateObject{
-		RedundancyScheme: redScheme,
-		EncryptionScheme: encScheme,
-		Expires:          expiration,
+		RedundancyScheme:     redScheme,
+		EncryptionParameters: encScheme,
+		Expires:              expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
 	if err != nil {

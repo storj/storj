@@ -103,7 +103,7 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg.setDefaults()
 
 	bucket = storj.Bucket{
-		PathCipher:           cfg.PathCipher.ToCipher(),
+		PathCipher:           cfg.PathCipher,
 		EncryptionParameters: cfg.EncryptionParameters,
 		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
 		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
@@ -138,7 +138,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 		return b, nil, err
 	}
 	cfg := &BucketConfig{
-		PathCipher:           b.PathCipher.ToCipherSuite(),
+		PathCipher:           b.PathCipher,
 		EncryptionParameters: b.EncryptionParameters,
 	}
 	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
@@ -171,8 +171,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 			return nil, err
 		}
 	}
-
-	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
+	encryptionScheme := cfg.EncryptionParameters
 
 	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
@@ -188,13 +187,13 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentsSize.Int64(),
-		cfg.EncryptionParameters.ToEncryptionScheme())
+		cfg.EncryptionParameters)
 	if err != nil {
 		return nil, err
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionScheme.BlockSize), encryptionScheme.CipherSuite, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
