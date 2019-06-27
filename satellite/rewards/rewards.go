@@ -17,12 +17,7 @@ func ToCents(dollars int) int {
 
 // ToDollars converts credit amounts in cents to USD.
 func ToDollars(cents int) int {
-	formattedAmount := fmt.Sprintf("%d.%d",(cents / 100),(cents % 100))
-	dollars, err := strconv.ParseFloat(formattedAmount,64)
-	if err != nil {
-		return 0
-	}
-	return int(dollars)
+	return cents / 100
 }
 
 // DB holds information about offer
