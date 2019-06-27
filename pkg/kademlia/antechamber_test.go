@@ -36,7 +36,7 @@ func TestAntechamberFindNear(t *testing.T){
 	// select 3 closest
 }
 
-func TestHasAcceptableVoucher(t *testing.T){
+func TestNodeHasValidVoucher(t *testing.T){
 	// no vouchers
 	// no vouchers have a matching satellite id
 	// node id doesn't match
