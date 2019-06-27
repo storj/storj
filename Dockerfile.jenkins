@@ -32,4 +32,5 @@ RUN go get github.com/AlekSi/gocov-xml
 
 RUN go get -v -u github.com/loov/leakcheck
 
-RUN go version
+CMD ["go", "version"]
+ENTRYPOINT ["timeout", "-k20m", "18m"]
