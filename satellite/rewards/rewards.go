@@ -5,8 +5,6 @@ package rewards
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 	"time"
 )
 
