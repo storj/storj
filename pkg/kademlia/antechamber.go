@@ -91,7 +91,7 @@ func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.No
 // checks whether the node in question has a valid voucher.
 // If true, call addNode
 // If false, call antechamberAddNode
-func (rt *RoutingTable) hasAcceptableVoucher(ctx context.Context, node *pb.Node, vouchers []*pb.Voucher) bool {
+func (rt *RoutingTable) nodeHasAcceptableVoucher(ctx context.Context, node *pb.Node, vouchers []*pb.Voucher) bool {
 	// TODO: method not fully implementable until trust package removes kademlia parameter. Commented out code in progress.
 	//defer mon.Task()(&ctx)(&err)
 	//if len(vouchers) == 0 {
