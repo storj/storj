@@ -25,14 +25,14 @@ message UptimeCheckResponse {
 }
 
 message DailyStorageUsageRequest {
-    google.protobuf.Timestamp from = 1;
-    google.protobuf.Timestamp to = 2;
+    google.protobuf.Timestamp from = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp to = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message DailyStorageUsageResponse {
     message StorageUsage {
         double at_rest_total = 2;
-        google.protobuf.Timestamp time_stamp = 3;
+        google.protobuf.Timestamp time_stamp = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     }
 
     bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];

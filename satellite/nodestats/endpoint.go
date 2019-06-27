@@ -6,7 +6,6 @@ package nodestats
 import (
 	"context"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -81,48 +80,29 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	from, err := ptypes.Timestamp(req.GetFrom())
-	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
-	}
-	to, err := ptypes.Timestamp(req.GetTo())
-	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
-	}
-
-	nodeSpaceUsages, err := e.accounting.QueryNodeDailySpaceUsage(ctx, node.Id, from, to)
-	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
-	}
-
-	pbUsages, err := toPBDailyStorageUsage(nodeSpaceUsages)
+	nodeSpaceUsages, err := e.accounting.QueryNodeDailySpaceUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
 	return &pb.DailyStorageUsageResponse{
 		NodeId:            node.Id,
-		DailyStorageUsage: pbUsages,
+		DailyStorageUsage: toPBDailyStorageUsage(nodeSpaceUsages),
 	}, nil
 }
 
 // toPBDailyStorageUsage converts NodeSpaceUsage to PB DailyStorageUsageResponse_StorageUsage
-func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) (_ []*pb.DailyStorageUsageResponse_StorageUsage, err error) {
+func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
 	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
 
 	for _, usage := range usages {
-		timestamp, err := ptypes.TimestampProto(usage.TimeStamp)
-		if err != nil {
-			return nil, err
-		}
-
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
 			AtRestTotal: usage.AtRestTotal,
-			TimeStamp:   timestamp,
+			TimeStamp:   usage.TimeStamp,
 		})
 	}
 
-	return pbUsages, nil
+	return pbUsages
 }
 
 // calculateUptimeReputationScore is helper method to calculate reputation value for uptime checks

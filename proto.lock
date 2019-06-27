@@ -2136,12 +2136,32 @@
               {
                 "id": 1,
                 "name": "from",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "to",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -2182,7 +2202,17 @@
                   {
                     "id": 3,
                     "name": "time_stamp",
-                    "type": "google.protobuf.Timestamp"
+                    "type": "google.protobuf.Timestamp",
+                    "options": [
+                      {
+                        "name": "(gogoproto.stdtime)",
+                        "value": "true"
+                      },
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      }
+                    ]
                   }
                 ]
               }
