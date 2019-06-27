@@ -21,7 +21,7 @@ pipeline {
                 // download dependencies
                 sh 'go mod download'
 
-                sh 'go install -v -race ./...'
+                sh 'make -j2 build-packages'
                 sh 'make install-sim'
 
                 sh 'service postgresql start'
@@ -39,7 +39,7 @@ pipeline {
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=4 run'
+                        sh 'golangci-lint -j=2 run --verbose'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }

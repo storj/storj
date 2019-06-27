@@ -661,10 +661,10 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
-				&pb.RemotePiece{
+				{
 					PieceNum: 0,
 				},
-				&pb.RemotePiece{
+				{
 					PieceNum: 1,
 				},
 			},
