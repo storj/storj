@@ -11,9 +11,8 @@ import (
 )
 
 // ToCents converts USD credit amounts to cents.
-func ToCents(dollar int) int {
-	cents := float64(dollar) * 100
-    return int(cents)
+func ToCents(dollars int) int {
+    return dollars * 100
 }
 
 // ToDollars converts credit amounts in cents to USD.
