@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
@@ -704,11 +703,10 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	segments := segments.NewSegmentStore(m, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
-	encKey := new(storj.Key)
+	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
-
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(encKey)
+	encCtx := libuplink.NewEncryptionCtxWithDefaultKey(encKey)
+	encStore := encCtx.Store()
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
@@ -750,7 +748,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	gateway := NewStorjGateway(
 		proj,
-		encKey,
+		encCtx,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,

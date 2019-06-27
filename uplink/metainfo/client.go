@@ -237,3 +237,10 @@ func (client *Client) SetAttribution(ctx context.Context, bucket string, partner
 
 	return err
 }
+
+// GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
+func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
+}

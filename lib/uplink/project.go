@@ -8,6 +8,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
@@ -81,7 +82,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.OptimalShares = 80
 	}
 	if cfg.Volatile.RedundancyScheme.TotalShares == 0 {
-		cfg.Volatile.RedundancyScheme.TotalShares = 95
+		cfg.Volatile.RedundancyScheme.TotalShares = 130
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
 		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
@@ -151,7 +152,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
+func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *EncryptionCtx) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = p.checkBucketAttribution(ctx, bucketName)
@@ -164,12 +165,6 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	if access == nil || access.Key == (storj.Key{}) {
-		return nil, Error.New("No encryption key chosen")
-	}
-	if err != nil {
-		return nil, err
-	}
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
 	p.log = zap.L()
@@ -193,11 +188,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	// TODO(jeff): this is where we would load scope information in.
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(&access.Key)
-
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encStore, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encCtx.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -207,9 +198,38 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encStore),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encCtx.store),
 		streams:      streamStore,
 	}, nil
+}
+
+func (p *Project) retrieveSalt(ctx context.Context) (salt []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	info, err := p.metainfo.GetProjectInfo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return info.ProjectSalt, nil
+}
+
+// SaltedKeyFromPassphrase returns a key generated from the given passphrase using a stable, project-specific salt
+func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string) (_ *storj.Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+	salt, err := p.retrieveSalt(ctx)
+	if err != nil {
+		return nil, err
+	}
+	key, err := encryption.DeriveDefaultPassword([]byte(passphrase), salt)
+	if err != nil {
+		return nil, err
+	}
+	if len(key) != len(storj.Key{}) {
+		return nil, errs.New("unexpected key length!")
+	}
+	var result storj.Key
+	copy(result[:], key)
+	return &result, nil
 }
 
 // checkBucketAttribution Checks the bucket attribution
