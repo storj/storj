@@ -16,9 +16,3 @@ func TestDeriveRootKey(t *testing.T) {
 	_, err = DeriveRootKey([]byte("password"), []byte("salt"), "any/path")
 	assert.NoError(t, err)
 }
-
-func TestDeriveDefaultPassword(t *testing.T) {
-	// ensure that we can derive with no errors
-	_, err := DeriveDefaultPassword([]byte("password"), []byte("salt"))
-	assert.NoError(t, err)
-}

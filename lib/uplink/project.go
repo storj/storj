@@ -8,7 +8,6 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
@@ -217,16 +216,11 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveDefaultPassword([]byte(passphrase), salt)
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
 	if err != nil {
 		return nil, err
 	}
-	if len(key) != len(storj.Key{}) {
-		return nil, errs.New("unexpected key length!")
-	}
-	var result storj.Key
-	copy(result[:], key)
-	return &result, nil
+	return key, nil
 }
 
 // checkBucketAttribution Checks the bucket attribution
