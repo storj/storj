@@ -36,13 +36,15 @@ service Metainfo {
     rpc CommitObject(ObjectCommitRequest) returns (ObjectCommitResponse);
     rpc ListObjects(ObjectListRequest) returns (ObjectListResponse);
 
-    rpc DeleteObject(ObjectDeleteRequest) returns (ObjectDeleteResponse);
-    rpc FinishDeleteObject(ObjectDeleteRequest) returns (ObjectDeleteResponse);
+    rpc BeginDeleteObject(ObjectBeginDeleteRequest) returns (ObjectBeginDeleteResponse);
+    rpc FinishDeleteObject(ObjectFinishDeleteRequest) returns (ObjectFinishDeleteResponse);
 
-    rpc CreateSegment(SegmentCreateRequest) returns (SegmentCreateResponse);
-    rpc AbortSegment(SegmentAbortRequest) returns (SegmentAbortResponse);
+    rpc BeginSegment(SegmentBeginRequest) returns (SegmentBeginResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc MakeInlineSegment(SegmentMakeInlineRequest) returns (SegmentMakeInlineResponse);
+
+    rpc BeginDeleteSegment(SegmentBeginDeleteRequest) returns (SegmentBeginDeleteResponse);
+    rpc FinishDeleteSegment(SegmentFinishDeleteRequest) returns (SegmentFinishDeleteResponse);
 
     rpc Batch(BatchRequest) returns (BatchResponse);
 
@@ -58,12 +60,11 @@ message Bucket {
     google.protobuf.Timestamp created_at = 4;
     
     int64                default_segment_size = 5;
-    RedundancyScheme     default_redundancy_scheme = 6;
     EncryptionParameters default_encryption_parameters = 7;
 }
 
 message BucketCreateRequest {
-    Bucket bucket = 1; // ignores created_at
+    bytes name = 1;
 }
 
 message BucketCreateResponse {}
@@ -83,8 +84,7 @@ message BucketDeleteResponse {}
 
 message BucketListRequest {
     bytes     cursor    = 1;
-    Direction direction = 2;
-    int32     limit     = 3;
+    int32     limit     = 2;
 }
 
 message BucketListResponse {
@@ -127,6 +127,13 @@ message ObjectCreateRequest {
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
+
+    google.protobuf.Timestamp expires_at = 4;
+
+    bytes  encrypted_metadata_nonce = 5;
+    bytes  encrypted_metadata = 6;
+
+    EncryptionParameters encryption_parameters = 7;
 }
 
 message ObjectCreateResponse {
@@ -135,20 +142,13 @@ message ObjectCreateResponse {
     int32  version;
 
     bytes  stream_id;
-
-    google.protobuf.Timestamp expires_at;
-
-    bytes  encrypted_metadata_nonce;
-    bytes  encrypted_metadata;
-
-    RedundancyScheme     redundancy_scheme;
-    EncryptionParameters encryption_parameters;
 }
 
 message ObjectCommitRequest {
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
+    bytes stream_id = 4;
 }
 
 message ObjectCommitResponse {
@@ -173,15 +173,13 @@ message ObjectListResponse {
     bool more = 2;
 }
 
-message ObjectDeleteRequest {
+message ObjectBeginDeleteRequest {
     bytes  bucket;
     bytes  encrypted_path;
     int32  version;
 }
 
-message ObjectDeleteResponse {
-    ???
-}
+message ObjectBeginDeleteResponse {}
 
 message ObjectFinishDeleteRequest {
     bytes  bucket;
@@ -192,7 +190,7 @@ message ObjectFinishDeleteRequest {
 message ObjectFinishDeleteResponse {}
 
 
-message SegmentCreateRequest {
+message SegmentBeginRequest {
     bytes stream_id;
     int32 part_number;
     int32 index;
@@ -200,8 +198,9 @@ message SegmentCreateRequest {
     int64 max_encrypted_segment_size;
 }
 
-message SegmentCreateResponse {
+message SegmentBeginResponse {
     repeated AddressedOrderLimit addressed_limits;
+    RedundancyScheme     redundancy_scheme;
 }
 
 message AddressedOrderLimit {
@@ -210,7 +209,9 @@ message AddressedOrderLimit {
 }
 
 message SegmentCommitRequest {
-    bytes segment_id;
+    bytes stream_id;
+    int64 part_number;
+    int64 segment_index;
 
     bytes encrypted_key_nonce;
     bytes encrypted_key;
@@ -218,59 +219,88 @@ message SegmentCommitRequest {
     bytes encrypted_data_checksum;
 
     repeated orders.PieceHash signed_piece_hashes; // TODO: add encrypted_segment_size to piece hash
+
+    RedundancyScheme     redundancy_scheme;
 }
 
 message SegmentCommitResponse {
-    bytes segment_id; // <stream_id, part_number, index>
+    bytes stream_id;
+    int64 part_number;
+    int64 segment_index;
 }
 
+message SegmentMakeInlineRequest {}
+
+message SegmentMakeInlineResponse {}
+
+message SegmentBeginDeleteRequest {}
+
+message SegmentBeginDeleteResponse {}
+
+message SegmentFinishDeleteRequest {}
+
+message SegmentFinishDeleteResponse {}
+
+message SegmentListRequest {}
+
+message SegmentListResponse {}
+
+message SegmentDownloadRequest {}
+
+message SegmentDownloadResponse {}
 
 message BatchRequest {
-    message Request {
+    oneof Request {
+        BucketCreateRequest bucket_create;
+        BucketGetRequest    bucket_get;
+        BucketDeleteRequest bucket_delete;
+        BucketListRequest   bucket_list;
+
         ObjectCreateRequest object_create;
         ObjectCommitRequest object_commit;
+        ObjectListRequest   object_list;
+        ObjectDeleteRequest object_delete;
 
-        SegmentCreateRequest     segment_create;
+        SegmentBeginRequest      segment_create;
         SegmentCommitRequest     segment_commit;
         SegmentMakeInlineRequest segment_inline;
+
+        SegmentBeginDeleteRequest  segment_begin_delete;
+        SegmentFinishDeleteRequest segment_finish_delete;
+
+        SegmentListRequest     segment_list;
+        SegmentDownloadRequest segment_download;
     }
     repeated Request requests;
 }
 
 message BatchResponse {
     message Response {
+        BucketCreateResponse bucket_create;
+        BucketGetResponse    bucket_get;
+        BucketDeleteResponse bucket_delete;
+        BucketListResponse   bucket_list;
+
         ObjectCreateResponse object_create;
         ObjectCommitResponse object_commit;
+        ObjectListResponse   object_list;
+        ObjectDeleteResponse object_delete;
 
-        SegmentCreateResponse     segment_create;
+        SegmentBeginResponse      segment_create;
         SegmentCommitResponse     segment_commit;
         SegmentMakeInlineResponse segment_inline;
+
+        SegmentBeginDeleteResponse  segment_begin_delete;
+        SegmentFinishDeleteResponse segment_finish_delete;
+
+        SegmentListResponse     segment_list;
+        SegmentDownloadResponse segment_download;
     }
     repeated Response responses;
 }
 ```
 
 ## Rationale
-
-Alternatives include using individual messages, e.g.
-```
-message StartStream {
-    bytes stream_upload_id = 1;
-}
-message StartSegment {
-    bytes stream_upload_id = 1;
-    int64 segment_index = 2;
-    int64 part_number = 3;
-}
-```
-but this would result in more rpc calls overall.
-Also, trying to combine a StartStream message and StartSegment message would lead to unused fields sometimes (like stream_upload_id):
-```
-message StartStreamAndStartSegment {
-	StartStream start_stream = 1;
-	StartSegment start_segment = 2;
-}
-```
 
 The current upload also uses the full path every time and the request includes bucket, path, stream id, and segment index. This is less future proof because the server can't squirrel away data in the opaque upload id that clients will send back to it. With the new design, whatever the server provides for the stream_upload_id, the client has to send back. In the future we may add a feature that will require extra info from the client, so this would allow the client to respond back with stream_upload_id content.
 
