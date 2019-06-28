@@ -51,8 +51,8 @@ type Server struct {
 
 // offerSet provides a separation of marketing offers by type.
 type offerSet struct {
-	ReferralOffers []rewards.Offer
-	FreeCredits    []rewards.Offer
+	ReferralOffers rewards.Offers
+	FreeCredits    rewards.Offers
 }
 
 // init safely registers convertStringToTime for the decoder.
@@ -64,14 +64,12 @@ func init() {
 func organizeOffers(offers []rewards.Offer) offerSet {
 	var os offerSet
 	for _, offer := range offers {
-		offer.AwardCreditInCents = rewards.ToDollars(offer.AwardCreditInCents)
 
 		switch offer.Type {
 		case rewards.FreeCredit:
-			os.FreeCredits = append(os.FreeCredits, offer)
+			os.FreeCredits.Set = append(os.FreeCredits.Set, offer)
 		case rewards.Referral:
-			offer.InviteeCreditInCents = rewards.ToDollars(offer.InviteeCreditInCents)
-			os.ReferralOffers = append(os.ReferralOffers, offer)
+			os.ReferralOffers.Set = append(os.ReferralOffers.Set, offer)
 		default:
 			continue
 		}
@@ -160,7 +158,9 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "err.html"),
 	)
 
-	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
+	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
+		"ToDollars": rewards.ToDollars,
+	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -203,6 +203,10 @@ func parseOfferForm(w http.ResponseWriter, req *http.Request) (o rewards.NewOffe
 	if err := decoder.Decode(&o, req.PostForm); err != nil {
 		return o, err
 	}
+
+	o.InviteeCreditInCents = rewards.ToCents(o.InviteeCreditInCents)
+	o.AwardCreditInCents = rewards.ToCents(o.AwardCreditInCents)
+
 	return o, nil
 }
 
@@ -214,17 +218,12 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		s.serveBadRequest(w, req, err)
 		return
 	}
-	inviteeCredits := offer.InviteeCreditInCents
-	awardCredits := offer.AwardCreditInCents
 
 	offer.Status = rewards.Active
 	offerType := mux.Vars(req)["offer_type"]
 
-	offer.AwardCreditInCents = rewards.ToCents(awardCredits)
-
 	switch offerType {
 	case "referral-offer":
-		offer.InviteeCreditInCents = rewards.ToCents(inviteeCredits)
 		offer.Type = rewards.Referral
 	case "free-credit":
 		offer.Type = rewards.FreeCredit
