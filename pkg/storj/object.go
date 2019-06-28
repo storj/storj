@@ -26,6 +26,7 @@ var (
 // Bucket contains information about a specific bucket
 type Bucket struct {
 	Name                 string
+	Attribution          string
 	Created              time.Time
 	PathCipher           Cipher
 	SegmentsSize         int64

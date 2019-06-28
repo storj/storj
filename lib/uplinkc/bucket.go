@@ -76,14 +76,14 @@ func get_bucket_info(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.ch
 
 // open_bucket returns a Bucket handle with the given encryption context information.
 //export open_bucket
-func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionCtx *C.char, cerr **C.char) C.BucketRef {
+func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess *C.char, cerr **C.char) C.BucketRef {
 	project, ok := universe.Get(projectHandle._handle).(*Project)
 	if !ok {
 		*cerr = C.CString("invalid project")
 		return C.BucketRef{}
 	}
 
-	encCtx, err := uplink.ParseEncryptionCtx(C.GoString(encryptionCtx))
+	access, err := uplink.ParseEncryptionAccess(C.GoString(encryptionAccess))
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketRef{}
@@ -91,7 +91,7 @@ func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionCtx *C.char
 
 	scope := project.scope.child()
 
-	bucket, err := project.OpenBucket(scope.ctx, C.GoString(name), encCtx)
+	bucket, err := project.OpenBucket(scope.ctx, C.GoString(name), access)
 	if err != nil {
 		*cerr = C.CString(err.Error())
 		return C.BucketRef{}

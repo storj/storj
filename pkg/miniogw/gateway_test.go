@@ -704,8 +704,8 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
-	encCtx := libuplink.NewEncryptionCtxWithDefaultKey(encKey)
-	encStore := encCtx.Store()
+	access := libuplink.NewEncryptionAccessWithDefaultKey(encKey)
+	encStore := access.Store()
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
@@ -747,7 +747,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	gateway := NewStorjGateway(
 		proj,
-		encCtx,
+		access,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
