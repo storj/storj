@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
+	"storj.io/storj/satellite/rewards"
 )
 
 // UserCredits holds information to interact with database
@@ -19,14 +21,14 @@ type UserCredits interface {
 
 // UserCredit holds information about an user's credit
 type UserCredit struct {
-	ID                   int
-	UserID               uuid.UUID
-	OfferID              int
-	ReferredBy           uuid.UUID
-	CreditsEarnedInCents int
-	CreditsUsedInCents   int
-	ExpiresAt            time.Time
-	CreatedAt            time.Time
+	ID            int
+	UserID        uuid.UUID
+	OfferID       int
+	ReferredBy    uuid.UUID
+	CreditsEarned rewards.USD
+	CreditsUsed   rewards.USD
+	ExpiresAt     time.Time
+	CreatedAt     time.Time
 }
 
 // UserCreditUsage holds information about credit usage information

@@ -202,8 +202,8 @@ func parseOfferForm(w http.ResponseWriter, req *http.Request) (o rewards.NewOffe
 		return o, err
 	}
 
-	o.InviteeCreditInCents = rewards.ToCents(o.InviteeCreditInCents)
-	o.AwardCreditInCents = rewards.ToCents(o.AwardCreditInCents)
+	o.InviteeCredit = rewards.USDFromDollars(o.InviteeCredit)
+	o.AwardCredit = rewards.USDFromDollars(o.AwardCredit)
 
 	return o, nil
 }

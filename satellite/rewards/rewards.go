@@ -22,8 +22,8 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   USD
+	InviteeCredit USD
 
 	RedeemableCap int
 
@@ -71,8 +71,8 @@ type Offer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   USD
+	InviteeCredit USD
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int

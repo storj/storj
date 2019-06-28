@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -58,7 +59,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 	credit, err := c.db.Create_UserCredit(ctx,
 		dbx.UserCredit_UserId(userCredit.UserID[:]),
 		dbx.UserCredit_OfferId(userCredit.OfferID),
-		dbx.UserCredit_CreditsEarnedInCents(userCredit.CreditsEarnedInCents),
+		dbx.UserCredit_CreditsEarnedInCents(userCredit.CreditsEarned.Cents()),
 		dbx.UserCredit_ExpiresAt(userCredit.ExpiresAt),
 		dbx.UserCredit_Create_Fields{
 			ReferredBy: dbx.UserCredit_ReferredBy(userCredit.ReferredBy[:]),
@@ -98,17 +99,17 @@ func (c *usercredits) UpdateAvailableCredits(ctx context.Context, creditsToCharg
 			break
 		}
 
-		creditsForUpdate := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
+		creditsForUpdateInCents := credit.CreditsEarnedInCents - credit.CreditsUsedInCents
 
-		if remainingCharge < creditsForUpdate {
-			creditsForUpdate = remainingCharge
+		if remainingCharge < creditsForUpdateInCents {
+			creditsForUpdateInCents = remainingCharge
 		}
 
 		values[i%2] = credit.Id
-		values[(i%2 + 1)] = creditsForUpdate
+		values[(i%2 + 1)] = creditsForUpdateInCents
 		rowIds[i] = credit.Id
 
-		remainingCharge -= creditsForUpdate
+		remainingCharge -= creditsForUpdateInCents
 	}
 
 	values = append(values, rowIds...)
@@ -167,13 +168,13 @@ func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error)
 	}
 
 	return &console.UserCredit{
-		ID:                   userCreditDBX.Id,
-		UserID:               userID,
-		OfferID:              userCreditDBX.OfferId,
-		ReferredBy:           referredByID,
-		CreditsEarnedInCents: userCreditDBX.CreditsEarnedInCents,
-		CreditsUsedInCents:   userCreditDBX.CreditsUsedInCents,
-		ExpiresAt:            userCreditDBX.ExpiresAt,
-		CreatedAt:            userCreditDBX.CreatedAt,
+		ID:            userCreditDBX.Id,
+		UserID:        userID,
+		OfferID:       userCreditDBX.OfferId,
+		ReferredBy:    referredByID,
+		CreditsEarned: rewards.USDFromCents(userCreditDBX.CreditsEarnedInCents),
+		CreditsUsed:   rewards.USDFromCents(userCreditDBX.CreditsUsedInCents),
+		ExpiresAt:     userCreditDBX.ExpiresAt,
+		CreatedAt:     userCreditDBX.CreatedAt,
 	}, nil
 }
