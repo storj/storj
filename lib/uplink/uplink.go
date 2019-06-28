@@ -18,6 +18,8 @@ import (
 
 // Config represents configuration options for an Uplink
 type Config struct {
+	log *zap.Logger
+
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
@@ -76,6 +78,9 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 	} else if cfg.Volatile.MaxMemory.Int() < 0 {
 		cfg.Volatile.MaxMemory = 0
 	}
+	if cfg.log == nil {
+		cfg.log = zap.L()
+	}
 	return nil
 }
 
@@ -92,15 +97,6 @@ type Uplink struct {
 // NewUplink creates a new Uplink. This is the first step to create an uplink
 // session with a user specified config or with default config, if nil config
 func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return NewUplinkWithLogger(ctx, zap.L(), cfg)
-}
-
-// NewUplinkWithLogger creates a new Uplink with a zap.Logger.
-// This is the first step to create an uplink session with a
-// user specified config or with default config, if nil config
-func NewUplinkWithLogger(ctx context.Context, log *zap.Logger, cfg *Config) (_ *Uplink, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	ident, err := identity.NewFullIdentity(ctx, identity.NewCAOptions{
@@ -130,7 +126,7 @@ func NewUplinkWithLogger(ctx context.Context, log *zap.Logger, cfg *Config) (_ *
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
-		log:   log,
+		log:   cfg.log,
 		ident: ident,
 		tc:    tc,
 		cfg:   cfg,
