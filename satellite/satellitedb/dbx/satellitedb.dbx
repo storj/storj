@@ -743,9 +743,9 @@ model bucket_metadata (
 
 	field path_cipher 		int
 	field enc_cipher   		int
-	field enc_blocksize 	int
+	field enc_blocksize		int
 
-	field rs_algorithm      int
+	field rs_algorithm 		int
 	field rs_sharesize		int
 	field rs_required 		int
 	field rs_repair			int
