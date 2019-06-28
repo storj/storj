@@ -34,6 +34,6 @@ type UserCredit struct {
 // UserCreditUsage holds information about credit usage information
 type UserCreditUsage struct {
 	Referred         int64
-	AvailableCredits int64
-	UsedCredits      int64
+	AvailableCredits rewards.USD
+	UsedCredits      rewards.USD
 }

@@ -13,17 +13,17 @@ type USD struct {
 }
 
 // Dollars converts dollars to USD amount.
-func Dollars(dollars int) USD {
-	return USD{int64(dollars) * 100}
+func Dollars(dollars int64) USD {
+	return USD{dollars * 100}
 }
 
 // Cents converts cents to USD amount.
-func Cents(cents int) USD {
-	return USD{int64(cents)}
+func Cents(cents int64) USD {
+	return USD{cents}
 }
 
 // Cents returns amount in cents.
-func (usd USD) Cents() int { return int(usd.cents) }
+func (usd USD) Cents() int64 { return usd.cents }
 
 // String returns the value in dollars.
 func (usd USD) String() string {
