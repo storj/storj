@@ -167,28 +167,29 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		healthyMap[int32(i)] = true
 	}
 
-	length := int32(len(healthyPieces))
+	healthyLength := int32(len(healthyPieces))
+	switch {
+	case healthyLength <= pointer.Remote.Redundancy.RepairThreshold:
+		mon.Meter("repair_failed").Mark(1)
+	case healthyLength < pointer.Remote.Redundancy.SuccessThreshold:
+		mon.Meter("repair_partial").Mark(1)
+	default:
+		mon.Meter("repair_success").Mark(1)
+	}
 
 	healthyRatioAfterRepair := 0.0
 	if pointer.Remote.Redundancy.Total != 0 {
-		healthyRatioAfterRepair = float64(length) / float64(pointer.Remote.Redundancy.Total)
+		healthyRatioAfterRepair = float64(healthyLength) / float64(pointer.Remote.Redundancy.Total)
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
-	switch {
-	case length <= pointer.Remote.Redundancy.RepairThreshold:
-		mon.Meter("repair_failed").Mark(1)
-	case length < pointer.Remote.Redundancy.SuccessThreshold:
-		mon.Meter("repair_partial").Mark(1)
-
-		// if partial repair, include "unhealthy" pieces that are not duplicates
+	// if partial repair, include "unhealthy" pieces that are not duplicates
+	if healthyLength < pointer.Remote.Redundancy.SuccessThreshold {
 		for _, p := range unhealthyPieces {
 			if _, ok := healthyMap[p.GetPieceNum()]; !ok {
 				healthyPieces = append(healthyPieces, p)
 			}
 		}
-	default:
-		mon.Meter("repair_success").Mark(1)
 	}
 
 	// Update the remote pieces in the pointer
