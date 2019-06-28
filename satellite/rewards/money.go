@@ -8,6 +8,7 @@ import (
 )
 
 type Cent = int
+type CentX int
 
 // ToCents converts USD credit amounts to cents.
 func ToCents(dollars int) Cent {
@@ -20,4 +21,17 @@ func ToDollars(cents Cent) string {
 		return fmt.Sprintf("-%d.%02d", -cents/100, -cents%100)
 	}
 	return fmt.Sprintf("%d.%02d", cents/100, cents%100)
+}
+
+// CentFromDollar converts USD credit amounts to cents.
+func CentFromDollar(dollars int) CentX {
+	return CentX(dollars * 100)
+}
+
+// DollarsString returns the value in dollars.
+func (cent CentX) DollarsString() string {
+	if cent < 0 {
+		return fmt.Sprintf("-%d.%02d", -cent/100, -cent%100)
+	}
+	return fmt.Sprintf("%d.%02d", cent/100, cent%100)
 }

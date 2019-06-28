@@ -11,9 +11,9 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-func TestCentString(t *testing.T) {
+func TestCentDollarString(t *testing.T) {
 	type Test struct {
-		Cent     rewards.Cent
+		Cent     rewards.CentX
 		Expected string
 	}
 
@@ -32,7 +32,7 @@ func TestCentString(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		s := rewards.ToDollars(test.Cent)
+		s := test.Cent.DollarsString()
 		assert.Equal(t, test.Expected, s, int(test.Cent))
 	}
 }
