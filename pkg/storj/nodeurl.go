@@ -1,9 +1,10 @@
 package storj
 
 import (
-	"strings"
 	"net/url"
-)
+	"strings"
+
+	"github.com/zeebo/errs"
 )
 
 var (
@@ -13,8 +14,8 @@ var (
 
 // NodeURL defines a structure for connecting to a node.
 type NodeURL struct {
-	ID        NodeID
-	Address   string
+	ID      NodeID
+	Address string
 }
 
 // ParseNodeURL parses node URL string.
@@ -26,11 +27,11 @@ type NodeURL struct {
 //      [2001:db8:1f70::999:de8:7648:6e8]:7777
 //
 //    with NodeID:
-//      ekC4dHif4NAGTTFtniBbcLuhPGoujdgNIJf313@33.20.0.1:7777
-//      ekC4dHif4NAGTTFtniBbcLuhPGoujdgNIJf313@[2001:db8:1f70::999:de8:7648:6e8]:7777
+//      12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@33.20.0.1:7777
+//      12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@[2001:db8:1f70::999:de8:7648:6e8]:7777
 //
 //    without host:
-//      ekC4dHif4NAGTTFtniBbcLuhPGoujdgNIJf313@
+//      12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@
 func ParseNodeURL(s string) (NodeURL, error) {
 	if !strings.HasPrefix(s, "storj://") {
 		if strings.Index(s, "://") < 0 {
@@ -60,6 +61,9 @@ func ParseNodeURL(s string) (NodeURL, error) {
 
 // String converts NodeURL to a string
 func (url NodeURL) String() string {
+	if url.ID.IsZero() {
+		return url.Address
+	}
 	return url.ID.String() + "@" + url.Address
 }
 
@@ -73,7 +77,7 @@ func ParseNodeURLs(s string) ([]NodeURL, error) {
 		return nil, nil
 	}
 
-	for _, url := range strings.Split(s) {
+	for _, url := range strings.Split(s, ",") {
 		u, err := ParseNodeURL(url)
 		if err != nil {
 			return nil, ErrNodeURL.Wrap(err)
@@ -97,7 +101,7 @@ func (urls NodeURLs) String() string {
 func (urls *NodeURLs) Set(s string) error {
 	parsed, err := ParseNodeURLs(s)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrNodeURL.Wrap(err)
 	}
 
 	*urls = parsed
