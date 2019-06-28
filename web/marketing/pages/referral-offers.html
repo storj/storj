@@ -14,7 +14,7 @@ See LICENSE for copying information. -->
         <div class="col col-heading">Status</div>
     </div><hr>
     <div class="row offer-heading ">
-        <p class="offer-type">default offer</p>
+        <p class="offer-type">Default&nbsp;Offer</p>
     </div>
     {{$defaultOffer := .ReferralOffers.GetDefaultFromSet}}
     <div class="row data-row">
@@ -48,7 +48,7 @@ See LICENSE for copying information. -->
         </div><hr>
     {{end}}
     <div class="row offer-heading ">
-        <p class="offer-type">other offers</p>
+        <p class="offer-type">Other&nbsp;Offers</p>
     </div>
     {{if gt (len .ReferralOffers.Set) 0}}
     {{range .ReferralOffers.Set}}
