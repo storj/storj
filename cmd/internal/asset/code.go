@@ -54,7 +54,7 @@ func (asset *Asset) InmemoryCode() []byte {
 		}
 		fmt.Fprintf(&source, "Name: %q,", asset.Name)
 		fmt.Fprintf(&source, "Mode: 0%o,", asset.Mode)
-		//TODO: fmt.Fprintf(&source, "ModTime: %v,", asset.ModTime)
+		fmt.Fprintf(&source, "ModTime: time.Unix(%d, 0),", asset.ModTime.Unix())
 
 		if !asset.Mode.IsDir() {
 			r := blobMapping[asset]
