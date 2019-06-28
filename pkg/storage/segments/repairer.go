@@ -67,7 +67,8 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	expiration := pointer.GetExpirationDate()
 
 	var excludeNodeIDs storj.NodeIDList
-	var healthyPieces []*pb.RemotePiece
+	var healthyPieces, unhealthyPieces []*pb.RemotePiece
+	healthyMap := make(map[int32]bool)
 	pieces := pointer.GetRemote().GetRemotePieces()
 	missingPieces, err := repairer.cache.GetMissingPieces(ctx, pieces)
 	if err != nil {
@@ -100,6 +101,9 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
 		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
 			healthyPieces = append(healthyPieces, piece)
+			healthyMap[piece.GetPieceNum()] = true
+		} else {
+			unhealthyPieces = append(unhealthyPieces, piece)
 		}
 	}
 
@@ -160,16 +164,14 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 			NodeId:   node.Id,
 			Hash:     hashes[i],
 		})
+		healthyMap[int32(i)] = true
 	}
 
-	// Update the remote pieces in the pointer
-	pointer.GetRemote().RemotePieces = healthyPieces
-
-	length := int32(len(healthyPieces))
+	healthyLength := int32(len(healthyPieces))
 	switch {
-	case length <= pointer.Remote.Redundancy.RepairThreshold:
+	case healthyLength <= pointer.Remote.Redundancy.RepairThreshold:
 		mon.Meter("repair_failed").Mark(1)
-	case length < pointer.Remote.Redundancy.SuccessThreshold:
+	case healthyLength < pointer.Remote.Redundancy.SuccessThreshold:
 		mon.Meter("repair_partial").Mark(1)
 	default:
 		mon.Meter("repair_success").Mark(1)
@@ -177,9 +179,21 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 
 	healthyRatioAfterRepair := 0.0
 	if pointer.Remote.Redundancy.Total != 0 {
-		healthyRatioAfterRepair = float64(len(healthyPieces)) / float64(pointer.Remote.Redundancy.Total)
+		healthyRatioAfterRepair = float64(healthyLength) / float64(pointer.Remote.Redundancy.Total)
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
+
+	// if partial repair, include "unhealthy" pieces that are not duplicates
+	if healthyLength < pointer.Remote.Redundancy.SuccessThreshold {
+		for _, p := range unhealthyPieces {
+			if _, ok := healthyMap[p.GetPieceNum()]; !ok {
+				healthyPieces = append(healthyPieces, p)
+			}
+		}
+	}
+
+	// Update the remote pieces in the pointer
+	pointer.GetRemote().RemotePieces = healthyPieces
 
 	// Update the segment pointer in the metainfo
 	return repairer.metainfo.Put(ctx, path, pointer)
