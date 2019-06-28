@@ -6,13 +6,14 @@ package storj_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/pkg/storj"
 )
 
 func TestNodeURL(t *testing.T) {
-	emptyId := storj.NodeID{}
+	emptyID := storj.NodeID{}
 	id, err := storj.NodeIDFromString("12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
 	require.NoError(t, err)
 
@@ -24,9 +25,9 @@ func TestNodeURL(t *testing.T) {
 
 		for _, testcase := range []Test{
 			// host
-			{"33.20.0.1:7777", storj.NodeURL{emptyId, "33.20.0.1:7777"}},
-			{"[2001:db8:1f70::999:de8:7648:6e8]:7777", storj.NodeURL{emptyId, "[2001:db8:1f70::999:de8:7648:6e8]:7777"}},
-			{"example.com:7777", storj.NodeURL{emptyId, "example.com:7777"}},
+			{"33.20.0.1:7777", storj.NodeURL{emptyID, "33.20.0.1:7777"}},
+			{"[2001:db8:1f70::999:de8:7648:6e8]:7777", storj.NodeURL{emptyID, "[2001:db8:1f70::999:de8:7648:6e8]:7777"}},
+			{"example.com:7777", storj.NodeURL{emptyID, "example.com:7777"}},
 			// node id + host
 			{"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@33.20.0.1:7777", storj.NodeURL{id, "33.20.0.1:7777"}},
 			{"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@[2001:db8:1f70::999:de8:7648:6e8]:7777", storj.NodeURL{id, "[2001:db8:1f70::999:de8:7648:6e8]:7777"}},
@@ -37,8 +38,25 @@ func TestNodeURL(t *testing.T) {
 			url, err := storj.ParseNodeURL(testcase.String)
 			require.NoError(t, err, testcase.String)
 
-			require.Equal(t, testcase.Expected, url)
-			require.Equal(t, testcase.String, url.String())
+			assert.Equal(t, testcase.Expected, url)
+			assert.Equal(t, testcase.String, url.String())
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		for _, testcase := range []string{
+			"",
+			// invalid host
+			"exampl e.com:7777",
+			// invalid node id
+			"12vha9oTFnerxgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@33.20.0.1:7777",
+			"12vha9oTFnerx YRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@[2001:db8:1f70::999:de8:7648:6e8]:7777",
+			"12vha9oTFnerxYRgeQ2BZqoFrLrn_5UWTCY2jA77dF3YvWew7@example.com:7777",
+			// invalid node id
+			"1112vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@",
+		} {
+			_, err := storj.ParseNodeURL(testcase)
+			assert.Error(t, err, testcase)
 		}
 	})
 }

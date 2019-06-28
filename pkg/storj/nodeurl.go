@@ -33,6 +33,9 @@ type NodeURL struct {
 //    without host:
 //      12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@
 func ParseNodeURL(s string) (NodeURL, error) {
+	if s == "" {
+		return NodeURL{}, ErrNodeURL.New("empty string")
+	}
 	if !strings.HasPrefix(s, "storj://") {
 		if strings.Index(s, "://") < 0 {
 			s = "storj://" + s
