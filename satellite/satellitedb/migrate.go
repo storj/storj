@@ -874,6 +874,27 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 				},
 			},
+			{
+				Description: "Add bucket metadata table",
+				Version:     38,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_metadata (
+						project_id bytea NOT NULL,
+						name bytea NOT NULL,
+						segment_size integer NOT NULL,
+						path_cipher integer NOT NULL,
+						enc_cipher integer NOT NULL,
+						enc_blocksize integer NOT NULL,
+						rs_algorithm integer NOT NULL,
+						rs_sharesize integer NOT NULL,
+						rs_required integer NOT NULL,
+						rs_repair integer NOT NULL,
+						rs_optimal integer NOT NULL,
+						rs_total integer NOT NULL,
+						PRIMARY KEY ( project_id, name )
+					);`,
+				},
+			},
 		},
 	}
 }

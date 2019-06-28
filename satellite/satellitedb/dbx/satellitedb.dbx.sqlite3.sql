@@ -28,6 +28,21 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
+CREATE TABLE bucket_metadata (
+	project_id BLOB NOT NULL,
+	name BLOB NOT NULL,
+	segment_size INTEGER NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	enc_cipher INTEGER NOT NULL,
+	enc_blocksize INTEGER NOT NULL,
+	rs_algorithm INTEGER NOT NULL,
+	rs_sharesize INTEGER NOT NULL,
+	rs_required INTEGER NOT NULL,
+	rs_repair INTEGER NOT NULL,
+	rs_optimal INTEGER NOT NULL,
+	rs_total INTEGER NOT NULL,
+	PRIMARY KEY ( project_id, name )
+);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name BLOB NOT NULL,
 	project_id BLOB NOT NULL,

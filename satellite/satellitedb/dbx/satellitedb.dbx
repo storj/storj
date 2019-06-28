@@ -730,3 +730,38 @@ read count (
 )
 
 create user_credit ()
+
+//--- bucket metadata table ---//
+
+model bucket_metadata (
+	key project_id name
+
+	field project_id		blob
+	field name  			blob
+
+	field segment_size 		int
+
+	field path_cipher 		int
+	field enc_cipher   		int
+	field enc_blocksize 	int
+
+	field rs_algorithm      int
+	field rs_sharesize		int
+	field rs_required 		int
+	field rs_repair			int
+	field rs_optimal		int
+	field rs_total			int
+)
+
+create bucket_metadata ()
+
+read one (
+    select bucket_metadata
+	where bucket_metadata.project_id = ?
+	where bucket_metadata.name = ?
+)
+
+delete bucket_metadata (
+	where bucket_metadata.project_id = ?
+	where bucket_metadata.name = ?
+)

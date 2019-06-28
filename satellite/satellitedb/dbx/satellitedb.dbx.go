@@ -300,6 +300,21 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
+CREATE TABLE bucket_metadata (
+	project_id bytea NOT NULL,
+	name bytea NOT NULL,
+	segment_size integer NOT NULL,
+	path_cipher integer NOT NULL,
+	enc_cipher integer NOT NULL,
+	enc_blocksize integer NOT NULL,
+	rs_algorithm integer NOT NULL,
+	rs_sharesize integer NOT NULL,
+	rs_required integer NOT NULL,
+	rs_repair integer NOT NULL,
+	rs_optimal integer NOT NULL,
+	rs_total integer NOT NULL,
+	PRIMARY KEY ( project_id, name )
+);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -620,6 +635,21 @@ CREATE TABLE bucket_bandwidth_rollups (
 	allocated INTEGER NOT NULL,
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
+CREATE TABLE bucket_metadata (
+	project_id BLOB NOT NULL,
+	name BLOB NOT NULL,
+	segment_size INTEGER NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	enc_cipher INTEGER NOT NULL,
+	enc_blocksize INTEGER NOT NULL,
+	rs_algorithm INTEGER NOT NULL,
+	rs_sharesize INTEGER NOT NULL,
+	rs_required INTEGER NOT NULL,
+	rs_repair INTEGER NOT NULL,
+	rs_optimal INTEGER NOT NULL,
+	rs_total INTEGER NOT NULL,
+	PRIMARY KEY ( project_id, name )
 );
 CREATE TABLE bucket_storage_tallies (
 	bucket_name BLOB NOT NULL,
@@ -1321,6 +1351,254 @@ func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
 }
 
 func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+
+type BucketMetadata struct {
+	ProjectId    []byte
+	Name         []byte
+	SegmentSize  int
+	PathCipher   int
+	EncCipher    int
+	EncBlocksize int
+	RsAlgorithm  int
+	RsSharesize  int
+	RsRequired   int
+	RsRepair     int
+	RsOptimal    int
+	RsTotal      int
+}
+
+func (BucketMetadata) _Table() string { return "bucket_metadata" }
+
+type BucketMetadata_Update_Fields struct {
+}
+
+type BucketMetadata_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketMetadata_ProjectId(v []byte) BucketMetadata_ProjectId_Field {
+	return BucketMetadata_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_ProjectId_Field) _Column() string { return "project_id" }
+
+type BucketMetadata_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketMetadata_Name(v []byte) BucketMetadata_Name_Field {
+	return BucketMetadata_Name_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_Name_Field) _Column() string { return "name" }
+
+type BucketMetadata_SegmentSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_SegmentSize(v int) BucketMetadata_SegmentSize_Field {
+	return BucketMetadata_SegmentSize_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_SegmentSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_SegmentSize_Field) _Column() string { return "segment_size" }
+
+type BucketMetadata_PathCipher_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_PathCipher(v int) BucketMetadata_PathCipher_Field {
+	return BucketMetadata_PathCipher_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_PathCipher_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_PathCipher_Field) _Column() string { return "path_cipher" }
+
+type BucketMetadata_EncCipher_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_EncCipher(v int) BucketMetadata_EncCipher_Field {
+	return BucketMetadata_EncCipher_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_EncCipher_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_EncCipher_Field) _Column() string { return "enc_cipher" }
+
+type BucketMetadata_EncBlocksize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_EncBlocksize(v int) BucketMetadata_EncBlocksize_Field {
+	return BucketMetadata_EncBlocksize_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_EncBlocksize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_EncBlocksize_Field) _Column() string { return "enc_blocksize" }
+
+type BucketMetadata_RsAlgorithm_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_RsAlgorithm(v int) BucketMetadata_RsAlgorithm_Field {
+	return BucketMetadata_RsAlgorithm_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_RsAlgorithm_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_RsAlgorithm_Field) _Column() string { return "rs_algorithm" }
+
+type BucketMetadata_RsSharesize_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_RsSharesize(v int) BucketMetadata_RsSharesize_Field {
+	return BucketMetadata_RsSharesize_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_RsSharesize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_RsSharesize_Field) _Column() string { return "rs_sharesize" }
+
+type BucketMetadata_RsRequired_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_RsRequired(v int) BucketMetadata_RsRequired_Field {
+	return BucketMetadata_RsRequired_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_RsRequired_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_RsRequired_Field) _Column() string { return "rs_required" }
+
+type BucketMetadata_RsRepair_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_RsRepair(v int) BucketMetadata_RsRepair_Field {
+	return BucketMetadata_RsRepair_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_RsRepair_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_RsRepair_Field) _Column() string { return "rs_repair" }
+
+type BucketMetadata_RsOptimal_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_RsOptimal(v int) BucketMetadata_RsOptimal_Field {
+	return BucketMetadata_RsOptimal_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_RsOptimal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_RsOptimal_Field) _Column() string { return "rs_optimal" }
+
+type BucketMetadata_RsTotal_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func BucketMetadata_RsTotal(v int) BucketMetadata_RsTotal_Field {
+	return BucketMetadata_RsTotal_Field{_set: true, _value: v}
+}
+
+func (f BucketMetadata_RsTotal_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketMetadata_RsTotal_Field) _Column() string { return "rs_total" }
 
 type BucketStorageTally struct {
 	BucketName          []byte
@@ -5548,6 +5826,47 @@ func (obj *postgresImpl) Create_UserCredit(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Create_BucketMetadata(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field,
+	bucket_metadata_segment_size BucketMetadata_SegmentSize_Field,
+	bucket_metadata_path_cipher BucketMetadata_PathCipher_Field,
+	bucket_metadata_enc_cipher BucketMetadata_EncCipher_Field,
+	bucket_metadata_enc_blocksize BucketMetadata_EncBlocksize_Field,
+	bucket_metadata_rs_algorithm BucketMetadata_RsAlgorithm_Field,
+	bucket_metadata_rs_sharesize BucketMetadata_RsSharesize_Field,
+	bucket_metadata_rs_required BucketMetadata_RsRequired_Field,
+	bucket_metadata_rs_repair BucketMetadata_RsRepair_Field,
+	bucket_metadata_rs_optimal BucketMetadata_RsOptimal_Field,
+	bucket_metadata_rs_total BucketMetadata_RsTotal_Field) (
+	bucket_metadata *BucketMetadata, err error) {
+	__project_id_val := bucket_metadata_project_id.value()
+	__name_val := bucket_metadata_name.value()
+	__segment_size_val := bucket_metadata_segment_size.value()
+	__path_cipher_val := bucket_metadata_path_cipher.value()
+	__enc_cipher_val := bucket_metadata_enc_cipher.value()
+	__enc_blocksize_val := bucket_metadata_enc_blocksize.value()
+	__rs_algorithm_val := bucket_metadata_rs_algorithm.value()
+	__rs_sharesize_val := bucket_metadata_rs_sharesize.value()
+	__rs_required_val := bucket_metadata_rs_required.value()
+	__rs_repair_val := bucket_metadata_rs_repair.value()
+	__rs_optimal_val := bucket_metadata_rs_optimal.value()
+	__rs_total_val := bucket_metadata_rs_total.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metadata ( project_id, name, segment_size, path_cipher, enc_cipher, enc_blocksize, rs_algorithm, rs_sharesize, rs_required, rs_repair, rs_optimal, rs_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING bucket_metadata.project_id, bucket_metadata.name, bucket_metadata.segment_size, bucket_metadata.path_cipher, bucket_metadata.enc_cipher, bucket_metadata.enc_blocksize, bucket_metadata.rs_algorithm, bucket_metadata.rs_sharesize, bucket_metadata.rs_required, bucket_metadata.rs_repair, bucket_metadata.rs_optimal, bucket_metadata.rs_total")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __project_id_val, __name_val, __segment_size_val, __path_cipher_val, __enc_cipher_val, __enc_blocksize_val, __rs_algorithm_val, __rs_sharesize_val, __rs_required_val, __rs_repair_val, __rs_optimal_val, __rs_total_val)
+
+	bucket_metadata = &BucketMetadata{}
+	err = obj.driver.QueryRow(__stmt, __project_id_val, __name_val, __segment_size_val, __path_cipher_val, __enc_cipher_val, __enc_blocksize_val, __rs_algorithm_val, __rs_sharesize_val, __rs_required_val, __rs_repair_val, __rs_optimal_val, __rs_total_val).Scan(&bucket_metadata.ProjectId, &bucket_metadata.Name, &bucket_metadata.SegmentSize, &bucket_metadata.PathCipher, &bucket_metadata.EncCipher, &bucket_metadata.EncBlocksize, &bucket_metadata.RsAlgorithm, &bucket_metadata.RsSharesize, &bucket_metadata.RsRequired, &bucket_metadata.RsRepair, &bucket_metadata.RsOptimal, &bucket_metadata.RsTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metadata, nil
+
+}
+
 func (obj *postgresImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -6913,6 +7232,28 @@ func (obj *postgresImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 
 }
 
+func (obj *postgresImpl) Get_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field) (
+	bucket_metadata *BucketMetadata, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metadata.project_id, bucket_metadata.name, bucket_metadata.segment_size, bucket_metadata.path_cipher, bucket_metadata.enc_cipher, bucket_metadata.enc_blocksize, bucket_metadata.rs_algorithm, bucket_metadata.rs_sharesize, bucket_metadata.rs_required, bucket_metadata.rs_repair, bucket_metadata.rs_optimal, bucket_metadata.rs_total FROM bucket_metadata WHERE bucket_metadata.project_id = ? AND bucket_metadata.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metadata_project_id.value(), bucket_metadata_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metadata = &BucketMetadata{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metadata.ProjectId, &bucket_metadata.Name, &bucket_metadata.SegmentSize, &bucket_metadata.PathCipher, &bucket_metadata.EncCipher, &bucket_metadata.EncBlocksize, &bucket_metadata.RsAlgorithm, &bucket_metadata.RsSharesize, &bucket_metadata.RsRequired, &bucket_metadata.RsRepair, &bucket_metadata.RsOptimal, &bucket_metadata.RsTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metadata, nil
+
+}
+
 func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -7896,6 +8237,33 @@ func (obj *postgresImpl) Delete_ResetPasswordToken_By_Secret(ctx context.Context
 
 }
 
+func (obj *postgresImpl) Delete_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metadata WHERE bucket_metadata.project_id = ? AND bucket_metadata.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metadata_project_id.value(), bucket_metadata_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (impl postgresImpl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(*pq.Error); ok {
@@ -8130,6 +8498,16 @@ func (obj *postgresImpl) deleteAll(ctx context.Context) (count int64, err error)
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_metadata;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -8932,6 +9310,50 @@ func (obj *sqlite3Impl) Create_UserCredit(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastUserCredit(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_BucketMetadata(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field,
+	bucket_metadata_segment_size BucketMetadata_SegmentSize_Field,
+	bucket_metadata_path_cipher BucketMetadata_PathCipher_Field,
+	bucket_metadata_enc_cipher BucketMetadata_EncCipher_Field,
+	bucket_metadata_enc_blocksize BucketMetadata_EncBlocksize_Field,
+	bucket_metadata_rs_algorithm BucketMetadata_RsAlgorithm_Field,
+	bucket_metadata_rs_sharesize BucketMetadata_RsSharesize_Field,
+	bucket_metadata_rs_required BucketMetadata_RsRequired_Field,
+	bucket_metadata_rs_repair BucketMetadata_RsRepair_Field,
+	bucket_metadata_rs_optimal BucketMetadata_RsOptimal_Field,
+	bucket_metadata_rs_total BucketMetadata_RsTotal_Field) (
+	bucket_metadata *BucketMetadata, err error) {
+	__project_id_val := bucket_metadata_project_id.value()
+	__name_val := bucket_metadata_name.value()
+	__segment_size_val := bucket_metadata_segment_size.value()
+	__path_cipher_val := bucket_metadata_path_cipher.value()
+	__enc_cipher_val := bucket_metadata_enc_cipher.value()
+	__enc_blocksize_val := bucket_metadata_enc_blocksize.value()
+	__rs_algorithm_val := bucket_metadata_rs_algorithm.value()
+	__rs_sharesize_val := bucket_metadata_rs_sharesize.value()
+	__rs_required_val := bucket_metadata_rs_required.value()
+	__rs_repair_val := bucket_metadata_rs_repair.value()
+	__rs_optimal_val := bucket_metadata_rs_optimal.value()
+	__rs_total_val := bucket_metadata_rs_total.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_metadata ( project_id, name, segment_size, path_cipher, enc_cipher, enc_blocksize, rs_algorithm, rs_sharesize, rs_required, rs_repair, rs_optimal, rs_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __project_id_val, __name_val, __segment_size_val, __path_cipher_val, __enc_cipher_val, __enc_blocksize_val, __rs_algorithm_val, __rs_sharesize_val, __rs_required_val, __rs_repair_val, __rs_optimal_val, __rs_total_val)
+
+	__res, err := obj.driver.Exec(__stmt, __project_id_val, __name_val, __segment_size_val, __path_cipher_val, __enc_cipher_val, __enc_blocksize_val, __rs_algorithm_val, __rs_sharesize_val, __rs_required_val, __rs_repair_val, __rs_optimal_val, __rs_total_val)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastBucketMetadata(ctx, __pk)
 
 }
 
@@ -10300,6 +10722,28 @@ func (obj *sqlite3Impl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Get_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field) (
+	bucket_metadata *BucketMetadata, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metadata.project_id, bucket_metadata.name, bucket_metadata.segment_size, bucket_metadata.path_cipher, bucket_metadata.enc_cipher, bucket_metadata.enc_blocksize, bucket_metadata.rs_algorithm, bucket_metadata.rs_sharesize, bucket_metadata.rs_required, bucket_metadata.rs_repair, bucket_metadata.rs_optimal, bucket_metadata.rs_total FROM bucket_metadata WHERE bucket_metadata.project_id = ? AND bucket_metadata.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metadata_project_id.value(), bucket_metadata_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metadata = &BucketMetadata{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metadata.ProjectId, &bucket_metadata.Name, &bucket_metadata.SegmentSize, &bucket_metadata.PathCipher, &bucket_metadata.EncCipher, &bucket_metadata.EncBlocksize, &bucket_metadata.RsAlgorithm, &bucket_metadata.RsSharesize, &bucket_metadata.RsRequired, &bucket_metadata.RsRepair, &bucket_metadata.RsOptimal, &bucket_metadata.RsTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metadata, nil
+
+}
+
 func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field,
 	update PendingAudits_Update_Fields) (
@@ -11383,6 +11827,33 @@ func (obj *sqlite3Impl) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM bucket_metadata WHERE bucket_metadata.project_id = ? AND bucket_metadata.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metadata_project_id.value(), bucket_metadata_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) getLastValueAttribution(ctx context.Context,
 	pk int64) (
 	value_attribution *ValueAttribution, err error) {
@@ -11797,6 +12268,24 @@ func (obj *sqlite3Impl) getLastUserCredit(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) getLastBucketMetadata(ctx context.Context,
+	pk int64) (
+	bucket_metadata *BucketMetadata, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metadata.project_id, bucket_metadata.name, bucket_metadata.segment_size, bucket_metadata.path_cipher, bucket_metadata.enc_cipher, bucket_metadata.enc_blocksize, bucket_metadata.rs_algorithm, bucket_metadata.rs_sharesize, bucket_metadata.rs_required, bucket_metadata.rs_repair, bucket_metadata.rs_optimal, bucket_metadata.rs_total FROM bucket_metadata WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	bucket_metadata = &BucketMetadata{}
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&bucket_metadata.ProjectId, &bucket_metadata.Name, &bucket_metadata.SegmentSize, &bucket_metadata.PathCipher, &bucket_metadata.EncCipher, &bucket_metadata.EncBlocksize, &bucket_metadata.RsAlgorithm, &bucket_metadata.RsSharesize, &bucket_metadata.RsRequired, &bucket_metadata.RsRepair, &bucket_metadata.RsOptimal, &bucket_metadata.RsTotal)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metadata, nil
+
+}
+
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -12036,6 +12525,16 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.Exec("DELETE FROM bucket_storage_tallies;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.Exec("DELETE FROM bucket_metadata;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12314,6 +12813,28 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 		return
 	}
 	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_head, api_key_name, api_key_secret)
+
+}
+
+func (rx *Rx) Create_BucketMetadata(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field,
+	bucket_metadata_segment_size BucketMetadata_SegmentSize_Field,
+	bucket_metadata_path_cipher BucketMetadata_PathCipher_Field,
+	bucket_metadata_enc_cipher BucketMetadata_EncCipher_Field,
+	bucket_metadata_enc_blocksize BucketMetadata_EncBlocksize_Field,
+	bucket_metadata_rs_algorithm BucketMetadata_RsAlgorithm_Field,
+	bucket_metadata_rs_sharesize BucketMetadata_RsSharesize_Field,
+	bucket_metadata_rs_required BucketMetadata_RsRequired_Field,
+	bucket_metadata_rs_repair BucketMetadata_RsRepair_Field,
+	bucket_metadata_rs_optimal BucketMetadata_RsOptimal_Field,
+	bucket_metadata_rs_total BucketMetadata_RsTotal_Field) (
+	bucket_metadata *BucketMetadata, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_BucketMetadata(ctx, bucket_metadata_project_id, bucket_metadata_name, bucket_metadata_segment_size, bucket_metadata_path_cipher, bucket_metadata_enc_cipher, bucket_metadata_enc_blocksize, bucket_metadata_rs_algorithm, bucket_metadata_rs_sharesize, bucket_metadata_rs_required, bucket_metadata_rs_repair, bucket_metadata_rs_optimal, bucket_metadata_rs_total)
 
 }
 
@@ -12651,6 +13172,17 @@ func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	return tx.Delete_ApiKey_By_Id(ctx, api_key_id)
 }
 
+func (rx *Rx) Delete_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_BucketMetadata_By_ProjectId_And_Name(ctx, bucket_metadata_project_id, bucket_metadata_name)
+}
+
 func (rx *Rx) Delete_BucketUsage_By_Id(ctx context.Context,
 	bucket_usage_id BucketUsage_Id_Field) (
 	deleted bool, err error) {
@@ -12857,6 +13389,17 @@ func (rx *Rx) Get_ApiKey_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Id(ctx, api_key_id)
+}
+
+func (rx *Rx) Get_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+	bucket_metadata_name BucketMetadata_Name_Field) (
+	bucket_metadata *BucketMetadata, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_BucketMetadata_By_ProjectId_And_Name(ctx, bucket_metadata_project_id, bucket_metadata_name)
 }
 
 func (rx *Rx) Get_BucketUsage_By_Id(ctx context.Context,
@@ -13304,6 +13847,21 @@ type Methods interface {
 		api_key_secret ApiKey_Secret_Field) (
 		api_key *ApiKey, err error)
 
+	Create_BucketMetadata(ctx context.Context,
+		bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+		bucket_metadata_name BucketMetadata_Name_Field,
+		bucket_metadata_segment_size BucketMetadata_SegmentSize_Field,
+		bucket_metadata_path_cipher BucketMetadata_PathCipher_Field,
+		bucket_metadata_enc_cipher BucketMetadata_EncCipher_Field,
+		bucket_metadata_enc_blocksize BucketMetadata_EncBlocksize_Field,
+		bucket_metadata_rs_algorithm BucketMetadata_RsAlgorithm_Field,
+		bucket_metadata_rs_sharesize BucketMetadata_RsSharesize_Field,
+		bucket_metadata_rs_required BucketMetadata_RsRequired_Field,
+		bucket_metadata_rs_repair BucketMetadata_RsRepair_Field,
+		bucket_metadata_rs_optimal BucketMetadata_RsOptimal_Field,
+		bucket_metadata_rs_total BucketMetadata_RsTotal_Field) (
+		bucket_metadata *BucketMetadata, err error)
+
 	Create_BucketStorageTally(ctx context.Context,
 		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
@@ -13486,6 +14044,11 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+		bucket_metadata_name BucketMetadata_Name_Field) (
+		deleted bool, err error)
+
 	Delete_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
 		deleted bool, err error)
@@ -13572,6 +14135,11 @@ type Methods interface {
 	Get_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		api_key *ApiKey, err error)
+
+	Get_BucketMetadata_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metadata_project_id BucketMetadata_ProjectId_Field,
+		bucket_metadata_name BucketMetadata_Name_Field) (
+		bucket_metadata *BucketMetadata, err error)
 
 	Get_BucketUsage_By_Id(ctx context.Context,
 		bucket_usage_id BucketUsage_Id_Field) (
