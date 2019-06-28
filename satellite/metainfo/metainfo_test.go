@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zaptest"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -235,7 +234,7 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := testplanet.GetMetainfo(ctx, zaptest.NewLogger(t), config, planet.Uplinks[0].Identity)
+	metainfo, _, err := testplanet.GetMetainfo(ctx, planet.Uplinks[0].Log.Named("ecclient"), config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
 
 	type Test struct {
@@ -560,7 +559,7 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := testplanet.GetMetainfo(ctx, zaptest.NewLogger(t), config, uplink.Identity)
+		metainfo, _, err := testplanet.GetMetainfo(ctx, uplink.Log.Named("ecclient"), config, uplink.Identity)
 		require.NoError(t, err)
 
 		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})

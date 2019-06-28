@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -315,7 +314,7 @@ func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, 
 	}
 	// TODO(leak): call metainfo.Close somehow
 
-	ec := ecclient.NewClient(zaptest.NewLogger(t), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, err
