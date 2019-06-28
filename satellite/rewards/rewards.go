@@ -5,20 +5,8 @@ package rewards
 
 import (
 	"context"
-	"fmt"
 	"time"
 )
-
-// ToCents converts USD credit amounts to cents.
-func ToCents(dollars int) int {
-	return dollars * 100
-}
-
-// ToDollars converts credit amounts in cents to USD.
-func ToDollars(cents int) string {
-	formattedAmount := fmt.Sprintf("%d.%d0", (cents / 100), (cents % 100))
-	return formattedAmount
-}
 
 // DB holds information about offer
 type DB interface {
