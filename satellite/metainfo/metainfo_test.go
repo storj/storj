@@ -234,7 +234,7 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := testplanet.GetMetainfo(ctx, config, planet.Uplinks[0].Identity)
+	metainfo, _, err := testplanet.DialMetainfo(ctx, config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
 
 	type Test struct {
@@ -559,7 +559,7 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := testplanet.GetMetainfo(ctx, config, uplink.Identity)
+		metainfo, _, err := testplanet.DialMetainfo(ctx, config, uplink.Identity)
 		require.NoError(t, err)
 
 		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
