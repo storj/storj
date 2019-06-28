@@ -50,7 +50,7 @@ func newTestRoutingTable(ctx context.Context, local *overlay.NodeDossier, opts r
 
 		bucketSize:   opts.bucketSize,
 		rcBucketSize: opts.cacheSize,
-		antechamber: storelogger.New(zap.L().Named("rt.antechamber"), teststore.New()),
+		antechamber:  storelogger.New(zap.L().Named("rt.antechamber"), teststore.New()),
 	}
 	ok, err := rt.addNode(ctx, &local.Node)
 	if !ok || err != nil {
