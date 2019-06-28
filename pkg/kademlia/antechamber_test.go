@@ -91,9 +91,14 @@ func TestAntechamberFindNear(t *testing.T) {
 	rt := createRoutingTable(ctx, nodeId)
 	defer ctx.Check(rt.Close)
 
+	// Check empty antechamber, expect empty findNear
+	nodes, err := rt.antechamberFindNear(ctx, nodeId, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(nodes))
+
 	// add 4 nodes
 	node1 := &pb.Node{Id: storj.NodeID{191, 255}} // [191, 255] XOR [127, 255] = 192 -> second closest
-	err := rt.antechamberAddNode(ctx, node1)
+	err = rt.antechamberAddNode(ctx, node1)
 	assert.NoError(t, err)
 	node2 := &pb.Node{Id: storj.NodeID{143, 255}}
 	err = rt.antechamberAddNode(ctx, node2)
@@ -106,7 +111,7 @@ func TestAntechamberFindNear(t *testing.T) {
 	assert.NoError(t, err)
 
 	// select 2 closest
-	nodes, err := rt.antechamberFindNear(ctx, nodeId, 2)
+	nodes, err = rt.antechamberFindNear(ctx, nodeId, 2)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(nodes))
 	assert.Equal(t, node4.Id, nodes[0].Id)
