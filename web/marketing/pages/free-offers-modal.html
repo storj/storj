@@ -12,33 +12,33 @@ See LICENSE for copying information. -->
                 </button>
             </div>
             <div class="modal-body">
-                <form>
+                <form action="/create/free-credit" method="POST" enctype="application/x-www-form-urlencoded">
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label for="offer-name">Offer Name</label>
-                            <input type="text" class="form-control" id="offer-name" placeholder="May Referral" required>
+                            <label for="Name">Offer Name</label>
+                            <input type="text" class="form-control" name="Name" id="Name" placeholder="May Referral" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="description">Description</label>
-                            <input type="text" class="form-control" id="description" placeholder="Our test with $50 for May" required>
+                            <label for="Description">Description</label>
+                            <input type="text" class="form-control" name="Description" id="Description" placeholder="Our test with $50 for May" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="expiration">Credit Exp Date</label>
-                            <input type="date" class="form-control" id="expiration" placeholder="06/01/19" required>
+                            <label for="ExpiresAt">Credit Exp Date</label>
+                            <input type="date" class="form-control" name="ExpiresAt" id="ExpiresAt" placeholder="06/01/19" required>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label for="give-credit">Give Credit</label>
-                            <input type="number" class="form-control" id="give-credit" placeholder="$50" min="1" required>                        
+                            <label for="AwardCreditInCents">Award Credit</label>
+                            <input type="number" class="form-control" name="AwardCreditInCents" id="AwardCreditInCents" placeholder="$50" min="1" required>                        
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="give-credit-exp">Give Credit Exp</label>
-                            <input type="number" class="form-control" id="give-credit-exp" placeholder="14 days" min="1" required>
+                            <label for="AwardCreditDurationDays">Award Credit Exp</label>
+                            <input type="number" class="form-control" name="AwardCreditDurationDays" id="AwardCreditDurationDays" placeholder="14 days" min="1" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="redeemable-capacity">Redeemable Capacity</label>
-                            <input type="number" class="form-control" id="redeemable-capacity" placeholder="150 users" min="1" required>
+                            <label for="RedeemableCap">Redeemable Capacity</label>
+                            <input type="number" class="form-control" name="RedeemableCap" id="RedeemableCap" placeholder="150 users" min="1" required>
                         </div>
                     </div>
                     <div class="m-1 text-left">
