@@ -172,8 +172,8 @@ func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error)
 		UserID:        userID,
 		OfferID:       userCreditDBX.OfferId,
 		ReferredBy:    referredByID,
-		CreditsEarned: rewards.USDFromCents(userCreditDBX.CreditsEarnedInCents),
-		CreditsUsed:   rewards.USDFromCents(userCreditDBX.CreditsUsedInCents),
+		CreditsEarned: rewards.Cents(userCreditDBX.CreditsEarnedInCents),
+		CreditsUsed:   rewards.Cents(userCreditDBX.CreditsUsedInCents),
 		ExpiresAt:     userCreditDBX.ExpiresAt,
 		CreatedAt:     userCreditDBX.CreatedAt,
 	}, nil

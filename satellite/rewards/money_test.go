@@ -13,26 +13,26 @@ import (
 
 func TestCentDollarString(t *testing.T) {
 	type Test struct {
-		Cent     rewards.CentX
+		Amount   rewards.USD
 		Expected string
 	}
 
 	tests := []Test{
-		{1, "0.01"},
-		{100, "1.00"},
-		{101, "1.01"},
-		{110, "1.10"},
-		{123456789, "1234567.89"},
+		{rewards.Cents(1), "0.01"},
+		{rewards.Cents(100), "1.00"},
+		{rewards.Cents(101), "1.01"},
+		{rewards.Cents(110), "1.10"},
+		{rewards.Cents(123456789), "1234567.89"},
 
-		{-1, "-0.01"},
-		{-100, "-1.00"},
-		{-101, "-1.01"},
-		{-110, "-1.10"},
-		{-123456789, "-1234567.89"},
+		{rewards.Cents(-1), "-0.01"},
+		{rewards.Cents(-100), "-1.00"},
+		{rewards.Cents(-101), "-1.01"},
+		{rewards.Cents(-110), "-1.10"},
+		{rewards.Cents(-123456789), "-1234567.89"},
 	}
 
 	for _, test := range tests {
-		s := test.Cent.DollarsString()
-		assert.Equal(t, test.Expected, s, int(test.Cent))
+		s := test.Amount.String()
+		assert.Equal(t, test.Expected, s, test.Amount.Cents())
 	}
 }

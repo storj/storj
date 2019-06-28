@@ -23,8 +23,8 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer 1",
-				AwardCredit:               100,
-				InviteeCredit:             50,
+				AwardCredit:               rewards.Cents(100),
+				InviteeCredit:             rewards.Cents(50),
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
@@ -35,8 +35,8 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer 2",
-				AwardCredit:               100,
-				InviteeCredit:             50,
+				AwardCredit:               rewards.Cents(100),
+				InviteeCredit:             rewards.Cents(50),
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
@@ -86,8 +86,8 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer",
-				AwardCredit:               100,
-				InviteeCredit:             50,
+				AwardCredit:               rewards.Cents(100),
+				InviteeCredit:             rewards.Cents(50),
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
@@ -98,8 +98,8 @@ func TestOffer_Database(t *testing.T) {
 			{
 				Name:                      "test",
 				Description:               "test offer",
-				AwardCredit:               100,
-				InviteeCredit:             50,
+				AwardCredit:               rewards.Cents(100),
+				InviteeCredit:             rewards.Cents(50),
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,

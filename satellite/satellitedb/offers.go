@@ -51,14 +51,17 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 
 	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 
+	var awardCreditInCents, inviteeCreditInCents int
 	o := rewards.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCredit, &o.InviteeCredit, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
 		return nil, offerErr.New("no current offer")
 	}
 	if err != nil {
 		return nil, offerErr.Wrap(err)
 	}
+	o.AwardCredit = rewards.Cents(awardCreditInCents)
+	o.InviteeCredit = rewards.Cents(inviteeCreditInCents)
 
 	return &o, nil
 }
@@ -175,8 +178,8 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
-		AwardCredit:               rewards.USDFromCents(offerDbx.AwardCreditInCents),
-		InviteeCredit:             rewards.USDFromCents(offerDbx.InviteeCreditInCents),
+		AwardCredit:               rewards.Cents(offerDbx.AwardCreditInCents),
+		InviteeCredit:             rewards.Cents(offerDbx.InviteeCreditInCents),
 		RedeemableCap:             offerDbx.RedeemableCap,
 		NumRedeemed:               offerDbx.NumRedeemed,
 		ExpiresAt:                 offerDbx.ExpiresAt,

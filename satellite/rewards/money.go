@@ -12,13 +12,13 @@ type USD struct {
 	cents int64
 }
 
-// USDFromDollars converts dollars to USD amount.
-func USDFromDollars(dollars int) USD {
+// Dollars converts dollars to USD amount.
+func Dollars(dollars int) USD {
 	return USD{int64(dollars) * 100}
 }
 
-// USDFromCents converts cents to USD amount.
-func USDFromCents(cents int) USD {
+// Cents converts cents to USD amount.
+func Cents(cents int) USD {
 	return USD{int64(cents)}
 }
 
