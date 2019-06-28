@@ -44,7 +44,7 @@ type Config struct {
 func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ec := ecclient.NewClient(log, tc, c.MaxBufferMem.Int())
+	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
 
 	return segments.NewSegmentRepairer(metainfo, orders, cache, ec, identity, c.Timeout), nil
 }
