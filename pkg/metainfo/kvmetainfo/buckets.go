@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// CreateBucket creates a new bucket with the specified information
+// CreateBucket creates a new bucket or updates and existing bucket with the specified information
 func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -67,6 +67,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 
 	r := bytes.NewReader(nil)
 	userMeta := map[string]string{
+		"attribution-to":    info.Attribution,
 		"path-enc-type":     strconv.Itoa(int(info.PathCipher)),
 		"default-seg-size":  strconv.FormatInt(info.SegmentsSize, 10),
 		"default-enc-type":  strconv.Itoa(int(info.EncryptionParameters.CipherSuite.ToCipher())),
@@ -220,6 +221,7 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 	es := &out.EncryptionParameters
 	rs := &out.RedundancyScheme
 
+	out.Attribution = m.UserDefined["attribution-to"]
 	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.Cipher(v) })
 	applySetting("default-seg-size", 64, func(v int64) { out.SegmentsSize = v })
 	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.Cipher(v).ToCipherSuite() })
