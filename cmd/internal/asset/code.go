@@ -8,10 +8,10 @@ import (
 	"fmt"
 )
 
-// Closure generates a function closure string that can be assigned to a variable.
-func (asset *Asset) Closure() []byte {
+// InmemoryCode generates a function closure []byte that can be assigned to a variable.
+func (asset *Asset) InmemoryCode() []byte {
 	var source bytes.Buffer
-	fmt.Fprintf(&source, "func() *asset.Asset {\n")
+	fmt.Fprintf(&source, "func() *asset.InmemoryFileSystem {\n")
 
 	blob := []byte{}
 	blobMapping := map[*Asset][2]int{}
@@ -45,8 +45,6 @@ func (asset *Asset) Closure() []byte {
 		break
 	}
 
-	fmt.Fprintf(&source, "\n")
-
 	var writeAsset func(asset *Asset)
 	writeAsset = func(asset *Asset) {
 		fmt.Fprintf(&source, "{")
@@ -72,9 +70,10 @@ func (asset *Asset) Closure() []byte {
 		fmt.Fprintf(&source, "},\n")
 	}
 
-	fmt.Fprintf(&source, "return &asset.Asset")
-	writeAsset(asset)
 	fmt.Fprintf(&source, "\n")
+	fmt.Fprintf(&source, "return asset.Inmemory(&asset.Asset")
+	writeAsset(asset)
+	fmt.Fprintf(&source, ")\n")
 
 	fmt.Fprintf(&source, "}()\n")
 	return source.Bytes()

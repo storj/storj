@@ -37,7 +37,7 @@ func main() {
 
 	fmt.Fprintf(&code, "func init() {\n")
 	fmt.Fprintf(&code, "%s = ", *variableName)
-	code.Write(asset.Closure())
+	code.Write(asset.InmemoryCode())
 	fmt.Fprintf(&code, "}\n")
 
 	formatted, err := format.Source(code.Bytes())
