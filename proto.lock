@@ -185,6 +185,70 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:encryption_access.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "EncryptionAccess",
+            "fields": [
+              {
+                "id": 1,
+                "name": "default_key",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "store_entries",
+                "type": "StoreEntry",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "StoreEntry",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bucket",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "unencrypted_path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 3,
+                    "name": "encrypted_path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 4,
+                    "name": "key",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "encryption_access"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:gc.proto",
       "def": {
         "messages": [
@@ -1789,6 +1853,19 @@
           },
           {
             "name": "SetAttributionResponse"
+          },
+          {
+            "name": "ProjectInfoRequest"
+          },
+          {
+            "name": "ProjectInfoResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "project_salt",
+                "type": "bytes"
+              }
+            ]
           }
         ],
         "services": [
@@ -1829,6 +1906,11 @@
                 "name": "SetAttribution",
                 "in_type": "SetAttributionRequest",
                 "out_type": "SetAttributionResponse"
+              },
+              {
+                "name": "ProjectInfo",
+                "in_type": "ProjectInfoRequest",
+                "out_type": "ProjectInfoResponse"
               }
             ]
           }
@@ -2076,6 +2158,72 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:nodestats.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "UptimeCheckRequest"
+          },
+          {
+            "name": "UptimeCheckResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total_count",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "success_count",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "reputation_alpha",
+                "type": "double"
+              },
+              {
+                "id": 4,
+                "name": "reputation_beta",
+                "type": "double"
+              },
+              {
+                "id": 5,
+                "name": "reputation_score",
+                "type": "double"
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "NodeStats",
+            "rpcs": [
+              {
+                "name": "UptimeCheck",
+                "in_type": "UptimeCheckRequest",
+                "out_type": "UptimeCheckResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "nodestats"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:orders.proto",
       "def": {
         "enums": [
@@ -2231,6 +2379,11 @@
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
+              },
+              {
+                "id": 11,
+                "name": "satellite_address",
+                "type": "node.NodeAddress"
               }
             ]
           },
@@ -2355,6 +2508,9 @@
           },
           {
             "path": "google/protobuf/timestamp.proto"
+          },
+          {
+            "path": "node.proto"
           }
         ],
         "package": {
@@ -3040,6 +3196,24 @@
     {
       "protopath": "pkg:/:pb:/:vouchers.proto",
       "def": {
+        "enums": [
+          {
+            "name": "VoucherResponse.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "ACCEPTED",
+                "integer": 1
+              },
+              {
+                "name": "REJECTED",
+                "integer": 2
+              }
+            ]
+          }
+        ],
         "messages": [
           {
             "name": "Voucher",
@@ -3088,6 +3262,21 @@
           },
           {
             "name": "VoucherRequest"
+          },
+          {
+            "name": "VoucherResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "voucher",
+                "type": "Voucher"
+              },
+              {
+                "id": 2,
+                "name": "status",
+                "type": "Status"
+              }
+            ]
           }
         ],
         "services": [
@@ -3097,7 +3286,7 @@
               {
                 "name": "Request",
                 "in_type": "VoucherRequest",
-                "out_type": "Voucher"
+                "out_type": "VoucherResponse"
               }
             ]
           }

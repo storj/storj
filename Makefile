@@ -45,7 +45,7 @@ build-dev-deps: ## Install dependencies for builds
 	go get github.com/mattn/goveralls
 	go get golang.org/x/tools/cover
 	go get github.com/modocache/gover
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ${GOPATH}/bin v1.17.1
 
 .PHONY: lint
 lint: check-copyrights ## Analyze and find programs in source code
@@ -70,6 +70,13 @@ proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
 	go run scripts/protobuf.go install
 	go run scripts/protobuf.go generate
+
+.PHONY: build-packages
+build-packages: build-packages-race build-packages-normal ## Test docker images locally
+build-packages-race:
+	go install -v ./...
+build-packages-normal:
+	go install -v -race ./...
 
 ##@ Simulator
 

@@ -10,20 +10,23 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -51,6 +54,7 @@ func TestInvalidAPIKey(t *testing.T) {
 	for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], invalidAPIKey)
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now())
 		assertUnauthenticated(t, err, false)
@@ -93,6 +97,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		ReadSegmentAllowed   bool
 		DeleteSegmentAllowed bool
 		ListSegmentsAllowed  bool
+		ReadBucketAllowed    bool
 	}{
 		{ // Everything disallowed
 			Caveat: macaroon.Caveat{
@@ -101,6 +106,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 				DisallowLists:   true,
 				DisallowDeletes: true,
 			},
+			ReadBucketAllowed: true,
 		},
 
 		{ // Read only
@@ -111,6 +117,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 			SegmentInfoAllowed:  true,
 			ReadSegmentAllowed:  true,
 			ListSegmentsAllowed: true,
+			ReadBucketAllowed:   true,
 		},
 
 		{ // Write only
@@ -121,6 +128,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 			CreateSegmentAllowed: true,
 			CommitSegmentAllowed: true,
 			DeleteSegmentAllowed: true,
+			ReadBucketAllowed:    true,
 		},
 
 		{ // Bucket restriction
@@ -138,6 +146,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 					EncryptedPathPrefix: []byte("otherpath"),
 				}},
 			},
+			ReadBucketAllowed: true,
 		},
 
 		{ // Time restriction after
@@ -159,6 +168,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 
 		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], restrictedKey.Serialize())
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now())
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
@@ -178,6 +188,8 @@ func TestRestrictedAPIKey(t *testing.T) {
 		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
+		_, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
+		assertUnauthenticated(t, err, test.ReadBucketAllowed)
 	}
 }
 
@@ -222,7 +234,7 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := config.GetMetainfo(ctx, planet.Uplinks[0].Identity)
+	metainfo, _, err := testplanet.GetMetainfo(ctx, config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
 
 	type Test struct {
@@ -276,11 +288,17 @@ func TestServiceList(t *testing.T) {
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.Validate = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		{
 			// error if pointer is nil
@@ -288,18 +306,13 @@ func TestCommitSegment(t *testing.T) {
 			require.Error(t, err)
 		}
 		{
-			// error if bucket contains slash
-			_, err = metainfo.CommitSegment(ctx, "bucket/storj", "path", -1, &pb.Pointer{}, []*pb.OrderLimit2{})
-			require.Error(t, err)
-		}
-		{
 			// error if number of remote pieces is lower then repair threshold
 			redundancy := &pb.RedundancyScheme{
 				MinReq:           1,
 				RepairThreshold:  2,
-				SuccessThreshold: 4,
-				Total:            6,
-				ErasureShareSize: 10,
+				SuccessThreshold: 3,
+				Total:            4,
+				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now()
 			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
@@ -334,7 +347,107 @@ func TestCommitSegment(t *testing.T) {
 			}
 			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, pointer, limits)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "Number of valid pieces is less than or equal to the repair threshold")
+			require.Contains(t, err.Error(), "less than or equal to the repair threshold")
+		}
+	})
+}
+
+func TestCreateSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.RS.Validate = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		for _, r := range []struct {
+			rs   *pb.RedundancyScheme
+			fail bool
+		}{
+			{ // error - ErasureShareSize <= 0
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: -1,
+				},
+				fail: true,
+			},
+			{ // error - any of the values are negative
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  -2,
+					SuccessThreshold: 3,
+					Total:            -4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error - MinReq >= RepairThreshold
+				rs: &pb.RedundancyScheme{
+					MinReq:           10,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error - MinReq >= RepairThreshold
+				rs: &pb.RedundancyScheme{
+					MinReq:           2,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error - RepairThreshold >= SuccessThreshol
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  3,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // error -  SuccessThreshold >= Total
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  2,
+					SuccessThreshold: 4,
+					Total:            4,
+					ErasureShareSize: 10,
+				},
+				fail: true,
+			},
+			{ // ok - valid RS parameters
+				rs: &pb.RedundancyScheme{
+					MinReq:           1,
+					RepairThreshold:  2,
+					SuccessThreshold: 3,
+					Total:            4,
+					ErasureShareSize: 256,
+				},
+				fail: false,
+			},
+		} {
+			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now())
+			if r.fail {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		}
 	})
 }
@@ -347,13 +460,14 @@ func TestDoubleCommitSegment(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		pointer, limits := runCreateSegment(ctx, t, metainfo)
 
-		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.NoError(t, err)
 
-		_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+		_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing create request or request expired")
 	})
@@ -424,12 +538,13 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
 
 		for _, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
-			_, err = metainfo.CommitSegment(ctx, "myBucketName", "file/path", -1, pointer, limits)
+			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrorMessage)
 		}
@@ -444,7 +559,7 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+		metainfo, _, err := testplanet.GetMetainfo(ctx, config, uplink.Identity)
 		require.NoError(t, err)
 
 		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
@@ -452,36 +567,71 @@ func TestSetAttribution(t *testing.T) {
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
 
-		partnerID, err := uuid.New()
-		require.NoError(t, err)
-
+		partnerID := testrand.UUID()
 		{
 			// bucket with no items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.SetAttribution(ctx, "beta", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "beta", partnerID)
 			require.NoError(t, err)
 		}
 		{
+			// already attributed bucket, adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
+			require.NoError(t, err)
+		}
+		{
+			//non attributed bucket, and adding files
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alphaNew", "path", []byte{1, 2, 3})
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.SetAttribution(ctx, "alphaNew", partnerID)
 			require.Error(t, err)
 		}
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func TestGetProjectInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+
+		metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+		require.NoError(t, err)
+
+		metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+		require.NoError(t, err)
+
+		info0, err := metainfo0.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info0.ProjectSalt)
+
+		info1, err := metainfo1.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info1.ProjectSalt)
+
+		// Different projects should have different salts
+		require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
+	})
+}
+
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
 
-	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "myBucketName", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
+	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), expirationDate)
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
@@ -511,10 +661,10 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
-				&pb.RemotePiece{
+				{
 					PieceNum: 0,
 				},
-				&pb.RemotePiece{
+				{
 					PieceNum: 1,
 				},
 			},
@@ -522,4 +672,56 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		ExpirationDate: ptypes.TimestampNow(),
 	}
 	return pointer
+}
+
+func TestBucketNameValidation(t *testing.T) {
+	if !satMetainfo.BucketNameRestricted {
+		t.Skip("Skip until bucket name validation is not enabled")
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		rs := &pb.RedundancyScheme{
+			MinReq:           1,
+			RepairThreshold:  1,
+			SuccessThreshold: 3,
+			Total:            4,
+			ErasureShareSize: 1024,
+			Type:             pb.RedundancyScheme_RS,
+		}
+
+		validNames := []string{
+			"tes", "testbucket",
+			"test-bucket", "testbucket9",
+			"9testbucket", "a.b",
+			"test.bucket", "test-one.bucket-one",
+			"test.bucket.one",
+			"testbucket-63-0123456789012345678901234567890123456789012345abc",
+		}
+		for _, name := range validNames {
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			require.NoError(t, err, "bucket name: %v", name)
+		}
+
+		invalidNames := []string{
+			"", "t", "te", "-testbucket",
+			"testbucket-", "-testbucket-",
+			"a.b.", "test.bucket-.one",
+			"test.-bucket.one", "1.2.3.4",
+			"192.168.1.234", "testBUCKET",
+			"test/bucket",
+			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
+		}
+		for _, name := range invalidNames {
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			require.Error(t, err, "bucket name: %v", name)
+		}
+	})
 }

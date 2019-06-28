@@ -2,7 +2,8 @@ pipeline {
     agent {
         dockerfile {
             filename 'Dockerfile.jenkins'
-            args '-u root:root -v "/tmp/gomod":/go/pkg/mod'
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod'
+            label 'gerrit'
         }
     }
     options {
@@ -10,17 +11,17 @@ pipeline {
     }
     stages {
         stage('Start') {
-          steps {
-            gerritReview message: 'Building'
-            sh 'python ./scripts/gerrit-cla.py'
-          }
+            steps {
+                gerritReview message: 'Building'
+                sh 'python ./scripts/gerrit-cla.py'
+            }
         }
 
         stage('Build') {
             steps {
                 checkout scm
 
-                sh 'mkdir .build'
+                sh 'mkdir -p .build'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
@@ -39,12 +40,13 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
+                        sh 'go run ./scripts/check-large-files.go'
                         sh 'go run ./scripts/check-imports.go -race ./...'
                         sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=4 run'
+                        sh 'golangci-lint -j=2 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }
@@ -72,17 +74,6 @@ pipeline {
                                 if(fileExists(".build/coverprofile")){
                                     sh script: 'go run ./scripts/cover-remove-generated.go < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-
-                                    sh script: 'gocov-html < .build/cover.json > .build/cover.html', returnStatus: true
-                                    publishHTML target: [
-                                        allowMissing: false,
-                                        alwaysLinkToLastBuild: false,
-                                        keepAll: false,
-                                        reportDir: '.build',
-                                        reportFiles: 'cover.html',
-                                        reportName: 'Coverage Details'
-                                    ]
-
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml'
                                 }

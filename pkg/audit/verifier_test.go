@@ -5,8 +5,6 @@ package audit_test
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -15,16 +13,16 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/storagenode"
 	"storj.io/storj/uplink"
 )
 
@@ -39,9 +37,7 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -95,9 +91,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -136,12 +130,8 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		for _, share := range shares {
 			if share.NodeID == stoppedNodeID {
 				assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
-				assert.False(t, errs.IsFunc(share.Error, func(err error) bool {
-					return err == context.DeadlineExceeded
-				}), "unexpected error: %+v", share.Error)
-				assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
-					return status.Code(err) == codes.Unknown
-				}), "unexpected error: %+v", share.Error)
+				assert.False(t, errs.Is(share.Error, context.DeadlineExceeded), "unexpected error: %+v", share.Error)
+				assert.True(t, errs2.IsRPC(share.Error, codes.Unknown), "unexpected error: %+v", share.Error)
 			} else {
 				assert.NoError(t, share.Error)
 			}
@@ -163,9 +153,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -201,9 +189,7 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
-				return status.Code(err) == codes.NotFound
-			}), "unexpected error: %+v", share.Error)
+			assert.True(t, errs2.IsRPC(share.Error, codes.NotFound), "unexpected error: %+v", share.Error)
 		}
 	})
 }
@@ -225,9 +211,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -280,9 +264,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 
 		for _, share := range shares {
 			assert.True(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
-			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
-				return err == context.DeadlineExceeded
-			}), "unexpected error: %+v", share.Error)
+			assert.True(t, errs.Is(share.Error, context.DeadlineExceeded), "unexpected error: %+v", share.Error)
 		}
 	})
 }
@@ -303,9 +285,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := make([]byte, 32*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(32 * memory.KiB)
 
 		// Upload with larger erasure share size to simulate longer download over slow transport client
 		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
@@ -360,9 +340,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, share := range shares {
-			assert.True(t, errs.IsFunc(share.Error, func(err error) bool {
-				return status.Code(err) == codes.DeadlineExceeded
-			}), "unexpected error: %+v", share.Error)
+			assert.True(t, errs2.IsRPC(share.Error, codes.DeadlineExceeded), "unexpected error: %+v", share.Error)
 			assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 		}
 	})
@@ -376,9 +354,7 @@ func TestVerifierHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -416,9 +392,7 @@ func TestVerifierOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -460,9 +434,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -506,9 +478,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -565,9 +535,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -604,9 +572,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -633,29 +599,4 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
 	})
-}
-
-func getStorageNode(planet *testplanet.Planet, nodeID storj.NodeID) *storagenode.Peer {
-	for _, node := range planet.StorageNodes {
-		if node.ID() == nodeID {
-			return node
-		}
-	}
-	return nil
-}
-
-func stopStorageNode(ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) error {
-	node := getStorageNode(planet, nodeID)
-	if node == nil {
-		return fmt.Errorf("no such node: %s", nodeID.String())
-	}
-
-	err := planet.StopPeer(node)
-	if err != nil {
-		return err
-	}
-
-	// mark stopped node as offline in overlay cache
-	_, err = planet.Satellites[0].Overlay.Service.UpdateUptime(ctx, nodeID, false)
-	return err
 }

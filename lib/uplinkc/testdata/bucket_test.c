@@ -6,7 +6,7 @@
 
 #include "require.h"
 #include "uplink.h"
-#include "helpers2.h"
+#include "helpers.h"
 
 void handle_project(ProjectRef project);
 
@@ -18,11 +18,11 @@ void handle_project(ProjectRef project) {
     char *_err = "";
     char **err = &_err;
 
-    char *bucket_names[] = {"TestBucket1", "TestBucket2", "TestBucket3", "TestBucket4"};
+    char *bucket_names[] = {"test-bucket1", "test-bucket2", "test-bucket3", "test-bucket4"};
     int num_of_buckets = sizeof(bucket_names) / sizeof(bucket_names[0]);
 
     // TODO: test with different bucket configs
-    {// Create buckets
+    { // Create buckets
         for (int i=0; i < num_of_buckets; i++) {
             char *bucket_name = bucket_names[i];
 
@@ -76,11 +76,10 @@ void handle_project(ProjectRef project) {
         }
     }
 
-    { // encryption access handling
-        EncryptionAccess access = {};
-        memcpy(&access.key[0], "abcdefghijklmnopqrstuvwxyzABCDEF", 32);
+    { // encryption context handling
+        char *enc_ctx = "12VtN2sbbn9PvaEvNbNUBiSKnRcSUNxBADwDWGsPY7UV85e82tT6u";
 
-        BucketRef bucket = open_bucket(project, bucket_names[0], access, err);
+        BucketRef bucket = open_bucket(project, bucket_names[0], enc_ctx, err);
         require_noerror(*err);
         requiref(bucket._handle != 0, "got empty bucket\n");
 

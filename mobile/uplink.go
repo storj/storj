@@ -66,11 +66,6 @@ func (uplink *Uplink) Close() error {
 	return safeError(uplink.lib.Close())
 }
 
-// ProjectOptions allows configuration of various project options during opening
-type ProjectOptions struct {
-	EncryptionKey []byte
-}
-
 // Project represents a specific project access session.
 type Project struct {
 	scope
@@ -78,21 +73,15 @@ type Project struct {
 }
 
 // OpenProject returns a Project handle with the given APIKey
-func (uplink *Uplink) OpenProject(satellite string, apikey string, options *ProjectOptions) (*Project, error) {
+func (uplink *Uplink) OpenProject(satellite string, apikey string) (*Project, error) {
 	scope := uplink.scope.child()
-
-	opts := libuplink.ProjectOptions{}
-	if options != nil {
-		opts.Volatile.EncryptionKey = &storj.Key{}
-		copy(opts.Volatile.EncryptionKey[:], options.EncryptionKey) // TODO: error check
-	}
 
 	key, err := libuplink.ParseAPIKey(apikey)
 	if err != nil {
 		return nil, safeError(err)
 	}
 
-	project, err := uplink.lib.OpenProject(scope.ctx, satellite, key, &opts)
+	project, err := uplink.lib.OpenProject(scope.ctx, satellite, key)
 	if err != nil {
 		return nil, safeError(err)
 	}
@@ -128,16 +117,10 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) (*Bu
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (project *Project) OpenBucket(bucketName string, options *BucketAccess) (*Bucket, error) {
+func (project *Project) OpenBucket(bucketName string, access *EncryptionAccess) (*Bucket, error) {
 	scope := project.scope.child()
 
-	opts := libuplink.EncryptionAccess{}
-	if options != nil {
-		copy(opts.Key[:], options.PathEncryptionKey) // TODO: error check
-		opts.EncryptedPathPrefix = options.EncryptedPathPrefix
-	}
-
-	bucket, err := project.lib.OpenBucket(scope.ctx, bucketName, &opts)
+	bucket, err := project.lib.OpenBucket(scope.ctx, bucketName, access.lib)
 	if err != nil {
 		return nil, safeError(err)
 	}

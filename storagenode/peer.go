@@ -5,6 +5,8 @@ package storagenode
 
 import (
 	"context"
+	"net"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -25,8 +27,11 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
+	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -53,6 +58,7 @@ type DB interface {
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
+	Console() console.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb storage.KeyValueStore)
@@ -69,6 +75,10 @@ type Config struct {
 	Storage   piecestore.OldConfig
 	Storage2  piecestore.Config
 	Collector collector.Config
+
+	Vouchers vouchers.Config
+
+	Console consoleserver.Config
 
 	Version version.Config
 }
@@ -110,7 +120,18 @@ type Peer struct {
 		Sender    *orders.Sender
 	}
 
+	Vouchers *vouchers.Service
+
 	Collector *collector.Service
+
+	NodeStats *nodestats.Service
+
+	// Web server with web UI
+	Console struct {
+		Listener net.Listener
+		Service  *console.Service
+		Endpoint *consoleserver.Server
+	}
 }
 
 // New creates a new Storage Node.
@@ -252,6 +273,51 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 	}
 
+	{ // setup node stats service
+		peer.NodeStats = nodestats.NewService(
+			peer.Log.Named("nodestats"),
+			peer.Transport,
+			peer.Kademlia.Service)
+	}
+
+	{ // setup vouchers
+		interval := config.Vouchers.Interval
+		buffer := interval + time.Hour
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+			peer.Storage2.Trust, interval, buffer)
+	}
+
+	{ // setup storage node operator dashboard
+		peer.Console.Service, err = console.NewService(
+			peer.Log.Named("console:service"),
+			peer.DB.Console(),
+			peer.DB.Bandwidth(),
+			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
+			peer.Version,
+			peer.NodeStats,
+			config.Storage.AllocatedBandwidth,
+			config.Storage.AllocatedDiskSpace,
+			config.Kademlia.Operator.Wallet,
+			versionInfo)
+
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Console.Endpoint = consoleserver.NewServer(
+			peer.Log.Named("console:endpoint"),
+			config.Console,
+			peer.Console.Service,
+			peer.Console.Listener,
+		)
+	}
+
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
 	return peer, nil
@@ -283,6 +349,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Storage2.Monitor.Run(ctx))
 	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
+	})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -291,6 +360,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		peer.Log.Sugar().Infof("Public server started on %s", peer.Addr())
 		peer.Log.Sugar().Infof("Private server started on %s", peer.PrivateAddr())
 		return errs2.IgnoreCanceled(peer.Server.Run(ctx))
+	})
+
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
 	return group.Wait()
@@ -309,6 +382,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.Vouchers != nil {
+		errlist.Add(peer.Vouchers.Close())
+	}
 	if peer.Storage2.Monitor != nil {
 		errlist.Add(peer.Storage2.Monitor.Close())
 	}
@@ -324,6 +400,11 @@ func (peer *Peer) Close() error {
 	}
 	if peer.Kademlia.RoutingTable != nil {
 		errlist.Add(peer.Kademlia.RoutingTable.Close())
+	}
+	if peer.Console.Endpoint != nil {
+		errlist.Add(peer.Console.Endpoint.Close())
+	} else if peer.Console.Listener != nil {
+		errlist.Add(peer.Console.Listener.Close())
 	}
 
 	return errlist.Err()

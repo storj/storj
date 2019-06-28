@@ -133,13 +133,19 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 	if info.identity == nil {
 		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
 		if err != nil {
-			if err == context.Canceled {
-				return nil, err
-			}
 			return nil, Error.Wrap(err)
 		}
 		info.identity = identity
 	}
 
 	return signing.SigneeFromPeerIdentity(info.identity), nil
+}
+
+// GetSatellites returns a slice containing all trusted satellites
+func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
+	defer mon.Task()(&ctx)(nil)
+	for sat := range pool.trustedSatellites {
+		satellites = append(satellites, sat)
+	}
+	return satellites
 }

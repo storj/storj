@@ -11,7 +11,6 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -50,13 +49,14 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketing"
-	"storj.io/storj/satellite/marketing/marketingweb"
+	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/localpayments"
 	"storj.io/storj/satellite/payments/stripepayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/vouchers"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
@@ -92,8 +92,8 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	// Marketing returns database for marketing admin GUI
-	Marketing() marketing.DB
+	//  returns database for marketing admin GUI
+	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -103,15 +103,14 @@ type DB interface {
 // Config is the global config satellite
 type Config struct {
 	Identity identity.Config
-
-	// TODO: switch to using server.Config when Identity has been removed from it
-	Server server.Config
+	Server   server.Config
 
 	Kademlia  kademlia.Config
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
 	Metainfo metainfo.Config
+	Orders   orders.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -125,8 +124,7 @@ type Config struct {
 	Console consoleweb.Config
 
 	Marketing marketingweb.Config
-
-	Vouchers vouchers.Config
+	Vouchers  vouchers.Config
 
 	Version version.Config
 }
@@ -214,6 +212,10 @@ type Peer struct {
 	Marketing struct {
 		Listener net.Listener
 		Endpoint *marketingweb.Server
+	}
+
+	NodeStats struct {
+		Endpoint *nodestats.Endpoint
 	}
 }
 
@@ -339,20 +341,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		config := config.Vouchers
-		if config.Expiration < 0 {
-			return nil, errs.New("voucher expiration (%d) must be > 0", config.Expiration)
-		}
-		expirationHours := config.Expiration * 24
-		duration, err := time.ParseDuration(fmt.Sprintf("%dh", expirationHours))
-		if err != nil {
-			return nil, err
-		}
 		peer.Vouchers.Service = vouchers.NewService(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			duration,
+			config.Vouchers.Expiration,
 		)
 		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
 	}
@@ -391,7 +384,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Overlay.Service,
 			peer.DB.CertDB(),
 			peer.DB.Orders(),
-			45*24*time.Hour, // TODO: make it configurable?
+			config.Orders.Expiration,
+			&pb.NodeAddress{
+				Transport: pb.NodeTransport_TCP_TLS_GRPC,
+				Address:   config.Kademlia.ExternalAddress,
+			},
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -411,9 +408,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Metainfo.Service,
 			peer.Orders.Service,
 			peer.Overlay.Service,
+			peer.DB.Attribution(),
 			peer.DB.Containment(),
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
+			config.Metainfo.RS,
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -607,6 +606,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup node stats endpoint
+		log.Debug("Setting up node stats endpoint")
+
+		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
+			peer.Log.Named("nodestats:endpoint"),
+			peer.DB.OverlayCache())
+
+		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 	}
 
 	return peer, nil

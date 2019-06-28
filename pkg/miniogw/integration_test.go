@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
@@ -25,6 +24,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -87,9 +87,7 @@ func TestUploadDownload(t *testing.T) {
 	uplinkCfg.Client.APIKey = "apiKey"
 
 	// Encryption key
-	passphrase := make([]byte, rand.Intn(100)+1)
-	_, err = rand.Read(passphrase)
-	require.NoError(t, err)
+	passphrase := testrand.BytesInt(testrand.Intn(100) + 1)
 
 	encryptionKey, err := storj.NewKey(passphrase)
 	require.NoError(t, err)
@@ -207,29 +205,14 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		return err
 	}
 
-	var encKey *storj.Key
-	{
-		rawKey, err := ioutil.ReadFile(uplinkCfg.Enc.KeyFilepath)
-		if err != nil {
-			return err
-		}
-
-		encKey, err = storj.NewKey(rawKey)
-		if err != nil {
-			return err
-		}
-	}
-
-	var projectOptions libuplink.ProjectOptions
-	projectOptions.Volatile.EncryptionKey = encKey
-	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey, &projectOptions)
+	project, err := uplink.OpenProject(ctx, uplinkCfg.Client.SatelliteAddr, apiKey)
 	if err != nil {
 		return err
 	}
 
 	gw := miniogw.NewStorjGateway(
 		project,
-		encKey,
+		libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
 		storj.Cipher(uplinkCfg.Enc.PathType).ToCipherSuite(),
 		uplinkCfg.GetEncryptionScheme().ToEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),

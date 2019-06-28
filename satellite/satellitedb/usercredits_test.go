@@ -5,20 +5,16 @@ package satellitedb_test
 
 import (
 	"context"
-	"crypto/rand"
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
-
-	"storj.io/storj/satellite/marketing"
-
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/console"
-
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -32,13 +28,12 @@ func TestUsercredits(t *testing.T) {
 		consoleDB := db.Console()
 
 		user, referrer, offer := setupData(ctx, t, db)
-		randomID, err := uuid.New()
-		require.NoError(t, err)
+		randomID := testrand.UUID()
 
 		// test foreign key constraint for inserting a new user credit entry with randomID
 		var invalidUserCredits = []console.UserCredit{
 			{
-				UserID:               *randomID,
+				UserID:               randomID,
 				OfferID:              offer.ID,
 				ReferredBy:           referrer.ID,
 				CreditsEarnedInCents: 100,
@@ -54,7 +49,7 @@ func TestUsercredits(t *testing.T) {
 			{
 				UserID:               user.ID,
 				OfferID:              offer.ID,
-				ReferredBy:           *randomID,
+				ReferredBy:           randomID,
 				CreditsEarnedInCents: 100,
 				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
 			},
@@ -66,9 +61,9 @@ func TestUsercredits(t *testing.T) {
 		}
 
 		type result struct {
-			remainingCharge  int
-			availableCredits int
-			hasErr           bool
+			remainingCharge int
+			usage           console.UserCreditUsage
+			hasErr          bool
 		}
 
 		var validUserCredits = []struct {
@@ -86,9 +81,13 @@ func TestUsercredits(t *testing.T) {
 				},
 				chargedCredits: 120,
 				expected: result{
-					remainingCharge:  20,
-					availableCredits: 0,
-					hasErr:           false,
+					remainingCharge: 20,
+					usage: console.UserCreditUsage{
+						AvailableCredits: 0,
+						UsedCredits:      100,
+						Referred:         0,
+					},
+					hasErr: false,
 				},
 			},
 			{
@@ -102,9 +101,13 @@ func TestUsercredits(t *testing.T) {
 				},
 				chargedCredits: 60,
 				expected: result{
-					remainingCharge:  60,
-					availableCredits: 0,
-					hasErr:           true,
+					remainingCharge: 60,
+					usage: console.UserCreditUsage{
+						AvailableCredits: 0,
+						UsedCredits:      100,
+						Referred:         0,
+					},
+					hasErr: true,
 				},
 			},
 			{
@@ -118,26 +121,20 @@ func TestUsercredits(t *testing.T) {
 				},
 				chargedCredits: 80,
 				expected: result{
-					remainingCharge:  0,
-					availableCredits: 20,
-					hasErr:           false,
+					remainingCharge: 0,
+					usage: console.UserCreditUsage{
+						AvailableCredits: 20,
+						UsedCredits:      180,
+						Referred:         0,
+					},
+					hasErr: false,
 				},
 			},
 		}
 
 		for i, vc := range validUserCredits {
-			_, err = consoleDB.UserCredits().Create(ctx, vc.userCredit)
+			_, err := consoleDB.UserCredits().Create(ctx, vc.userCredit)
 			require.NoError(t, err)
-
-			{
-				referredCount, err := consoleDB.UserCredits().TotalReferredCount(ctx, vc.userCredit.ReferredBy)
-				if err != nil {
-					require.True(t, uuid.Equal(*randomID, vc.userCredit.ReferredBy))
-					continue
-				}
-				require.NoError(t, err)
-				require.Equal(t, int64(i+1), referredCount)
-			}
 
 			{
 				remainingCharge, err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
@@ -150,37 +147,35 @@ func TestUsercredits(t *testing.T) {
 			}
 
 			{
-				availableCredits, err := consoleDB.UserCredits().GetAvailableCredits(ctx, vc.userCredit.UserID, time.Now().UTC())
+				usage, err := consoleDB.UserCredits().GetCreditUsage(ctx, vc.userCredit.UserID, time.Now().UTC())
 				require.NoError(t, err)
-				var sum int
-				for i := range availableCredits {
-					sum += availableCredits[i].CreditsEarnedInCents - availableCredits[i].CreditsUsedInCents
-				}
+				require.Equal(t, vc.expected.usage, *usage)
+			}
 
+			{
+				referred, err := consoleDB.UserCredits().GetCreditUsage(ctx, referrer.ID, time.Now().UTC())
 				require.NoError(t, err)
-				require.Equal(t, vc.expected.availableCredits, sum)
+				require.Equal(t, int64(i+1), referred.Referred)
 			}
 		}
 	})
 }
 
-func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *marketing.Offer) {
+func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *console.User, referrer *console.User, offer *rewards.Offer) {
 	consoleDB := db.Console()
-	marketingDB := db.Marketing()
-	// create user
-	var userPassHash [8]byte
-	_, err := rand.Read(userPassHash[:])
-	require.NoError(t, err)
+	offersDB := db.Rewards()
 
-	var referrerPassHash [8]byte
-	_, err = rand.Read(referrerPassHash[:])
-	require.NoError(t, err)
+	// create user
+	userPassHash := testrand.Bytes(8)
+	referrerPassHash := testrand.Bytes(8)
+
+	var err error
 
 	// create an user
 	user, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "John Doe",
 		Email:        "john@mail.test",
-		PasswordHash: userPassHash[:],
+		PasswordHash: userPassHash,
 		Status:       console.Active,
 	})
 	require.NoError(t, err)
@@ -189,13 +184,13 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
 		FullName:     "referrer",
 		Email:        "referrer@mail.test",
-		PasswordHash: referrerPassHash[:],
+		PasswordHash: referrerPassHash,
 		Status:       console.Active,
 	})
 	require.NoError(t, err)
 
 	// create offer
-	offer, err = marketingDB.Offers().Create(ctx, &marketing.NewOffer{
+	offer, err = offersDB.Create(ctx, &rewards.NewOffer{
 		Name:                      "test",
 		Description:               "test offer 1",
 		AwardCreditInCents:        100,
@@ -204,8 +199,8 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 		InviteeCreditDurationDays: 30,
 		RedeemableCap:             50,
 		ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-		Status:                    marketing.Active,
-		Type:                      marketing.Referral,
+		Status:                    rewards.Active,
+		Type:                      rewards.Referral,
 	})
 	require.NoError(t, err)
 
