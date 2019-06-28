@@ -601,6 +601,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Marketing.Endpoint, err = marketingweb.NewServer(
 			peer.Log.Named("marketing:endpoint"),
 			marketingConfig,
+			peer.DB.Rewards(),
 			peer.Marketing.Listener,
 		)
 		if err != nil {

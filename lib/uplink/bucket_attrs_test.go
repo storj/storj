@@ -53,12 +53,12 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 	})
 }
 
-func simpleEncryptionAccess(encKey string) (access *EncryptionCtx) {
+func simpleEncryptionAccess(encKey string) (access *EncryptionAccess) {
 	key, err := storj.NewKey([]byte(encKey))
 	if err != nil {
 		panic(err)
 	}
-	return NewEncryptionCtxWithDefaultKey(*key)
+	return NewEncryptionAccessWithDefaultKey(*key)
 }
 
 // check that partner bucket attributes are stored and retrieved correctly.
@@ -88,16 +88,18 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			proj.uplinkCfg.Volatile.PartnerID = partnerID
 			got, err := proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
 
 			info, err := db.Get(ctx, consoleProject.ID, []byte(bucketName))
 			require.NoError(t, err)
 			assert.Equal(t, info.PartnerID.String(), partnerID)
 
-			// partner ID NOT set
+			// partner ID not set but bucket's attribution already set(from above)
 			proj.uplinkCfg.Volatile.PartnerID = ""
 			got, err = proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 			defer ctx.Check(got.Close)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
 		})
 }
 
