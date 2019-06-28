@@ -158,9 +158,7 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "err.html"),
 	)
 
-	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"ToDollars": rewards.ToDollars,
-	}).ParseFiles(homeFiles...)
+	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}

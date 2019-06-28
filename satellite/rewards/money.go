@@ -7,31 +7,18 @@ import (
 	"fmt"
 )
 
-type Cent = int
-type CentX int
+// USD describes USD currency in cents.
+type USD int
 
-// ToCents converts USD credit amounts to cents.
-func ToCents(dollars int) Cent {
-	return Cent(dollars * 100)
+// USDFromDollars converts USD credit amounts to cents.
+func USDFromDollars(dollars int) USD {
+	return USD(dollars * 100)
 }
 
-// ToDollars converts credit amounts in cents to USD.
-func ToDollars(cents Cent) string {
+// String returns the value in dollars.
+func (cents USD) String() string {
 	if cents < 0 {
 		return fmt.Sprintf("-%d.%02d", -cents/100, -cents%100)
 	}
 	return fmt.Sprintf("%d.%02d", cents/100, cents%100)
-}
-
-// CentFromDollar converts USD credit amounts to cents.
-func CentFromDollar(dollars int) CentX {
-	return CentX(dollars * 100)
-}
-
-// DollarsString returns the value in dollars.
-func (cent CentX) DollarsString() string {
-	if cent < 0 {
-		return fmt.Sprintf("-%d.%02d", -cent/100, -cent%100)
-	}
-	return fmt.Sprintf("%d.%02d", cent/100, cent%100)
 }
