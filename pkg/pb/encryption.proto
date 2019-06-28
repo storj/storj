@@ -1,0 +1,14 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "pb";
+
+package encryption;
+
+import "gogo.proto";
+
+message EncryptionScheme {
+  int32 cipher_suite = 1;
+  int32 block_size = 2;
+}
