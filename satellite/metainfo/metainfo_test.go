@@ -302,7 +302,7 @@ func TestCommitSegment(t *testing.T) {
 
 		{
 			// error if pointer is nil
-			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
 			require.Error(t, err)
 		}
 		{
@@ -341,7 +341,7 @@ func TestCommitSegment(t *testing.T) {
 				ExpirationDate: expirationDateProto,
 			}
 
-			limits := make([]*pb.OrderLimit2, len(addresedLimits))
+			limits := make([]*pb.OrderLimit, len(addresedLimits))
 			for i, addresedLimit := range addresedLimits {
 				limits[i] = addresedLimit.Limit
 			}
@@ -626,7 +626,7 @@ func TestGetProjectInfo(t *testing.T) {
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
@@ -638,7 +638,7 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Clie
 	pointer.Remote.RemotePieces[0].NodeId = addressedLimits[0].Limit.StorageNodeId
 	pointer.Remote.RemotePieces[1].NodeId = addressedLimits[1].Limit.StorageNodeId
 
-	limits := make([]*pb.OrderLimit2, len(addressedLimits))
+	limits := make([]*pb.OrderLimit, len(addressedLimits))
 	for i, addressedLimit := range addressedLimits {
 		limits[i] = addressedLimit.Limit
 	}
