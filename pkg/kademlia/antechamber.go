@@ -5,13 +5,9 @@ package kademlia
 
 import (
 	"context"
-	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -124,16 +120,4 @@ func (rt *RoutingTable) iterateAntechamber(ctx context.Context, start storj.Node
 			return nil
 		},
 	)
-}
-
-// convertTime converts gRPC timestamp to Go time
-func convertTime(ts *timestamp.Timestamp) time.Time {
-	if ts == nil {
-		return time.Time{}
-	}
-	t, err := ptypes.Timestamp(ts)
-	if err != nil {
-		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
-	}
-	return t
 }
