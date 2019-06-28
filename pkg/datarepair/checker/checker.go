@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -56,11 +55,10 @@ type Checker struct {
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
 	monStats        durabilityStats
-	gcConfig        gc.Config
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration, gcConfig gc.Config) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		metainfo:        metainfo,
@@ -72,7 +70,6 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		Loop:            *sync2.NewCycle(repairInterval),
 		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
 		monStats:        durabilityStats{},
-		gcConfig:        gcConfig,
 	}
 	return checker
 }

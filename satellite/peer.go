@@ -430,7 +430,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			0, peer.Log.Named("checker"),
 			config.Checker.Interval,
 			config.Checker.IrreparableInterval,
-			config.GarbageCollection,
 		)
 
 		peer.Repair.Repairer = repairer.NewService(
