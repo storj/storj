@@ -20,6 +20,17 @@ func TestAntechamberAddNode(t *testing.T) {
 	rt := createRoutingTableWith(ctx, storj.NodeID{127, 255}, routingTableOpts{bucketSize: 2})
 	defer ctx.Check(rt.Close)
 
+	// Add node to antechamber even if there are no neighborhood nodes
+	node := &pb.Node{Id: storj.NodeID{63, 255}}
+	err := rt.antechamberAddNode(ctx, node)
+	assert.NoError(t, err)
+	val, err := rt.antechamber.Get(ctx, node.Id.Bytes())
+	assert.NoError(t, err)
+	unmarshaled := &pb.Node{}
+	err = proto.Unmarshal(val, unmarshaled)
+	assert.NoError(t, err)
+	assert.Equal(t, node.Id, unmarshaled.Id)
+
 	// Add two nodes to routing table
 	node1 := &pb.Node{Id: storj.NodeID{191, 255}} // [191, 255] XOR [127, 255] = 192
 	ok, err := rt.addNode(ctx, node1)
@@ -42,9 +53,9 @@ func TestAntechamberAddNode(t *testing.T) {
 	node4 := &pb.Node{Id: storj.NodeID{255, 255}} // [255, 255] XOR [127, 255] = 128 < 240
 	err = rt.antechamberAddNode(ctx, node4)
 	assert.NoError(t, err)
-	val, err := rt.antechamber.Get(ctx, node4.Id.Bytes())
+	val, err = rt.antechamber.Get(ctx, node4.Id.Bytes())
 	assert.NoError(t, err)
-	unmarshaled := &pb.Node{}
+	unmarshaled = &pb.Node{}
 	err = proto.Unmarshal(val, unmarshaled)
 	assert.NoError(t, err)
 	assert.Equal(t, node4.Id, unmarshaled.Id)
