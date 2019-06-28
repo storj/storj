@@ -26,14 +26,14 @@ The `scope-blob` is base58 encoding of a `Scope` protobuf, which
 is defined as follows:
 
 ```
-import "encryption_ctx.proto";
+import "encryption_access.proto";
 
 message Scope {
     string satellite_addr = 1;
 
     bytes api_key = 2;
 
-    encryption_ctx.EncryptionCtx encryption_ctx = 3;
+    encryption_access.EncryptionAccess encryption_access = 3;
 }
 ```
 
