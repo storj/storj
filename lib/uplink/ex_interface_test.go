@@ -48,7 +48,7 @@ func WorkWithLibUplink(satelliteAddress string, encryptionKey *storj.Key, apiKey
 	}
 
 	// Open up the desired Bucket within the Project
-	bucket, err := proj.OpenBucket(ctx, bucketName, uplink.NewEncryptionCtxWithDefaultKey(*encryptionKey))
+	bucket, err := proj.OpenBucket(ctx, bucketName, uplink.NewEncryptionAccessWithDefaultKey(*encryptionKey))
 	if err != nil {
 		return fmt.Errorf("could not open bucket %q: %v", bucketName, err)
 	}

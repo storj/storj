@@ -25,11 +25,11 @@ type RSConfig struct {
 // EncryptionConfig is a configuration struct that keeps details about
 // encrypting segments
 type EncryptionConfig struct {
-	EncryptionKey  string `help:"the root key for encrypting the data which will be stored in KeyFilePath" setup:"true"`
-	KeyFilepath    string `help:"the path to the file which contains the root key for encrypting the data"`
-	EncCtxFilepath string `help:"the path to a file containing a serialized encryption ctx"`
-	DataType       int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType       int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	EncryptionKey     string `help:"the root key for encrypting the data which will be stored in KeyFilePath" setup:"true"`
+	KeyFilepath       string `help:"the path to the file which contains the root key for encrypting the data"`
+	EncAccessFilepath string `help:"the path to a file containing a serialized encryption access"`
+	DataType          int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
+	PathType          int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
