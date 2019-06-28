@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -80,9 +79,6 @@ var (
 	identityDir    string
 	useColor       bool
 )
-
-//go:generate go run ../internal/asset/generate/main.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
-var embeddedAssets http.Dir
 
 const (
 	defaultServerAddr        = ":28967"
