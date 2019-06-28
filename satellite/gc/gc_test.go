@@ -29,6 +29,7 @@ import (
 // * Check that pieces of the deleted object are deleted on the storagenode
 // * Check that pieces of the kept object are not deleted on the storagenode
 func TestGarbageCollection(t *testing.T) {
+	t.Skip("Garbage collection not implemented yet.")
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
