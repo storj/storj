@@ -6,9 +6,12 @@ package asset
 import (
 	"bytes"
 	"errors"
+	"net/http"
 	"os"
 	"time"
 )
+
+var _ http.FileSystem = (*InmemoryFileSystem)(nil)
 
 // InmemoryFileSystem defines an inmemory http.FileSystem
 type InmemoryFileSystem struct {
@@ -31,6 +34,15 @@ func (fs *InmemoryFileSystem) reindex(prefix, name string, file *Asset) {
 	for _, child := range file.Children {
 		fs.reindex(prefix+"/"+name, child.Name, child)
 	}
+}
+
+// Open opens the file at the specified path.
+func (fs *InmemoryFileSystem) Open(path string) (http.File, error) {
+	asset, ok := fs.Index[path]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return asset.File(), nil
 }
 
 // File opens the particular asset as a file.

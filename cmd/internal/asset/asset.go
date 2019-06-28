@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package asset implements asset embedding via implementing http.Dir interface.
+// Package asset implements asset embedding via implementing http.FileSystem interface.
 //
 // To use the package you would define:
 //
@@ -12,7 +12,7 @@
 //
 // In the program initialization you can select based on whether the embedded resources exist or not:
 //
-//     var assets http.Dir
+//     var assets http.FileSystem
 //     if *staticAssetDirectory != "" {
 //         assets = http.Dir(*staticAssetDirectory)
 //     } else if embeddedAssets == nil {
@@ -21,7 +21,7 @@
 //         assets = http.Dir(defaultAssetLocation)
 //     }
 //
-// Then write the service in terms of http.Dir, which hides the actual thing used for loading.
+// Then write the service in terms of http.FileSystem, which hides the actual thing used for loading.
 //
 package asset
 
@@ -34,7 +34,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-// Asset is for conveniently defining a tree of data.
+// Asset describes a tree of asset files and directories.
 type Asset struct {
 	Name     string
 	Mode     os.FileMode

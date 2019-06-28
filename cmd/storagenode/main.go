@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -15,7 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/cmd/internal/asset"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
@@ -82,7 +82,7 @@ var (
 )
 
 //go:generate go run ../internal/asset/generate/main.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
-var embeddedAssets *asset.Asset
+var embeddedAssets http.Dir
 
 const (
 	defaultServerAddr        = ":28967"
