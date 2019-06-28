@@ -264,6 +264,9 @@ func FindIdentityDirParam() string {
 
 // FindDefaultsParam returns '--defaults' param from os.Args (if it exists)
 func FindDefaultsParam() string {
+	if os.Getenv("STORJ_DEFAULTS") != "" {
+		return os.Getenv("STORJ_DEFAULTS")
+	}
 	return FindFlagEarly("defaults")
 }
 
