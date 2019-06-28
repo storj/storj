@@ -74,8 +74,8 @@ func (url NodeURL) String() string {
 type NodeURLs []NodeURL
 
 // ParseNodeURLs parses comma delimited list of node urls
-func ParseNodeURLs(s string) ([]NodeURL, error) {
-	var urls []NodeURL
+func ParseNodeURLs(s string) (NodeURLs, error) {
+	var urls NodeURLs
 	if s == "" {
 		return nil, nil
 	}

@@ -60,3 +60,24 @@ func TestNodeURL(t *testing.T) {
 		}
 	})
 }
+
+func TestNodeURLs(t *testing.T) {
+	emptyID := storj.NodeID{}
+	id, err := storj.NodeIDFromString("12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7")
+	require.NoError(t, err)
+
+	s := "33.20.0.1:7777," +
+		"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@[2001:db8:1f70::999:de8:7648:6e8]:7777," +
+		"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@example.com," +
+		"12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@"
+	urls, err := storj.ParseNodeURLs(s)
+	require.NoError(t, err)
+	require.Equal(t, storj.NodeURLs{
+		storj.NodeURL{emptyID, "33.20.0.1:7777"},
+		storj.NodeURL{id, "[2001:db8:1f70::999:de8:7648:6e8]:7777"},
+		storj.NodeURL{id, "example.com"},
+		storj.NodeURL{id, ""},
+	}, urls)
+
+	require.Equal(t, s, urls.String())
+}
