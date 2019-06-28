@@ -90,7 +90,7 @@ func TestAntechamberFindNear(t *testing.T) {
 	node3 := &pb.Node{Id: storj.NodeID{133, 255}}
 	err = rt.antechamberAddNode(ctx, node3)
 	assert.NoError(t, err)
-	node4 := &pb.Node{Id: storj.NodeID{255, 255}}  // [255, 255] XOR [127, 255] = 128 -> closest node
+	node4 := &pb.Node{Id: storj.NodeID{255, 255}} // [255, 255] XOR [127, 255] = 128 -> closest node
 	err = rt.antechamberAddNode(ctx, node4)
 	assert.NoError(t, err)
 
