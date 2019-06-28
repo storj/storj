@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -189,9 +190,7 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Us
 	var err error
 	for i, user := range usersList {
 		usersList[i], err = users.Insert(ctx, user)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 
 	projectList := []*console.Project{
@@ -207,9 +206,7 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Us
 
 	for i, project := range projectList {
 		projectList[i], err = projects.Insert(ctx, project)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 
 	return usersList, projectList
