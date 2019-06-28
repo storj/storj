@@ -31,7 +31,8 @@ import (
 func TestGarbageCollection(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, Reconfigure: testplanet.Reconfigure{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				// TODO see if we should reconfigure anything
 			},
