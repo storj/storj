@@ -28,21 +28,6 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled INTEGER NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
-CREATE TABLE bucket_metadata (
-	project_id BLOB NOT NULL,
-	name BLOB NOT NULL,
-	segment_size INTEGER NOT NULL,
-	path_cipher INTEGER NOT NULL,
-	enc_cipher INTEGER NOT NULL,
-	enc_blocksize INTEGER NOT NULL,
-	rs_algorithm INTEGER NOT NULL,
-	rs_sharesize INTEGER NOT NULL,
-	rs_required INTEGER NOT NULL,
-	rs_repair INTEGER NOT NULL,
-	rs_optimal INTEGER NOT NULL,
-	rs_total INTEGER NOT NULL,
-	PRIMARY KEY ( project_id, name )
-);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name BLOB NOT NULL,
 	project_id BLOB NOT NULL,
@@ -220,6 +205,24 @@ CREATE TABLE api_keys (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ),
+	name BLOB NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	default_segment_size INTEGER NOT NULL,
+	default_encryption_cipher_suite INTEGER NOT NULL,
+	default_encryption_block_size INTEGER NOT NULL,
+	default_redundancy_algorithm INTEGER NOT NULL,
+	default_redundancy_share_size INTEGER NOT NULL,
+	default_redundancy_required_shares INTEGER NOT NULL,
+	default_redundancy_repair_shares INTEGER NOT NULL,
+	default_redundancy_optimal_shares INTEGER NOT NULL,
+	default_redundancy_total_shares INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_invoice_stamps (
