@@ -63,6 +63,7 @@ func TestGarbageCollection(t *testing.T) {
 			}
 		}
 		require.NotNil(t, deletedPiece)
+		deletedPieceID := pointerToDelete.GetRemote().RootPieceId.Derive(targetNode.ID())
 
 		err = upl.UploadWithConfig(ctx, satellite, uplConfig, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
@@ -75,6 +76,7 @@ func TestGarbageCollection(t *testing.T) {
 			}
 		}
 		require.NotNil(t, keptPiece)
+		keptPieceID := pointerToKeep.GetRemote().RootPieceId.Derive(targetNode.ID())
 
 		// Take storagenode offline
 		err = planet.StopPeer(targetNode)
@@ -88,15 +90,23 @@ func TestGarbageCollection(t *testing.T) {
 		// Bring storagenode back online
 		// TODO how do we do this?
 
+		// Check that piece of the deleted object is on the storagenode
+		pieceInfo, err := targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
+		require.NoError(t, err)
+		require.NotNil(t, pieceInfo)
+
 		// Trigger bloom filter generation
-		// TODO download deletedPiece from storagenode, expect no error
 		// TODO run checker to trigger bloom filter generation?
 
-		// Check that pieces of the deleted object are not on the storagenode
-		// TODO download deletedPiece from storagenode, expect error
+		// Check that piece of the deleted object is not on the storagenode
+		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
+		require.Error(t, err)
+		require.Nil(t, pieceInfo)
 
-		// Check that pieces of the kept object are on the storagenode
-		// TODO download keptPIece from storagenode, expect no error
+		// Check that piece of the kept object is on the storagenode
+		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), keptPieceID)
+		require.NoError(t, err)
+		require.NotNil(t, pieceInfo)
 	})
 }
 
