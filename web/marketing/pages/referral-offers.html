@@ -30,16 +30,15 @@ See LICENSE for copying information. -->
     <div class="row offer-heading ">
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
-    {{if gt (len .ReferralOffers.Set) 0}}
-        {{$currentOffer := .ReferralOffers.GetCurrentFromSet}}
+    {{with $active := .ReferralOffers.Active }}
         <div class="row data-row">
-            <div class="col ml-3">{{$currentOffer.Name}}</div>
-            <div class="col">${{$currentOffer.InviteeCredit}}</div> 
-            <div class="col">${{$currentOffer.AwardCredit}}</div>
-            <div class="col">{{$currentOffer.NumRedeemed}}</div>
-            <div class="col">{{$currentOffer.RedeemableCap}}</div>
-            <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
-            <div class="col">{{printf "%.10s" $currentOffer.ExpiresAt}}</div>
+            <div class="col ml-3">{{$active.Name}}</div>
+            <div class="col">${{$active.InviteeCredit}}</div> 
+            <div class="col">${{$active.AwardCredit}}</div>
+            <div class="col">{{$active.NumRedeemed}}</div>
+            <div class="col">{{$active.RedeemableCap}}</div>
+            <div class="col">{{printf "%.10s" $active.CreatedAt}}</div>
+            <div class="col">{{printf "%.10s" $active.ExpiresAt}}</div>
             <div class="col stop-offer">
                 <span data-toggle="modal" data-target=".stop-referral-offer-modal">
                     <strong>Live &#183;</strong>
@@ -50,10 +49,7 @@ See LICENSE for copying information. -->
     <div class="row offer-heading ">
         <p class="offer-type">Other&nbsp;Offers</p>
     </div>
-    {{if gt (len .ReferralOffers.Set) 0}}
-    {{range .ReferralOffers.Set}}
-    {{$offer := .}}
-        {{if $offer.IsDone}}
+    {{range $offer := .ReferralOffers.Done}}
         <div class="row data-row">
             <div class="col ml-3">{{$offer.Name}}</div>
             <div class="col">${{$offer.InviteeCredit}}</div> 
@@ -64,7 +60,6 @@ See LICENSE for copying information. -->
             <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
             <div class="col">off</div>
         </div><hr>
-        {{end}}
     {{end}}
 {{end}}
 </div>

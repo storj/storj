@@ -29,11 +29,14 @@ type Config struct {
 
 // Server represents marketing offersweb server
 type Server struct {
-	log         *zap.Logger
-	config      Config
-	listener    net.Listener
-	server      http.Server
-	db          rewards.DB
+	log    *zap.Logger
+	config Config
+
+	listener net.Listener
+	server   http.Server
+
+	db rewards.DB
+
 	templateDir string
 	templates   struct {
 		home          *template.Template
@@ -174,7 +177,7 @@ func (s *Server) parseTemplates() (err error) {
 func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	offer, err := parseOfferForm(w, req)
 	if err != nil {
-		s.log.Error("failed to convert form to struct", zap.Error(err))
+		s.log.Debug("failed to convert form to struct", zap.Error(err))
 		s.serveBadRequest(w, req, err)
 		return
 	}

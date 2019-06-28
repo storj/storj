@@ -71,6 +71,9 @@ type Offer struct {
 	Name        string
 	Description string
 
+	Status OfferStatus
+	Type   OfferType
+
 	AwardCredit   USD
 	InviteeCredit USD
 
@@ -82,58 +85,26 @@ type Offer struct {
 
 	ExpiresAt time.Time
 	CreatedAt time.Time
-
-	Status OfferStatus
-	Type   OfferType
 }
 
 // IsDefault evaluates the default status of offers for templates.
 func (o Offer) IsDefault() bool {
-	if o.Status == Default {
-		return true
-	}
-	return false
+	return o.Status == Default
 }
 
 // IsCurrent evaluates the current status of offers for templates.
 func (o Offer) IsCurrent() bool {
-	if o.Status == Active {
-		return true
-	}
-	return false
+	return o.Status == Active
 }
 
 // IsDone evaluates the done status of offers for templates.
 func (o Offer) IsDone() bool {
-	if o.Status == Done {
-		return true
-	}
-	return false
+	return o.Status == Done
 }
 
 // Offers holds a set of organized offers.
 type Offers struct {
-	Set []Offer
-}
-
-// GetCurrentFromSet returns the current offer from an organized set.
-func (offers Offers) GetCurrentFromSet() Offer {
-	var o Offer
-	for _, offer := range offers.Set {
-		if offer.IsCurrent() {
-			o = offer
-		}
-	}
-	return o
-}
-
-// GetDefaultFromSet returns the current offer from an organized set.
-func (offers Offers) GetDefaultFromSet() Offer {
-	var o Offer
-	for _, offer := range offers.Set {
-		if offer.IsDefault() {
-			o = offer
-		}
-	}
-	return o
+	Active  Offer
+	Default Offer
+	Done    []Offer
 }
