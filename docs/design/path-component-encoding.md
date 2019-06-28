@@ -7,6 +7,7 @@ This document describes a way to handle path component encoding such that we can
 - Always find a key that would be immediately before or after any other key
 - Have minimal space used to store them
 - Be consistent with empty path components for encrypted and unencrypted paths
+- Works well with C style strings (avoids the null byte)
 
 ## Background
 
@@ -40,7 +41,7 @@ Escaping is defined as follows. Note that `/` has ASCII value 47 or `\x2f`. Sinc
 - `\x2e` escapes to `\x2e\x01`
 - `\x2f` escapes to `\x2e\x02`
 
-This ensures no `\x2f` is present in the string, and maintains lexicographic ordering. Finally, we disallow the bytes `\xff` and `\x00` to exist in the string. This is so that we never underflow when subtracting one from the string, and we can append `\xff` to a subtracted string to create a greatest string smaller than it. Additionally, because `\xff` is not present, adding one will never overflow, letting one find the smallest string greater. Thus,
+This ensures no `\x2f` is present in the string, and maintains lexicographic ordering. Finally, we disallow the bytes `\xff` and `\x00` to exist in the string. This is so that we never underflow when subtracting one from the string, and we can append a single `\xff` to a subtracted string to create a greatest string smaller than it. Additionally, because `\x00` is not present, there is no issue with C style null terminated strings, and finding the smallest string larger than a given string is as easy as appending `\x00`. Thus,
 
 - `\xfe` escapes to `\xfe\x01`
 - `\xff` escapes to `\xfe\x02`
@@ -51,15 +52,15 @@ This encoding happens for all path components, encrypted and unencrypted alike.
 
 For example,
 
-| Path       | Encoded                | Proceeding                 | Following              |
-|------------|------------------------|----------------------------|------------------------|
-| `foo/`     | `\x02foo/\x01`         | `\x02foo/\x00\xff`         | `\x02foo/\x02`         |
-| `foo/\x00` | `\x02foo/\x02\x01\x01` | `\x02foo/\x02\x01\x00\xff` | `\x02foo/\x02\x01\x02` |
-| `foo/\x01` | `\x02foo/\x02\x01\x02` | `\x02foo/\x02\x01\x01\xff` | `\x02foo/\x02\x01\x03` |
-| `foo/\x2e` | `\x02foo/\x02\x2e\x01` | `\x02foo/\x02\x2e\x00\xff` | `\x02foo/\x02\x2e\x02` |
-| `foo/\x2f` | `\x02foo/\x02\x2e\x02` | `\x02foo/\x02\x2e\x01\xff` | `\x02foo/\x02\x2e\x03` |
-| `foo/\xfe` | `\x02foo/\x02\xfe\x01` | `\x02foo/\x02\xfe\x00\xff` | `\x02foo/\x02\xfe\x02` |
-| `foo/\xff` | `\x02foo/\x02\xfe\x02` | `\x02foo/\x02\xfe\x01\xff` | `\x02foo/\x02\xfe\x03` |
+| Path       | Encoded                | Proceeding                 | Following                  |
+|------------|------------------------|----------------------------|----------------------------|
+| `foo/`     | `\x02foo/\x01`         | `\x02foo/\x00\xff`         | `\x02foo/\x01\x00`         |
+| `foo/\x00` | `\x02foo/\x02\x01\x01` | `\x02foo/\x02\x01\x00\xff` | `\x02foo/\x02\x01\x01\x00` |
+| `foo/\x01` | `\x02foo/\x02\x01\x02` | `\x02foo/\x02\x01\x01\xff` | `\x02foo/\x02\x01\x02\x00` |
+| `foo/\x2e` | `\x02foo/\x02\x2e\x01` | `\x02foo/\x02\x2e\x00\xff` | `\x02foo/\x02\x2e\x01\x00` |
+| `foo/\x2f` | `\x02foo/\x02\x2e\x02` | `\x02foo/\x02\x2e\x01\xff` | `\x02foo/\x02\x2e\x02\x00` |
+| `foo/\xfe` | `\x02foo/\x02\xfe\x01` | `\x02foo/\x02\xfe\x00\xff` | `\x02foo/\x02\xfe\x01\x00` |
+| `foo/\xff` | `\x02foo/\x02\xfe\x02` | `\x02foo/\x02\xfe\x01\xff` | `\x02foo/\x02\xfe\x02\x00` |
 
 Note that `foo/\x2f` is actually `foo//`, but it's written that way to show what would happen if an encrypted component ended up with a `\x2f` character. In other words, it's discussing the path with components `"foo"` and `"/"`, and not the path with components `"foo"`, `""`, and `""`.
 
