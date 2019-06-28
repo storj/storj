@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -55,10 +56,11 @@ type Checker struct {
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
 	monStats        durabilityStats
+	Garbage         *gc.Garbage
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration, garbage *gc.Garbage) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
 		metainfo:        metainfo,
@@ -70,6 +72,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		Loop:            *sync2.NewCycle(repairInterval),
 		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
 		monStats:        durabilityStats{},
+		Garbage:         garbage,
 	}
 	return checker
 }
@@ -105,6 +108,8 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
+			filterCreationDate := time.Now().UTC()
+
 			defer func() {
 				var nextItem storage.ListItem
 				it.Next(ctx, &nextItem)
@@ -132,7 +137,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
+				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats, filterCreationDate)
 				if err != nil {
 					return err
 				}
@@ -157,7 +162,7 @@ func contains(a []string, x string) bool {
 	return false
 }
 
-func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
+func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats, filterCreationDate time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
 	if remote == nil {
@@ -173,6 +178,18 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
 		return Error.New("error getting missing pieces %s", err)
+	}
+
+	missingPiecesMap := make(map[int32]bool)
+	for _, pieceNum := range missingPieces {
+		missingPiecesMap[pieceNum] = true
+	}
+
+	for _, piece := range pieces {
+		if missingPiecesMap[piece.PieceNum] {
+			continue
+		}
+		checker.Garbage.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
 	}
 
 	monStats.remoteSegmentsChecked++
@@ -255,7 +272,7 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
+		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{}, time.Time{})
 		if err != nil {
 			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 		}

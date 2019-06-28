@@ -36,7 +36,7 @@ type RetainInfo struct {
 // TODO: does this need to be an interface?
 type Queue interface {
 	// Add adds a RetainRequest to the Garbage "queue"
-	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
+	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, creationDate time.Time) error
 	// Send sends the garbage delete requests to all storage nodes
 	Send(ctx context.Context) error
 }
@@ -60,7 +60,7 @@ func NewGarbage(log *zap.Logger, config Config, transport transport.Client) *Gar
 }
 
 // Add adds a RetainRequest to the Garbage "queue"
-func (Garbage *Garbage) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (Garbage *Garbage) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, creationDate time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var filter *bloomfilter.Filter
@@ -68,8 +68,9 @@ func (Garbage *Garbage) Add(ctx context.Context, nodeID storj.NodeID, pieceID st
 	if _, ok := Garbage.Requests[nodeID]; !ok {
 		filter = bloomfilter.NewOptimal(int(Garbage.config.InitialPieces), Garbage.config.FalsePositiveRate)
 		Garbage.Requests[nodeID].Filter = filter
-		Garbage.Requests[nodeID].CreationDate = time.Now().UTC()
+		Garbage.Requests[nodeID].CreationDate = creationDate
 	}
+
 	Garbage.Requests[nodeID].Filter.Add(pieceID)
 	return nil
 }
