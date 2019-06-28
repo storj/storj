@@ -29,6 +29,7 @@ func main() {
 	}
 
 	var code bytes.Buffer
+	fmt.Fprintf(&code, "// DO NOT COMMIT\n\n")
 	fmt.Fprintf(&code, "package %s\n\n", *packageName)
 
 	fmt.Fprintf(&code, "import (\n")

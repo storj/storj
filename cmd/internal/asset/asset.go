@@ -6,7 +6,7 @@
 // To use the package you would define:
 //
 //     //go:generate go run ../internal/asset/generate/main.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
-//     var embeddedAssets http.Dir
+//     var embeddedAssets http.FileSystem
 //
 // This will generate a new "console.resource.go" which contains the content of "../../web/bootstrap".
 //
