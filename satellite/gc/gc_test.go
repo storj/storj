@@ -82,8 +82,7 @@ func TestGarbageCollection(t *testing.T) {
 		keptPieceID := pointerToKeep.GetRemote().RootPieceId.Derive(targetNode.ID())
 
 		// Take storagenode offline
-		err = planet.StopPeer(targetNode)
-		require.NoError(t, err)
+		// TODO make sure we avoid potential race condition if overlay marks node as online in background before segment is deleted
 		_, err = satellite.Overlay.Service.UpdateUptime(ctx, targetNode.ID(), false)
 		require.NoError(t, err)
 
@@ -91,7 +90,8 @@ func TestGarbageCollection(t *testing.T) {
 		upl.Delete(ctx, satellite, "testbucket", "test/path/1")
 
 		// Bring storagenode back online
-		// TODO how do we do this?
+		_, err = satellite.Overlay.Service.UpdateUptime(ctx, targetNode.ID(), true)
+		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
 		pieceInfo, err := targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
