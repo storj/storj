@@ -126,3 +126,36 @@ func TestStoreErrorState(t *testing.T) {
 	assert.Equal(t, consumed1, consumed2)
 	assert.Equal(t, base1, base2)
 }
+
+func TestStoreIterate(t *testing.T) {
+	s := NewStore()
+	ep := paths.NewEncrypted
+	up := paths.NewUnencrypted
+
+	type storeEntry struct {
+		bucket string
+		unenc  paths.Unencrypted
+		enc    paths.Encrypted
+		key    storj.Key
+	}
+	expected := map[storeEntry]struct{}{
+		{"b1", up("u1/u2/u3"), ep("e1/e2/e3"), toKey("k3")}:         {},
+		{"b1", up("u1/u2/u3/u4"), ep("e1/e2/e3/e4"), toKey("k4")}:   {},
+		{"b1", up("u1/u5"), ep("e1/e5"), toKey("k5")}:               {},
+		{"b1", up("u6"), ep("e6"), toKey("k6")}:                     {},
+		{"b1", up("u6/u7/u8"), ep("e6/e7/e8"), toKey("k8")}:         {},
+		{"b2", up("u1"), ep("e1'"), toKey("k1")}:                    {},
+		{"b3", paths.Unencrypted{}, paths.Encrypted{}, toKey("m1")}: {},
+	}
+
+	for entry := range expected {
+		require.NoError(t, s.Add(entry.bucket, entry.unenc, entry.enc, entry.key))
+	}
+
+	got := make(map[storeEntry]struct{})
+	require.NoError(t, s.Iterate(func(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
+		got[storeEntry{bucket, unenc, enc, key}] = struct{}{}
+		return nil
+	}))
+	require.Equal(t, expected, got)
+}

@@ -17,14 +17,12 @@ import (
 	"github.com/minio/minio/pkg/hash"
 	"github.com/stretchr/testify/assert"
 	"github.com/vivint/infectious"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
 	"storj.io/storj/pkg/pb"
@@ -650,7 +648,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 
 	planet.Start(ctx)
 
-	layer, m, strms, err := initEnv(ctx, t, planet)
+	layer, m, strms, err := initEnv(ctx, planet)
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -658,7 +656,7 @@ func runTest(t *testing.T, test func(context.Context, minio.ObjectLayer, storj.M
 	test(ctx, layer, m, strms)
 }
 
-func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
+func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer, storj.Metainfo, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(ctx, &console.Project{
@@ -691,7 +689,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 	}
 	// TODO(leak): close m metainfo.Client somehow
 
-	ec := ecclient.NewClient(zaptest.NewLogger(t), planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, nil, err
@@ -704,11 +702,10 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	segments := segments.NewSegmentStore(m, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
-	encKey := new(storj.Key)
+	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
-
-	encStore := encryption.NewStore()
-	encStore.SetDefaultKey(encKey)
+	access := libuplink.NewEncryptionAccessWithDefaultKey(encKey)
+	encStore := access.Store()
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
@@ -750,7 +747,7 @@ func initEnv(ctx context.Context, t *testing.T, planet *testplanet.Planet) (mini
 
 	gateway := NewStorjGateway(
 		proj,
-		encKey,
+		access,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,

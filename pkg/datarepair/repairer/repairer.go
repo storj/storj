@@ -41,10 +41,10 @@ type Config struct {
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ec := ecclient.NewClient(log, tc, c.MaxBufferMem.Int())
+	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
 
 	return segments.NewSegmentRepairer(metainfo, orders, cache, ec, identity, c.Timeout), nil
 }
@@ -56,7 +56,6 @@ type SegmentRepairer interface {
 
 // Service contains the information needed to run the repair service
 type Service struct {
-	log       *zap.Logger
 	queue     queue.RepairQueue
 	config    *Config
 	Limiter   *sync2.Limiter
@@ -69,9 +68,8 @@ type Service struct {
 }
 
 // NewService creates repairing service
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	return &Service{
-		log:       log,
 		queue:     queue,
 		config:    config,
 		Limiter:   sync2.NewLimiter(concurrency),
@@ -93,7 +91,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// TODO: close segment repairer, currently this leaks connections
 	service.repairer, err = service.config.GetSegmentRepairer(
 		ctx,
-		service.log,
 		service.transport,
 		service.metainfo,
 		service.orders,
