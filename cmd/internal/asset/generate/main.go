@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"storj.io/storj/internal/asset"
+	"storj.io/storj/cmd/internal/asset"
 )
 
 func main() {
