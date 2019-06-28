@@ -11,12 +11,12 @@ import (
 
 // ToCents converts USD credit amounts to cents.
 func ToCents(dollars int) int {
-    return dollars * 100
+	return dollars * 100
 }
 
 // ToDollars converts credit amounts in cents to USD.
 func ToDollars(cents int) string {
-	formattedAmount := fmt.Sprintf("%d.%d0",(cents / 100),(cents % 100))
+	formattedAmount := fmt.Sprintf("%d.%d0", (cents / 100), (cents % 100))
 	return formattedAmount
 }
 
@@ -125,11 +125,11 @@ func (o Offer) IsDone() bool {
 
 // Offers holds a set of organized offers.
 type Offers struct {
-	Set	[]Offer
+	Set []Offer
 }
 
 // GetCurrentFromSet returns the current offer from an organized set.
-func (offers Offers) GetCurrentFromSet() Offer{
+func (offers Offers) GetCurrentFromSet() Offer {
 	var o Offer
 	for _, offer := range offers.Set {
 		if offer.IsCurrent() {
@@ -140,7 +140,7 @@ func (offers Offers) GetCurrentFromSet() Offer{
 }
 
 // GetDefaultFromSet returns the current offer from an organized set.
-func (offers Offers) GetDefaultFromSet() Offer{
+func (offers Offers) GetDefaultFromSet() Offer {
 	var o Offer
 	for _, offer := range offers.Set {
 		if offer.IsDefault() {
