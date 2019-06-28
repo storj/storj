@@ -3113,6 +3113,50 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:scope.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Scope",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellite_addr",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "api_key",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "encryption_access",
+                "type": "encryption_access.EncryptionAccess"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "encryption_access.proto"
+          }
+        ],
+        "package": {
+          "name": "scope"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:streams.proto",
       "def": {
         "messages": [
