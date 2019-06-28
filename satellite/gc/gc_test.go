@@ -47,6 +47,9 @@ func TestGarbageCollection(t *testing.T) {
 		}
 		targetNode := planet.StorageNodes[0]
 
+		checker := satellite.Repair.Checker
+		checker.Loop.Stop()
+
 		// Upload two objects
 		testData1 := testrand.Bytes(8 * memory.KiB)
 		testData2 := testrand.Bytes(8 * memory.KiB)
@@ -94,8 +97,9 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pieceInfo)
 
-		// Trigger bloom filter generation
-		// TODO run checker to trigger bloom filter generation?
+		// Trigger bloom filter generation by running checker
+		err = checker.IdentifyInjuredSegments(ctx)
+		require.NoError(t, err)
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
