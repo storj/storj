@@ -224,7 +224,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	encCtx, err := setup.LoadEncryptionCtx(ctx, flags.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, flags.Enc)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +236,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 
 	return miniogw.NewStorjGateway(
 		project,
-		encCtx,
+		access,
 		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
 		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),

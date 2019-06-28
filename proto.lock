@@ -185,11 +185,11 @@
       }
     },
     {
-      "protopath": "pkg:/:pb:/:encryption_ctx.proto",
+      "protopath": "pkg:/:pb:/:encryption_access.proto",
       "def": {
         "messages": [
           {
-            "name": "EncryptionCtx",
+            "name": "EncryptionAccess",
             "fields": [
               {
                 "id": 1,
@@ -238,7 +238,7 @@
           }
         ],
         "package": {
-          "name": "encryption_ctx"
+          "name": "encryption_access"
         },
         "options": [
           {

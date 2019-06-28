@@ -19,13 +19,13 @@ import (
 	"storj.io/storj/uplink/setup"
 )
 
-func TestLoadEncryptionCtx(t *testing.T) {
-	saveRawCtx := func(encCtx *libuplink.EncryptionCtx) (filepath string, clenaup func()) {
+func TestLoadEncryptionAccess(t *testing.T) {
+	saveRawCtx := func(access *libuplink.EncryptionAccess) (filepath string, clenaup func()) {
 		t.Helper()
 
 		ctx := testcontext.New(t)
 		filename := ctx.File("encryption.ctx")
-		data, err := encCtx.Serialize()
+		data, err := access.Serialize()
 		require.NoError(t, err)
 		err = ioutil.WriteFile(filename, []byte(data), os.FileMode(0400))
 		require.NoError(t, err)
@@ -40,20 +40,20 @@ func TestLoadEncryptionCtx(t *testing.T) {
 
 		key, err := storj.NewKey(passphrase[:])
 		require.NoError(t, err)
-		encCtx := libuplink.NewEncryptionCtxWithDefaultKey(*key)
-		filename, cleanup := saveRawCtx(encCtx)
+		access := libuplink.NewEncryptionAccessWithDefaultKey(*key)
+		filename, cleanup := saveRawCtx(access)
 		defer cleanup()
 
-		gotCtx, err := setup.LoadEncryptionCtx(context.Background(), uplink.EncryptionConfig{
-			EncCtxFilepath: filename,
+		gotCtx, err := setup.LoadEncryptionAccess(context.Background(), uplink.EncryptionConfig{
+			EncAccessFilepath: filename,
 		})
 		require.NoError(t, err)
-		require.Equal(t, encCtx, gotCtx)
+		require.Equal(t, access, gotCtx)
 	})
 
 	t.Run("ok: empty filepath", func(t *testing.T) {
-		gotCtx, err := setup.LoadEncryptionCtx(context.Background(), uplink.EncryptionConfig{
-			EncCtxFilepath: "",
+		gotCtx, err := setup.LoadEncryptionAccess(context.Background(), uplink.EncryptionConfig{
+			EncAccessFilepath: "",
 		})
 
 		require.NoError(t, err)
@@ -65,8 +65,8 @@ func TestLoadEncryptionCtx(t *testing.T) {
 		defer ctx.Cleanup()
 		filename := ctx.File("encryption.ctx")
 
-		_, err := setup.LoadEncryptionCtx(context.Background(), uplink.EncryptionConfig{
-			EncCtxFilepath: filename,
+		_, err := setup.LoadEncryptionAccess(context.Background(), uplink.EncryptionConfig{
+			EncAccessFilepath: filename,
 		})
 		require.Error(t, err)
 	})

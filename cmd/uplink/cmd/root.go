@@ -112,7 +112,7 @@ func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, 
 }
 
 // GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, encCtx *libuplink.EncryptionCtx) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
+func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access *libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
 	project, err = cliCfg.GetProject(ctx)
 	if err != nil {
 		return project, bucket, err
@@ -126,7 +126,7 @@ func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName s
 		}
 	}()
 
-	bucket, err = project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err = project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
 		return project, bucket, err
 	}
