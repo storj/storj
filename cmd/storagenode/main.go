@@ -81,7 +81,7 @@ var (
 	useColor       bool
 )
 
-//go:generate go run ../../scripts/generate-asset.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
+//go:generate go run ../internal/asset/generate/main.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
 var embeddedAssets *asset.Asset
 
 const (
