@@ -75,8 +75,8 @@ func ParseAPIKey(key string) (*APIKey, error) {
 	return &APIKey{mac: mac}, nil
 }
 
-// ParseAPIKey parses raw api key data and returns an APIKey if the APIKey was
-// correctly formatted. It does not validate the key.
+// ParseRawAPIKey parses raw api key data and returns an APIKey if the APIKey
+// was correctly formatted. It does not validate the key.
 func ParseRawAPIKey(data []byte) (*APIKey, error) {
 	mac, err := ParseMacaroon(data)
 	if err != nil {
