@@ -19,38 +19,42 @@ const (
 	defaultCipher = storj.EncAESGCM
 )
 
-// EncryptionAccess represents an encryption context. It holds information about
-// how various buckets and objects should be encrypted and decrypted.
+// EncryptionAccess represents an encryption access context. It holds
+// information about how various buckets and objects should be
+// encrypted and decrypted.
 type EncryptionAccess struct {
 	store *encryption.Store
 }
 
-// NewEncryptionAccess creates an encryption ctx
+// NewEncryptionAccess creates an encryption access context
 func NewEncryptionAccess() *EncryptionAccess {
 	return &EncryptionAccess{
 		store: encryption.NewStore(),
 	}
 }
 
-// NewEncryptionAccessWithDefaultKey creates an encryption ctx with a default key set
+// NewEncryptionAccessWithDefaultKey creates an encryption access context with
+// a default key set.
+// Use (*Project).SaltedKeyFromPassphrase to generate a default key
 func NewEncryptionAccessWithDefaultKey(defaultKey storj.Key) *EncryptionAccess {
 	ec := NewEncryptionAccess()
 	ec.SetDefaultKey(defaultKey)
 	return ec
 }
 
-// Store returns the underlying encryption store for the context.
+// Store returns the underlying encryption store for the access context.
 func (s *EncryptionAccess) Store() *encryption.Store {
 	return s.store
 }
 
-// SetDefaultKey sets the default key for the encryption context.
+// SetDefaultKey sets the default key for the encryption access context.
+// Use (*Project).SaltedKeyFromPassphrase to generate a default key
 func (s *EncryptionAccess) SetDefaultKey(defaultKey storj.Key) {
 	s.store.SetDefaultKey(&defaultKey)
 }
 
-// Import merges the other encryption context into this one. In cases
-// of conflicting path decryption settings (including if both contexts have
+// Import merges the other encryption access context into this one. In cases
+// of conflicting path decryption settings (including if both accesses have
 // a default key), the new settings are kept.
 func (s *EncryptionAccess) Import(other *EncryptionAccess) error {
 	if key := other.store.GetDefaultKey(); key != nil {
@@ -67,7 +71,7 @@ type EncryptionRestriction struct {
 }
 
 // Restrict creates a new EncryptionAccess with no default key, where the key material
-// in the new context is just enough to allow someone to access all of the given
+// in the new access is just enough to allow someone to access all of the given
 // restrictions but no more.
 func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRestriction) (APIKey, *EncryptionAccess, error) {
 	if len(restrictions) == 0 {
@@ -136,30 +140,30 @@ func (s *EncryptionAccess) Serialize() (string, error) {
 		StoreEntries: storeEntries,
 	})
 	if err != nil {
-		return "", errs.New("unable to marshal encryption ctx: %v", err)
+		return "", errs.New("unable to marshal encryption access: %v", err)
 	}
 
 	return base58.CheckEncode(data, 0), nil
 
 }
 
-// ParseEncryptionAccess parses a base58 serialized encryption context into a working one.
-func ParseEncryptionAccess(b58data string) (*EncryptionAccess, error) {
-	data, version, err := base58.CheckDecode(b58data)
+// ParseEncryptionAccess parses a base58 serialized encryption access into a working one.
+func ParseEncryptionAccess(serialized string) (*EncryptionAccess, error) {
+	data, version, err := base58.CheckDecode(serialized)
 	if err != nil || version != 0 {
-		return nil, errs.New("invalid encryption context format")
+		return nil, errs.New("invalid encryption access format")
 	}
 
 	p := new(pb.EncryptionAccess)
 	if err := proto.Unmarshal(data, p); err != nil {
-		return nil, errs.New("unable to unmarshal encryption context: %v", err)
+		return nil, errs.New("unable to unmarshal encryption access: %v", err)
 	}
 
 	encCtx := NewEncryptionAccess()
 
 	if len(p.DefaultKey) > 0 {
 		if len(p.DefaultKey) != len(storj.Key{}) {
-			return nil, errs.New("invalid default key in encryption context")
+			return nil, errs.New("invalid default key in encryption access")
 		}
 		var defaultKey storj.Key
 		copy(defaultKey[:], p.DefaultKey)
@@ -168,7 +172,7 @@ func ParseEncryptionAccess(b58data string) (*EncryptionAccess, error) {
 
 	for _, entry := range p.StoreEntries {
 		if len(entry.Key) != len(storj.Key{}) {
-			return nil, errs.New("invalid key in encryption context entry")
+			return nil, errs.New("invalid key in encryption access entry")
 		}
 		var key storj.Key
 		copy(key[:], entry.Key)
@@ -179,7 +183,7 @@ func ParseEncryptionAccess(b58data string) (*EncryptionAccess, error) {
 			paths.NewEncrypted(string(entry.EncryptedPath)),
 			key)
 		if err != nil {
-			return nil, errs.New("invalid encryption context entry: %v", err)
+			return nil, errs.New("invalid encryption access entry: %v", err)
 		}
 	}
 
