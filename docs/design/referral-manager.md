@@ -93,6 +93,11 @@ message ReferralCode {
     string referral_code = 2;
 }
 
+message Offer{
+    int credit
+    google.protobuf.Timestamp expiration_date = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
 message ReferralCodeRequest {
     bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     string user_id = 2;
@@ -107,8 +112,9 @@ message ReferralCodeResponse {
     ReferralCode referral_code = 1;
     
     string user_id = 2;
+    Offer offer = 3;
 
-    Status status = 3;
+    Status status = 4;
 }
 
 message InformReferrerRequest {
@@ -133,9 +139,17 @@ service Referral {
     rpc Update(ReferralRequest) returns (ReferralResponse) {}
 }
 
+message Offer{
+    int credit
+    google.protobuf.Timestamp expiration_date = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
 message ReferralRequest {
     strings referral_code = 1;
     strings user_id = 2;
+    
+    Offer offer = 3;
+    
 }
 
 message ReferralResponse {
@@ -159,6 +173,32 @@ message ReferralResponse {
 ````sql
     satellite_id blob PRIMARY KEY 
     satellite_address text
+````
+
+3. table offers
+````sql
+    key id
+
+	field id	serial
+	field name text ( updatable )
+	field description text ( updatable )
+
+	field award_credit_in_cents int ( updatable )
+	field invitee_credit_in_cents int ( updatable )
+
+	field award_credit_duration_days int ( updatable )
+	field invitee_credit_duration_days int ( updatable )
+
+	field redeemable_cap int ( updatable )
+	field num_redeemed int ( updatable, autoinsert )
+
+	field expires_at timestamp ( updatable )
+	field created_at timestamp ( autoinsert )
+
+	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	field status int ( updatable )
+	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	field type int ( updatable )
 ````
 
 ## Open issues (if applicable)
