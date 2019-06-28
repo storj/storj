@@ -45,7 +45,7 @@ func convertDollarsToUSD(s string) reflect.Value {
 		// invalid decoder value
 		return reflect.Value{}
 	}
-	return reflect.ValueOf(rewards.Dollars(value))
+	return reflect.ValueOf(rewards.Dollars(int64(value)))
 }
 
 // convertStringToTime formats form time input as time.Time.
