@@ -73,6 +73,17 @@ func (url NodeURL) String() string {
 	return url.ID.String() + "@" + url.Address
 }
 
+// Set implements flag.Value interface
+func (url *NodeURL) Set(s string) error {
+	parsed, err := ParseNodeURL(s)
+	if err != nil {
+		return ErrNodeURL.Wrap(err)
+	}
+
+	*url = parsed
+	return nil
+}
+
 // NodeURLs defines a comma delimited flag for defining a list node url-s.
 type NodeURLs []NodeURL
 
