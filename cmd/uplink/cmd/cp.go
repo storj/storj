@@ -83,12 +83,12 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), encCtx)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
 		return err
 	}
@@ -136,12 +136,12 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), encCtx)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket(), access)
 	if err != nil {
 		return err
 	}
@@ -215,12 +215,12 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), encCtx)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
 		return err
 	}

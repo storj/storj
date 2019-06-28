@@ -100,13 +100,13 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
 	if len(restrictions) > 0 {
-		key, encCtx, err = encCtx.Restrict(key, restrictions...)
+		key, access, err = access.Restrict(key, restrictions...)
 		if err != nil {
 			return err
 		}
@@ -146,12 +146,12 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	encCtxData, err := encCtx.Serialize()
+	accessData, err := access.Serialize()
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("api key:", key.Serialize())
-	fmt.Println("enc ctx:", encCtxData)
+	fmt.Println("enc ctx:", accessData)
 	return nil
 }
