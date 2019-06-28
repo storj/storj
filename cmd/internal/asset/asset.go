@@ -1,6 +1,28 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// Package asset implements asset embedding via implementing http.Dir interface.
+//
+// To use the package you would define:
+//
+//     //go:generate go run ../internal/asset/generate/main.go -pkg main -dir ../../web/bootstrap -var embeddedAssets -out console.resource.go
+//     var embeddedAssets http.Dir
+//
+// This will generate a new "console.resource.go" which contains the content of "../../web/bootstrap".
+//
+// In the program initialization you can select based on whether the embedded resources exist or not:
+//
+//     var assets http.Dir
+//     if *staticAssetDirectory != "" {
+//         assets = http.Dir(*staticAssetDirectory)
+//     } else if embeddedAssets == nil {
+//         assets = embeddedAssets
+//     } else {
+//         assets = http.Dir(defaultAssetLocation)
+//     }
+//
+// Then write the service in terms of http.Dir, which hides the actual thing used for loading.
+//
 package asset
 
 import (
@@ -21,14 +43,14 @@ type Asset struct {
 	Children []*Asset
 }
 
-// NewDir loads an asset directory from filesystem.
-func NewDir(path string) (*Asset, error) {
+// ReadDir loads an asset directory from filesystem.
+func ReadDir(path string) (*Asset, error) {
 	abspath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
 
-	asset, err := New(abspath)
+	asset, err := ReadFile(abspath)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +58,8 @@ func NewDir(path string) (*Asset, error) {
 	return asset, nil
 }
 
-// New loads an asset from filesystem.
-func New(path string) (*Asset, error) {
+// ReadFile loads an asset from filesystem.
+func ReadFile(path string) (*Asset, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -76,7 +98,7 @@ func New(path string) (*Asset, error) {
 // addFiles adds all nested files to asset
 func (asset *Asset) addFiles(dir string, infos []os.FileInfo) error {
 	for _, info := range infos {
-		child, err := New(filepath.Join(dir, info.Name()))
+		child, err := ReadFile(filepath.Join(dir, info.Name()))
 		if err != nil {
 			return err
 		}

@@ -5,14 +5,13 @@ package asset
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 )
 
-// Closure generates an function closure that can be assigned to a variable.
+// Closure generates a function closure string that can be assigned to a variable.
 func (asset *Asset) Closure() []byte {
 	var source bytes.Buffer
-	fmt.Fprintf(&source, "func() *Asset {\n")
+	fmt.Fprintf(&source, "func() *asset.Asset {\n")
 
 	blob := []byte{}
 	blobMapping := map[*Asset][2]int{}
@@ -33,40 +32,39 @@ func (asset *Asset) Closure() []byte {
 	}
 	writeBlob(asset)
 
-	blob64 := base64.StdEncoding.EncodeToString(blob)
-	fmt.Fprintf(&source, "blob, err := base64.StdEncoding.DecodeString(\n")
+	fmt.Fprintf(&source, "const blob = ")
 
 	const lineLength = 120
-	for len(blob64) > 0 {
-		if lineLength < len(blob64) {
-			fmt.Fprintf(&source, "\t%q+\n", blob64[:lineLength])
-			blob64 = blob64[lineLength:]
+	for len(blob) > 0 {
+		if lineLength < len(blob) {
+			fmt.Fprintf(&source, "\t%q +\n", string(blob[:lineLength]))
+			blob = blob[lineLength:]
 			continue
 		}
-		fmt.Fprintf(&source, "\t%q)\n", blob64)
+		fmt.Fprintf(&source, "\t%q\n", string(blob))
 		break
 	}
 
-	fmt.Fprintf(&source, "if err != nil {\n")
-	fmt.Fprintf(&source, "    panic(err)\n")
-	fmt.Fprintf(&source, "}\n\n")
+	fmt.Fprintf(&source, "\n")
 
 	var writeAsset func(asset *Asset)
 	writeAsset = func(asset *Asset) {
-		fmt.Fprintf(&source, "&Asset{")
+		fmt.Fprintf(&source, "{")
 		defer fmt.Fprintf(&source, "}")
-
+		if asset.Mode.IsDir() {
+			fmt.Fprintf(&source, "\n")
+		}
 		fmt.Fprintf(&source, "Name: %q,", asset.Name)
-		fmt.Fprintf(&source, "Mode: %o,", asset.Mode)
+		fmt.Fprintf(&source, "Mode: 0%o,", asset.Mode)
 		//TODO: fmt.Fprintf(&source, "ModTime: %v,", asset.ModTime)
 
 		if !asset.Mode.IsDir() {
 			r := blobMapping[asset]
-			fmt.Fprintf(&source, "Data: blob[%d:%d]", r[0], r[1])
+			fmt.Fprintf(&source, "Data: []byte(blob[%d:%d])", r[0], r[1])
 			return
 		}
 
-		fmt.Fprintf(&source, "\nChildren: []*Asset{\n")
+		fmt.Fprintf(&source, "\nChildren: []*asset.Asset{\n")
 		for _, child := range asset.Children {
 			writeAsset(child)
 			fmt.Fprintf(&source, ",\n")
@@ -74,7 +72,7 @@ func (asset *Asset) Closure() []byte {
 		fmt.Fprintf(&source, "},\n")
 	}
 
-	fmt.Fprintf(&source, "return ")
+	fmt.Fprintf(&source, "return &asset.Asset")
 	writeAsset(asset)
 	fmt.Fprintf(&source, "\n")
 

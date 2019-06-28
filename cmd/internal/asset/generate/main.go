@@ -10,6 +10,7 @@ import (
 	"go/format"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"storj.io/storj/cmd/internal/asset"
 )
@@ -22,7 +23,7 @@ func main() {
 
 	flag.Parse()
 
-	asset, err := asset.NewDir(*dir)
+	asset, err := asset.ReadDir(*dir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,7 +32,7 @@ func main() {
 	fmt.Fprintf(&code, "package %s\n\n", *packageName)
 
 	fmt.Fprintf(&code, "import (\n")
-	fmt.Fprintf(&code, "\t\t\"encoding/base64\"\n")
+	fmt.Fprintf(&code, "\t\t\"storj.io/cmd/internal/asset\"\n")
 	fmt.Fprintf(&code, ")\n\n")
 
 	fmt.Fprintf(&code, "func init() {\n")
@@ -41,6 +42,7 @@ func main() {
 
 	formatted, err := format.Source(code.Bytes())
 	if err != nil {
+		fmt.Fprintln(os.Stderr, code.String())
 		log.Fatal(err)
 	}
 

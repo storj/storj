@@ -15,7 +15,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/asset"
+	"storj.io/storj/cmd/internal/asset"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
