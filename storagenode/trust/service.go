@@ -6,7 +6,6 @@ package trust
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -36,10 +35,11 @@ type Pool struct {
 type satelliteInfoCache struct {
 	mu       sync.Mutex
 	identity *identity.PeerIdentity
+	address  string
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
-func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs string) (*Pool, error) {
+func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteURLs string) (*Pool, error) {
 	if trustAll {
 		return &Pool{
 			kademlia: kademlia,
@@ -53,18 +53,13 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
 	trusted := make(map[storj.NodeID]*satelliteInfoCache)
+	urls, err := storj.ParseNodeURLs(trustedSatelliteURLs)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, s := range strings.Split(trustedSatelliteIDs, ",") {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-
-		satelliteID, err := storj.NodeIDFromString(s)
-		if err != nil {
-			return nil, err
-		}
-		trusted[satelliteID] = &satelliteInfoCache{} // we will set these later
+	for _, node := range urls {
+		trusted[node.ID] = &satelliteInfoCache{address: node.Address}
 	}
 
 	return &Pool{
@@ -148,4 +143,15 @@ func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID)
 		satellites = append(satellites, sat)
 	}
 	return satellites
+}
+
+// GetAddress returns the address of a satellite in the trusted list
+func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	info, ok := pool.trustedSatellites[id]
+	if !ok {
+		return "", Error.New("ID not found in trusted satellites list (%v)", id)
+	}
+	// TODO: return error if address == "" ?
+	return info.address, nil
 }

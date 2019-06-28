@@ -27,7 +27,7 @@ import (
 )
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []string) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteURLs []string) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
@@ -99,7 +99,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				KBucketRefreshInterval: time.Hour,
 
 				SatelliteIDRestriction:  true,
-				WhitelistedSatelliteIDs: strings.Join(whitelistedSatelliteIDs, ","),
+				WhitelistedSatelliteURLs: strings.Join(whitelistedSatelliteURLs, ","),
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,

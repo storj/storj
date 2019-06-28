@@ -218,7 +218,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	{ // setup storage
 		trustAllSatellites := !config.Storage.SatelliteIDRestriction
-		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteIDs)
+		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatelliteURLs)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
