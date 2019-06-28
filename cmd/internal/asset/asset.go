@@ -30,6 +30,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 )
 
@@ -113,5 +114,8 @@ func (asset *Asset) readFiles(dir string, infos []os.FileInfo) error {
 		}
 		asset.Children = append(asset.Children, child)
 	}
+	sort.Slice(asset.Children, func(i, k int) bool {
+		return asset.Children[i].Name < asset.Children[k].Name
+	})
 	return nil
 }
