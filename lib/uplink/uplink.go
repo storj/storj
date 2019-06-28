@@ -88,7 +88,6 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 // a specific Satellite and caches connections and resources, allowing one to
 // create sessions delineated by specific access controls.
 type Uplink struct {
-	log   *zap.Logger
 	ident *identity.FullIdentity
 	tc    transport.Client
 	cfg   *Config
@@ -126,7 +125,6 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	tc := transport.NewClient(tlsOpts)
 
 	return &Uplink{
-		log:   cfg.log,
 		ident: ident,
 		tc:    tc,
 		cfg:   cfg,
@@ -150,7 +148,6 @@ func (u *Uplink) OpenProject(ctx context.Context, satelliteAddr string, apiKey A
 	}
 
 	return &Project{
-		log:           u.log,
 		uplinkCfg:     u.cfg,
 		tc:            u.tc,
 		metainfo:      m,

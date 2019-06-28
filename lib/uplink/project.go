@@ -9,7 +9,6 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
@@ -25,7 +24,6 @@ import (
 
 // Project represents a specific project access session.
 type Project struct {
-	log           *zap.Logger
 	uplinkCfg     *Config
 	tc            transport.Client
 	metainfo      *metainfo.Client
@@ -167,7 +165,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *Enc
 
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
-	ec := ecclient.NewClient(p.log, p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
+	ec := ecclient.NewClient(p.uplinkCfg.log, p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err
