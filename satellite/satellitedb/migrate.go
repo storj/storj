@@ -895,7 +895,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						default_redundancy_total_shares integer NOT NULL,
 						PRIMARY KEY ( id ),
 						UNIQUE ( name, project_id )
-						);`,
+					);`,
 				},
 			},
 		},
