@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"path"
 	"time"
 )
 
@@ -24,15 +25,15 @@ func Inmemory(root *Asset) *InmemoryFileSystem {
 	fs := &InmemoryFileSystem{}
 	fs.Root = root
 	fs.Index = map[string]*Asset{}
-	fs.reindex("", "", root)
+	fs.reindex("/", "", root)
 	return fs
 }
 
 // reindex inserts a node to the index
 func (fs *InmemoryFileSystem) reindex(prefix, name string, file *Asset) {
-	fs.Index[prefix+"/"+name] = file
+	fs.Index[path.Join(prefix, name)] = file
 	for _, child := range file.Children {
-		fs.reindex(prefix+"/"+name, child.Name, child)
+		fs.reindex(path.Join(prefix, name), child.Name, child)
 	}
 }
 
