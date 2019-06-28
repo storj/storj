@@ -1,8 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// TODO find correct package for this test
-package checker_test
+package gc_test
 
 import (
 	"testing"
