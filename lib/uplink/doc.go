@@ -91,7 +91,7 @@ restricted to objects with the prefix "/logs/" inside the staging bucket.
     if err != nil {
         return "", err
     }
-    return logServerEnc.Serialize()
+    return logServerAccess.Serialize()
 
 The keys to decrypt data in other buckets or in other path prefixes are not contained in this
 new serialized encryption access context. This new encryption access context only provides the
