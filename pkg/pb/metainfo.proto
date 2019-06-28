@@ -6,6 +6,7 @@ option go_package = "pb";
 
 package metainfo;
 
+import "encryption.proto";
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 import "node.proto";
@@ -14,6 +15,11 @@ import "orders.proto";
 
 // Metainfo it's a satellite RPC service
 service Metainfo {
+    rpc CreateBucket(BucketCreateRequest) returns (BucketCreateResponse);
+    rpc GetBucket(BucketGetRequest) returns (BucketGetResponse);
+    rpc DeleteBucket(BucketDeleteRequest) returns (BucketDeleteResponse);
+    rpc ListBuckets(BucketsListRequest) returns (BucketsListResponse);
+
     rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
@@ -22,6 +28,54 @@ service Metainfo {
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
     rpc SetAttribution(SetAttributionRequest) returns (SetAttributionResponse);
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
+}
+
+message Bucket {
+    bytes id = 1;
+    bytes project_id = 2;
+    bytes name = 3;
+    encryption.CipherSuite path_cipher = 4;
+
+    google.protobuf.Timestamp created_at = 5;
+
+    int64 default_segment_size = 6;
+    encryption.EncryptionParameters default_encryption_parameters = 7;
+    pointerdb.RedundancyScheme default_redundancy_scheme = 8;
+}
+
+message BucketCreateRequest {
+    Bucket bucket = 1;
+}
+
+message BucketCreateResponse {}
+
+message BucketGetRequest {
+    bytes id = 1;
+    bytes project_id = 2;
+    bytes name = 3;
+}
+
+message BucketGetResponse {
+    Bucket bucket = 1;
+}
+
+message BucketDeleteRequest {
+    bytes id = 1;
+    bytes project_id = 2;
+    bytes name = 3;
+}
+
+message BucketDeleteResponse {}
+
+message BucketsListRequest {
+    bytes project_id = 1;
+    bytes cursor = 2;
+    int32 limit = 3;
+}
+
+message BucketsListResponse {
+  repeated Bucket buckets = 1;
+  bool more = 2;
 }
 
 message AddressedOrderLimit {

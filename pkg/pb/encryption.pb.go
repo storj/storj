@@ -21,67 +21,141 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type EncryptionScheme struct {
-	CipherSuite          int32    `protobuf:"varint,1,opt,name=cipher_suite,json=cipherSuite,proto3" json:"cipher_suite,omitempty"`
-	BlockSize            int32    `protobuf:"varint,2,opt,name=block_size,json=blockSize,proto3" json:"block_size,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type CipherSuite_Type int32
+
+const (
+	CipherSuite_UNENCRYPTED CipherSuite_Type = 0
+	CipherSuite_AESGCM      CipherSuite_Type = 1
+	CipherSuite_SECRETBOX   CipherSuite_Type = 2
+)
+
+var CipherSuite_Type_name = map[int32]string{
+	0: "UNENCRYPTED",
+	1: "AESGCM",
+	2: "SECRETBOX",
 }
 
-func (m *EncryptionScheme) Reset()         { *m = EncryptionScheme{} }
-func (m *EncryptionScheme) String() string { return proto.CompactTextString(m) }
-func (*EncryptionScheme) ProtoMessage()    {}
-func (*EncryptionScheme) Descriptor() ([]byte, []int) {
+var CipherSuite_Type_value = map[string]int32{
+	"UNENCRYPTED": 0,
+	"AESGCM":      1,
+	"SECRETBOX":   2,
+}
+
+func (x CipherSuite_Type) String() string {
+	return proto.EnumName(CipherSuite_Type_name, int32(x))
+}
+
+func (CipherSuite_Type) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_8293a649ce9418c6, []int{1, 0}
+}
+
+type EncryptionParameters struct {
+	CipherSuite          *CipherSuite `protobuf:"bytes,1,opt,name=cipher_suite,json=cipherSuite,proto3" json:"cipher_suite,omitempty"`
+	BlockSize            int64        `protobuf:"varint,2,opt,name=block_size,json=blockSize,proto3" json:"block_size,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *EncryptionParameters) Reset()         { *m = EncryptionParameters{} }
+func (m *EncryptionParameters) String() string { return proto.CompactTextString(m) }
+func (*EncryptionParameters) ProtoMessage()    {}
+func (*EncryptionParameters) Descriptor() ([]byte, []int) {
 	return fileDescriptor_8293a649ce9418c6, []int{0}
 }
-func (m *EncryptionScheme) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EncryptionScheme.Unmarshal(m, b)
+func (m *EncryptionParameters) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EncryptionParameters.Unmarshal(m, b)
 }
-func (m *EncryptionScheme) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EncryptionScheme.Marshal(b, m, deterministic)
+func (m *EncryptionParameters) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EncryptionParameters.Marshal(b, m, deterministic)
 }
-func (m *EncryptionScheme) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EncryptionScheme.Merge(m, src)
+func (m *EncryptionParameters) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EncryptionParameters.Merge(m, src)
 }
-func (m *EncryptionScheme) XXX_Size() int {
-	return xxx_messageInfo_EncryptionScheme.Size(m)
+func (m *EncryptionParameters) XXX_Size() int {
+	return xxx_messageInfo_EncryptionParameters.Size(m)
 }
-func (m *EncryptionScheme) XXX_DiscardUnknown() {
-	xxx_messageInfo_EncryptionScheme.DiscardUnknown(m)
+func (m *EncryptionParameters) XXX_DiscardUnknown() {
+	xxx_messageInfo_EncryptionParameters.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_EncryptionScheme proto.InternalMessageInfo
+var xxx_messageInfo_EncryptionParameters proto.InternalMessageInfo
 
-func (m *EncryptionScheme) GetCipherSuite() int32 {
+func (m *EncryptionParameters) GetCipherSuite() *CipherSuite {
 	if m != nil {
 		return m.CipherSuite
 	}
-	return 0
+	return nil
 }
 
-func (m *EncryptionScheme) GetBlockSize() int32 {
+func (m *EncryptionParameters) GetBlockSize() int64 {
 	if m != nil {
 		return m.BlockSize
 	}
 	return 0
 }
 
+type CipherSuite struct {
+	Type                 CipherSuite_Type `protobuf:"varint,1,opt,name=type,proto3,enum=encryption.CipherSuite_Type" json:"type,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *CipherSuite) Reset()         { *m = CipherSuite{} }
+func (m *CipherSuite) String() string { return proto.CompactTextString(m) }
+func (*CipherSuite) ProtoMessage()    {}
+func (*CipherSuite) Descriptor() ([]byte, []int) {
+	return fileDescriptor_8293a649ce9418c6, []int{1}
+}
+func (m *CipherSuite) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CipherSuite.Unmarshal(m, b)
+}
+func (m *CipherSuite) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CipherSuite.Marshal(b, m, deterministic)
+}
+func (m *CipherSuite) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CipherSuite.Merge(m, src)
+}
+func (m *CipherSuite) XXX_Size() int {
+	return xxx_messageInfo_CipherSuite.Size(m)
+}
+func (m *CipherSuite) XXX_DiscardUnknown() {
+	xxx_messageInfo_CipherSuite.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CipherSuite proto.InternalMessageInfo
+
+func (m *CipherSuite) GetType() CipherSuite_Type {
+	if m != nil {
+		return m.Type
+	}
+	return CipherSuite_UNENCRYPTED
+}
+
 func init() {
-	proto.RegisterType((*EncryptionScheme)(nil), "encryption.EncryptionScheme")
+	proto.RegisterEnum("encryption.CipherSuite_Type", CipherSuite_Type_name, CipherSuite_Type_value)
+	proto.RegisterType((*EncryptionParameters)(nil), "encryption.EncryptionParameters")
+	proto.RegisterType((*CipherSuite)(nil), "encryption.CipherSuite")
 }
 
 func init() { proto.RegisterFile("encryption.proto", fileDescriptor_8293a649ce9418c6) }
 
 var fileDescriptor_8293a649ce9418c6 = []byte{
-	// 131 bytes of a gzipped FileDescriptorProto
+	// 226 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x48, 0xcd, 0x4b, 0x2e,
 	0xaa, 0x2c, 0x28, 0xc9, 0xcc, 0xcf, 0xd3, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x42, 0x88,
-	0x48, 0x71, 0xa5, 0xe7, 0xa7, 0xe7, 0x43, 0xc4, 0x95, 0x42, 0xb8, 0x04, 0x5c, 0xe1, 0x32, 0xc1,
-	0xc9, 0x19, 0xa9, 0xb9, 0xa9, 0x42, 0x8a, 0x5c, 0x3c, 0xc9, 0x99, 0x05, 0x19, 0xa9, 0x45, 0xf1,
-	0xc5, 0xa5, 0x99, 0x25, 0xa9, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0xac, 0x41, 0xdc, 0x10, 0xb1, 0x60,
-	0x90, 0x90, 0x90, 0x2c, 0x17, 0x57, 0x52, 0x4e, 0x7e, 0x72, 0x76, 0x7c, 0x71, 0x66, 0x55, 0xaa,
-	0x04, 0x13, 0x58, 0x01, 0x27, 0x58, 0x24, 0x38, 0xb3, 0x2a, 0xd5, 0x89, 0x25, 0x8a, 0xa9, 0x20,
-	0x29, 0x89, 0x0d, 0x6c, 0x85, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x85, 0xdb, 0x79, 0x76, 0x8e,
-	0x00, 0x00, 0x00,
+	0x48, 0x71, 0xa5, 0xe7, 0xa7, 0xe7, 0x43, 0xc4, 0x95, 0x0a, 0xb9, 0x44, 0x5c, 0xe1, 0x32, 0x01,
+	0x89, 0x45, 0x89, 0xb9, 0xa9, 0x25, 0xa9, 0x45, 0xc5, 0x42, 0x56, 0x5c, 0x3c, 0xc9, 0x99, 0x05,
+	0x19, 0xa9, 0x45, 0xf1, 0xc5, 0xa5, 0x99, 0x25, 0xa9, 0x12, 0x8c, 0x0a, 0x8c, 0x1a, 0xdc, 0x46,
+	0xe2, 0x7a, 0x48, 0x06, 0x3b, 0x83, 0xe5, 0x83, 0x41, 0xd2, 0x41, 0xdc, 0xc9, 0x08, 0x8e, 0x90,
+	0x2c, 0x17, 0x57, 0x52, 0x4e, 0x7e, 0x72, 0x76, 0x7c, 0x71, 0x66, 0x55, 0xaa, 0x04, 0x93, 0x02,
+	0xa3, 0x06, 0x73, 0x10, 0x27, 0x58, 0x24, 0x38, 0xb3, 0x2a, 0x55, 0xa9, 0x98, 0x8b, 0x1b, 0x49,
+	0xab, 0x90, 0x01, 0x17, 0x4b, 0x49, 0x65, 0x01, 0xc4, 0x06, 0x3e, 0x23, 0x19, 0x1c, 0x36, 0xe8,
+	0x85, 0x54, 0x16, 0xa4, 0x06, 0x81, 0x55, 0x2a, 0x19, 0x71, 0xb1, 0x80, 0x78, 0x42, 0xfc, 0x5c,
+	0xdc, 0xa1, 0x7e, 0xae, 0x7e, 0xce, 0x41, 0x91, 0x01, 0x21, 0xae, 0x2e, 0x02, 0x0c, 0x42, 0x5c,
+	0x5c, 0x6c, 0x8e, 0xae, 0xc1, 0xee, 0xce, 0xbe, 0x02, 0x8c, 0x42, 0xbc, 0x5c, 0x9c, 0xc1, 0xae,
+	0xce, 0x41, 0xae, 0x21, 0x4e, 0xfe, 0x11, 0x02, 0x4c, 0x4e, 0x2c, 0x51, 0x4c, 0x05, 0x49, 0x49,
+	0x6c, 0x60, 0x4f, 0x1b, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0xb8, 0x95, 0x32, 0x3f, 0x20, 0x01,
+	0x00, 0x00,
 }

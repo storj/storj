@@ -8,7 +8,17 @@ package encryption;
 
 import "gogo.proto";
 
-message EncryptionScheme {
-  int32 cipher_suite = 1;
-  int32 block_size = 2;
+message EncryptionParameters {
+  CipherSuite cipher_suite = 1;
+  int64 block_size = 2;
+}
+
+message CipherSuite {
+  enum Type {
+    UNENCRYPTED = 0;
+    AESGCM = 1;
+    SECRETBOX = 2;
+  }
+
+  Type type = 1;
 }
