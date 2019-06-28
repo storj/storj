@@ -50,7 +50,7 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	err = rt.antechamber.Delete(ctx, node.Id.Bytes())
-	if !storage.ErrKeyNotFound.Has(err) {
+	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return AntechamberErr.New("could not delete node %s", err)
 	}
 	return nil

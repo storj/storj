@@ -87,12 +87,12 @@ func TestAntechamberRemoveNode(t *testing.T) {
 func TestAntechamberFindNear(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	nodeId := storj.NodeID{127, 255}
-	rt := createRoutingTable(ctx, nodeId)
+	nodeID := storj.NodeID{127, 255}
+	rt := createRoutingTable(ctx, nodeID)
 	defer ctx.Check(rt.Close)
 
 	// Check empty antechamber, expect empty findNear
-	nodes, err := rt.antechamberFindNear(ctx, nodeId, 2)
+	nodes, err := rt.antechamberFindNear(ctx, nodeID, 2)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(nodes))
 
@@ -111,7 +111,7 @@ func TestAntechamberFindNear(t *testing.T) {
 	assert.NoError(t, err)
 
 	// select 2 closest
-	nodes, err = rt.antechamberFindNear(ctx, nodeId, 2)
+	nodes, err = rt.antechamberFindNear(ctx, nodeID, 2)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(nodes))
 	assert.Equal(t, node4.Id, nodes[0].Id)
