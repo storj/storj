@@ -13,11 +13,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	//"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
-	//"storj.io/storj/storagenode/trust"
 )
 
 // AntechamberErr is the class for all errors pertaining to antechamber operations
@@ -52,7 +50,7 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
 	err = rt.antechamber.Delete(ctx, node.Id.Bytes())
-	if err != nil {
+	if !storage.ErrKeyNotFound.Has(err) {
 		return AntechamberErr.New("could not delete node %s", err)
 	}
 	return nil
