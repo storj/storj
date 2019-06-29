@@ -182,3 +182,7 @@ input{
     text-decoration: underline;
     color: #656565;
 }
+
+.stop-offer{
+    cursor:pointer;
+}

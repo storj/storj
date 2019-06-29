@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -80,6 +81,7 @@ func NewServer(logger *zap.Logger, config Config, db rewards.DB, listener net.Li
 		mux.HandleFunc("/", s.GetOffers)
 		mux.PathPrefix("/static/").Handler(fs)
 		mux.HandleFunc("/create/{offer_type}", s.CreateOffer)
+		mux.HandleFunc("/stop/{offer_id}", s.StopOffer)
 	}
 	s.server.Handler = mux
 
@@ -123,6 +125,8 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "referral-offers-modal.html"),
 		filepath.Join(s.templateDir, "free-offers.html"),
 		filepath.Join(s.templateDir, "free-offers-modal.html"),
+		filepath.Join(s.templateDir, "stop-free-credit.html"),
+		filepath.Join(s.templateDir, "stop-referral-offer.html"),
 	)
 
 	pageNotFoundFiles := append(s.commonPages(),
@@ -214,6 +218,24 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	if _, err := s.db.Create(req.Context(), &offer); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
 		s.serveBadRequest(w, req, err)
+		return
+	}
+
+	http.Redirect(w, req, "/", http.StatusSeeOther)
+}
+
+// StopOffer expires the current offer and replaces it with the default offer.
+func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
+	offerID, err := strconv.Atoi(mux.Vars(req)["offer_id"])
+	if err != nil {
+		s.log.Error("failed to parse offer id", zap.Error(err))
+		s.serveBadRequest(w, req, err)
+		return
+	}
+
+	if err := s.db.Finish(req.Context(), offerID); err != nil {
+		s.log.Error("failed to stop offer", zap.Error(err))
+		s.serveInternalError(w, req, err)
 		return
 	}
 

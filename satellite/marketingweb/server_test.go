@@ -6,6 +6,7 @@ package marketingweb_test
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ type CreateRequest struct {
 	Values url.Values
 }
 
-func TestCreateOffer(t *testing.T) {
+func TestCreateAndStopOffers(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -54,8 +55,10 @@ func TestCreateOffer(t *testing.T) {
 		addr := planet.Satellites[0].Marketing.Listener.Addr()
 
 		var group errgroup.Group
-		for _, offer := range requests {
+		for index, offer := range requests {
 			o := offer
+			id := strconv.Itoa(index + 1)
+
 			group.Go(func() error {
 				baseURL := "http://" + addr.String()
 
@@ -65,6 +68,11 @@ func TestCreateOffer(t *testing.T) {
 				}
 
 				_, err = http.Get(baseURL)
+				if err != nil {
+					return err
+				}
+
+				_, err = http.Post(baseURL+"/stop/"+id, "application/x-www-form-urlencoded", nil)
 				if err != nil {
 					return err
 				}
