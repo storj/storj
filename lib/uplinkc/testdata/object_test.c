@@ -19,8 +19,7 @@ void handle_project(ProjectRef project) {
     char **err = &_err;
 
     char *bucket_name = "test-bucket";
-    EncryptionAccess access = {{0}};
-    memcpy(&access.key, "hello", 5);
+    char *enc_ctx = "12VtN2sbbn9PvaEvNbNUBiSKnRcSUNxBADwDWGsPY7UV85e82tT6u";
 
     char *object_paths[] = {"test-object1","test-object2","test-object3","test-object4"};
     int num_of_objects = 4;
@@ -36,7 +35,7 @@ void handle_project(ProjectRef project) {
     }
 
     // open bucket
-    BucketRef bucket = open_bucket(project, bucket_name, access, err);
+    BucketRef bucket = open_bucket(project, bucket_name, enc_ctx, err);
     require_noerror(*err);
 
 

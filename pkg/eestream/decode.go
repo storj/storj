@@ -71,6 +71,9 @@ func DecodeReaders(ctx context.Context, rs map[int]io.ReadCloser, es ErasureSche
 }
 
 func (dr *decodedReader) Read(p []byte) (n int, err error) {
+	ctx := dr.ctx
+	defer mon.Task()(&ctx)(&err)
+
 	if len(dr.outbuf) == 0 {
 		// if the output buffer is empty, let's fill it again
 		// if we've already had an error, fail
@@ -83,7 +86,7 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 			return 0, dr.err
 		}
 		// read the input buffers of the next stripe - may also decode it
-		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(context.TODO(), dr.currentStripe, dr.outbuf)
+		dr.outbuf, dr.err = dr.stripeReader.ReadStripe(ctx, dr.currentStripe, dr.outbuf)
 		if dr.err != nil {
 			return 0, dr.err
 		}
@@ -99,7 +102,9 @@ func (dr *decodedReader) Read(p []byte) (n int, err error) {
 	return n, nil
 }
 
-func (dr *decodedReader) Close() error {
+func (dr *decodedReader) Close() (err error) {
+	ctx := dr.ctx
+	defer mon.Task()(&ctx)(&err)
 	// cancel the context to terminate reader goroutines
 	dr.cancel()
 	errorThreshold := len(dr.readers) - dr.scheme.RequiredCount()
