@@ -5,9 +5,11 @@ require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
 	github.com/garyburd/redigo v1.0.1-0.20170216214944-0d253a66e6e1 // indirect
 	github.com/graphql-go/graphql v0.7.9-0.20190403165646-199d20bbfed7
-	github.com/mattn/go-colorable v0.1.2 // indirect
+	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/mattn/go-colorable v0.0.9 // indirect
 
 	github.com/minio/minio v0.0.0-20180508161510-54cd29b51c38
+	github.com/mitchellh/mapstructure v1.1.1 // indirect
 	github.com/segmentio/go-prompt v1.2.1-0.20161017233205-f0d19b6901ad
 )
 
@@ -21,6 +23,7 @@ require (
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
 	github.com/boltdb/bolt v1.3.1
 	github.com/cheggaaa/pb v1.0.5-0.20160713104425-73ae1d68fe0b
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible // indirect
 	github.com/djherbis/atime v1.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.1.0 // indirect
@@ -52,13 +55,12 @@ require (
 	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/jtolds/go-luar v0.0.0-20170419063437-0786921db8c0
 	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
-	github.com/klauspost/cpuid v1.2.1 // indirect
+	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/lib/pq v1.0.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
-	github.com/magiconair/properties v1.8.1 // indirect
+	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mattn/go-runewidth v0.0.3 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/minio/cli v1.3.0
@@ -69,6 +71,7 @@ require (
 	github.com/minio/minio-go v6.0.3+incompatible
 	github.com/minio/sha256-simd v0.0.0-20190328051042-05b4dd3047e5
 	github.com/minio/sio v0.0.0-20180327104954-6a41828a60f0 // indirect
+	github.com/mitchellh/go-homedir v0.0.0-20180801233206-58046073cbff // indirect
 	github.com/nats-io/gnatsd v1.3.0 // indirect
 	github.com/nats-io/go-nats v1.6.0 // indirect
 	github.com/nats-io/go-nats-streaming v0.4.2 // indirect
@@ -77,25 +80,22 @@ require (
 	github.com/nats-io/nuid v1.0.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
-	github.com/onsi/ginkgo v1.8.0 // indirect
-	github.com/onsi/gomega v1.5.0 // indirect
+	github.com/onsi/ginkgo v1.7.0 // indirect
+	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c // indirect
-	github.com/pelletier/go-toml v1.4.0 // indirect
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/pkg/profile v1.2.1 // indirect
-	github.com/prometheus/common v0.6.0 // indirect
-	github.com/prometheus/procfs v0.0.3 // indirect
+	github.com/prometheus/client_golang v0.9.3 // indirect
+	github.com/prometheus/procfs v0.0.0-20190517135640-51af30a78b0e // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/rs/cors v1.5.0 // indirect
-	github.com/sirupsen/logrus v1.4.2 // indirect
+	github.com/sirupsen/logrus v1.3.0 // indirect
 	github.com/skyrings/skyring-common v0.0.0-20160929130248-d1c0bb1cbd5e
 	github.com/spacemonkeygo/errors v0.0.0-20171212215202-9064522e9fd1 // indirect
-	github.com/spf13/afero v1.2.2 // indirect
-	github.com/spf13/cobra v0.0.5
-	github.com/spf13/jwalterweatherman v1.1.0 // indirect
+	github.com/spf13/cobra v0.0.3
 	github.com/spf13/pflag v1.0.3
-	github.com/spf13/viper v1.4.0
+	github.com/spf13/viper v1.2.1
 	github.com/streadway/amqp v0.0.0-20180806233856-70e15c650864 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/stripe/stripe-go v60.17.0+incompatible
@@ -108,18 +108,23 @@ require (
 	github.com/zeebo/float16 v0.1.0 // indirect
 	github.com/zeebo/incenc v0.0.0-20180505221441-0d92902eec54 // indirect
 	github.com/zeebo/structs v1.0.2
-	go.etcd.io/bbolt v1.3.3 // indirect
+	go.etcd.io/bbolt v1.3.2 // indirect
+	go.uber.org/atomic v1.3.2 // indirect
+	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
-	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
+	golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8
+	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
-	golang.org/x/tools v0.0.0-20190628222527-fb37f6ba8261
-	google.golang.org/appengine v1.6.1 // indirect
-	google.golang.org/genproto v0.0.0-20190627203621-eb59cef1c072 // indirect
-	google.golang.org/grpc v1.21.1
+	golang.org/x/sys v0.0.0-20190614160838-b47fdc937951
+	golang.org/x/text v0.3.2 // indirect
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
+	golang.org/x/tools v0.0.0-20190614152001-1edc8e83c897
+	google.golang.org/appengine v1.6.0 // indirect
+	google.golang.org/genproto v0.0.0-20190530194941-fb225487d101 // indirect
+	google.golang.org/grpc v1.21.0
 	gopkg.in/Shopify/sarama.v1 v1.18.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.25 // indirect
 	gopkg.in/olivere/elastic.v5 v5.0.76 // indirect
 	gopkg.in/spacemonkeygo/monkit.v2 v2.0.0-20190612171030-cf5a9e6f8fd2
+	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
