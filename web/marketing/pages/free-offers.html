@@ -15,7 +15,7 @@ See LICENSE for copying information. -->
     <div class="row offer-heading ">
         <p class="offer-type">default offer</p>
     </div>
-    {{$defaultOffer := .FreeCredits.GetDefaultFromSet}}
+    {{$defaultOffer := .FreeCredits.Default}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
         <div class="col">${{ToDollars $defaultOffer.AwardCreditInCents}}</div>
@@ -26,42 +26,35 @@ See LICENSE for copying information. -->
         <div class="col"></div>
     </div><hr>
     <div class="row offer-heading ">
-        <p class="offer-type">current offer</p>
+        <p class="offer-type">active offer</p>
     </div>
-    {{if gt (len .FreeCredits.Set) 0}}
-    {{$currentOffer := .FreeCredits.GetCurrentFromSet}}
+    {{$activeOffer := .FreeCredits.Active}}
         <div class="row data-row">
-            <div class="col ml-3">{{$currentOffer.Name}}</div>
-            <div class="col">${{ToDollars $currentOffer.AwardCreditInCents}}</div>
-            <div class="col">{{$currentOffer.NumRedeemed}}</div>
-            <div class="col">{{$currentOffer.RedeemableCap}}</div>
-            <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
-            <div class="col">{{printf "%.10s" $currentOffer.ExpiresAt}}</div>
+            <div class="col ml-3">{{$activeOffer.Name}}</div>
+            <div class="col">${{ToDollars $activeOffer.AwardCreditInCents}}</div>
+            <div class="col">{{$activeOffer.NumRedeemed}}</div>
+            <div class="col">{{$activeOffer.RedeemableCap}}</div>
+            <div class="col">{{printf "%.10s" $activeOffer.CreatedAt}}</div>
+            <div class="col">{{printf "%.10s" $activeOffer.ExpiresAt}}</div>
             <div class="col stop-offer">
                 <span data-toggle="modal" data-target=".stop-referral-offer-modal">
                     <strong>Live &#183;</strong>
                 </span>
             </div>    
         </div><hr>
-        {{end}}
-        <div class="row offer-heading ">
-            <p class="offer-type">other offers</p>
-        </div>
-        {{if gt (len .FreeCredits.Set) 0}}
-        {{range .FreeCredits.Set}}
-        {{$offer := .}}
-            {{if $offer.IsDone}}
-                <div class="row data-row">
-                    <div class="col ml-3">{{$offer.Name}}</div>
-                    <div class="col">${{ToDollars $offer.AwardCreditInCents}}</div>
-                    <div class="col">{{$offer.NumRedeemed}}</div>
-                    <div class="col">{{$offer.RedeemableCap}}</div>
-                    <div class="col">{{printf "%.10s" $offer.CreatedAt}}</div>
-                    <div class="col">{{printf "%.10s" $offer.ExpiresAt}}</div>
-                    <div class="col">off</div>
-                </div><hr>
-            {{end}}
-        {{end}}
+    <div class="row offer-heading ">
+        <p class="offer-type">other offers</p>
+    </div>
+    {{range .FreeCredits.Done}}
+    <div class="row data-row">
+        <div class="col ml-3">{{.Name}}</div>
+        <div class="col">${{ToDollars .AwardCreditInCents}}</div>
+        <div class="col">{{.NumRedeemed}}</div>
+        <div class="col">{{.RedeemableCap}}</div>
+        <div class="col">{{printf "%.10s" .CreatedAt}}</div>
+        <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
+        <div class="col">off</div>
+    </div><hr>
     {{end}}
 </div>
 {{end}}

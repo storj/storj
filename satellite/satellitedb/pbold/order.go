@@ -5,10 +5,11 @@ package pbold
 
 import (
 	fmt "fmt"
+	math "math"
+
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
 	_ "github.com/golang/protobuf/ptypes/duration"
-	math "math"
 
 	pb "storj.io/storj/pkg/pb"
 )
@@ -65,8 +66,8 @@ func (BandwidthAction) EnumDescriptor() ([]byte, []int) {
 }
 
 type PayerBandwidthAllocation struct {
-	SatelliteId          pb.NodeID          `protobuf:"bytes,1,opt,name=satellite_id,json=satelliteId,proto3,customtype=NodeID" json:"satellite_id"`
-	UplinkId             pb.NodeID          `protobuf:"bytes,2,opt,name=uplink_id,json=uplinkId,proto3,customtype=NodeID" json:"uplink_id"`
+	SatelliteId          pb.NodeID       `protobuf:"bytes,1,opt,name=satellite_id,json=satelliteId,proto3,customtype=NodeID" json:"satellite_id"`
+	UplinkId             pb.NodeID       `protobuf:"bytes,2,opt,name=uplink_id,json=uplinkId,proto3,customtype=NodeID" json:"uplink_id"`
 	MaxSize              int64           `protobuf:"varint,3,opt,name=max_size,json=maxSize,proto3" json:"max_size,omitempty"`
 	ExpirationUnixSec    int64           `protobuf:"varint,4,opt,name=expiration_unix_sec,json=expirationUnixSec,proto3" json:"expiration_unix_sec,omitempty"`
 	SerialNumber         string          `protobuf:"bytes,5,opt,name=serial_number,json=serialNumber,proto3" json:"serial_number,omitempty"`

@@ -18,8 +18,9 @@ import (
 
 	"github.com/lib/pq"
 
-	"github.com/mattn/go-sqlite3"
 	"math/rand"
+
+	"github.com/mattn/go-sqlite3"
 )
 
 // Prevent conditional imports from causing build failures

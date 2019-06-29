@@ -69,12 +69,13 @@ const (
 type OfferStatus int
 
 const (
-	// Done is a default offer status when an offer is not being used currently
-	Done = OfferStatus(iota)
+
+	// Active is a offer status when an offer is currently being used
+	Active = OfferStatus(iota)
 	// Default is a offer status when an offer is used as a default offer
 	Default
-	// Active is a offer status when an offer is currently being used
-	Active
+	// Done is a default offer status when an offer is not being used currently
+	Done
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
@@ -99,53 +100,52 @@ type Offer struct {
 	Type   OfferType
 }
 
-// IsDefault evaluates the default status of offers for templates.
-func (o Offer) IsDefault() bool {
-	if o.Status == Default {
-		return true
-	}
-	return false
+// Offers contains a slice of offers.
+type Offers []Offer
+
+// OrganizedOffers contains a list of offers organized by status.
+type OrganizedOffers struct {
+	Active  Offer
+	Default Offer
+	Done    Offers
 }
 
-// IsCurrent evaluates the current status of offers for templates.
-func (o Offer) IsCurrent() bool {
-	if o.Status == Active {
-		return true
-	}
-	return false
+// OfferSet provides a separation of marketing offers by type.
+type OfferSet struct {
+	ReferralOffers OrganizedOffers
+	FreeCredits    OrganizedOffers
 }
 
-// IsDone evaluates the done status of offers for templates.
-func (o Offer) IsDone() bool {
-	if o.Status == Done {
-		return true
-	}
-	return false
-}
-
-// Offers holds a set of organized offers.
-type Offers struct {
-	Set []Offer
-}
-
-// GetCurrentFromSet returns the current offer from an organized set.
-func (offers Offers) GetCurrentFromSet() Offer {
-	var o Offer
-	for _, offer := range offers.Set {
-		if offer.IsCurrent() {
-			o = offer
+// OganizeOffersByStatus organizes offers by OfferStatus.
+func (offers Offers) OganizeOffersByStatus() (oo OrganizedOffers) {
+	for _, offer := range offers {
+		switch offer.Status {
+		case Active:
+			oo.Active = offer
+		case Default:
+			oo.Default = offer
+		case Done:
+			oo.Done = append(oo.Done, offer)
 		}
 	}
-	return o
+	return oo
 }
 
-// GetDefaultFromSet returns the current offer from an organized set.
-func (offers Offers) GetDefaultFromSet() Offer {
-	var o Offer
-	for _, offer := range offers.Set {
-		if offer.IsDefault() {
-			o = offer
+// OrganizeOffersByType organizes offers by OfferType.
+func (offers Offers) OrganizeOffersByType() (os OfferSet) {
+	var fc, ro Offers
+
+	for _, offer := range offers {
+		switch offer.Type {
+		case FreeCredit:
+			fc = append(fc, offer)
+		case Referral:
+			ro = append(ro, offer)
+		default:
+			continue
 		}
 	}
-	return o
+	os.FreeCredits = fc.OganizeOffersByStatus()
+	os.ReferralOffers = ro.OganizeOffersByStatus()
+	return os
 }

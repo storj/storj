@@ -49,33 +49,9 @@ type Server struct {
 	}
 }
 
-// offerSet provides a separation of marketing offers by type.
-type offerSet struct {
-	ReferralOffers rewards.Offers
-	FreeCredits    rewards.Offers
-}
-
 // init safely registers convertStringToTime for the decoder.
 func init() {
 	decoder.RegisterConverter(time.Time{}, convertStringToTime)
-}
-
-// organizeOffers organizes offers by type.
-func organizeOffers(offers []rewards.Offer) offerSet {
-	var os offerSet
-	for _, offer := range offers {
-
-		switch offer.Type {
-		case rewards.FreeCredit:
-			os.FreeCredits.Set = append(os.FreeCredits.Set, offer)
-		case rewards.Referral:
-			os.ReferralOffers.Set = append(os.ReferralOffers.Set, offer)
-		default:
-			continue
-		}
-
-	}
-	return os
 }
 
 // commonPages returns templates that are required for all routes.
@@ -123,14 +99,17 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	offers, err := s.db.ListAll(req.Context())
+	results, err := s.db.ListAll(req.Context())
 	if err != nil {
 		s.log.Error("failed to retrieve all offers", zap.Error(err))
 		s.serveInternalError(w, req, err)
 		return
 	}
 
-	if err := s.templates.home.ExecuteTemplate(w, "base", organizeOffers(offers)); err != nil {
+	var offers rewards.Offers
+	offers = results
+
+	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 		s.serveInternalError(w, req, err)
 	}
@@ -219,7 +198,6 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	offer.Status = rewards.Active
 	offerType := mux.Vars(req)["offer_type"]
 
 	switch offerType {
