@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -52,9 +53,54 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 	})
 }
 
-func simpleEncryptionAccess(encKey string) (access EncryptionAccess) {
-	copy(access.Key[:], encKey)
-	return access
+func simpleEncryptionAccess(encKey string) (access *EncryptionAccess) {
+	key, err := storj.NewKey([]byte(encKey))
+	if err != nil {
+		panic(err)
+	}
+	return NewEncryptionAccessWithDefaultKey(*key)
+}
+
+// check that partner bucket attributes are stored and retrieved correctly.
+func TestPartnerBucketAttrs(t *testing.T) {
+	var (
+		access     = simpleEncryptionAccess("voxmachina")
+		bucketName = "mightynein"
+	)
+
+	testPlanetWithLibUplink(t, testConfig{},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+			_, err := proj.CreateBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+
+			partnerID := testrand.UUID().String()
+
+			consoleProjects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+			assert.NoError(t, err)
+
+			consoleProject := consoleProjects[0]
+
+			db := planet.Satellites[0].DB.Attribution()
+			_, err = db.Get(ctx, consoleProject.ID, []byte(bucketName))
+			require.Error(t, err)
+
+			// partner ID set
+			proj.uplinkCfg.Volatile.PartnerID = partnerID
+			got, err := proj.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
+
+			info, err := db.Get(ctx, consoleProject.ID, []byte(bucketName))
+			require.NoError(t, err)
+			assert.Equal(t, info.PartnerID.String(), partnerID)
+
+			// partner ID not set but bucket's attribution already set(from above)
+			proj.uplinkCfg.Volatile.PartnerID = ""
+			got, err = proj.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(got.Close)
+			assert.Equal(t, got.bucket.Attribution, partnerID)
+		})
 }
 
 // check that bucket attributes are stored and retrieved correctly.
@@ -98,7 +144,7 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, bucketName, bucket.Name)
 			assert.Falsef(t, bucket.Created.Before(before), "impossible creation time %v", bucket.Created)
 
-			got, err := proj.OpenBucket(ctx, bucketName, &access)
+			got, err := proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 			defer ctx.Check(got.Close)
 
@@ -157,7 +203,7 @@ func TestBucketAttrsApply(t *testing.T) {
 			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)
 
-			bucket, err := proj.OpenBucket(ctx, bucketName, &access)
+			bucket, err := proj.OpenBucket(ctx, bucketName, access)
 			require.NoError(t, err)
 			defer ctx.Check(bucket.Close)
 

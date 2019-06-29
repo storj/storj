@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -122,6 +123,8 @@ type Peer struct {
 	Vouchers *vouchers.Service
 
 	Collector *collector.Service
+
+	NodeStats *nodestats.Service
 
 	// Web server with web UI
 	Console struct {
@@ -270,6 +273,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		)
 	}
 
+	{ // setup node stats service
+		peer.NodeStats = nodestats.NewService(
+			peer.Log.Named("nodestats"),
+			peer.Transport,
+			peer.Kademlia.Service)
+	}
+
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
 		buffer := interval + time.Hour
@@ -277,8 +287,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Storage2.Trust, interval, buffer)
 	}
 
-	// Storage Node Operator Dashboard
-	{
+	{ // setup storage node operator dashboard
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -286,6 +295,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.Version,
+			peer.NodeStats,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet,
