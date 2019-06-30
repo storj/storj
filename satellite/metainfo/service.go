@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/bucketsDB"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/storage"
 )
@@ -20,6 +21,7 @@ import (
 type Service struct {
 	logger *zap.Logger
 	DB     storage.KeyValueStore
+	bucketsDB bucketsDB.DB
 }
 
 // NewService creates new metainfo service
@@ -165,3 +167,29 @@ func (s *Service) Iterate(ctx context.Context, prefix string, first string, recu
 	}
 	return s.DB.Iterate(ctx, opts, f)
 }
+
+// CreateBucket creates a new bucket in the buckets db
+func (s *Service) CreateBucket(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.DB.CreateBucket(ctx, []byte(path))
+}
+
+// GetBucket creates a new bucket in the buckets db
+func (s *Service) GetBucket(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.DB.GetBucket(ctx, []byte(path))
+}
+
+// DeleteBucket deletes a bucket
+func (s *Service) DeleteBucket(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.DB.DeleteBucket(ctx, []byte(path))
+}
+
+// ListBuckets deletes a bucket
+func (s *Service) ListBuckets(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.DB.ListBuckets(ctx, []byte(path))
+}
+
+

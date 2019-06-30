@@ -599,3 +599,140 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 		ProjectSalt: salt[:],
 	}, nil
 }
+
+// GetBucket returns bucket metadata info
+func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Name,
+		EncryptedPath: []byte{},
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	bucket, err := endpoint.metainfo.GetBucket(ctx, req.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.BucketGetResponse{Buckett: &pb.Buckett{
+		id:         bucket.ID,
+		name:       bucket.Name,
+		project_id: bucket.ProjectName,
+		path_cipher: bucket.PathCipher,
+		...
+	}}, nil
+}
+
+// CreateBucket get a bucket
+func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket.Name,
+		EncryptedPath: []byte{},
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+	req.Bucket.ProjectID = keyInfo.ProjectID
+
+	err = endpoint.validateBucket(ctx, req.Bucket.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	bucketID, err := uuid.New()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	req.Bucket.Id = bucketID
+
+	// TODO: create metainfoDB method CreateBucket
+	err = endpoint.metainfo.CreateBucket(ctx, uplinkIdentity, req.Bucket)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &pb.BucketCreateResponse{}, nil
+}
+
+// DeleteBucket deletes a bucket
+func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        req.Name,
+		EncryptedPath: []byte{},
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.metainfo.DeleteBucket(ctx, req.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.BucketDeleteResponse{}, nil
+}
+
+// ListBuckets returns all buckets in a project
+func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketsListRequest) (resp *pb.BucketsListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.Prefix,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	items, more, err := endpoint.metainfo.ListBuckets(ctx, req.ID, string(req.StartAfter), string(req.EndBefore), req.Limit)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "ListBuckets: %v", err)
+	}
+
+	bucketItems := make([]*pb.Bucket, len(items))
+	for i, item := range items {
+		bucketItems[i] = &pb.Bucket{
+			Name: item.Name,
+			ID: item.ID,
+			projectID: projectID,
+			...
+		}
+	}
+
+	return &pb.ListSegmentsResponse{Items: segmentItems, More: more}, nil
+}
