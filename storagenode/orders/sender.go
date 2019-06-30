@@ -221,7 +221,7 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 	}
 
 	if err := group.Wait(); err != nil {
-		errHandle(OrderError, "sending aggreements returned an error: %v", err)
+		errHandle(OrderError, "sending agreements returned an error: %v", err)
 	}
 
 	return errList.Err()
