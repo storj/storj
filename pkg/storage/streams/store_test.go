@@ -50,7 +50,7 @@ func TestStreamStoreMeta(t *testing.T) {
 	}
 
 	lastSegmentMetadata, err := proto.Marshal(&pb.StreamMeta{
-		EncryptedStreamInfo: stream,
+		EncryptedStreamInfo: stream, EncryptionType: int32(storj.EncNull),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestStreamStoreMeta(t *testing.T) {
 
 		meta, err := streamStore.Meta(ctx, test.path, storj.EncAESGCM)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%+v", err)
 		}
 
 		assert.Equal(t, test.streamMeta, meta, errTag)
