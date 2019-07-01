@@ -47,7 +47,9 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, emptyArchive, 0)
 
-		now := ptypes.TimestampNow()
+		now := time.Now().UTC()
+		nowTimestamp, err := ptypes.TimestampProto(time.Now().UTC())
+		require.NoError(t, err)
 
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
@@ -57,9 +59,9 @@ func TestOrders(t *testing.T) {
 			PieceId:         piece,
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
-			PieceExpiration: now,
-			OrderExpiration: now,
-			OrderCreation:   time.Now().UTC(),
+			PieceExpiration: nowTimestamp,
+			OrderExpiration: nowTimestamp,
+			OrderCreation:   now.AddDate(0,0,-1),
 		})
 		require.NoError(t, err)
 
