@@ -362,13 +362,13 @@ func TestDelete(t *testing.T) {
 }
 
 func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeID, storageNode storj.NodeID, pieceID storj.PieceID,
-	action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) *pb.OrderLimit2 {
+	action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) *pb.OrderLimit {
 
 	pe, err := ptypes.TimestampProto(time.Now().Add(pieceExpiration))
 	require.NoError(t, err)
 	oe, err := ptypes.TimestampProto(time.Now().Add(orderExpiration))
 	require.NoError(t, err)
-	orderLimit := &pb.OrderLimit2{
+	orderLimit := &pb.OrderLimit{
 		SatelliteId:     satellite,
 		UplinkId:        uplink,
 		StorageNodeId:   storageNode,
