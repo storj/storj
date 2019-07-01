@@ -39,7 +39,7 @@ func TestReverifySuccess(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(memory.MiB)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(memory.MiB)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(memory.MiB)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -232,7 +232,7 @@ func TestReverifyOffline(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(memory.MiB)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -288,7 +288,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(memory.MiB)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
