@@ -202,16 +202,16 @@ message ObjectListResponse {
 }
 
 message ObjectListItem {
-    bytes  encrypted_path = 2;
-    int32  version        = 3;
-    Object.Status status  = 4;
+    bytes  encrypted_path = 1;
+    int32  version        = 2;
+    Object.Status status  = 3;
 
-    google.protobuf.Timestamp created_at = 6;
-    google.protobuf.Timestamp status_at  = 7;
-    google.protobuf.Timestamp expires_at = 8;
+    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp status_at  = 5;
+    google.protobuf.Timestamp expires_at = 6;
 
-    bytes  encrypted_metadata_nonce = 9;
-    bytes  encrypted_metadata       = 10;
+    bytes  encrypted_metadata_nonce = 7;
+    bytes  encrypted_metadata       = 8;
 }
 
 message ObjectListItemFlags {
