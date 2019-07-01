@@ -535,7 +535,8 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 	// check if attribution is set for given bucket
 	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
 	if err == nil {
-		return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
+		endpoint.log.Sugar().Info("Bucket:", string(req.BucketName), " PartnerID:", partnerID.String(), "already attributed")
+		return &pb.SetAttributionResponse{}, nil
 	}
 
 	if !attribution.ErrBucketNotAttributed.Has(err) {

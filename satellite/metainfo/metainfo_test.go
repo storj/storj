@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -21,6 +20,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -234,8 +234,9 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := config.GetMetainfo(ctx, planet.Uplinks[0].Identity)
+	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
+	defer ctx.Check(cleanup)
 
 	type Test struct {
 		Request  storj.ListOptions
@@ -559,8 +560,9 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, config, uplink.Identity)
 		require.NoError(t, err)
+		defer ctx.Check(cleanup)
 
 		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
 		require.NoError(t, err)
@@ -569,26 +571,60 @@ func TestSetAttribution(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		partnerID, err := uuid.New()
-		require.NoError(t, err)
-
+		partnerID := testrand.UUID()
 		{
 			// bucket with no items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
 			require.NoError(t, err)
 
 			// no bucket exists
-			err = metainfoClient.SetAttribution(ctx, "beta", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "beta", partnerID)
 			require.NoError(t, err)
 		}
 		{
+			// already attributed bucket, adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.SetAttribution(ctx, "alpha", *partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
+			require.NoError(t, err)
+		}
+		{
+			//non attributed bucket, and adding files
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alphaNew", "path", []byte{1, 2, 3})
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.SetAttribution(ctx, "alphaNew", partnerID)
 			require.Error(t, err)
 		}
+	})
+}
+
+func TestGetProjectInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+
+		metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+		require.NoError(t, err)
+
+		metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+		require.NoError(t, err)
+
+		info0, err := metainfo0.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info0.ProjectSalt)
+
+		info1, err := metainfo1.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info1.ProjectSalt)
+
+		// Different projects should have different salts
+		require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
 	})
 }
 
@@ -627,10 +663,10 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
-				&pb.RemotePiece{
+				{
 					PieceNum: 0,
 				},
-				&pb.RemotePiece{
+				{
 					PieceNum: 1,
 				},
 			},

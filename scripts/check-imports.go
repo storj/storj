@@ -13,6 +13,7 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -58,6 +59,7 @@ func main() {
 
 	fmt.Println("checking import order:")
 
+	// load all packages
 	seen := map[*packages.Package]bool{}
 	pkgs := []*packages.Package{}
 
@@ -81,51 +83,205 @@ func main() {
 		visit(pkg)
 	}
 
+	// sort the packages
 	sort.Slice(pkgs, func(i, k int) bool { return pkgs[i].ID < pkgs[k].ID })
-	correct := true
-	incorrectPkgs := []string{}
+
+	var misgrouped, unsorted []Imports
 	for _, pkg := range pkgs {
-		if !correctPackage(pkg) {
-			incorrectPkgs = append(incorrectPkgs, pkg.PkgPath)
-			correct = false
+		pkgmisgrouped, pkgunsorted := verifyPackage(os.Stderr, pkg)
+
+		misgrouped = append(misgrouped, pkgmisgrouped...)
+		unsorted = append(unsorted, pkgunsorted...)
+	}
+
+	exitCode := 0
+	if len(misgrouped) > 0 {
+		exitCode = 1
+
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Imports are not in the standard grouping [std storj other]:")
+		for _, imports := range misgrouped {
+			fmt.Fprintln(os.Stderr, "\t"+imports.Path, imports.Classes())
 		}
 	}
 
-	if !correct {
-		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Error: imports are not in the correct order for package/s: ")
-		for _, pkg := range incorrectPkgs {
-			fmt.Fprintln(os.Stderr, "\t"+pkg)
-		}
+	if len(unsorted) > 0 {
+		exitCode = 1
 
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "Correct order should be: \n\tstd packages -> external packages -> storj.io packages.")
-		os.Exit(1)
+		fmt.Fprintln(os.Stderr, "Imports are not sorted:")
+		for _, imports := range unsorted {
+			fmt.Fprintln(os.Stderr, "\t"+imports.Path)
+		}
 	}
+
+	os.Exit(exitCode)
 }
 
-func correctPackage(pkg *packages.Package) bool {
+func verifyPackage(stderr io.Writer, pkg *packages.Package) (misgrouped, unsorted []Imports) {
 	// ignore generated test binaries
 	if strings.HasSuffix(pkg.ID, ".test") {
-		return true
+		return
 	}
 
-	correct := true
 	for i, file := range pkg.Syntax {
 		path := pkg.CompiledGoFiles[i]
-		if !correctImports(pkg.Fset, path, file) {
-			if !isGenerated(path) { // ignore generated files
-				fmt.Fprintln(os.Stderr, path)
-				correct = false
-			} else {
-				fmt.Fprintln(os.Stderr, "(ignoring generated)", path)
+
+		imports := LoadImports(pkg.Fset, path, file)
+
+		ordered := true
+		sorted := true
+		for _, section := range imports.Decls {
+			if !section.IsGrouped() {
+				ordered = false
+			}
+			if !section.IsSorted() {
+				sorted = false
 			}
 		}
+
+		if !ordered || !sorted {
+			if isGenerated(path) {
+				fmt.Fprintln(stderr, "(ignoring generated)", path)
+				continue
+			}
+		}
+
+		if !ordered {
+			misgrouped = append(misgrouped, imports)
+		}
+		if !sorted {
+			unsorted = append(unsorted, imports)
+		}
 	}
-	return correct
+
+	return
 }
 
-func correctImports(fset *token.FileSet, name string, f *ast.File) bool {
+// Imports defines all imports for a single file.
+type Imports struct {
+	Path      string
+	Generated bool
+	Decls     []ImportDecl
+}
+
+// Classes returns all import groupings
+func (imports Imports) Classes() [][]Class {
+	var classes [][]Class
+	for _, decl := range imports.Decls {
+		classes = append(classes, decl.Classes())
+	}
+	return classes
+}
+
+// ImportDecl defines a single import declaration
+type ImportDecl []ImportGroup
+
+// allowedGroups lists all valid groupings
+var allowedGroups = [][]Class{
+	{Standard},
+	{Storj},
+	{Other},
+	{Standard, Storj},
+	{Standard, Other},
+	{Other, Storj},
+	{Standard, Other, Storj},
+}
+
+// IsGrouped returns whether the grouping is allowed.
+func (decls ImportDecl) IsGrouped() bool {
+	classes := decls.Classes()
+	for _, allowedGroup := range allowedGroups {
+		if reflect.DeepEqual(allowedGroup, classes) {
+			return true
+		}
+	}
+	return false
+}
+
+// Classes returns each group class.
+func (decl ImportDecl) Classes() []Class {
+	classes := make([]Class, len(decl))
+	for i := range classes {
+		classes[i] = decl[i].Class()
+	}
+	return classes
+}
+
+// IsSorted returns whether the group is sorted.
+func (decls ImportDecl) IsSorted() bool {
+	for _, decl := range decls {
+		if !decl.IsSorted() {
+			return false
+		}
+	}
+	return true
+}
+
+// ImportGroup defines a single import statement.
+type ImportGroup struct {
+	Specs []*ast.ImportSpec
+	Paths []string
+}
+
+// IsSorted returns whether the group is sorted.
+func (group ImportGroup) IsSorted() bool {
+	return sort.StringsAreSorted(group.Paths)
+}
+
+// Class returns the classification of this import group.
+func (group ImportGroup) Class() Class {
+	var class Class
+	for _, path := range group.Paths {
+		class |= ClassifyImport(path)
+	}
+	return class
+}
+
+// Class defines a bitset of import classification
+type Class byte
+
+// Class defines three different groups
+const (
+	// Standard is all go standard packages
+	Standard Class = 1 << iota
+	// Storj is imports that start with `storj.io`
+	Storj
+	// Other is everything else
+	Other
+)
+
+// ClassifyImport classifies an import path to a class.
+func ClassifyImport(pkgPath string) Class {
+	if strings.HasPrefix(pkgPath, "storj.io/") {
+		return Storj
+	}
+	if stdlib[pkgPath] {
+		return Standard
+	}
+	return Other
+}
+
+// String returns contents of the class.
+func (class Class) String() string {
+	var s []string
+	if class&Standard != 0 {
+		s = append(s, "std")
+	}
+	if class&Storj != 0 {
+		s = append(s, "storj")
+	}
+	if class&Other != 0 {
+		s = append(s, "other")
+	}
+	return strings.Join(s, "|")
+}
+
+// LoadImports loads import groups from a given fileset.
+func LoadImports(fset *token.FileSet, name string, f *ast.File) Imports {
+	var imports Imports
+	imports.Path = name
+
 	for _, d := range f.Decls {
 		d, ok := d.(*ast.GenDecl)
 		if !ok || d.Tok != token.IMPORT {
@@ -139,7 +295,7 @@ func correctImports(fset *token.FileSet, name string, f *ast.File) bool {
 			continue
 		}
 
-		// Identify and sort runs of specs on successive lines.
+		// identify specs on successive lines
 		lastGroup := 0
 		specgroups := [][]ast.Spec{}
 		for i, s := range d.Specs {
@@ -149,82 +305,28 @@ func correctImports(fset *token.FileSet, name string, f *ast.File) bool {
 				lastGroup = i
 			}
 		}
-
 		specgroups = append(specgroups, d.Specs[lastGroup:])
 
-		if !correctOrder(specgroups) {
-			return false
+		// convert ast.Spec-s groups into import groups
+		var decl ImportDecl
+		for _, specgroup := range specgroups {
+			var group ImportGroup
+			for _, importSpec := range specgroup {
+				importSpec := importSpec.(*ast.ImportSpec)
+				path, err := strconv.Unquote(importSpec.Path.Value)
+				if err != nil {
+					panic(err)
+				}
+				group.Specs = append(group.Specs, importSpec)
+				group.Paths = append(group.Paths, path)
+			}
+			decl = append(decl, group)
 		}
-	}
-	return true
-}
 
-func correctOrder(specgroups [][]ast.Spec) bool {
-	if len(specgroups) == 0 {
-		return true
+		imports.Decls = append(imports.Decls, decl)
 	}
 
-	// remove std group from beginning
-	std, other, storj := countGroup(specgroups[0])
-	if std > 0 {
-		if other+storj != 0 {
-			return false
-		}
-		specgroups = specgroups[1:]
-	}
-
-	if len(specgroups) == 0 {
-		return true
-	}
-
-	// remove storj.io group from the end
-	std, other, storj = countGroup(specgroups[len(specgroups)-1])
-	if storj > 0 {
-		if std+other > 0 {
-			return false
-		}
-		specgroups = specgroups[:len(specgroups)-1]
-	}
-	if len(specgroups) == 0 {
-		return true
-	}
-
-	// check that we have a center group for misc stuff
-	if len(specgroups) != 1 {
-		return false
-	}
-
-	std, other, storj = countGroup(specgroups[0])
-	return other >= 0 && std+storj == 0
-}
-
-func printAll(groups [][]ast.Spec) {
-	defer fmt.Println("---")
-	for i, group := range groups {
-		fmt.Println("===", i)
-		for _, imp := range group {
-			imp := imp.(*ast.ImportSpec)
-			fmt.Println("\t", imp.Path.Value)
-		}
-	}
-}
-
-func countGroup(p []ast.Spec) (std, other, storj int) {
-	for _, imp := range p {
-		imp := imp.(*ast.ImportSpec)
-		path, err := strconv.Unquote(imp.Path.Value)
-		if err != nil {
-			panic(err)
-		}
-		if strings.HasPrefix(path, "storj.io/") {
-			storj++
-		} else if stdlib[path] {
-			std++
-		} else {
-			other++
-		}
-	}
-	return std, other, storj
+	return imports
 }
 
 var root = runtime.GOROOT()

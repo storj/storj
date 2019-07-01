@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/setup"
 )
 
 // GatewayFlags configuration flags
@@ -224,7 +225,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	encKey, err := uplink.LoadEncryptionKey(flags.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, flags.Enc)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +237,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 
 	return miniogw.NewStorjGateway(
 		project,
-		encKey,
+		access,
 		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
 		flags.GetEncryptionScheme().ToEncryptionParameters(),
 		flags.GetRedundancyScheme(),
@@ -291,7 +292,7 @@ func (flags GatewayFlags) interactive(
 		return Error.Wrap(err)
 	}
 
-	err = uplink.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -332,7 +333,7 @@ func (flags GatewayFlags) nonInteractive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
 	if setupCfg.Enc.EncryptionKey != "" {
-		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return Error.Wrap(err)
 		}

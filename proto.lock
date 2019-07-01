@@ -185,6 +185,70 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:encryption_access.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "EncryptionAccess",
+            "fields": [
+              {
+                "id": 1,
+                "name": "default_key",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "store_entries",
+                "type": "StoreEntry",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "StoreEntry",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "bucket",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 2,
+                    "name": "unencrypted_path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 3,
+                    "name": "encrypted_path",
+                    "type": "bytes"
+                  },
+                  {
+                    "id": 4,
+                    "name": "key",
+                    "type": "bytes"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "encryption_access"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:gc.proto",
       "def": {
         "messages": [
