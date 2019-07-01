@@ -112,33 +112,34 @@ message BucketSetAttributionResponse {
 
 message Object {
     enum Status {
-        UPLOADING;
-        COMMITTING;
-        COMMITTED;
-        DELETING;
+        INVALID    = 0;
+        UPLOADING  = 1;
+        COMMITTING = 2;
+        COMMITTED  = 3;
+        DELETING   = 4;
     }
 
-    bytes  bucket;
-    bytes  encrypted_path;
-    int32  version;
-    Status status;
+    bytes  bucket         = 1;
+    bytes  encrypted_path = 2;
+    int32  version        = 3;
+    Status status         = 4;
 
-    bytes  stream_id;
+    bytes  stream_id = 5;
 
-    google.protobuf.Timestamp created_at;
-    google.protobuf.Timestamp status_at;
-    google.protobuf.Timestamp expires_at;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp status_at  = 7;
+    google.protobuf.Timestamp expires_at = 8;
 
-    bytes  encrypted_metadata_nonce;
-    bytes  encrypted_metadata;
+    bytes  encrypted_metadata_nonce = 9;
+    bytes  encrypted_metadata       = 10;
 
-    int64                fixed_segment_size;
-    RedundancyScheme     redundancy_scheme;
-    EncryptionParameters encryption_parameters;
+    int64                fixed_segment_size    = 11;
+    RedundancyScheme     redundancy_scheme     = 12;
+    EncryptionParameters encryption_parameters = 13;
 
-    int64 total_size;
-    int64 inline_size;
-    int64 remote_size;
+    int64 total_size  = 14;
+    int64 inline_size = 15;
+    int64 remote_size = 16;
 }
 
 message ObjectBeginRequest {
@@ -151,22 +152,24 @@ message ObjectBeginRequest {
     bytes  encrypted_metadata_nonce = 5;
     bytes  encrypted_metadata = 6;
 
-    EncryptionParameters encryption_parameters = 7;
+    RedundancyScheme     redundancy_scheme = 7;
+    EncryptionParameters encryption_parameters = 8;
 }
 
 message ObjectBeginResponse {
-    bytes  bucket;
-    bytes  encrypted_path;
-    int32  version;
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
 
-    bytes  stream_id;
+    bytes  stream_id = 4;
 }
 
 message ObjectCommitRequest {
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
-    bytes stream_id = 4;
+
+    bytes  stream_id = 4;
 }
 
 message ObjectCommitResponse {
@@ -192,33 +195,32 @@ message ObjectListResponse {
 }
 
 message ObjectBeginDeleteRequest {
-    bytes  bucket;
-    bytes  encrypted_path;
-    int32  version;
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
 }
 
 message ObjectBeginDeleteResponse {}
 
 message ObjectFinishDeleteRequest {
-    bytes  bucket;
-    bytes  encrypted_path;
-    int32  version;
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
 }
 
 message ObjectFinishDeleteResponse {}
 
 
 message SegmentBeginRequest {
-    bytes stream_id;
-    int32 part_number;
-    int32 index;
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
 
-    int64 max_encrypted_segment_size;
+    int64 max_order_limit = 4;
 }
 
 message SegmentBeginResponse {
-    repeated AddressedOrderLimit addressed_limits;
-    RedundancyScheme     redundancy_scheme;
+    repeated AddressedOrderLimit addressed_limits = 1;
 }
 
 message AddressedOrderLimit {
@@ -227,45 +229,66 @@ message AddressedOrderLimit {
 }
 
 message SegmentCommitRequest {
-    bytes stream_id;
-    int64 part_number;
-    int64 segment_index;
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
 
-    bytes encrypted_key_nonce;
-    bytes encrypted_key;
+    bytes encrypted_key_nonce = 4;
+    bytes encrypted_key = 5;
 
-    bytes encrypted_data_checksum;
+    bytes checksum_encrypted_data = 6;
 
-    repeated orders.PieceHash signed_piece_hashes; // TODO: add encrypted_segment_size to piece hash
-
-    RedundancyScheme     redundancy_scheme;
+    repeated orders.PieceHash signed_piece_hashes = 7;
+    // TODO: somehow track storagenode ids
 }
 
-message SegmentCommitResponse {
-    bytes stream_id;
-    int64 part_number;
-    int64 segment_index;
-}
+message SegmentCommitResponse {}
 
-message SegmentMakeInlineRequest {}
+message SegmentMakeInlineRequest {
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
+
+    bytes encrypted_key_nonce = 4;
+    bytes encrypted_key = 5;
+
+    bytes checksum_encrypted_data = 6;
+    bytes encrypted_inline_data = 7;
+}
 
 message SegmentMakeInlineResponse {}
 
-message SegmentBeginDeleteRequest {}
+message SegmentBeginDeleteRequest {
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
+}
 
-message SegmentBeginDeleteResponse {}
+message SegmentBeginDeleteResponse {
+    repeated AddressedOrderLimit addressed_limits = 1;
+}
 
-message SegmentFinishDeleteRequest {}
+message SegmentFinishDeleteRequest {
+    // TODO: check for uplink not sending order limits to storage nodes
+}
 
 message SegmentFinishDeleteResponse {}
 
-message SegmentListRequest {}
+message SegmentListRequest {
+    // TODO:
+}
 
-message SegmentListResponse {}
+message SegmentListResponse {
+    // TODO:
+}
 
-message SegmentDownloadRequest {}
+message SegmentDownloadRequest {
+    // TODO:
+}
 
-message SegmentDownloadResponse {}
+message SegmentDownloadResponse {
+    // TODO:
+}
 
 message BatchRequest {
     oneof Request {
@@ -274,7 +297,7 @@ message BatchRequest {
         BucketDeleteRequest bucket_delete;
         BucketListRequest   bucket_list;
 
-        ObjectBeginRequest object_create;
+        ObjectBeginRequest  object_begin;
         ObjectCommitRequest object_commit;
         ObjectListRequest   object_list;
         ObjectDeleteRequest object_delete;
@@ -293,13 +316,14 @@ message BatchRequest {
 }
 
 message BatchResponse {
-    message Response {
+    oneof Response {
         BucketCreateResponse bucket_create;
         BucketGetResponse    bucket_get;
         BucketDeleteResponse bucket_delete;
         BucketListResponse   bucket_list;
+        BucketSetAttributionResponse bucket_set_attribution;
 
-        ObjectBeginResponse object_create;
+        ObjectBeginResponse  object_begin;
         ObjectCommitResponse object_commit;
         ObjectListResponse   object_list;
         ObjectDeleteResponse object_delete;
