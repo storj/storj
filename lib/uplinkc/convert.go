@@ -17,7 +17,7 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 		path_cipher:  cipherToCCipherSuite(bucket.PathCipher),
 		segment_size: C.uint64_t(bucket.SegmentsSize),
 
-		encryption_parameters: convertEncryptionScheme(&bucket.EncryptionScheme),
+		encryption_scheme: convertEncryptionScheme(&bucket.EncryptionScheme),
 		redundancy_scheme:     convertRedundancyScheme(&bucket.RedundancyScheme),
 	}
 }

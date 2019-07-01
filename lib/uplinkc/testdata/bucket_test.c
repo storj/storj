@@ -33,8 +33,8 @@ void handle_project(ProjectRef project) {
             require(strcmp(bucket_name, info.name) == 0);
             require(info.created != 0);
 
-            require(config.encryption_parameters.cipher_suite == info.encryption_parameters.cipher_suite);
-            require(config.encryption_parameters.block_size   == info.encryption_parameters.block_size);
+            require(config.encryption_scheme.cipher_suite == info.encryption_scheme.cipher_suite);
+            require(config.encryption_scheme.block_size   == info.encryption_scheme.block_size);
 
             require(config.redundancy_scheme.algorithm        == info.redundancy_scheme.algorithm);
             require(config.redundancy_scheme.share_size       == info.redundancy_scheme.share_size);
