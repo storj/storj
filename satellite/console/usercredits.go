@@ -9,7 +9,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/internal/currency"
 )
 
 // UserCredits holds information to interact with database
@@ -25,8 +25,8 @@ type UserCredit struct {
 	UserID        uuid.UUID
 	OfferID       int
 	ReferredBy    uuid.UUID
-	CreditsEarned rewards.USD
-	CreditsUsed   rewards.USD
+	CreditsEarned currency.USD
+	CreditsUsed   currency.USD
 	ExpiresAt     time.Time
 	CreatedAt     time.Time
 }
@@ -34,6 +34,6 @@ type UserCredit struct {
 // UserCreditUsage holds information about credit usage information
 type UserCreditUsage struct {
 	Referred         int64
-	AvailableCredits rewards.USD
-	UsedCredits      rewards.USD
+	AvailableCredits currency.USD
+	UsedCredits      currency.USD
 }

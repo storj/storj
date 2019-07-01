@@ -1,13 +1,13 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
-package rewards
+package currency
 
 import (
 	"fmt"
 )
 
-// USD describes USD currency in cents.
+// USD describes USD currency.
 type USD struct {
 	cents int64
 }

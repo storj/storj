@@ -11,6 +11,7 @@ import (
 
 	"github.com/gorilla/schema"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -35,7 +36,7 @@ var (
 // init safely registers convertStringToTime for the decoder.
 func init() {
 	decoder.RegisterConverter(time.Time{}, convertStringToTime)
-	decoder.RegisterConverter(rewards.USD{}, convertStringToUSD)
+	decoder.RegisterConverter(currency.USD{}, convertStringToUSD)
 }
 
 // convertStringToUSD formats form time input as time.Time.
@@ -45,7 +46,7 @@ func convertStringToUSD(s string) reflect.Value {
 		// invalid decoder value
 		return reflect.Value{}
 	}
-	return reflect.ValueOf(rewards.Dollars(int64(value)))
+	return reflect.ValueOf(currency.Dollars(int64(value)))
 }
 
 // convertStringToTime formats form time input as time.Time.

@@ -6,6 +6,8 @@ package rewards
 import (
 	"context"
 	"time"
+
+	"storj.io/storj/internal/currency"
 )
 
 // DB holds information about offer
@@ -22,8 +24,8 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	AwardCredit   USD
-	InviteeCredit USD
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	RedeemableCap int
 
@@ -71,8 +73,8 @@ type Offer struct {
 	Name        string
 	Description string
 
-	AwardCredit   USD
-	InviteeCredit USD
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
