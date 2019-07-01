@@ -32,9 +32,9 @@ service Metainfo {
 }
 
 message BucketItem {
-    bytes             name = 1;
-    encryption.Cipher path_cipher = 2;
-    bytes             attribution_id = 3;
+    bytes                  name = 1;
+    encryption.CipherSuite path_cipher = 2;
+    bytes                  attribution_id = 3;
 
     google.protobuf.Timestamp created_at = 4;
 

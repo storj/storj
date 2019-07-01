@@ -15,10 +15,10 @@ message EncryptionParameters {
 
 message CipherSuite {
   enum Type {
-    EncUnspecified = 0;
-    EncNull = 1;
-    EncAESGCM = 2;
-    EncSecretBox = 3;
+    ENC_UNSPECIFIED = 0;
+    ENC_NULL = 1;
+    ENC_AESGCM = 2;
+    ENC_SECRETBOX = 3;
   }
 
   Type type = 1;

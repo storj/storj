@@ -177,18 +177,22 @@
       "def": {
         "enums": [
           {
-            "name": "Cipher.Type",
+            "name": "CipherSuite.Type",
             "enum_fields": [
               {
-                "name": "UNENCRYPTED"
+                "name": "ENC_UNSPECIFIED"
               },
               {
-                "name": "AESGCM",
+                "name": "ENC_NULL",
                 "integer": 1
               },
               {
-                "name": "SECRETBOX",
+                "name": "ENC_AESGCM",
                 "integer": 2
+              },
+              {
+                "name": "ENC_SECRETBOX",
+                "integer": 3
               }
             ]
           }
@@ -200,7 +204,7 @@
               {
                 "id": 1,
                 "name": "cipher_suite",
-                "type": "Cipher"
+                "type": "CipherSuite"
               },
               {
                 "id": 2,
@@ -210,7 +214,7 @@
             ]
           },
           {
-            "name": "Cipher",
+            "name": "CipherSuite",
             "fields": [
               {
                 "id": 1,
@@ -1563,7 +1567,7 @@
               {
                 "id": 2,
                 "name": "path_cipher",
-                "type": "encryption.Cipher"
+                "type": "encryption.CipherSuite"
               },
               {
                 "id": 3,
@@ -1623,7 +1627,7 @@
               {
                 "id": 2,
                 "name": "path_cipher",
-                "type": "encryption.Cipher"
+                "type": "encryption.CipherSuite"
               },
               {
                 "id": 3,
