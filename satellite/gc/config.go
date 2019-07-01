@@ -12,5 +12,5 @@ type Config struct {
 
 	// TODO: find out what initial number of pieces should be when creating a filter
 	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"" devDefault:""`
-	FalsePositiveRate float64 `help:"the false positive rate used for creating a filter" releaseDefault:"" devDefault:""`
+	FalsePositiveRate float64 `help:"the false positive rate used for creating a filter" releaseDefault:"0.1" devDefault:"0.1"`
 }

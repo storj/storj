@@ -41,10 +41,11 @@ type pieceTracker struct {
 	Requests           map[storj.NodeID]*RetainInfo
 }
 
+// noOpPieceTracker does nothing when PieceTracker methods are called, because it's not time for the next iteration.
 type noOpPieceTracker struct {
 }
 
-// PieceTracker allows access to ...
+// PieceTracker allows access to info about the good pieces that storage nodes need to retain
 type PieceTracker interface {
 	// Add adds a RetainInfo to the PieceTracker
 	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
@@ -103,16 +104,17 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 	return nil
 }
 
+// Add adds nothing when using the noOpPieceTracker
 func (pieceTracker *noOpPieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
 	return nil
 }
 
-// GetRetainInfos
+// GetRetainInfos returns nothing when using the noOpPieceTracker
 func (pieceTracker *noOpPieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
 	return nil
 }
 
-// GetRetainInfos
+// GetRetainInfos returns the retain requests on the pieceTracker struct
 func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
 	return pieceTracker.Requests
 }
