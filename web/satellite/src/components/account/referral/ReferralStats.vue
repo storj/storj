@@ -83,16 +83,19 @@
 
 <style scoped lang="scss">
     .referral-stats {
-
+	    
         &__title {
             text-align: center;
-            font-family: 'font_bold';
+            font-family: 'font_regular';
+            font-weight: 900;
+            font-size: 28px;
+            color: #354049;
         }
 
         &__wrapper {
             display: flex;
             flex-direction: row;
-            justify-content: space-around;
+            justify-content: space-between;
             left: 15%;
             right: 15%;
             font-family: 'font_regular';
@@ -101,7 +104,7 @@
         &__card {
             color: #354049;
             min-height: 176px;
-            max-width: 276px;
+            max-width: 250px;
             flex-basis: 25%;
             border-radius: 24px;
             padding-top: 25px;

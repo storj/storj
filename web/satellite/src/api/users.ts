@@ -147,7 +147,7 @@ export async function createUserRequest(user: User, password: string, secret: st
     } else {
         result.isSuccess = true;
         if (response.data) {
-            result.data = response.data.createUser.id;
+            result.data = (response as any).data.createUser.id;
         }
     }
 

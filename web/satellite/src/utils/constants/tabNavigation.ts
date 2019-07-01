@@ -34,4 +34,8 @@ export const ACCOUNT_ROUTES = {
         path: '/account/billing-history',
         name: 'Billing History'
     },
+    REFERRAL_PROGRAM: {
+        path: '/account/referral-program',
+        name: 'Referral Program'
+    },
 };

@@ -3,11 +3,12 @@
 
 <template>
     <div class="account-area-container">
-        <h1>Account</h1>
-        <TabNavigation
-            class="account-area-container__navigation"
-            :navigation="navigation"/>
-        <router-view />
+		<ReferralNotification />
+	    <h1>Account</h1>
+	    <TabNavigation
+		    class="account-area-container__navigation"
+		    :navigation="navigation"/>
+	    <router-view />
     </div>
 </template>
 
@@ -15,10 +16,12 @@
     import { Component, Vue } from 'vue-property-decorator';
     import TabNavigation from '@/components/navigation/TabNavigation.vue';
     import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
+    import ReferralNotification from '@/components/account/referral/ReferralNotification.vue';
 
     @Component({
         components: {
             TabNavigation,
+            ReferralNotification,
         },
     })
     export default class AccountArea extends Vue {

@@ -9,6 +9,7 @@ import { AuthToken } from '@/utils/authToken';
 
 // Satellite url
 const satelliteUrl = new HttpLink({
+    // TODO: delete before push
     uri: '/api/graphql/v0',
 });
 

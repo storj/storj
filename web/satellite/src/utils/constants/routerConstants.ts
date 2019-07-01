@@ -58,6 +58,10 @@ const ROUTES = {
         path: 'profile',
         name: 'Profile'
     },
+    REFERRAL_PROGRAM: {
+        path: 'referral-program',
+        name: 'Referral Program'
+    },
     REFERRAL: {
         path: '/ref/:ids',
         name: 'Referral'

@@ -21,6 +21,7 @@ import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
 import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
+import ReferralArea from '@/components/account/referral/ReferralArea.vue';
 import { AuthToken } from '@/utils/authToken';
 import store from '@/store';
 
@@ -75,6 +76,11 @@ let router = new Router({
                             path: ROUTES.BILLING_HISTORY.path,
                             name: ROUTES.BILLING_HISTORY.name,
                             component: AccountBillingHistory,
+                        },
+                        {
+                            path: ROUTES.REFERRAL_PROGRAM.path,
+                            name: ROUTES.REFERRAL_PROGRAM.name,
+                            component: ReferralArea,
                         },
                     ]
                 },
