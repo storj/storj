@@ -378,7 +378,7 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketNam
 	}
 
 	cfg := uplink.BucketConfig{
-		PathCipher:           layer.gateway.pathCipher,
+		PathCipher:       layer.gateway.pathCipher,
 		EncryptionScheme: layer.gateway.encryption,
 	}
 	cfg.Volatile.RedundancyScheme = layer.gateway.redundancy

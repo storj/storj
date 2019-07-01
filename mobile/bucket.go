@@ -44,11 +44,11 @@ type Bucket struct {
 
 // BucketInfo bucket meta struct
 type BucketInfo struct {
-	Name                 string
-	Created              int64
-	PathCipher           byte
-	SegmentsSize         int64
-	RedundancyScheme     *RedundancyScheme
+	Name             string
+	Created          int64
+	PathCipher       byte
+	SegmentsSize     int64
+	RedundancyScheme *RedundancyScheme
 	EncryptionScheme *EncryptionScheme
 }
 

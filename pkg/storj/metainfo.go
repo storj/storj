@@ -67,7 +67,7 @@ func (create CreateObject) Object(bucket Bucket, path Path) Object {
 			SegmentCount:     -1,  // unknown
 			FixedSegmentSize: -1,  // unknown
 
-			RedundancyScheme:     create.RedundancyScheme,
+			RedundancyScheme: create.RedundancyScheme,
 			EncryptionScheme: create.EncryptionScheme,
 		},
 	}

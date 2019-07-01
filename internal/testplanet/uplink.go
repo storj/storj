@@ -225,9 +225,9 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	}
 
 	createInfo := storj.CreateObject{
-		RedundancyScheme:     redScheme,
+		RedundancyScheme: redScheme,
 		EncryptionScheme: encScheme,
-		Expires:              expiration,
+		Expires:          expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
 	if err != nil {

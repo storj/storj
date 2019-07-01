@@ -25,12 +25,12 @@ var (
 
 // Bucket contains information about a specific bucket
 type Bucket struct {
-	Name                 string
-	Attribution          string
-	Created              time.Time
-	PathCipher           CipherSuite
-	SegmentsSize         int64
-	RedundancyScheme     RedundancyScheme
+	Name             string
+	Attribution      string
+	Created          time.Time
+	PathCipher       CipherSuite
+	SegmentsSize     int64
+	RedundancyScheme RedundancyScheme
 	EncryptionScheme EncryptionScheme
 }
 

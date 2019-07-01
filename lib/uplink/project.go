@@ -103,10 +103,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg.setDefaults()
 
 	bucket = storj.Bucket{
-		PathCipher:           cfg.PathCipher,
+		PathCipher:       cfg.PathCipher,
 		EncryptionScheme: cfg.EncryptionScheme,
-		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
-		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
+		RedundancyScheme: cfg.Volatile.RedundancyScheme,
+		SegmentsSize:     cfg.Volatile.SegmentsSize.Int64(),
 	}
 	return p.project.CreateBucket(ctx, name, &bucket)
 }
@@ -138,7 +138,7 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 		return b, nil, err
 	}
 	cfg := &BucketConfig{
-		PathCipher:           b.PathCipher,
+		PathCipher:       b.PathCipher,
 		EncryptionScheme: b.EncryptionScheme,
 	}
 	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
@@ -258,11 +258,11 @@ func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bu
 	defer mon.Task()(&ctx)(&err)
 
 	bucket = storj.Bucket{
-		Attribution:          p.uplinkCfg.Volatile.PartnerID,
-		PathCipher:           bucketInfo.PathCipher,
+		Attribution:      p.uplinkCfg.Volatile.PartnerID,
+		PathCipher:       bucketInfo.PathCipher,
 		EncryptionScheme: bucketInfo.EncryptionScheme,
-		RedundancyScheme:     bucketInfo.RedundancyScheme,
-		SegmentsSize:         bucketInfo.SegmentsSize,
+		RedundancyScheme: bucketInfo.RedundancyScheme,
+		SegmentsSize:     bucketInfo.SegmentsSize,
 	}
 	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }
