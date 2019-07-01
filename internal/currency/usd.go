@@ -23,7 +23,7 @@ func Cents(cents int) USD {
 }
 
 // Cents returns amount in cents.
-func (usd USD) Cents() int { return int(usd.cents) }
+func (usd USD) Cents() int { return usd.cents }
 
 // Add adds two usd values and returns the result.
 func (usd USD) Add(b USD) USD { return USD{usd.cents + b.cents} }
