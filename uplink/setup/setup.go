@@ -23,16 +23,16 @@ var (
 	Error = errs.Class("uplink setup")
 )
 
-// LoadEncryptionCtx loads an EncryptionCtx from the values specified in the encryption config.
-func LoadEncryptionCtx(ctx context.Context, cfg uplink.EncryptionConfig) (_ *libuplink.EncryptionCtx, err error) {
+// LoadEncryptionAccess loads an EncryptionAccess from the values specified in the encryption config.
+func LoadEncryptionAccess(ctx context.Context, cfg uplink.EncryptionConfig) (_ *libuplink.EncryptionAccess, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if cfg.EncCtxFilepath != "" {
-		data, err := ioutil.ReadFile(cfg.EncCtxFilepath)
+	if cfg.EncAccessFilepath != "" {
+		data, err := ioutil.ReadFile(cfg.EncAccessFilepath)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
-		return libuplink.ParseEncryptionCtx(strings.TrimSpace(string(data)))
+		return libuplink.ParseEncryptionAccess(strings.TrimSpace(string(data)))
 	}
 
 	data := []byte(cfg.EncryptionKey)
@@ -47,5 +47,5 @@ func LoadEncryptionCtx(ctx context.Context, cfg uplink.EncryptionConfig) (_ *lib
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	return libuplink.NewEncryptionCtxWithDefaultKey(*key), nil
+	return libuplink.NewEncryptionAccessWithDefaultKey(*key), nil
 }

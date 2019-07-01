@@ -154,7 +154,7 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	if err != nil {
 		return nil, err
 	}
-	limit := &pb.OrderLimit2{
+	limit := &pb.OrderLimit{
 		SerialNumber:    serialNumber,
 		SatelliteId:     satellite.ID(),
 		UplinkId:        uplink.ID(),
