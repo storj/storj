@@ -337,9 +337,9 @@ message BatchRequest {
         ObjectListRequest   object_list;
         ObjectDeleteRequest object_delete;
 
-        SegmentBeginRequest      segment_create;
+        SegmentBeginRequest      segment_begin;
         SegmentCommitRequest     segment_commit;
-        SegmentMakeInlineRequest segment_inline;
+        SegmentMakeInlineRequest segment_make_inline;
 
         SegmentBeginDeleteRequest  segment_begin_delete;
         SegmentFinishDeleteRequest segment_finish_delete;
@@ -363,9 +363,9 @@ message BatchResponse {
         ObjectListResponse   object_list;
         ObjectDeleteResponse object_delete;
 
-        SegmentBeginResponse      segment_create;
+        SegmentBeginResponse      segment_begin;
         SegmentCommitResponse     segment_commit;
-        SegmentMakeInlineResponse segment_inline;
+        SegmentMakeInlineResponse segment_make_inline;
 
         SegmentBeginDeleteResponse  segment_begin_delete;
         SegmentFinishDeleteResponse segment_finish_delete;
