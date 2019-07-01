@@ -43,7 +43,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	encCtx, err := setup.LoadEncryptionCtx(ctx, cfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -58,7 +58,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.Bucket(), encCtx)
+		bucket, err := project.OpenBucket(ctx, src.Bucket(), access)
 		if err != nil {
 			return err
 		}
@@ -87,7 +87,7 @@ func list(cmd *cobra.Command, args []string) error {
 			for _, bucket := range list.Items {
 				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
 				if *recursiveFlag {
-					if err := listFilesFromBucket(ctx, project, bucket.Name, encCtx); err != nil {
+					if err := listFilesFromBucket(ctx, project, bucket.Name, access); err != nil {
 						return err
 					}
 				}
@@ -106,13 +106,13 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, encCtx *libuplink.EncryptionCtx) error {
+func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access *libuplink.EncryptionAccess) error {
 	prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucketName))
 	if err != nil {
 		return err
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, encCtx)
+	bucket, err := project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
 		return err
 	}

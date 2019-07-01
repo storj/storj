@@ -52,22 +52,22 @@ func TestBucketExamples(t *testing.T) {
 			require.Equal(t, out.String(), "")
 
 			out = bytes.NewBuffer(nil)
-			encCtx, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddr, apiKey, &cfg, out)
+			access, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddr, apiKey, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddr, apiKey, encCtx, &cfg, out)
+			err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddr, apiKey, access, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "hello world\n")
 
 			out = bytes.NewBuffer(nil)
-			userAPIKey, userEncCtx, err := RestrictAccessExampleByAdmin(ctx, satelliteAddr, apiKey, encCtx, &cfg, out)
+			userAPIKey, userAccess, err := RestrictAccessExampleByAdmin(ctx, satelliteAddr, apiKey, access, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = RestrictAccessExampleByUser(ctx, satelliteAddr, userAPIKey, userEncCtx, &cfg, out)
+			err = RestrictAccessExampleByUser(ctx, satelliteAddr, userAPIKey, userAccess, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "hello world\n")
 		})
