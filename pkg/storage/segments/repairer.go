@@ -94,12 +94,10 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair)
 
-	lostPiecesSet := sliceToSet(missingPieces)
-
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
-		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
+		if !missingPieces[piece.GetPieceNum()] {
 			healthyPieces = append(healthyPieces, piece)
 			healthyMap[piece.GetPieceNum()] = true
 		} else {
@@ -197,15 +195,6 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 
 	// Update the segment pointer in the metainfo
 	return repairer.metainfo.Put(ctx, path, pointer)
-}
-
-// sliceToSet converts the given slice to a set
-func sliceToSet(slice []int32) map[int32]struct{} {
-	set := make(map[int32]struct{}, len(slice))
-	for _, value := range slice {
-		set[value] = struct{}{}
-	}
-	return set
 }
 
 func createBucketID(path storj.Path) ([]byte, error) {

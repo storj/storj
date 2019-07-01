@@ -180,13 +180,10 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		return Error.New("error getting missing pieces %s", err)
 	}
 
-	missingPiecesMap := make(map[int32]bool)
-	for _, pieceNum := range missingPieces {
-		missingPiecesMap[pieceNum] = true
-	}
-
+	var lostPieces []int32
 	for _, piece := range pieces {
-		if missingPiecesMap[piece.PieceNum] {
+		if missingPieces[piece.PieceNum] {
+			lostPieces = append(lostPieces, piece.PieceNum)
 			continue
 		}
 		checker.garbage.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
@@ -210,7 +207,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:       path,
-			LostPieces: missingPieces,
+			LostPieces: lostPieces,
 		})
 		if err != nil {
 			return Error.New("error adding injured segment to queue %s", err)
