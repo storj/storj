@@ -8,19 +8,19 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// EncryptionCtx holds data about encryption keys for a bucket.
-type EncryptionCtx struct {
-	lib *libuplink.EncryptionCtx
+// EncryptionAccess holds data about encryption keys for a bucket.
+type EncryptionAccess struct {
+	lib *libuplink.EncryptionAccess
 }
 
-// NewEncryptionCtx constructs an empty encryption context.
-func NewEncryptionCtx() *EncryptionCtx {
-	return &EncryptionCtx{lib: libuplink.NewEncryptionCtx()}
+// NewEncryptionAccess constructs an empty encryption context.
+func NewEncryptionAccess() *EncryptionAccess {
+	return &EncryptionAccess{lib: libuplink.NewEncryptionAccess()}
 }
 
 // SetDefaultKey sets the default key to use when no matching keys are found
 // for the encryption context.
-func (e *EncryptionCtx) SetDefaultKey(keyData []byte) error {
+func (e *EncryptionAccess) SetDefaultKey(keyData []byte) error {
 	key, err := storj.NewKey(keyData)
 	if err != nil {
 		return safeError(err)
@@ -29,12 +29,12 @@ func (e *EncryptionCtx) SetDefaultKey(keyData []byte) error {
 	return nil
 }
 
-// ParseEncryptionCtx parses the base58 encoded encryption context data and
+// ParseEncryptionAccess parses the base58 encoded encryption context data and
 // returns the resulting context.
-func ParseEncryptionCtx(b58data string) (*EncryptionCtx, error) {
-	encCtx, err := libuplink.ParseEncryptionCtx(b58data)
+func ParseEncryptionAccess(b58data string) (*EncryptionAccess, error) {
+	access, err := libuplink.ParseEncryptionAccess(b58data)
 	if err != nil {
 		return nil, safeError(err)
 	}
-	return &EncryptionCtx{lib: encCtx}, nil
+	return &EncryptionAccess{lib: access}, nil
 }
