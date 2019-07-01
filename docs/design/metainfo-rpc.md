@@ -154,8 +154,6 @@ message ObjectBeginRequest {
 
     RedundancyScheme     redundancy_scheme = 7; // can be zero
     EncryptionParameters encryption_parameters = 8; // can be zero
-
-    // TODO: do we need content type here or other unencrypted fields?
 }
 
 message ObjectBeginResponse {
@@ -185,13 +183,12 @@ message ObjectListRequest {
     bytes     bucket = 1;
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
-    Direction direction = 4; // TODO: should we remove this for now?
-    int32     limit = 5;
-    bool      recursive = 6;
+    int32     limit = 4;
+    bool      recursive = 5;
 
-    fixed32   meta_flags = 7; // TODO: max many flags
-    bool      include_partial = 8;
-    bool      include_all_versions = 9;
+    fixed32   meta_flags = 6; // TODO: max many flags
+    bool      include_partial = 7;
+    bool      include_all_versions = 8;
 }
 
 message ObjectListResponse {
