@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
@@ -49,7 +50,16 @@ func NewInfoInMemory() (*InfoDB, error) {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	dbutil.Configure(db, mon)
+	// Set max idle and max open to 1 to control concurrent access to the memory DB
+	// Setting max open higher than 1 results in table locked errors
+	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxLifetime(-1)
+
+	mon.Chain("db_stats", monkit.StatSourceFunc(
+		func(cb func(name string, val float64)) {
+			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
+		}))
 
 	return &InfoDB{db: db}, nil
 }
