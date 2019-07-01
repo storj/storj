@@ -515,7 +515,7 @@ func TestVerifierModifiedSegment(t *testing.T) {
 	})
 }
 
-func TestVerifierDeletedSegmentFailsOnce(t *testing.T) {
+func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -531,6 +531,7 @@ func TestVerifierDeletedSegmentFailsOnce(t *testing.T) {
 		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err := cursor.NextStripe(ctx)
 		require.NoError(t, err)
+		require.NotNil(t, stripe)
 
 		verifier := audit.NewVerifier(zap.L(),
 			planet.Satellites[0].Metainfo.Service,
@@ -542,21 +543,33 @@ func TestVerifierDeletedSegmentFailsOnce(t *testing.T) {
 			128*memory.B,
 			5*time.Second)
 
-		// delete the file
-		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		// delete the piece from the first node
+		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
+		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
+		node := getStorageNode(planet, nodeID)
+		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
 		report, err := verifier.Verify(ctx, stripe, nil)
-		require.True(t, audit.ErrSegmentDeleted.Has(err))
-		assert.Empty(t, report)
-
-		stripe, more, err := cursor.NextStripe(ctx)
-		require.Nil(t, err, err)
-		require.Nil(t, stripe)
-		require.False(t, more)
-
-		report, err = verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
-		assert.Empty(t, report)
+
+		require.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		require.Len(t, report.Fails, 1)
+		require.Equal(t, report.Fails[0], nodeID)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+
+		cursor = audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err = cursor.NextStripe(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, stripe)
+
+		report2, err := verifier.Verify(ctx, stripe, nil)
+		require.NoError(t, err)
+
+		require.Len(t, report2.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		require.Len(t, report2.Fails, 0)
+		require.Len(t, report2.Offlines, 0)
+		require.Len(t, report2.PendingAudits, 0)
 	})
 }

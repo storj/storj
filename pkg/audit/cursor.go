@@ -63,7 +63,7 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
 	if len(pointerItems) == 0 {
-		return nil, false, nil
+		return nil, more, nil
 	}
 	pointer, path, err := cursor.getRandomValidPointer(ctx, pointerItems)
 	if err != nil {
