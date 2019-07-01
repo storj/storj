@@ -32,20 +32,11 @@ type RetainInfo struct {
 	CreationDate time.Time
 }
 
-// Queue defines the functions of the satellite's garbage collection "queue"
-// TODO: does this need to be an interface?
-type Queue interface {
-	// Add adds a RetainRequest to the Garbage "queue"
-	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, creationDate time.Time) error
-	// Send sends the garbage delete requests to all storage nodes
-	Send(ctx context.Context) error
-}
-
 // Garbage contains a map of storage nodes and their respective garbage delete requests
 type Garbage struct {
 	log       *zap.Logger
-	transport transport.Client
 	config    Config
+	transport transport.Client
 	Requests  map[storj.NodeID]*RetainInfo
 }
 

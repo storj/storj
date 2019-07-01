@@ -47,32 +47,32 @@ type durabilityStats struct {
 
 // Checker contains the information needed to do checks for missing pieces
 type Checker struct {
-	metainfo        *metainfo.Service
-	lastChecked     string
-	repairQueue     queue.RepairQueue
-	overlay         *overlay.Cache
-	irrdb           irreparable.DB
 	logger          *zap.Logger
+	monStats        durabilityStats
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
-	monStats        durabilityStats
-	Garbage         *gc.Garbage
+	irrdb           irreparable.DB
+	repairQueue     queue.RepairQueue
+	metainfo        *metainfo.Service
+	overlay         *overlay.Cache
+	garbage         *gc.Garbage
+	lastChecked     string
 }
 
 // NewChecker creates a new instance of checker
 func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration, garbage *gc.Garbage) *Checker {
 	// TODO: reorder arguments
 	checker := &Checker{
-		metainfo:        metainfo,
-		lastChecked:     "",
-		repairQueue:     repairQueue,
-		overlay:         overlay,
-		irrdb:           irrdb,
 		logger:          logger,
+		monStats:        durabilityStats{},
 		Loop:            *sync2.NewCycle(repairInterval),
 		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
-		monStats:        durabilityStats{},
-		Garbage:         garbage,
+		irrdb:           irrdb,
+		repairQueue:     repairQueue,
+		metainfo:        metainfo,
+		overlay:         overlay,
+		garbage:         garbage,
+		lastChecked:     "",
 	}
 	return checker
 }
@@ -189,7 +189,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		if missingPiecesMap[piece.PieceNum] {
 			continue
 		}
-		checker.Garbage.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
+		checker.garbage.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
 	}
 
 	monStats.remoteSegmentsChecked++
