@@ -43,6 +43,13 @@ message BucketItem {
     encryption.EncryptionParameters default_encryption_parameters = 7;
 }
 
+message BucketListItem {
+    bytes             name = 1;
+    bytes             attribution_id = 2;
+
+    google.protobuf.Timestamp created_at = 3;
+}
+
 message BucketCreateRequest {
     bytes             name = 1;
     encryption.Cipher path_cipher = 2;
@@ -78,8 +85,8 @@ message BucketListRequest {
 }
 
 message BucketListResponse {
-  repeated BucketItem items = 1;
-  bool                more = 2;
+  repeated BucketListItem items = 1;
+  bool                    more = 2;
 }
 
 message BucketSetAttributionRequest {

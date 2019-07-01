@@ -1593,6 +1593,26 @@
             ]
           },
           {
+            "name": "BucketListItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "attribution_id",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "created_at",
+                "type": "google.protobuf.Timestamp"
+              }
+            ]
+          },
+          {
             "name": "BucketCreateRequest",
             "fields": [
               {
@@ -1691,7 +1711,7 @@
               {
                 "id": 1,
                 "name": "items",
-                "type": "BucketItem",
+                "type": "BucketListItem",
                 "is_repeated": true
               },
               {
