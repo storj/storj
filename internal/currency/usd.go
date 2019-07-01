@@ -25,6 +25,9 @@ func Cents(cents int) USD {
 // Cents returns amount in cents.
 func (usd USD) Cents() int { return int(usd.cents) }
 
+// Add adds two usd values and returns the result.
+func (usd USD) Add(b USD) USD { return USD{usd.cents + b.cents} }
+
 // String returns the value in dollars.
 func (usd USD) String() string {
 	if usd.cents < 0 {

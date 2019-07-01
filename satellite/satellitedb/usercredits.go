@@ -37,18 +37,18 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 	for usageRows.Next() {
 
 		var (
-			usedCredit      sql.NullInt64
-			availableCredit sql.NullInt64
-			referred        sql.NullInt64
+			usedCreditInCents      sql.NullInt64
+			availableCreditInCents sql.NullInt64
+			referred               sql.NullInt64
 		)
-		err = usageRows.Scan(&usedCredit, &availableCredit, &referred)
+		err = usageRows.Scan(&usedCreditInCents, &availableCreditInCents, &referred)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
 
-		usage.UsedCredits += usedCredit.Int64
 		usage.Referred += referred.Int64
-		usage.AvailableCredits += availableCredit.Int64
+		usage.UsedCredits = usage.UsedCredits.Add(currency.Cents(int(usedCreditInCents.Int64)))
+		usage.AvailableCredits = usage.AvailableCredits.Add(currency.Cents(int(availableCreditInCents.Int64)))
 	}
 
 	return &usage, nil
