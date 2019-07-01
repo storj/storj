@@ -97,7 +97,7 @@ message BucketSetAttributionResponse {
 }
 
 message AddressedOrderLimit {
-    orders.OrderLimit2 limit = 1;
+    orders.OrderLimit limit = 1;
     node.NodeAddress storage_node_address = 2;
 }
 
@@ -120,7 +120,7 @@ message SegmentCommitRequest {
     bytes path = 2;
     int64 segment = 3;
     pointerdb.Pointer pointer = 4;
-    repeated orders.OrderLimit2 original_limits = 5;
+    repeated orders.OrderLimit original_limits = 5;
 }
 
 message SegmentCommitResponse {

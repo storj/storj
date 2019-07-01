@@ -235,11 +235,11 @@
       }
     },
     {
-      "protopath": "pkg:/:pb:/:encryption_ctx.proto",
+      "protopath": "pkg:/:pb:/:encryption_access.proto",
       "def": {
         "messages": [
           {
-            "name": "EncryptionCtx",
+            "name": "EncryptionAccess",
             "fields": [
               {
                 "id": 1,
@@ -288,7 +288,7 @@
           }
         ],
         "package": {
-          "name": "encryption_ctx"
+          "name": "encryption_access"
         }
       }
     },
@@ -1764,7 +1764,7 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
@@ -1860,7 +1860,7 @@
               {
                 "id": 5,
                 "name": "original_limits",
-                "type": "orders.OrderLimit2",
+                "type": "orders.OrderLimit",
                 "is_repeated": true
               }
             ]
@@ -2502,7 +2502,7 @@
         ],
         "messages": [
           {
-            "name": "OrderLimit2",
+            "name": "OrderLimit",
             "fields": [
               {
                 "id": 1,
@@ -2612,7 +2612,7 @@
             ]
           },
           {
-            "name": "Order2",
+            "name": "Order",
             "fields": [
               {
                 "id": 1,
@@ -2677,12 +2677,12 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "OrderLimit2"
+                "type": "OrderLimit"
               },
               {
                 "id": 2,
                 "name": "order",
-                "type": "Order2"
+                "type": "Order"
               }
             ]
           },
@@ -2925,12 +2925,12 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
                 "name": "order",
-                "type": "orders.Order2"
+                "type": "orders.Order"
               },
               {
                 "id": 3,
@@ -2977,12 +2977,12 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
                 "name": "order",
-                "type": "orders.Order2"
+                "type": "orders.Order"
               },
               {
                 "id": 3,
@@ -3041,7 +3041,7 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               }
             ]
           },
