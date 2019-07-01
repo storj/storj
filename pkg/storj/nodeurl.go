@@ -124,3 +124,6 @@ func (urls *NodeURLs) Set(s string) error {
 	*urls = parsed
 	return nil
 }
+
+// Type implements pflag.Value
+func (NodeURLs) Type() string { return "storj.NodeURLs" }
