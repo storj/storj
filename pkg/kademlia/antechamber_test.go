@@ -117,12 +117,3 @@ func TestAntechamberFindNear(t *testing.T) {
 	assert.Equal(t, node4.Id, nodes[0].Id)
 	assert.Equal(t, node1.Id, nodes[1].Id)
 }
-
-func TestNodeHasValidVoucher(t *testing.T) {
-	// no vouchers
-	// no vouchers have a matching satellite id
-	// node id doesn't match
-	// voucher is expired
-	// signature is unverified
-	// one voucher doesn't match and another does
-}

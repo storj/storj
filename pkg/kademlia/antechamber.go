@@ -82,26 +82,6 @@ func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.No
 	return closestNodes, Error.Wrap(err)
 }
 
-// checks whether the node in question has a valid voucher.
-// If true, call addNode
-// If false, call antechamberAddNode
-func (rt *RoutingTable) nodeHasValidVoucher(ctx context.Context, node *pb.Node, vouchers []*pb.Voucher) bool {
-	// TODO: method not fully implementable until trust package removes kademlia parameter. Commented out code in progress.
-	//defer mon.Task()(&ctx)(&err)
-	//if len(vouchers) == 0 {
-	//	return false
-	//}
-	//satelliteIds := trust.GetSatellites()
-	//for _, satelliteId := range satelliteIds {
-	//	for _, voucher := range vouchers {
-	//		if voucher.SatelliteId == satelliteId && voucher.StorageNodeId == node.Id && time.Now().Sub(convertTime(voucher.Expiration)) < 0  && signing.VerifyVoucher() == nil {
-	//			return true
-	//		}
-	//	}
-	//}
-	return false
-}
-
 func (rt *RoutingTable) iterateAntechamber(ctx context.Context, start storj.NodeID, f func(context.Context, storj.NodeID, []byte) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return rt.antechamber.Iterate(ctx, storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},

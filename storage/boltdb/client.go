@@ -11,7 +11,7 @@ import (
 
 	"github.com/boltdb/bolt"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
