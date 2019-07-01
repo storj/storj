@@ -31,7 +31,7 @@ service Metainfo {
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
 }
 
-message Bucket {
+message BucketItem {
     bytes             name = 1;
     encryption.Cipher path_cipher = 2;
     bytes             attribution_id = 3;
@@ -54,7 +54,7 @@ message BucketCreateRequest {
 }
 
 message BucketCreateResponse {
-    Bucket bucket = 1;
+    BucketItem bucket = 1;
 }
 
 message BucketGetRequest {
@@ -62,7 +62,7 @@ message BucketGetRequest {
 }
 
 message BucketGetResponse {
-    Bucket bucket = 1;
+    BucketItem bucket = 1;
 }
 
 message BucketDeleteRequest {
@@ -78,8 +78,8 @@ message BucketListRequest {
 }
 
 message BucketListResponse {
-  repeated Bucket items = 1;
-  bool            more = 2;
+  repeated BucketItem items = 1;
+  bool                more = 2;
 }
 
 message BucketSetAttributionRequest {
