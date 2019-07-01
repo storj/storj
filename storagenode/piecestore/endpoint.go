@@ -142,6 +142,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	if liveRequests > endpoint.config.MaxConcurrentRequests {
+		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
 		return status.Error(codes.Unavailable, "storage node overloaded")
 	}
 
