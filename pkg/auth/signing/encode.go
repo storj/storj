@@ -12,7 +12,7 @@ import (
 )
 
 // EncodeOrderLimit encodes order limit into bytes for signing. Removes signature from serialized limit.
-func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit2) (_ []byte, err error) {
+func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	signature := limit.SatelliteSignature
 	limit.SatelliteSignature = nil
@@ -22,7 +22,7 @@ func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit2) (_ []byte, err
 }
 
 // EncodeOrder encodes order into bytes for signing. Removes signature from serialized order.
-func EncodeOrder(ctx context.Context, order *pb.Order2) (_ []byte, err error) {
+func EncodeOrder(ctx context.Context, order *pb.Order) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	signature := order.UplinkSignature
 	order.UplinkSignature = nil
