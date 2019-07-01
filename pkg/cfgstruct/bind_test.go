@@ -24,15 +24,15 @@ func assertEqual(actual, expected interface{}) {
 func TestBind(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String    string         `default:""`
-		Bool      bool           `releaseDefault:"false" devDefault:"true"`
-		Int64     int64          `releaseDefault:"0" devDefault:"1"`
-		Int       int            `default:"0"`
-		Uint64    uint64         `default:"0"`
-		Uint      uint           `default:"0"`
-		Float64   float64        `default:"0"`
-		Duration  time.Duration  `default:"0"`
-		NodeURLs  storj.NodeURLs `releaseDefault:"" devDefault:""`
+		String   string         `default:""`
+		Bool     bool           `releaseDefault:"false" devDefault:"true"`
+		Int64    int64          `releaseDefault:"0" devDefault:"1"`
+		Int      int            `default:"0"`
+		Uint64   uint64         `default:"0"`
+		Uint     uint           `default:"0"`
+		Float64  float64        `default:"0"`
+		Duration time.Duration  `default:"0"`
+		NodeURLs storj.NodeURLs `releaseDefault:"" devDefault:""`
 		Struct   struct {
 			AnotherString string `default:""`
 		}
@@ -112,15 +112,15 @@ func TestConfDir(t *testing.T) {
 func TestBindDevDefaults(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String   string        `default:"dev"`
-		Bool     bool          `releaseDefault:"false" devDefault:"true"`
-		Int64    int64         `releaseDefault:"0" devDefault:"1"`
-		Int      int           `default:"2"`
-		Uint64   uint64        `default:"3"`
-		Uint     uint          `releaseDefault:"0" devDefault:"4"`
-		Float64  float64       `default:"5.5"`
-		Duration time.Duration `default:"1h"`
-		NodeURLs  storj.NodeURLs `releaseDefault:"" devDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
+		String   string         `default:"dev"`
+		Bool     bool           `releaseDefault:"false" devDefault:"true"`
+		Int64    int64          `releaseDefault:"0" devDefault:"1"`
+		Int      int            `default:"2"`
+		Uint64   uint64         `default:"3"`
+		Uint     uint           `releaseDefault:"0" devDefault:"4"`
+		Float64  float64        `default:"5.5"`
+		Duration time.Duration  `default:"1h"`
+		NodeURLs storj.NodeURLs `releaseDefault:"" devDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
 		Struct   struct {
 			AnotherString string `default:"dev2"`
 		}
