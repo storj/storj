@@ -19,8 +19,6 @@ import (
 )
 
 func TestDataRepair(t *testing.T) {
-	t.Skip("flaky")
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
@@ -32,6 +30,8 @@ func TestDataRepair(t *testing.T) {
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
 		satellite.Discovery.Service.Discovery.Stop()
 		satellite.Discovery.Service.Refresh.Stop()
+		// stop audit to prevent possible interactions i.e. repair timeout problems
+		satellite.Audit.Service.Loop.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
@@ -70,7 +70,7 @@ func TestDataRepair(t *testing.T) {
 		numPieces := len(remotePieces)
 		toKill := numPieces - (int(minReq) + 1)
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill) >= numPieces)
+		require.True(t, (numStorageNodes-toKill) >= numPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32
@@ -116,12 +116,12 @@ func TestDataRepair(t *testing.T) {
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
-		assert.Equal(t, newData, testData)
+		require.NoError(t, err)
+		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
 		pointer, err = metainfo.Get(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
