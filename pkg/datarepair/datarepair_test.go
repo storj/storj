@@ -4,7 +4,6 @@
 package datarepair_test
 
 import (
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,6 +11,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -44,11 +44,9 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(1 * memory.MiB)
 
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  5,
 			SuccessThreshold: 7,
@@ -177,11 +175,9 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		testData := make([]byte, 1*memory.MiB)
-		_, err := rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(1 * memory.MiB)
 
-		err = ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  5,
 			SuccessThreshold: 7,
