@@ -16,17 +16,15 @@ import (
 )
 
 // parseOfferForm decodes POST form data into a new offer.
-func parseOfferForm(w http.ResponseWriter, req *http.Request) (o rewards.NewOffer, e error) {
+func parseOfferForm(w http.ResponseWriter, req *http.Request) (rewards.NewOffer, error) {
 	err := req.ParseForm()
 	if err != nil {
-		return o, err
+		return rewards.NewOffer{}, err
 	}
 
-	if err := decoder.Decode(&o, req.PostForm); err != nil {
-		return o, err
-	}
-
-	return o, nil
+	var offer rewards.NewOffer
+	err = decoder.Decode(&offer, req.PostForm)
+	return offer, err
 }
 
 var (
@@ -39,7 +37,7 @@ func init() {
 	decoder.RegisterConverter(currency.USD{}, convertStringToUSD)
 }
 
-// convertStringToUSD formats form time input as time.Time.
+// convertStringToUSD formats dollars strings as USD amount.
 func convertStringToUSD(s string) reflect.Value {
 	value, err := strconv.Atoi(s)
 	if err != nil {
