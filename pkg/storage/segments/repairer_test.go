@@ -64,11 +64,11 @@ func TestSegmentStoreRepair(t *testing.T) {
 		numStorageNodes := len(planet.StorageNodes)
 		redundancy := pointer.GetRemote().GetRedundancy()
 		remotePieces := pointer.GetRemote().GetRemotePieces()
-		minReq := redundancy.GetMinReq()
 		numPieces := len(remotePieces)
+		minReq := redundancy.GetMinReq()
 		toKill := numPieces - (int(minReq) + 1)
 		// we should have enough storage nodes to repair on
-		assert.True(t, (numStorageNodes-toKill) >= numPieces)
+		require.True(t, (numStorageNodes-toKill) >= numPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32
@@ -96,10 +96,10 @@ func TestSegmentStoreRepair(t *testing.T) {
 		oc := satellite.Overlay.Service
 		ec := ecclient.NewClient(satellite.Log.Named("ecclient"), satellite.Transport, 0)
 		repairer := segments.NewSegmentRepairer(metainfo, os, oc, ec, satellite.Identity, time.Minute)
-		assert.NotNil(t, repairer)
+		require.NotNil(t, repairer)
 
 		err = repairer.Repair(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// kill one of the nodes kept alive to ensure repair worked
 		for _, node := range planet.StorageNodes {
@@ -114,12 +114,12 @@ func TestSegmentStoreRepair(t *testing.T) {
 
 		// we should be able to download data without any of the original nodes
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the killed nodes
 		pointer, err = metainfo.Get(ctx, path)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		remotePieces = pointer.GetRemote().GetRemotePieces()
 		for _, piece := range remotePieces {
