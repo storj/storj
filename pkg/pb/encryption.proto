@@ -6,8 +6,6 @@ option go_package = "pb";
 
 package encryption;
 
-import "gogo.proto";
-
 message EncryptionParameters {
   CipherSuite cipher_suite = 1;
   int64 block_size = 2;

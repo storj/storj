@@ -224,11 +224,6 @@
             ]
           }
         ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          }
-        ],
         "package": {
           "name": "encryption"
         }
