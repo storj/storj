@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
+	"storj.io/storj/pkg/storj"
 )
 
 // BindOpt is an option for the Bind method
@@ -167,6 +168,9 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				}
 			}
 			switch field.Type {
+			case reflect.TypeOf(storj.NodeURLs(nil)):
+				check(fieldaddr.(*storj.NodeURLs).Set(def))
+				flags.Var(fieldaddr.(*storj.NodeURLs), flagname, help)
 			case reflect.TypeOf(memory.Size(0)):
 				check(fieldaddr.(*memory.Size).Set(def))
 				flags.Var(fieldaddr.(*memory.Size), flagname, help)
