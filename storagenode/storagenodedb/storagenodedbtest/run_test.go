@@ -12,17 +12,17 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/storagenodedb"
-	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/storagenodedb"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestDatabase(t *testing.T) {
