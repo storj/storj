@@ -56,7 +56,7 @@ type OldConfig struct {
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests int32         `help:"how many concurrent requests are allowed, before uploads are rejected." default:"30"`
+	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"30"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
@@ -141,7 +141,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
-	if liveRequests > endpoint.config.MaxConcurrentRequests {
+	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
 		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
 		return status.Error(codes.Unavailable, "storage node overloaded")
 	}
