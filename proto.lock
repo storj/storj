@@ -1577,7 +1577,17 @@
               {
                 "id": 4,
                 "name": "created_at",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 5,
@@ -1606,13 +1616,18 @@
               },
               {
                 "id": 2,
-                "name": "attribution_id",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
                 "name": "created_at",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
