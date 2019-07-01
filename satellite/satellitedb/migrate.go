@@ -867,8 +867,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
+				Description: "Remove disqualification flag for failing uptime checks",
 				Version:     37,
+				Action: migrate.SQL{
+					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
+				},
+			},
+			{
+				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
+				Version:     38,
 				Action: migrate.SQL{
 					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
@@ -876,7 +883,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				Description: "Add bucket metadata table",
-				Version:     38,
+				Version:     39,
 				Action: migrate.SQL{
 					`CREATE TABLE buckets (
 						id bytea NOT NULL,
@@ -896,13 +903,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						PRIMARY KEY ( id ),
 						UNIQUE ( name, project_id )
 					);`,
-				},
-			},
-			{
-				Description: "Remove disqualification flag for failing uptime checks",
-				Version:     39,
-				Action: migrate.SQL{
-					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
 			},
 		},
