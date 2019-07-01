@@ -84,7 +84,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		return Error.New("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return nil
 	}
 
 	healthyRatioBeforeRepair := 0.0
