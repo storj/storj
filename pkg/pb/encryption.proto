@@ -9,11 +9,11 @@ package encryption;
 import "gogo.proto";
 
 message EncryptionParameters {
-  CipherSuite cipher_suite = 1;
+  Cipher cipher_suite = 1;
   int64 block_size = 2;
 }
 
-message CipherSuite {
+message Cipher {
   enum Type {
     UNENCRYPTED = 0;
     AESGCM = 1;

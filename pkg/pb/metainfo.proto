@@ -18,7 +18,8 @@ service Metainfo {
     rpc CreateBucket(BucketCreateRequest) returns (BucketCreateResponse);
     rpc GetBucket(BucketGetRequest) returns (BucketGetResponse);
     rpc DeleteBucket(BucketDeleteRequest) returns (BucketDeleteResponse);
-    rpc ListBuckets(BucketsListRequest) returns (BucketsListResponse);
+    rpc ListBuckets(BucketListRequest) returns (BucketListResponse);
+    rpc SetBucketAttribution(BucketSetAttributionRequest) returns (BucketSetAttributionResponse);
 
     rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
@@ -31,28 +32,33 @@ service Metainfo {
 }
 
 message Bucket {
-    bytes id = 1;
-    bytes project_id = 2;
-    bytes name = 3;
-    encryption.CipherSuite path_cipher = 4;
+    bytes             name = 1;
+    encryption.Cipher path_cipher = 2;
+    bytes             attribution_id = 3;
 
-    google.protobuf.Timestamp created_at = 5;
+    google.protobuf.Timestamp created_at = 4;
 
-    int64 default_segment_size = 6;
+    int64                           default_segment_size = 5;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 6;
     encryption.EncryptionParameters default_encryption_parameters = 7;
-    pointerdb.RedundancyScheme default_redundancy_scheme = 8;
 }
 
 message BucketCreateRequest {
+    bytes             name = 1;
+    encryption.Cipher path_cipher = 2;
+    bytes             attribution_id = 3;
+
+    int64                           default_segment_size = 4;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
+    encryption.EncryptionParameters default_encryption_parameters = 6;
+}
+
+message BucketCreateResponse {
     Bucket bucket = 1;
 }
 
-message BucketCreateResponse {}
-
 message BucketGetRequest {
-    bytes id = 1;
-    bytes project_id = 2;
-    bytes name = 3;
+    bytes name = 1;
 }
 
 message BucketGetResponse {
@@ -60,22 +66,28 @@ message BucketGetResponse {
 }
 
 message BucketDeleteRequest {
-    bytes id = 1;
-    bytes project_id = 2;
-    bytes name = 3;
+    bytes name = 1;
 }
 
-message BucketDeleteResponse {}
-
-message BucketsListRequest {
-    bytes project_id = 1;
-    bytes cursor = 2;
-    int32 limit = 3;
+message BucketDeleteResponse {
 }
 
-message BucketsListResponse {
-  repeated Bucket buckets = 1;
-  bool more = 2;
+message BucketListRequest {
+    bytes cursor = 1;
+    int32 limit = 2;
+}
+
+message BucketListResponse {
+  repeated Bucket items = 1;
+  bool            more = 2;
+}
+
+message BucketSetAttributionRequest {
+    bytes name = 1;
+    bytes attribution_id = 2;
+}
+
+message BucketSetAttributionResponse {
 }
 
 message AddressedOrderLimit {
