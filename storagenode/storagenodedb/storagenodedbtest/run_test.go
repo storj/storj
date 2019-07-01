@@ -30,22 +30,45 @@ func TestDatabase(t *testing.T) {
 	})
 }
 
-func TestConcurrency(t *testing.T) {
+func TestFileConcurrency(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+
+	db, err := storagenodedb.New(log, storagenodedb.Config{
+		Pieces:   ctx.Dir("storage"),
+		Info2:    ctx.Dir("storage") + "/info.db",
+		Kademlia: ctx.Dir("storage") + "/kademlia",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(db.Close)
+
+	testConcurrency(t, ctx, db)
+}
+
+func TestInMemoryConcurrency(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+
+	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(db.Close)
+
+	testConcurrency(t, ctx, db)
+}
+
+func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB) {
 	t.Run("Sqlite", func(t *testing.T) {
 		runtime.GOMAXPROCS(2)
 
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		log := zaptest.NewLogger(t)
-
-		db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ctx.Check(db.Close)
-
-		err = db.CreateTables()
+		err := db.CreateTables()
 		if err != nil {
 			t.Fatal(err)
 		}
