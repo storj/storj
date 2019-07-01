@@ -17,7 +17,7 @@ import (
 // AntechamberErr is the class for all errors pertaining to antechamber operations
 var AntechamberErr = errs.Class("antechamber error")
 
-// Attempts to add a node the antechamber. Only allowed in if within rt neighborhood.
+// antechamberAddNode attempts to add a node the antechamber. Only allowed in if within rt neighborhood
 func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
@@ -39,7 +39,7 @@ func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (
 	return nil
 }
 
-// Removes a node from the antechamber.
+// antechamberRemoveNode removes a node from the antechamber
 // Called when node moves into RT, node is outside neighborhood (check when any node is added to RT), or node failed contact
 func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -52,7 +52,8 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node
 	return nil
 }
 
-// Called in conjunction with RT FindNear in some circumstances
+// antechamberFindNear returns the closest nodes to self from the antechamber up to the limit
+// it is called in conjunction with RT FindNear in some circumstances
 func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
