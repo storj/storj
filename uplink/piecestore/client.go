@@ -64,7 +64,7 @@ func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log 
 }
 
 // Delete uses delete order limit to delete a piece on piece store.
-func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit2) (err error) {
+func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.Delete(ctx, &pb.PieceDeleteRequest{
 		Limit: limit,
