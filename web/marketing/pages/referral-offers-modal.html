@@ -2,51 +2,51 @@
 See LICENSE for copying information. -->
 
 {{define "referralOffersModal"}}
-<div class="modal fade p-5" id="referral-offers-modal" tabindex="-1" role="dialog" aria-labelledby="referral-offers-modal-lbl" aria-hidden="true">
+<div class="modal fade p-5" id="referral-offers-modal" tabindex="-1" role="dialog" aria-labelledby="ref-offers-modal-lbl" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="referral-offers-modal-lbl">Create Referral Credit</h5>
+                <h5 class="modal-title" id="ref-offers-modal-lbl">Create Referral Credit</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                 <span aria-hidden="true">&times;</span>
                 </button>
             </div>
             <div class="modal-body">
-                <form>
+                <form action="/create/referral-offer" method="POST" enctype="application/x-www-form-urlencoded">
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label for="offer-name">Offer Name</label>
-                            <input type="text" class="form-control" id="offer-name" placeholder="May Referral" required>
+                            <label for="Name">Offer Name</label>
+                            <input type="text" class="form-control" name="Name" id="Name" placeholder="May Referral" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="description">Description</label>
-                            <input type="text" class="form-control" id="description" placeholder="Our test with $50 for May" required>
+                            <label for="Description">Description</label>
+                            <input type="text" class="form-control" name="Description" id="Description" placeholder="Our test with $50 for May" required>
                         </div>
                         <div class="form-group col-md-4">
-                            <label for="expiration">Credit Exp Date</label>
-                            <input type="date" class="form-control" id="expiration" placeholder="06/01/19" required>
+                            <label for="ExpiresAt">Credit Exp Date</label>
+                            <input type="date" class="form-control" id="ExpiresAt" name="ExpiresAt" placeholder="06/01/19" required>
                         </div>
                     </div>
                     <div class="form-row">
                         <div class="form-group col-md-2">
-                            <label for="give-credit">Give Credit</label>
-                            <input type="number" class="form-control" id="give-credit" placeholder="$50" required>                        
+                            <label for="InviteeCreditInCents">Give Credit</label>
+                            <input type="number" class="form-control" name="InviteeCreditInCents" id="InviteeCreditInCents" placeholder="$50" required>                        
                         </div>
                         <div class="form-group col-md-2">
-                            <label for="give-credit-exp">Give Credit Exp.</label>
-                            <input type="number" class="form-control" id="give-credit-exp" min="1" placeholder="14 days" required>
+                            <label for="InviteeCreditDurationDays">Give Credit Exp.</label>
+                            <input type="number" class="form-control" name="InviteeCreditDurationDays" id="InviteeCreditDurationDays" min="1" placeholder="14 days" required>
                         </div>
                         <div class="form-group col-md-2">
-                            <label for="get-credit">Get Credit</label>
-                            <input type="number" class="form-control" id="get-credit" placeholder="$50" min="1" required>                        
+                            <label for="AwardCreditInCents">Award Credit</label>
+                            <input type="number" class="form-control" name="AwardCreditInCents" id="AwardCreditInCents" placeholder="$50" min="1" required>                        
                         </div>
                         <div class="form-group col-md-3">
-                            <label for="get-credit-exp">Get Credit Exp.</label>
-                            <input type="number" class="form-control" id="get-credit-exp" placeholder="12 months" min="1" required>
+                            <label for="AwardCreditDurationDays">Award Credit Exp.</label>
+                            <input type="number" class="form-control" name="AwardCreditDurationDays" id="AwardCreditDurationDays" placeholder="12 months" min="1" required>
                         </div>
                         <div class="form-group col-md-3">
-                            <label for="redeemable-capacity">Redeemable Capacity</label>
-                            <input type="number" class="form-control" id="redeemable-capacity" min="1" placeholder="150 users" required>
+                            <label for="RedeemableCap">Redeemable Capacity</label>
+                            <input type="number" class="form-control" name="RedeemableCap" id="RedeemableCap" min="1" placeholder="150 users" required>
                         </div>
                     </div>
                     <div class="m-1 text-left">
