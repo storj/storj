@@ -424,13 +424,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		log.Debug("Setting up datarepair")
 		// TODO: simplify argument list somehow
 		peer.Repair.Checker = checker.NewChecker(
-			peer.Metainfo.Service,
-			peer.DB.RepairQueue(),
-			peer.Overlay.Service, peer.DB.Irreparable(),
-			0, peer.Log.Named("checker"),
+			peer.Log.Named("checker"),
 			config.Checker.Interval,
 			config.Checker.IrreparableInterval,
-			gc.NewGarbage(peer.Log.Named("garbage"), gc.Config{}, peer.Transport),
+			peer.DB.Irreparable(),
+			peer.DB.RepairQueue(),
+			peer.Metainfo.Service,
+			peer.Overlay.Service,
+			gc.NewPieceTracker(peer.Log.Named("piece tracker"), gc.Config{}, peer.Transport),
 		)
 
 		peer.Repair.Repairer = repairer.NewService(

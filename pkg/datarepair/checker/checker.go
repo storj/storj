@@ -55,13 +55,12 @@ type Checker struct {
 	repairQueue     queue.RepairQueue
 	metainfo        *metainfo.Service
 	overlay         *overlay.Cache
-	garbage         *gc.Garbage
+	pieceTracker    *gc.PieceTracker
 	lastChecked     string
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration, garbage *gc.Garbage) *Checker {
-	// TODO: reorder arguments
+func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Duration, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, pieceTracker *gc.PieceTracker) *Checker {
 	checker := &Checker{
 		logger:          logger,
 		monStats:        durabilityStats{},
@@ -71,7 +70,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		repairQueue:     repairQueue,
 		metainfo:        metainfo,
 		overlay:         overlay,
-		garbage:         garbage,
+		pieceTracker:    pieceTracker,
 		lastChecked:     "",
 	}
 	return checker
@@ -186,7 +185,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 			lostPieces = append(lostPieces, piece.PieceNum)
 			continue
 		}
-		checker.garbage.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
+		checker.pieceTracker.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
 	}
 
 	monStats.remoteSegmentsChecked++

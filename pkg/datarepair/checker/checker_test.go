@@ -209,7 +209,7 @@ func TestCheckerResume(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := &mockRepairQueue{}
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
-		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, 30*time.Second, 15*time.Second, &gc.Garbage{})
+		c := checker.NewChecker(nil, 30*time.Second, 15*time.Second, irrepairQueue, repairQueue, planet.Satellites[0].Metainfo.Service, planet.Satellites[0].Overlay.Service, &gc.PieceTracker{})
 
 		// create pointer that needs repair
 		makePointer(t, planet, "a", true)

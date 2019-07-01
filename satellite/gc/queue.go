@@ -22,8 +22,8 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error defines the garbage queue errors class
-	Error = errs.Class("garbage queue error")
+	// Error defines the piece tracker errors class
+	Error = errs.Class("piece tracker error")
 )
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -32,17 +32,17 @@ type RetainInfo struct {
 	CreationDate time.Time
 }
 
-// Garbage contains a map of storage nodes and their respective garbage delete requests
-type Garbage struct {
+// PieceTracker contains info about the good pieces that storage nodes need to retain
+type PieceTracker struct {
 	log       *zap.Logger
 	config    Config
 	transport transport.Client
 	Requests  map[storj.NodeID]*RetainInfo
 }
 
-// NewGarbage instantiates a Garbage "queue"
-func NewGarbage(log *zap.Logger, config Config, transport transport.Client) *Garbage {
-	return &Garbage{
+// NewPieceTracker instantiates a piece tracker
+func NewPieceTracker(log *zap.Logger, config Config, transport transport.Client) *PieceTracker {
+	return &PieceTracker{
 		log:       log,
 		transport: transport,
 		config:    config,
@@ -51,39 +51,39 @@ func NewGarbage(log *zap.Logger, config Config, transport transport.Client) *Gar
 }
 
 // Add adds a RetainRequest to the Garbage "queue"
-func (Garbage *Garbage) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, creationDate time.Time) (err error) {
+func (pieceTracker *PieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, creationDate time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var filter *bloomfilter.Filter
 
-	if _, ok := Garbage.Requests[nodeID]; !ok {
-		filter = bloomfilter.NewOptimal(int(Garbage.config.InitialPieces), Garbage.config.FalsePositiveRate)
-		Garbage.Requests[nodeID].Filter = filter
-		Garbage.Requests[nodeID].CreationDate = creationDate
+	if _, ok := pieceTracker.Requests[nodeID]; !ok {
+		filter = bloomfilter.NewOptimal(int(pieceTracker.config.InitialPieces), pieceTracker.config.FalsePositiveRate)
+		pieceTracker.Requests[nodeID].Filter = filter
+		pieceTracker.Requests[nodeID].CreationDate = creationDate
 	}
 
-	Garbage.Requests[nodeID].Filter.Add(pieceID)
+	pieceTracker.Requests[nodeID].Filter.Add(pieceID)
 	return nil
 }
 
 // Send sends the garbage retain requests to all storage nodes
-func (Garbage *Garbage) Send(ctx context.Context) (err error) {
+func (pieceTracker *PieceTracker) Send(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for id := range Garbage.Requests {
-		log := Garbage.log.Named(id.String())
+	for id := range pieceTracker.Requests {
+		log := pieceTracker.log.Named(id.String())
 		// TODO: access storage node address to populate target
 		target := &pb.Node{Id: id}
-		signer := signing.SignerFromFullIdentity(Garbage.transport.Identity())
+		signer := signing.SignerFromFullIdentity(pieceTracker.transport.Identity())
 
-		ps, err := piecestore.Dial(ctx, Garbage.transport, target, log, signer, piecestore.DefaultConfig)
+		ps, err := piecestore.Dial(ctx, pieceTracker.transport, target, log, signer, piecestore.DefaultConfig)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		defer func() {
 			err := ps.Close()
 			if err != nil {
-				Garbage.log.Error("garbage queue failed to close conn to node: %+v", zap.Error(err))
+				pieceTracker.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
 			}
 		}()
 		// TODO: send the retain request to the storage node
