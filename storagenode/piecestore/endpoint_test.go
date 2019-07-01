@@ -4,15 +4,22 @@
 package piecestore_test
 
 import (
+	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
+	"google.golang.org/grpc/codes"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -21,6 +28,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -357,6 +365,104 @@ func TestDelete(t *testing.T) {
 		} else {
 			require.NoError(t, err)
 		}
+	}
+}
+
+func TestTooManyRequests(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const uplinkCount = 6
+	const maxConcurrent = 3
+	const expectedFailures = uplinkCount - maxConcurrent
+
+	log := zaptest.NewLogger(t)
+
+	fmt.Println("NEW PLANET")
+	planet, err := testplanet.NewCustom(log, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: uplinkCount,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage2.MaxConcurrentRequests = maxConcurrent
+			},
+		},
+	})
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	fmt.Println("START")
+	planet.Start(ctx)
+
+	doneWaiting := make(chan struct{})
+	failedCount := int64(expectedFailures)
+
+	fmt.Println("GO")
+	for i, uplink := range planet.Uplinks {
+		i, uplink := i, uplink
+		ctx.Go(func() (err error) {
+			fmt.Println("DIAL", i)
+			client, err := uplink.DialPiecestore(ctx, planet.StorageNodes[0])
+			if err != nil {
+				return err
+			}
+			defer func() { err = errs.Combine(err, client.Close()) }()
+
+			serialNumber := testrand.SerialNumber()
+
+			orderLimit := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				uplink.ID(),
+				planet.StorageNodes[0].ID(),
+				storj.PieceID{byte(i)},
+				pb.PieceAction_PUT,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(10000),
+			)
+
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("UPLOAD", i)
+			upload, err := client.Upload(ctx, orderLimit)
+			if err != nil {
+				fmt.Println("EXPECTED FAILURE", zap.Error(err))
+				if atomic.AddInt64(&failedCount, -1) == 0 {
+					close(doneWaiting)
+				}
+				return nil
+			}
+
+			fmt.Println("WRITE", i)
+			_, err = upload.Write([]byte{1})
+			if err != nil {
+				fmt.Println("EXPECTED FAILURE", zap.Error(err))
+				if atomic.AddInt64(&failedCount, -1) == 0 {
+					close(doneWaiting)
+				}
+				return nil
+			}
+
+			fmt.Println("WAITING FOR FAILURES")
+
+			fmt.Println("COMMIT")
+			_, err = upload.Commit(ctx)
+			if err != nil {
+				fmt.Println("COMMIT", err)
+				if errs2.IsRPC(err, codes.Unavailable) {
+					return nil
+				}
+				return err
+			}
+
+			fmt.Println("DONE")
+			return nil
+		})
 	}
 }
 

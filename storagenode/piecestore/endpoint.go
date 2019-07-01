@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -55,6 +56,7 @@ type OldConfig struct {
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+	MaxConcurrentRequests int32         `help:"how many concurrent requests are allowed, before uploads are rejected." default:"30"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
@@ -74,6 +76,8 @@ type Endpoint struct {
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
+
+	liveRequests int32
 }
 
 // NewEndpoint creates a new piecestore endpoint.
@@ -91,12 +95,17 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		orders:      orders,
 		usage:       usage,
 		usedSerials: usedSerials,
+
+		liveRequests: 0,
 	}, nil
 }
 
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	if delete.Limit.Action != pb.PieceAction_DELETE {
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
@@ -128,6 +137,14 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
+	if liveRequests > endpoint.config.MaxConcurrentRequests {
+		return status.Error(codes.Unavailable, "storage node overloaded")
+	}
+
 	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
@@ -321,6 +338,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
 	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
