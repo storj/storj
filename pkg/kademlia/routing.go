@@ -25,6 +25,8 @@ const (
 	KademliaBucket = "kbuckets"
 	// NodeBucket is the string representing the bucket used for the kademlia routing table node ids
 	NodeBucket = "nodes"
+	// AntechamberBucket is the string representing the bucket used for the kademlia antechamber nodes
+	AntechamberBucket = "antechamber"
 )
 
 // RoutingErr is the class for all errors pertaining to routing table operations
@@ -65,10 +67,11 @@ type RoutingTable struct {
 	replacementCache map[bucketID][]*pb.Node
 	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
 	rcBucketSize     int // replacementCache bucket max length
+	antechamber      storage.KeyValueStore
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
-func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb storage.KeyValueStore, config *RoutingTableConfig) (_ *RoutingTable, err error) {
+func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, ndb, adb storage.KeyValueStore, config *RoutingTableConfig) (_ *RoutingTable, err error) {
 	if config == nil || config.BucketSize == 0 || config.ReplacementCacheSize == 0 {
 		// TODO: handle this more nicely
 		config = &RoutingTableConfig{
@@ -90,6 +93,7 @@ func NewRoutingTable(logger *zap.Logger, localNode *overlay.NodeDossier, kdb, nd
 
 		bucketSize:   config.BucketSize,
 		rcBucketSize: config.ReplacementCacheSize,
+		antechamber:  adb,
 	}
 	ok, err := rt.addNode(context.TODO(), &localNode.Node)
 	if !ok || err != nil {
