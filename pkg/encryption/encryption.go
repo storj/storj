@@ -40,8 +40,6 @@ func Encrypt(data []byte, cipher storj.CipherSuite, key *storj.Key, nonce *storj
 	}
 
 	switch cipher {
-	case storj.EncUnspecified:
-		return data, nil
 	case storj.EncNull:
 		return data, nil
 	case storj.EncAESGCM:
@@ -61,8 +59,6 @@ func Decrypt(cipherData []byte, cipher storj.CipherSuite, key *storj.Key, nonce 
 	}
 
 	switch cipher {
-	case storj.EncUnspecified:
-		return cipherData, nil
 	case storj.EncNull:
 		return cipherData, nil
 	case storj.EncAESGCM:
@@ -77,8 +73,6 @@ func Decrypt(cipherData []byte, cipher storj.CipherSuite, key *storj.Key, nonce 
 // NewEncrypter creates a Transformer using the given cipher, key and nonce to encrypt data passing through it
 func NewEncrypter(cipher storj.CipherSuite, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
 	switch cipher {
-	case storj.EncUnspecified:
-		return &NoopTransformer{}, nil
 	case storj.EncNull:
 		return &NoopTransformer{}, nil
 	case storj.EncAESGCM:
@@ -93,8 +87,6 @@ func NewEncrypter(cipher storj.CipherSuite, key *storj.Key, startingNonce *storj
 // NewDecrypter creates a Transformer using the given cipher, key and nonce to decrypt data passing through it
 func NewDecrypter(cipher storj.CipherSuite, key *storj.Key, startingNonce *storj.Nonce, encryptedBlockSize int) (Transformer, error) {
 	switch cipher {
-	case storj.EncUnspecified:
-		return &NoopTransformer{}, nil
 	case storj.EncNull:
 		return &NoopTransformer{}, nil
 	case storj.EncAESGCM:
