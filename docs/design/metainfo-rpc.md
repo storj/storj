@@ -33,7 +33,7 @@ service Metainfo {
     rpc ListBuckets(BucketListRequest) returns (BucketListResponse);
     rpc SetBucketAttribution(BucketSetAttributionRequest) returns (BucketSetAttributionResponse);
 
-    rpc CreateObject(ObjectCreateRequest) returns (ObjectCreateResponse);
+    rpc BeginObject(ObjectBeginRequest) returns (ObjectBeginResponse);
     rpc CommitObject(ObjectCommitRequest) returns (ObjectCommitResponse);
     rpc ListObjects(ObjectListRequest) returns (ObjectListResponse);
 
@@ -141,7 +141,7 @@ message Object {
     int64 remote_size;
 }
 
-message ObjectCreateRequest {
+message ObjectBeginRequest {
     bytes  bucket = 1;
     bytes  encrypted_path = 2;
     int32  version = 3;
@@ -154,7 +154,7 @@ message ObjectCreateRequest {
     EncryptionParameters encryption_parameters = 7;
 }
 
-message ObjectCreateResponse {
+message ObjectBeginResponse {
     bytes  bucket;
     bytes  encrypted_path;
     int32  version;
@@ -274,7 +274,7 @@ message BatchRequest {
         BucketDeleteRequest bucket_delete;
         BucketListRequest   bucket_list;
 
-        ObjectCreateRequest object_create;
+        ObjectBeginRequest object_create;
         ObjectCommitRequest object_commit;
         ObjectListRequest   object_list;
         ObjectDeleteRequest object_delete;
@@ -299,7 +299,7 @@ message BatchResponse {
         BucketDeleteResponse bucket_delete;
         BucketListResponse   bucket_list;
 
-        ObjectCreateResponse object_create;
+        ObjectBeginResponse object_create;
         ObjectCommitResponse object_commit;
         ObjectListResponse   object_list;
         ObjectDeleteResponse object_delete;
