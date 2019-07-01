@@ -130,11 +130,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		return nil, Error.Wrap(err)
 	}
 
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -180,7 +175,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
 			OrderExpiration:  orderExpiration,
-			OrderCreation:    orderCreation,
+			OrderCreation:    time.Now().UTC(),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -228,11 +223,6 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
-	if err != nil {
-		return storj.PieceID{}, nil, Error.Wrap(err)
-	}
-
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return storj.PieceID{}, nil, err
@@ -253,7 +243,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 			Limit:            maxPieceSize,
 			PieceExpiration:  expiration,
 			OrderExpiration:  orderExpiration,
-			OrderCreation:	  orderCreation,
+			OrderCreation:	  time.Now().UTC(),
 		})
 		if err != nil {
 			return storj.PieceID{}, nil, Error.Wrap(err)
@@ -300,11 +290,6 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 		return nil, Error.Wrap(err)
 	}
 
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -343,7 +328,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			Limit:            0,
 			PieceExpiration:  expiration,
 			OrderExpiration:  orderExpiration,
-			OrderCreation:	  orderCreation,
+			OrderCreation:	  time.Now().UTC(),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -385,11 +370,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 	// convert orderExpiration from duration to timestamp
 	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -437,7 +417,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			Limit:            int64(shareSize),
 			PieceExpiration:  expiration,
 			OrderExpiration:  orderExpiration,
-			OrderCreation:	  orderCreation,
+			OrderCreation:	  time.Now().UTC(),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -481,11 +461,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		return nil, Error.Wrap(err)
 	}
 
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -514,7 +489,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		Action:           pb.PieceAction_GET_AUDIT,
 		Limit:            int64(shareSize),
 		OrderExpiration:  orderExpiration,
-		OrderCreation:	  orderCreation,
+		OrderCreation:	  time.Now().UTC(),
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -560,11 +535,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -604,7 +574,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
 			OrderExpiration:  orderExpiration,
-			OrderCreation:	  orderCreation,
+			OrderCreation:	  time.Now().UTC(),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -657,11 +627,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	serialNumber, err := service.createSerial(ctx)
 	if err != nil {
 		return nil, err
@@ -689,7 +654,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
 			OrderExpiration:  orderExpiration,
-			OrderCreation:	  orderCreation,
+			OrderCreation:	  time.Now().UTC(),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)

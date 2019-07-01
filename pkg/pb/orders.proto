@@ -47,7 +47,7 @@ message OrderLimit {
     // a storage node to find a satellite and handshake with it to get its key.
     node.NodeAddress satellite_address = 11;
 
-    google.protobuf.Timestamp order_creation = 12;
+    google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 // Order is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber
