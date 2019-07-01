@@ -51,9 +51,9 @@ message BucketListItem {
 }
 
 message BucketCreateRequest {
-    bytes             name = 1;
-    encryption.Cipher path_cipher = 2;
-    bytes             attribution_id = 3;
+    bytes                  name = 1;
+    encryption.CipherSuite path_cipher = 2;
+    bytes                  attribution_id = 3;
 
     int64                           default_segment_size = 4;
     pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
