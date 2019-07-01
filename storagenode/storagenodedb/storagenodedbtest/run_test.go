@@ -4,7 +4,7 @@
 package storagenodedbtest_test
 
 import (
-	"fmt"
+	"runtime"
 	"sync"
 	"testing"
 
@@ -32,6 +32,8 @@ func TestDatabase(t *testing.T) {
 
 func TestConcurrency(t *testing.T) {
 	t.Run("Sqlite", func(t *testing.T) {
+		runtime.GOMAXPROCS(2)
+
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
@@ -48,34 +50,34 @@ func TestConcurrency(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		orders := make(map[string]orders.Info)
-		err = createOrders(t, ctx, orders, 1000)
+		ordersMap := make(map[string]orders.Info)
+		err = createOrders(t, ctx, ordersMap, 1000)
 		require.NoError(t, err)
 
-		err = insertOrders(t, ctx, db, orders)
+		err = insertOrders(t, ctx, db, ordersMap)
 		require.NoError(t, err)
 
-		err = verifyOrders(t, ctx, db, orders)
+		err = verifyOrders(t, ctx, db, ordersMap)
 		require.NoError(t, err)
-
-		fmt.Printf("Orders: %v", orders)
 	})
 }
 
-func insertOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, os map[string]orders.Info) (err error) {
+func insertOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, ordersMap map[string]orders.Info) (err error) {
 	var wg sync.WaitGroup
-	for _, order := range os {
+	for _, order := range ordersMap {
 		wg.Add(1)
 		o := order
-		go func(wg *sync.WaitGroup, order *orders.Info) {
-			defer wg.Done()
-			err = db.Orders().Enqueue(ctx, order)
-			require.NoError(t, err)
-		}(&wg, &o)
+		go insertOrder(t, ctx, db, &wg, &o)
 
 	}
 	wg.Wait()
 	return nil
+}
+
+func insertOrder(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, wg *sync.WaitGroup, order *orders.Info) {
+	defer wg.Done()
+	err := db.Orders().Enqueue(ctx, order)
+	require.NoError(t, err)
 }
 
 func verifyOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, orders map[string]orders.Info) (err error) {
@@ -84,7 +86,7 @@ func verifyOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, 
 	for _, order := range orders {
 		for _, dbOrder := range dbOrders {
 			if order.Order.SerialNumber == dbOrder.Order.SerialNumber {
-				fmt.Printf("Found %v\n", order.Order.SerialNumber)
+				//fmt.Printf("Found %v\n", order.Order.SerialNumber)
 				found++
 			}
 		}
