@@ -78,7 +78,7 @@ func TestPieceInfo(t *testing.T) {
 			Uplink:          uplink1.PeerIdentity(),
 		}
 
-		piecehash2, err := signing.SignPieceHash(ctx,
+		piecehash, err := signing.SignPieceHash(ctx,
 			signing.SignerFromFullIdentity(uplink2),
 			&pb.PieceHash{
 				PieceId: pieceid0,
@@ -93,7 +93,7 @@ func TestPieceInfo(t *testing.T) {
 			PieceSize:       123,
 			PieceExpiration: &now,
 
-			UplinkPieceHash: piecehash2,
+			UplinkPieceHash: piecehash,
 			Uplink:          uplink2.PeerIdentity(),
 		}
 
