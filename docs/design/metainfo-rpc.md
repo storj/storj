@@ -98,8 +98,15 @@ message BucketListRequest {
 }
 
 message BucketListResponse {
-    repeated Bucket items = 1;
-    bool            more  = 2;
+    repeated BucketListItem items = 1;
+    bool more  = 2;
+}
+
+message BucketListItem {
+    bytes        name = 1;
+    bytes        attribution_id = 2;
+
+    google.protobuf.Timestamp created_at = 3;
 }
 
 message BucketSetAttributionRequest {
@@ -186,15 +193,30 @@ message ObjectListRequest {
     int32     limit = 4;
     bool      recursive = 5;
 
-    fixed32   meta_flags = 6; // TODO: max many flags
-    bool      include_partial = 7;
-    bool      include_all_versions = 8;
+    ObjectListItemFlags object_flags = 6;
 }
 
 message ObjectListResponse {
-    repeated Object items = 1;
+    repeated ObjectListItem items = 1;
     bool more = 2;
 }
+
+message ObjectListItem {
+    bytes  encrypted_path = 2;
+    int32  version        = 3;
+    Object.Status status  = 4;
+
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp status_at  = 7;
+    google.protobuf.Timestamp expires_at = 8;
+
+    bytes  encrypted_metadata_nonce = 9;
+    bytes  encrypted_metadata       = 10;
+}
+
+message ObjectListItemFlags {
+    bool metadata = 1;
+)
 
 message ObjectBeginDeleteRequest {
     bytes  bucket = 1;
