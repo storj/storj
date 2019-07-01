@@ -186,7 +186,7 @@ func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWrit
 	}
 
 	if len(addressedLimits) > 0 {
-		endpoint.createRequests.Put(addressedLimits[0].Limit.SerialNumber, &createRequest{
+		endpoint.createRequests.Put(ctx, addressedLimits[0].Limit.SerialNumber, &createRequest{
 			Expiration: req.Expiration,
 			Redundancy: req.Redundancy,
 		})
@@ -271,7 +271,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if len(req.OriginalLimits) > 0 {
-		endpoint.createRequests.Remove(req.OriginalLimits[0].SerialNumber)
+		endpoint.createRequests.Remove(ctx, req.OriginalLimits[0].SerialNumber)
 	}
 
 	return &pb.SegmentCommitResponse{Pointer: pointer}, nil

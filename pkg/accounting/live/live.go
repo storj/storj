@@ -11,7 +11,10 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 )
+
+var mon = monkit.Package()
 
 // Config contains configurable values for the live accounting service.
 type Config struct {
@@ -71,6 +74,7 @@ func newPlainMemoryLiveAccounting(log *zap.Logger) (*plainMemoryLiveAccounting, 
 // GetProjectStorageUsage gets inline and remote storage totals for a given
 // project, back to the time of the last accounting tally.
 func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (inlineTotal, remoteTotal int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]
@@ -80,7 +84,8 @@ func (pmac *plainMemoryLiveAccounting) GetProjectStorageUsage(ctx context.Contex
 // AddProjectStorageUsage lets the live accounting know that the given
 // project has just added inlineSpaceUsed bytes of inline space usage
 // and remoteSpaceUsed bytes of remote space usage.
-func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) error {
+func (pmac *plainMemoryLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	pmac.spaceMapLock.Lock()
 	defer pmac.spaceMapLock.Unlock()
 	curVal := pmac.spaceDeltas[projectID]

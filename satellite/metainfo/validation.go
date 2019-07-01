@@ -63,7 +63,9 @@ func newCreateRequests() *createRequests {
 	}
 }
 
-func (requests *createRequests) Put(serialNumber storj.SerialNumber, createRequest *createRequest) {
+func (requests *createRequests) Put(ctx context.Context, serialNumber storj.SerialNumber, createRequest *createRequest) {
+	defer mon.Task()(&ctx)(nil)
+
 	ttl := time.Now().Add(requestTTL)
 
 	go func() {
@@ -80,10 +82,12 @@ func (requests *createRequests) Put(serialNumber storj.SerialNumber, createReque
 	requests.entries[serialNumber] = createRequest
 	requests.mu.Unlock()
 
-	go requests.cleanup()
+	go requests.cleanup(ctx)
 }
 
-func (requests *createRequests) Load(serialNumber storj.SerialNumber) (*createRequest, bool) {
+func (requests *createRequests) Load(ctx context.Context, serialNumber storj.SerialNumber) (*createRequest, bool) {
+	defer mon.Task()(&ctx)(nil)
+
 	requests.mu.RLock()
 	request, found := requests.entries[serialNumber]
 	if request != nil && request.ttl.Before(time.Now()) {
@@ -95,13 +99,16 @@ func (requests *createRequests) Load(serialNumber storj.SerialNumber) (*createRe
 	return request, found
 }
 
-func (requests *createRequests) Remove(serialNumber storj.SerialNumber) {
+func (requests *createRequests) Remove(ctx context.Context, serialNumber storj.SerialNumber) {
+	defer mon.Task()(&ctx)(nil)
 	requests.mu.Lock()
 	delete(requests.entries, serialNumber)
 	requests.mu.Unlock()
 }
 
-func (requests *createRequests) cleanup() {
+func (requests *createRequests) cleanup(ctx context.Context) {
+	defer mon.Task()(&ctx)(nil)
+
 	requests.muTTL.Lock()
 	now := time.Now()
 	remove := make([]storj.SerialNumber, 0)
@@ -118,7 +125,7 @@ func (requests *createRequests) cleanup() {
 	requests.muTTL.Unlock()
 
 	for _, serialNumber := range remove {
-		requests.Remove(serialNumber)
+		requests.Remove(ctx, serialNumber)
 	}
 }
 
@@ -169,7 +176,7 @@ func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.Seg
 }
 
 func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(nil)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
@@ -213,7 +220,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 	}
 
 	if len(req.OriginalLimits) > 0 {
-		createRequest, found := endpoint.createRequests.Load(req.OriginalLimits[0].SerialNumber)
+		createRequest, found := endpoint.createRequests.Load(ctx, req.OriginalLimits[0].SerialNumber)
 
 		switch {
 		case !found:
