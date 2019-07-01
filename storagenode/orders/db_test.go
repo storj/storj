@@ -5,6 +5,7 @@ package orders_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
@@ -58,7 +59,7 @@ func TestOrders(t *testing.T) {
 			Action:          pb.PieceAction_GET,
 			PieceExpiration: now,
 			OrderExpiration: now,
-			OrderCreation:   now,
+			OrderCreation:   time.Now().UTC(),
 		})
 		require.NoError(t, err)
 

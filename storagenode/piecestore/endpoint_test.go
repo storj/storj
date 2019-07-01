@@ -368,8 +368,6 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeI
 	require.NoError(t, err)
 	oe, err := ptypes.TimestampProto(time.Now().Add(orderExpiration))
 	require.NoError(t, err)
-	oc, err := ptypes.TimestampProto(time.Now().UTC())
-	require.NoError(t, err)
 
 	orderLimit := &pb.OrderLimit{
 		SatelliteId:     satellite,
@@ -381,7 +379,7 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeI
 		OrderExpiration: oe,
 		PieceExpiration: pe,
 		Limit:           limit,
-		OrderCreation:	 oc,
+		OrderCreation:	 time.Now().UTC(),
 	}
 	return orderLimit
 }
