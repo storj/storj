@@ -467,7 +467,7 @@ func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.
 		return nil, errs.New(internalErrMsg)
 	}
 
-	return
+	return reward, nil
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now
