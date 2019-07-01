@@ -6,8 +6,15 @@
 		<div class="satellite-selection-overflow-container">
 			<!-- loop for rendering satellites -->
 			<!-- TODO: add selection logic onclick -->
-			<div class="satellite-selection-overflow-container__satellite-choice" v-for="satellite in satelliteList" v-bind:key="satellite.id" >
-				<p v-bind:class="[satellite.isSelected ? 'satellite-selection-overflow-container__project-choice--selected' : 'project-selection-overflow-container__project-choice--unselected']">{{satellite.name}}</p>
+			<div class="satellite-selection-overflow-container__satellite-choice"
+				 v-for="satellite in satellites" v-bind:key="satellite"
+				 @click.stop="onSatelliteClick(satellite)" >
+				<p :class="{selected: satellite === selectedSatellite}">{{satellite}}</p>
+			</div>
+			<div class="satellite-selection-choice-container__all-satellites">
+				<div class="satellite-selection-overflow-container__satellite-choice" @click.stop="onSatelliteClick(null)">
+					<p :class="{selected: !selectedSatellite}">All Satellites</p>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -15,12 +22,26 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
+    import { NODE_ACTIONS, APPSTATE_ACTIONS } from '@/utils/constants'
 
     @Component ({
+		methods: {
+			onSatelliteClick: async function (id: string): Promise<any> {
+				id ?
+					await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, `/api/dashboard/?satelliteId=${id}`)
+					: await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, `/api/dashboard/}`);
+
+				this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+				this.$store.dispatch(NODE_ACTIONS.SELECT_SATELLITE, id);
+			}
+		},
         computed: {
-            satelliteList: function () {
-                return this.$store.state.satellite.list;
-            }
+            satellites: function () {
+                return this.$store.state.nodeModule.satellites;
+            },
+			selectedSatellite: function () {
+				return this.$store.state.nodeModule.selectedSatellite;
+			}
         },
     })
 
@@ -66,15 +87,15 @@
 				background-color: #EBECF0;
 				cursor: pointer;
 			}
-
-			&--selected {
-				font-family: 'font_bold';
-			}
-
-			&--unselected {
-				font-family: 'font_regular';
-			}
 		}
+
+		&__all-satellites {
+			padding: 0 0 0 12px;
+		}
+	}
+
+	.selected {
+		font-family: 'font_bold';
 	}
 
 	/* width */

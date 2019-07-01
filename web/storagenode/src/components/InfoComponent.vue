@@ -4,7 +4,7 @@
 <template>
 	<div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
 		<slot class="slot"></slot>
-		<div class="info__message-box" v-if="isVisible" :style="messageBoxStyle">
+		<div class="info__message-box" v-if="isVisible" :style="messageBoxStyle" :class="{extraPadding: isExtraPadding, customPosition: isCustomPosition}">
 			<div class="info__message-box__text">
 				<p class="info__message-box__text__regular-text">{{text}}</p>
 				<p class="info__message-box__text__bold-text">{{boldText}}</p>
@@ -27,6 +27,8 @@
             props: {
                 text: String,
                 boldText: String,
+				isExtraPadding: Boolean,
+				isCustomPosition: Boolean,
             },
 	        methods: {
                 toggleVisibility: function (): void {
@@ -68,16 +70,17 @@
 			transform: translate(-50%);
 			height: auto;
 			width: auto;
+			min-width: 200px;
 			display: flex;
-			white-space: nowrap;
 			justify-content: center;
 			align-items: center;
+			text-align: center;
 			background-image: url('../../static/images/Message.png');
 			background-size:100% 100%;
 			z-index: 101;
+			padding: 11px 18px 20px 18px;
 
 			&__text {
-				margin: 11px 18px 20px 18px;
 				display: flex;
 				flex-direction: column;
 				align-items: center;
@@ -102,5 +105,13 @@
 				}
 			}
 		}
+	}
+
+	.extraPadding {
+		padding: 11px 18px 31px 18px;
+	}
+
+	.customPosition {
+		left: 40%;
 	}
 </style>

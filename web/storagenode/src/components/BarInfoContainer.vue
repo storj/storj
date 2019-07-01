@@ -4,9 +4,9 @@
 <template>
     <div class="remaining-space-container">
         <p class="remaining-space-container__title">{{label}}</p>
-        <p class="remaining-space-container__amount"><b>{{amount}}</b>GB</p>
+        <p class="remaining-space-container__amount"><b>{{amount}}</b></p>
         <div class="remaining-space-container__bar">
-            <InfoComponent :text="infoText">
+            <InfoComponent :text="infoMessage">
                 <template>
                     <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
                 </template>
@@ -27,6 +27,11 @@
             infoText: String,
             currentBarAmount: String,
             maxBarAmount: String,
+        },
+        computed: {
+            infoMessage: function (): string {
+                return `${100 - Math.round((parseFloat(this.$props.currentBarAmount)/parseFloat(this.$props.maxBarAmount))*100)}% ${this.$props.infoText}`
+            }
         },
 
         components: {

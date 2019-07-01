@@ -7,14 +7,14 @@
 		<div class="info-area__chart-area">
 			<div class="chart-container">
 				<p class="chart-container__title">Bandwidth Used This Month</p>
-				<p class="chart-container__amount"><b>{{bandwidth.used}}</b>GB</p>
+				<p class="chart-container__amount"><b>{{bandwidth.used}}</b></p>
 				<div class="chart-container__chart">
 					<BandwidthChart />
 				</div>
 			</div>
 			<div class="chart-container">
 				<p class="chart-container__title">Disk Space Used This Month</p>
-				<p class="chart-container__amount"><b>{{diskSpace.used}}</b>GB</p>
+				<p class="chart-container__amount"><b>{{diskSpace.used}}</b></p>
 				<div class="chart-container__chart">
 					<DiskSpaceChart />
 				</div>
@@ -22,17 +22,17 @@
 		</div>
 		<div class="info-area__remaining-space-area">
 			<BarInfoContainer label="Bandwidth Remaining" :amount="bandwidth.remaining"
-							  infoText="36% of bandwidth left" currentBarAmount="766" maxBarAmount="1000" />
+							  infoText="of bandwidth left" :currentBarAmount="bandwidth.used" :maxBarAmount="bandwidth.available" />
 			<BarInfoContainer label="Disk Space Remaining" :amount="diskSpace.remaining"
-							  infoText="10% of bandwidth left" currentBarAmount="456" maxBarAmount="1000" />
+							  infoText="of disk space left" :currentBarAmount="diskSpace.used" :maxBarAmount="diskSpace.available" />
 		</div>
 		<p class="info-area__title">Uptime & Audit Checks by Satellite</p>
 		<div class="info-area__checks-area">
-			<ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" infoText="text place"/>
-			<ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="text place"/>
+			<ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" infoText="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."/>
+			<ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Audit checks occur to make sure the file data sent to your storage node is still there and intact. This is the percentage of audit checks you’ve passed."/>
 		</div>
 		<p class="info-area__title">Payout</p>
-		<PayoutContainer label="STORJ Wallet Address" :walletAddress="wallet.address" />
+		<PayoutContainer label="STORJ Wallet Address" :walletAddress="wallet" />
 	</div>
 </template>
 
@@ -55,19 +55,19 @@
 
 		computed: {
 			wallet: function ()  {
-				return this.$store.state.wallet;
+				return this.$store.state.nodeModule.node.wallet;
 			},
 
 			bandwidth: function () {
-				return this.$store.state.bandwidth;
+				return this.$store.state.nodeModule.bandwidth;
 			},
 
 			diskSpace: function () {
-				return this.$store.state.diskSpace;
+				return this.$store.state.nodeModule.diskSpace;
 			},
 
 			checks: function () {
-				return this.$store.state.checks;
+				return this.$store.state.nodeModule.checks;
 			}
 		},
     })

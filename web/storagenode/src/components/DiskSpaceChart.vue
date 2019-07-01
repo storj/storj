@@ -3,7 +3,7 @@
 
 <template>
     <div class="chart">
-        <Chart id="disk-space-chart" :chartData="diskSpaceUsed" :width="400" :height="150" max="7.2"
+        <Chart id="disk-space-chart" :chartData="diskSpaceUsed" :width="400" :height="150" min="1" max="7.2"
                tooltipHTML="<div class='tooltip-body'>
                                   <p class='tooltip-body__data'><b>30GB</b></p>
                                   <p class='tooltip-body__footer'>May 25, 2019</p>
@@ -25,18 +25,18 @@
         data: () => ({
             diskSpaceUsed: {
                 labels: [
-                    "JAN",
+                    "1",
                     "",
                     "",
                     "",
                     "",
                     "",
-                    "JUL",
+                    "15",
                     "",
                     "",
                     "",
                     "",
-                    "DEC"
+                    "30"
                 ],
                 datasets: [{
                     backgroundColor: '#F2F6FC',
@@ -118,6 +118,4 @@
             padding: 10px 0 16px 0;
         }
     }
-
-
 </style>

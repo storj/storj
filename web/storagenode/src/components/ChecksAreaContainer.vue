@@ -5,7 +5,7 @@
     <div class="checks-area-container">
         <div class="checks-area-container__header">
             <p class="checks-area-container__header__title">{{label}}</p>
-            <InfoComponent :text="infoText">
+            <InfoComponent :text="infoText" isExtraPadding isCustomPosition>
                 <template>
                     <div>
                         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -67,13 +67,13 @@
 
             svg {
                 margin-top: 3px;
-            }
 
-            svg:hover {
-                cursor: pointer;
+                &:hover {
+                    cursor: pointer;
 
-                rect {
-                    fill: #A5C7EF;
+                    rect {
+                        fill: #A5C7EF;
+                    }
                 }
             }
         }

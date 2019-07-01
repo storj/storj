@@ -15,6 +15,7 @@
     import SNOContentTitle from '@/components/SNOContentTitle.vue';
     import SNOContentFilling from '@/components/SNOContentFilling.vue';
     import SNOFooter from '@/components/SNOFooter.vue';
+	import { NODE_ACTIONS } from '@/utils/constants'
 
     @Component ({
         components: {
@@ -22,7 +23,10 @@
 	        SNOContentTitle,
             SNOContentFilling,
 			SNOFooter,
-        }
+        },
+		mounted: async function () {
+			let info = await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, '/api/dashboard/');
+		}
     })
 
     export default class DashboardTest extends Vue {

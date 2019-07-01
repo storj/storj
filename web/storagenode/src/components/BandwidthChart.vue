@@ -3,7 +3,7 @@
 
 <template>
     <div class="chart">
-        <Chart id="bandwidth-chart" :chartData="bandwidthUsed" :width="400" :height="150" max="7.2"
+        <Chart id="bandwidth-chart" :chartData="bandwidthUsed" :width="400" :height="150" min="1" max="7.2"
                tooltipHTML="<div class='tooltip-header'>
                                   <p>EGRESS</p>
                                   <p class='tooltip-header__ingress'>INGRESS</p>
@@ -41,28 +41,18 @@
         },
         data: () => ({
             bandwidthUsed: {
-                labels: [
-                    "JAN",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "JUL",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "DEC"
-                ],
+                labels: [],
                 datasets: [{
                     backgroundColor: '#F2F6FC',
                     borderColor: '#1F49A3',
                     borderWidth: 2,
-                    data: [2, 3, 5, 6, 4, 5, 5, 3, 4, 3, 5, 3],
+                    data: Array(27).fill(5),
                 }],
             },
         }),
+        mounted: function () {
+            this.$data.bandwidthUsed.labels = (this as any).xAxeOption()
+        },
         methods: {
             tooltip: function (tooltipModel, html): void {
                 // Tooltip Element
@@ -95,7 +85,20 @@
                     tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
                 }
             },
-        },
+
+            xAxeOption: function () {
+                let dateNow = new Date().getDate();
+                let daysDisplayed = (dateNow === 1) ? Array(dateNow + 1).fill('') : Array(dateNow).fill('');
+
+                daysDisplayed[0] = 1;
+                daysDisplayed[dateNow - 1] = dateNow;
+                if (dateNow > 2) {
+                    daysDisplayed[Math.round(dateNow/2)] = Math.floor(dateNow/2);
+                }
+
+                return daysDisplayed;
+            }
+        }
     })
 
     export default class BandwidthChart extends Vue {

@@ -13,9 +13,10 @@
                 default: '$'
             },
             max: String,
+            min: String,
             tooltipHTML: String,
             tooltipConstructor: Function,
-            chartData: Object
+            chartData: Object,
         },
         computed: {
             chartOptions: function() {
@@ -29,7 +30,7 @@
 
                     elements: {
                         point: {
-                            radius: 0,
+                            radius: 3,
                             hitRadius: 10,
                             hoverRadius: 10,
                             hoverBackgroundColor: '#4D72B7',
@@ -41,14 +42,14 @@
                             display: true,
                             ticks: {
                                 fontFamily: 'font_regular',
-                                max: parseInt(this.$props.max)
+                                max: parseInt(this.$props.max),
+                                min: parseInt(this.$props.min)
                             },
                             gridLines: {
                                 display:false
                             },
                         }],
                         xAxes: [{
-
                             display: true,
                             gridLines: {
                                 display:false
