@@ -36,25 +36,27 @@ func (sender *SMTPSender) FromAddress() Address {
 // SendEmail sends email message to the given recipient
 func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: validate address before initializing SMTPSender
-	// suppress error because address should be validated
-	// before creating SMTPSender
-	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	client, err := smtp.Dial(sender.ServerAddress)
 	if err != nil {
 		return err
 	}
-	// close underlying connection
-	// if any unexpected error occurred
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, client.Close())
-		}
-	}()
+
+	if err = sender.communicate(ctx, client, msg); err != nil {
+		return errs.Combine(err, client.Close())
+	}
+
+	return nil
+}
+
+// communicate sends mail via SMTP using provided client and message
+func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, msg *Message) error {
+	// suppress error because address should be validated
+	// before creating SMTPSender
+	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	// send smtp hello or ehlo msg and establish connection over tls
-	err = client.StartTLS(&tls.Config{ServerName: host})
+	err := client.StartTLS(&tls.Config{ServerName: host})
 	if err != nil {
 		return err
 	}
