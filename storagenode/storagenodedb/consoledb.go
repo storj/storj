@@ -24,7 +24,6 @@ func (db *DB) Console() console.DB { return db.info.Console() }
 
 func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	var satellites storj.NodeIDList
 

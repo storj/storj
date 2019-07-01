@@ -5,9 +5,10 @@ package storagenodedb
 
 import (
 	"database/sql"
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -21,7 +22,6 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	mu sync.Mutex
 	db *sql.DB
 }
 
@@ -43,7 +43,8 @@ func newInfo(path string) (*InfoDB, error) {
 
 // NewInfoInMemory creates a new inmemory InfoDB.
 func NewInfoInMemory() (*InfoDB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	// create memory DB with a shared cache and a unique name to avoid collisions
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()))
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -56,12 +57,6 @@ func NewInfoInMemory() (*InfoDB, error) {
 // Close closes any resources.
 func (db *InfoDB) Close() error {
 	return db.db.Close()
-}
-
-// locked allows easy locking the database.
-func (db *InfoDB) locked() func() {
-	db.mu.Lock()
-	return db.mu.Unlock
 }
 
 // CreateTables creates any necessary tables.
