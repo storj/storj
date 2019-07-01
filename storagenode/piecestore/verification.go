@@ -47,7 +47,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
-	case time.Now().Sub(orderCreation) > time.Hour:
+	case time.Now().Sub(orderCreation) > endpoint.config.OrderLimitGracePeriod:
 		return ErrProtocol.New("order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
 		return ErrProtocol.New("missing satellite id")
