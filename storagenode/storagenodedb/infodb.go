@@ -32,7 +32,7 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL")
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
