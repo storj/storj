@@ -83,7 +83,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.TotalShares = 130
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
-		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
+		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()
 	}
 	if cfg.EncryptionParameters.BlockSize == 0 {
 		cfg.EncryptionParameters.BlockSize = cfg.Volatile.RedundancyScheme.ShareSize * int32(cfg.Volatile.RedundancyScheme.RequiredShares)

@@ -16,7 +16,10 @@ import (
 	"storj.io/storj/lib/uplink"
 )
 
-func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (serializedAccess string, err error) {
+func CreateEncryptionKeyExampleByAdmin1(ctx context.Context,
+	satelliteAddress, apiKey string, cfg *uplink.Config, out io.Writer) (
+	serializedAccess string, err error) {
+
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -26,13 +29,15 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, a
 	}
 	defer errCatch(ul.Close)
 
-	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
+	// Parse the API key. API keys are "macaroons" that allow you to create new,
+	// restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {
 		return "", err
 	}
 
-	// Open the project in question. Projects are identified by a specific Satellite and API key
+	// Open the project in question. Projects are identified by a specific
+	// Satellite and API key
 	p, err := ul.OpenProject(ctx, satelliteAddress, key)
 	if err != nil {
 		return "", err
@@ -67,7 +72,8 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, a
 	defer errCatch(bucket.Close)
 
 	// Upload a file
-	err = bucket.UploadObject(ctx, "webserver/logs/log.txt", strings.NewReader("hello world"), nil)
+	err = bucket.UploadObject(ctx, "webserver/logs/log.txt",
+		strings.NewReader("hello world"), nil)
 	if err != nil {
 		return "", err
 	}
@@ -76,7 +82,10 @@ func CreateEncryptionKeyExampleByAdmin1(ctx context.Context, satelliteAddress, a
 	return serializedAccess, nil
 }
 
-func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, apiKey string, serializedAccess string, cfg *uplink.Config, out io.Writer) (err error) {
+func CreateEncryptionKeyExampleByAdmin2(ctx context.Context,
+	satelliteAddress, apiKey string, serializedAccess string,
+	cfg *uplink.Config, out io.Writer) (err error) {
+
 	errCatch := func(fn func() error) { err = errs.Combine(err, fn()) }
 
 	// First, create an Uplink handle.
@@ -86,13 +95,15 @@ func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, a
 	}
 	defer errCatch(ul.Close)
 
-	// Parse the API key. API keys are "macaroons" that allow you to create new, restricted API keys.
+	// Parse the API key. API keys are "macaroons" that allow you to create new,
+	// restricted API keys.
 	key, err := uplink.ParseAPIKey(apiKey)
 	if err != nil {
 		return err
 	}
 
-	// Open the project in question. Projects are identified by a specific Satellite and API key
+	// Open the project in question. Projects are identified by a specific
+	// Satellite and API key
 	p, err := ul.OpenProject(ctx, satelliteAddress, key)
 	if err != nil {
 		return err
@@ -138,7 +149,8 @@ func CreateEncryptionKeyExampleByAdmin2(ctx context.Context, satelliteAddress, a
 }
 
 func Example_createEncryptionKey() {
-	// The satellite address is the address of the satellite your API key is valid on
+	// The satellite address is the address of the satellite your API key is
+	// valid on
 	satelliteAddress := "us-central-1.tardigrade.io:7777"
 
 	// The API key can be created in the web interface
@@ -148,13 +160,16 @@ func Example_createEncryptionKey() {
 	ctx := context.Background()
 
 	// Admin1 is going to create an encryption context and share it
-	access, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddress, admin1APIKey, &uplink.Config{}, os.Stdout)
+	access, err := CreateEncryptionKeyExampleByAdmin1(ctx, satelliteAddress,
+		admin1APIKey, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}
 
-	// Admin2 is going to use the provided encryption context to load the uploaded file
-	err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddress, admin2APIKey, access, &uplink.Config{}, os.Stdout)
+	// Admin2 is going to use the provided encryption context to load the
+	// uploaded file
+	err = CreateEncryptionKeyExampleByAdmin2(ctx, satelliteAddress,
+		admin2APIKey, access, &uplink.Config{}, os.Stdout)
 	if err != nil {
 		panic(err)
 	}
