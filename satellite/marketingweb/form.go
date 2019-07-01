@@ -35,11 +35,11 @@ var (
 // init safely registers convertStringToTime for the decoder.
 func init() {
 	decoder.RegisterConverter(time.Time{}, convertStringToTime)
-	decoder.RegisterConverter(rewards.USD{}, convertDollarsToUSD)
+	decoder.RegisterConverter(rewards.USD{}, convertStringToUSD)
 }
 
-// convertDollarsToUSD formats form time input as time.Time.
-func convertDollarsToUSD(s string) reflect.Value {
+// convertStringToUSD formats form time input as time.Time.
+func convertStringToUSD(s string) reflect.Value {
 	value, err := strconv.Atoi(s)
 	if err != nil {
 		// invalid decoder value
