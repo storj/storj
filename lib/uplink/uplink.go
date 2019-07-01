@@ -18,11 +18,12 @@ import (
 
 // Config represents configuration options for an Uplink
 type Config struct {
-	log *zap.Logger
-
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
+		// Log is the logger to use for uplink components
+		Log *zap.Logger
+
 		// TLS defines options that affect TLS negotiation for outbound
 		// connections initiated by this uplink.
 		TLS struct {
@@ -78,8 +79,8 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 	} else if cfg.Volatile.MaxMemory.Int() < 0 {
 		cfg.Volatile.MaxMemory = 0
 	}
-	if cfg.log == nil {
-		cfg.log = zap.L()
+	if cfg.Volatile.Log == nil {
+		cfg.Volatile.Log = zap.L()
 	}
 	return nil
 }
