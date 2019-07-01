@@ -104,7 +104,7 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 }
 
 // CommitSegment requests to store the pointer for the segment
-func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (savedPointer *pb.Pointer, err error) {
+func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{

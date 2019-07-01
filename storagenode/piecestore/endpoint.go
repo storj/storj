@@ -213,7 +213,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrInternal.Wrap(err)
 	}
 
-	largestOrder := pb.Order2{}
+	largestOrder := pb.Order{}
 	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
 
 	for {
@@ -460,7 +460,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	})
 
 	recvErr := func() (err error) {
-		largestOrder := pb.Order2{}
+		largestOrder := pb.Order{}
 		defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
 
 		// ensure that we always terminate sending goroutine
@@ -503,7 +503,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 }
 
 // SaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2, uplink *identity.PeerIdentity) {
+func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, uplink *identity.PeerIdentity) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
