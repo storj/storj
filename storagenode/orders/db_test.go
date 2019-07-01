@@ -58,6 +58,7 @@ func TestOrders(t *testing.T) {
 			Action:          pb.PieceAction_GET,
 			PieceExpiration: now,
 			OrderExpiration: now,
+			OrderCreation:   now,
 		})
 		require.NoError(t, err)
 

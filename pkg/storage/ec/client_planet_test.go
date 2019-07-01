@@ -154,6 +154,12 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	if err != nil {
 		return nil, err
 	}
+
+	orderCreation, err := ptypes.TimestampProto(time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+
 	limit := &pb.OrderLimit{
 		SerialNumber:    serialNumber,
 		SatelliteId:     satellite.ID(),
@@ -164,6 +170,7 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 		Limit:           dataSize.Int64(),
 		PieceExpiration: nil,
 		OrderExpiration: orderExpiration,
+		OrderCreation:   orderCreation,
 	}
 
 	limit, err = signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
