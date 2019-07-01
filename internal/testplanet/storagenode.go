@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/peertls/extensions"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console/consoleserver"
@@ -27,7 +28,7 @@ import (
 )
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteURLs []string) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteURLs storj.NodeURLs) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
@@ -99,7 +100,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteURLs []stri
 				KBucketRefreshInterval: time.Hour,
 
 				SatelliteIDRestriction:  true,
-				WhitelistedSatelliteURLs: strings.Join(whitelistedSatelliteURLs, ","),
+				WhitelistedSatelliteURLs: whitelistedSatelliteURLs,
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,

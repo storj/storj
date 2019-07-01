@@ -35,11 +35,11 @@ type Pool struct {
 type satelliteInfoCache struct {
 	mu       sync.Mutex
 	identity *identity.PeerIdentity
-	address  string
+	nodeURL  storj.NodeURL
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
-func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteURLs string) (*Pool, error) {
+func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteURLs storj.NodeURLs) (*Pool, error) {
 	if trustAll {
 		return &Pool{
 			kademlia: kademlia,
@@ -53,13 +53,9 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteURLs st
 
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
 	trusted := make(map[storj.NodeID]*satelliteInfoCache)
-	urls, err := storj.ParseNodeURLs(trustedSatelliteURLs)
-	if err != nil {
-		return nil, err
-	}
 
-	for _, node := range urls {
-		trusted[node.ID] = &satelliteInfoCache{address: node.Address}
+	for _, node := range trustedSatelliteURLs {
+		trusted[node.ID] = &satelliteInfoCache{nodeURL: node}
 	}
 
 	return &Pool{
@@ -153,5 +149,5 @@ func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, er
 		return "", Error.New("ID not found in trusted satellites list (%v)", id)
 	}
 	// TODO: return error if address == "" ?
-	return info.address, nil
+	return info.nodeURL.Address, nil
 }
