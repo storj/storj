@@ -51,27 +51,11 @@ func TestGarbageCollection(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
 		require.NoError(t, err)
 		deletedEncPath, pointerToDelete := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/1")
-		var deletedPiece *pb.RemotePiece
-		for _, p := range pointerToDelete.GetRemote().GetRemotePieces() {
-			if p.NodeId == targetNode.ID() {
-				deletedPiece = p
-				break
-			}
-		}
-		require.NotNil(t, deletedPiece)
 		deletedPieceID := pointerToDelete.GetRemote().RootPieceId.Derive(targetNode.ID())
 
 		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
 		_, pointerToKeep := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/2")
-		var keptPiece *pb.RemotePiece
-		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
-			if p.NodeId == targetNode.ID() {
-				keptPiece = p
-				break
-			}
-		}
-		require.NotNil(t, keptPiece)
 		keptPieceID := pointerToKeep.GetRemote().RootPieceId.Derive(targetNode.ID())
 
 		// Delete object from metainfo service on satellite
