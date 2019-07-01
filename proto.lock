@@ -143,13 +143,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -175,13 +169,65 @@
         ],
         "package": {
           "name": "repair"
-        },
-        "options": [
+        }
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:encryption.proto",
+      "def": {
+        "enums": [
           {
-            "name": "go_package",
-            "value": "pb"
+            "name": "Cipher.Type",
+            "enum_fields": [
+              {
+                "name": "UNENCRYPTED"
+              },
+              {
+                "name": "AESGCM",
+                "integer": 1
+              },
+              {
+                "name": "SECRETBOX",
+                "integer": 2
+              }
+            ]
           }
-        ]
+        ],
+        "messages": [
+          {
+            "name": "EncryptionParameters",
+            "fields": [
+              {
+                "id": 1,
+                "name": "cipher_suite",
+                "type": "Cipher"
+              },
+              {
+                "id": 2,
+                "name": "block_size",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "Cipher",
+            "fields": [
+              {
+                "id": 1,
+                "name": "type",
+                "type": "Type"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          }
+        ],
+        "package": {
+          "name": "encryption"
+        }
       }
     },
     {
@@ -239,13 +285,7 @@
         ],
         "package": {
           "name": "encryption_ctx"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -303,13 +343,7 @@
         ],
         "package": {
           "name": "gc"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -729,21 +763,7 @@
         ],
         "package": {
           "name": "gogoproto"
-        },
-        "options": [
-          {
-            "name": "java_package",
-            "value": "com.google.protobuf"
-          },
-          {
-            "name": "java_outer_classname",
-            "value": "GoGoProtos"
-          },
-          {
-            "name": "go_package",
-            "value": "github.com/gogo/protobuf/gogoproto"
-          }
-        ]
+        }
       }
     },
     {
@@ -1495,13 +1515,7 @@
         ],
         "package": {
           "name": "inspector"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1531,19 +1545,180 @@
         ],
         "package": {
           "name": "objects"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
       "protopath": "pkg:/:pb:/:metainfo.proto",
       "def": {
         "messages": [
+          {
+            "name": "BucketItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path_cipher",
+                "type": "encryption.Cipher"
+              },
+              {
+                "id": 3,
+                "name": "attribution_id",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "created_at",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 5,
+                "name": "default_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "default_redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 7,
+                "name": "default_encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              }
+            ]
+          },
+          {
+            "name": "BucketCreateRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path_cipher",
+                "type": "encryption.Cipher"
+              },
+              {
+                "id": 3,
+                "name": "attribution_id",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "default_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "default_redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 6,
+                "name": "default_encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              }
+            ]
+          },
+          {
+            "name": "BucketCreateResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "BucketItem"
+              }
+            ]
+          },
+          {
+            "name": "BucketGetRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "BucketGetResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "BucketItem"
+              }
+            ]
+          },
+          {
+            "name": "BucketDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "BucketDeleteResponse"
+          },
+          {
+            "name": "BucketListRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "cursor",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "limit",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "BucketListResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "BucketItem",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "BucketSetAttributionRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "attribution_id",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "BucketSetAttributionResponse"
+          },
           {
             "name": "AddressedOrderLimit",
             "fields": [
@@ -1873,6 +2048,31 @@
             "name": "Metainfo",
             "rpcs": [
               {
+                "name": "CreateBucket",
+                "in_type": "BucketCreateRequest",
+                "out_type": "BucketCreateResponse"
+              },
+              {
+                "name": "GetBucket",
+                "in_type": "BucketGetRequest",
+                "out_type": "BucketGetResponse"
+              },
+              {
+                "name": "DeleteBucket",
+                "in_type": "BucketDeleteRequest",
+                "out_type": "BucketDeleteResponse"
+              },
+              {
+                "name": "ListBuckets",
+                "in_type": "BucketListRequest",
+                "out_type": "BucketListResponse"
+              },
+              {
+                "name": "SetBucketAttribution",
+                "in_type": "BucketSetAttributionRequest",
+                "out_type": "BucketSetAttributionResponse"
+              },
+              {
                 "name": "CreateSegment",
                 "in_type": "SegmentWriteRequest",
                 "out_type": "SegmentWriteResponse"
@@ -1917,6 +2117,9 @@
         ],
         "imports": [
           {
+            "path": "encryption.proto"
+          },
+          {
             "path": "gogo.proto"
           },
           {
@@ -1934,13 +2137,7 @@
         ],
         "package": {
           "name": "metainfo"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2148,13 +2345,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2214,13 +2405,7 @@
         ],
         "package": {
           "name": "nodestats"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2515,13 +2700,7 @@
         ],
         "package": {
           "name": "orders"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2694,13 +2873,7 @@
         ],
         "package": {
           "name": "overlay"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2872,13 +3045,7 @@
         ],
         "package": {
           "name": "piecestore"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3103,13 +3270,7 @@
         ],
         "package": {
           "name": "pointerdb"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3184,13 +3345,7 @@
         ],
         "package": {
           "name": "streams"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3301,13 +3456,7 @@
         ],
         "package": {
           "name": "vouchers"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     }
   ]
