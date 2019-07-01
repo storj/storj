@@ -514,3 +514,49 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		assert.Empty(t, report)
 	})
 }
+
+func TestVerifierDeletedSegmentFailsOnce(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Satellites[0].Audit.Service.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
+		stripe, _, err := cursor.NextStripe(ctx)
+		require.NoError(t, err)
+
+		verifier := audit.NewVerifier(zap.L(),
+			planet.Satellites[0].Metainfo.Service,
+			planet.Satellites[0].Transport,
+			planet.Satellites[0].Overlay.Service,
+			planet.Satellites[0].DB.Containment(),
+			planet.Satellites[0].Orders.Service,
+			planet.Satellites[0].Identity,
+			128*memory.B,
+			5*time.Second)
+
+		// delete the file
+		err = ul.Delete(ctx, planet.Satellites[0], "testbucket", "test/path")
+		require.NoError(t, err)
+
+		report, err := verifier.Verify(ctx, stripe, nil)
+		require.True(t, audit.ErrSegmentDeleted.Has(err))
+		assert.Empty(t, report)
+
+		stripe, more, err := cursor.NextStripe(ctx)
+		require.Nil(t, err, err)
+		require.Nil(t, stripe)
+		require.False(t, more)
+
+		report, err = verifier.Verify(ctx, stripe, nil)
+		require.NoError(t, err)
+		assert.Empty(t, report)
+	})
+}

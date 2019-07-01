@@ -416,6 +416,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			err = errs.Combine(err, result.err)
 		}
 	}
+	//remove failed audi t pieces from the pointer so as to only penalize once for failed audits
+	verifier.RemoveFailedPieces(ctx, stripe, report.Fails)
 
 	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
 	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))
@@ -487,6 +489,23 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		NodeID:   storageNodeID,
 		Data:     buf,
 	}, nil
+}
+
+// RemoveFailedPieces removes lost pieces from a pointer
+func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, stripe *Stripe, failedPieces storj.NodeIDList) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	remoteSegment := stripe.Segment.GetRemote()
+	for i, piece := range remoteSegment.GetRemotePieces() {
+		for _, failedPiece := range failedPieces {
+			if piece.NodeId == failedPiece {
+				remoteSegment.RemotePieces = append(remoteSegment.RemotePieces[0:i], remoteSegment.RemotePieces[i:]...)
+			}
+		}
+	}
+
+	// Update the segment pointer in the metainfo
+	return verifier.metainfo.Put(ctx, stripe.SegmentPath, stripe.Segment)
 }
 
 // checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.
