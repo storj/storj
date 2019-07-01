@@ -743,7 +743,7 @@ model bucket (
 
 	field path_cipher    int
 
-	field created_at     utimestamp ( autoinsert )
+	field created_at     timestamp ( autoinsert )
 
 	field default_segment_size int (updatable)
 
