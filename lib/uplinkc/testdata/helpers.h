@@ -36,7 +36,7 @@ void with_test_project(void (*handleProject)(ProjectRef)) {
 
     {
         UplinkConfig cfg = {};
-        cfg.Volatile.TLS.SkipPeerCAWhitelist = true; // TODO: add CA Whitelist
+        cfg.Volatile.TLS.skip_peer_ca_whitelist = true; // TODO: add CA Whitelist
 
         // New uplink
         UplinkRef uplink = new_uplink(cfg, err);

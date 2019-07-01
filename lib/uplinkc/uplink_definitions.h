@@ -29,8 +29,8 @@ typedef struct Uploader   { long _handle; } UploaderRef;
 typedef struct UplinkConfig {
     struct {
         struct {
-            bool SkipPeerCAWhitelist;
-        } TLS;
+            bool skip_peer_ca_whitelist;
+        } tls;
         // TODO: add support for MaxMemory
     } Volatile;
 } UplinkConfig;
