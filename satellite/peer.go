@@ -431,7 +431,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Metainfo.Service,
 			peer.Overlay.Service,
-			gc.NewPieceTracker(peer.Log.Named("piece tracker"), gc.Config{}, peer.Transport),
+			gc.NewService(peer.Log.Named("gc"), config.GarbageCollection, peer.Transport),
 		)
 
 		peer.Repair.Repairer = repairer.NewService(

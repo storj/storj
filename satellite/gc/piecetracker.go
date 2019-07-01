@@ -32,58 +32,109 @@ type RetainInfo struct {
 	CreationDate time.Time
 }
 
-// PieceTracker contains info about the good pieces that storage nodes need to retain
-type PieceTracker struct {
-	log       *zap.Logger
-	config    Config
-	transport transport.Client
-	Requests  map[storj.NodeID]*RetainInfo
+// pieceTracker contains info about the good pieces that storage nodes need to retain
+type pieceTracker struct {
+	log                *zap.Logger
+	filterCreationDate time.Time
+	initialPieces      int64
+	falsePositiveRate  float64
+	Requests           map[storj.NodeID]*RetainInfo
+}
+
+type noOpPieceTracker struct {
+}
+
+// PieceTracker allows access to ...
+type PieceTracker interface {
+	// Add adds a RetainInfo to the PieceTracker
+	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
+	// GetRetainInfos gets all of the RetainInfos
+	GetRetainInfos() map[storj.NodeID]*RetainInfo
 }
 
 // NewPieceTracker instantiates a piece tracker
-func NewPieceTracker(log *zap.Logger, config Config, transport transport.Client) *PieceTracker {
-	return &PieceTracker{
-		log:       log,
-		transport: transport,
-		config:    config,
-		Requests:  make(map[storj.NodeID]*RetainInfo),
+func (service *Service) NewPieceTracker() PieceTracker {
+	// Creation date of the gc bloom filter - the storage node shouldn't delete any piece newer than this.
+	filterCreationDate := time.Now().UTC()
+
+	if filterCreationDate.Before(service.lastSendTime.Add(service.config.Interval)) {
+		return &noOpPieceTracker{}
+	}
+
+	return &pieceTracker{
+		log:                service.log.Named("piecetracker"),
+		filterCreationDate: filterCreationDate,
+		initialPieces:      service.config.InitialPieces,
+		falsePositiveRate:  service.config.FalsePositiveRate,
+		Requests:           make(map[storj.NodeID]*RetainInfo),
 	}
 }
 
-// Add adds a RetainRequest to the Garbage "queue"
-func (pieceTracker *PieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID, creationDate time.Time) (err error) {
+// Service implements the garbage collection service
+type Service struct {
+	log          *zap.Logger
+	config       Config
+	transport    transport.Client
+	lastSendTime time.Time
+}
+
+// NewService creates a new instance of the gc service
+func NewService(log *zap.Logger, config Config, transport transport.Client) *Service {
+	return &Service{
+		log:       log,
+		transport: transport,
+		config:    config,
+	}
+}
+
+// Add adds a pieceID to the relevant node's RetainInfo
+func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var filter *bloomfilter.Filter
 
 	if _, ok := pieceTracker.Requests[nodeID]; !ok {
-		filter = bloomfilter.NewOptimal(int(pieceTracker.config.InitialPieces), pieceTracker.config.FalsePositiveRate)
+		filter = bloomfilter.NewOptimal(int(pieceTracker.initialPieces), pieceTracker.falsePositiveRate)
 		pieceTracker.Requests[nodeID].Filter = filter
-		pieceTracker.Requests[nodeID].CreationDate = creationDate
+		pieceTracker.Requests[nodeID].CreationDate = pieceTracker.filterCreationDate
 	}
 
 	pieceTracker.Requests[nodeID].Filter.Add(pieceID)
 	return nil
 }
 
-// Send sends the garbage retain requests to all storage nodes
-func (pieceTracker *PieceTracker) Send(ctx context.Context) (err error) {
+func (pieceTracker *noOpPieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
+	return nil
+}
+
+// GetRetainInfos
+func (pieceTracker *noOpPieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
+	return nil
+}
+
+// GetRetainInfos
+func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
+	return pieceTracker.Requests
+}
+
+// Send sends the piece retain requests to all storage nodes
+func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for id := range pieceTracker.Requests {
-		log := pieceTracker.log.Named(id.String())
-		// TODO: access storage node address to populate target
+	for id := range pieceTracker.GetRetainInfos() {
+		log := service.log.Named(id.String())
+		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
 		target := &pb.Node{Id: id}
-		signer := signing.SignerFromFullIdentity(pieceTracker.transport.Identity())
+		signer := signing.SignerFromFullIdentity(service.transport.Identity())
 
-		ps, err := piecestore.Dial(ctx, pieceTracker.transport, target, log, signer, piecestore.DefaultConfig)
+		ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 		defer func() {
 			err := ps.Close()
 			if err != nil {
-				pieceTracker.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
+				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
 			}
 		}()
 		// TODO: send the retain request to the storage node

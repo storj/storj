@@ -55,12 +55,13 @@ type Checker struct {
 	repairQueue     queue.RepairQueue
 	metainfo        *metainfo.Service
 	overlay         *overlay.Cache
-	pieceTracker    *gc.PieceTracker
+	garbageService  *gc.Service
+	pieceTracker    gc.PieceTracker
 	lastChecked     string
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Duration, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, pieceTracker *gc.PieceTracker) *Checker {
+func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Duration, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, garbageService *gc.Service) *Checker {
 	checker := &Checker{
 		logger:          logger,
 		monStats:        durabilityStats{},
@@ -70,9 +71,11 @@ func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Dur
 		repairQueue:     repairQueue,
 		metainfo:        metainfo,
 		overlay:         overlay,
-		pieceTracker:    pieceTracker,
+		garbageService:  garbageService,
+		pieceTracker:    garbageService.NewPieceTracker(),
 		lastChecked:     "",
 	}
+
 	return checker
 }
 
@@ -105,9 +108,8 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 	err = checker.metainfo.Iterate(ctx, "", checker.lastChecked, true, false,
 		func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
 
-			filterCreationDate := time.Now().UTC()
+			var item storage.ListItem
 
 			defer func() {
 				var nextItem storage.ListItem
@@ -125,6 +127,15 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 					// reset durability stats for next iteration
 					checker.monStats = durabilityStats{}
+
+					go func() {
+						err := checker.garbageService.Send(ctx, checker.pieceTracker)
+						if err != nil {
+							checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
+						}
+						checker.pieceTracker = checker.garbageService.NewPieceTracker()
+					}()
+
 				}
 			}()
 
@@ -136,7 +147,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					return Error.New("error unmarshalling pointer %s", err)
 				}
 
-				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats, filterCreationDate)
+				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
 					return err
 				}
@@ -161,7 +172,7 @@ func contains(a []string, x string) bool {
 	return false
 }
 
-func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats, filterCreationDate time.Time) (err error) {
+func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string, monStats *durabilityStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
 	if remote == nil {
@@ -183,9 +194,8 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	for _, piece := range pieces {
 		if missingPieces[piece.PieceNum] {
 			lostPieces = append(lostPieces, piece.PieceNum)
-			continue
 		}
-		checker.pieceTracker.Add(ctx, piece.NodeId, remote.RootPieceId, filterCreationDate)
+		checker.pieceTracker.Add(ctx, piece.NodeId, piece.GetHash().PieceId)
 	}
 
 	monStats.remoteSegmentsChecked++
@@ -269,7 +279,7 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 			break
 		}
 
-		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{}, time.Time{})
+		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
 		if err != nil {
 			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 		}
