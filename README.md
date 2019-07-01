@@ -39,7 +39,6 @@ See the breakdown of what we're building by checking out the following resources
 
  * [White paper](https://storj.io/whitepaper)
  * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
- * [Jira Issues](https://storjlabs.atlassian.net/projects/V3)
 
 ### Install required packages
 
