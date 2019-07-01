@@ -80,7 +80,7 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.MaxMemory = 0
 	}
 	if cfg.Volatile.Log == nil {
-		cfg.Volatile.Log = zap.L()
+		cfg.Volatile.Log = zap.NewNop()
 	}
 	return nil
 }
