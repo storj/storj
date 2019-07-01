@@ -58,7 +58,7 @@ message Bucket {
     CipherSuite  path_cipher = 2;
     bytes        attribution_id = 3;
 
-    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     int64                default_segment_size = 5;
     RedundancyScheme     default_redundancy_scheme = 6;
@@ -106,7 +106,7 @@ message BucketListItem {
     bytes        name = 1;
     bytes        attribution_id = 2;
 
-    google.protobuf.Timestamp created_at = 3;
+    google.protobuf.Timestamp created_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message BucketSetAttributionRequest {
@@ -133,9 +133,9 @@ message Object {
 
     bytes  stream_id = 5;
 
-    google.protobuf.Timestamp created_at = 6;
-    google.protobuf.Timestamp status_at  = 7;
-    google.protobuf.Timestamp expires_at = 8;
+    google.protobuf.Timestamp created_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp status_at  = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expires_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes  encrypted_metadata_nonce = 9;
     bytes  encrypted_metadata       = 10;
@@ -154,7 +154,7 @@ message ObjectBeginRequest {
     bytes  encrypted_path = 2;
     int32  version = 3;
 
-    google.protobuf.Timestamp expires_at = 4;
+    google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes  encrypted_metadata_nonce = 5;
     bytes  encrypted_metadata = 6; // TODO: set maximum size limit
@@ -206,9 +206,9 @@ message ObjectListItem {
     int32  version        = 2;
     Object.Status status  = 3;
 
-    google.protobuf.Timestamp created_at = 4;
-    google.protobuf.Timestamp status_at  = 5;
-    google.protobuf.Timestamp expires_at = 6;
+    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp status_at  = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expires_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes  encrypted_metadata_nonce = 7;
     bytes  encrypted_metadata       = 8;
