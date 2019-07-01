@@ -209,7 +209,7 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	}()
 
 	redScheme := config.GetRedundancyScheme()
-	encScheme := config.GetEncryptionParameters()
+	encScheme := config.GetEncryptionScheme()
 
 	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)
@@ -226,7 +226,7 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 
 	createInfo := storj.CreateObject{
 		RedundancyScheme:     redScheme,
-		EncryptionParameters: encScheme,
+		EncryptionScheme: encScheme,
 		Expires:              expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
@@ -388,13 +388,13 @@ func DialMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, id
 		return nil, nil, cleanup, errs.New("failed to create redundancy strategy: %v", err)
 	}
 
-	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(config.Client.SegmentSize.Int64(), config.GetEncryptionParameters())
+	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(config.Client.SegmentSize.Int64(), config.GetEncryptionScheme())
 	if err != nil {
 		return nil, nil, cleanup, errs.New("failed to calculate max encrypted segment size: %v", err)
 	}
 	segment := segments.NewSegmentStore(m, ec, rs, config.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	blockSize := config.GetEncryptionParameters().BlockSize
+	blockSize := config.GetEncryptionScheme().BlockSize
 	if int(blockSize)%config.RS.ErasureShareSize.Int()*config.RS.MinThreshold != 0 {
 		err = errs.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, nil, cleanup, err

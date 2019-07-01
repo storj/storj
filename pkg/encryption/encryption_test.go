@@ -40,7 +40,7 @@ func TestCalcEncryptedSize(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d-%d. %+v", cipher, i, dataSize)
 
-			scheme := storj.EncryptionParameters{CipherSuite: cipher, BlockSize: 1 * memory.KiB.Int32()}
+			scheme := storj.EncryptionScheme{CipherSuite: cipher, BlockSize: 1 * memory.KiB.Int32()}
 
 			calculatedSize, err := encryption.CalcEncryptedSize(dataSize, scheme)
 			require.NoError(t, err, errTag)

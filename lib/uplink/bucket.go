@@ -51,11 +51,11 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 			Size:        info.Size,
 			Checksum:    info.Checksum,
 			Volatile: struct {
-				EncryptionParameters storj.EncryptionParameters
+				EncryptionScheme storj.EncryptionScheme
 				RedundancyScheme     storj.RedundancyScheme
 				SegmentsSize         int64
 			}{
-				EncryptionParameters: info.EncryptionParameters,
+				EncryptionScheme: info.EncryptionScheme,
 				RedundancyScheme:     info.RedundancyScheme,
 				SegmentsSize:         info.FixedSegmentSize,
 			},
@@ -82,10 +82,10 @@ type UploadOptions struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// EncryptionParameters determines the cipher suite to use for
+		// EncryptionScheme determines the cipher suite to use for
 		// the Object's data encryption. If not set, the Bucket's
 		// defaults will be used.
-		EncryptionParameters storj.EncryptionParameters
+		EncryptionScheme storj.EncryptionScheme
 
 		// RedundancyScheme determines the Reed-Solomon and/or Forward
 		// Error Correction encoding parameters to be used for this
@@ -152,18 +152,18 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 	if opts.Volatile.RedundancyScheme.TotalShares == 0 {
 		opts.Volatile.RedundancyScheme.TotalShares = b.Volatile.RedundancyScheme.TotalShares
 	}
-	if opts.Volatile.EncryptionParameters.CipherSuite == storj.EncUnspecified {
-		opts.Volatile.EncryptionParameters.CipherSuite = b.EncryptionParameters.CipherSuite
+	if opts.Volatile.EncryptionScheme.CipherSuite == storj.EncUnspecified {
+		opts.Volatile.EncryptionScheme.CipherSuite = b.EncryptionScheme.CipherSuite
 	}
-	if opts.Volatile.EncryptionParameters.BlockSize == 0 {
-		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
+	if opts.Volatile.EncryptionScheme.BlockSize == 0 {
+		opts.Volatile.EncryptionScheme.BlockSize = b.EncryptionScheme.BlockSize
 	}
 	createInfo := storj.CreateObject{
 		ContentType:          opts.ContentType,
 		Metadata:             opts.Metadata,
 		Expires:              opts.Expires,
 		RedundancyScheme:     opts.Volatile.RedundancyScheme,
-		EncryptionParameters: opts.Volatile.EncryptionParameters,
+		EncryptionScheme: opts.Volatile.EncryptionScheme,
 	}
 
 	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)

@@ -30,7 +30,7 @@ var (
 )
 
 // NewStorjGateway creates a *Storj object from an existing ObjectStore
-func NewStorjGateway(project *uplink.Project, access *uplink.EncryptionAccess, pathCipher storj.CipherSuite, encryption storj.EncryptionParameters, redundancy storj.RedundancyScheme, segmentSize memory.Size) *Gateway {
+func NewStorjGateway(project *uplink.Project, access *uplink.EncryptionAccess, pathCipher storj.CipherSuite, encryption storj.EncryptionScheme, redundancy storj.RedundancyScheme, segmentSize memory.Size) *Gateway {
 	return &Gateway{
 		project:     project,
 		access:      access,
@@ -47,7 +47,7 @@ type Gateway struct {
 	project     *uplink.Project
 	access      *uplink.EncryptionAccess
 	pathCipher  storj.CipherSuite
-	encryption  storj.EncryptionParameters
+	encryption  storj.EncryptionScheme
 	redundancy  storj.RedundancyScheme
 	segmentSize memory.Size
 	multipart   *MultipartUploads
@@ -379,7 +379,7 @@ func (layer *gatewayLayer) MakeBucketWithLocation(ctx context.Context, bucketNam
 
 	cfg := uplink.BucketConfig{
 		PathCipher:           layer.gateway.pathCipher,
-		EncryptionParameters: layer.gateway.encryption,
+		EncryptionScheme: layer.gateway.encryption,
 	}
 	cfg.Volatile.RedundancyScheme = layer.gateway.redundancy
 	cfg.Volatile.SegmentsSize = layer.gateway.segmentSize
@@ -415,7 +415,7 @@ func (layer *gatewayLayer) CopyObject(ctx context.Context, srcBucket, srcObject,
 		Metadata:    object.Meta.Metadata,
 		Expires:     object.Meta.Expires,
 	}
-	opts.Volatile.EncryptionParameters = object.Meta.Volatile.EncryptionParameters
+	opts.Volatile.EncryptionScheme = object.Meta.Volatile.EncryptionScheme
 	opts.Volatile.RedundancyScheme = object.Meta.Volatile.RedundancyScheme
 
 	return layer.putObject(ctx, destBucket, destObject, reader, &opts)

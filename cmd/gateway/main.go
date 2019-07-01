@@ -239,7 +239,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 		project,
 		access,
 		storj.CipherSuite(flags.Enc.PathType),
-		flags.GetEncryptionParameters(),
+		flags.GetEncryptionScheme(),
 		flags.GetRedundancyScheme(),
 		flags.Client.SegmentSize,
 	), nil

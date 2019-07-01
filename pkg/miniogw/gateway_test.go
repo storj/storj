@@ -749,7 +749,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 		proj,
 		access,
 		storj.EncAESGCM,
-		storj.EncryptionParameters{
+		storj.EncryptionScheme{
 			CipherSuite: storj.EncAESGCM,
 			BlockSize:   int32(stripeSize),
 		},

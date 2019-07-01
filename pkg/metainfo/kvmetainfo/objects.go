@@ -37,7 +37,7 @@ var DefaultRS = storj.RedundancyScheme{
 
 // DefaultES default values for EncryptionScheme
 // BlockSize should default to the size of a stripe
-var DefaultES = storj.EncryptionParameters{
+var DefaultES = storj.EncryptionScheme{
 	CipherSuite: storj.EncAESGCM,
 	BlockSize:   DefaultRS.StripeSize(),
 }
@@ -97,14 +97,14 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 		info.ContentType = createInfo.ContentType
 		info.Expires = createInfo.Expires
 		info.RedundancyScheme = createInfo.RedundancyScheme
-		info.EncryptionParameters = createInfo.EncryptionParameters
+		info.EncryptionScheme = createInfo.EncryptionScheme
 	}
 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.EncryptionParameters.IsZero() {
-		info.EncryptionParameters = storj.EncryptionParameters{
+	if info.EncryptionScheme.IsZero() {
+		info.EncryptionScheme = storj.EncryptionScheme{
 			CipherSuite: DefaultES.CipherSuite,
 			BlockSize:   DefaultES.BlockSize,
 		}
@@ -114,9 +114,9 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 		info.RedundancyScheme = DefaultRS
 
 		// If the provided EncryptionScheme.BlockSize isn't a multiple of the
-		// DefaultRS stripeSize, then overwrite the EncryptionParameters with the DefaultES values
-		if err := validateBlockSize(DefaultRS, info.EncryptionParameters.BlockSize); err != nil {
-			info.EncryptionParameters.BlockSize = DefaultES.BlockSize
+		// DefaultRS stripeSize, then overwrite the EncryptionScheme with the DefaultES values
+		if err := validateBlockSize(DefaultRS, info.EncryptionScheme.BlockSize); err != nil {
+			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
 		}
 	}
 
@@ -366,7 +366,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
 				TotalShares:    int16(redundancyScheme.GetTotal()),
 			},
-			EncryptionParameters: storj.EncryptionParameters{
+			EncryptionScheme: storj.EncryptionScheme{
 				CipherSuite: storj.CipherSuite(streamMeta.EncryptionType),
 				BlockSize:   streamMeta.EncryptionBlockSize,
 			},

@@ -31,7 +31,7 @@ type Bucket struct {
 	PathCipher           CipherSuite
 	SegmentsSize         int64
 	RedundancyScheme     RedundancyScheme
-	EncryptionParameters EncryptionParameters
+	EncryptionScheme EncryptionScheme
 }
 
 // Object contains information about a specific object
@@ -66,8 +66,8 @@ type Stream struct {
 
 	// RedundancyScheme specifies redundancy strategy used for this stream
 	RedundancyScheme
-	// EncryptionParameters specifies encryption strategy used for this stream
-	EncryptionParameters
+	// EncryptionScheme specifies encryption strategy used for this stream
+	EncryptionScheme
 
 	LastSegment LastSegment // TODO: remove
 }

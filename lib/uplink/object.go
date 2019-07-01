@@ -51,9 +51,9 @@ type ObjectMeta struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
-		// EncryptionParameters gives the encryption parameters being
+		// EncryptionScheme gives the encryption parameters being
 		// used for the Object's data encryption.
-		EncryptionParameters storj.EncryptionParameters
+		EncryptionScheme storj.EncryptionScheme
 
 		// RedundancyScheme determines the Reed-Solomon and/or Forward
 		// Error Correction encoding parameters to be used for this

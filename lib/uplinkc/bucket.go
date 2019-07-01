@@ -32,7 +32,7 @@ func create_bucket(projectHandle C.ProjectRef, name *C.char, bucketConfig *C.Buc
 	if bucketConfig != nil {
 		config = &uplink.BucketConfig{
 			PathCipher: storj.CipherSuite(bucketConfig.path_cipher),
-			EncryptionParameters: storj.EncryptionParameters{
+			EncryptionScheme: storj.EncryptionScheme{
 				CipherSuite: storj.CipherSuite(bucketConfig.encryption_parameters.cipher_suite),
 				BlockSize:   int32(bucketConfig.encryption_parameters.block_size),
 			},

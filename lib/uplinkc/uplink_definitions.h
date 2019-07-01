@@ -35,10 +35,10 @@ typedef struct UplinkConfig {
     } Volatile;
 } UplinkConfig;
 
-typedef struct EncryptionParameters {
+typedef struct EncryptionScheme {
     CipherSuite cipher_suite;
     int32_t     block_size;
-} EncryptionParameters;
+} EncryptionScheme;
 
 typedef struct RedundancyScheme {
     RedundancyAlgorithm algorithm;
@@ -54,13 +54,13 @@ typedef struct BucketInfo {
     int64_t              created;
     CipherSuite          path_cipher;
     uint64_t             segment_size;
-    EncryptionParameters encryption_parameters;
+    EncryptionScheme encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketInfo;
 
 typedef struct BucketConfig {
     CipherSuite          path_cipher;
-    EncryptionParameters encryption_parameters;
+    EncryptionScheme encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketConfig;
 
