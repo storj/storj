@@ -48,7 +48,7 @@ func TestOrders(t *testing.T) {
 
 		now := ptypes.TimestampNow()
 
-		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit2{
+		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
 			SatelliteId:     satellite0.ID,
 			UplinkId:        uplink.ID,
@@ -61,7 +61,7 @@ func TestOrders(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order2{
+		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order{
 			SerialNumber: serialNumber,
 			Amount:       50,
 		})
