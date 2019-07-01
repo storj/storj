@@ -13,8 +13,8 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -172,8 +172,8 @@ func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error)
 		UserID:        userID,
 		OfferID:       userCreditDBX.OfferId,
 		ReferredBy:    referredByID,
-		CreditsEarned: rewards.Cents(userCreditDBX.CreditsEarnedInCents),
-		CreditsUsed:   rewards.Cents(userCreditDBX.CreditsUsedInCents),
+		CreditsEarned: currency.Cents(userCreditDBX.CreditsEarnedInCents),
+		CreditsUsed:   currency.Cents(userCreditDBX.CreditsUsedInCents),
 		ExpiresAt:     userCreditDBX.ExpiresAt,
 		CreatedAt:     userCreditDBX.CreatedAt,
 	}, nil

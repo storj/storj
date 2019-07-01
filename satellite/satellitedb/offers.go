@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -60,8 +61,8 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	if err != nil {
 		return nil, offerErr.Wrap(err)
 	}
-	o.AwardCredit = rewards.Cents(awardCreditInCents)
-	o.InviteeCredit = rewards.Cents(inviteeCreditInCents)
+	o.AwardCredit = currency.Cents(awardCreditInCents)
+	o.InviteeCredit = currency.Cents(inviteeCreditInCents)
 
 	return &o, nil
 }
@@ -178,8 +179,8 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
-		AwardCredit:               rewards.Cents(offerDbx.AwardCreditInCents),
-		InviteeCredit:             rewards.Cents(offerDbx.InviteeCreditInCents),
+		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
+		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
 		RedeemableCap:             offerDbx.RedeemableCap,
 		NumRedeemed:               offerDbx.NumRedeemed,
 		ExpiresAt:                 offerDbx.ExpiresAt,
