@@ -36,7 +36,7 @@ message BucketItem {
     encryption.CipherSuite path_cipher = 2;
     bytes                  attribution_id = 3;
 
-    google.protobuf.Timestamp created_at = 4;
+    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     int64                           default_segment_size = 5;
     pointerdb.RedundancyScheme      default_redundancy_scheme = 6;
@@ -45,9 +45,8 @@ message BucketItem {
 
 message BucketListItem {
     bytes             name = 1;
-    bytes             attribution_id = 2;
 
-    google.protobuf.Timestamp created_at = 3;
+    google.protobuf.Timestamp created_at = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message BucketCreateRequest {
