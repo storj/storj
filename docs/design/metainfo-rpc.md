@@ -31,6 +31,7 @@ service Metainfo {
     rpc GetBucket(BucketGetRequest) returns (BucketGetResponse);
     rpc DeleteBucket(BucketDeleteRequest) returns (BucketDeleteResponse);
     rpc ListBuckets(BucketListRequest) returns (BucketListResponse);
+    rpc SetBucketAttribution(BucketSetAttributionRequest) returns (BucketSetAttributionResponse);
 
     rpc CreateObject(ObjectCreateRequest) returns (ObjectCreateResponse);
     rpc CommitObject(ObjectCommitRequest) returns (ObjectCommitResponse);
@@ -58,16 +59,25 @@ message Bucket {
     bytes        attribution_id = 3;
 
     google.protobuf.Timestamp created_at = 4;
-    
+
     int64                default_segment_size = 5;
+    RedundancyScheme     default_redundancy_scheme = 6;
     EncryptionParameters default_encryption_parameters = 7;
 }
 
 message BucketCreateRequest {
-    bytes name = 1;
+    bytes        name = 1;
+    CipherSuite  path_cipher = 2;
+    bytes        attribution_id = 3;
+
+    int64                default_segment_size = 4;
+    RedundancyScheme     default_redundancy_scheme = 5;
+    EncryptionParameters default_encryption_parameters = 6;
 }
 
-message BucketCreateResponse {}
+message BucketCreateResponse {
+    Bucket bucket = 1;
+}
 
 message BucketGetRequest {
     bytes name = 1;
@@ -90,6 +100,14 @@ message BucketListRequest {
 message BucketListResponse {
     repeated Bucket items = 1;
     bool            more  = 2;
+}
+
+message BucketSetAttributionRequest {
+    bytes name = 1;
+    bytes attribution_id = 2;
+}
+
+message BucketSetAttributionResponse {
 }
 
 message Object {
