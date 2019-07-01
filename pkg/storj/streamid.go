@@ -31,7 +31,7 @@ func StreamIDFromString(s string) (StreamID, error) {
 // StreamIDFromBytes converts a byte slice into a stream ID
 func StreamIDFromBytes(b []byte) (StreamID, error) {
 	if len(b) != len(StreamID{}) {
-		return StreamID{}, ErrSerialNumber.New("not enough bytes to make a stream ID; have %d, need %d", len(b), len(NodeID{}))
+		return StreamID{}, ErrStreamID.New("not enough bytes to make a stream ID; have %d, need %d", len(b), len(NodeID{}))
 	}
 
 	var id StreamID
@@ -97,7 +97,7 @@ func (id StreamID) Value() (driver.Value, error) {
 func (id *StreamID) Scan(src interface{}) (err error) {
 	b, ok := src.([]byte)
 	if !ok {
-		return ErrSerialNumber.New("Stream ID Scan expects []byte")
+		return ErrStreamID.New("Stream ID Scan expects []byte")
 	}
 	n, err := StreamIDFromBytes(b)
 	*id = n
