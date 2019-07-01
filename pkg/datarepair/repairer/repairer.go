@@ -46,7 +46,7 @@ func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc tran
 
 	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(metainfo, orders, cache, ec, identity, c.Timeout), nil
+	return segments.NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout), nil
 }
 
 // SegmentRepairer is a repairer for segments
