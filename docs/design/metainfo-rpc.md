@@ -150,10 +150,12 @@ message ObjectBeginRequest {
     google.protobuf.Timestamp expires_at = 4;
 
     bytes  encrypted_metadata_nonce = 5;
-    bytes  encrypted_metadata = 6;
+    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
 
-    RedundancyScheme     redundancy_scheme = 7;
-    EncryptionParameters encryption_parameters = 8;
+    RedundancyScheme     redundancy_scheme = 7; // can be zero
+    EncryptionParameters encryption_parameters = 8; // can be zero
+
+    // TODO: do we need content type here or other unencrypted fields?
 }
 
 message ObjectBeginResponse {
@@ -162,6 +164,9 @@ message ObjectBeginResponse {
     int32  version = 3;
 
     bytes  stream_id = 4;
+
+    RedundancyScheme     redundancy_scheme = 5;
+    EncryptionParameters encryption_parameters = 6;
 }
 
 message ObjectCommitRequest {
@@ -180,11 +185,11 @@ message ObjectListRequest {
     bytes     bucket = 1;
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
-    Direction direction = 4;
+    Direction direction = 4; // TODO: should we remove this for now?
     int32     limit = 5;
     bool      recursive = 6;
 
-    fixed32   meta_flags = 7;
+    fixed32   meta_flags = 7; // TODO: max many flags
     bool      include_partial = 8;
     bool      include_all_versions = 9;
 }
@@ -200,7 +205,11 @@ message ObjectBeginDeleteRequest {
     int32  version = 3;
 }
 
-message ObjectBeginDeleteResponse {}
+message ObjectBeginDeleteResponse {
+    bytes  stream_id = 1;
+
+    // TODO: should this contain a list of segments needing to be deleted?
+}
 
 message ObjectFinishDeleteRequest {
     bytes  bucket = 1;
@@ -208,8 +217,24 @@ message ObjectFinishDeleteRequest {
     int32  version = 3;
 }
 
-message ObjectFinishDeleteResponse {}
+message ObjectFinishDeleteResponse {
+    // TODO: should this contain a list of segments needing to be deleted when not all segements have been deleted?
+}
 
+message Segment {
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
+
+    bytes encrypted_key_nonce = 4;
+    bytes encrypted_key = 5;
+
+    bytes checksum_encrypted_data = 6;
+    int64 size_encrypted_data = 7;
+
+    bytes encrypted_inline_data = 8;
+    repeated bytes nodes = 9 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
 
 message SegmentBeginRequest {
     bytes stream_id = 1;
@@ -266,16 +291,26 @@ message SegmentBeginDeleteRequest {
 
 message SegmentBeginDeleteResponse {
     repeated AddressedOrderLimit addressed_limits = 1;
+    
+    // TODO: should we include here bool finished for inline segments, or should we use batching to combine SegmentBeginDeleteRequest/SegmentFinishDeleteResponse
 }
 
 message SegmentFinishDeleteRequest {
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
+
     // TODO: check for uplink not sending order limits to storage nodes
 }
 
 message SegmentFinishDeleteResponse {}
 
 message SegmentListRequest {
-    // TODO:
+    bytes stream_id          = 1;
+    int32 cursor_part_number = 2;
+    int32 cursor_index       = 3;
+    int32 limit              = 4;
+    // TODO: is there a neater way to express cursor
 }
 
 message SegmentListResponse {
