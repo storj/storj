@@ -544,6 +544,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 			5*time.Second)
 
 		// delete the piece from the first node
+		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
 		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
 		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
 		node := getStorageNode(planet, nodeID)
@@ -553,23 +554,25 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		report, err := verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		require.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		require.Len(t, report.Successes, origNumPieces-1)
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], nodeID)
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 
+		//refetch the stripe
 		cursor = audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err = cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
-		report2, err := verifier.Verify(ctx, stripe, nil)
+		report, err = verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		require.Len(t, report2.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
-		require.Len(t, report2.Fails, 0)
-		require.Len(t, report2.Offlines, 0)
-		require.Len(t, report2.PendingAudits, 0)
+		//verify no failures because that segment is gone
+		require.Len(t, report.Successes, origNumPieces-1)
+		require.Len(t, report.Fails, 0)
+		require.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
 	})
 }
