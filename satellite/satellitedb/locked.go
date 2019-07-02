@@ -981,7 +981,7 @@ func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.
 	return m.db.GetCurrentByType(ctx, offerType)
 }
 
-func (m *lockedRewards) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListAll(ctx)

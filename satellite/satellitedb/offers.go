@@ -153,7 +153,7 @@ func (db *offersDB) Finish(ctx context.Context, oID int) error {
 	return nil
 }
 
-func offersFromDBX(offersDbx []*dbx.Offer) ([]rewards.Offer, error) {
+func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {
 	var offers []rewards.Offer
 	errList := new(errs.Group)
 
