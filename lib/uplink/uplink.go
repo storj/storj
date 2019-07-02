@@ -5,6 +5,7 @@ package uplink
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -62,6 +63,14 @@ type Config struct {
 		// PartnerID is the identity given to the partner for value
 		// attribution
 		PartnerID string
+
+		// DialTimeout is the maximum time to wait connecting to another node.
+		// If not set, the library default (20 seconds) will be used.
+		DialTimeout time.Duration
+
+		// RequestTimeout is the maximum time to wait for a request response from another node.
+		// If not set, the library default (20 seconds) will be used.
+		RequestTimeout time.Duration
 	}
 }
 
@@ -81,6 +90,12 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 	}
 	if cfg.Volatile.Log == nil {
 		cfg.Volatile.Log = zap.NewNop()
+	}
+	if cfg.Volatile.DialTimeout.Seconds() == 0 {
+		cfg.Volatile.DialTimeout = 20 * time.Second
+	}
+	if cfg.Volatile.RequestTimeout.Seconds() == 0 {
+		cfg.Volatile.RequestTimeout = 20 * time.Second
 	}
 	return nil
 }
@@ -123,7 +138,13 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 	if err != nil {
 		return nil, err
 	}
-	tc := transport.NewClient(tlsOpts)
+
+	timeouts := transport.Timeouts{
+		Dial:    cfg.Volatile.DialTimeout,
+		Request: cfg.Volatile.RequestTimeout,
+	}
+	//tc := transport.NewClient(tlsOpts)
+	tc := transport.NewClientWithTimeouts(tlsOpts, timeouts)
 
 	return &Uplink{
 		ident: ident,
