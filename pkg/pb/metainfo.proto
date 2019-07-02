@@ -6,6 +6,7 @@ option go_package = "pb";
 
 package metainfo;
 
+import "encryption.proto";
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 import "node.proto";
@@ -14,6 +15,12 @@ import "orders.proto";
 
 // Metainfo it's a satellite RPC service
 service Metainfo {
+    rpc CreateBucket(BucketCreateRequest) returns (BucketCreateResponse);
+    rpc GetBucket(BucketGetRequest) returns (BucketGetResponse);
+    rpc DeleteBucket(BucketDeleteRequest) returns (BucketDeleteResponse);
+    rpc ListBuckets(BucketListRequest) returns (BucketListResponse);
+    rpc SetBucketAttribution(BucketSetAttributionRequest) returns (BucketSetAttributionResponse);
+
     rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
@@ -22,6 +29,71 @@ service Metainfo {
     rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
     rpc SetAttribution(SetAttributionRequest) returns (SetAttributionResponse);
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
+}
+
+message BucketItem {
+    bytes                  name = 1;
+    encryption.CipherSuite path_cipher = 2;
+    bytes                  attribution_id = 3;
+
+    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    int64                           default_segment_size = 5;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 6;
+    encryption.EncryptionParameters default_encryption_parameters = 7;
+}
+
+message BucketListItem {
+    bytes             name = 1;
+
+    google.protobuf.Timestamp created_at = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message BucketCreateRequest {
+    bytes                  name = 1;
+    encryption.CipherSuite path_cipher = 2;
+    bytes                  attribution_id = 3;
+
+    int64                           default_segment_size = 4;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
+    encryption.EncryptionParameters default_encryption_parameters = 6;
+}
+
+message BucketCreateResponse {
+    BucketItem bucket = 1;
+}
+
+message BucketGetRequest {
+    bytes name = 1;
+}
+
+message BucketGetResponse {
+    BucketItem bucket = 1;
+}
+
+message BucketDeleteRequest {
+    bytes name = 1;
+}
+
+message BucketDeleteResponse {
+}
+
+message BucketListRequest {
+    bytes cursor = 1;
+    int32 limit = 2;
+}
+
+message BucketListResponse {
+  repeated BucketListItem items = 1;
+  bool                    more = 2;
+}
+
+message BucketSetAttributionRequest {
+    bytes name = 1;
+    bytes attribution_id = 2;
+}
+
+message BucketSetAttributionResponse {
 }
 
 message AddressedOrderLimit {
