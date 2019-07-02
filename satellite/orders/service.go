@@ -174,6 +174,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			Action:           pb.PieceAction_GET,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -241,6 +242,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 			Action:           pb.PieceAction_PUT,
 			Limit:            maxPieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -325,6 +327,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			Action:           pb.PieceAction_DELETE,
 			Limit:            0,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -413,6 +416,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			Action:           pb.PieceAction_GET_AUDIT,
 			Limit:            int64(shareSize),
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -484,6 +488,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		PieceId:          rootPieceID.Derive(nodeID),
 		Action:           pb.PieceAction_GET_AUDIT,
 		Limit:            int64(shareSize),
+		OrderCreation:    time.Now(),
 		OrderExpiration:  orderExpiration,
 	})
 	if err != nil {
@@ -568,6 +573,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			Action:           pb.PieceAction_GET_REPAIR,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -647,6 +653,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			Action:           pb.PieceAction_PUT_REPAIR,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
