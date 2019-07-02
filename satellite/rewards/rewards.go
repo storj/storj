@@ -92,6 +92,12 @@ type Offer struct {
 	Type   OfferType
 }
 
+// IsEmpty evaluates whether or not an on offer is empty
+func (o Offer) IsEmpty() bool {
+	var emptyOffer Offer
+	return o == emptyOffer
+}
+
 // Offers contains a slice of offers.
 type Offers []Offer
 

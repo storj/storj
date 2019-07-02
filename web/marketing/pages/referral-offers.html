@@ -17,7 +17,7 @@ See LICENSE for copying information. -->
         <p class="offer-type">Default&nbsp;Offer</p>
     </div>
     {{$defaultOffer := .ReferralOffers.Default}}
-    {{if $defaultOffer.Name}}
+    {{if not $defaultOffer.IsEmpty}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
         <div class="col">${{$defaultOffer.InviteeCredit}}</div> 
@@ -33,7 +33,7 @@ See LICENSE for copying information. -->
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
     {{$currentOffer := .ReferralOffers.Active}}
-    {{if $currentOffer.Name}}
+    {{if not $currentOffer.IsEmpty}}
         <div class="row data-row">
             <div class="col ml-3">{{$currentOffer.Name}}</div>
             <div class="col">${{$currentOffer.InviteeCredit}}</div> 
