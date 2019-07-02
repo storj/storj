@@ -46,10 +46,12 @@ func newTestRoutingTable(ctx context.Context, local *overlay.NodeDossier, opts r
 
 		mutex:            &sync.Mutex{},
 		rcMutex:          &sync.Mutex{},
+		acMutex:          &sync.Mutex{},
 		replacementCache: make(map[bucketID][]*pb.Node),
 
 		bucketSize:   opts.bucketSize,
 		rcBucketSize: opts.cacheSize,
+		antechamber:  storelogger.New(zap.L().Named("rt.antechamber"), teststore.New()),
 	}
 	ok, err := rt.addNode(ctx, &local.Node)
 	if !ok || err != nil {
@@ -262,31 +264,77 @@ func TestRemoveNode(t *testing.T) {
 	defer ctx.Cleanup()
 	rt := createRoutingTable(ctx, teststorj.NodeIDFromString("AA"))
 	defer ctx.Check(rt.Close)
+	// Add node to RT
 	kadBucketID := firstBucketID
 	node := teststorj.MockNode("BB")
 	ok, err := rt.addNode(ctx, node)
 	assert.True(t, ok)
 	assert.NoError(t, err)
+
+	// make sure node is in RT
 	val, err := rt.nodeBucketDB.Get(ctx, node.Id.Bytes())
 	assert.NoError(t, err)
 	assert.NotNil(t, val)
+
+	// Add node2 to the replacement cache
 	node2 := teststorj.MockNode("CC")
 	rt.addToReplacementCache(kadBucketID, node2)
+
+	// remove node from RT
 	err = rt.removeNode(ctx, node)
 	assert.NoError(t, err)
+
+	// make sure node is removed
 	val, err = rt.nodeBucketDB.Get(ctx, node.Id.Bytes())
 	assert.Nil(t, val)
 	assert.Error(t, err)
+
+	// make sure node2 was moved from the replacement cache to the RT
 	val2, err := rt.nodeBucketDB.Get(ctx, node2.Id.Bytes())
 	assert.NoError(t, err)
 	assert.NotNil(t, val2)
 	assert.Equal(t, 0, len(rt.replacementCache[kadBucketID]))
 
-	//try to remove node not in rt
+	// Add node to replacement cache
+	rt.addToReplacementCache(kadBucketID, node)
+	assert.Equal(t, 1, len(rt.replacementCache[kadBucketID]))
+
+	// check it was removed from replacement cache
+	err = rt.removeNode(ctx, node)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(rt.replacementCache[kadBucketID]))
+
+	// Add node to antechamber
+	err = rt.antechamberAddNode(ctx, node)
+	assert.NoError(t, err)
+	val, err = rt.antechamber.Get(ctx, node.Id.Bytes())
+	assert.NoError(t, err)
+	assert.NotNil(t, val)
+
+	// check it was removed from antechamber
+	err = rt.removeNode(ctx, node)
+	assert.NoError(t, err)
+	val, err = rt.antechamber.Get(ctx, node.Id.Bytes())
+	assert.True(t, storage.ErrKeyNotFound.Has(err))
+	assert.Nil(t, val)
+
+	// remove a node that's not in rt, replacement cache, nor antechamber
+	node3 := teststorj.MockNode("DD")
+	err = rt.removeNode(ctx, node3)
+	assert.NoError(t, err)
+
+	// don't remove node with mismatched address
+	node4 := teststorj.MockNode("EE")
+	ok, err = rt.addNode(ctx, node4)
+	assert.True(t, ok)
+	assert.NoError(t, err)
 	err = rt.removeNode(ctx, &pb.Node{
-		Id:      teststorj.NodeIDFromString("DD"),
+		Id:      teststorj.NodeIDFromString("EE"),
 		Address: &pb.NodeAddress{Address: "address:1"},
 	})
+	assert.NoError(t, err)
+	val, err = rt.nodeBucketDB.Get(ctx, node4.Id.Bytes())
+	assert.NotNil(t, val)
 	assert.NoError(t, err)
 }
 

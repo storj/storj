@@ -11,17 +11,17 @@ pipeline {
     }
     stages {
         stage('Start') {
-          steps {
-            gerritReview message: 'Building'
-            sh 'python ./scripts/gerrit-cla.py'
-          }
+            steps {
+                gerritReview message: 'Building'
+                sh 'python ./scripts/gerrit-cla.py'
+            }
         }
 
         stage('Build') {
             steps {
                 checkout scm
 
-                sh 'mkdir .build'
+                sh 'mkdir -p .build'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
@@ -40,12 +40,13 @@ pipeline {
                 stage('Lint') {
                     steps {
                         sh 'go run ./scripts/check-copyright.go'
+                        sh 'go run ./scripts/check-large-files.go'
                         sh 'go run ./scripts/check-imports.go -race ./...'
                         sh 'go run ./scripts/check-peer-constraints.go -race -fail=false'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc lint'
                         sh 'go run ./scripts/protobuf.go --protoc=$HOME/protoc/bin/protoc check-lock'
                         sh 'bash ./scripts/check-dbx-version.sh'
-                        sh 'golangci-lint -j=4 run'
+                        sh 'golangci-lint -j=2 run'
                         sh 'go run scripts/check-mod-tidy.go -mod .build/go.mod.orig'
                         sh 'make check-satellite-config-lock'
                     }
