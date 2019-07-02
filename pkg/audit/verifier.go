@@ -178,7 +178,10 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
 	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
-	verifier.RemoveFailedPieces(ctx, stripe, failedNodes)
+	err = verifier.RemoveFailedPieces(ctx, stripe, failedNodes)
+	if err != nil {
+		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Error(err))
+	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
 
@@ -419,7 +422,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 		}
 	}
 	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
-	verifier.RemoveFailedPieces(ctx, stripe, report.Fails)
+	err = verifier.RemoveFailedPieces(ctx, stripe, report.Fails)
+	if err != nil {
+		verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Error(err))
+	}
 
 	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
 	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))
