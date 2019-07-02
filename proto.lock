@@ -2376,16 +2376,6 @@
                 "type": "google.protobuf.Timestamp"
               },
               {
-                "id": 10,
-                "name": "satellite_signature",
-                "type": "bytes"
-              },
-              {
-                "id": 11,
-                "name": "satellite_address",
-                "type": "node.NodeAddress"
-              },
-              {
                 "id": 12,
                 "name": "order_creation",
                 "type": "google.protobuf.Timestamp",
@@ -2399,6 +2389,16 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 10,
+                "name": "satellite_signature",
+                "type": "bytes"
+              },
+              {
+                "id": 11,
+                "name": "satellite_address",
+                "type": "node.NodeAddress"
               }
             ]
           },
