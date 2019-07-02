@@ -164,8 +164,8 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 		Action:          action,
 		Limit:           dataSize.Int64(),
 		PieceExpiration: nil,
-		OrderExpiration: orderExpiration,
 		OrderCreation:   time.Now().UTC(),
+		OrderExpiration: orderExpiration,
 	}
 
 	limit, err = signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)

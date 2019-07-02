@@ -40,14 +40,13 @@ message OrderLimit {
 
     google.protobuf.Timestamp piece_expiration = 8;
     google.protobuf.Timestamp order_expiration = 9;
+    google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes satellite_signature = 10;
 
     // satellites aren't necessarily discoverable in kademlia. this allows
     // a storage node to find a satellite and handshake with it to get its key.
     node.NodeAddress satellite_address = 11;
-
-    google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 // Order is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber

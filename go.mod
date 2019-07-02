@@ -81,6 +81,7 @@ require (
 	github.com/nats-io/nats v1.6.0 // indirect
 	github.com/nats-io/nats-streaming-server v0.12.2 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
+	github.com/nilslice/protolock v0.12.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/onsi/ginkgo v1.7.0 // indirect
