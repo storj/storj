@@ -59,7 +59,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	// override is required because the default value of Enc.KeyFilepath is ""
 	// and setting the value directly in setupCfg.Enc.KeyFiletpathon will set the
 	// value in the config file but commented out.
-	usedEncryptionKeyFilepath := setupCfg.Enc.KeyFilepath
+	usedEncryptionKeyFilepath := setupCfg.Legacy.Enc.KeyFilepath
 	if usedEncryptionKeyFilepath == "" {
 		usedEncryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
 	}
@@ -76,8 +76,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 // encryptionKeyFilepath should be set to the filepath indicated by the user or
 // or to a default path whose directory tree exists.
 func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
-	if setupCfg.Enc.EncryptionKey != "" {
-		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+	if setupCfg.Legacy.Enc.EncryptionKey != "" {
+		err := setup.SaveEncryptionKey(setupCfg.Legacy.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 		return err
 	}
 
-	if setupCfg.Enc.EncryptionKey != "" {
+	if setupCfg.Legacy.Enc.EncryptionKey != "" {
 		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
 	}
 

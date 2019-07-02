@@ -42,17 +42,15 @@ func TestLoadEncryptionAccess(t *testing.T) {
 		filename, cleanup := saveRawCtx(access)
 		defer cleanup()
 
-		gotCtx, err := setup.LoadEncryptionAccess(context.Background(), uplink.EncryptionConfig{
-			EncAccessFilepath: filename,
-		})
+		cfg := uplink.Legacy{}
+		cfg.Enc.EncAccessFilepath = filename
+		gotCtx, err := setup.LoadEncryptionAccess(context.Background(), cfg)
 		require.NoError(t, err)
 		require.Equal(t, access, gotCtx)
 	})
 
 	t.Run("ok: empty filepath", func(t *testing.T) {
-		gotCtx, err := setup.LoadEncryptionAccess(context.Background(), uplink.EncryptionConfig{
-			EncAccessFilepath: "",
-		})
+		gotCtx, err := setup.LoadEncryptionAccess(context.Background(), uplink.Legacy{})
 
 		require.NoError(t, err)
 		require.NotNil(t, gotCtx)
@@ -63,9 +61,9 @@ func TestLoadEncryptionAccess(t *testing.T) {
 		defer ctx.Cleanup()
 		filename := ctx.File("encryption.ctx")
 
-		_, err := setup.LoadEncryptionAccess(context.Background(), uplink.EncryptionConfig{
-			EncAccessFilepath: filename,
-		})
+		cfg := uplink.Legacy{}
+		cfg.Enc.EncAccessFilepath = filename
+		_, err := setup.LoadEncryptionAccess(context.Background(), cfg)
 		require.Error(t, err)
 	})
 }

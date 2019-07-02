@@ -122,9 +122,9 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// override is required because the default value of Enc.KeyFilepath is ""
-	// and setting the value directly in setupCfg.Enc.KeyFiletpath will set the
+	// and setting the value directly in setupCfg.Legacy.Enc.KeyFiletpath will set the
 	// value in the config file but commented out.
-	encryptionKeyFilepath := setupCfg.Enc.KeyFilepath
+	encryptionKeyFilepath := setupCfg.Legacy.Enc.KeyFilepath
 	if encryptionKeyFilepath == "" {
 		encryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
 		overrides["enc.key-filepath"] = encryptionKeyFilepath
@@ -233,7 +233,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	access, err := setup.LoadEncryptionAccess(ctx, flags.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, flags.Legacy)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
-	apiKey, err := libuplink.ParseAPIKey(flags.Client.APIKey)
+	apiKey, err := libuplink.ParseAPIKey(flags.Legacy.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 		return nil, err
 	}
 
-	return uplk.OpenProject(ctx, flags.Client.SatelliteAddr, apiKey)
+	return uplk.OpenProject(ctx, flags.Legacy.Client.SatelliteAddr, apiKey)
 }
 
 // interactive creates the configuration of the gateway interactively.
@@ -330,7 +330,6 @@ Some things to try next:
 	}
 
 	return nil
-
 }
 
 // nonInteractive creates the configuration of the gateway non-interactively.
@@ -340,8 +339,8 @@ Some things to try next:
 func (flags GatewayFlags) nonInteractive(
 	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
 ) error {
-	if setupCfg.Enc.EncryptionKey != "" {
-		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+	if setupCfg.Legacy.Enc.EncryptionKey != "" {
+		err := setup.SaveEncryptionKey(setupCfg.Legacy.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -352,7 +351,7 @@ func (flags GatewayFlags) nonInteractive(
 		return Error.Wrap(err)
 	}
 
-	if setupCfg.Enc.EncryptionKey != "" {
+	if setupCfg.Legacy.Enc.EncryptionKey != "" {
 		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
 	}
 

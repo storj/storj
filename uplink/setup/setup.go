@@ -24,20 +24,20 @@ var (
 )
 
 // LoadEncryptionAccess loads an EncryptionAccess from the values specified in the encryption config.
-func LoadEncryptionAccess(ctx context.Context, cfg uplink.EncryptionConfig) (_ *libuplink.EncryptionAccess, err error) {
+func LoadEncryptionAccess(ctx context.Context, cfg uplink.Legacy) (_ *libuplink.EncryptionAccess, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if cfg.EncAccessFilepath != "" {
-		data, err := ioutil.ReadFile(cfg.EncAccessFilepath)
+	if cfg.Enc.EncAccessFilepath != "" {
+		data, err := ioutil.ReadFile(cfg.Enc.EncAccessFilepath)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
 		return libuplink.ParseEncryptionAccess(strings.TrimSpace(string(data)))
 	}
 
-	data := []byte(cfg.EncryptionKey)
-	if cfg.KeyFilepath != "" {
-		data, err = ioutil.ReadFile(cfg.KeyFilepath)
+	data := []byte(cfg.Enc.EncryptionKey)
+	if cfg.Enc.KeyFilepath != "" {
+		data, err = ioutil.ReadFile(cfg.Enc.KeyFilepath)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
