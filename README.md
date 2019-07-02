@@ -39,11 +39,10 @@ See the breakdown of what we're building by checking out the following resources
 
  * [White paper](https://storj.io/whitepaper)
  * [Aha! Roadmap](https://storjlabs.aha.io/published/01ee405b4bd8d14208c5256d70d73a38)
- * [Jira Issues](https://storjlabs.atlassian.net/projects/V3)
 
 ### Install required packages
 
-To get started running Storj locally, download and install the latest release of Go (at least Go 1.11) at [golang.org](https://golang.org).
+To get started running Storj locally, download and install the latest release of Go (at least Go 1.12) at [golang.org](https://golang.org).
 
 You will also need [Git](https://git-scm.com/). (`brew install git`, `apt-get install git`, etc).
 If you're building on Windows, you also need to install and have [gcc](https://gcc.gnu.org/install/binaries.html) setup correctly.
