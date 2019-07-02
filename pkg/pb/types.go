@@ -19,3 +19,6 @@ type PieceID = storj.PieceID
 
 // SerialNumber is an alias to storj.SerialNumber for use in generated protobuf code
 type SerialNumber = storj.SerialNumber
+
+// StreamID is an alias to storj.StreamID for use in generated protobuf code
+type StreamID = storj.StreamID

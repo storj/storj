@@ -200,7 +200,7 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 		}
 	}
 
-	metainfo, streams, cleanup, err := DialMetainfo(ctx, config, uplink.Identity)
+	metainfo, streams, cleanup, err := DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 // DownloadStream returns stream for downloading data.
 func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, func() error, error) {
 	config := uplink.GetConfig(satellite)
-	metainfo, streams, cleanup, err := DialMetainfo(ctx, config, uplink.Identity)
+	metainfo, streams, cleanup, err := DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 	if err != nil {
 		return nil, func() error { return nil }, errs.Combine(err, cleanup())
 	}
@@ -300,7 +300,7 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 // Delete data to specific satellite
 func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
 	config := uplink.GetConfig(satellite)
-	metainfo, _, cleanup, err := DialMetainfo(ctx, config, uplink.Identity)
+	metainfo, _, cleanup, err := DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ func atLeastOne(value int) int {
 }
 
 // DialMetainfo returns a metainfo and streams store for the given configuration and identity.
-func DialMetainfo(ctx context.Context, config uplink.Config, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, cleanup func() error, err error) {
+func DialMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, cleanup func() error, err error) {
 	tlsOpts, err := tlsopts.NewOptions(identity, config.TLS)
 	if err != nil {
 		return nil, nil, cleanup, err
@@ -378,7 +378,7 @@ func DialMetainfo(ctx context.Context, config uplink.Config, identity *identity.
 		return nil, nil, cleanup, errs.New("failed to create project: %v", err)
 	}
 
-	ec := ecclient.NewClient(tc, config.RS.MaxBufferMem.Int())
+	ec := ecclient.NewClient(log.Named("ecclient"), tc, config.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(config.RS.MinThreshold, config.RS.MaxThreshold)
 	if err != nil {
 		return nil, nil, cleanup, errs.New("failed to create erasure coding client: %v", err)

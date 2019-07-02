@@ -144,7 +144,7 @@ type Peer struct {
 
 	// services and endpoints
 	Kademlia struct {
-		kdb, ndb storage.KeyValueStore // TODO: move these into DB
+		kdb, ndb, adb storage.KeyValueStore // TODO: move these into DB
 
 		RoutingTable *kademlia.RoutingTable
 		Service      *kademlia.Kademlia
@@ -307,13 +307,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				return nil, err
 			}
 
-			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket)
+			dbs, err := boltdb.NewShared(dbpath, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
-			peer.Kademlia.kdb, peer.Kademlia.ndb = dbs[0], dbs[1]
+			peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb = dbs[0], dbs[1], dbs[2]
 
-			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, &config.RoutingTableConfig)
+			peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, peer.Kademlia.kdb, peer.Kademlia.ndb, peer.Kademlia.adb, &config.RoutingTableConfig)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
@@ -430,6 +430,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
+			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
 			config.Repairer.Interval,
@@ -572,6 +573,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.Rewards(),
 			pmService,
 			consoleConfig.PasswordCost,
 		)
@@ -614,7 +616,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
-			peer.DB.OverlayCache())
+			peer.DB.OverlayCache(),
+			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 	}
@@ -728,9 +731,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Overlay.Service.Close())
 	}
 
-	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil {
+	if peer.Kademlia.ndb != nil || peer.Kademlia.kdb != nil || peer.Kademlia.adb != nil {
 		errlist.Add(peer.Kademlia.kdb.Close())
 		errlist.Add(peer.Kademlia.ndb.Close())
+		errlist.Add(peer.Kademlia.adb.Close())
 	}
 
 	return errlist.Err()
