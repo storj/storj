@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -71,6 +72,11 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 		SkipPeerCAWhitelist: !cliCfg.TLS.UsePeerCAWhitelist,
 		PeerCAWhitelistPath: cliCfg.TLS.PeerCAWhitelistPath,
 	}
+
+	// We use longer timeouts for cmd/uplink to account for slower connections.
+	libuplinkCfg.Volatile.DialTimeout = time.Minute * 2
+	libuplinkCfg.Volatile.RequestTimeout = time.Minute * 2
+
 	return libuplink.NewUplink(ctx, libuplinkCfg)
 }
 
