@@ -5,20 +5,10 @@ package rewards
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	"storj.io/storj/internal/currency"
 )
-
-// ToCents converts USD credit amounts to cents.
-func ToCents(dollars int) int {
-	return dollars * 100
-}
-
-// ToDollars converts credit amounts in cents to USD.
-func ToDollars(cents int) string {
-	formattedAmount := fmt.Sprintf("%d.%d0", (cents / 100), (cents % 100))
-	return formattedAmount
-}
 
 // DB holds information about offer
 type DB interface {
@@ -34,8 +24,8 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	RedeemableCap int
 
@@ -83,8 +73,8 @@ type Offer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
