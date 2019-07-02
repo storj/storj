@@ -2765,6 +2765,21 @@
                 "type": "google.protobuf.Timestamp"
               },
               {
+                "id": 12,
+                "name": "order_creation",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
