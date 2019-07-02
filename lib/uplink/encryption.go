@@ -82,7 +82,7 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 	}
 
 	caveat := macaroon.Caveat{}
-	encCtx := NewEncryptionAccess()
+	access := NewEncryptionAccess()
 
 	for _, res := range restrictions {
 		unencPath := paths.NewUnencrypted(res.PathPrefix)
@@ -97,7 +97,7 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 			return APIKey{}, nil, err
 		}
 
-		if err := encCtx.store.Add(res.Bucket, unencPath, encPath, *derivedKey); err != nil {
+		if err := access.store.Add(res.Bucket, unencPath, encPath, *derivedKey); err != nil {
 			return APIKey{}, nil, err
 		}
 		caveat.AllowedPaths = append(caveat.AllowedPaths, &macaroon.Caveat_Path{
@@ -111,11 +111,25 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 		return APIKey{}, nil, err
 	}
 
-	return apiKey, encCtx, nil
+	return apiKey, access, nil
 }
 
 // Serialize turns an EncryptionAccess into base58
 func (s *EncryptionAccess) Serialize() (string, error) {
+	p, err := s.toProto()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := proto.Marshal(p)
+	if err != nil {
+		return "", errs.New("unable to marshal encryption access: %v", err)
+	}
+
+	return base58.CheckEncode(data, 0), nil
+}
+
+func (s *EncryptionAccess) toProto() (*pb.EncryptionAccess, error) {
 	var storeEntries []*pb.EncryptionAccess_StoreEntry
 	err := s.store.Iterate(func(bucket string, unenc paths.Unencrypted, enc paths.Encrypted, key storj.Key) error {
 		storeEntries = append(storeEntries, &pb.EncryptionAccess_StoreEntry{
@@ -127,7 +141,7 @@ func (s *EncryptionAccess) Serialize() (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var defaultKey []byte
@@ -135,16 +149,10 @@ func (s *EncryptionAccess) Serialize() (string, error) {
 		defaultKey = key[:]
 	}
 
-	data, err := proto.Marshal(&pb.EncryptionAccess{
+	return &pb.EncryptionAccess{
 		DefaultKey:   defaultKey,
 		StoreEntries: storeEntries,
-	})
-	if err != nil {
-		return "", errs.New("unable to marshal encryption access: %v", err)
-	}
-
-	return base58.CheckEncode(data, 0), nil
-
+	}, nil
 }
 
 // ParseEncryptionAccess parses a base58 serialized encryption access into a working one.
@@ -159,15 +167,18 @@ func ParseEncryptionAccess(serialized string) (*EncryptionAccess, error) {
 		return nil, errs.New("unable to unmarshal encryption access: %v", err)
 	}
 
-	encCtx := NewEncryptionAccess()
+	return parseEncryptionAccessFromProto(p)
+}
 
+func parseEncryptionAccessFromProto(p *pb.EncryptionAccess) (*EncryptionAccess, error) {
+	access := NewEncryptionAccess()
 	if len(p.DefaultKey) > 0 {
 		if len(p.DefaultKey) != len(storj.Key{}) {
 			return nil, errs.New("invalid default key in encryption access")
 		}
 		var defaultKey storj.Key
 		copy(defaultKey[:], p.DefaultKey)
-		encCtx.SetDefaultKey(defaultKey)
+		access.SetDefaultKey(defaultKey)
 	}
 
 	for _, entry := range p.StoreEntries {
@@ -177,7 +188,7 @@ func ParseEncryptionAccess(serialized string) (*EncryptionAccess, error) {
 		var key storj.Key
 		copy(key[:], entry.Key)
 
-		err := encCtx.store.Add(
+		err := access.store.Add(
 			string(entry.Bucket),
 			paths.NewUnencrypted(string(entry.UnencryptedPath)),
 			paths.NewEncrypted(string(entry.EncryptedPath)),
@@ -187,5 +198,5 @@ func ParseEncryptionAccess(serialized string) (*EncryptionAccess, error) {
 		}
 	}
 
-	return encCtx, nil
+	return access, nil
 }

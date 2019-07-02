@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -77,24 +76,36 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 		Log: log,
 	}
 
-	// Convert each Service's Version String to List of SemVer
-	bootstrapVersions := strings.Split(config.Versions.Bootstrap, ",")
-	peer.Versions.Bootstrap, err = version.StrToSemVerList(bootstrapVersions)
+	// Convert each Service's Version String to SemVer
+	peer.Versions.Bootstrap, err = version.NewSemVer(config.Versions.Bootstrap)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	satelliteVersions := strings.Split(config.Versions.Satellite, ",")
-	peer.Versions.Satellite, err = version.StrToSemVerList(satelliteVersions)
+	peer.Versions.Satellite, err = version.NewSemVer(config.Versions.Satellite)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	storagenodeVersions := strings.Split(config.Versions.Storagenode, ",")
-	peer.Versions.Storagenode, err = version.StrToSemVerList(storagenodeVersions)
+	peer.Versions.Storagenode, err = version.NewSemVer(config.Versions.Storagenode)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	uplinkVersions := strings.Split(config.Versions.Uplink, ",")
-	peer.Versions.Uplink, err = version.StrToSemVerList(uplinkVersions)
+	peer.Versions.Uplink, err = version.NewSemVer(config.Versions.Uplink)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	gatewayVersions := strings.Split(config.Versions.Gateway, ",")
-	peer.Versions.Gateway, err = version.StrToSemVerList(gatewayVersions)
+	peer.Versions.Gateway, err = version.NewSemVer(config.Versions.Gateway)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	identityVersions := strings.Split(config.Versions.Identity, ",")
-	peer.Versions.Identity, err = version.StrToSemVerList(identityVersions)
+	peer.Versions.Identity, err = version.NewSemVer(config.Versions.Identity)
+	if err != nil {
+		return &Peer{}, err
+	}
 
 	peer.response, err = json.Marshal(peer.Versions)
 
