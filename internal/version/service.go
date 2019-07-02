@@ -110,10 +110,10 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	}
 
 	minimum := getFieldString(&accepted, srv.service)
-	zap.S().Debugf("allowed versions from Control Server: %v", allowed)
+	zap.S().Debugf("allowed versions from control server: %v", minimum)
 
-	if minimum == *new(SemVer) {
-		zap.S().Errorf("No Version from Versioning Server, accepting to run")
+	if minimum.String() == "" {
+		zap.S().Errorf("no version from control server, accepting to run")
 		return true
 	}
 	if matchesVersion(srv.info.Version, minimum) {
