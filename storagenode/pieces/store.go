@@ -38,6 +38,7 @@ type Info struct {
 
 	PieceID         storj.PieceID
 	PieceSize       int64
+	PieceCreation   *time.Time
 	PieceExpiration *time.Time
 
 	UplinkPieceHash *pb.PieceHash

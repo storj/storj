@@ -146,7 +146,6 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrProtocol.New("expected order limit as the first message")
 	}
 	limit := message.Limit
-
 	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 
 	// TODO: verify that we have have expected amount of storage before continuing
@@ -289,6 +288,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 					PieceID:         limit.PieceId,
 					PieceSize:       pieceWriter.Size(),
+					PieceCreation:   &limit.OrderCreation,
 					PieceExpiration: expiration,
 
 					UplinkPieceHash: message.Done,

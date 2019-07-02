@@ -212,6 +212,13 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				Description: "Add creation date.",
+				Version:     6,
+				Action: migrate.SQL{
+					`ALTER TABLE pieceinfo ADD COLUMN creation_date TIMESTAMP`,
+				},
+			},
 		},
 	}
 }

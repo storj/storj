@@ -42,9 +42,9 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
-			pieceinfo(satellite_id, piece_id, piece_size, piece_expiration, uplink_piece_hash, uplink_cert_id)
+			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceExpiration, uplinkPieceHash, certid)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, uplinkPieceHash, certid)
 
 	return ErrInfo.Wrap(err)
 }
@@ -61,11 +61,11 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 
 	db.mu.Lock()
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
-		SELECT piece_size, piece_expiration, uplink_piece_hash, certificate.peer_identity
+		SELECT piece_size, piece_creation, piece_expiration, uplink_piece_hash, certificate.peer_identity
 		FROM pieceinfo
 		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
 		WHERE satellite_id = ? AND piece_id = ?
-	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
+	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
 	db.mu.Unlock()
 
 	if err != nil {
