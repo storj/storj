@@ -20,7 +20,7 @@ the link sharing service is adequately protected. See
 
 The file hosting service handles requests of the following form:
 
-`GET /<scope-blob>/bucket/path/within/bucket`
+`GET /<scope-blob>/<bucket>/<bucket path>`
 
 The `scope-blob` is base58 encoding of a `Scope` protobuf, which
 is defined as follows:
