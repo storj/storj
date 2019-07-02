@@ -100,8 +100,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	psCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	start := time.Now()
-
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
 			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, readers[i], expiration)
@@ -112,7 +110,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	successfulNodes = make([]*pb.Node, len(limits))
 	successfulHashes = make([]*pb.PieceHash, len(limits))
 	var successfulCount int32
-	var timer *time.Timer
 
 	for range limits {
 		info := <-infos
@@ -132,33 +129,12 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		}
 		successfulHashes[info.i] = info.hash
 
-		switch int(atomic.AddInt32(&successfulCount, 1)) {
-		case rs.OptimalThreshold():
-			ec.log.Sugar().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-			if timer != nil {
-				timer.Stop()
-			}
+		atomic.AddInt32(&successfulCount, 1)
+
+		if int(successfulCount) >= rs.OptimalThreshold() {
+			ec.log.Sugar().Infof("Success threshold (%d nodes) reached. Cancelling remaining uploads.", rs.OptimalThreshold())
 			cancel()
-		case rs.RepairThreshold() + 1:
-			elapsed := time.Since(start)
-			more := elapsed * 3 / 2
-
-			ec.log.Sugar().Debugf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
-				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
-
-			timer = time.AfterFunc(more, func() {
-				if ctx.Err() != context.Canceled {
-					ec.log.Sugar().Debugf("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
-					cancel()
-				}
-			})
 		}
-	}
-
-	// Ensure timer is stopped in the case of repair threshold is reached, but
-	// not the success threshold due to errors instead of slowness.
-	if timer != nil {
-		timer.Stop()
 	}
 
 	defer func() {
@@ -174,8 +150,13 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}()
 
 	successes := int(atomic.LoadInt32(&successfulCount))
-	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
+	if successes <= rs.RepairThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
+	}
+
+	// TODO(moby) do we return an error?
+	if successes < rs.OptimalThreshold() {
+		ec.log.Sugar().Errorf("successful puts (%d) less than or equal to success threshold (%d)", successes, rs.OptimalThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
