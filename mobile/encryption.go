@@ -29,6 +29,12 @@ func (e *EncryptionAccess) SetDefaultKey(keyData []byte) error {
 	return nil
 }
 
+// Serialize returns a base58-serialized encryption access for use with later
+// parsing.
+func (e *EncryptionAccess) Serialize() (b58data string, err error) {
+	return e.lib.Serialize()
+}
+
 // ParseEncryptionAccess parses the base58 encoded encryption context data and
 // returns the resulting context.
 func ParseEncryptionAccess(b58data string) (*EncryptionAccess, error) {
