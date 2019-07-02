@@ -697,7 +697,10 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 	}
 
 	// Cleanup containment table too
-	tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
+	_, err = tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
+	if err != nil {
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
 
 	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
