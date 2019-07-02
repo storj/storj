@@ -177,7 +177,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
-	//remove failed audi t pieces from the pointer so as to only penalize once for failed audits
+	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
 	verifier.RemoveFailedPieces(ctx, stripe, failedNodes)
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
@@ -418,7 +418,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 			err = errs.Combine(err, result.err)
 		}
 	}
-	//remove failed audi t pieces from the pointer so as to only penalize once for failed audits
+	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
 	verifier.RemoveFailedPieces(ctx, stripe, report.Fails)
 
 	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
@@ -501,7 +501,7 @@ func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, stripe *Stripe
 	for i, piece := range remoteSegment.GetRemotePieces() {
 		for _, failedPiece := range failedPieces {
 			if piece.NodeId == failedPiece {
-				remoteSegment.RemotePieces = append(remoteSegment.RemotePieces[0:i], remoteSegment.RemotePieces[i+1:]...)
+				remoteSegment.RemotePieces = append(remoteSegment.RemotePieces[:i], remoteSegment.RemotePieces[i+1:]...)
 			}
 		}
 	}
