@@ -95,8 +95,8 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		}
 
 		var info orders.Info
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
@@ -149,8 +149,8 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		}
 
 		var info orders.Info
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
@@ -240,8 +240,8 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		}
 
 		var info orders.ArchivedInfo
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		info.Status = orders.Status(status)
 		info.ArchivedAt = archivedAt
