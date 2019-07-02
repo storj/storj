@@ -60,7 +60,6 @@ func TestGetSignee(t *testing.T) {
 	assert.NoError(t, group.Wait())
 }
 
-
 func TestGetAddress(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
