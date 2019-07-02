@@ -34,7 +34,7 @@ type Pool struct {
 
 // satelliteInfoCache caches identity information about a satellite
 type satelliteInfoCache struct {
-	mu       sync.Mutex
+	mu       sync.RWMutex
 	identity *identity.PeerIdentity
 }
 
@@ -127,18 +127,26 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 		}
 	}
 
-	info.mu.Lock()
-	defer info.mu.Unlock()
+	info.mu.RLock()
+	identity := info.identity
+	info.mu.RUnlock()
 
-	if info.identity == nil {
-		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
-		if err != nil {
-			return nil, Error.Wrap(err)
+	if identity == nil {
+		info.mu.Lock()
+		defer info.mu.Unlock()
+
+		// Check to see if another goroutine has won
+		identity = info.identity
+		if identity == nil {
+			identity, err = pool.kademlia.FetchPeerIdentity(ctx, id)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			info.identity = identity
 		}
-		info.identity = identity
 	}
 
-	return signing.SigneeFromPeerIdentity(info.identity), nil
+	return signing.SigneeFromPeerIdentity(identity), nil
 }
 
 // GetSatellites returns a slice containing all trusted satellites
