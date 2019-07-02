@@ -430,6 +430,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			config.Checker.IrreparableInterval)
 
 		peer.Repair.Repairer = repairer.NewService(
+			peer.Log.Named("repairer"),
 			peer.DB.RepairQueue(),
 			&config.Repairer,
 			config.Repairer.Interval,
@@ -572,6 +573,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.Rewards(),
 			pmService,
 			consoleConfig.PasswordCost,
 		)
@@ -614,7 +616,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
-			peer.DB.OverlayCache())
+			peer.DB.OverlayCache(),
+			peer.DB.StoragenodeAccounting())
 
 		pb.RegisterNodeStatsServer(peer.Server.GRPC(), peer.NodeStats.Endpoint)
 	}
