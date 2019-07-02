@@ -178,25 +178,5 @@ func TestLibstorj(t *testing.T) {
 		} else {
 			t.Log(string(out))
 		}
-
-		//satelliteAddr := planet.Satellites[0].Addr()
-		//apiKey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
-		//require.NoError(t, err)
-		//
-		//cfg := uplink.Config{}
-		//cfg.Volatile.TLS.SkipPeerCAWhitelist = true
-		//up, err := uplink.NewUplink(ctx, &cfg)
-		//require.NoError(t, err)
-		//require.NotNil(t, up)
-		//
-		//project, err := up.OpenProject(ctx, satelliteAddr, apiKey)
-		//require.NoError(t, err)
-		//require.NotNil(t, project)
-		//
-		//buckets, err := project.ListBuckets(ctx, nil)
-		//require.NoError(t, err)
-		//require.NotEmpty(t, buckets)
-		//
-		//assert.Len(t, buckets.Items, 1)
 	})
 }
