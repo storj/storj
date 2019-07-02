@@ -5,7 +5,6 @@ package orders_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
@@ -47,9 +46,7 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, emptyArchive, 0)
 
-		now := time.Now()
-		nowTimestamp, err := ptypes.TimestampProto(now)
-		require.NoError(t, err)
+		now := ptypes.TimestampNow()
 
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
@@ -59,9 +56,8 @@ func TestOrders(t *testing.T) {
 			PieceId:         piece,
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
-			OrderCreation:   now.AddDate(0, 0, -1),
-			PieceExpiration: nowTimestamp,
-			OrderExpiration: nowTimestamp,
+			PieceExpiration: now,
+			OrderExpiration: now,
 		})
 		require.NoError(t, err)
 
