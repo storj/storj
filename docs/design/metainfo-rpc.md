@@ -292,6 +292,11 @@ message StreamID {
     bytes  encrypted_path = 2;
     int32  version = 3;
 
+    RedundancyScheme redundancy = 4;
+
+    google.protobuf.Timestamp creation_date = 6;
+    google.protobuf.Timestamp expiration_date = 7;
+
     bytes satellite_signature = 4;
 }
 
@@ -354,15 +359,26 @@ message SegmentListRequest {
 }
 
 message SegmentListResponse {
-    // TODO:
+    repeated SegmentListItem items = 1;
+    bool more = 2;
+}
+
+message SegmentListItem { // TODO: should we rename this to SegmentIndex and use it elsewhere?
+    int32 part_number = 1;
+    int32 index = 2;
 }
 
 message SegmentDownloadRequest {
-    // TODO:
+    bytes stream_id = 1;
+    int32 part_number = 2;
+    int32 index = 3;
+
+    SegmentListItem next = 4;
 }
 
 message SegmentDownloadResponse {
-    // TODO:
+    bytes    segment_id = 1;
+    repeated AddressedOrderLimit addressed_limits = 2;
 }
 
 message BatchRequest {
