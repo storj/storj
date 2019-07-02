@@ -21,18 +21,6 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
                         ) 
                 }
             `),
-            // mutation: gql(`
-            //     mutation {
-            //         project(
-            //             id: "${projectID}",
-            //         ){
-            //             addPaymentMethod(
-            //                 projectID: "${projectID}",
-            //                 cardToken: "${cardToken}"
-            //             )
-            //         }
-            //     }
-            // `),
             fetchPolicy: 'no-cache',
             errorPolicy: 'all'
         }
@@ -45,6 +33,37 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
     }
 
     return result;
+}
+
+export async function setDefaultPaymentMethodRequest(projectID: string, paymentID: string): Promise<RequestResponse<null>> {
+   let result: RequestResponse<null> = {
+       errorMessage: '',
+       isSuccess: false,
+       data: null
+   };
+
+   let response: any = await apollo.mutate(
+       {
+           mutation: gql(`
+                mutation {
+                    setDefaultPaymentMethod(
+                        projectID: "${projectID}",
+                        id: "${paymentID}"
+                    )
+                }
+           `),
+           fetchPolicy: 'no-cache',
+           errorPolicy: 'all'
+       }
+   );
+
+   if (response.errors) {
+       result.errorMessage = response.errors[0].message;
+   } else {
+       result.isSuccess = true;
+   }
+
+   return result;
 }
 
 // fetchProjectInvoices retrieves project invoices
@@ -61,12 +80,14 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
                 query {
                     project(id: "${projectID}") {
                         paymentMethods {
+                            id,
                             expYear,
                             expMonth,
                             brand,
                             lastFour,
                             holderName,
                             addedAt,
+                            isDefault
                         }
                     }
                 }`
@@ -75,7 +96,8 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
             errorPolicy: 'all'
         }
     );
-
+        console.log('fetch pm methods')
+    console.log(response)
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
     } else {

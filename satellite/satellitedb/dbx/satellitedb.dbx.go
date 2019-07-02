@@ -518,11 +518,13 @@ CREATE TABLE user_payments (
 	UNIQUE ( customer_id )
 );
 CREATE TABLE project_payments (
+	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 	payment_method_id bytea NOT NULL,
+	is_default boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( project_id )
+	PRIMARY KEY ( id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
@@ -839,11 +841,13 @@ CREATE TABLE user_payments (
 	UNIQUE ( customer_id )
 );
 CREATE TABLE project_payments (
+	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 	payment_method_id BLOB NOT NULL,
+	is_default INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( project_id )
+	PRIMARY KEY ( id )
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
@@ -4547,16 +4551,38 @@ func (f UserPayment_CreatedAt_Field) value() interface{} {
 func (UserPayment_CreatedAt_Field) _Column() string { return "created_at" }
 
 type ProjectPayment struct {
+	Id              []byte
 	ProjectId       []byte
 	PayerId         []byte
 	PaymentMethodId []byte
+	IsDefault       bool
 	CreatedAt       time.Time
 }
 
 func (ProjectPayment) _Table() string { return "project_payments" }
 
 type ProjectPayment_Update_Fields struct {
+	IsDefault ProjectPayment_IsDefault_Field
 }
+
+type ProjectPayment_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectPayment_Id(v []byte) ProjectPayment_Id_Field {
+	return ProjectPayment_Id_Field{_set: true, _value: v}
+}
+
+func (f ProjectPayment_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectPayment_Id_Field) _Column() string { return "id" }
 
 type ProjectPayment_ProjectId_Field struct {
 	_set   bool
@@ -4614,6 +4640,25 @@ func (f ProjectPayment_PaymentMethodId_Field) value() interface{} {
 }
 
 func (ProjectPayment_PaymentMethodId_Field) _Column() string { return "payment_method_id" }
+
+type ProjectPayment_IsDefault_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func ProjectPayment_IsDefault(v bool) ProjectPayment_IsDefault_Field {
+	return ProjectPayment_IsDefault_Field{_set: true, _value: v}
+}
+
+func (f ProjectPayment_IsDefault_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectPayment_IsDefault_Field) _Column() string { return "is_default" }
 
 type ProjectPayment_CreatedAt_Field struct {
 	_set   bool
@@ -5153,24 +5198,28 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 }
 
 func (obj *postgresImpl) Create_ProjectPayment(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
 	project_payment_project_id ProjectPayment_ProjectId_Field,
 	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field) (
+	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
+	project_payment_is_default ProjectPayment_IsDefault_Field) (
 	project_payment *ProjectPayment, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
+	__id_val := project_payment_id.value()
 	__project_id_val := project_payment_project_id.value()
 	__payer_id_val := project_payment_payer_id.value()
 	__payment_method_id_val := project_payment_payment_method_id.value()
+	__is_default_val := project_payment_is_default.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( project_id, payer_id, payment_method_id, created_at ) VALUES ( ?, ?, ?, ? ) RETURNING project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( id, project_id, payer_id, payment_method_id, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __project_id_val, __payer_id_val, __payment_method_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
 
 	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __project_id_val, __payer_id_val, __payment_method_id_val, __created_at_val).Scan(&project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6018,20 +6067,20 @@ func (obj *postgresImpl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Proje
 
 }
 
-func (obj *postgresImpl) Get_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
+func (obj *postgresImpl) Get_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
 
 	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
+	__values = append(__values, project_payment_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6039,14 +6088,14 @@ func (obj *postgresImpl) Get_ProjectPayment_By_ProjectId(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Get_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
+func (obj *postgresImpl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = true LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, project_payment_payer_id.value())
+	__values = append(__values, project_payment_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6065,13 +6114,13 @@ func (obj *postgresImpl) Get_ProjectPayment_By_PayerId(ctx context.Context,
 	}
 
 	project_payment = &ProjectPayment{}
-	err = __rows.Scan(&project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.CreatedAt)
+	err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("ProjectPayment_By_PayerId")
+		return nil, tooManyRows("ProjectPayment_By_ProjectId_And_IsDefault_Equal_True")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -6079,6 +6128,72 @@ func (obj *postgresImpl) Get_ProjectPayment_By_PayerId(ctx context.Context,
 	}
 
 	return project_payment, nil
+
+}
+
+func (obj *postgresImpl) All_ProjectPayment_By_ProjectId(ctx context.Context,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
+	rows []*ProjectPayment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_payment_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_payment := &ProjectPayment{}
+		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_payment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *postgresImpl) All_ProjectPayment_By_PayerId(ctx context.Context,
+	project_payment_payer_id ProjectPayment_PayerId_Field) (
+	rows []*ProjectPayment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_payment_payer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_payment := &ProjectPayment{}
+		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_payment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -7324,6 +7439,46 @@ func (obj *postgresImpl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
+func (obj *postgresImpl) Update_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
+	update ProjectPayment_Update_Fields) (
+	project_payment *ProjectPayment, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_payments SET "), __sets, __sqlbundle_Literal(" WHERE project_payments.id = ? RETURNING project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.IsDefault._set {
+		__values = append(__values, update.IsDefault.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_payment_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_payment = &ProjectPayment{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_payment, nil
+}
+
 func (obj *postgresImpl) Update_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
@@ -7695,6 +7850,32 @@ func (obj *postgresImpl) Delete_Project_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *postgresImpl) Delete_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_payment_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -8498,23 +8679,27 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 }
 
 func (obj *sqlite3Impl) Create_ProjectPayment(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
 	project_payment_project_id ProjectPayment_ProjectId_Field,
 	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field) (
+	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
+	project_payment_is_default ProjectPayment_IsDefault_Field) (
 	project_payment *ProjectPayment, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
+	__id_val := project_payment_id.value()
 	__project_id_val := project_payment_project_id.value()
 	__payer_id_val := project_payment_payer_id.value()
 	__payment_method_id_val := project_payment_payment_method_id.value()
+	__is_default_val := project_payment_is_default.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( project_id, payer_id, payment_method_id, created_at ) VALUES ( ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO project_payments ( id, project_id, payer_id, payment_method_id, is_default, created_at ) VALUES ( ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __project_id_val, __payer_id_val, __payment_method_id_val, __created_at_val)
+	obj.logStmt(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
 
-	__res, err := obj.driver.Exec(__stmt, __project_id_val, __payer_id_val, __payment_method_id_val, __created_at_val)
+	__res, err := obj.driver.Exec(__stmt, __id_val, __project_id_val, __payer_id_val, __payment_method_id_val, __is_default_val, __created_at_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9405,20 +9590,20 @@ func (obj *sqlite3Impl) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Projec
 
 }
 
-func (obj *sqlite3Impl) Get_ProjectPayment_By_ProjectId(ctx context.Context,
-	project_payment_project_id ProjectPayment_ProjectId_Field) (
+func (obj *sqlite3Impl) Get_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
 
 	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
+	__values = append(__values, project_payment_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9426,14 +9611,14 @@ func (obj *sqlite3Impl) Get_ProjectPayment_By_ProjectId(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Get_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
+func (obj *sqlite3Impl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ? LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = 1 LIMIT 2")
 
 	var __values []interface{}
-	__values = append(__values, project_payment_payer_id.value())
+	__values = append(__values, project_payment_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9452,13 +9637,13 @@ func (obj *sqlite3Impl) Get_ProjectPayment_By_PayerId(ctx context.Context,
 	}
 
 	project_payment = &ProjectPayment{}
-	err = __rows.Scan(&project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.CreatedAt)
+	err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
 
 	if __rows.Next() {
-		return nil, tooManyRows("ProjectPayment_By_PayerId")
+		return nil, tooManyRows("ProjectPayment_By_ProjectId_And_IsDefault_Equal_True")
 	}
 
 	if err := __rows.Err(); err != nil {
@@ -9466,6 +9651,72 @@ func (obj *sqlite3Impl) Get_ProjectPayment_By_PayerId(ctx context.Context,
 	}
 
 	return project_payment, nil
+
+}
+
+func (obj *sqlite3Impl) All_ProjectPayment_By_ProjectId(ctx context.Context,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
+	rows []*ProjectPayment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_payment_project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_payment := &ProjectPayment{}
+		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_payment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) All_ProjectPayment_By_PayerId(ctx context.Context,
+	project_payment_payer_id ProjectPayment_PayerId_Field) (
+	rows []*ProjectPayment, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.payer_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_payment_payer_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.Query(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		project_payment := &ProjectPayment{}
+		err = __rows.Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, project_payment)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -10771,6 +11022,56 @@ func (obj *sqlite3Impl) Update_Project_By_Id(ctx context.Context,
 	return project, nil
 }
 
+func (obj *sqlite3Impl) Update_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
+	update ProjectPayment_Update_Fields) (
+	project_payment *ProjectPayment, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE project_payments SET "), __sets, __sqlbundle_Literal(" WHERE project_payments.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.IsDefault._set {
+		__values = append(__values, update.IsDefault.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("is_default = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, project_payment_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	project_payment = &ProjectPayment{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return project_payment, nil
+}
+
 func (obj *sqlite3Impl) Update_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field,
 	update ApiKey_Update_Fields) (
@@ -11200,6 +11501,32 @@ func (obj *sqlite3Impl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Delete_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field) (
+	deleted bool, err error) {
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_payment_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *sqlite3Impl) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 	project_member_member_id ProjectMember_MemberId_Field,
 	project_member_project_id ProjectMember_ProjectId_Field) (
@@ -11549,13 +11876,13 @@ func (obj *sqlite3Impl) getLastProjectPayment(ctx context.Context,
 	pk int64) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.created_at FROM project_payments WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	project_payment = &ProjectPayment{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.CreatedAt)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&project_payment.Id, &project_payment.ProjectId, &project_payment.PayerId, &project_payment.PaymentMethodId, &project_payment.IsDefault, &project_payment.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12202,6 +12529,26 @@ func (rx *Rx) All_ProjectMember_By_MemberId(ctx context.Context,
 	return tx.All_ProjectMember_By_MemberId(ctx, project_member_member_id)
 }
 
+func (rx *Rx) All_ProjectPayment_By_PayerId(ctx context.Context,
+	project_payment_payer_id ProjectPayment_PayerId_Field) (
+	rows []*ProjectPayment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ProjectPayment_By_PayerId(ctx, project_payment_payer_id)
+}
+
+func (rx *Rx) All_ProjectPayment_By_ProjectId(ctx context.Context,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
+	rows []*ProjectPayment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_ProjectPayment_By_ProjectId(ctx, project_payment_project_id)
+}
+
 func (rx *Rx) All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 	project_created_at_less Project_CreatedAt_Field) (
 	rows []*Project, err error) {
@@ -12501,15 +12848,17 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 }
 
 func (rx *Rx) Create_ProjectPayment(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
 	project_payment_project_id ProjectPayment_ProjectId_Field,
 	project_payment_payer_id ProjectPayment_PayerId_Field,
-	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field) (
+	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
+	project_payment_is_default ProjectPayment_IsDefault_Field) (
 	project_payment *ProjectPayment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_ProjectPayment(ctx, project_payment_project_id, project_payment_payer_id, project_payment_payment_method_id)
+	return tx.Create_ProjectPayment(ctx, project_payment_id, project_payment_project_id, project_payment_payer_id, project_payment_payment_method_id, project_payment_is_default)
 
 }
 
@@ -12710,6 +13059,16 @@ func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context
 		return
 	}
 	return tx.Delete_ProjectMember_By_MemberId_And_ProjectId(ctx, project_member_member_id, project_member_project_id)
+}
+
+func (rx *Rx) Delete_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_ProjectPayment_By_Id(ctx, project_payment_id)
 }
 
 func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
@@ -12930,24 +13289,24 @@ func (rx *Rx) Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx context.Con
 	return tx.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx, project_invoice_stamp_project_id, project_invoice_stamp_start_date)
 }
 
-func (rx *Rx) Get_ProjectPayment_By_PayerId(ctx context.Context,
-	project_payment_payer_id ProjectPayment_PayerId_Field) (
+func (rx *Rx) Get_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field) (
 	project_payment *ProjectPayment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ProjectPayment_By_PayerId(ctx, project_payment_payer_id)
+	return tx.Get_ProjectPayment_By_Id(ctx, project_payment_id)
 }
 
-func (rx *Rx) Get_ProjectPayment_By_ProjectId(ctx context.Context,
+func (rx *Rx) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
 	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	project_payment *ProjectPayment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Get_ProjectPayment_By_ProjectId(ctx, project_payment_project_id)
+	return tx.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, project_payment_project_id)
 }
 
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
@@ -13186,6 +13545,17 @@ func (rx *Rx) Update_PendingAudits_By_NodeId(ctx context.Context,
 	return tx.Update_PendingAudits_By_NodeId(ctx, pending_audits_node_id, update)
 }
 
+func (rx *Rx) Update_ProjectPayment_By_Id(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
+	update ProjectPayment_Update_Fields) (
+	project_payment *ProjectPayment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_ProjectPayment_By_Id(ctx, project_payment_id, update)
+}
+
 func (rx *Rx) Update_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field,
 	update Project_Update_Fields) (
@@ -13251,6 +13621,14 @@ type Methods interface {
 	All_ProjectMember_By_MemberId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*ProjectMember, err error)
+
+	All_ProjectPayment_By_PayerId(ctx context.Context,
+		project_payment_payer_id ProjectPayment_PayerId_Field) (
+		rows []*ProjectPayment, err error)
+
+	All_ProjectPayment_By_ProjectId(ctx context.Context,
+		project_payment_project_id ProjectPayment_ProjectId_Field) (
+		rows []*ProjectPayment, err error)
 
 	All_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field) (
@@ -13418,9 +13796,11 @@ type Methods interface {
 		project_member *ProjectMember, err error)
 
 	Create_ProjectPayment(ctx context.Context,
+		project_payment_id ProjectPayment_Id_Field,
 		project_payment_project_id ProjectPayment_ProjectId_Field,
 		project_payment_payer_id ProjectPayment_PayerId_Field,
-		project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field) (
+		project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
+		project_payment_is_default ProjectPayment_IsDefault_Field) (
 		project_payment *ProjectPayment, err error)
 
 	Create_RegistrationToken(ctx context.Context,
@@ -13509,6 +13889,10 @@ type Methods interface {
 	Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context,
 		project_member_member_id ProjectMember_MemberId_Field,
 		project_member_project_id ProjectMember_ProjectId_Field) (
+		deleted bool, err error)
+
+	Delete_ProjectPayment_By_Id(ctx context.Context,
+		project_payment_id ProjectPayment_Id_Field) (
 		deleted bool, err error)
 
 	Delete_Project_By_Id(ctx context.Context,
@@ -13602,11 +13986,11 @@ type Methods interface {
 		project_invoice_stamp_start_date ProjectInvoiceStamp_StartDate_Field) (
 		project_invoice_stamp *ProjectInvoiceStamp, err error)
 
-	Get_ProjectPayment_By_PayerId(ctx context.Context,
-		project_payment_payer_id ProjectPayment_PayerId_Field) (
+	Get_ProjectPayment_By_Id(ctx context.Context,
+		project_payment_id ProjectPayment_Id_Field) (
 		project_payment *ProjectPayment, err error)
 
-	Get_ProjectPayment_By_ProjectId(ctx context.Context,
+	Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx context.Context,
 		project_payment_project_id ProjectPayment_ProjectId_Field) (
 		project_payment *ProjectPayment, err error)
 
@@ -13713,6 +14097,11 @@ type Methods interface {
 		pending_audits_node_id PendingAudits_NodeId_Field,
 		update PendingAudits_Update_Fields) (
 		pending_audits *PendingAudits, err error)
+
+	Update_ProjectPayment_By_Id(ctx context.Context,
+		project_payment_id ProjectPayment_Id_Field,
+		update ProjectPayment_Update_Fields) (
+		project_payment *ProjectPayment, err error)
 
 	Update_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field,

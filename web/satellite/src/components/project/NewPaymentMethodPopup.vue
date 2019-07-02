@@ -44,36 +44,30 @@
 
     @Component(
         {
-            data: function(){
-                return{
-                }
-            },
-
             mounted: function () {
-                console.log("test");
                 if (!window["Stripe"]) {
-                    console.log("stripe v3 library not loaded!");
+                    console.error("stripe v3 library not loaded!");
 
                     return;
                 }
                 const stripe = window["Stripe"]("pk_test_bXKJTU49iu1dy9Al0iEqlfVc00Ze0m5lXT");
                 console.log(stripe)
                 if (!stripe) {
-                    console.log("unable to initialize stripe");
+                    console.error("unable to initialize stripe");
 
                     return;
                 }
 
                 const elements = stripe.elements();
                 if (!elements) {
-                    console.log("Unable to instantiate elements");
+                    console.error("Unable to instantiate elements");
 
                     return;
                 }
 
                 const card = elements.create("card");
                 if (!card) {
-                    console.log("unable to create card");
+                    console.error("unable to create card");
 
                     return;
                 }
@@ -93,16 +87,12 @@
                 let self = this;
                 form.addEventListener("submit", function (event) {
                     event.preventDefault();
-                    console.log("beforeCreate");
                     stripe.createToken(card).then(async function (result: any) {
-                        console.log("inside create callback")
-                        console.log(result)
                         if(result.token.card.funding == 'prepaid') {
                             self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards not supported')
                             return;
                         }
                         const response = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
-                        console.log(response);
                         if (!response.isSuccess){
                             self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
                         }

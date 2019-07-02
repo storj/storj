@@ -6,6 +6,7 @@ package localpayments
 import (
 	"context"
 	"crypto/rand"
+	"github.com/stripe/stripe-go"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -57,6 +58,10 @@ type DB interface {
 // service is internal payments.Service implementation
 type service struct {
 	db DB
+}
+
+func (*service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*stripe.PaymentMethod, error) {
+	panic("implement me")
 }
 
 // NewService create new instance of local payments service

@@ -3,7 +3,7 @@
 
 import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
 import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
-import { addProjectPaymentMethodRequest, fetchProjectPaymentMethods } from '@/api/paymentMethods';
+import { addProjectPaymentMethodRequest, fetchProjectPaymentMethods, setDefaultPaymentMethodRequest } from '@/api/paymentMethods';
 
 export const projectPaymentsMethodsModule = {
     state: {
@@ -35,6 +35,11 @@ export const projectPaymentsMethodsModule = {
         },
         [PROJECT_PAYMENT_METHODS_ACTIONS.CLEAR]: function({commit}) {
             commit(PROJECT_PAYMENT_METHODS_MUTATIONS.CLEAR)
+        },
+        [PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT]: async function({commit, rootGetters}, projectPaymentID: string) {
+            const projectID = rootGetters.selectedProject.id;
+
+            return await setDefaultPaymentMethodRequest(projectID, projectPaymentID);
         }
     },
 };

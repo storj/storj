@@ -77,3 +77,8 @@ export const APP_STATE_MUTATIONS = {
     CLOSE_ALL: 'CLOSE_ALL',
     CHANGE_STATE: 'CHANGE_STATE',
 };
+
+export const PROJECT_PAYMENT_METHODS_MUTATIONS = {
+    FETCH: 'FETCH',
+    CLEAR: 'CLEAR',
+};

@@ -90,6 +90,26 @@ func (s *service) GetCustomer(ctx context.Context, id []byte) (_ *payments.Custo
 	}, nil
 }
 
+// AddPaymentMethod add payment method to defined customer
+func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*stripe.PaymentMethod, error) {
+	cparams := &stripe.PaymentMethodParams{
+		Type: stripe.String(string(stripe.PaymentMethodTypeCard)),
+		Card: &stripe.PaymentMethodCardParams{Token: &params.Token},
+		//Customer: &params.CustomerID,
+	}
+
+	method, err := s.client.PaymentMethods.New(cparams)
+	if err != nil {
+		return nil, err
+	}
+
+	pparams := &stripe.PaymentMethodAttachParams{
+		Customer: &params.CustomerID,
+	}
+
+	return s.client.PaymentMethods.Attach(method.ID, pparams)
+}
+
 // GetCustomerDefaultPaymentMethod retrieves customer default payment method from stripe network
 func (s *service) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (_ *payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)

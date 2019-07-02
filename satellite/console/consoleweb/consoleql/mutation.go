@@ -42,9 +42,9 @@ const (
 	// DeleteAPIKeysMutation is a mutation name for api key deleting
 	DeleteAPIKeysMutation = "deleteAPIKeys"
 
-	AddPaymentMethodMutation = "addPaymentMethod"
-	DeletePaymentMethod      = "deletePaymentMethod"
-	SetDefaultPaymentMethod  = "setDefaultPaymentMethod"
+	AddPaymentMethodMutation        = "addPaymentMethod"
+	DeletePaymentMethodMutation     = "deletePaymentMethod"
+	SetDefaultPaymentMethodMutation = "setDefaultPaymentMethod"
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
@@ -431,8 +431,8 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					FieldCardToken: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					projectID , _ := p.Args[FieldProjectID].(string)
-					cardToken , _ := p.Args[FieldCardToken].(string)
+					projectID, _ := p.Args[FieldProjectID].(string)
+					cardToken, _ := p.Args[FieldCardToken].(string)
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
@@ -452,8 +452,65 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					return true, nil
 				},
 			},
-			//DeletePaymentMethod:     &graphql.Field{},
-			//SetDefaultPaymentMethod: &graphql.Field{},
+			DeletePaymentMethodMutation:     &graphql.Field{
+				Type:graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
+
+					_, err := console.GetAuth(p.Context)
+					if err != nil {
+						return false, err
+					}
+
+					paymentID, err := uuid.Parse(fieldProjectPaymentID)
+					if err != nil {
+						return false, err
+					}
+
+					err = service.DeletePaymentMethod(p.Context, *paymentID)
+					if err != nil {
+						return false, err
+					}
+
+					return true, nil
+				},
+
+			},
+			SetDefaultPaymentMethodMutation: &graphql.Field{
+				Type: graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					FieldProjectID: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+					FieldID:        &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					fieldProjectID, _ := p.Args[FieldProjectID].(string)
+					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
+
+					_, err := console.GetAuth(p.Context)
+					if err != nil {
+						return false, err
+					}
+
+					paymentID, err := uuid.Parse(fieldProjectPaymentID)
+					if err != nil {
+						return false, err
+					}
+
+					projectID, err := uuid.Parse(fieldProjectID)
+					if err != nil {
+						return false, err
+					}
+
+					err = service.SetDefaultPaymentMethod(p.Context, *paymentID, *projectID)
+					if err != nil {
+						return false, err
+					}
+
+					return true, nil
+				},
+			},
 		},
 	})
 }

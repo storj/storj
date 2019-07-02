@@ -17,22 +17,23 @@
 				</div>
 				<h3 class="payment-methods-container__card-container__info-area__added-text">Added on {{formatDate(pm.addedAt)}}</h3>
 			</div>
-			<div class="payment-methods-container__card-container__default-button" v-if="true">
+			<div class="payment-methods-container__card-container__default-button" v-if="pm.isDefault">
 				<p class="payment-methods-container__card-container__default-button__label">Default</p>
 			</div>
-			<div class="payment-methods-container__card-container__button-area" v-if="false">
-				<div class="payment-methods-container__card-container__button-area__make-button">
-					<p class="payment-methods-container__card-container__button-area__make-button__label">Make Default</p>
+			<div class="payment-methods-container__card-container__button-area" v-if="!pm.isDefault">
+				<div class="payment-methods-container__card-container__button-area__make-button" v-on:click="onMakeDefaultClick(pm.id)">
+					<p class="payment-methods-container__card-container__button-area__make-button__label" >Make Default</p>
 				</div>
-				<svg class="payment-methods-container__card-container__button-area__delete-button"
-				     width="34"
-				     height="34"
-				     viewBox="0 0 34 34"
-				     fill="none"
-				     xmlns="http://www.w3.org/2000/svg">
-					<rect width="34" height="34" rx="17" fill="#EB5757"/>
-					<path d="M19.7834 11.9727V11.409C19.7834 10.6576 19.1215 10 18.2706 10H16.0014C15.1504 10 14.4886 10.6576 14.4886 11.409V11.9727H10.7065V13.1938H12.0302V22.3057C12.0302 23.5269 12.9758 24.4662 14.0158 24.4662H20.1616C21.2962 24.4662 22.1471 23.5269 22.1471 22.3057V13.1938H23.4709V11.9727H19.7834ZM16.6632 22.3057H15.3395V14.2271H16.6632V22.3057ZM18.9324 22.3057H17.6087V14.2271H18.9324V22.3057Z" fill="white"/>
-				</svg>
+                <svg class="payment-methods-container__card-container__button-area__delete-button"
+                     width="34"
+                     height="34"
+                     viewBox="0 0 34 34"
+                     fill="none"
+                     xmlns="http://www.w3.org/2000/svg">
+                    <rect width="34" height="34" rx="17" fill="#EB5757"/>
+                    <path d="M19.7834 11.9727V11.409C19.7834 10.6576 19.1215 10 18.2706 10H16.0014C15.1504 10 14.4886 10.6576 14.4886 11.409V11.9727H10.7065V13.1938H12.0302V22.3057C12.0302 23.5269 12.9758 24.4662 14.0158 24.4662H20.1616C21.2962 24.4662 22.1471 23.5269 22.1471 22.3057V13.1938H23.4709V11.9727H19.7834ZM16.6632 22.3057H15.3395V14.2271H16.6632V22.3057ZM18.9324 22.3057H17.6087V14.2271H18.9324V22.3057Z" fill="white"/>
+                </svg>
+                <DeletePaymentMethodDialog/>
 			</div>
 		</div>
 		<Button
@@ -49,7 +50,12 @@
 import { Component, Vue } from 'vue-property-decorator';
 import Button from '@/components/common/Button.vue';
 import NewPaymentMethodPopup from '@/components/project/NewPaymentMethodPopup.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import {
+    APP_STATE_ACTIONS,
+    NOTIFICATION_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS
+} from "@/utils/constants/actionNames";
+import DeletePaymentMethodDialog from '@/components/project/DeletePaymentMethodDialog.vue';
 
 @Component({
     methods: {
@@ -59,6 +65,19 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         formatDate: function (d: string): string {
             return new Date(d).toLocaleDateString('en-US', {timeZone: 'UTC'})
         },
+		onMakeDefaultClick: async function (pmID: string) {
+            const result = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT, pmID);
+            if (!result.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+                return;
+			}
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Successfully set default payment method");
+        }
 	},
 	computed: {
         isAddNewPaymentPopupShown: function (): boolean {
@@ -71,6 +90,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     components: {
         Button,
 		NewPaymentMethodPopup,
+		DeletePaymentMethodDialog,
     }
 })
 export default class PaymentMethods extends Vue {}
@@ -176,6 +196,7 @@ export default class PaymentMethods extends Vue {}
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
+             	position: relative;
 
 				&__make-button {
 					width: 134px;

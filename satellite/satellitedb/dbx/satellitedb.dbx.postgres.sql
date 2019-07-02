@@ -55,16 +55,6 @@ CREATE TABLE bucket_usages (
 	audit_egress bigint NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE bwagreements (
-	serialnum text NOT NULL,
-	storage_node_id bytea NOT NULL,
-	uplink_id bytea NOT NULL,
-	action bigint NOT NULL,
-	total bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( serialnum )
-);
 CREATE TABLE certRecords (
 	publickey bytea NOT NULL,
 	id bytea NOT NULL,
@@ -104,30 +94,34 @@ CREATE TABLE nodes (
 	latency_90 bigint NOT NULL,
 	audit_success_count bigint NOT NULL,
 	total_audit_count bigint NOT NULL,
-	audit_success_ratio double precision NOT NULL,
 	uptime_success_count bigint NOT NULL,
 	total_uptime_count bigint NOT NULL,
-	uptime_ratio double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	updated_at timestamp with time zone NOT NULL,
 	last_contact_success timestamp with time zone NOT NULL,
 	last_contact_failure timestamp with time zone NOT NULL,
 	contained boolean NOT NULL,
+	disqualified timestamp with time zone,
+	audit_reputation_alpha double precision NOT NULL,
+	audit_reputation_beta double precision NOT NULL,
+	uptime_reputation_alpha double precision NOT NULL,
+	uptime_reputation_beta double precision NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	type integer NOT NULL,
-	credit_in_cents integer NOT NULL,
+	award_credit_in_cents integer NOT NULL,
+	invitee_credit_in_cents integer NOT NULL,
 	award_credit_duration_days integer NOT NULL,
 	invitee_credit_duration_days integer NOT NULL,
 	redeemable_cap integer NOT NULL,
 	num_redeemed integer NOT NULL,
-	expires_at timestamp with time zone,
+	expires_at timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	status integer NOT NULL,
+	type integer NOT NULL,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE pending_audits (
@@ -195,6 +189,13 @@ CREATE TABLE users (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE value_attributions (
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	partner_id bytea NOT NULL,
+	last_updated timestamp NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
+);
 CREATE TABLE api_keys (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
@@ -208,7 +209,7 @@ CREATE TABLE api_keys (
 );
 CREATE TABLE project_invoice_stamps (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	invoice_id text NOT NULL,
+	invoice_id bytea NOT NULL,
 	start_date timestamp with time zone NOT NULL,
 	end_date timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -226,18 +227,29 @@ CREATE TABLE used_serials (
 	storage_node_id bytea NOT NULL,
 	PRIMARY KEY ( serial_number_id, storage_node_id )
 );
-CREATE TABLE user_payment_infos (
+CREATE TABLE user_credits (
+	id serial NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ),
+	offer_id integer NOT NULL REFERENCES offers( id ),
+	referred_by bytea REFERENCES users( id ),
+	credits_earned_in_cents integer NOT NULL,
+	credits_used_in_cents integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE user_payments (
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	customer_id text NOT NULL,
+	customer_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 );
-CREATE TABLE project_payment_infos (
+CREATE TABLE project_payments (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	payer_id bytea NOT NULL REFERENCES user_payment_infos( user_id ) ON DELETE CASCADE,
-	payment_method_id text NOT NULL,
+	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+	payment_method_id bytea NOT NULL,
 	is_default boolean NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )

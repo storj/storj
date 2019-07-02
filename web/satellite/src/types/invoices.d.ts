@@ -10,4 +10,5 @@ declare type PaymentMethod = {
     lastFour: string,
     holderName: string,
     addedAt: Date,
+    isDefault: boolean,
 }

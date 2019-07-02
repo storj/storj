@@ -13,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -165,36 +165,136 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, projectID uuid.UUID, userID uuid.UUID) (paymentInfo ProjectPaymentInfo, err error) {
+func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, projectID uuid.UUID, userID uuid.UUID) (payment ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	//info, err := s.store.UserPaymentInfos().Get(ctx, userID)
-	//if err != nil {
-	//	return ProjectPaymentInfo{}, err
-	//}
+	info, err := s.store.UserPayments().Get(ctx, userID)
+	if err != nil {
+		return ProjectPayment{}, err
+	}
 
-	//params := payments.AddPaymentMethodParams{
-	//	Token:      paymentMethodToken,
-	//	CustomerID: info.CustomerID,
-	//}
+	params := payments.AddPaymentMethodParams{
+		Token:      paymentMethodToken,
+		CustomerID: string(info.CustomerID),
+	}
 
-	//method, err := s.stripeService.AddPaymentMethod(ctx, params)
-	//if err != nil {
-	//	return ProjectPaymentInfo{}, err
-	//}
+	method, err := s.pm.AddPaymentMethod(ctx, params)
+	if err != nil {
+		return ProjectPayment{}, err
+	}
 
-	//projectPaymentInfo := ProjectPaymentInfo{ProjectID: projectID,
-	//	PayerID:         userID,
-	//	PaymentMethodID: method.ID,
-	//	CreatedAt:       time.Now()}
+	projectPayments, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return ProjectPayment{}, err
+	}
 
-	//create, err := s.store.ProjectPaymentInfos().Create(ctx, projectPaymentInfo)
-	//if err != nil {
-	//	return ProjectPaymentInfo{}, err
-	//}
+	projectPaymentInfo := ProjectPayment{ProjectID: projectID,
+		PayerID:         userID,
+		PaymentMethodID: []byte(method.ID),
+		CreatedAt:       time.Now(),
+		IsDefault:       len(projectPayments) == 0}
 
-	//return *create, nil
-	return paymentInfo, nil
+	create, err := s.store.ProjectPayments().Create(ctx, projectPaymentInfo)
+	if err != nil {
+		return ProjectPayment{}, err
+	}
+
+	return *create, nil
+}
+
+func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	projectPayment, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	projectPayment.IsDefault = false
+
+	err = s.store.ProjectPayments().Update(ctx, *projectPayment)
+	if err != nil {
+		return err
+	}
+
+	projectPayment, err = s.store.ProjectPayments().GetByID(ctx, projectPaymentID)
+	if err != nil {
+		return err
+	}
+	projectPayment.IsDefault = true
+
+	err = s.store.ProjectPayments().Update(ctx, *projectPayment)
+
+	return err
+}
+
+func (s *Service) DeletePaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.ProjectPayments().Delete(ctx, projectPayment)
+}
+
+// GetProjectPaymentMethods retrieves project payment methods
+func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]ProjectPayment, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projectPaymentInfos, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var projectPayments []ProjectPayment
+	for _, payment := range projectPaymentInfos {
+		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
+		if err != nil {
+			return nil, err
+		}
+
+		cus, err := s.pm.GetCustomer(ctx, pm.CustomerID)
+		if err != nil {
+			return nil, err
+		}
+
+		user, err := s.store.Users().GetByEmail(ctx, cus.Email)
+		if err != nil {
+			return nil, err
+		}
+
+		projectPayment := ProjectPayment{
+			ID:              payment.ID,
+			CreatedAt:       pm.CreatedAt,
+			PaymentMethodID: pm.ID,
+			IsDefault:       payment.IsDefault,
+			PayerID:         user.ID,
+			ProjectID:       projectID,
+			Card: Card{
+				LastFour: pm.Card.LastFour,
+				Name:     pm.Card.Name,
+				Brand:    pm.Card.Brand,
+				Country:  pm.Card.Country,
+				ExpMonth: pm.Card.ExpMonth,
+				ExpYear:  pm.Card.ExpYear},
+		}
+
+		projectPayments = append(projectPayments, projectPayment)
+	}
+
+	return projectPayments, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -953,8 +1053,8 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
-		//paymentInfo, err := s.store.ProjectPaymentInfos().GetDefaultByProjctID(ctx, proj.ID)
+		//paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
+		paymentInfo, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, proj.ID)
 		if err != nil {
 			invoiceError.Add(err)
 			continue

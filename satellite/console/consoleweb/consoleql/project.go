@@ -61,6 +61,8 @@ const (
 	FieldCardLastFour = "lastFour"
 	// FieldCardToken is a field name for credit card token
 	FieldCardToken = "cardToken"
+	// FieldIsDefault is a field name for default payment method
+	FieldIsDefault = "isDefault"
 	// CursorArg is an argument name for cursor
 	CursorArg = "cursor"
 	// PageArg ia an argument name for page number
@@ -200,11 +202,32 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 				},
 			},
 			FieldPaymentMethods: &graphql.Field{
-				Type: graphql.NewList(types.paymentmethod),
+				Type: graphql.NewList(types.paymentMethod),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					project, _ := p.Source.(*console.Project)
 
-					return service.GetProjectPaymentMethods(p.Context, project.ID)
+					paymentMethods, err := service.GetProjectPaymentMethods(p.Context, project.ID)
+					if err != nil {
+						return nil, err
+					}
+
+					var projectPaymentMethods []projectPayment
+					for _, paymentMethod := range paymentMethods {
+						projectPaymentMethod := projectPayment{
+							ID:         paymentMethod.ID.String(),
+							LastFour:   paymentMethod.Card.LastFour,
+							AddedAt:    paymentMethod.CreatedAt,
+							CardBrand:  paymentMethod.Card.Brand,
+							ExpMonth:   paymentMethod.Card.ExpMonth,
+							ExpYear:    paymentMethod.Card.ExpYear,
+							HolderName: paymentMethod.Card.Name,
+							IsDefault:  paymentMethod.IsDefault,
+						}
+
+						projectPaymentMethods = append(projectPaymentMethods, projectPaymentMethod)
+					}
+
+					return projectPaymentMethods, nil
 				},
 			},
 		},
@@ -341,6 +364,9 @@ func graphqlPaymentMethod() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: PaymentMethodType,
 		Fields: graphql.Fields{
+			FieldID: &graphql.Field{
+				Type: graphql.String,
+			},
 			FieldExpirationYear: &graphql.Field{
 				Type: graphql.Int,
 			},
@@ -359,8 +385,22 @@ func graphqlPaymentMethod() *graphql.Object {
 			FieldAddedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
+			FieldIsDefault: &graphql.Field{
+				Type: graphql.Boolean,
+			},
 		},
 	})
+}
+
+type projectPayment struct {
+	ID         string
+	ExpYear    int64
+	ExpMonth   int64
+	CardBrand  string
+	LastFour   string
+	HolderName string
+	AddedAt    time.Time
+	IsDefault  bool
 }
 
 // fromMapProjectInfo creates console.ProjectInfo from input args

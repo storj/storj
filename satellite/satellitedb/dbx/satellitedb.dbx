@@ -273,7 +273,6 @@ read all (
     orderby asc project.name
 )
 
-// add is default, make composite key
 model project_payment (
     key id
 
@@ -288,7 +287,12 @@ model project_payment (
 )
 
 create project_payment ( )
+update project_payment ( where project_payment.id = ? )
+delete project_payment ( where project_payment.id = ? )
 
+read one (
+    select project_payment
+    where project_payment.id = ? )
 read one (
     select project_payment
     where project_payment.project_id = ?
