@@ -88,15 +88,12 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	results, err := s.db.ListAll(req.Context())
+	offers, err := s.db.ListAll(req.Context())
 	if err != nil {
 		s.log.Error("failed to retrieve all offers", zap.Error(err))
 		s.serveInternalError(w, req, err)
 		return
 	}
-
-	var offers rewards.Offers
-	offers = results
 
 	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))

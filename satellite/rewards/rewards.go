@@ -12,7 +12,7 @@ import (
 
 // DB holds information about offer
 type DB interface {
-	ListAll(ctx context.Context) ([]Offer, error)
+	ListAll(ctx context.Context) (Offers, error)
 	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Redeem(ctx context.Context, offerID int, isDefault bool) error
