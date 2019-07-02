@@ -143,7 +143,6 @@ func NewUplink(ctx context.Context, cfg *Config) (_ *Uplink, err error) {
 		Dial:    cfg.Volatile.DialTimeout,
 		Request: cfg.Volatile.RequestTimeout,
 	}
-	//tc := transport.NewClient(tlsOpts)
 	tc := transport.NewClientWithTimeouts(tlsOpts, timeouts)
 
 	return &Uplink{
