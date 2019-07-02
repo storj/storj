@@ -688,10 +688,16 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		updateFields.AuditSuccessCount = dbx.Node_AuditSuccessCount(dbNode.AuditSuccessCount + 1)
 	}
 
+	// Updating node stats always exits it from containment mode
+	updateFields.Contained = dbx.Node_Contained(false)
+
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
 		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
 	}
+
+	// Cleanup containment table too
+	tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
 
 	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
