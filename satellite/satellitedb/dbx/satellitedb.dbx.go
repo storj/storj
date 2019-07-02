@@ -484,7 +484,7 @@ CREATE TABLE buckets (
 	project_id bytea NOT NULL REFERENCES projects( id ),
 	name bytea NOT NULL,
 	path_cipher integer NOT NULL,
-	created_at timestamp NOT NULL,
+	created_at timestamp with time zone NOT NULL,
 	default_segment_size integer NOT NULL,
 	default_encryption_cipher_suite integer NOT NULL,
 	default_encryption_block_size integer NOT NULL,
@@ -4217,7 +4217,6 @@ type Bucket_CreatedAt_Field struct {
 }
 
 func Bucket_CreatedAt(v time.Time) Bucket_CreatedAt_Field {
-	v = toUTC(v)
 	return Bucket_CreatedAt_Field{_set: true, _value: v}
 }
 
@@ -5917,7 +5916,7 @@ func (obj *postgresImpl) Create_Bucket(ctx context.Context,
 	__project_id_val := bucket_project_id.value()
 	__name_val := bucket_name.value()
 	__path_cipher_val := bucket_path_cipher.value()
-	__created_at_val := __now.UTC()
+	__created_at_val := __now
 	__default_segment_size_val := bucket_default_segment_size.value()
 	__default_encryption_cipher_suite_val := bucket_default_encryption_cipher_suite.value()
 	__default_encryption_block_size_val := bucket_default_encryption_block_size.value()
@@ -9409,7 +9408,7 @@ func (obj *sqlite3Impl) Create_Bucket(ctx context.Context,
 	__project_id_val := bucket_project_id.value()
 	__name_val := bucket_name.value()
 	__path_cipher_val := bucket_path_cipher.value()
-	__created_at_val := __now.UTC()
+	__created_at_val := __now
 	__default_segment_size_val := bucket_default_segment_size.value()
 	__default_encryption_cipher_suite_val := bucket_default_encryption_cipher_suite.value()
 	__default_encryption_block_size_val := bucket_default_encryption_block_size.value()

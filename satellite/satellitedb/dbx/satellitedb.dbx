@@ -678,7 +678,7 @@ model offer (
 
 	// status has three possible value: NoStatus=0, Default=1, Active=2.
 	field status int ( updatable )
-	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	// type has two possible value: Invalid=0 FREE_CREDIT=1, REFERRAL=2
 	field type int ( updatable )
 )
 
