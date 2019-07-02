@@ -115,7 +115,7 @@ type OfferSet struct {
 }
 
 // OrganizeOffersByStatus organizes offers by OfferStatus.
-func (offers Offers) OganizeOffersByStatus() (oo OrganizedOffers) {
+func (offers Offers) OrganizeOffersByStatus() (oo OrganizedOffers) {
 	for _, offer := range offers {
 		switch offer.Status {
 		case Active:
@@ -143,7 +143,7 @@ func (offers Offers) OrganizeOffersByType() (os OfferSet) {
 			continue
 		}
 	}
-	os.FreeCredits = fc.OganizeOffersByStatus()
-	os.ReferralOffers = ro.OganizeOffersByStatus()
+	os.FreeCredits = fc.OrganizeOffersByStatus()
+	os.ReferralOffers = ro.OrganizeOffersByStatus()
 	return os
 }
