@@ -22,7 +22,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
-		overlay := planet.Satellites[0].DB.OverlayCache()
+		cache := planet.Satellites[0].DB.OverlayCache()
 
 		input := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
@@ -42,7 +42,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 		require.Equal(t, input, output)
 
 		// check contained flag set to true
-		node, err := overlay.Get(ctx, input.NodeID)
+		node, err := cache.Get(ctx, input.NodeID)
 		require.NoError(t, err)
 		require.True(t, node.Contained)
 
@@ -104,7 +104,7 @@ func TestContainDelete(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		containment := planet.Satellites[0].DB.Containment()
-		overlay := planet.Satellites[0].DB.OverlayCache()
+		cache := planet.Satellites[0].DB.OverlayCache()
 
 		info1 := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
@@ -124,7 +124,7 @@ func TestContainDelete(t *testing.T) {
 		require.True(t, isDeleted)
 
 		// check contained flag set to false
-		node, err := overlay.Get(ctx, info1.NodeID)
+		node, err := cache.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
 		require.False(t, node.Contained)
 
