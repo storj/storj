@@ -5,7 +5,6 @@ package version
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -13,7 +12,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/zeebo/errs"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/pb"
 )
@@ -21,6 +21,7 @@ import (
 var (
 	mon = monkit.Package()
 
+	verError = errs.Class("version error")
 	// the following fields are set by linker flags. if any of them
 	// are set and fail to parse, the program will fail to start
 	buildTimestamp  string // unix seconds since epoch
@@ -50,14 +51,14 @@ type SemVer struct {
 	Patch int64 `json:"patch"`
 }
 
-// AllowedVersions provides a list of SemVer per Service
+// AllowedVersions provides the Minimum SemVer per Service
 type AllowedVersions struct {
-	Bootstrap   []SemVer
-	Satellite   []SemVer
-	Storagenode []SemVer
-	Uplink      []SemVer
-	Gateway     []SemVer
-	Identity    []SemVer
+	Bootstrap   SemVer
+	Satellite   SemVer
+	Storagenode SemVer
+	Uplink      SemVer
+	Gateway     SemVer
+	Identity    SemVer
 }
 
 // SemVerRegex is the regular expression used to parse a semantic version.
@@ -68,33 +69,29 @@ var versionRegex = regexp.MustCompile("^" + SemVerRegex + "$")
 
 // NewSemVer parses a given version and returns an instance of SemVer or
 // an error if unable to parse the version.
-func NewSemVer(v string) (*SemVer, error) {
+func NewSemVer(v string) (sv SemVer, err error) {
 	m := versionRegex.FindStringSubmatch(v)
 	if m == nil {
-		return nil, errors.New("invalid semantic version for build")
+		return SemVer{}, verError.New("invalid semantic version for build %s", v)
 	}
-
-	sv := SemVer{}
-
-	var err error
 
 	// first entry of m is the entire version string
 	sv.Major, err = strconv.ParseInt(m[1], 10, 64)
 	if err != nil {
-		return nil, err
+		return SemVer{}, err
 	}
 
 	sv.Minor, err = strconv.ParseInt(m[2], 10, 64)
 	if err != nil {
-		return nil, err
+		return SemVer{}, err
 	}
 
 	sv.Patch, err = strconv.ParseInt(m[3], 10, 64)
 	if err != nil {
-		return nil, err
+		return SemVer{}, err
 	}
 
-	return &sv, nil
+	return sv, nil
 }
 
 // String converts the SemVer struct to a more easy to handle string
@@ -130,26 +127,9 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 	}, nil
 }
 
-// containsVersion compares the allowed version array against the passed version
-func containsVersion(all []SemVer, x SemVer) bool {
-	for _, n := range all {
-		if x == n {
-			return true
-		}
-	}
-	return false
-}
-
-// StrToSemVerList converts a list of versions to a list of SemVer
-func StrToSemVerList(serviceVersions []string) (versions []SemVer, err error) {
-	for _, subversion := range serviceVersions {
-		sVer, err := NewSemVer(subversion)
-		if err != nil {
-			return nil, err
-		}
-		versions = append(versions, *sVer)
-	}
-	return versions, err
+// isAcceptedVersion compares and checks if the passed version is greater/equal than the minimum required version
+func isAcceptedVersion(test SemVer, target SemVer) bool {
+	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
 }
 
 func init() {
@@ -158,7 +138,7 @@ func init() {
 	}
 	timestamp, err := strconv.ParseInt(buildTimestamp, 10, 64)
 	if err != nil {
-		panic(fmt.Sprintf("invalid timestamp: %v", err))
+		panic(verError.Wrap(err))
 	}
 	Build = Info{
 		Timestamp:  time.Unix(timestamp, 0),
@@ -171,7 +151,7 @@ func init() {
 		panic(err)
 	}
 
-	Build.Version = *sv
+	Build.Version = sv
 
 	if Build.Timestamp.Unix() == 0 || Build.CommitHash == "" {
 		Build.Release = false
