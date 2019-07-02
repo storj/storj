@@ -25,7 +25,7 @@ random_bytes_file () {
 random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
 random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
 
-UPLINK_DEBUG_ADDR="127.0.0.1:0"
+UPLINK_DEBUG_ADDR=""
 
 uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://$BUCKET/"
 
