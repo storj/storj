@@ -21,8 +21,8 @@ enum PieceAction {
     DELETE = 6;
 }
 
-// OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
-message OrderLimit2 {
+// OrderLimit is provided by satellite to execute specific action on storage node within some limits
+message OrderLimit {
     // unique serial to avoid replay attacks
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
     // satellite who issued this order limit allowing orderer to do the specified action
@@ -40,6 +40,7 @@ message OrderLimit2 {
 
     google.protobuf.Timestamp piece_expiration = 8;
     google.protobuf.Timestamp order_expiration = 9;
+    google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes satellite_signature = 10;
 
@@ -48,8 +49,8 @@ message OrderLimit2 {
     node.NodeAddress satellite_address = 11;
 }
 
-// Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
-message Order2 {
+// Order is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber
+message Order {
     // serial of the order limit that was signed
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
     // amount to be signed for
@@ -73,8 +74,8 @@ service Orders {
 }
 
 message SettlementRequest {
-    OrderLimit2 limit = 1;
-    Order2      order = 2;
+    OrderLimit limit = 1;
+    Order      order = 2;
 }
 
 message SettlementResponse {

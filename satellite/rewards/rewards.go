@@ -5,24 +5,14 @@ package rewards
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	"storj.io/storj/internal/currency"
 )
-
-// ToCents converts USD credit amounts to cents.
-func ToCents(dollars int) int {
-	return dollars * 100
-}
-
-// ToDollars converts credit amounts in cents to USD.
-func ToDollars(cents int) string {
-	formattedAmount := fmt.Sprintf("%d.%d0", (cents / 100), (cents % 100))
-	return formattedAmount
-}
 
 // DB holds information about offer
 type DB interface {
-	ListAll(ctx context.Context) ([]Offer, error)
+	ListAll(ctx context.Context) (Offers, error)
 	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
 	Redeem(ctx context.Context, offerID int, isDefault bool) error
@@ -34,8 +24,8 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	RedeemableCap int
 
@@ -70,12 +60,14 @@ type OfferStatus int
 
 const (
 
+	// Done is a default offer status when an offer is not being used currently
+	Done = OfferStatus(iota)
+
 	// Active is a offer status when an offer is currently being used
-	Active = OfferStatus(iota)
+	Active
+
 	// Default is a offer status when an offer is used as a default offer
 	Default
-	// Done is a default offer status when an offer is not being used currently
-	Done
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
@@ -84,8 +76,8 @@ type Offer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
@@ -98,6 +90,12 @@ type Offer struct {
 
 	Status OfferStatus
 	Type   OfferType
+}
+
+// IsEmpty evaluates whether or not an on offer is empty
+func (o Offer) IsEmpty() bool {
+	var emptyOffer Offer
+	return o == emptyOffer
 }
 
 // Offers contains a slice of offers.

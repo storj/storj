@@ -24,7 +24,7 @@ type Signer interface {
 
 // SignOrderLimit signs the order limit using the specified signer.
 // Signer is a satellite.
-func SignOrderLimit(ctx context.Context, satellite Signer, unsigned *pb.OrderLimit2) (_ *pb.OrderLimit2, err error) {
+func SignOrderLimit(ctx context.Context, satellite Signer, unsigned *pb.OrderLimit) (_ *pb.OrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrderLimit(ctx, unsigned)
 	if err != nil {
@@ -42,7 +42,7 @@ func SignOrderLimit(ctx context.Context, satellite Signer, unsigned *pb.OrderLim
 
 // SignOrder signs the order using the specified signer.
 // Signer is an uplink.
-func SignOrder(ctx context.Context, uplink Signer, unsigned *pb.Order2) (_ *pb.Order2, err error) {
+func SignOrder(ctx context.Context, uplink Signer, unsigned *pb.Order) (_ *pb.Order, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrder(ctx, unsigned)
 	if err != nil {

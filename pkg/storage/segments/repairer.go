@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
@@ -21,6 +22,7 @@ import (
 
 // Repairer for segments
 type Repairer struct {
+	log      *zap.Logger
 	metainfo *metainfo.Service
 	orders   *orders.Service
 	cache    *overlay.Cache
@@ -30,8 +32,9 @@ type Repairer struct {
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+func NewSegmentRepairer(log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
 	return &Repairer{
+		log:      log,
 		metainfo: metainfo,
 		orders:   orders,
 		cache:    cache,
@@ -85,7 +88,8 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// repair not needed
 	if int32(numHealthy) > pointer.Remote.Redundancy.RepairThreshold {
 		mon.Meter("repair_unnecessary").Mark(1)
-		return Error.New("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		repairer.log.Sugar().Debugf("segment %v with %d pieces above repair threshold %d", path, numHealthy, pointer.Remote.Redundancy.RepairThreshold)
+		return nil
 	}
 
 	healthyRatioBeforeRepair := 0.0

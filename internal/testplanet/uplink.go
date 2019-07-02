@@ -180,7 +180,7 @@ func (uplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte, expiration time.Time) error {
+func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte, expiration time.Time) (err error) {
 	config := uplink.GetConfig(satellite)
 	if redundancy != nil {
 		if redundancy.MinThreshold > 0 {
@@ -200,10 +200,13 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 		}
 	}
 
-	metainfo, streams, err := GetMetainfo(ctx, config, uplink.Identity)
+	metainfo, streams, cleanup, err := DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errs.Combine(err, cleanup())
+	}()
 
 	redScheme := config.GetRedundancyScheme()
 	encScheme := config.GetEncryptionScheme()
@@ -237,6 +240,11 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 		return err
 	}
 
+	err = obj.Commit(ctx)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -254,28 +262,33 @@ func uploadStream(ctx context.Context, streams streams.Store, mutableObject stor
 }
 
 // DownloadStream returns stream for downloading data.
-func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, error) {
+func (uplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) (*stream.Download, func() error, error) {
 	config := uplink.GetConfig(satellite)
-	metainfo, streams, err := GetMetainfo(ctx, config, uplink.Identity)
+	metainfo, streams, cleanup, err := DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 	if err != nil {
-		return nil, err
+		return nil, func() error { return nil }, errs.Combine(err, cleanup())
 	}
 
 	readOnlyStream, err := metainfo.GetObjectStream(ctx, bucket, path)
 	if err != nil {
-		return nil, err
+		return nil, func() error { return nil }, errs.Combine(err, cleanup())
 	}
 
-	return stream.NewDownload(ctx, readOnlyStream, streams), nil
+	return stream.NewDownload(ctx, readOnlyStream, streams), cleanup, nil
 }
 
 // Download data from specific satellite
 func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-	download, err := uplink.DownloadStream(ctx, satellite, bucket, path)
+	download, cleanup, err := uplink.DownloadStream(ctx, satellite, bucket, path)
 	if err != nil {
 		return []byte{}, err
 	}
-	defer func() { err = errs.Combine(err, download.Close()) }()
+	defer func() {
+		err = errs.Combine(err,
+			download.Close(),
+			cleanup(),
+		)
+	}()
 
 	data, err := ioutil.ReadAll(download)
 	if err != nil {
@@ -287,11 +300,14 @@ func (uplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, b
 // Delete data to specific satellite
 func (uplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) error {
 	config := uplink.GetConfig(satellite)
-	metainfo, _, err := GetMetainfo(ctx, config, uplink.Identity)
+	metainfo, _, cleanup, err := DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 	if err != nil {
 		return err
 	}
-	return metainfo.DeleteObject(ctx, bucket, path)
+	return errs.Combine(
+		metainfo.DeleteObject(ctx, bucket, path),
+		cleanup(),
+	)
 }
 
 // GetConfig returns a default config for a given satellite.
@@ -328,11 +344,11 @@ func atLeastOne(value int) int {
 	return value
 }
 
-// GetMetainfo returns a metainfo and streams store for the given configuration and identity.
-func GetMetainfo(ctx context.Context, config uplink.Config, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, err error) {
+// DialMetainfo returns a metainfo and streams store for the given configuration and identity.
+func DialMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, identity *identity.FullIdentity) (db storj.Metainfo, ss streams.Store, cleanup func() error, err error) {
 	tlsOpts, err := tlsopts.NewOptions(identity, config.TLS)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, cleanup, err
 	}
 
 	// ToDo: Handle Versioning for Uplinks here
@@ -343,44 +359,45 @@ func GetMetainfo(ctx context.Context, config uplink.Config, identity *identity.F
 	})
 
 	if config.Client.SatelliteAddr == "" {
-		return nil, nil, errs.New("satellite address not specified")
+		return nil, nil, cleanup, errs.New("satellite address not specified")
 	}
 
 	m, err := metainfo.Dial(ctx, tc, config.Client.SatelliteAddr, config.Client.APIKey)
 	if err != nil {
-		return nil, nil, errs.New("failed to connect to metainfo service: %v", err)
+		return nil, nil, cleanup, errs.New("failed to connect to metainfo service: %v", err)
 	}
 	defer func() {
 		if err != nil {
+			// close metainfo if any of the setup fails
 			err = errs.Combine(err, m.Close())
 		}
 	}()
 
 	project, err := kvmetainfo.SetupProject(m)
 	if err != nil {
-		return nil, nil, errs.New("failed to create project: %v", err)
+		return nil, nil, cleanup, errs.New("failed to create project: %v", err)
 	}
 
-	ec := ecclient.NewClient(tc, config.RS.MaxBufferMem.Int())
+	ec := ecclient.NewClient(log.Named("ecclient"), tc, config.RS.MaxBufferMem.Int())
 	fc, err := infectious.NewFEC(config.RS.MinThreshold, config.RS.MaxThreshold)
 	if err != nil {
-		return nil, nil, errs.New("failed to create erasure coding client: %v", err)
+		return nil, nil, cleanup, errs.New("failed to create erasure coding client: %v", err)
 	}
 	rs, err := eestream.NewRedundancyStrategy(eestream.NewRSScheme(fc, config.RS.ErasureShareSize.Int()), config.RS.RepairThreshold, config.RS.SuccessThreshold)
 	if err != nil {
-		return nil, nil, errs.New("failed to create redundancy strategy: %v", err)
+		return nil, nil, cleanup, errs.New("failed to create redundancy strategy: %v", err)
 	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(config.Client.SegmentSize.Int64(), config.GetEncryptionScheme())
 	if err != nil {
-		return nil, nil, errs.New("failed to calculate max encrypted segment size: %v", err)
+		return nil, nil, cleanup, errs.New("failed to calculate max encrypted segment size: %v", err)
 	}
 	segment := segments.NewSegmentStore(m, ec, rs, config.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
 	blockSize := config.GetEncryptionScheme().BlockSize
 	if int(blockSize)%config.RS.ErasureShareSize.Int()*config.RS.MinThreshold != 0 {
 		err = errs.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
-		return nil, nil, err
+		return nil, nil, cleanup, err
 	}
 
 	// TODO(jeff): there's some cycles with libuplink and this package in the libuplink tests
@@ -394,8 +411,8 @@ func GetMetainfo(ctx context.Context, config uplink.Config, identity *identity.F
 		int(blockSize), storj.Cipher(config.Enc.DataType), config.Client.MaxInlineSize.Int(),
 	)
 	if err != nil {
-		return nil, nil, errs.New("failed to create stream store: %v", err)
+		return nil, nil, cleanup, errs.New("failed to create stream store: %v", err)
 	}
 
-	return kvmetainfo.New(project, m, strms, segment, encStore), strms, nil
+	return kvmetainfo.New(project, m, strms, segment, encStore), strms, m.Close, nil
 }
