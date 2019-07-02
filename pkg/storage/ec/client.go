@@ -150,7 +150,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}()
 
 	successes := int(atomic.LoadInt32(&successfulCount))
-	if successes <= rs.RepairThreshold() {
+	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
