@@ -220,6 +220,9 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	var successfulCount int32
 
 	// how many nodes must be repaired to reach the success threshold: o - (n - r)
+	// TODO: WIP#if/v3-1927 this should be changed to rs.OptimalThreshold() - nonNilCount(limits) ?
+	// It doesn't lookt hat this is needed for anything, mostly we want to upload
+	// to nonNilCount(limits) ???
 	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
 
 	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
@@ -235,6 +238,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	for range limits {
 		info := <-infos
 
+		// TODO: WIP#if/v3-1927 can tis actually happen?
 		if limits[info.i] == nil {
 			continue
 		}
@@ -254,6 +258,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 	// Ensure timer is stopped in the case the success threshold is not reached
 	// due to errors instead of slowness.
+	// TODO: WIP#if/v3-1927 can be timer actually be nil?
 	if timer != nil {
 		timer.Stop()
 	}

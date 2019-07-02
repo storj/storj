@@ -4,6 +4,8 @@
 package datarepair_test
 
 import (
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -46,11 +48,12 @@ func TestDataRepair(t *testing.T) {
 
 		testData := testrand.Bytes(1 * memory.MiB)
 
+		successThreshold := 7
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  5,
-			SuccessThreshold: 7,
-			MaxThreshold:     7,
+			SuccessThreshold: successThreshold,
+			MaxThreshold:     10,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
@@ -80,8 +83,10 @@ func TestDataRepair(t *testing.T) {
 		toDisqualify := 1
 		toKill := numPieces - (int(minReq+1) + toDisqualify)
 		require.True(t, toKill >= 1)
+		maxNumRepairedPieces := int(math.Ceil(float64(successThreshold) * 1.05))
 		// we should have enough storage nodes to repair on
-		require.True(t, (numStorageNodes-toKill-toDisqualify) >= numPieces)
+		fmt.Printf("\n\n%d - %d - %d - %d\n\n", numStorageNodes, toKill, toDisqualify, maxNumRepairedPieces)
+		require.True(t, (numStorageNodes-toKill-toDisqualify) >= maxNumRepairedPieces)
 
 		// kill nodes and track lost pieces
 		var lostPieces []int32

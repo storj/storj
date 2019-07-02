@@ -6,6 +6,7 @@ package orders
 import (
 	"bytes"
 	"context"
+	"math"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -22,6 +23,12 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
+
+// TODO: if/v3-1927 If this value should be set through settings, where should
+// it be?
+// The used value must be changed when the data science team provide a value
+// based on an analysis of the network behavior.
+var optimalThresholdExceessRate = 0.05 // 5%
 
 // Config is a configuration struct for orders Service.
 type Config struct {
@@ -511,7 +518,10 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 	return limit, nil
 }
 
-// CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
+// CreateGetRepairOrderLimits creates the order limits for downloading the
+// healthy pieces of pointer as the source for repair.
+// The length of the returned orders slice is the total number of pieces of the
+// segment, setting to null the ones which don't correspond to a healthy piece.
 func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rootPieceID := pointer.GetRemote().RootPieceId
@@ -611,7 +621,9 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	totalPieces := redundancy.TotalCount()
+	totalPiecesToRepair := int(math.Ceil(
+		float64(redundancy.OptimalThreshold()) * (1 + optimalThresholdExceessRate),
+	))
 	expiration := pointer.ExpirationDate
 
 	// convert orderExpiration from duration to timestamp
@@ -626,15 +638,15 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, err
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, totalPieces)
+	limits := make([]*pb.AddressedOrderLimit, totalPiecesToRepair)
 	var pieceNum int
 	for _, node := range newNodes {
-		for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {
+		for pieceNum < totalPiecesToRepair && getOrderLimits[pieceNum] != nil {
 			pieceNum++
 		}
 
-		if pieceNum >= totalPieces { // should not happen
-			return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
+		if pieceNum >= totalPiecesToRepair { // should not happen
+			return nil, Error.New("piece num greater than total pieces to repair: %d >= %d", pieceNum, totalPiecesToRepair)
 		}
 
 		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
