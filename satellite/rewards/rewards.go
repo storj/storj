@@ -114,7 +114,7 @@ type OfferSet struct {
 	FreeCredits    OrganizedOffers
 }
 
-// OganizeOffersByStatus organizes offers by OfferStatus.
+// OrganizeOffersByStatus organizes offers by OfferStatus.
 func (offers Offers) OganizeOffersByStatus() (oo OrganizedOffers) {
 	for _, offer := range offers {
 		switch offer.Status {
