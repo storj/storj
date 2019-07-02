@@ -60,7 +60,7 @@ func (db *DB) GetObjectStream(ctx context.Context, bucket string, path storj.Pat
 		return nil, err
 	}
 
-	streamKey, err := encryption.StoreDeriveContentKey(bucket, meta.fullpath.UnencryptedPath(), db.encStore)
+	streamKey, err := encryption.DeriveContentKeyWithStore(bucket, meta.fullpath.UnencryptedPath(), db.encStore)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 
 	fullpath := streams.CreatePath(bucket, paths.NewUnencrypted(path))
 
-	encPath, err := encryption.StoreEncryptPath(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
+	encPath, err := encryption.EncryptPathWithStore(bucket, paths.NewUnencrypted(path), bucketInfo.PathCipher, db.encStore)
 	if err != nil {
 		return object{}, storj.Object{}, err
 	}

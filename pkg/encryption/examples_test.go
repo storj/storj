@@ -8,11 +8,12 @@ import (
 	"fmt"
 
 	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
 
 func ExampleEncryptPath() {
-	var path = "fold1/fold2/fold3/file.txt"
+	path := paths.NewUnencrypted("fold1/fold2/fold3/file.txt")
 
 	// seed
 	seed := new(storj.Key)
@@ -21,8 +22,11 @@ func ExampleEncryptPath() {
 	}
 	fmt.Printf("root key (%d bytes): %s\n", len(seed), hex.EncodeToString(seed[:]))
 
+	store := encryption.NewStore()
+	store.SetDefaultKey(seed)
+
 	// use the seed for encrypting the path
-	encryptedPath, err := encryption.EncryptPath(path, storj.AESGCM, seed)
+	encryptedPath, err := encryption.EncryptPathWithStore("bucket", path, storj.AESGCM, store)
 	if err != nil {
 		panic(err)
 	}
@@ -30,22 +34,7 @@ func ExampleEncryptPath() {
 	fmt.Println("encrypted path: ", encryptedPath)
 
 	// decrypting the path
-	decryptedPath, err := encryption.DecryptPath(encryptedPath, storj.AESGCM, seed)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("decrypted path: ", decryptedPath)
-
-	// handling of shared path
-	sharedPath := storj.JoinPaths(storj.SplitPath(encryptedPath)[2:]...)
-	fmt.Println("shared path:    ", sharedPath)
-	derivedKey, err := encryption.DerivePathKey(decryptedPath, seed, 2)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("derived key (%d bytes): %s\n", len(derivedKey), hex.EncodeToString(derivedKey[:]))
-	decryptedPath, err = encryption.DecryptPath(sharedPath, storj.AESGCM, derivedKey)
+	decryptedPath, err := encryption.DecryptPathWithStore("bucket", encryptedPath, storj.AESGCM, store)
 	if err != nil {
 		panic(err)
 	}
@@ -54,9 +43,6 @@ func ExampleEncryptPath() {
 	// Output:
 	// root key (32 bytes): 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 	// path to encrypt: fold1/fold2/fold3/file.txt
-	// encrypted path:  urxuYzqG_ZlJfBhkGaz87WvvnCZaYD7qf1_ZN_Pd91n5/IyncDwLhWPv4F7EaoUivwICnUeJMWlUnMATL4faaoH2s/_1gitX6uPd3etc3RgoD9R1waT5MPKrlrY32ehz_vqlOv/6qO4DU5AHFabE2r7hmAauvnomvtNByuO-FCw4ch_xaVR3SPE
+	// encrypted path:  OHzjTiBUvLmgQouCAYdu74MlqDl791aOka_EBzlAb_rR/RT0pG5y4lHFVRi1sHtwjZ1B7DeVbRvpyMfO6atfOefSC/rXJX6O9Pk4rGtnlLUIUoc9Gz0y6N-xemdNyAasbo3dQm/qiEo3IYUlA989mKFE7WB98GHJK88AI98hhUgwv39ePexslzg
 	// decrypted path:  fold1/fold2/fold3/file.txt
-	// shared path:     _1gitX6uPd3etc3RgoD9R1waT5MPKrlrY32ehz_vqlOv/6qO4DU5AHFabE2r7hmAauvnomvtNByuO-FCw4ch_xaVR3SPE
-	// derived key (32 bytes): 909db5ccf2b645e3352ee8212305596ed514d9f84d5acd21d93b4527d2a0c7e1
-	// decrypted path:  fold3/file.txt
 }

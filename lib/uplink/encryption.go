@@ -88,11 +88,11 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 		unencPath := paths.NewUnencrypted(res.PathPrefix)
 		cipher := storj.AESGCM // TODO(jeff): pick the right path cipher
 
-		encPath, err := encryption.StoreEncryptPath(res.Bucket, unencPath, cipher, s.store)
+		encPath, err := encryption.EncryptPathWithStore(res.Bucket, unencPath, cipher, s.store)
 		if err != nil {
 			return APIKey{}, nil, err
 		}
-		derivedKey, err := encryption.StoreDerivePathKey(res.Bucket, unencPath, s.store)
+		derivedKey, err := encryption.DerivePathKeyWithStore(res.Bucket, unencPath, s.store)
 		if err != nil {
 			return APIKey{}, nil, err
 		}

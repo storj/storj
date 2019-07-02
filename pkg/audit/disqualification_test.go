@@ -16,8 +16,9 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -136,9 +137,11 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
 		cipher := encScheme.Cipher
-		encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, "testbucket/test/path", cipher, &storj.Key{})
+		store := encryption.NewStore()
+		store.SetDefaultKey(new(storj.Key))
+		encryptedPath, err := encryption.EncryptPathWithStore("testbucket", paths.NewUnencrypted("test/path"), cipher, store)
 		require.NoError(t, err)
-
+		encryptedAfterBucket := "testbucket/" + encryptedPath.Raw()
 		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", encryptedAfterBucket)
 		pointer, err := satellite.Metainfo.Service.Get(ctx, lastSegPath)
 		require.NoError(t, err)

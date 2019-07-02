@@ -39,12 +39,12 @@ func TestStoreEncryption(t *testing.T) {
 			store := newStore(testrand.Key())
 			path := paths.NewUnencrypted(rawPath)
 
-			encPath, err := StoreEncryptPath("bucket", path, cipher, store)
+			encPath, err := EncryptPathWithStore("bucket", path, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			decPath, err := StoreDecryptPath("bucket", encPath, cipher, store)
+			decPath, err := DecryptPathWithStore("bucket", encPath, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
@@ -52,4 +52,14 @@ func TestStoreEncryption(t *testing.T) {
 			assert.Equal(t, rawPath, decPath.Raw(), errTag)
 		}
 	})
+}
+
+func forAllCiphers(test func(cipher storj.Cipher)) {
+	for _, cipher := range []storj.Cipher{
+		storj.Unencrypted,
+		storj.AESGCM,
+		storj.SecretBox,
+	} {
+		test(cipher)
+	}
 }

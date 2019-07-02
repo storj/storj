@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
@@ -70,35 +69,4 @@ func (s *shimStore) List(ctx context.Context, prefix storj.Path, startAfter stor
 	defer mon.Task()(&ctx)(&err)
 
 	return s.store.List(ctx, ParsePath(prefix), startAfter, endBefore, pathCipher, recursive, limit, metaFlags)
-}
-
-// EncryptAfterBucket encrypts a path without encrypting its first element. This is a legacy function
-// that should no longer be needed after the typed path refactoring.
-func EncryptAfterBucket(ctx context.Context, path storj.Path, cipher storj.Cipher, key *storj.Key) (encrypted storj.Path, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	comps := storj.SplitPath(path)
-	if len(comps) <= 1 {
-		return path, nil
-	}
-
-	encrypted, err = encryption.EncryptPath(path, cipher, key)
-	if err != nil {
-		return "", err
-	}
-
-	// replace the first path component with the unencrypted bucket name
-	return storj.JoinPaths(comps[0], storj.JoinPaths(storj.SplitPath(encrypted)[1:]...)), nil
-}
-
-// DecryptStreamInfo decrypts stream info. This is a legacy function that should no longer
-// be needed after the typed path refactoring.
-func DecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path storj.Path, rootKey *storj.Key) (
-	streamInfo []byte, streamMeta pb.StreamMeta, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	store := encryption.NewStore()
-	store.SetDefaultKey(rootKey)
-
-	return TypedDecryptStreamInfo(ctx, streamMetaBytes, ParsePath(path), store)
 }
