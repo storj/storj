@@ -898,6 +898,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Remove disqualification flag for failing uptime checks",
+				Version:     39,
+				Action: migrate.SQL{
+					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
+				},
+			},
 		},
 	}
 }
