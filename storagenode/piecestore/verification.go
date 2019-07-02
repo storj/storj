@@ -29,7 +29,7 @@ var (
 
 // VerifyOrderLimit verifies that the order limit is properly signed and has sane values.
 // It also verifies that the serial number has not been used.
-func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit2) (err error) {
+func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// sanity checks
@@ -42,7 +42,8 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
-
+	case time.Now().Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
+		return ErrProtocol.New("order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
 		return ErrProtocol.New("missing satellite id")
 	case limit.UplinkId.IsZero():
@@ -88,7 +89,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 }
 
 // VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
-func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, order *pb.Order2, largestOrderAmount int64) (err error) {
+func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit, order *pb.Order, largestOrderAmount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
@@ -110,7 +111,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 }
 
 // VerifyPieceHash verifies whether the piece hash is properly signed and matches the locally computed hash.
-func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) (err error) {
+func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
@@ -131,7 +132,7 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 }
 
 // VerifyOrderLimitSignature verifies that the order limit signature is valid.
-func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) (err error) {
+func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)

@@ -185,6 +185,69 @@
       }
     },
     {
+      "protopath": "pkg:/:pb:/:encryption.proto",
+      "def": {
+        "enums": [
+          {
+            "name": "CipherSuite.Type",
+            "enum_fields": [
+              {
+                "name": "ENC_UNSPECIFIED"
+              },
+              {
+                "name": "ENC_NULL",
+                "integer": 1
+              },
+              {
+                "name": "ENC_AESGCM",
+                "integer": 2
+              },
+              {
+                "name": "ENC_SECRETBOX",
+                "integer": 3
+              }
+            ]
+          }
+        ],
+        "messages": [
+          {
+            "name": "EncryptionParameters",
+            "fields": [
+              {
+                "id": 1,
+                "name": "cipher_suite",
+                "type": "CipherSuite"
+              },
+              {
+                "id": 2,
+                "name": "block_size",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "CipherSuite",
+            "fields": [
+              {
+                "id": 1,
+                "name": "type",
+                "type": "Type"
+              }
+            ]
+          }
+        ],
+        "package": {
+          "name": "encryption"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
       "protopath": "pkg:/:pb:/:encryption_access.proto",
       "def": {
         "messages": [
@@ -1545,12 +1608,214 @@
       "def": {
         "messages": [
           {
+            "name": "BucketItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path_cipher",
+                "type": "encryption.CipherSuite"
+              },
+              {
+                "id": 3,
+                "name": "attribution_id",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "created_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "default_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "default_redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 7,
+                "name": "default_encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              }
+            ]
+          },
+          {
+            "name": "BucketListItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "created_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "BucketCreateRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path_cipher",
+                "type": "encryption.CipherSuite"
+              },
+              {
+                "id": 3,
+                "name": "attribution_id",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "default_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "default_redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 6,
+                "name": "default_encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              }
+            ]
+          },
+          {
+            "name": "BucketCreateResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "BucketItem"
+              }
+            ]
+          },
+          {
+            "name": "BucketGetRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "BucketGetResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "BucketItem"
+              }
+            ]
+          },
+          {
+            "name": "BucketDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "BucketDeleteResponse"
+          },
+          {
+            "name": "BucketListRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "cursor",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "limit",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "BucketListResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "BucketListItem",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "BucketSetAttributionRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "name",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "attribution_id",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "BucketSetAttributionResponse"
+          },
+          {
             "name": "AddressedOrderLimit",
             "fields": [
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
@@ -1646,7 +1911,7 @@
               {
                 "id": 5,
                 "name": "original_limits",
-                "type": "orders.OrderLimit2",
+                "type": "orders.OrderLimit",
                 "is_repeated": true
               }
             ]
@@ -1873,6 +2138,31 @@
             "name": "Metainfo",
             "rpcs": [
               {
+                "name": "CreateBucket",
+                "in_type": "BucketCreateRequest",
+                "out_type": "BucketCreateResponse"
+              },
+              {
+                "name": "GetBucket",
+                "in_type": "BucketGetRequest",
+                "out_type": "BucketGetResponse"
+              },
+              {
+                "name": "DeleteBucket",
+                "in_type": "BucketDeleteRequest",
+                "out_type": "BucketDeleteResponse"
+              },
+              {
+                "name": "ListBuckets",
+                "in_type": "BucketListRequest",
+                "out_type": "BucketListResponse"
+              },
+              {
+                "name": "SetBucketAttribution",
+                "in_type": "BucketSetAttributionRequest",
+                "out_type": "BucketSetAttributionResponse"
+              },
+              {
                 "name": "CreateSegment",
                 "in_type": "SegmentWriteRequest",
                 "out_type": "SegmentWriteResponse"
@@ -1916,6 +2206,9 @@
           }
         ],
         "imports": [
+          {
+            "path": "encryption.proto"
+          },
           {
             "path": "gogo.proto"
           },
@@ -2193,6 +2486,94 @@
                 "type": "double"
               }
             ]
+          },
+          {
+            "name": "DailyStorageUsageRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "from",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "to",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "DailyStorageUsageResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "daily_storage_usage",
+                "type": "StorageUsage",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "StorageUsage",
+                "fields": [
+                  {
+                    "id": 2,
+                    "name": "at_rest_total",
+                    "type": "double"
+                  },
+                  {
+                    "id": 3,
+                    "name": "time_stamp",
+                    "type": "google.protobuf.Timestamp",
+                    "options": [
+                      {
+                        "name": "(gogoproto.stdtime)",
+                        "value": "true"
+                      },
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           }
         ],
         "services": [
@@ -2203,6 +2584,11 @@
                 "name": "UptimeCheck",
                 "in_type": "UptimeCheckRequest",
                 "out_type": "UptimeCheckResponse"
+              },
+              {
+                "name": "DailyStorageUsage",
+                "in_type": "DailyStorageUsageRequest",
+                "out_type": "DailyStorageUsageResponse"
               }
             ]
           }
@@ -2210,6 +2596,9 @@
         "imports": [
           {
             "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
@@ -2278,7 +2667,7 @@
         ],
         "messages": [
           {
-            "name": "OrderLimit2",
+            "name": "OrderLimit",
             "fields": [
               {
                 "id": 1,
@@ -2376,6 +2765,21 @@
                 "type": "google.protobuf.Timestamp"
               },
               {
+                "id": 12,
+                "name": "order_creation",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
@@ -2388,7 +2792,7 @@
             ]
           },
           {
-            "name": "Order2",
+            "name": "Order",
             "fields": [
               {
                 "id": 1,
@@ -2453,12 +2857,12 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "OrderLimit2"
+                "type": "OrderLimit"
               },
               {
                 "id": 2,
                 "name": "order",
-                "type": "Order2"
+                "type": "Order"
               }
             ]
           },
@@ -2713,12 +3117,12 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
                 "name": "order",
-                "type": "orders.Order2"
+                "type": "orders.Order"
               },
               {
                 "id": 3,
@@ -2765,12 +3169,12 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               },
               {
                 "id": 2,
                 "name": "order",
-                "type": "orders.Order2"
+                "type": "orders.Order"
               },
               {
                 "id": 3,
@@ -2829,7 +3233,7 @@
               {
                 "id": 1,
                 "name": "limit",
-                "type": "orders.OrderLimit2"
+                "type": "orders.OrderLimit"
               }
             ]
           },
@@ -3103,6 +3507,50 @@
         ],
         "package": {
           "name": "pointerdb"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:scope.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Scope",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellite_addr",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "api_key",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "encryption_access",
+                "type": "encryption_access.EncryptionAccess"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "encryption_access.proto"
+          }
+        ],
+        "package": {
+          "name": "scope"
         },
         "options": [
           {
