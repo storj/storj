@@ -2455,6 +2455,39 @@
       "def": {
         "messages": [
           {
+            "name": "AuditCheckRequest"
+          },
+          {
+            "name": "AuditCheckResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total_count",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "success_count",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "reputation_alpha",
+                "type": "double"
+              },
+              {
+                "id": 4,
+                "name": "reputation_beta",
+                "type": "double"
+              },
+              {
+                "id": 5,
+                "name": "reputation_score",
+                "type": "double"
+              }
+            ]
+          },
+          {
             "name": "UptimeCheckRequest"
           },
           {
@@ -2580,6 +2613,11 @@
           {
             "name": "NodeStats",
             "rpcs": [
+              {
+                "name": "AuditCheck",
+                "in_type": "AuditCheckRequest",
+                "out_type": "AuditCheckResponse"
+              },
               {
                 "name": "UptimeCheck",
                 "in_type": "UptimeCheckRequest",

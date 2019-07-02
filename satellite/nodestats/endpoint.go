@@ -39,6 +39,33 @@ func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.Stor
 	}
 }
 
+// AuditCheck returns audit check information for client node
+func (e *Endpoint) AuditCheck(ctx context.Context, req *pb.AuditCheckRequest) (_ *pb.AuditCheckResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	node, err := e.overlay.Get(ctx, peer.ID)
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	reputationScore := calculateReputationScore(
+		node.Reputation.AuditReputationAlpha,
+		node.Reputation.AuditReputationBeta)
+
+	return &pb.AuditCheckResponse{
+		TotalCount:      node.Reputation.AuditCount,
+		SuccessCount:    node.Reputation.AuditSuccessCount,
+		ReputationAlpha: node.Reputation.AuditReputationAlpha,
+		ReputationBeta:  node.Reputation.AuditReputationBeta,
+		ReputationScore: reputationScore,
+	}, nil
+}
+
 // UptimeCheck returns uptime checks information for client node
 func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) (_ *pb.UptimeCheckResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -53,7 +80,7 @@ func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) 
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	reputationScore := calculateUptimeReputationScore(
+	reputationScore := calculateReputationScore(
 		node.Reputation.UptimeReputationAlpha,
 		node.Reputation.UptimeReputationBeta)
 
@@ -105,7 +132,7 @@ func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorag
 	return pbUsages
 }
 
-// calculateUptimeReputationScore is helper method to calculate reputation value for uptime checks
-func calculateUptimeReputationScore(alpha, beta float64) float64 {
+// calculateReputationScore is helper method to calculate reputation score value
+func calculateReputationScore(alpha, beta float64) float64 {
 	return alpha / (alpha + beta)
 }
