@@ -376,7 +376,7 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeI
 		PieceId:         pieceID,
 		Action:          action,
 		SerialNumber:    serialNumber,
-		OrderCreation:	 time.Now(),
+		OrderCreation:   time.Now(),
 		OrderExpiration: oe,
 		PieceExpiration: pe,
 		Limit:           limit,

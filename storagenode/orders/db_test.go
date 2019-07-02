@@ -59,7 +59,7 @@ func TestOrders(t *testing.T) {
 			PieceId:         piece,
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
-			OrderCreation:   now.AddDate(0,0,-1),
+			OrderCreation:   now.AddDate(0, 0, -1),
 			PieceExpiration: nowTimestamp,
 			OrderExpiration: nowTimestamp,
 		})
