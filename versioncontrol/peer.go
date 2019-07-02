@@ -76,17 +76,35 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 	}
 
 	// Convert each Service's Version String to SemVer
-	&peer.Versions.Bootstrap, err = version.NewSemVer(config.Versions.Bootstrap)
+	peer.Versions.Bootstrap, err = version.NewSemVer(config.Versions.Bootstrap)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	&peer.Versions.Satellite, err = version.NewSemVer(config.Versions.Satellite)
+	peer.Versions.Satellite, err = version.NewSemVer(config.Versions.Satellite)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	&peer.Versions.Storagenode, err = version.NewSemVer(config.Versions.Storagenode)
+	peer.Versions.Storagenode, err = version.NewSemVer(config.Versions.Storagenode)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	&peer.Versions.Uplink, err = version.NewSemVer(config.Versions.Uplink)
+	peer.Versions.Uplink, err = version.NewSemVer(config.Versions.Uplink)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	&peer.Versions.Gateway, err = version.NewSemVer(config.Versions.Gateway)
+	peer.Versions.Gateway, err = version.NewSemVer(config.Versions.Gateway)
+	if err != nil {
+		return &Peer{}, err
+	}
 
-	&peer.Versions.Identity, err = version.NewSemVer(config.Versions.Identity)
+	peer.Versions.Identity, err = version.NewSemVer(config.Versions.Identity)
+	if err != nil {
+		return &Peer{}, err
+	}
 
 	peer.response, err = json.Marshal(peer.Versions)
 
