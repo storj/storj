@@ -6,6 +6,7 @@ package audit_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -39,17 +40,17 @@ func TestContainIncrementAndGet(t *testing.T) {
 		output, err := containment.Get(ctx, input.NodeID)
 		require.NoError(t, err)
 
-		require.Equal(t, input, output)
+		assert.Equal(t, input, output)
 
 		// check contained flag set to true
 		node, err := cache.Get(ctx, input.NodeID)
 		require.NoError(t, err)
-		require.True(t, node.Contained)
+		assert.True(t, node.Contained)
 
 		nodeID1 := planet.StorageNodes[1].ID()
 		_, err = containment.Get(ctx, nodeID1)
 		require.Error(t, err, audit.ErrContainedNotFound.New(nodeID1.String()))
-		require.True(t, audit.ErrContainedNotFound.Has(err))
+		assert.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
 
@@ -82,20 +83,19 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 
 		// expect failure when an entry with the same nodeID but different expected share data already exists
 		err = containment.IncrementPending(ctx, info2)
-		require.Error(t, err)
-		require.True(t, audit.ErrAlreadyExists.Has(err))
+		assert.True(t, audit.ErrAlreadyExists.Has(err))
 
 		// expect reverify count for an entry to be 0 after first IncrementPending call
 		pending, err := containment.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.EqualValues(t, 0, pending.ReverifyCount)
+		assert.EqualValues(t, 0, pending.ReverifyCount)
 
 		// expect reverify count to be 1 after second IncrementPending call
 		err = containment.IncrementPending(ctx, info1)
 		require.NoError(t, err)
 		pending, err = containment.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, pending.ReverifyCount)
+		assert.EqualValues(t, 1, pending.ReverifyCount)
 	})
 }
 
@@ -121,22 +121,22 @@ func TestContainDelete(t *testing.T) {
 		// delete the node from containment db
 		isDeleted, err := containment.Delete(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.True(t, isDeleted)
+		assert.True(t, isDeleted)
 
 		// check contained flag set to false
 		node, err := cache.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.False(t, node.Contained)
+		assert.False(t, node.Contained)
 
 		// get pending audit that doesn't exist
 		_, err = containment.Get(ctx, info1.NodeID)
-		require.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
-		require.True(t, audit.ErrContainedNotFound.Has(err))
+		assert.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
+		assert.True(t, audit.ErrContainedNotFound.Has(err))
 
 		// delete pending audit that doesn't exist
 		isDeleted, err = containment.Delete(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.False(t, isDeleted)
+		assert.False(t, isDeleted)
 	})
 }
 
@@ -166,11 +166,11 @@ func TestContainUpdateStats(t *testing.T) {
 		// check contained flag set to false
 		node, err := cache.Get(ctx, info1.NodeID)
 		require.NoError(t, err)
-		require.False(t, node.Contained)
+		assert.False(t, node.Contained)
 
 		// get pending audit that doesn't exist
 		_, err = containment.Get(ctx, info1.NodeID)
-		require.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
-		require.True(t, audit.ErrContainedNotFound.Has(err))
+		assert.Error(t, err, audit.ErrContainedNotFound.New(info1.NodeID.String()))
+		assert.True(t, audit.ErrContainedNotFound.Has(err))
 	})
 }
