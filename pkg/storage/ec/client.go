@@ -113,6 +113,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	successfulHashes = make([]*pb.PieceHash, len(limits))
 	var successfulCount int32
 	var timer *time.Timer
+	var lastSuccess time.Time
+	var waitStart time.Time
 
 	for range limits {
 		info := <-infos
@@ -131,6 +133,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
+		lastSuccess = time.Now()
 
 		switch int(atomic.AddInt32(&successfulCount, 1)) {
 		case rs.OptimalThreshold():
@@ -140,7 +143,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 			}
 			cancel()
 		case rs.RepairThreshold() + 1:
-			elapsed := time.Since(start)
+			waitStart = time.Now()
+			elapsed := waitStart.Sub(start)
 			more := elapsed * 3 / 2
 
 			ec.log.Sugar().Debugf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
@@ -176,6 +180,15 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	successes := int(atomic.LoadInt32(&successfulCount))
 	if successes <= rs.RepairThreshold() && successes < rs.OptimalThreshold() {
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
+	}
+
+	// Monitor what the best fraction would have been for this upload.
+	if !lastSuccess.IsZero() && !waitStart.IsZero() {
+		repairThreshold := waitStart.Sub(start).Seconds()
+		extraDuration := lastSuccess.Sub(waitStart).Seconds()
+		if extraDuration != 0 {
+			mon.FloatVal("optimal_fraction").Observe(extraDuration / repairThreshold)
+		}
 	}
 
 	return successfulNodes, successfulHashes, nil
