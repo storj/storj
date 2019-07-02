@@ -204,6 +204,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
 		require.NoError(t, err)
 
+		nodeId := pieces[0].NodeId
 		report, err := audits.Verifier.Reverify(ctx, stripe)
 		require.NoError(t, err)
 
@@ -211,7 +212,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 1)
-		require.Equal(t, report.Fails[0], pieces[0].NodeId)
+		require.Equal(t, report.Fails[0], nodeId)
 	})
 }
 
