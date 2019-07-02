@@ -263,7 +263,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+		ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 		fc, err := infectious.NewFEC(2, 4)
 		require.NoError(t, err)
 

@@ -234,7 +234,7 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, config, planet.Uplinks[0].Identity)
+	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, planet.Uplinks[0].Log.Named("metainfo"), config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
 	defer ctx.Check(cleanup)
 
@@ -560,7 +560,7 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, config, uplink.Identity)
+		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 		require.NoError(t, err)
 		defer ctx.Check(cleanup)
 

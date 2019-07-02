@@ -61,7 +61,7 @@ type DB interface {
 	Console() console.DB
 
 	// TODO: use better interfaces
-	RoutingTable() (kdb, ndb storage.KeyValueStore)
+	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
 }
 
 // Config is all the configuration parameters for a Storage Node
@@ -196,8 +196,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			Version: *pbVersion,
 		}
 
-		kdb, ndb := peer.DB.RoutingTable()
-		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, &config.RoutingTableConfig)
+		kdb, ndb, adb := peer.DB.RoutingTable()
+		peer.Kademlia.RoutingTable, err = kademlia.NewRoutingTable(peer.Log.Named("routing"), self, kdb, ndb, adb, &config.RoutingTableConfig)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

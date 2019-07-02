@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -31,7 +32,9 @@ func TestBind(t *testing.T) {
 		Uint64   uint64         `default:"0"`
 		Uint     uint           `default:"0"`
 		Float64  float64        `default:"0"`
+		Size     memory.Size    `default:"0"`
 		Duration time.Duration  `default:"0"`
+		NodeURL  storj.NodeURL  `releaseDefault:"" devDefault:""`
 		NodeURLs storj.NodeURLs `releaseDefault:"" devDefault:""`
 		Struct   struct {
 			AnotherString string `default:""`
@@ -49,7 +52,9 @@ func TestBind(t *testing.T) {
 	assertEqual(c.Uint64, uint64(0))
 	assertEqual(c.Uint, uint(0))
 	assertEqual(c.Float64, float64(0))
+	assertEqual(c.Size, memory.Size(0))
 	assertEqual(c.Duration, time.Duration(0))
+	assertEqual(c.NodeURL, storj.NodeURL{})
 	assertEqual(c.NodeURLs, storj.NodeURLs(nil))
 	assertEqual(c.Struct.AnotherString, string(""))
 	assertEqual(c.Fields[0].AnotherInt, int(0))
@@ -68,7 +73,9 @@ func TestBind(t *testing.T) {
 		"--uint64=1",
 		"--uint=1",
 		"--float64=1",
+		"--size=1MiB",
 		"--duration=1h",
+		"--node-url=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777",
 		"--node-ur-ls=12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777",
 		"--struct.another-string=1",
 		"--fields.03.another-int=1"})
@@ -82,7 +89,9 @@ func TestBind(t *testing.T) {
 	assertEqual(c.Uint64, uint64(1))
 	assertEqual(c.Uint, uint(1))
 	assertEqual(c.Float64, float64(1))
+	assertEqual(c.Size, memory.MiB)
 	assertEqual(c.Duration, time.Hour)
+	assertEqual(c.NodeURL, storj.NodeURL{ID: node1, Address: "mars.tardigrade.io:7777"})
 	assertEqual(c.NodeURLs, storj.NodeURLs{
 		storj.NodeURL{ID: node1, Address: "mars.tardigrade.io:7777"},
 		storj.NodeURL{ID: node2, Address: "jupiter.tardigrade.io:7777"},
@@ -186,11 +195,12 @@ func TestBindDevDefaults(t *testing.T) {
 func TestHiddenDev(t *testing.T) {
 	f := pflag.NewFlagSet("test", pflag.PanicOnError)
 	var c struct {
-		String  string `default:"dev" hidden:"true"`
-		String2 string `default:"dev" hidden:"false"`
-		Bool    bool   `releaseDefault:"false" devDefault:"true" hidden:"true"`
-		Int64   int64  `releaseDefault:"0" devDefault:"1"`
-		Int     int    `default:"2"`
+		String  string      `default:"dev" hidden:"true"`
+		String2 string      `default:"dev" hidden:"false"`
+		Bool    bool        `releaseDefault:"false" devDefault:"true" hidden:"true"`
+		Int64   int64       `releaseDefault:"0" devDefault:"1"`
+		Int     int         `default:"2"`
+		Size    memory.Size `default:"0" hidden:"true"`
 	}
 	Bind(f, &c, UseDevDefaults())
 
@@ -199,11 +209,13 @@ func TestHiddenDev(t *testing.T) {
 	flagBool := f.Lookup("bool")
 	flagInt64 := f.Lookup("int64")
 	flagInt := f.Lookup("int")
+	flagSize := f.Lookup("size")
 	assertEqual(flagString.Hidden, true)
 	assertEqual(flagStringHide.Hidden, false)
 	assertEqual(flagBool.Hidden, true)
 	assertEqual(flagInt64.Hidden, false)
 	assertEqual(flagInt.Hidden, false)
+	assertEqual(flagSize.Hidden, true)
 }
 
 func TestHiddenRelease(t *testing.T) {
