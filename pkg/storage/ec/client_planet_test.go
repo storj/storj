@@ -46,7 +46,7 @@ func TestECClient(t *testing.T) {
 
 	planet.Start(ctx)
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 
 	k := storageNodes / 2
 	n := storageNodes
@@ -154,7 +154,7 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	if err != nil {
 		return nil, err
 	}
-	limit := &pb.OrderLimit2{
+	limit := &pb.OrderLimit{
 		SerialNumber:    serialNumber,
 		SatelliteId:     satellite.ID(),
 		UplinkId:        uplink.ID(),

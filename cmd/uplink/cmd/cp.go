@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -82,7 +83,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -135,7 +136,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -214,7 +215,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
