@@ -17,6 +17,7 @@ See LICENSE for copying information. -->
         <p class="offer-type">Default&nbsp;Offer</p>
     </div>
     {{$defaultOffer := .ReferralOffers.Default}}
+    {{if $defaultOffer.Name}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
         <div class="col">${{$defaultOffer.InviteeCredit}}</div> 
@@ -27,10 +28,12 @@ See LICENSE for copying information. -->
         <div class="col">&#8734;</div>
         <div class="col"></div>
     </div><hr>
+    {{end}}
     <div class="row offer-heading ">
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
     {{$currentOffer := .ReferralOffers.Active}}
+    {{if $currentOffer.Name}}
         <div class="row data-row">
             <div class="col ml-3">{{$currentOffer.Name}}</div>
             <div class="col">${{$currentOffer.InviteeCredit}}</div> 
@@ -45,12 +48,14 @@ See LICENSE for copying information. -->
                 </span>
             </div>    
         </div><hr>
+    {{end}}
     <div class="row offer-heading ">
         <p class="offer-type">Other&nbsp;Offers</p>
     </div>
     {{range .ReferralOffers.Done}}
     <div class="row data-row">
         <div class="col ml-3">{{.Name}}</div>
+        <div class="col">${{.InviteeCredit}}</div> 
         <div class="col">${{.AwardCredit}}</div>
         <div class="col">{{.NumRedeemed}}</div>
         <div class="col">{{.RedeemableCap}}</div>

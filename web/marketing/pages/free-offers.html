@@ -16,6 +16,7 @@ See LICENSE for copying information. -->
         <p class="offer-type">Default&nbsp;Offer</p>
     </div>
     {{$defaultOffer := .FreeCredits.Default}}
+    {{if $defaultOffer.Name}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
         <div class="col">${{$defaultOffer.AwardCredit}}</div>
@@ -25,10 +26,12 @@ See LICENSE for copying information. -->
         <div class="col">{{printf "%.10s" $defaultOffer.ExpiresAt}}</div>
         <div class="col"></div>
     </div><hr>
+    {{end}}
     <div class="row offer-heading ">
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
     {{$currentOffer := .FreeCredits.Active}}
+    {{if $currentOffer.Name}}
         <div class="row data-row">
             <div class="col ml-3">{{$currentOffer.Name}}</div>
             <div class="col">${{$currentOffer.AwardCredit}}</div>
@@ -42,6 +45,7 @@ See LICENSE for copying information. -->
                 </span>
             </div>    
         </div><hr>
+    {{end}}
     <div class="row offer-heading ">
         <p class="offer-type">Other&nbsp;Offers</p>
     </div>
