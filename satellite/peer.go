@@ -573,6 +573,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
+			peer.DB.Rewards(),
 			pmService,
 			consoleConfig.PasswordCost,
 		)
