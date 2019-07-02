@@ -599,3 +599,38 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 		ProjectSalt: salt[:],
 	}, nil
 }
+
+// CreateBucket creates a bucket
+func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (_ *pb.BucketCreateResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketCreateResponse{}, err
+}
+
+// GetBucket gets a bucket
+func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (_ *pb.BucketGetResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketGetResponse{}, err
+}
+
+// DeleteBucket deletes a bucket
+func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (_ *pb.BucketDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketDeleteResponse{}, err
+}
+
+// ListBuckets returns a list of buckets
+func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (_ *pb.BucketListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketListResponse{}, err
+}
+
+// SetBucketAttribution returns a list of buckets
+func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (_ *pb.BucketSetAttributionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketSetAttributionResponse{}, err
+}
