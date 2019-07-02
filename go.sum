@@ -81,8 +81,6 @@ github.com/eclipse/paho.mqtt.golang v1.1.1/go.mod h1:H9keYFcgq3Qr5OUJm/JZI/i6U7j
 github.com/edsrzf/mmap-go v0.0.0-20170320065105-0bce6a688712/go.mod h1:YO35OhQPt3KJa3ryjFM5Bs14WD66h8eGKpfaBNrHW5M=
 github.com/elazarl/go-bindata-assetfs v1.0.0 h1:G/bYguwHIzWq9ZoyUQqrjTmJbbYn3j3CKKpKinvZLFk=
 github.com/elazarl/go-bindata-assetfs v1.0.0/go.mod h1:v+YaWX3bdea5J/mo8dSETolEo7R71Vk1u8bnjau5yw4=
-github.com/emicklei/proto v1.6.10 h1:tXKViikmzSAh7X+SCUliSDphrK9JKKkJaAZB84XVCyY=
-github.com/emicklei/proto v1.6.10/go.mod h1:rn1FgRS/FANiZdD2djyH7TMA9jdRDcYQ9IEN9yvjX0A=
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.0.0 h1:BrX964Rv5uQ3wwS+KRUAJCBBw5PQmgJfJ6v4yly5QwU=
@@ -207,8 +205,6 @@ github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/kshvakov/clickhouse v1.3.4/go.mod h1:DMzX7FxRymoNkVgizH0DWAL8Cur7wHLgx3MUnGwJqpE=
-github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
-github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/lib/pq v1.0.0 h1:X5PMW56eZitiTeO7tKzZxFCSpbFZJtkMMooicw2us9A=
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e h1:UC+nLCm+w3WL+ibAW/wsWbQC3KAz7LLawR2hgX0eR9s=
@@ -268,8 +264,6 @@ github.com/nats-io/nats-streaming-server v0.12.2 h1:EpyLfUBZgwu5c0mdSSytQsapm615
 github.com/nats-io/nats-streaming-server v0.12.2/go.mod h1:RyqtDJZvMZO66YmyjIYdIvS69zu/wDAkyNWa8PIUa5c=
 github.com/nats-io/nuid v1.0.0 h1:44QGdhbiANq8ZCbUkdn6W5bqtg+mHuDE4wOUuxxndFs=
 github.com/nats-io/nuid v1.0.0/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OSON2c=
-github.com/nilslice/protolock v0.12.0 h1:KcoGgc8XeEd9NmvaBoZhAyR2NztNrIJ4Z3OmGxEn7do=
-github.com/nilslice/protolock v0.12.0/go.mod h1:OzvT4IFErKi8XibZhA7ass+3KzE02qCNANyhPvieZ0g=
 github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3 h1:OqFSgO6CJ8heZRAbXLpT+ojX+jnnGij4qZwUz/SJJ9I=
 github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3/go.mod h1:uFMI8w+ref4v2r9jz+c9i1IfIttS/OkmLfrk1jne5hs=
 github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d h1:x3S6kxmy49zXVVyhcnrFqxvNVCBPb2KZ9hV2RBdS840=

@@ -59,7 +59,6 @@ require (
 	github.com/jtolds/monkit-hw v0.0.0-20190108155550-0f753668cf20
 	github.com/klauspost/cpuid v0.0.0-20180405133222-e7e905edc00e // indirect
 	github.com/klauspost/reedsolomon v0.0.0-20180704173009-925cb01d6510 // indirect
-	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.0.0
 	github.com/loov/hrtime v0.0.0-20181214195526-37a208e8344e
 	github.com/loov/plot v0.0.0-20180510142208-e59891ae1271
@@ -81,7 +80,6 @@ require (
 	github.com/nats-io/nats v1.6.0 // indirect
 	github.com/nats-io/nats-streaming-server v0.12.2 // indirect
 	github.com/nats-io/nuid v1.0.0 // indirect
-	github.com/nilslice/protolock v0.12.0 // indirect
 	github.com/nsf/jsondiff v0.0.0-20160203110537-7de28ed2b6e3
 	github.com/nsf/termbox-go v0.0.0-20190121233118-02980233997d
 	github.com/onsi/ginkgo v1.7.0 // indirect
