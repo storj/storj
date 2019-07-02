@@ -70,12 +70,15 @@ type OfferStatus int
 
 const (
 
+	// Done is a default offer status when an offer is not being used currently
+	Done = OfferStatus(iota)
+
 	// Active is a offer status when an offer is currently being used
-	Active = OfferStatus(iota)
+	Active
+
 	// Default is a offer status when an offer is used as a default offer
 	Default
-	// Done is a default offer status when an offer is not being used currently
-	Done
+
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
