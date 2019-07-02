@@ -129,6 +129,7 @@ func TestBindDevDefaults(t *testing.T) {
 		Uint     uint           `releaseDefault:"0" devDefault:"4"`
 		Float64  float64        `default:"5.5"`
 		Duration time.Duration  `default:"1h"`
+		NodeURL  storj.NodeURL  `releaseDefault:"" devDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777"`
 		NodeURLs storj.NodeURLs `releaseDefault:"" devDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
 		Struct   struct {
 			AnotherString string `default:"dev2"`
@@ -152,6 +153,7 @@ func TestBindDevDefaults(t *testing.T) {
 	assertEqual(c.Uint, uint(4))
 	assertEqual(c.Float64, float64(5.5))
 	assertEqual(c.Duration, time.Hour)
+	assertEqual(c.NodeURL, storj.NodeURL{ID: node1, Address: "mars.tardigrade.io:7777"})
 	assertEqual(c.NodeURLs, storj.NodeURLs{
 		storj.NodeURL{ID: node1, Address: "mars.tardigrade.io:7777"},
 		storj.NodeURL{ID: node2, Address: "jupiter.tardigrade.io:7777"},
@@ -172,6 +174,7 @@ func TestBindDevDefaults(t *testing.T) {
 		"--uint=1",
 		"--float64=1",
 		"--duration=1h",
+		"--node-url=121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777",
 		"--node-ur-ls=121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777",
 		"--struct.another-string=1",
 		"--fields.03.another-int=1"})
@@ -186,6 +189,7 @@ func TestBindDevDefaults(t *testing.T) {
 	assertEqual(c.Uint, uint(1))
 	assertEqual(c.Float64, float64(1))
 	assertEqual(c.Duration, time.Hour)
+	assertEqual(c.NodeURL, storj.NodeURL{ID: node3, Address: "saturn.tardigrade.io:7777"})
 	assertEqual(c.NodeURLs, storj.NodeURLs{storj.NodeURL{ID: node3, Address: "saturn.tardigrade.io:7777"}})
 	assertEqual(c.Struct.AnotherString, string("1"))
 	assertEqual(c.Fields[0].AnotherInt, int(6))
