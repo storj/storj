@@ -88,7 +88,6 @@ func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID stor
 // sorted in ascending order and applied condition if any
 func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	qb := strings.Builder{}
 	qb.WriteString("SELECT action, SUM(amount), created_at ")
