@@ -47,7 +47,7 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, emptyArchive, 0)
 
-		now := time.Now().UTC()
+		now := time.Now()
 		nowTimestamp, err := ptypes.TimestampProto(now)
 		require.NoError(t, err)
 
