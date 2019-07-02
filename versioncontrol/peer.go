@@ -6,11 +6,12 @@ package versioncontrol
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"net/http"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"net"
-	"net/http"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/version"
