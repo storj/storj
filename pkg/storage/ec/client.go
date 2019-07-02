@@ -187,6 +187,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		repairThreshold := waitStart.Sub(start).Seconds()
 		extraDuration := lastSuccess.Sub(waitStart).Seconds()
 		if extraDuration != 0 {
+			mon.FloatVal("repair_threshold").Observe(repairThreshold)
+			mon.FloatVal("extra_duration").Observe(extraDuration)
 			mon.FloatVal("optimal_fraction").Observe(extraDuration / repairThreshold)
 		}
 	}
