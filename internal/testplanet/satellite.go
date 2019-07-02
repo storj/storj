@@ -154,7 +154,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			Repairer: repairer.Config{
 				MaxRepair:    10,
 				Interval:     time.Hour,
-				Timeout:      10 * time.Second, // Repairs can take up to 4 seconds. Leaving room for outliers
+				Timeout:      1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
 				MaxBufferMem: 4 * memory.MiB,
 			},
 			Audit: audit.Config{
