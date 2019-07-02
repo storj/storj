@@ -200,6 +200,18 @@ func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID st
 	return uptime, nil
 }
 
+// GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps for a particular satellite
+func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []nodestats.SpaceUsageStamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stamps, err := s.nodestats.GetDailyStorageUsedForSatellite(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	return stamps, nil
+}
+
 // GetNodeID return current node id
 func (s *Service) GetNodeID(ctx context.Context) storj.NodeID {
 	defer mon.Task()(&ctx)(nil)
