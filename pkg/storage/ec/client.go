@@ -154,9 +154,8 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
-	// TODO(moby) do we return an error?
 	if successes < rs.OptimalThreshold() {
-		ec.log.Sugar().Errorf("successful puts (%d) less than or equal to success threshold (%d)", successes, rs.OptimalThreshold())
+		return nil, nil, Error.New("successful puts (%d) less than or equal to success threshold (%d)", successes, rs.OptimalThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
