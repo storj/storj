@@ -56,7 +56,7 @@ type OldConfig struct {
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"30"`
+	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
