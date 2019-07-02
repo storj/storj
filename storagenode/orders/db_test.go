@@ -48,7 +48,7 @@ func TestOrders(t *testing.T) {
 		require.Len(t, emptyArchive, 0)
 
 		now := time.Now().UTC()
-		nowTimestamp, err := ptypes.TimestampProto(time.Now().UTC())
+		nowTimestamp, err := ptypes.TimestampProto(now)
 		require.NoError(t, err)
 
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{

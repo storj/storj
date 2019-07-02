@@ -164,7 +164,7 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 		Action:          action,
 		Limit:           dataSize.Int64(),
 		PieceExpiration: nil,
-		OrderCreation:   time.Now().UTC(),
+		OrderCreation:   time.Now(),
 		OrderExpiration: orderExpiration,
 	}
 
