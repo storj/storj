@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 )
@@ -26,6 +27,9 @@ func TestGetSignee(t *testing.T) {
 
 	planet.Start(ctx)
 
+	// make sure nodes are refreshed in db
+	planet.Satellites[0].Discovery.Service.Refresh.TriggerWait()
+
 	trust := planet.StorageNodes[0].Storage2.Trust
 
 	canceledContext, cancel := context.WithCancel(ctx)
@@ -34,7 +38,7 @@ func TestGetSignee(t *testing.T) {
 	var group errgroup.Group
 	group.Go(func() error {
 		_, err := trust.GetSignee(canceledContext, planet.Satellites[0].ID())
-		if err == context.Canceled {
+		if errs2.IsCanceled(err) {
 			return nil
 		}
 		// if the other goroutine races us,

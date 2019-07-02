@@ -263,7 +263,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 	}
 
 	switch req.Method {
-	case "POST":
+	case http.MethodPost:
 		err := req.ParseForm()
 		if err != nil {
 			s.serveError(w, req)
@@ -281,7 +281,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 			s.serveError(w, req)
 		}
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "success.html"))
-	default:
+	case http.MethodGet:
 		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
 			s.serveError(w, req)
@@ -291,6 +291,9 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		if err != nil {
 			s.serveError(w, req)
 		}
+	default:
+		s.serveError(w, req)
+		return
 	}
 }
 
@@ -309,6 +312,7 @@ func (s *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, req *http.
 }
 
 func (s *Server) serveError(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(http.StatusNotFound)
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "errors", "404.html"))
 }
 

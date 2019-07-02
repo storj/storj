@@ -13,9 +13,9 @@ import (
 
 	"storj.io/storj/internal/fpath"
 	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/process"
+	"storj.io/storj/uplink/setup"
 )
 
 var shareCfg struct {
@@ -79,9 +79,37 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	var restrictions []libuplink.EncryptionRestriction
+	for _, path := range shareCfg.AllowedPathPrefix {
+		p, err := fpath.New(path)
+		if err != nil {
+			return err
+		}
+		if p.IsLocal() {
+			return errs.New("required path must be remote: %q", path)
+		}
+
+		restrictions = append(restrictions, libuplink.EncryptionRestriction{
+			Bucket:     p.Bucket(),
+			PathPrefix: p.Path(),
+		})
+	}
+
 	key, err := libuplink.ParseAPIKey(cfg.Client.APIKey)
 	if err != nil {
 		return err
+	}
+
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	if err != nil {
+		return err
+	}
+
+	if len(restrictions) > 0 {
+		key, access, err = access.Restrict(key, restrictions...)
+		if err != nil {
+			return err
+		}
 	}
 
 	caveat, err := macaroon.NewCaveat()
@@ -95,53 +123,6 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 	caveat.DisallowWrites = shareCfg.DisallowWrites || shareCfg.Readonly
 	caveat.NotBefore = notBefore
 	caveat.NotAfter = notAfter
-
-	var project *libuplink.Project
-
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
-	if err != nil {
-		return err
-	}
-
-	cache := make(map[string]*libuplink.BucketConfig)
-
-	for _, path := range shareCfg.AllowedPathPrefix {
-		p, err := fpath.New(path)
-		if err != nil {
-			return err
-		}
-		if p.IsLocal() {
-			return errs.New("required path must be remote: %q", path)
-		}
-
-		bi, ok := cache[p.Bucket()]
-		if !ok {
-			if project == nil {
-				project, err = cfg.GetProject(ctx)
-				if err != nil {
-					return err
-				}
-				defer func() { err = errs.Combine(err, project.Close()) }()
-			}
-
-			_, bi, err = project.GetBucketInfo(ctx, p.Bucket())
-			if err != nil {
-				return err
-			}
-
-			cache[p.Bucket()] = bi
-		}
-
-		encPath, err := encryption.EncryptPath(path, bi.PathCipher.ToCipher(), &access.Key)
-		if err != nil {
-			return err
-		}
-
-		caveat.AllowedPaths = append(caveat.AllowedPaths, &macaroon.Caveat_Path{
-			Bucket:              []byte(p.Bucket()),
-			EncryptedPathPrefix: []byte(encPath),
-		})
-	}
 
 	{
 		// Times don't marshal very well with MarshalTextString, and the nonce doesn't
@@ -165,6 +146,12 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	fmt.Println("new key:", key.Serialize())
+	accessData, err := access.Serialize()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("api key:", key.Serialize())
+	fmt.Println("enc ctx:", accessData)
 	return nil
 }

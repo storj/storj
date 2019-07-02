@@ -258,9 +258,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if req.Pointer.Type == pb.Pointer_INLINE {
-		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
 		// TODO or maybe use pointer.SegmentSize ??
-		err = endpoint.orders.UpdatePutInlineOrder(ctx, bucketID, int64(len(req.Pointer.InlineSegment)))
+		err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(req.Pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -326,7 +325,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	if pointer.Type == pb.Pointer_INLINE {
 		// TODO or maybe use pointer.SegmentSize ??
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucketID, int64(len(pointer.InlineSegment)))
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, keyInfo.ProjectID, req.Bucket, int64(len(pointer.InlineSegment)))
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
@@ -536,7 +535,8 @@ func (endpoint *Endpoint) SetAttribution(ctx context.Context, req *pb.SetAttribu
 	// check if attribution is set for given bucket
 	_, err = endpoint.partnerinfo.Get(ctx, keyInfo.ProjectID, req.GetBucketName())
 	if err == nil {
-		return nil, Error.New("Bucket(%s) , PartnerID(%s) cannot be attributed", string(req.BucketName), string(req.PartnerId))
+		endpoint.log.Sugar().Info("Bucket:", string(req.BucketName), " PartnerID:", partnerID.String(), "already attributed")
+		return &pb.SetAttributionResponse{}, nil
 	}
 
 	if !attribution.ErrBucketNotAttributed.Has(err) {
@@ -598,4 +598,39 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	return &pb.ProjectInfoResponse{
 		ProjectSalt: salt[:],
 	}, nil
+}
+
+// CreateBucket creates a bucket
+func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (_ *pb.BucketCreateResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketCreateResponse{}, err
+}
+
+// GetBucket gets a bucket
+func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (_ *pb.BucketGetResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketGetResponse{}, err
+}
+
+// DeleteBucket deletes a bucket
+func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (_ *pb.BucketDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketDeleteResponse{}, err
+}
+
+// ListBuckets returns a list of buckets
+func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (_ *pb.BucketListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketListResponse{}, err
+}
+
+// SetBucketAttribution returns a list of buckets
+func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (_ *pb.BucketSetAttributionResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	// TODO: placeholder to implement pb.MetainfoServer interface.
+	return &pb.BucketSetAttributionResponse{}, err
 }

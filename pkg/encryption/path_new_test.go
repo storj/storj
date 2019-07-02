@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
@@ -35,9 +36,7 @@ func TestStoreEncryption(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("test:%d path:%q cipher:%v", i, rawPath, cipher)
 
-			var key storj.Key
-			copy(key[:], randData(storj.KeySize))
-			store := newStore(key)
+			store := newStore(testrand.Key())
 			path := paths.NewUnencrypted(rawPath)
 
 			encPath, err := StoreEncryptPath("bucket", path, cipher, store)

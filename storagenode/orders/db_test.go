@@ -4,8 +4,8 @@
 package orders_test
 
 import (
-	"crypto/rand"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -35,7 +36,7 @@ func TestOrders(t *testing.T) {
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
-		serialNumber := newRandomSerial()
+		serialNumber := testrand.SerialNumber()
 
 		// basic test
 		emptyUnsent, err := ordersdb.ListUnsent(ctx, 100)
@@ -46,9 +47,11 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, emptyArchive, 0)
 
-		now := ptypes.TimestampNow()
+		now := time.Now()
+		nowTimestamp, err := ptypes.TimestampProto(now)
+		require.NoError(t, err)
 
-		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit2{
+		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
 			SatelliteId:     satellite0.ID,
 			UplinkId:        uplink.ID,
@@ -56,12 +59,13 @@ func TestOrders(t *testing.T) {
 			PieceId:         piece,
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
-			PieceExpiration: now,
-			OrderExpiration: now,
+			OrderCreation:   now.AddDate(0, 0, -1),
+			PieceExpiration: nowTimestamp,
+			OrderExpiration: nowTimestamp,
 		})
 		require.NoError(t, err)
 
-		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order2{
+		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order{
 			SerialNumber: serialNumber,
 			Amount:       50,
 		})
@@ -90,7 +94,7 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedGrouped := map[storj.NodeID][]*orders.Info{
-			satellite0.ID: []*orders.Info{
+			satellite0.ID: {
 				{Limit: limit, Order: order},
 			},
 		}
@@ -126,11 +130,4 @@ func TestOrders(t *testing.T) {
 		}, archived, cmp.Comparer(pb.Equal)))
 
 	})
-}
-
-// TODO: move somewhere better
-func newRandomSerial() storj.SerialNumber {
-	var serial storj.SerialNumber
-	_, _ = rand.Read(serial[:])
-	return serial
 }
