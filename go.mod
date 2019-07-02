@@ -1,5 +1,7 @@
 module storj.io/storj
 
+go 1.12
+
 // force specific versions for minio
 require (
 	github.com/btcsuite/btcutil v0.0.0-20180706230648-ab6388e0c60a
@@ -45,6 +47,7 @@ require (
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/rpc v1.1.0 // indirect
+	github.com/gorilla/schema v1.1.0
 	github.com/hashicorp/go-immutable-radix v1.0.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.3 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect

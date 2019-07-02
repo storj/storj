@@ -5,11 +5,11 @@ syntax = "proto3";
 
 option go_package = "pb";
 
-package encryption_ctx;
+package encryption_access;
 
 import "gogo.proto";
 
-message EncryptionCtx {
+message EncryptionAccess {
     message StoreEntry {
         bytes bucket = 1;
         bytes unencrypted_path = 2;

@@ -689,7 +689,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	}
 	// TODO(leak): close m metainfo.Client somehow
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, nil, err
@@ -704,8 +704,8 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
-	encCtx := libuplink.NewEncryptionCtxWithDefaultKey(encKey)
-	encStore := encCtx.Store()
+	access := libuplink.NewEncryptionAccessWithDefaultKey(encKey)
+	encStore := access.Store()
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
@@ -747,7 +747,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	gateway := NewStorjGateway(
 		proj,
-		encCtx,
+		access,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,

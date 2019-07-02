@@ -234,8 +234,9 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := testplanet.GetMetainfo(ctx, config, planet.Uplinks[0].Identity)
+	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, planet.Uplinks[0].Log.Named("metainfo"), config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
+	defer ctx.Check(cleanup)
 
 	type Test struct {
 		Request  storj.ListOptions
@@ -302,7 +303,7 @@ func TestCommitSegment(t *testing.T) {
 
 		{
 			// error if pointer is nil
-			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
 			require.Error(t, err)
 		}
 		{
@@ -341,7 +342,7 @@ func TestCommitSegment(t *testing.T) {
 				ExpirationDate: expirationDateProto,
 			}
 
-			limits := make([]*pb.OrderLimit2, len(addresedLimits))
+			limits := make([]*pb.OrderLimit, len(addresedLimits))
 			for i, addresedLimit := range addresedLimits {
 				limits[i] = addresedLimit.Limit
 			}
@@ -559,8 +560,9 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := testplanet.GetMetainfo(ctx, config, uplink.Identity)
+		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 		require.NoError(t, err)
+		defer ctx.Check(cleanup)
 
 		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
 		require.NoError(t, err)
@@ -626,7 +628,7 @@ func TestGetProjectInfo(t *testing.T) {
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
@@ -638,7 +640,7 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Clie
 	pointer.Remote.RemotePieces[0].NodeId = addressedLimits[0].Limit.StorageNodeId
 	pointer.Remote.RemotePieces[1].NodeId = addressedLimits[1].Limit.StorageNodeId
 
-	limits := make([]*pb.OrderLimit2, len(addressedLimits))
+	limits := make([]*pb.OrderLimit, len(addressedLimits))
 	for i, addressedLimit := range addressedLimits {
 		limits[i] = addressedLimit.Limit
 	}

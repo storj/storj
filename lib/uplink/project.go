@@ -82,7 +82,7 @@ func (cfg *BucketConfig) setDefaults() {
 		cfg.Volatile.RedundancyScheme.TotalShares = 130
 	}
 	if cfg.Volatile.RedundancyScheme.ShareSize == 0 {
-		cfg.Volatile.RedundancyScheme.ShareSize = (1 * memory.KiB).Int32()
+		cfg.Volatile.RedundancyScheme.ShareSize = 256 * memory.B.Int32()
 	}
 	if cfg.EncryptionParameters.BlockSize == 0 {
 		cfg.EncryptionParameters.BlockSize = cfg.Volatile.RedundancyScheme.ShareSize * int32(cfg.Volatile.RedundancyScheme.RequiredShares)
@@ -149,22 +149,31 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 
 // OpenBucket returns a Bucket handle with the given EncryptionAccess
 // information.
-func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *EncryptionCtx) (b *Bucket, err error) {
+func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *EncryptionAccess) (b *Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = p.checkBucketAttribution(ctx, bucketName)
-	if err != nil {
-		return nil, err
-	}
 
 	bucketInfo, cfg, err := p.GetBucketInfo(ctx, bucketName)
 	if err != nil {
 		return nil, err
 	}
 
+	// partnerID set and bucket's attribution is not set
+	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.Attribution == "" {
+		err = p.checkBucketAttribution(ctx, bucketName)
+		if err != nil {
+			return nil, err
+		}
+
+		// update the bucket with attribution info
+		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
 
-	ec := ecclient.NewClient(p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
+	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err
@@ -184,7 +193,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *Enc
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), encCtx.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +203,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, encCtx *Enc
 		Name:         bucketInfo.Name,
 		Created:      bucketInfo.Created,
 		bucket:       bucketInfo,
-		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, encCtx.store),
+		metainfo:     kvmetainfo.New(p.project, p.metainfo, streamStore, segmentStore, access.store),
 		streams:      streamStore,
 	}, nil
 }
@@ -237,4 +246,18 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 	}
 
 	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
+}
+
+// updateBucket updates an existing bucket's attribution info.
+func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bucket = storj.Bucket{
+		Attribution:          p.uplinkCfg.Volatile.PartnerID,
+		PathCipher:           bucketInfo.PathCipher,
+		EncryptionParameters: bucketInfo.EncryptionParameters,
+		RedundancyScheme:     bucketInfo.RedundancyScheme,
+		SegmentsSize:         bucketInfo.SegmentsSize,
+	}
+	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

@@ -30,3 +30,5 @@ debug
 *.svg
 /bin
 resource.syso
+
+*.resource.go

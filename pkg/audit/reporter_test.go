@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -38,8 +37,9 @@ func TestReportPendingAudits(t *testing.T) {
 		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
 		overlay := planet.Satellites[0].Overlay.Service
 		containment := planet.Satellites[0].DB.Containment()
+		log := planet.Satellites[0].Log.Named("reporter")
 
-		reporter := audit.NewReporter(zap.L(), overlay, containment, 1, 3)
+		reporter := audit.NewReporter(log, overlay, containment, 1, 3)
 		failed, err := reporter.RecordAudits(ctx, &report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
@@ -66,9 +66,10 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 		overlay := planet.Satellites[0].Overlay.Service
 		containment := planet.Satellites[0].DB.Containment()
+		log := planet.Satellites[0].Log.Named("reporter")
 
 		// set maxRetries to 0
-		reporter := audit.NewReporter(zap.L(), overlay, containment, 0, 3)
+		reporter := audit.NewReporter(log, overlay, containment, 0, 3)
 
 		// expect RecordAudits to try recording at least once
 		failed, err := reporter.RecordAudits(ctx, &report)
