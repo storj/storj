@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
 )
 
@@ -139,6 +138,37 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			continue
 		}
 
+		fieldaddr := fieldval.Addr().Interface()
+		if fieldvalue, ok := fieldaddr.(pflag.Value); ok {
+			help := field.Tag.Get("help")
+			var def string
+			if isDev {
+				def = getDefault(field.Tag, "devDefault", "releaseDefault", "default", flagname)
+			} else {
+				def = getDefault(field.Tag, "releaseDefault", "devDefault", "default", flagname)
+			}
+
+			err := fieldvalue.Set(def)
+			if err != nil {
+				panic(fmt.Sprintf("invalid default value for %s: %#v, %v", flagname, def, err))
+			}
+			flags.Var(fieldvalue, flagname, help)
+
+			if onlyForSetup {
+				setBoolAnnotation(flags, flagname, "setup")
+			}
+			if field.Tag.Get("user") == "true" {
+				setBoolAnnotation(flags, flagname, "user")
+			}
+			if field.Tag.Get("hidden") == "true" {
+				err := flags.MarkHidden(flagname)
+				if err != nil {
+					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
+				}
+			}
+			continue
+		}
+
 		switch field.Type.Kind() {
 		case reflect.Struct:
 			if field.Anonymous {
@@ -167,9 +197,6 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 				}
 			}
 			switch field.Type {
-			case reflect.TypeOf(memory.Size(0)):
-				check(fieldaddr.(*memory.Size).Set(def))
-				flags.Var(fieldaddr.(*memory.Size), flagname, help)
 			case reflect.TypeOf(int(0)):
 				val, err := strconv.ParseInt(def, 0, strconv.IntSize)
 				check(err)
