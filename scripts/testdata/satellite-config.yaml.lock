@@ -266,7 +266,7 @@ kademlia.operator.wallet: ""
 # overlay.node.uptime-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on uptime history
-# overlay.node.uptime-reputation-dq: 0.4
+# overlay.node.uptime-reputation-dq: 0
 
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 0.99
