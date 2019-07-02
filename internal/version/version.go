@@ -129,7 +129,7 @@ func (v Info) Proto() (*pb.NodeVersion, error) {
 
 // matchesVersion compares and checks if the passed version is greater/equal than the minimum required version
 func matchesVersion(test SemVer, target SemVer) bool {
-	return test.Major > target.Major || (test.Major == target.Major && test.Minor > target.Minor) || (test.Minor == target.Minor && test.Patch >= target.Patch)
+	return test.Major > target.Major || (test.Major == target.Major && (test.Minor > target.Minor || (test.Minor == target.Minor && test.Patch >= target.Patch)))
 }
 
 func init() {
