@@ -185,17 +185,13 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		return nil
 	}
 
+	for _, piece := range pieces {
+		checker.pieceTracker.Add(ctx, piece.NodeId, piece.GetHash().PieceId)
+	}
+
 	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
 		return Error.New("error getting missing pieces %s", err)
-	}
-
-	var lostPieces []int32
-	for _, piece := range pieces {
-		if missingPieces[piece.PieceNum] {
-			lostPieces = append(lostPieces, piece.PieceNum)
-		}
-		checker.pieceTracker.Add(ctx, piece.NodeId, piece.GetHash().PieceId)
 	}
 
 	monStats.remoteSegmentsChecked++
@@ -216,7 +212,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
 			Path:       path,
-			LostPieces: lostPieces,
+			LostPieces: missingPieces,
 		})
 		if err != nil {
 			return Error.New("error adding injured segment to queue %s", err)

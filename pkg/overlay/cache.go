@@ -377,8 +377,8 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	}
 }
 
-// GetMissingPieces returns the map of pieces that were on offline or unreliable nodes
-func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces map[int32]bool, err error) {
+// GetMissingPieces returns the list of pieces that were on offline or unreliable nodes
+func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
 	for _, p := range pieces {
@@ -392,7 +392,7 @@ func (cache *Cache) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePie
 	for _, p := range pieces {
 		for _, nodeID := range badNodeIDs {
 			if nodeID == p.NodeId {
-				missingPieces[p.GetPieceNum()] = true
+				missingPieces = append(missingPieces, p.GetPieceNum())
 			}
 		}
 	}
