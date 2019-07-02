@@ -388,6 +388,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the piece from the first node
+		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
 		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
 		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
@@ -397,7 +398,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, report.Successes, origNumPieces-1)
 		assert.Len(t, report.Fails, 1)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
