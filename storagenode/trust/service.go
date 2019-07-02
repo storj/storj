@@ -148,6 +148,5 @@ func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, er
 	if !ok {
 		return "", Error.New("ID not found in trusted satellites list (%v)", id)
 	}
-	// TODO: return error if address == "" ?
 	return info.nodeURL.Address, nil
 }

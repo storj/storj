@@ -59,3 +59,16 @@ func TestGetSignee(t *testing.T) {
 
 	assert.NoError(t, group.Wait())
 }
+
+
+func TestGetAddress(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		for _, sat := range planet.Satellites {
+			address, err := planet.StorageNodes[0].Storage2.Trust.GetAddress(ctx, sat.ID())
+			require.NoError(t, err)
+			assert.Equal(t, sat.Addr(), address)
+		}
+	})
+}
