@@ -479,6 +479,24 @@ CREATE TABLE api_keys (
 	UNIQUE ( head ),
 	UNIQUE ( name, project_id )
 );
+CREATE TABLE buckets (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	name bytea NOT NULL,
+	path_cipher integer NOT NULL,
+	created_at timestamp NOT NULL,
+	default_segment_size integer NOT NULL,
+	default_encryption_cipher_suite integer NOT NULL,
+	default_encryption_block_size integer NOT NULL,
+	default_redundancy_algorithm integer NOT NULL,
+	default_redundancy_share_size integer NOT NULL,
+	default_redundancy_required_shares integer NOT NULL,
+	default_redundancy_repair_shares integer NOT NULL,
+	default_redundancy_optimal_shares integer NOT NULL,
+	default_redundancy_total_shares integer NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name, project_id )
+);
 CREATE TABLE project_invoice_stamps (
 	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
 	invoice_id bytea NOT NULL,
@@ -798,6 +816,24 @@ CREATE TABLE api_keys (
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE buckets (
+	id BLOB NOT NULL,
+	project_id BLOB NOT NULL REFERENCES projects( id ),
+	name BLOB NOT NULL,
+	path_cipher INTEGER NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	default_segment_size INTEGER NOT NULL,
+	default_encryption_cipher_suite INTEGER NOT NULL,
+	default_encryption_block_size INTEGER NOT NULL,
+	default_redundancy_algorithm INTEGER NOT NULL,
+	default_redundancy_share_size INTEGER NOT NULL,
+	default_redundancy_required_shares INTEGER NOT NULL,
+	default_redundancy_repair_shares INTEGER NOT NULL,
+	default_redundancy_optimal_shares INTEGER NOT NULL,
+	default_redundancy_total_shares INTEGER NOT NULL,
+	PRIMARY KEY ( id ),
 	UNIQUE ( name, project_id )
 );
 CREATE TABLE project_invoice_stamps (
