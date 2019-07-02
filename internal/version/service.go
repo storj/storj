@@ -116,7 +116,7 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 		zap.S().Errorf("no version from control server, accepting to run")
 		return true
 	}
-	if matchesVersion(srv.info.Version, minimum) {
+	if isAcceptedVersion(srv.info.Version, minimum) {
 		zap.S().Infof("running on version %s", srv.info.Version.String())
 		return true
 	}
