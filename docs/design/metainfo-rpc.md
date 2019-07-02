@@ -175,10 +175,6 @@ message ObjectBeginResponse {
 }
 
 message ObjectCommitRequest {
-    bytes  bucket = 1;
-    bytes  encrypted_path = 2;
-    int32  version = 3;
-
     bytes  stream_id = 4;
 }
 
@@ -264,26 +260,52 @@ message SegmentBeginRequest {
 }
 
 message SegmentBeginResponse {
-    repeated AddressedOrderLimit addressed_limits = 1;
+    bytes    segment_id = 1;
+    repeated AddressedOrderLimit addressed_limits = 2;
 }
 
 message AddressedOrderLimit {
-    orders.OrderLimit2 limit   = 1;
+    orders.OrderLimit  limit   = 1;
     node.NodeAddress   address = 2;
 }
 
 message SegmentCommitRequest {
-    bytes stream_id = 1;
-    int32 part_number = 2;
-    int32 index = 3;
+    bytes segment_id = 1;
 
-    bytes encrypted_key_nonce = 4;
-    bytes encrypted_key = 5;
+    bytes encrypted_key_nonce = 2;
+    bytes encrypted_key = 3;
 
-    bytes checksum_encrypted_data = 6;
+    bytes checksum_encrypted_data = 4;
 
-    repeated orders.PieceHash signed_piece_hashes = 7;
-    // TODO: somehow track storagenode ids
+    repeated SegmentPieceUploadResult upload_result = 5;
+}
+
+message SegmentPieceUploadResult {
+    int32 piece_num = 1;
+    bytes node_id   = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    orders.PieceHash hash = 3;
+}
+
+// only for satellite use
+message StreamID {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+
+    bytes satellite_signature = 4;
+}
+
+// only for satellite use
+message SegmentID {
+    StreamID stream_id = 1;
+    int32    part_number = 2;
+    int32    index = 3;
+
+    RedundancyScheme redundancy = 4;
+    bytes root_piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit original_order_limits = 6;
+
+    bytes satellite_signature = 7;
 }
 
 message SegmentCommitResponse {}
@@ -309,15 +331,14 @@ message SegmentBeginDeleteRequest {
 }
 
 message SegmentBeginDeleteResponse {
-    repeated AddressedOrderLimit addressed_limits = 1;
+    bytes segment_id = 1;
+    repeated AddressedOrderLimit addressed_limits = 2;
     
     // TODO: should we include here bool finished for inline segments, or should we use batching to combine SegmentBeginDeleteRequest/SegmentFinishDeleteResponse
 }
 
 message SegmentFinishDeleteRequest {
-    bytes stream_id = 1;
-    int32 part_number = 2;
-    int32 index = 3;
+    bytes segment_id = 1;
 
     // TODO: check for uplink not sending order limits to storage nodes
 }
