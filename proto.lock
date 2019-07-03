@@ -1606,6 +1606,32 @@
     {
       "protopath": "pkg:/:pb:/:metainfo.proto",
       "def": {
+        "enums": [
+          {
+            "name": "Object.Status",
+            "enum_fields": [
+              {
+                "name": "INVALID"
+              },
+              {
+                "name": "UPLOADING",
+                "integer": 1
+              },
+              {
+                "name": "COMMITTING",
+                "integer": 2
+              },
+              {
+                "name": "COMMITTED",
+                "integer": 3
+              },
+              {
+                "name": "DELETING",
+                "integer": 4
+              }
+            ]
+          }
+        ],
         "messages": [
           {
             "name": "BucketItem",
@@ -2131,6 +2157,1151 @@
                 "type": "bytes"
               }
             ]
+          },
+          {
+            "name": "Object",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "status",
+                "type": "Status"
+              },
+              {
+                "id": 5,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 6,
+                "name": "created_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 7,
+                "name": "status_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 8,
+                "name": "expires_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 9,
+                "name": "encrypted_metadata_nonce",
+                "type": "bytes"
+              },
+              {
+                "id": 10,
+                "name": "encrypted_metadata",
+                "type": "bytes"
+              },
+              {
+                "id": 11,
+                "name": "fixed_segment_size",
+                "type": "int64"
+              },
+              {
+                "id": 12,
+                "name": "redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 13,
+                "name": "encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              },
+              {
+                "id": 14,
+                "name": "total_size",
+                "type": "int64"
+              },
+              {
+                "id": 15,
+                "name": "inline_size",
+                "type": "int64"
+              },
+              {
+                "id": 16,
+                "name": "remote_size",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "ObjectBeginRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "expires_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "encrypted_metadata_nonce",
+                "type": "bytes"
+              },
+              {
+                "id": 6,
+                "name": "encrypted_metadata",
+                "type": "bytes"
+              },
+              {
+                "id": 7,
+                "name": "redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 8,
+                "name": "encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              }
+            ]
+          },
+          {
+            "name": "ObjectBeginResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "redundancy_scheme",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 6,
+                "name": "encryption_parameters",
+                "type": "encryption.EncryptionParameters"
+              }
+            ]
+          },
+          {
+            "name": "ObjectCommitRequest",
+            "fields": [
+              {
+                "id": 4,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ObjectCommitResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "object",
+                "type": "Object"
+              }
+            ]
+          },
+          {
+            "name": "ObjectListRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_prefix",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "encrypted_cursor",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "limit",
+                "type": "int32"
+              },
+              {
+                "id": 5,
+                "name": "recursive",
+                "type": "bool"
+              },
+              {
+                "id": 6,
+                "name": "object_flags",
+                "type": "ObjectListItemFlags"
+              }
+            ]
+          },
+          {
+            "name": "ObjectListResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "ObjectListItem",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "ObjectListItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "version",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "status",
+                "type": "Object.Status"
+              },
+              {
+                "id": 4,
+                "name": "created_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 5,
+                "name": "status_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 6,
+                "name": "expires_at",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 7,
+                "name": "encrypted_metadata_nonce",
+                "type": "bytes"
+              },
+              {
+                "id": 8,
+                "name": "encrypted_metadata",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "ObjectListItemFlags",
+            "fields": [
+              {
+                "id": 1,
+                "name": "metadata",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "ObjectBeginDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "ObjectBeginDeleteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ObjectFinishDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "ObjectFinishDeleteResponse"
+          },
+          {
+            "name": "Segment",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "encrypted_key_nonce",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 6,
+                "name": "checksum_encrypted_data",
+                "type": "bytes"
+              },
+              {
+                "id": 7,
+                "name": "size_encrypted_data",
+                "type": "int64"
+              },
+              {
+                "id": 8,
+                "name": "encrypted_inline_data",
+                "type": "bytes"
+              },
+              {
+                "id": 9,
+                "name": "nodes",
+                "type": "bytes",
+                "is_repeated": true,
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SegmentBeginRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "max_order_limit",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SegmentBeginResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentCommitRequest2",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_key_nonce",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "checksum_encrypted_data",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "upload_result",
+                "type": "SegmentPieceUploadResult",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentCommitResponse2"
+          },
+          {
+            "name": "SegmentPieceUploadResult",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_num",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "orders.PieceHash"
+              }
+            ]
+          },
+          {
+            "name": "SatStreamID",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "redundancy",
+                "type": "pointerdb.RedundancyScheme"
+              },
+              {
+                "id": 6,
+                "name": "creation_date",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 7,
+                "name": "expiration_date",
+                "type": "google.protobuf.Timestamp"
+              },
+              {
+                "id": 8,
+                "name": "satellite_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SatSegmentID",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "SatStreamID",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              },
+              {
+                "id": 5,
+                "name": "root_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 6,
+                "name": "original_order_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "satellite_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SegmentMakeInlineRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "encrypted_key_nonce",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 6,
+                "name": "checksum_encrypted_data",
+                "type": "bytes"
+              },
+              {
+                "id": 7,
+                "name": "encrypted_inline_data",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SegmentMakeInlineResponse"
+          },
+          {
+            "name": "SegmentBeginDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "SegmentBeginDeleteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentFinishDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SegmentFinishDeleteResponse"
+          },
+          {
+            "name": "SegmentListRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "cursor_part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "cursor_index",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "limit",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "SegmentListResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "SegmentListItem",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "SegmentListItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "index",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDownloadRequest2",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              },
+              {
+                "id": 4,
+                "name": "next",
+                "type": "SegmentListItem"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDownloadResponse2",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "BatchRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket_create",
+                "type": "BucketCreateRequest"
+              },
+              {
+                "id": 2,
+                "name": "bucket_get",
+                "type": "BucketGetRequest"
+              },
+              {
+                "id": 3,
+                "name": "bucket_delete",
+                "type": "BucketDeleteRequest"
+              },
+              {
+                "id": 4,
+                "name": "bucket_list",
+                "type": "BucketListRequest"
+              },
+              {
+                "id": 5,
+                "name": "bucket_set_attribution",
+                "type": "BucketSetAttributionRequest"
+              },
+              {
+                "id": 6,
+                "name": "object_begin",
+                "type": "ObjectBeginRequest"
+              },
+              {
+                "id": 7,
+                "name": "object_commit",
+                "type": "ObjectCommitRequest"
+              },
+              {
+                "id": 8,
+                "name": "object_list",
+                "type": "ObjectListRequest"
+              },
+              {
+                "id": 9,
+                "name": "object_begin_delete",
+                "type": "ObjectBeginDeleteRequest"
+              },
+              {
+                "id": 10,
+                "name": "object_finish_delete",
+                "type": "ObjectFinishDeleteRequest"
+              },
+              {
+                "id": 11,
+                "name": "segment_begin",
+                "type": "SegmentBeginRequest"
+              },
+              {
+                "id": 12,
+                "name": "segment_commit",
+                "type": "SegmentCommitRequest"
+              },
+              {
+                "id": 13,
+                "name": "segment_make_inline",
+                "type": "SegmentMakeInlineRequest"
+              },
+              {
+                "id": 14,
+                "name": "segment_begin_delete",
+                "type": "SegmentBeginDeleteRequest"
+              },
+              {
+                "id": 15,
+                "name": "segment_finish_delete",
+                "type": "SegmentFinishDeleteRequest"
+              },
+              {
+                "id": 16,
+                "name": "segment_list",
+                "type": "SegmentListRequest"
+              },
+              {
+                "id": 17,
+                "name": "segment_download",
+                "type": "SegmentDownloadRequest"
+              }
+            ]
+          },
+          {
+            "name": "BatchResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket_create",
+                "type": "BucketCreateResponse"
+              },
+              {
+                "id": 2,
+                "name": "bucket_get",
+                "type": "BucketGetResponse"
+              },
+              {
+                "id": 3,
+                "name": "bucket_delete",
+                "type": "BucketDeleteResponse"
+              },
+              {
+                "id": 4,
+                "name": "bucket_list",
+                "type": "BucketListResponse"
+              },
+              {
+                "id": 5,
+                "name": "bucket_set_attribution",
+                "type": "BucketSetAttributionResponse"
+              },
+              {
+                "id": 6,
+                "name": "object_begin",
+                "type": "ObjectBeginResponse"
+              },
+              {
+                "id": 7,
+                "name": "object_commit",
+                "type": "ObjectCommitResponse"
+              },
+              {
+                "id": 8,
+                "name": "object_list",
+                "type": "ObjectListResponse"
+              },
+              {
+                "id": 9,
+                "name": "object_begin_delete",
+                "type": "ObjectBeginDeleteResponse"
+              },
+              {
+                "id": 10,
+                "name": "object_finish_delete",
+                "type": "ObjectFinishDeleteResponse"
+              },
+              {
+                "id": 11,
+                "name": "segment_begin",
+                "type": "SegmentBeginResponse"
+              },
+              {
+                "id": 12,
+                "name": "segment_commit",
+                "type": "SegmentCommitResponse"
+              },
+              {
+                "id": 13,
+                "name": "segment_make_inline",
+                "type": "SegmentMakeInlineResponse"
+              },
+              {
+                "id": 14,
+                "name": "segment_begin_delete",
+                "type": "SegmentBeginDeleteResponse"
+              },
+              {
+                "id": 15,
+                "name": "segment_finish_delete",
+                "type": "SegmentFinishDeleteResponse"
+              },
+              {
+                "id": 16,
+                "name": "segment_list",
+                "type": "SegmentListResponse"
+              },
+              {
+                "id": 17,
+                "name": "segment_download",
+                "type": "SegmentDownloadResponse"
+              }
+            ]
           }
         ],
         "services": [
@@ -2161,6 +3332,71 @@
                 "name": "SetBucketAttribution",
                 "in_type": "BucketSetAttributionRequest",
                 "out_type": "BucketSetAttributionResponse"
+              },
+              {
+                "name": "BeginObject",
+                "in_type": "ObjectBeginRequest",
+                "out_type": "ObjectBeginResponse"
+              },
+              {
+                "name": "CommitObject",
+                "in_type": "ObjectCommitRequest",
+                "out_type": "ObjectCommitResponse"
+              },
+              {
+                "name": "ListObjects",
+                "in_type": "ObjectListRequest",
+                "out_type": "ObjectListResponse"
+              },
+              {
+                "name": "BeginDeleteObject",
+                "in_type": "ObjectBeginDeleteRequest",
+                "out_type": "ObjectBeginDeleteResponse"
+              },
+              {
+                "name": "FinishDeleteObject",
+                "in_type": "ObjectFinishDeleteRequest",
+                "out_type": "ObjectFinishDeleteResponse"
+              },
+              {
+                "name": "BeginSegment",
+                "in_type": "SegmentBeginRequest",
+                "out_type": "SegmentBeginResponse"
+              },
+              {
+                "name": "CommitSegment2",
+                "in_type": "SegmentCommitRequest2",
+                "out_type": "SegmentCommitResponse2"
+              },
+              {
+                "name": "MakeInlineSegment",
+                "in_type": "SegmentMakeInlineRequest",
+                "out_type": "SegmentMakeInlineResponse"
+              },
+              {
+                "name": "BeginDeleteSegment",
+                "in_type": "SegmentBeginDeleteRequest",
+                "out_type": "SegmentBeginDeleteResponse"
+              },
+              {
+                "name": "FinishDeleteSegment",
+                "in_type": "SegmentFinishDeleteRequest",
+                "out_type": "SegmentFinishDeleteResponse"
+              },
+              {
+                "name": "ListSegments2",
+                "in_type": "SegmentListRequest",
+                "out_type": "SegmentListResponse"
+              },
+              {
+                "name": "DownloadSegment2",
+                "in_type": "SegmentDownloadRequest2",
+                "out_type": "SegmentDownloadResponse2"
+              },
+              {
+                "name": "Batch",
+                "in_type": "BatchRequest",
+                "out_type": "BatchResponse"
               },
               {
                 "name": "CreateSegment",
