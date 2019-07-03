@@ -111,7 +111,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	}
 
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
 
 	if err := bucket.UploadObject(ctx, dst.Path(), reader, opts); err != nil {
 		return err
@@ -259,7 +259,7 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		Metadata:    object.Meta.Metadata,
 	}
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
 	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
 	if err != nil {
 		return err

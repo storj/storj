@@ -58,7 +58,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, TestBucket, bucket.Name)
 		assert.True(t, time.Since(bucket.Created) < 1*time.Minute)
-		assert.Equal(t, storj.AESGCM, bucket.PathCipher)
+		assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
 
 		// Check the error when trying to create an existing bucket
 		err = layer.MakeBucketWithLocation(ctx, TestBucket, "")
@@ -469,7 +469,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket and files using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
+		_, err = m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
 		assert.NoError(t, err)
 
 		filePaths := []string{
@@ -709,7 +709,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.AESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}

@@ -48,11 +48,11 @@ type Store interface {
 
 type objStore struct {
 	store      streams.Store
-	pathCipher storj.Cipher
+	pathCipher storj.CipherSuite
 }
 
 // NewStore for objects
-func NewStore(store streams.Store, pathCipher storj.Cipher) Store {
+func NewStore(store streams.Store, pathCipher storj.CipherSuite) Store {
 	return &objStore{store: store, pathCipher: pathCipher}
 }
 

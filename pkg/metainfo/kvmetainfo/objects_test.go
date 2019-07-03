@@ -34,9 +34,9 @@ func TestCreateObject(t *testing.T) {
 	}
 
 	const stripesPerBlock = 2
-	customES := storj.EncryptionScheme{
-		Cipher:    storj.Unencrypted,
-		BlockSize: stripesPerBlock * customRS.StripeSize(),
+	customEP := storj.EncryptionParameters{
+		CipherSuite: storj.EncNull,
+		BlockSize:   stripesPerBlock * customRS.StripeSize(),
 	}
 
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
@@ -46,27 +46,27 @@ func TestCreateObject(t *testing.T) {
 		for i, tt := range []struct {
 			create     *storj.CreateObject
 			expectedRS storj.RedundancyScheme
-			expectedES storj.EncryptionScheme
+			expectedEP storj.EncryptionParameters
 		}{
 			{
 				create:     nil,
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: kvmetainfo.DefaultES,
+				expectedEP: kvmetainfo.DefaultES,
 			},
 			{
-				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionScheme: customES},
+				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionParameters: customEP},
 				expectedRS: customRS,
-				expectedES: customES,
+				expectedEP: customEP,
 			},
 			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
-				expectedES: storj.EncryptionScheme{Cipher: kvmetainfo.DefaultES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
+				expectedEP: storj.EncryptionParameters{CipherSuite: kvmetainfo.DefaultES.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 			{
-				create:     &storj.CreateObject{EncryptionScheme: customES},
+				create:     &storj.CreateObject{EncryptionParameters: customEP},
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: storj.EncryptionScheme{Cipher: customES.Cipher, BlockSize: kvmetainfo.DefaultES.BlockSize},
+				expectedEP: storj.EncryptionParameters{CipherSuite: customEP.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
@@ -77,11 +77,11 @@ func TestCreateObject(t *testing.T) {
 			info := obj.Info()
 
 			assert.Equal(t, TestBucket, info.Bucket.Name, errTag)
-			assert.Equal(t, storj.AESGCM, info.Bucket.PathCipher, errTag)
+			assert.Equal(t, storj.EncAESGCM, info.Bucket.PathCipher, errTag)
 			assert.Equal(t, TestFile, info.Path, errTag)
 			assert.EqualValues(t, 0, info.Size, errTag)
 			assert.Equal(t, tt.expectedRS, info.RedundancyScheme, errTag)
-			assert.Equal(t, tt.expectedES, info.EncryptionScheme, errTag)
+			assert.Equal(t, tt.expectedEP, info.EncryptionParameters, errTag)
 		}
 	})
 }
@@ -108,7 +108,7 @@ func TestGetObject(t *testing.T) {
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestFile, object.Path)
 			assert.Equal(t, TestBucket, object.Bucket.Name)
-			assert.Equal(t, storj.AESGCM, object.Bucket.PathCipher)
+			assert.Equal(t, storj.EncAESGCM, object.Bucket.PathCipher)
 		}
 	})
 }
@@ -180,7 +180,7 @@ func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams 
 
 	assert.Equal(t, path, readOnly.Info().Path)
 	assert.Equal(t, TestBucket, readOnly.Info().Bucket.Name)
-	assert.Equal(t, storj.AESGCM, readOnly.Info().Bucket.PathCipher)
+	assert.Equal(t, storj.EncAESGCM, readOnly.Info().Bucket.PathCipher)
 
 	segments, more, err := readOnly.Segments(ctx, 0, 0)
 	require.NoError(t, err)
@@ -294,7 +294,7 @@ func TestListObjectsEmpty(t *testing.T) {
 
 func TestListObjects(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
+		bucket, err := db.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
 		require.NoError(t, err)
 
 		filePaths := []string{
@@ -630,13 +630,12 @@ func TestListObjects(t *testing.T) {
 				for i, item := range list.Items {
 					assert.Equal(t, tt.result[i], item.Path, errTag)
 					assert.Equal(t, TestBucket, item.Bucket.Name, errTag)
-					assert.Equal(t, storj.Unencrypted, item.Bucket.PathCipher, errTag)
+					assert.Equal(t, storj.EncNull, item.Bucket.PathCipher, errTag)
 				}
 			}
 		}
 	})
 }
-
 func options(prefix, cursor string, direction storj.ListDirection, limit int) storj.ListOptions {
 	return storj.ListOptions{
 		Prefix:    prefix,
