@@ -114,7 +114,7 @@ func TestBucketAttrs(t *testing.T) {
 		stripesPerBlock = 2
 		inBucketConfig  = BucketConfig{
 			PathCipher: storj.EncSecretBox,
-			EncryptionScheme: storj.EncryptionScheme{
+			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
 				BlockSize:   int32(stripesPerBlock) * stripeSize,
 			},
@@ -150,7 +150,7 @@ func TestBucketAttrs(t *testing.T) {
 
 			assert.Equal(t, bucketName, got.Name)
 			assert.Equal(t, inBucketConfig.PathCipher, got.PathCipher)
-			assert.Equal(t, inBucketConfig.EncryptionScheme, got.EncryptionScheme)
+			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
 
@@ -174,7 +174,7 @@ func TestBucketAttrsApply(t *testing.T) {
 		stripesPerBlock = 2
 		inBucketConfig  = BucketConfig{
 			PathCipher: storj.EncSecretBox,
-			EncryptionScheme: storj.EncryptionScheme{
+			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncSecretBox,
 				BlockSize:   int32(stripesPerBlock) * stripeSize,
 			},
@@ -217,7 +217,7 @@ func TestBucketAttrsApply(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(readBack.Close)
 
-			assert.Equal(t, inBucketConfig.EncryptionScheme, readBack.Meta.Volatile.EncryptionScheme)
+			assert.Equal(t, inBucketConfig.EncryptionParameters, readBack.Meta.Volatile.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, readBack.Meta.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize.Int64(), readBack.Meta.Volatile.SegmentsSize)
 

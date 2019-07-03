@@ -32,9 +32,9 @@ func create_bucket(projectHandle C.ProjectRef, name *C.char, bucketConfig *C.Buc
 	if bucketConfig != nil {
 		config = &uplink.BucketConfig{
 			PathCipher: storj.CipherSuite(bucketConfig.path_cipher),
-			EncryptionScheme: storj.EncryptionScheme{
-				CipherSuite: storj.CipherSuite(bucketConfig.encryption_scheme.cipher_suite),
-				BlockSize:   int32(bucketConfig.encryption_scheme.block_size),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.CipherSuite(bucketConfig.encryption_parameters.cipher_suite),
+				BlockSize:   int32(bucketConfig.encryption_parameters.block_size),
 			},
 		}
 		config.Volatile.RedundancyScheme = storj.RedundancyScheme{

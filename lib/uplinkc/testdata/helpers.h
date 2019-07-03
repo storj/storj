@@ -10,8 +10,8 @@ BucketConfig test_bucket_config() {
 
     config.path_cipher = STORJ_ENC_AESGCM;
 
-    config.encryption_scheme.cipher_suite = STORJ_ENC_AESGCM;
-    config.encryption_scheme.block_size = 2048;
+    config.encryption_parameters.cipher_suite = STORJ_ENC_AESGCM;
+    config.encryption_parameters.block_size = 2048;
 
     config.redundancy_scheme.algorithm = STORJ_REED_SOLOMON;
     config.redundancy_scheme.share_size = 1024;

@@ -35,9 +35,9 @@ var DefaultRS = storj.RedundancyScheme{
 	ShareSize:      1 * memory.KiB.Int32(),
 }
 
-// DefaultES default values for EncryptionScheme
+// DefaultES default values for EncryptionParameters
 // BlockSize should default to the size of a stripe
-var DefaultES = storj.EncryptionScheme{
+var DefaultES = storj.EncryptionParameters{
 	CipherSuite: storj.EncAESGCM,
 	BlockSize:   DefaultRS.StripeSize(),
 }
@@ -97,14 +97,14 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 		info.ContentType = createInfo.ContentType
 		info.Expires = createInfo.Expires
 		info.RedundancyScheme = createInfo.RedundancyScheme
-		info.EncryptionScheme = createInfo.EncryptionScheme
+		info.EncryptionParameters = createInfo.EncryptionParameters
 	}
 
 	// TODO: autodetect content type from the path extension
 	// if info.ContentType == "" {}
 
-	if info.EncryptionScheme.IsZero() {
-		info.EncryptionScheme = storj.EncryptionScheme{
+	if info.EncryptionParameters.IsZero() {
+		info.EncryptionParameters = storj.EncryptionParameters{
 			CipherSuite: DefaultES.CipherSuite,
 			BlockSize:   DefaultES.BlockSize,
 		}
@@ -113,10 +113,10 @@ func (db *DB) CreateObject(ctx context.Context, bucket string, path storj.Path, 
 	if info.RedundancyScheme.IsZero() {
 		info.RedundancyScheme = DefaultRS
 
-		// If the provided EncryptionScheme.BlockSize isn't a multiple of the
-		// DefaultRS stripeSize, then overwrite the EncryptionScheme with the DefaultES values
-		if err := validateBlockSize(DefaultRS, info.EncryptionScheme.BlockSize); err != nil {
-			info.EncryptionScheme.BlockSize = DefaultES.BlockSize
+		// If the provided EncryptionParameters.BlockSize isn't a multiple of the
+		// DefaultRS stripeSize, then overwrite the EncryptionParameters with the DefaultES values
+		if err := validateBlockSize(DefaultRS, info.EncryptionParameters.BlockSize); err != nil {
+			info.EncryptionParameters.BlockSize = DefaultES.BlockSize
 		}
 	}
 
@@ -366,7 +366,7 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 				OptimalShares:  int16(redundancyScheme.GetSuccessThreshold()),
 				TotalShares:    int16(redundancyScheme.GetTotal()),
 			},
-			EncryptionScheme: storj.EncryptionScheme{
+			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.CipherSuite(streamMeta.EncryptionType),
 				BlockSize:   streamMeta.EncryptionBlockSize,
 			},

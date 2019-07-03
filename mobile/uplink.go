@@ -102,7 +102,7 @@ func (project *Project) CreateBucket(bucketName string, opts *BucketConfig) (*Bu
 	cfg := libuplink.BucketConfig{}
 	if opts != nil {
 		cfg.PathCipher = storj.CipherSuite(opts.PathCipher)
-		cfg.EncryptionScheme = newStorjEncryptionScheme(opts.EncryptionScheme)
+		cfg.EncryptionParameters = newStorjEncryptionParameters(opts.EncryptionParameters)
 		cfg.Volatile.RedundancyScheme = newStorjRedundancyScheme(opts.RedundancyScheme)
 		cfg.Volatile.SegmentsSize = memory.Size(opts.SegmentsSize)
 	}

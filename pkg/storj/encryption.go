@@ -3,8 +3,8 @@
 
 package storj
 
-// EncryptionScheme is the cipher suite and parameters used for encryption
-type EncryptionScheme struct {
+// EncryptionParameters is the cipher suite and parameters used for encryption
+type EncryptionParameters struct {
 	// CipherSuite specifies the cipher suite to be used for encryption.
 	CipherSuite CipherSuite
 	// BlockSize determines the unit size at which encryption is performed.
@@ -19,8 +19,8 @@ type EncryptionScheme struct {
 }
 
 // IsZero returns true if no field in the struct is set to non-zero value
-func (params EncryptionScheme) IsZero() bool {
-	return params == (EncryptionScheme{})
+func (params EncryptionParameters) IsZero() bool {
+	return params == (EncryptionParameters{})
 }
 
 // CipherSuite specifies one of the encryption suites supported by Storj

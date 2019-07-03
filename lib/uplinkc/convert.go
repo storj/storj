@@ -17,8 +17,8 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 		path_cipher:  cipherToCCipherSuite(bucket.PathCipher),
 		segment_size: C.uint64_t(bucket.SegmentsSize),
 
-		encryption_scheme: convertEncryptionScheme(&bucket.EncryptionScheme),
-		redundancy_scheme: convertRedundancyScheme(&bucket.RedundancyScheme),
+		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
+		redundancy_scheme:     convertRedundancyScheme(&bucket.RedundancyScheme),
 	}
 }
 
@@ -36,9 +36,9 @@ func newObjectInfo(object *storj.Object) C.ObjectInfo {
 	}
 }
 
-// convertEncryptionScheme converts Go EncryptionScheme to C.
-func convertEncryptionScheme(goParams *storj.EncryptionScheme) C.EncryptionScheme {
-	return C.EncryptionScheme{
+// convertEncryptionParameters converts Go EncryptionParameters to C.
+func convertEncryptionParameters(goParams *storj.EncryptionParameters) C.EncryptionParameters {
+	return C.EncryptionParameters{
 		cipher_suite: toCCipherSuite(goParams.CipherSuite),
 		block_size:   C.int32_t(goParams.BlockSize),
 	}

@@ -29,11 +29,11 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	if info == nil {
 		info = &storj.Bucket{PathCipher: storj.EncAESGCM}
 	}
-	if info.EncryptionScheme.CipherSuite == storj.EncUnspecified {
-		info.EncryptionScheme.CipherSuite = storj.EncAESGCM
+	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
+		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
 	}
-	if info.EncryptionScheme.BlockSize == 0 {
-		info.EncryptionScheme.BlockSize = db.encryptedBlockSize
+	if info.EncryptionParameters.BlockSize == 0 {
+		info.EncryptionParameters.BlockSize = db.encryptedBlockSize
 	}
 	if info.RedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
 		info.RedundancyScheme.Algorithm = storj.ReedSolomon
@@ -57,7 +57,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		info.SegmentsSize = db.segmentsSize
 	}
 
-	if err := validateBlockSize(info.RedundancyScheme, info.EncryptionScheme.BlockSize); err != nil {
+	if err := validateBlockSize(info.RedundancyScheme, info.EncryptionParameters.BlockSize); err != nil {
 		return bucketInfo, err
 	}
 
@@ -70,8 +70,8 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		"attribution-to":    info.Attribution,
 		"path-enc-type":     strconv.Itoa(int(info.PathCipher)),
 		"default-seg-size":  strconv.FormatInt(info.SegmentsSize, 10),
-		"default-enc-type":  strconv.Itoa(int(info.EncryptionScheme.CipherSuite)),
-		"default-enc-blksz": strconv.FormatInt(int64(info.EncryptionScheme.BlockSize), 10),
+		"default-enc-type":  strconv.Itoa(int(info.EncryptionParameters.CipherSuite)),
+		"default-enc-blksz": strconv.FormatInt(int64(info.EncryptionParameters.BlockSize), 10),
 		"default-rs-algo":   strconv.Itoa(int(info.RedundancyScheme.Algorithm)),
 		"default-rs-sharsz": strconv.FormatInt(int64(info.RedundancyScheme.ShareSize), 10),
 		"default-rs-reqd":   strconv.Itoa(int(info.RedundancyScheme.RequiredShares)),
@@ -201,7 +201,7 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 	out.Created = m.Modified
 	// backwards compatibility for old buckets
 	out.PathCipher = storj.EncAESGCM
-	out.EncryptionScheme.CipherSuite = storj.EncNull
+	out.EncryptionParameters.CipherSuite = storj.EncNull
 
 	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
 		if err != nil {
@@ -218,7 +218,7 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 		}
 	}
 
-	es := &out.EncryptionScheme
+	es := &out.EncryptionParameters
 	rs := &out.RedundancyScheme
 
 	out.Attribution = m.UserDefined["attribution-to"]

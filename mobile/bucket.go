@@ -44,12 +44,12 @@ type Bucket struct {
 
 // BucketInfo bucket meta struct
 type BucketInfo struct {
-	Name             string
-	Created          int64
-	PathCipher       byte
-	SegmentsSize     int64
-	RedundancyScheme *RedundancyScheme
-	EncryptionScheme *EncryptionScheme
+	Name                 string
+	Created              int64
+	PathCipher           byte
+	SegmentsSize         int64
+	RedundancyScheme     *RedundancyScheme
+	EncryptionParameters *EncryptionParameters
 }
 
 func newBucketInfo(bucket storj.Bucket) *BucketInfo {
@@ -66,9 +66,9 @@ func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 			OptimalShares:  bucket.RedundancyScheme.OptimalShares,
 			TotalShares:    bucket.RedundancyScheme.TotalShares,
 		},
-		EncryptionScheme: &EncryptionScheme{
-			CipherSuite: byte(bucket.EncryptionScheme.CipherSuite),
-			BlockSize:   bucket.EncryptionScheme.BlockSize,
+		EncryptionParameters: &EncryptionParameters{
+			CipherSuite: byte(bucket.EncryptionParameters.CipherSuite),
+			BlockSize:   bucket.EncryptionParameters.BlockSize,
 		},
 	}
 }
@@ -80,9 +80,9 @@ type BucketConfig struct {
 	// will be used.
 	PathCipher byte
 
-	// EncryptionScheme specifies the default encryption parameters to
+	// EncryptionParameters specifies the default encryption parameters to
 	// be used for data encryption of new Objects in this bucket.
-	EncryptionScheme *EncryptionScheme
+	EncryptionParameters *EncryptionParameters
 
 	// RedundancyScheme defines the default Reed-Solomon and/or
 	// Forward Error Correction encoding parameters to be used by
@@ -152,10 +152,10 @@ func newStorjRedundancyScheme(scheme *RedundancyScheme) storj.RedundancyScheme {
 	}
 }
 
-// EncryptionScheme is the cipher suite and parameters used for encryption
-// It is like EncryptionScheme, but uses the CipherSuite type instead of Cipher.
-// EncryptionScheme is preferred for new uses.
-type EncryptionScheme struct {
+// EncryptionParameters is the cipher suite and parameters used for encryption
+// It is like EncryptionParameters, but uses the CipherSuite type instead of Cipher.
+// EncryptionParameters is preferred for new uses.
+type EncryptionParameters struct {
 	// CipherSuite specifies the cipher suite to be used for encryption.
 	CipherSuite byte
 	// BlockSize determines the unit size at which encryption is performed.
@@ -169,11 +169,11 @@ type EncryptionScheme struct {
 	BlockSize int32
 }
 
-func newStorjEncryptionScheme(ec *EncryptionScheme) storj.EncryptionScheme {
+func newStorjEncryptionParameters(ec *EncryptionParameters) storj.EncryptionParameters {
 	if ec == nil {
-		return storj.EncryptionScheme{}
+		return storj.EncryptionParameters{}
 	}
-	return storj.EncryptionScheme{
+	return storj.EncryptionParameters{
 		CipherSuite: storj.CipherSuite(ec.CipherSuite),
 		BlockSize:   ec.BlockSize,
 	}
@@ -246,10 +246,10 @@ type WriterOptions struct {
 	// automatically from storage nodes).
 	Expires int
 
-	// EncryptionScheme determines the cipher suite to use for
+	// EncryptionParameters determines the cipher suite to use for
 	// the Object's data encryption. If not set, the Bucket's
 	// defaults will be used.
-	EncryptionScheme *EncryptionScheme
+	EncryptionParameters *EncryptionParameters
 
 	// RedundancyScheme determines the Reed-Solomon and/or Forward
 	// Error Correction encoding parameters to be used for this
@@ -279,7 +279,7 @@ func (bucket *Bucket) NewWriter(path storj.Path, options *WriterOptions) (*Write
 		if options.Expires != 0 {
 			opts.Expires = time.Unix(int64(options.Expires), 0)
 		}
-		opts.Volatile.EncryptionScheme = newStorjEncryptionScheme(options.EncryptionScheme)
+		opts.Volatile.EncryptionParameters = newStorjEncryptionParameters(options.EncryptionParameters)
 		opts.Volatile.RedundancyScheme = newStorjRedundancyScheme(options.RedundancyScheme)
 	}
 

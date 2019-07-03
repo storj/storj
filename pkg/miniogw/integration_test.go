@@ -214,7 +214,7 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 		project,
 		libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
 		storj.CipherSuite(uplinkCfg.Enc.PathType),
-		uplinkCfg.GetEncryptionScheme(),
+		uplinkCfg.GetEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),
 		uplinkCfg.Client.SegmentSize,
 	)
