@@ -1002,17 +1002,6 @@
             ]
           },
           {
-            "name": "Bucket",
-            "fields": [
-              {
-                "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
             "name": "BucketList",
             "fields": [
               {
@@ -1608,7 +1597,7 @@
       "def": {
         "messages": [
           {
-            "name": "BucketItem",
+            "name": "Bucket",
             "fields": [
               {
                 "id": 1,
@@ -1723,7 +1712,7 @@
               {
                 "id": 1,
                 "name": "bucket",
-                "type": "BucketItem"
+                "type": "Bucket"
               }
             ]
           },
@@ -1743,7 +1732,7 @@
               {
                 "id": 1,
                 "name": "bucket",
-                "type": "BucketItem"
+                "type": "Bucket"
               }
             ]
           },
