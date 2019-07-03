@@ -227,17 +227,14 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
 		}
 
-		switch {
-		default:
-			return ErrProtocol.New("message didn't contain any of order, chunk or done") // TODO: report grpc status bad message
-
-		case message.Order != nil:
+		if message.Order != nil {
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
 			largestOrder = *message.Order
+		}
 
-		case message.Chunk != nil:
+		if message.Chunk != nil {
 			if message.Chunk.Offset != pieceWriter.Size() {
 				return ErrProtocol.New("chunk out of order") // TODO: report grpc status bad message
 			}
@@ -260,8 +257,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			if _, err := pieceWriter.Write(message.Chunk.Data); err != nil {
 				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 			}
+		}
 
-		case message.Done != nil:
+		if message.Done != nil {
 			expectedHash := pieceWriter.Hash()
 			if err := endpoint.VerifyPieceHash(ctx, peer, limit, message.Done, expectedHash); err != nil {
 				return err // TODO: report grpc status internal server error
