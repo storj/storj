@@ -72,7 +72,10 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
 		log := service.log.Named(id.String())
+
 		service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
+		mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
+
 		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
 		target := &pb.Node{Id: id}
 		signer := signing.SignerFromFullIdentity(service.transport.Identity())
