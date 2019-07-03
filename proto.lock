@@ -2803,6 +2803,21 @@
                 "type": "google.protobuf.Timestamp"
               },
               {
+                "id": 12,
+                "name": "order_creation",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
                 "id": 10,
                 "name": "satellite_signature",
                 "type": "bytes"
@@ -2871,6 +2886,26 @@
                 "id": 3,
                 "name": "signature",
                 "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "piece_size",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "timestamp",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -3530,6 +3565,50 @@
         ],
         "package": {
           "name": "pointerdb"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "pb"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "pkg:/:pb:/:scope.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "Scope",
+            "fields": [
+              {
+                "id": 1,
+                "name": "satellite_addr",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "api_key",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "encryption_access",
+                "type": "encryption_access.EncryptionAccess"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "encryption_access.proto"
+          }
+        ],
+        "package": {
+          "name": "scope"
         },
         "options": [
           {
