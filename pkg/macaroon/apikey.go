@@ -75,6 +75,16 @@ func ParseAPIKey(key string) (*APIKey, error) {
 	return &APIKey{mac: mac}, nil
 }
 
+// ParseRawAPIKey parses raw api key data and returns an APIKey if the APIKey
+// was correctly formatted. It does not validate the key.
+func ParseRawAPIKey(data []byte) (*APIKey, error) {
+	mac, err := ParseMacaroon(data)
+	if err != nil {
+		return nil, ErrFormat.Wrap(err)
+	}
+	return &APIKey{mac: mac}, nil
+}
+
 // NewAPIKey generates a brand new unrestricted API key given the provided
 // server project secret
 func NewAPIKey(secret []byte) (*APIKey, error) {
@@ -147,6 +157,11 @@ func (a *APIKey) Tail() []byte {
 // Serialize serializes the API Key to a string
 func (a *APIKey) Serialize() string {
 	return base58.CheckEncode(a.mac.Serialize(), 0)
+}
+
+// SerializeRaw serialize the API Key to raw bytes
+func (a *APIKey) SerializeRaw() []byte {
+	return a.mac.Serialize()
 }
 
 // Allows returns true if the provided action is allowed by the caveat.

@@ -51,7 +51,7 @@ func TestBucketsBasic(t *testing.T) {
 		bucket, err = db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
-			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
 		}
 
 		// Delete the bucket
@@ -91,7 +91,7 @@ func TestBucketsReadWrite(t *testing.T) {
 		bucket, err = db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
-			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
 		}
 
 		// Delete the bucket
@@ -126,7 +126,7 @@ func TestErrNoBucket(t *testing.T) {
 
 func TestBucketCreateCipher(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		forAllCiphers(func(cipher storj.Cipher) {
+		forAllCiphers(func(cipher storj.CipherSuite) {
 			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{PathCipher: cipher})
 			if assert.NoError(t, err) {
 				assert.Equal(t, cipher, bucket.PathCipher)
@@ -274,14 +274,14 @@ func runTest(t *testing.T, test func(*testing.T, context.Context, *testplanet.Pl
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		db, streams, err := newMetainfoParts(planet)
+		db, streams, err := newMetainfoParts(t, planet)
 		require.NoError(t, err)
 
 		test(t, ctx, planet, db, streams)
 	})
 }
 
-func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
+func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store, error) {
 	// TODO(kaloyan): We should have a better way for configuring the Satellite's API Key
 	// add project to satisfy constraint
 	project, err := planet.Satellites[0].DB.Console().Projects().Insert(context.Background(), &console.Project{
@@ -314,7 +314,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	}
 	// TODO(leak): call metainfo.Close somehow
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, err
@@ -336,7 +336,7 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.AESGCM, inlineThreshold)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -344,11 +344,11 @@ func newMetainfoParts(planet *testplanet.Planet) (*kvmetainfo.DB, streams.Store,
 	return kvmetainfo.New(proj, metainfo, streams, segments, encStore), streams, nil
 }
 
-func forAllCiphers(test func(cipher storj.Cipher)) {
-	for _, cipher := range []storj.Cipher{
-		storj.Unencrypted,
-		storj.AESGCM,
-		storj.SecretBox,
+func forAllCiphers(test func(cipher storj.CipherSuite)) {
+	for _, cipher := range []storj.CipherSuite{
+		storj.EncNull,
+		storj.EncAESGCM,
+		storj.EncSecretBox,
 	} {
 		test(cipher)
 	}

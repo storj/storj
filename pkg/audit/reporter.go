@@ -129,13 +129,6 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 			failed = append(failed, nodeID)
 			errlist.Add(err)
 		}
-
-		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-		_, err = reporter.containment.Delete(ctx, nodeID)
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
-		}
 	}
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), errlist.Err())
@@ -174,13 +167,6 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 			failed = append(failed, nodeID)
 			errlist.Add(err)
 		}
-
-		// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-		_, err = reporter.containment.Delete(ctx, nodeID)
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
-		}
 	}
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), errlist.Err())
@@ -206,13 +192,6 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 				IsUp:         true,
 				AuditSuccess: false,
 			})
-			if err != nil {
-				failed = append(failed, pendingAudit)
-				errlist.Add(err)
-			}
-
-			// TODO(kaloyan): Perhaps, this should be executed in the same Tx as overlay.UpdateStats above
-			_, err = reporter.containment.Delete(ctx, pendingAudit.NodeID)
 			if err != nil {
 				failed = append(failed, pendingAudit)
 				errlist.Add(err)

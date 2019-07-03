@@ -50,7 +50,7 @@ type CreateObject struct {
 	Expires     time.Time
 
 	RedundancyScheme
-	EncryptionScheme
+	EncryptionParameters
 }
 
 // Object converts the CreateObject to an object with unitialized values
@@ -67,8 +67,8 @@ func (create CreateObject) Object(bucket Bucket, path Path) Object {
 			SegmentCount:     -1,  // unknown
 			FixedSegmentSize: -1,  // unknown
 
-			RedundancyScheme: create.RedundancyScheme,
-			EncryptionScheme: create.EncryptionScheme,
+			RedundancyScheme:     create.RedundancyScheme,
+			EncryptionParameters: create.EncryptionParameters,
 		},
 	}
 }

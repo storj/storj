@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
@@ -19,8 +20,6 @@ import (
 )
 
 func TestUsercredits(t *testing.T) {
-	t.Parallel()
-
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -33,25 +32,25 @@ func TestUsercredits(t *testing.T) {
 		// test foreign key constraint for inserting a new user credit entry with randomID
 		var invalidUserCredits = []console.UserCredit{
 			{
-				UserID:               randomID,
-				OfferID:              offer.ID,
-				ReferredBy:           referrer.ID,
-				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+				UserID:        randomID,
+				OfferID:       offer.ID,
+				ReferredBy:    referrer.ID,
+				CreditsEarned: currency.Cents(100),
+				ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 			},
 			{
-				UserID:               user.ID,
-				OfferID:              10,
-				ReferredBy:           referrer.ID,
-				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+				UserID:        user.ID,
+				OfferID:       10,
+				ReferredBy:    referrer.ID,
+				CreditsEarned: currency.Cents(100),
+				ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 			},
 			{
-				UserID:               user.ID,
-				OfferID:              offer.ID,
-				ReferredBy:           randomID,
-				CreditsEarnedInCents: 100,
-				ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+				UserID:        user.ID,
+				OfferID:       offer.ID,
+				ReferredBy:    randomID,
+				CreditsEarned: currency.Cents(100),
+				ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 			},
 		}
 
@@ -73,18 +72,18 @@ func TestUsercredits(t *testing.T) {
 		}{
 			{
 				userCredit: console.UserCredit{
-					UserID:               user.ID,
-					OfferID:              offer.ID,
-					ReferredBy:           referrer.ID,
-					CreditsEarnedInCents: 100,
-					ExpiresAt:            time.Now().UTC().AddDate(0, 1, 0),
+					UserID:        user.ID,
+					OfferID:       offer.ID,
+					ReferredBy:    referrer.ID,
+					CreditsEarned: currency.Cents(100),
+					ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 				},
 				chargedCredits: 120,
 				expected: result{
 					remainingCharge: 20,
 					usage: console.UserCreditUsage{
-						AvailableCredits: 0,
-						UsedCredits:      100,
+						AvailableCredits: currency.Cents(0),
+						UsedCredits:      currency.Cents(100),
 						Referred:         0,
 					},
 					hasErr: false,
@@ -93,18 +92,18 @@ func TestUsercredits(t *testing.T) {
 			{
 				// simulate a credit that's already expired
 				userCredit: console.UserCredit{
-					UserID:               user.ID,
-					OfferID:              offer.ID,
-					ReferredBy:           referrer.ID,
-					CreditsEarnedInCents: 100,
-					ExpiresAt:            time.Now().UTC().AddDate(0, 0, -5),
+					UserID:        user.ID,
+					OfferID:       offer.ID,
+					ReferredBy:    referrer.ID,
+					CreditsEarned: currency.Cents(100),
+					ExpiresAt:     time.Now().UTC().AddDate(0, 0, -5),
 				},
 				chargedCredits: 60,
 				expected: result{
 					remainingCharge: 60,
 					usage: console.UserCreditUsage{
-						AvailableCredits: 0,
-						UsedCredits:      100,
+						AvailableCredits: currency.Cents(0),
+						UsedCredits:      currency.Cents(100),
 						Referred:         0,
 					},
 					hasErr: true,
@@ -113,18 +112,18 @@ func TestUsercredits(t *testing.T) {
 			{
 				// simulate a credit that's not expired
 				userCredit: console.UserCredit{
-					UserID:               user.ID,
-					OfferID:              offer.ID,
-					ReferredBy:           referrer.ID,
-					CreditsEarnedInCents: 100,
-					ExpiresAt:            time.Now().UTC().AddDate(0, 0, 5),
+					UserID:        user.ID,
+					OfferID:       offer.ID,
+					ReferredBy:    referrer.ID,
+					CreditsEarned: currency.Cents(100),
+					ExpiresAt:     time.Now().UTC().AddDate(0, 0, 5),
 				},
 				chargedCredits: 80,
 				expected: result{
 					remainingCharge: 0,
 					usage: console.UserCreditUsage{
-						AvailableCredits: 20,
-						UsedCredits:      180,
+						AvailableCredits: currency.Cents(20),
+						UsedCredits:      currency.Cents(180),
 						Referred:         0,
 					},
 					hasErr: false,
@@ -193,8 +192,8 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 	offer, err = offersDB.Create(ctx, &rewards.NewOffer{
 		Name:                      "test",
 		Description:               "test offer 1",
-		AwardCreditInCents:        100,
-		InviteeCreditInCents:      50,
+		AwardCredit:               currency.Cents(100),
+		InviteeCredit:             currency.Cents(50),
 		AwardCreditDurationDays:   60,
 		InviteeCreditDurationDays: 30,
 		RedeemableCap:             50,
