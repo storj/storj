@@ -199,9 +199,6 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 
 	out.Name = bucketName
 	out.Created = m.Modified
-	// backwards compatibility for old buckets
-	out.PathCipher = storj.EncAESGCM
-	out.EncryptionParameters.CipherSuite = storj.EncNull
 
 	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
 		if err != nil {
