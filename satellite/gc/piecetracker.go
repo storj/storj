@@ -30,6 +30,7 @@ var (
 type RetainInfo struct {
 	Filter       *bloomfilter.Filter
 	CreationDate time.Time
+	count        int
 }
 
 // pieceTracker contains info about the good pieces that storage nodes need to retain
@@ -39,6 +40,7 @@ type pieceTracker struct {
 	initialPieces      int64
 	falsePositiveRate  float64
 	Requests           map[storj.NodeID]*RetainInfo
+	pieceCounts        map[storj.NodeID]int
 }
 
 // noOpPieceTracker does nothing when PieceTracker methods are called, because it's not time for the next iteration.
@@ -68,23 +70,26 @@ func (service *Service) NewPieceTracker() PieceTracker {
 		initialPieces:      service.config.InitialPieces,
 		falsePositiveRate:  service.config.FalsePositiveRate,
 		Requests:           make(map[storj.NodeID]*RetainInfo),
+		pieceCounts:        service.lastPieceCounts,
 	}
 }
 
 // Service implements the garbage collection service
 type Service struct {
-	log          *zap.Logger
-	config       Config
-	transport    transport.Client
-	lastSendTime time.Time
+	log             *zap.Logger
+	config          Config
+	transport       transport.Client
+	lastSendTime    time.Time
+	lastPieceCounts map[storj.NodeID]int
 }
 
 // NewService creates a new instance of the gc service
 func NewService(log *zap.Logger, config Config, transport transport.Client) *Service {
 	return &Service{
-		log:       log,
-		transport: transport,
-		config:    config,
+		log:             log,
+		transport:       transport,
+		config:          config,
+		lastPieceCounts: make(map[storj.NodeID]int),
 	}
 }
 
@@ -94,13 +99,18 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 
 	var filter *bloomfilter.Filter
 
+	numPieces := int(pieceTracker.initialPieces)
+	if pieceTracker.pieceCounts[nodeID] > 0 {
+		numPieces = pieceTracker.pieceCounts[nodeID]
+	}
 	if _, ok := pieceTracker.Requests[nodeID]; !ok {
-		filter = bloomfilter.NewOptimal(int(pieceTracker.initialPieces), pieceTracker.falsePositiveRate)
+		filter = bloomfilter.NewOptimal(numPieces, pieceTracker.falsePositiveRate)
 		pieceTracker.Requests[nodeID].Filter = filter
 		pieceTracker.Requests[nodeID].CreationDate = pieceTracker.filterCreationDate
 	}
 
 	pieceTracker.Requests[nodeID].Filter.Add(pieceID)
+	pieceTracker.Requests[nodeID].count++
 	return nil
 }
 
@@ -123,8 +133,11 @@ func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo 
 func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	for id := range pieceTracker.GetRetainInfos() {
+	service.lastPieceCounts = make(map[storj.NodeID]int)
+
+	for id, retainInfo := range pieceTracker.GetRetainInfos() {
 		log := service.log.Named(id.String())
+		service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
 		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
 		target := &pb.Node{Id: id}
 		signer := signing.SignerFromFullIdentity(service.transport.Identity())
@@ -139,7 +152,7 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
 			}
 		}()
-		// TODO: send the retain request to the storage node
+		// TODO: send the retain request to the storage node (PR #2424)
 	}
 
 	return nil
