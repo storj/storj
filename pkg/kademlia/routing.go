@@ -219,6 +219,7 @@ func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit
 
 // ConnectionSuccess updates or adds a node to the routing table when
 // a successful connection is made to the node on the network
+// and the node has at least one valid voucher
 func (rt *RoutingTable) ConnectionSuccess(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// valid to connect to node without ID but don't store connection
@@ -237,17 +238,17 @@ func (rt *RoutingTable) ConnectionSuccess(ctx context.Context, node *pb.Node) (e
 		}
 		return nil
 	}
-
-	hasVoucher := rt.nodeHasValidVoucher(ctx, node, []*pb.Voucher{})
+	// TODO: get vouchers
+	vouchers := []*pb.Voucher{}
+	hasVoucher := rt.nodeHasValidVoucher(ctx, node, vouchers)
 	if hasVoucher {
 		nodeAdded, err := rt.addNode(ctx, node)
 		if err != nil {
 			return RoutingErr.New("could not add node %s", err)
 		}
 		if nodeAdded {
-
-			// check new node neighborhood
-			// update antechamber by removing nodes that no longer fall in the neighborhood
+			// TODO: check new node neighborhood
+			// TODO: update antechamber by removing nodes that no longer fall in the neighborhood
 		}
 	} else {
 		err = rt.antechamberAddNode(ctx, node)
