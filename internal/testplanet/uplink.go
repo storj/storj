@@ -209,13 +209,13 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	}()
 
 	redScheme := config.GetRedundancyScheme()
-	encScheme := config.GetEncryptionScheme()
+	encParameters := config.GetEncryptionParameters()
 
 	// create bucket if not exists
 	_, err = metainfo.GetBucket(ctx, bucket)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
-			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encScheme.Cipher})
+			_, err := metainfo.CreateBucket(ctx, bucket, &storj.Bucket{PathCipher: encParameters.CipherSuite})
 			if err != nil {
 				return err
 			}
@@ -225,9 +225,9 @@ func (uplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satelli
 	}
 
 	createInfo := storj.CreateObject{
-		RedundancyScheme: redScheme,
-		EncryptionScheme: encScheme,
-		Expires:          expiration,
+		RedundancyScheme:     redScheme,
+		EncryptionParameters: encParameters,
+		Expires:              expiration,
 	}
 	obj, err := metainfo.CreateObject(ctx, bucket, path, &createInfo)
 	if err != nil {
@@ -388,13 +388,13 @@ func DialMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, id
 		return nil, nil, cleanup, errs.New("failed to create redundancy strategy: %v", err)
 	}
 
-	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(config.Client.SegmentSize.Int64(), config.GetEncryptionScheme())
+	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(config.Client.SegmentSize.Int64(), config.GetEncryptionParameters())
 	if err != nil {
 		return nil, nil, cleanup, errs.New("failed to calculate max encrypted segment size: %v", err)
 	}
 	segment := segments.NewSegmentStore(m, ec, rs, config.Client.MaxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	blockSize := config.GetEncryptionScheme().BlockSize
+	blockSize := config.GetEncryptionParameters().BlockSize
 	if int(blockSize)%config.RS.ErasureShareSize.Int()*config.RS.MinThreshold != 0 {
 		err = errs.New("EncryptionBlockSize must be a multiple of ErasureShareSize * RS MinThreshold")
 		return nil, nil, cleanup, err
@@ -408,7 +408,7 @@ func DialMetainfo(ctx context.Context, log *zap.Logger, config uplink.Config, id
 	encStore.SetDefaultKey(new(storj.Key))
 
 	strms, err := streams.NewStreamStore(segment, config.Client.SegmentSize.Int64(), encStore,
-		int(blockSize), storj.Cipher(config.Enc.DataType), config.Client.MaxInlineSize.Int(),
+		int(blockSize), storj.CipherSuite(config.Enc.DataType), config.Client.MaxInlineSize.Int(),
 	)
 	if err != nil {
 		return nil, nil, cleanup, errs.New("failed to create stream store: %v", err)

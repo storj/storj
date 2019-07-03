@@ -56,7 +56,7 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 
 	bucketCfg := &uplink.BucketConfig{}
 	bucketCfg.PathCipher = cfg.GetPathCipherSuite()
-	bucketCfg.EncryptionParameters = cfg.GetEncryptionScheme().ToEncryptionParameters()
+	bucketCfg.EncryptionParameters = cfg.GetEncryptionParameters()
 	bucketCfg.Volatile = struct {
 		RedundancyScheme storj.RedundancyScheme
 		SegmentsSize     memory.Size
