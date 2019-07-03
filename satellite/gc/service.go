@@ -91,6 +91,14 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 			}
 		}()
 		// TODO: send the retain request to the storage node (PR #2424)
+		// retainReq := &pb.RetainRequest{
+		// 	CreationDate: retainInfo.CreationDate,
+		// 	Filter:       retainInfo.Filter.Bytes(),
+		// }
+		// _, err := ps.gcendpoint.Retain(ctx, retainReq)
+		// if err != nil {
+		// 	return Error.Wrap(err)
+		// }
 	}
 
 	return nil
