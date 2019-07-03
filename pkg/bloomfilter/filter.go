@@ -43,6 +43,8 @@ func newExplicit(seed, hashCount byte, sizeInBytes int) *Filter {
 func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 	seed := byte(rand.Intn(255))
 
+	fmt.Println("NEW OPTIMAL", expectedElements, falsePositiveRate)
+
 	// calculation based on https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
 	bitsPerElement := -1.44 * math.Log2(falsePositiveRate)
 	hashCount := math.Ceil(bitsPerElement * math.Log(2))
