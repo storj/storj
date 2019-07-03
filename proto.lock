@@ -2848,6 +2848,26 @@
                 "id": 3,
                 "name": "signature",
                 "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "piece_size",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "timestamp",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
