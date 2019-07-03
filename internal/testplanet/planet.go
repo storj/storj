@@ -35,6 +35,7 @@ import (
 type Peer interface {
 	ID() storj.NodeID
 	Addr() string
+	URL() storj.NodeURL
 	Local() overlay.NodeDossier
 
 	Run(context.Context) error
@@ -178,9 +179,9 @@ func NewCustom(log *zap.Logger, config Config) (*Planet, error) {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	whitelistedSatellites := make([]string, len(planet.Satellites))
+	whitelistedSatellites := make(storj.NodeURLs, 0, len(planet.Satellites))
 	for _, satellite := range planet.Satellites {
-		whitelistedSatellites = append(whitelistedSatellites, satellite.ID().String())
+		whitelistedSatellites = append(whitelistedSatellites, satellite.URL())
 	}
 
 	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
