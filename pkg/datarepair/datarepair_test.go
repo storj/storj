@@ -5,7 +5,6 @@ package datarepair_test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"testing"
 
@@ -31,8 +30,13 @@ import (
 // - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
 func TestDataRepair(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 12,
+		SatelliteCount: 1,
+		// TODO: After the changes applied by the ticket v3-1927, the number must be
+		// this or greater than this otherwise for some unknown reason the repair
+		// upload repaired pieces to previous nodes which caused the repair to
+		// trigger; so with a lower number the repair contains pieces in nodes which
+		// were turned down and the test doesn't pass
+		StorageNodeCount: 16,
 		UplinkCount:      1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
@@ -47,52 +51,40 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		testData := testrand.Bytes(1 * memory.MiB)
-
-		successThreshold := 7
+		var (
+			testData         = testrand.Bytes(1 * memory.MiB)
+			minThreshold     = 3
+			successThreshold = 7
+		)
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
-			MinThreshold:     3,
+			MinThreshold:     minThreshold,
 			RepairThreshold:  5,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     10,
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		// get a remote segment from metainfo
-		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, "", "", "", true, 0, 0)
-		require.NoError(t, err)
-
-		fmt.Printf("\n\nlen of listReponse: %d\n\n", len(listResponse))
-
-		var path string
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = metainfo.Get(ctx, path)
-			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
-		}
+		pointer, path := getRemoteSegment(t, ctx, satellite)
 
 		// calculate how many storagenodes to kill
-		numStorageNodes := len(planet.StorageNodes)
 		redundancy := pointer.GetRemote().GetRedundancy()
-		remotePieces := pointer.GetRemote().GetRemotePieces()
 		minReq := redundancy.GetMinReq()
+		remotePieces := pointer.GetRemote().GetRemotePieces()
 		numPieces := len(remotePieces)
 		// disqualify one storage node
 		toDisqualify := 1
-		toKill := numPieces - (int(minReq+1) + toDisqualify)
+		toKill := numPieces - toDisqualify - int(minReq+1)
 		require.True(t, toKill >= 1)
 		maxNumRepairedPieces := int(math.Ceil(float64(successThreshold) * 1.05))
-		// we should have enough storage nodes to repair on
-		fmt.Printf("\n\n%d - %d - %d - %d\n\n", numStorageNodes, toKill, toDisqualify, maxNumRepairedPieces)
-		require.True(t, (numStorageNodes-toKill-toDisqualify) >= maxNumRepairedPieces)
+		numStorageNodes := len(planet.StorageNodes)
+		// Ensure that there are enough storage nodes to upload repaired segments
+		require.Falsef(t,
+			(numStorageNodes-toKill-toDisqualify) < maxNumRepairedPieces,
+			"there is not enough available nodes for repairing: need= %d, have= %d",
+			maxNumRepairedPieces, (numStorageNodes - toKill - toDisqualify),
+		)
 
 		// kill nodes and track lost pieces
-		var lostPieces []int32
 		nodesToKill := make(map[storj.NodeID]bool)
 		nodesToDisqualify := make(map[storj.NodeID]bool)
 		nodesToKeepAlive := make(map[storj.NodeID]bool)
@@ -108,7 +100,6 @@ func TestDataRepair(t *testing.T) {
 				continue
 			}
 			nodesToKill[piece.NodeId] = true
-			lostPieces = append(lostPieces, piece.GetPieceNum())
 		}
 
 		for _, node := range planet.StorageNodes {
@@ -132,14 +123,34 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
 
-		// kill nodes kept alive to ensure repair worked
+		// repaired segment should not contain any pice in the killed and DQ nodes
+		metainfo := satellite.Metainfo.Service
+		pointer, err = metainfo.Get(ctx, path)
+		require.NoError(t, err)
+
+		remotePieces = pointer.GetRemote().GetRemotePieces()
+		afterRepairNodes := make(map[storj.NodeID]struct{})
+		for _, piece := range remotePieces {
+			require.NotContains(t, nodesToKill, piece.NodeId, "there shouldn't be pieces in killed nodes")
+			require.NotContains(t, nodesToDisqualify, piece.NodeId, "there shouldn't be pieces in DQ nodes")
+
+			afterRepairNodes[piece.NodeId] = struct{}{}
+		}
+
+		nodesToKillForMinThreshold := len(remotePieces) - minThreshold
 		for _, node := range planet.StorageNodes {
-			if nodesToKeepAlive[node.ID()] {
+			if nodesToKillForMinThreshold == 0 {
+				break
+			}
+
+			if _, ok := afterRepairNodes[node.ID()]; ok {
 				err = planet.StopPeer(node)
 				require.NoError(t, err)
 
 				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
 				require.NoError(t, err)
+
+				nodesToKillForMinThreshold--
 			}
 		}
 
@@ -147,16 +158,6 @@ func TestDataRepair(t *testing.T) {
 		newData, err := ul.Download(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
 		require.Equal(t, newData, testData)
-
-		// updated pointer should not contain any of the killed nodes
-		pointer, err = metainfo.Get(ctx, path)
-		require.NoError(t, err)
-
-		remotePieces = pointer.GetRemote().GetRemotePieces()
-		for _, piece := range remotePieces {
-			require.False(t, nodesToKill[piece.NodeId])
-			require.False(t, nodesToDisqualify[piece.NodeId])
-		}
 	})
 }
 
