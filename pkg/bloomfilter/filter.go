@@ -5,7 +5,6 @@ package bloomfilter
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 	"math/rand"
 
@@ -31,7 +30,6 @@ type Filter struct {
 
 // newExplicit returns a new custom filter.
 func newExplicit(seed, hashCount byte, sizeInBytes int) *Filter {
-	fmt.Println("SIZE IN BYTES", sizeInBytes)
 	return &Filter{
 		seed:      seed,
 		hashCount: hashCount,
@@ -42,8 +40,6 @@ func newExplicit(seed, hashCount byte, sizeInBytes int) *Filter {
 // NewOptimal returns a filter based on expected element count and false positive rate.
 func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
 	seed := byte(rand.Intn(255))
-
-	fmt.Println("NEW OPTIMAL", expectedElements, falsePositiveRate)
 
 	// calculation based on https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
 	bitsPerElement := -1.44 * math.Log2(falsePositiveRate)
