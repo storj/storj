@@ -621,19 +621,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 // CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
 func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer *identity.PeerIdentity, bucketID []byte, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*pb.Node) (_ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rootPieceID := pointer.GetRemote().RootPieceId
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	totalPiecesToRepair := int(math.Ceil(
-		float64(redundancy.OptimalThreshold()) * (1 + optimalThresholdExceessRate),
-	))
-	if total := redundancy.TotalCount(); totalPiecesToRepair > total {
-		totalPiecesToRepair = total
-	}
-
 	// convert orderExpiration from duration to timestamp
 	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
 	orderExpiration, err := ptypes.TimestampProto(orderExpirationTime)
@@ -646,42 +633,73 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, err
 	}
 
-	var (
-		pieceNum  int
-		limits    = make([]*pb.AddressedOrderLimit, totalPiecesToRepair)
-		pieceSize = eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
-	)
-	for _, node := range newNodes {
-		for pieceNum < totalPiecesToRepair && getOrderLimits[pieceNum] != nil {
-			pieceNum++
-		}
-
-		if pieceNum >= totalPiecesToRepair { // should not happen
-			return nil, Error.New("piece num greater than total pieces to repair: %d >= %d", pieceNum, totalPiecesToRepair)
-		}
-
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
-			SerialNumber:     serialNumber,
-			SatelliteId:      service.satellite.ID(),
-			SatelliteAddress: service.satelliteAddress,
-			UplinkId:         repairer.ID,
-			StorageNodeId:    node.Id,
-			PieceId:          rootPieceID.Derive(node.Id),
-			Action:           pb.PieceAction_PUT_REPAIR,
-			Limit:            pieceSize,
-			PieceExpiration:  pointer.ExpirationDate,
-			OrderCreation:    time.Now(),
-			OrderExpiration:  orderExpiration,
-		})
+	var limits []*pb.AddressedOrderLimit
+	{ // Create the order limits for being used to upload the repaired pieces
+		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		limits[pieceNum] = &pb.AddressedOrderLimit{
-			Limit:              orderLimit,
-			StorageNodeAddress: node.Address,
+		totalPieces := redundancy.TotalCount()
+		limits = make([]*pb.AddressedOrderLimit, totalPieces)
+
+		totalPiecesAfterRepair := int(math.Ceil(
+			float64(redundancy.OptimalThreshold()) * (1 + optimalThresholdExceessRate),
+		))
+		if totalPiecesAfterRepair > totalPieces {
+			totalPiecesAfterRepair = totalPieces
 		}
-		pieceNum++
+
+		var numCurrentPieces int
+		for _, o := range getOrderLimits {
+			if o != nil {
+				numCurrentPieces++
+			}
+		}
+		totalPiecesToRepair := totalPiecesAfterRepair - numCurrentPieces
+
+		var (
+			rootPieceID = pointer.GetRemote().RootPieceId
+			pieceSize   = eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+			pieceNum    int
+		)
+		for _, node := range newNodes {
+			for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {
+				pieceNum++
+			}
+
+			if pieceNum >= totalPieces { // should not happen
+				return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
+			}
+
+			orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
+				SerialNumber:     serialNumber,
+				SatelliteId:      service.satellite.ID(),
+				SatelliteAddress: service.satelliteAddress,
+				UplinkId:         repairer.ID,
+				StorageNodeId:    node.Id,
+				PieceId:          rootPieceID.Derive(node.Id),
+				Action:           pb.PieceAction_PUT_REPAIR,
+				Limit:            pieceSize,
+				PieceExpiration:  pointer.ExpirationDate,
+				OrderCreation:    time.Now(),
+				OrderExpiration:  orderExpiration,
+			})
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
+			limits[pieceNum] = &pb.AddressedOrderLimit{
+				Limit:              orderLimit,
+				StorageNodeAddress: node.Address,
+			}
+			pieceNum++
+			totalPiecesToRepair--
+
+			if totalPiecesToRepair == 0 {
+				break
+			}
+		}
 	}
 
 	err = service.saveSerial(ctx, serialNumber, bucketID, orderExpirationTime)
