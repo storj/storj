@@ -7,9 +7,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -125,6 +127,17 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 // CreateSegment will generate requested number of OrderLimit with coresponding node addresses for them
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	exp, err := ptypes.Timestamp(req.Expiration)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = validateExpiration(ctx, exp)
+	if err != nil {
+		fmt.Println(status.Errorf(codes.InvalidArgument, err.Error()))
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
@@ -579,6 +592,25 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+// validateExpiration checks the validity of the expiration timer
+func validateExpiration(ctx context.Context, expiration time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now()
+	diff := now.Sub(expiration)
+
+	//@TODO: what is the absolute min expiration time supported?
+	//@TODO: currently it is minimum set to 1 day ie 24 hrs
+	days := int(diff.Hours() / 24)
+
+	// days --> +ve value indicates past time than current
+	// days --> -ve value indicates future time than current
+	if days < 0 {
+		return nil
+	}
+	return errs.New("Invalid expiration time")
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key

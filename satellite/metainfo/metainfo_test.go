@@ -453,6 +453,45 @@ func TestCreateSegment(t *testing.T) {
 	})
 }
 
+func TestExpirationTimeSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+		pointer := createTestPointer(t)
+
+		for _, r := range []struct {
+			expirationDate time.Time
+			errFlag        bool
+		}{
+			{ // 10 days into future
+				time.Now().AddDate(0, 0, 10),
+				false,
+			},
+			{ // current time
+				time.Now(),
+				true,
+			},
+			{ // 10 days into past
+				time.Now().AddDate(0, 0, -10),
+				true,
+			},
+		} {
+
+			_, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
+			if err != nil {
+				assert.True(t, r.errFlag)
+			} else {
+				assert.False(t, r.errFlag)
+			}
+		}
+	})
+}
+
 func TestDoubleCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
