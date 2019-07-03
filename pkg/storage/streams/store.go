@@ -125,11 +125,11 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 		}
 	}()
 
-	derivedKey, err := encryption.DeriveContentKeyWithStore(path.Bucket(), path.UnencryptedPath(), s.encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return Meta{}, currentSegment, err
 	}
-	encPath, err := encryption.EncryptPathWithStore(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return Meta{}, currentSegment, err
 	}
@@ -285,7 +285,7 @@ func (s *streamStore) upload(ctx context.Context, path Path, pathCipher storj.Ci
 func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Cipher) (rr ranger.Ranger, meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.EncryptPathWithStore(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -311,7 +311,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 		return nil, Meta{}, err
 	}
 
-	derivedKey, err := encryption.DeriveContentKeyWithStore(path.Bucket(), path.UnencryptedPath(), s.encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return nil, Meta{}, err
 	}
@@ -372,7 +372,7 @@ func (s *streamStore) Get(ctx context.Context, path Path, pathCipher storj.Ciphe
 func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Cipher) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.EncryptPathWithStore(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -404,7 +404,7 @@ func (s *streamStore) Meta(ctx context.Context, path Path, pathCipher storj.Ciph
 func (s *streamStore) Delete(ctx context.Context, path Path, pathCipher storj.Cipher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	encPath, err := encryption.EncryptPathWithStore(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return err
 	}
@@ -460,12 +460,12 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		metaFlags |= meta.UserDefined
 	}
 
-	prefixKey, err := encryption.DerivePathKeyWithStore(prefix.Bucket(), prefix.UnencryptedPath(), s.encStore)
+	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), prefix.UnencryptedPath(), s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
 
-	encPrefix, err := encryption.EncryptPathWithStore(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
+	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
@@ -622,7 +622,7 @@ func decryptRanger(ctx context.Context, rr ranger.Ranger, decryptedSize int64, c
 func (s *streamStore) cancelHandler(ctx context.Context, totalSegments int64, path Path, pathCipher storj.Cipher) {
 	defer mon.Task()(&ctx)(nil)
 
-	encPath, err := encryption.EncryptPathWithStore(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
+	encPath, err := encryption.EncryptPath(path.Bucket(), path.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		zap.S().Warnf("Failed deleting segments: %v", err)
 		return
@@ -664,7 +664,7 @@ func TypedDecryptStreamInfo(ctx context.Context, streamMetaBytes []byte, path Pa
 		return nil, pb.StreamMeta{}, err
 	}
 
-	derivedKey, err := encryption.DeriveContentKeyWithStore(path.Bucket(), path.UnencryptedPath(), encStore)
+	derivedKey, err := encryption.DeriveContentKey(path.Bucket(), path.UnencryptedPath(), encStore)
 	if err != nil {
 		return nil, pb.StreamMeta{}, err
 	}

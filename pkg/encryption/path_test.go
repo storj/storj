@@ -39,12 +39,12 @@ func TestStoreEncryption(t *testing.T) {
 			store := newStore(testrand.Key())
 			path := paths.NewUnencrypted(rawPath)
 
-			encPath, err := EncryptPathWithStore("bucket", path, cipher, store)
+			encPath, err := EncryptPath("bucket", path, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			decPath, err := DecryptPathWithStore("bucket", encPath, cipher, store)
+			decPath, err := DecryptPath("bucket", encPath, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
