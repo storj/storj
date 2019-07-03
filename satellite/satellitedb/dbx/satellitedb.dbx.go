@@ -17,8 +17,8 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
 
+	"github.com/mattn/go-sqlite3"
 	"math/rand"
 )
 
