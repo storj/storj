@@ -203,7 +203,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			if limit == nil {
 				return Error.New("invalid no order limit for piece")
 			}
-			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId)
+			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}
