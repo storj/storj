@@ -55,7 +55,7 @@ func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, er
 				RedundancyScheme     storj.RedundancyScheme
 				SegmentsSize         int64
 			}{
-				EncryptionParameters: info.ToEncryptionParameters(),
+				EncryptionParameters: info.EncryptionParameters,
 				RedundancyScheme:     info.RedundancyScheme,
 				SegmentsSize:         info.FixedSegmentSize,
 			},
@@ -159,11 +159,11 @@ func (b *Bucket) NewWriter(ctx context.Context, path storj.Path, opts *UploadOpt
 		opts.Volatile.EncryptionParameters.BlockSize = b.EncryptionParameters.BlockSize
 	}
 	createInfo := storj.CreateObject{
-		ContentType:      opts.ContentType,
-		Metadata:         opts.Metadata,
-		Expires:          opts.Expires,
-		RedundancyScheme: opts.Volatile.RedundancyScheme,
-		EncryptionScheme: opts.Volatile.EncryptionParameters.ToEncryptionScheme(),
+		ContentType:          opts.ContentType,
+		Metadata:             opts.Metadata,
+		Expires:              opts.Expires,
+		RedundancyScheme:     opts.Volatile.RedundancyScheme,
+		EncryptionParameters: opts.Volatile.EncryptionParameters,
 	}
 
 	obj, err := b.metainfo.CreateObject(ctx, b.Name, path, &createInfo)

@@ -23,7 +23,7 @@ func newStore(key storj.Key) *Store {
 }
 
 func TestStoreEncryption(t *testing.T) {
-	forAllCiphers(func(cipher storj.Cipher) {
+	forAllCiphers(func(cipher storj.CipherSuite) {
 		for i, rawPath := range []string{
 			"",
 			"/",
@@ -54,11 +54,11 @@ func TestStoreEncryption(t *testing.T) {
 	})
 }
 
-func forAllCiphers(test func(cipher storj.Cipher)) {
-	for _, cipher := range []storj.Cipher{
-		storj.Unencrypted,
-		storj.AESGCM,
-		storj.SecretBox,
+func forAllCiphers(test func(cipher storj.CipherSuite)) {
+	for _, cipher := range []storj.CipherSuite{
+		storj.EncNull,
+		storj.EncAESGCM,
+		storj.EncSecretBox,
 	} {
 		test(cipher)
 	}

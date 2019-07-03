@@ -51,7 +51,7 @@ func TestBucketsBasic(t *testing.T) {
 		bucket, err = db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
-			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
 		}
 
 		// Delete the bucket
@@ -91,7 +91,7 @@ func TestBucketsReadWrite(t *testing.T) {
 		bucket, err = db.GetBucket(ctx, TestBucket)
 		if assert.NoError(t, err) {
 			assert.Equal(t, TestBucket, bucket.Name)
-			assert.Equal(t, storj.AESGCM, bucket.PathCipher)
+			assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
 		}
 
 		// Delete the bucket
@@ -126,7 +126,7 @@ func TestErrNoBucket(t *testing.T) {
 
 func TestBucketCreateCipher(t *testing.T) {
 	runTest(t, func(t *testing.T, ctx context.Context, planet *testplanet.Planet, db *kvmetainfo.DB, streams streams.Store) {
-		forAllCiphers(func(cipher storj.Cipher) {
+		forAllCiphers(func(cipher storj.CipherSuite) {
 			bucket, err := db.CreateBucket(ctx, "test", &storj.Bucket{PathCipher: cipher})
 			if assert.NoError(t, err) {
 				assert.Equal(t, cipher, bucket.PathCipher)
@@ -336,7 +336,7 @@ func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, 
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
 	inlineThreshold := 8 * memory.KiB.Int()
-	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.AESGCM, inlineThreshold)
+	streams, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -344,11 +344,11 @@ func newMetainfoParts(t *testing.T, planet *testplanet.Planet) (*kvmetainfo.DB, 
 	return kvmetainfo.New(proj, metainfo, streams, segments, encStore), streams, nil
 }
 
-func forAllCiphers(test func(cipher storj.Cipher)) {
-	for _, cipher := range []storj.Cipher{
-		storj.Unencrypted,
-		storj.AESGCM,
-		storj.SecretBox,
+func forAllCiphers(test func(cipher storj.CipherSuite)) {
+	for _, cipher := range []storj.CipherSuite{
+		storj.EncNull,
+		storj.EncAESGCM,
+		storj.EncSecretBox,
 	} {
 		test(cipher)
 	}

@@ -135,11 +135,11 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
-		cipher := encScheme.Cipher
+		encParameters := upl.GetConfig(satellite).GetEncryptionParameters()
+		cipherSuite := encParameters.CipherSuite
 		store := encryption.NewStore()
 		store.SetDefaultKey(new(storj.Key))
-		encryptedPath, err := encryption.EncryptPath("testbucket", paths.NewUnencrypted("test/path"), cipher, store)
+		encryptedPath, err := encryption.EncryptPath("testbucket", paths.NewUnencrypted("test/path"), cipherSuite, store)
 		require.NoError(t, err)
 		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket", encryptedPath.Raw())
 		pointer, err := satellite.Metainfo.Service.Get(ctx, lastSegPath)
