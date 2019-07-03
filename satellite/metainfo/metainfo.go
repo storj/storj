@@ -634,3 +634,94 @@ func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.Buck
 	// TODO: placeholder to implement pb.MetainfoServer interface.
 	return &pb.BucketSetAttributionResponse{}, err
 }
+
+// BeginObject TODO
+func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.ObjectBeginResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// CommitObject TODO
+func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.ObjectCommitResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ListObjects TODO
+func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.ObjectListResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// BeginDeleteObject TODO
+func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.ObjectBeginDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// FinishDeleteObject TODO
+func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.ObjectFinishDeleteRequest) (resp *pb.ObjectFinishDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.ObjectFinishDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// BeginSegment TODO
+func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentBeginResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// CommitSegment2 TODO
+func (endpoint *Endpoint) CommitSegment2(ctx context.Context, req *pb.SegmentCommitRequest2) (resp *pb.SegmentCommitResponse2, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentCommitResponse2{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// MakeInlineSegment TODO
+func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentMakeInlineResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// BeginDeleteSegment TODO
+func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.SegmentBeginDeleteRequest) (resp *pb.SegmentBeginDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentBeginDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// FinishDeleteSegment TODO
+func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.SegmentFinishDeleteRequest) (resp *pb.SegmentFinishDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentFinishDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ListSegments2 TODO
+func (endpoint *Endpoint) ListSegments2(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentListResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// DownloadSegment2 TODO
+func (endpoint *Endpoint) DownloadSegment2(ctx context.Context, req *pb.SegmentDownloadRequest2) (resp *pb.SegmentDownloadResponse2, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.SegmentDownloadResponse2{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// Batch TODO
+func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp *pb.BatchResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.BatchResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}

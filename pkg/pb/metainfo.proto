@@ -15,11 +15,31 @@ import "orders.proto";
 
 // Metainfo it's a satellite RPC service
 service Metainfo {
+    // new API
+    // Bucket
     rpc CreateBucket(BucketCreateRequest) returns (BucketCreateResponse);
     rpc GetBucket(BucketGetRequest) returns (BucketGetResponse);
     rpc DeleteBucket(BucketDeleteRequest) returns (BucketDeleteResponse);
     rpc ListBuckets(BucketListRequest) returns (BucketListResponse);
     rpc SetBucketAttribution(BucketSetAttributionRequest) returns (BucketSetAttributionResponse);
+    // Object
+    rpc BeginObject(ObjectBeginRequest) returns (ObjectBeginResponse);
+    rpc CommitObject(ObjectCommitRequest) returns (ObjectCommitResponse);
+    rpc ListObjects(ObjectListRequest) returns (ObjectListResponse);
+    rpc BeginDeleteObject(ObjectBeginDeleteRequest) returns (ObjectBeginDeleteResponse);
+    rpc FinishDeleteObject(ObjectFinishDeleteRequest) returns (ObjectFinishDeleteResponse);
+    // Segment
+    rpc BeginSegment(SegmentBeginRequest) returns (SegmentBeginResponse);
+    rpc CommitSegment2(SegmentCommitRequest2) returns (SegmentCommitResponse2);
+    rpc MakeInlineSegment(SegmentMakeInlineRequest) returns (SegmentMakeInlineResponse);
+    rpc BeginDeleteSegment(SegmentBeginDeleteRequest) returns (SegmentBeginDeleteResponse);
+    rpc FinishDeleteSegment(SegmentFinishDeleteRequest) returns (SegmentFinishDeleteResponse);
+    rpc ListSegments2(SegmentListRequest) returns (SegmentListResponse);
+    rpc DownloadSegment2(SegmentDownloadRequest2) returns (SegmentDownloadResponse2);
+
+    rpc Batch(BatchRequest) returns (BatchResponse);
+
+    // old API
 
     rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
     rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
@@ -192,4 +212,322 @@ message ProjectInfoRequest {
 
 message ProjectInfoResponse {
     bytes project_salt = 1;
+}
+
+//-------------------------------------------------------
+// New API 
+//-------------------------------------------------------
+
+message Object {
+    enum Status {
+        INVALID    = 0;
+        UPLOADING  = 1;
+        COMMITTING = 2;
+        COMMITTED  = 3;
+        DELETING   = 4;
+    }
+
+    bytes  bucket         = 1;
+    bytes  encrypted_path = 2;
+    int32  version        = 3;
+    Status status         = 4;
+
+    bytes  stream_id = 5 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+
+    google.protobuf.Timestamp created_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp status_at  = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expires_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    bytes  encrypted_metadata_nonce = 9;
+    bytes  encrypted_metadata       = 10;
+
+    int64                           fixed_segment_size    = 11;
+    pointerdb.RedundancyScheme      redundancy_scheme     = 12;
+    encryption.EncryptionParameters encryption_parameters = 13;
+
+    int64 total_size  = 14;
+    int64 inline_size = 15;
+    int64 remote_size = 16;
+}
+
+message ObjectBeginRequest {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+
+    google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    bytes  encrypted_metadata_nonce = 5;
+    bytes  encrypted_metadata = 6; // TODO: set maximum size limit
+
+    pointerdb.RedundancyScheme      redundancy_scheme = 7; // can be zero
+    encryption.EncryptionParameters encryption_parameters = 8; // can be zero
+}
+
+message ObjectBeginResponse {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+
+    bytes  stream_id = 4 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+
+    pointerdb.RedundancyScheme      redundancy_scheme = 5;
+    encryption.EncryptionParameters encryption_parameters = 6;
+}
+
+message ObjectCommitRequest {
+    bytes  stream_id = 4 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+}
+
+message ObjectCommitResponse {
+    Object object = 1;
+}
+
+message ObjectListRequest {
+    bytes     bucket = 1;
+    bytes     encrypted_prefix = 2;
+    bytes     encrypted_cursor = 3;
+    int32     limit = 4;
+    bool      recursive = 5;
+
+    ObjectListItemFlags object_flags = 6;
+}
+
+message ObjectListResponse {
+    repeated ObjectListItem items = 1;
+    bool more = 2;
+}
+
+message ObjectListItem {
+    bytes  encrypted_path = 1;
+    int32  version        = 2;
+    Object.Status status  = 3;
+
+    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp status_at  = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expires_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    bytes  encrypted_metadata_nonce = 7;
+    bytes  encrypted_metadata       = 8;
+}
+
+message ObjectListItemFlags {
+    bool metadata = 1;
+}
+
+message ObjectBeginDeleteRequest {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+}
+
+message ObjectBeginDeleteResponse {
+    bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+
+    // TODO: should this contain a list of segments needing to be deleted?
+}
+
+message ObjectFinishDeleteRequest {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+}
+
+message ObjectFinishDeleteResponse {
+    // TODO: should this contain a list of segments needing to be deleted when not all segements have been deleted?
+}
+
+message Segment {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32 part_number = 2;
+    int32 index = 3;
+
+    bytes encrypted_key_nonce = 4;
+    bytes encrypted_key = 5;
+
+    bytes checksum_encrypted_data = 6;
+    int64 size_encrypted_data = 7;
+
+    bytes encrypted_inline_data = 8;
+    repeated bytes nodes = 9 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SegmentBeginRequest {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32 part_number = 2;
+    int32 index = 3;
+
+    int64 max_order_limit = 4;
+}
+
+message SegmentBeginResponse {
+    bytes    segment_id = 1;
+    repeated AddressedOrderLimit addressed_limits = 2;
+}
+
+message SegmentCommitRequest2 {
+    bytes segment_id = 1;
+
+    bytes encrypted_key_nonce = 2;
+    bytes encrypted_key = 3;
+
+    bytes checksum_encrypted_data = 4;
+
+    repeated SegmentPieceUploadResult upload_result = 5;
+}
+
+message SegmentCommitResponse2 {}
+
+message SegmentPieceUploadResult {
+    int32 piece_num = 1;
+    bytes node_id   = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    orders.PieceHash hash = 3;
+}
+
+// only for satellite use
+message SatStreamID {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+
+    pointerdb.RedundancyScheme redundancy = 4;
+
+    google.protobuf.Timestamp creation_date = 6;
+    google.protobuf.Timestamp expiration_date = 7;
+
+    bytes satellite_signature = 8;
+}
+
+// only for satellite use
+message SatSegmentID {
+    SatStreamID stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32    part_number = 2;
+    int32    index = 3;
+
+    // TODO we have redundancy in SatStreamID, do we need it here?
+    // pointerdb.RedundancyScheme redundancy = 4;
+    bytes root_piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit original_order_limits = 6;
+
+    bytes satellite_signature = 7;
+}
+
+message SegmentMakeInlineRequest {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32 part_number = 2;
+    int32 index = 3;
+
+    bytes encrypted_key_nonce = 4;
+    bytes encrypted_key = 5;
+
+    bytes checksum_encrypted_data = 6;
+    bytes encrypted_inline_data = 7;
+}
+
+message SegmentMakeInlineResponse {}
+
+message SegmentBeginDeleteRequest {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32 part_number = 2;
+    int32 index = 3;
+}
+
+message SegmentBeginDeleteResponse {
+    bytes segment_id = 1;
+    repeated AddressedOrderLimit addressed_limits = 2;
+    
+    // TODO: should we include here bool finished for inline segments, or should we use batching to combine SegmentBeginDeleteRequest/SegmentFinishDeleteResponse
+}
+
+message SegmentFinishDeleteRequest {
+    bytes segment_id = 1;
+
+    // TODO: check for uplink not sending order limits to storage nodes
+}
+
+message SegmentFinishDeleteResponse {}
+
+message SegmentListRequest {
+    bytes stream_id          = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32 cursor_part_number = 2;
+    int32 cursor_index       = 3;
+    int32 limit              = 4;
+    // TODO: is there a neater way to express cursor
+}
+
+message SegmentListResponse {
+    repeated SegmentListItem items = 1;
+    bool more = 2;
+}
+
+message SegmentListItem { // TODO: should we rename this to SegmentIndex and use it elsewhere?
+    int32 part_number = 1;
+    int32 index = 2;
+}
+
+message SegmentDownloadRequest2 {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    int32 part_number = 2;
+    int32 index = 3;
+
+    SegmentListItem next = 4;
+}
+
+message SegmentDownloadResponse2 {
+    bytes                           segment_id = 1;
+    repeated AddressedOrderLimit    addressed_limits = 2;
+}
+
+message BatchRequest {
+    oneof Request {
+        BucketCreateRequest         bucket_create = 1;
+        BucketGetRequest            bucket_get = 2;
+        BucketDeleteRequest         bucket_delete = 3;
+        BucketListRequest           bucket_list = 4;
+        BucketSetAttributionRequest bucket_set_attribution = 5;
+
+        ObjectBeginRequest          object_begin = 6;
+        ObjectCommitRequest         object_commit = 7;
+        ObjectListRequest           object_list = 8;
+        ObjectBeginDeleteRequest    object_begin_delete = 9;
+        ObjectFinishDeleteRequest   object_finish_delete = 10;
+
+        SegmentBeginRequest      segment_begin = 11;
+        SegmentCommitRequest     segment_commit = 12;
+        SegmentMakeInlineRequest segment_make_inline = 13;
+
+        SegmentBeginDeleteRequest  segment_begin_delete = 14;
+        SegmentFinishDeleteRequest segment_finish_delete = 15;
+
+        SegmentListRequest     segment_list = 16;
+        SegmentDownloadRequest segment_download = 17;
+    }
+    //repeated Request requests = 1;
+}
+
+message BatchResponse {
+    oneof Response {
+        BucketCreateResponse         bucket_create = 1;
+        BucketGetResponse            bucket_get = 2;
+        BucketDeleteResponse         bucket_delete = 3;
+        BucketListResponse           bucket_list = 4;
+        BucketSetAttributionResponse bucket_set_attribution = 5;
+
+        ObjectBeginResponse          object_begin = 6;
+        ObjectCommitResponse         object_commit = 7;
+        ObjectListResponse           object_list = 8;
+        ObjectBeginDeleteResponse    object_begin_delete = 9;
+        ObjectFinishDeleteResponse   object_finish_delete = 10;
+
+        SegmentBeginResponse      segment_begin = 11;
+        SegmentCommitResponse     segment_commit = 12;
+        SegmentMakeInlineResponse segment_make_inline = 13;
+
+        SegmentBeginDeleteResponse  segment_begin_delete = 14;
+        SegmentFinishDeleteResponse segment_finish_delete = 15;
+
+        SegmentListResponse     segment_list = 16;
+        SegmentDownloadResponse segment_download = 17;
+    }
+    //repeated Response responses = 1;
 }
