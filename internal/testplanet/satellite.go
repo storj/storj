@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/pkg/datarepair/checker"
 	"storj.io/storj/pkg/datarepair/repairer"
 	"storj.io/storj/pkg/discovery"
+	"storj.io/storj/pkg/gc"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/peertls/extensions"
@@ -162,6 +163,12 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+			},
+			GarbageCollection: gc.Config{
+				Interval:          30 * time.Second,
+				Active:            true,
+				InitialPieces:     10,
+				FalsePositiveRate: 0.1,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
