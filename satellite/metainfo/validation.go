@@ -25,9 +25,6 @@ import (
 )
 
 const (
-	// BucketNameRestricted feature flag to toggle bucket name validation
-	BucketNameRestricted = false
-
 	requestTTL = time.Hour * 4
 )
 
@@ -234,10 +231,6 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 
 	if len(bucket) == 0 {
 		return Error.New("bucket not specified")
-	}
-
-	if !BucketNameRestricted {
-		return nil
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {
