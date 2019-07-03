@@ -67,7 +67,7 @@ func (m *lockedAttribution) Insert(ctx context.Context, info *attribution.Info) 
 	return m.db.Insert(ctx, info)
 }
 
-// QueryAttribution queries partner bucket value attribution data
+// QueryAttribution queries partner bucket attribution data
 func (m *lockedAttribution) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) ([]*attribution.CSVRow, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -1039,6 +1039,13 @@ func (m *lockedStoragenodeAccounting) LastTimestamp(ctx context.Context, timesta
 	m.Lock()
 	defer m.Unlock()
 	return m.db.LastTimestamp(ctx, timestampType)
+}
+
+// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
+func (m *lockedStoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeSpaceUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryNodeDailySpaceUsage(ctx, nodeID, start, end)
 }
 
 // QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID

@@ -195,6 +195,48 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	return csv, nil
 }
 
+// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
+func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// as entries are stored on daily basis we don't need
+	// to extract DATE from start_time
+	query := `SELECT at_rest_total, start_time 
+		FROM accounting_rollups
+		WHERE node_id = ?
+		AND ? <= start_time AND start_time <= ?
+		GROUP BY start_time
+		ORDER BY start_time ASC`
+
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var nodeSpaceUsages []accounting.NodeSpaceUsage
+	for rows.Next() {
+		var atRestTotal float64
+		var startTime time.Time
+
+		err = rows.Scan(atRestTotal, startTime)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		nodeSpaceUsages = append(nodeSpaceUsages, accounting.NodeSpaceUsage{
+			NodeID:      nodeID,
+			AtRestTotal: atRestTotal,
+			TimeStamp:   startTime,
+		})
+	}
+
+	return nodeSpaceUsages, nil
+}
+
 // DeleteTalliesBefore deletes all raw tallies prior to some time
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)

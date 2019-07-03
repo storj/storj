@@ -6,6 +6,7 @@ package post
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -35,22 +36,27 @@ func (sender *SMTPSender) FromAddress() Address {
 // SendEmail sends email message to the given recipient
 func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: validate address before initializing SMTPSender
-	// suppress error because address should be validated
-	// before creating SMTPSender
-	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	client, err := smtp.Dial(sender.ServerAddress)
 	if err != nil {
 		return err
 	}
-	// close underlying connection
-	defer func() {
-		err = errs.Combine(err, client.Close())
-	}()
+
+	if err = sender.communicate(ctx, client, msg); err != nil {
+		return errs.Combine(err, client.Close())
+	}
+
+	return nil
+}
+
+// communicate sends mail via SMTP using provided client and message
+func (sender *SMTPSender) communicate(ctx context.Context, client *smtp.Client, msg *Message) error {
+	// suppress error because address should be validated
+	// before creating SMTPSender
+	host, _, _ := net.SplitHostPort(sender.ServerAddress)
 
 	// send smtp hello or ehlo msg and establish connection over tls
-	err = client.StartTLS(&tls.Config{ServerName: host})
+	err := client.StartTLS(&tls.Config{ServerName: host})
 	if err != nil {
 		return err
 	}
@@ -73,26 +79,31 @@ func (sender *SMTPSender) SendEmail(ctx context.Context, msg *Message) (err erro
 		}
 	}
 
-	data, err := client.Data()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errs.Combine(err, data.Close())
-	}()
-
 	mess, err := msg.Bytes()
 	if err != nil {
 		return err
 	}
 
-	_, err = data.Write(mess)
+	data, err := client.Data()
 	if err != nil {
 		return err
 	}
 
-	// send quit msg to stop gracefully returns err on
-	// success but we don't really care about the result
-	_ = client.Quit()
-	return nil
+	err = writeData(data, mess)
+	if err != nil {
+		return err
+	}
+
+	// send quit msg to stop gracefully
+	return client.Quit()
+}
+
+// writeData ensures that writer will be closed after data is written
+func writeData(writer io.WriteCloser, data []byte) (err error) {
+	defer func() {
+		err = errs.Combine(err, writer.Close())
+	}()
+
+	_, err = writer.Write(data)
+	return
 }

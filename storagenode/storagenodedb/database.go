@@ -39,7 +39,7 @@ type DB struct {
 
 	info *InfoDB
 
-	kdb, ndb storage.KeyValueStore
+	kdb, ndb, adb storage.KeyValueStore
 }
 
 // New creates a new master database for storage node
@@ -55,7 +55,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		return nil, err
 	}
 
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket)
+	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 	if err != nil {
 		return nil, err
 	}
@@ -69,6 +69,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 
 		kdb: dbs[0],
 		ndb: dbs[1],
+		adb: dbs[2],
 	}, nil
 }
 
@@ -94,6 +95,7 @@ func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
 
 		kdb: teststore.New(),
 		ndb: teststore.New(),
+		adb: teststore.New(),
 	}, nil
 }
 
@@ -107,6 +109,7 @@ func (db *DB) Close() error {
 	return errs.Combine(
 		db.kdb.Close(),
 		db.ndb.Close(),
+		db.adb.Close(),
 
 		db.pieces.Close(),
 		db.info.Close(),
@@ -119,6 +122,6 @@ func (db *DB) Pieces() storage.Blobs {
 }
 
 // RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb storage.KeyValueStore) {
-	return db.kdb, db.ndb
+func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
+	return db.kdb, db.ndb, db.adb
 }
