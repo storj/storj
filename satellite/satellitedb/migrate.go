@@ -878,7 +878,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add bucket metadata table",
 				Version:     38,
 				Action: migrate.SQL{
-					`CREATE TABLE buckets (
+					`CREATE TABLE bucket_metainfos (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL REFERENCES projects( id ),
 						name bytea NOT NULL,
@@ -903,13 +903,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     39,
 				Action: migrate.SQL{
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
-				},
-			},
-			{
-				Description: "Alter table name buckets to bucket_metainfo",
-				Version:     40,
-				Action: migrate.SQL{
-					`ALTER TABLE buckets RENAME TO bucket_metainfos`,
 				},
 			},
 		},
