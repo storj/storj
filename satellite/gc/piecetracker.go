@@ -43,7 +43,7 @@ type pieceTracker struct {
 	filterCreationDate time.Time
 	initialPieces      int64
 	falsePositiveRate  float64
-	Requests           map[storj.NodeID]*RetainInfo
+	retainInfos        map[storj.NodeID]*RetainInfo
 	pieceCounts        map[storj.NodeID]int
 }
 
@@ -58,20 +58,20 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 	if pieceTracker.pieceCounts[nodeID] > 0 {
 		numPieces = pieceTracker.pieceCounts[nodeID]
 	}
-	if _, ok := pieceTracker.Requests[nodeID]; !ok {
+	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
 		filter = bloomfilter.NewOptimal(numPieces, pieceTracker.falsePositiveRate)
-		pieceTracker.Requests[nodeID].Filter = filter
-		pieceTracker.Requests[nodeID].CreationDate = pieceTracker.filterCreationDate
+		pieceTracker.retainInfos[nodeID].Filter = filter
+		pieceTracker.retainInfos[nodeID].CreationDate = pieceTracker.filterCreationDate
 	}
 
-	pieceTracker.Requests[nodeID].Filter.Add(pieceID)
-	pieceTracker.Requests[nodeID].count++
+	pieceTracker.retainInfos[nodeID].Filter.Add(pieceID)
+	pieceTracker.retainInfos[nodeID].count++
 	return nil
 }
 
 // GetRetainInfos returns the retain requests on the pieceTracker struct
 func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
-	return pieceTracker.Requests
+	return pieceTracker.retainInfos
 }
 
 // noOpPieceTracker does nothing when PieceTracker methods are called, because it's not time for the next iteration.

@@ -58,7 +58,7 @@ func (service *Service) NewPieceTracker() PieceTracker {
 		filterCreationDate: filterCreationDate,
 		initialPieces:      service.config.InitialPieces,
 		falsePositiveRate:  service.config.FalsePositiveRate,
-		Requests:           make(map[storj.NodeID]*RetainInfo),
+		retainInfos:        make(map[storj.NodeID]*RetainInfo),
 		pieceCounts:        service.lastPieceCounts,
 	}
 }
