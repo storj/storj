@@ -343,7 +343,7 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 	return nil
 }
 
-func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit2) (err error) {
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if piece.Hash == nil {

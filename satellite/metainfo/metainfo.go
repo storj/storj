@@ -455,7 +455,7 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit2) (err error) {
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
