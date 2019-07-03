@@ -479,6 +479,10 @@ message SegmentDownloadResponse2 {
 }
 
 message BatchRequest {
+    repeated BatchRequestItem requests = 1;
+}
+
+message BatchRequestItem {
     oneof Request {
         BucketCreateRequest         bucket_create = 1;
         BucketGetRequest            bucket_get = 2;
@@ -502,10 +506,13 @@ message BatchRequest {
         SegmentListRequest     segment_list = 16;
         SegmentDownloadRequest segment_download = 17;
     }
-    //repeated Request requests = 1;
 }
 
 message BatchResponse {
+    repeated BatchRequestItem responses = 1;
+}
+
+message BatchResponseItem {
     oneof Response {
         BucketCreateResponse         bucket_create = 1;
         BucketGetResponse            bucket_get = 2;
@@ -529,5 +536,4 @@ message BatchResponse {
         SegmentListResponse     segment_list = 16;
         SegmentDownloadResponse segment_download = 17;
     }
-    //repeated Response responses = 1;
 }

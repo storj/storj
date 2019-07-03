@@ -3128,6 +3128,17 @@
             "fields": [
               {
                 "id": 1,
+                "name": "requests",
+                "type": "BatchRequestItem",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "BatchRequestItem",
+            "fields": [
+              {
+                "id": 1,
                 "name": "bucket_create",
                 "type": "BucketCreateRequest"
               },
@@ -3215,6 +3226,17 @@
           },
           {
             "name": "BatchResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "responses",
+                "type": "BatchRequestItem",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "BatchResponseItem",
             "fields": [
               {
                 "id": 1,
