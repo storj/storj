@@ -905,6 +905,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
 			},
+			{
+				Description: "Alter table name buckets to bucket_metainfo",
+				Version:     40,
+				Action: migrate.SQL{
+					`ALTER TABLE buckets RENAME TO bucket_metainfos`,
+				},
+			},
 		},
 	}
 }
