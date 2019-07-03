@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -43,18 +45,18 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
-	Path string `help:"path to store data in" default:"$CONFDIR/storage"`
-
-	WhitelistedSatelliteIDs string        `help:"a comma-separated list of approved satellite node ids" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs"`
-	SatelliteIDRestriction  bool          `help:"if true, only allow data from approved satellites" devDefault:"false" releaseDefault:"true"`
-	AllocatedDiskSpace      memory.Size   `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
-	AllocatedBandwidth      memory.Size   `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
-	KBucketRefreshInterval  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
+	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
+	SatelliteIDRestriction bool           `help:"if true, only allow data from approved satellites" devDefault:"false" releaseDefault:"true"`
+	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
+	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
+	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 }
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 
 	Monitor monitor.Config
@@ -75,6 +77,8 @@ type Endpoint struct {
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
+
+	liveRequests int32
 }
 
 // NewEndpoint creates a new piecestore endpoint.
@@ -92,12 +96,17 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		orders:      orders,
 		usage:       usage,
 		usedSerials: usedSerials,
+
+		liveRequests: 0,
 	}, nil
 }
 
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	if delete.Limit.Action != pb.PieceAction_DELETE {
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
@@ -129,6 +138,15 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
+	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
+		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
+		return status.Error(codes.Unavailable, "storage node overloaded")
+	}
+
 	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts
@@ -303,8 +321,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
-				PieceId: limit.PieceId,
-				Hash:    expectedHash,
+				PieceId:   limit.PieceId,
+				Hash:      expectedHash,
+				PieceSize: pieceWriter.Size(),
+				Timestamp: time.Now(),
 			})
 			if err != nil {
 				return ErrInternal.Wrap(err)
@@ -322,6 +342,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
 	startTime := time.Now().UTC()
 
 	// TODO: set connection timeouts

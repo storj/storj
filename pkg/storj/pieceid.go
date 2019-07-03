@@ -9,6 +9,7 @@ import (
 	"crypto/sha512"
 	"database/sql/driver"
 	"encoding/base32"
+	"encoding/binary"
 	"encoding/json"
 
 	"github.com/zeebo/errs"
@@ -66,11 +67,14 @@ func (id PieceID) String() string { return pieceIDEncoding.EncodeToString(id.Byt
 // Bytes returns bytes of the piece ID
 func (id PieceID) Bytes() []byte { return id[:] }
 
-// Derive a new PieceID from the current piece ID and the given storage node ID
-func (id PieceID) Derive(storagenodeID NodeID) PieceID {
+// Derive a new PieceID from the current piece ID, the given storage node ID and piece number
+func (id PieceID) Derive(storagenodeID NodeID, pieceNum int32) PieceID {
 	// TODO: should the secret / content be swapped?
 	mac := hmac.New(sha512.New, id.Bytes())
 	_, _ = mac.Write(storagenodeID.Bytes()) // on hash.Hash write never returns an error
+	num := make([]byte, 4)
+	binary.BigEndian.PutUint32(num, uint32(pieceNum))
+	_, _ = mac.Write(num) // on hash.Hash write never returns an error
 	var derived PieceID
 	copy(derived[:], mac.Sum(nil))
 	return derived
