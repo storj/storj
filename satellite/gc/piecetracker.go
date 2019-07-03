@@ -11,12 +11,8 @@ import (
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/bloomfilter"
-	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/pkg/transport"
-	"storj.io/storj/uplink/piecestore"
 )
 
 var (
@@ -33,6 +29,14 @@ type RetainInfo struct {
 	count        int
 }
 
+// PieceTracker allows access to info about the good pieces that storage nodes need to retain
+type PieceTracker interface {
+	// Add adds a RetainInfo to the PieceTracker
+	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
+	// GetRetainInfos gets all of the RetainInfos
+	GetRetainInfos() map[storj.NodeID]*RetainInfo
+}
+
 // pieceTracker contains info about the good pieces that storage nodes need to retain
 type pieceTracker struct {
 	log                *zap.Logger
@@ -43,62 +47,13 @@ type pieceTracker struct {
 	pieceCounts        map[storj.NodeID]int
 }
 
-// noOpPieceTracker does nothing when PieceTracker methods are called, because it's not time for the next iteration.
-type noOpPieceTracker struct {
-}
-
-// PieceTracker allows access to info about the good pieces that storage nodes need to retain
-type PieceTracker interface {
-	// Add adds a RetainInfo to the PieceTracker
-	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
-	// GetRetainInfos gets all of the RetainInfos
-	GetRetainInfos() map[storj.NodeID]*RetainInfo
-}
-
-// NewPieceTracker instantiates a piece tracker
-func (service *Service) NewPieceTracker() PieceTracker {
-	// Creation date of the gc bloom filter - the storage node shouldn't delete any piece newer than this.
-	filterCreationDate := time.Now().UTC()
-
-	if filterCreationDate.Before(service.lastSendTime.Add(service.config.Interval)) {
-		return &noOpPieceTracker{}
-	}
-
-	return &pieceTracker{
-		log:                service.log.Named("piecetracker"),
-		filterCreationDate: filterCreationDate,
-		initialPieces:      service.config.InitialPieces,
-		falsePositiveRate:  service.config.FalsePositiveRate,
-		Requests:           make(map[storj.NodeID]*RetainInfo),
-		pieceCounts:        service.lastPieceCounts,
-	}
-}
-
-// Service implements the garbage collection service
-type Service struct {
-	log             *zap.Logger
-	config          Config
-	transport       transport.Client
-	lastSendTime    time.Time
-	lastPieceCounts map[storj.NodeID]int
-}
-
-// NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, config Config, transport transport.Client) *Service {
-	return &Service{
-		log:             log,
-		transport:       transport,
-		config:          config,
-		lastPieceCounts: make(map[storj.NodeID]int),
-	}
-}
-
 // Add adds a pieceID to the relevant node's RetainInfo
 func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var filter *bloomfilter.Filter
 
+	// if we know how many pieces a node should be storing, use that number. Otherwise use default
 	numPieces := int(pieceTracker.initialPieces)
 	if pieceTracker.pieceCounts[nodeID] > 0 {
 		numPieces = pieceTracker.pieceCounts[nodeID]
@@ -114,6 +69,15 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 	return nil
 }
 
+// GetRetainInfos returns the retain requests on the pieceTracker struct
+func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
+	return pieceTracker.Requests
+}
+
+// noOpPieceTracker does nothing when PieceTracker methods are called, because it's not time for the next iteration.
+type noOpPieceTracker struct {
+}
+
 // Add adds nothing when using the noOpPieceTracker
 func (pieceTracker *noOpPieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
 	return nil
@@ -121,39 +85,5 @@ func (pieceTracker *noOpPieceTracker) Add(ctx context.Context, nodeID storj.Node
 
 // GetRetainInfos returns nothing when using the noOpPieceTracker
 func (pieceTracker *noOpPieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
-	return nil
-}
-
-// GetRetainInfos returns the retain requests on the pieceTracker struct
-func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
-	return pieceTracker.Requests
-}
-
-// Send sends the piece retain requests to all storage nodes
-func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	service.lastPieceCounts = make(map[storj.NodeID]int)
-
-	for id, retainInfo := range pieceTracker.GetRetainInfos() {
-		log := service.log.Named(id.String())
-		service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
-		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
-		target := &pb.Node{Id: id}
-		signer := signing.SignerFromFullIdentity(service.transport.Identity())
-
-		ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		defer func() {
-			err := ps.Close()
-			if err != nil {
-				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
-			}
-		}()
-		// TODO: send the retain request to the storage node (PR #2424)
-	}
-
 	return nil
 }
