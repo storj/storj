@@ -235,8 +235,9 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := config.GetMetainfo(ctx, planet.Uplinks[0].Identity)
+	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, planet.Uplinks[0].Log.Named("metainfo"), config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
+	defer ctx.Check(cleanup)
 
 	type Test struct {
 		Request  storj.ListOptions
@@ -298,7 +299,7 @@ func TestCommitSegment(t *testing.T) {
 
 		{
 			// error if pointer is nil
-			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
 			require.Error(t, err)
 		}
 		{
@@ -343,7 +344,7 @@ func TestCommitSegment(t *testing.T) {
 				ExpirationDate: expirationDateProto,
 			}
 
-			limits := make([]*pb.OrderLimit2, len(addresedLimits))
+			limits := make([]*pb.OrderLimit, len(addresedLimits))
 			for i, addresedLimit := range addresedLimits {
 				limits[i] = addresedLimit.Limit
 			}
@@ -594,8 +595,9 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 		require.NoError(t, err)
+		defer ctx.Check(cleanup)
 
 		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
 		require.NoError(t, err)
@@ -615,17 +617,53 @@ func TestSetAttribution(t *testing.T) {
 			require.NoError(t, err)
 		}
 		{
+			// already attributed bucket, adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
 			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
+			require.NoError(t, err)
+		}
+		{
+			//non attributed bucket, and adding files
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alphaNew", "path", []byte{1, 2, 3})
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.SetAttribution(ctx, "alphaNew", partnerID)
 			require.Error(t, err)
 		}
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func TestGetProjectInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+
+		metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+		require.NoError(t, err)
+
+		metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+		require.NoError(t, err)
+
+		info0, err := metainfo0.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info0.ProjectSalt)
+
+		info1, err := metainfo1.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info1.ProjectSalt)
+
+		// Different projects should have different salts
+		require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
+	})
+}
+
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
@@ -635,7 +673,7 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Clie
 
 	pointer.Remote.RootPieceId = rootPieceID
 
-	limits := make([]*pb.OrderLimit2, len(addressedLimits))
+	limits := make([]*pb.OrderLimit, len(addressedLimits))
 	for i, addressedLimit := range addressedLimits {
 		limits[i] = addressedLimit.Limit
 
@@ -669,14 +707,14 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
-				&pb.RemotePiece{
+				{
 					PieceNum: 0,
 					Hash: &pb.PieceHash{
 						PieceSize: pieceSize,
 						Timestamp: timestamp,
 					},
 				},
-				&pb.RemotePiece{
+				{
 					PieceNum: 1,
 					Hash: &pb.PieceHash{
 						PieceSize: pieceSize,

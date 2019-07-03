@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"os"
+	"sync"
 	"testing"
 
 	"storj.io/storj/internal/memory"
@@ -26,16 +27,22 @@ var benchmarkCases = []struct {
 	{"1G", 1 * memory.GiB},
 }
 
-var testObjects = createObjects()
+var testobjectData struct {
+	sync.Once
+	objects map[string][]byte
+}
 
-// createObjects generates the objects (i.e. slice of bytes) that
+// testObjects returns test objects (i.e. slice of bytes) that
 // will be used as the objects to upload/download tests
-func createObjects() map[string][]byte {
-	objects := make(map[string][]byte)
-	for _, bm := range benchmarkCases {
-		objects[bm.name] = testrand.Bytes(bm.objectsize)
-	}
-	return objects
+func testObjects() map[string][]byte {
+	testobjectData.Do(func() {
+		objects := make(map[string][]byte)
+		for _, bm := range benchmarkCases {
+			objects[bm.name] = testrand.Bytes(bm.objectsize)
+		}
+		testobjectData.objects = objects
+	})
+	return testobjectData.objects
 }
 
 // uplinkSetup setups an uplink to use for testing uploads/downloads
@@ -119,7 +126,7 @@ func BenchmarkDownload_Uplink(b *testing.B) {
 }
 
 func uploadTestObjects(client s3client.Client, bucket string) {
-	for name, data := range testObjects {
+	for name, data := range testObjects() {
 		objectName := "folder/data_" + name
 		err := client.Upload(bucket, objectName, data)
 		if err != nil {
@@ -129,7 +136,7 @@ func uploadTestObjects(client s3client.Client, bucket string) {
 }
 
 func teardownTestObjects(client s3client.Client, bucket string) {
-	for name := range testObjects {
+	for name := range testObjects() {
 		objectName := "folder/data_" + name
 		err := client.Delete(bucket, objectName)
 		if err != nil {
@@ -153,7 +160,7 @@ func benchmarkUpload(b *testing.B, client s3client.Client, bucket string, upload
 				randomBytes := testrand.Bytes(16)
 				uniquePathPart := hex.EncodeToString(randomBytes)
 				objectPath := "folder/data" + uniquePathPart + "_" + benchmark.name
-				err := client.Upload(bucket, objectPath, testObjects[benchmark.name])
+				err := client.Upload(bucket, objectPath, testObjects()[benchmark.name])
 				if err != nil {
 					log.Fatalf("failed to upload object %q: %+v\n", objectPath, err)
 				}

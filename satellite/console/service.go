@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/rewards"
 )
 
 var mon = monkit.Package()
@@ -57,15 +58,16 @@ const (
 type Service struct {
 	Signer
 
-	log   *zap.Logger
-	pm    payments.Service
-	store DB
+	log     *zap.Logger
+	pm      payments.Service
+	store   DB
+	rewards rewards.DB
 
 	passwordCost int
 }
 
 // NewService returns new instance of Service
-func NewService(log *zap.Logger, signer Signer, store DB, pm payments.Service, passwordCost int) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm payments.Service, passwordCost int) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -83,6 +85,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, pm payments.Service, p
 		log:          log,
 		Signer:       signer,
 		store:        store,
+		rewards:      rewards,
 		pm:           pm,
 		passwordCost: passwordCost,
 	}, nil
@@ -453,6 +456,18 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	}
 
 	return
+}
+
+// GetCurrentRewardByType is a method for querying current active reward offer based on its type
+func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (reward *rewards.Offer, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	reward, err = s.rewards.GetCurrentByType(ctx, offerType)
+	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+
+	return reward, nil
 }
 
 // GetUserCreditUsage is a method for querying users' credit information up until now

@@ -11,14 +11,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -28,19 +26,10 @@ var (
 		RunE:        cmdSetup,
 		Annotations: map[string]string{"type": "setup"},
 	}
-
 	setupCfg UplinkFlags
-	confDir  string
-	defaults cfgstruct.BindOpt
-
-	// Error is the default uplink setup errs class
-	Error = errs.Class("uplink setup error")
 )
 
 func init() {
-	defaultConfDir := fpath.ApplicationDir("storj", "uplink")
-	cfgstruct.SetupFlag(zap.L(), RootCmd, &confDir, "config-dir", defaultConfDir, "main directory for uplink configuration")
-	defaults = cfgstruct.DefaultsFlag(RootCmd)
 	RootCmd.AddCommand(setupCmd)
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.SetupMode())
 }
@@ -88,7 +77,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 // or to a default path whose directory tree exists.
 func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
 	if setupCfg.Enc.EncryptionKey != "" {
-		err := uplink.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
+		err := setup.SaveEncryptionKey(setupCfg.Enc.EncryptionKey, encryptionKeyFilepath)
 		if err != nil {
 			return err
 		}
@@ -132,7 +121,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilep
 		return err
 	}
 
-	err = uplink.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
 	if err != nil {
 		return err
 	}

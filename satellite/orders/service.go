@@ -54,7 +54,7 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 }
 
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
-func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit2) (err error) {
+func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
 }
@@ -164,7 +164,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -174,6 +174,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			Action:           pb.PieceAction_GET,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -231,7 +232,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	var pieceNum int32
 	for _, node := range nodes {
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -241,6 +242,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 			Action:           pb.PieceAction_PUT,
 			Limit:            maxPieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -315,7 +317,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -325,6 +327,7 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 			Action:           pb.PieceAction_DELETE,
 			Limit:            0,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -403,7 +406,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -413,6 +416,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			Action:           pb.PieceAction_GET_AUDIT,
 			Limit:            int64(shareSize),
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -475,7 +479,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		return nil, overlay.ErrNodeOffline.New(nodeID.String())
 	}
 
-	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 		SerialNumber:     serialNumber,
 		SatelliteId:      service.satellite.ID(),
 		SatelliteAddress: service.satelliteAddress,
@@ -484,6 +488,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		PieceId:          rootPieceID.Derive(nodeID),
 		Action:           pb.PieceAction_GET_AUDIT,
 		Limit:            int64(shareSize),
+		OrderCreation:    time.Now(),
 		OrderExpiration:  orderExpiration,
 	})
 	if err != nil {
@@ -558,7 +563,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -568,6 +573,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			Action:           pb.PieceAction_GET_REPAIR,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -637,7 +643,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
@@ -647,6 +653,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			Action:           pb.PieceAction_PUT_REPAIR,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {

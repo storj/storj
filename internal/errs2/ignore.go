@@ -11,15 +11,19 @@ import (
 	"google.golang.org/grpc"
 )
 
-// IgnoreCanceled returns nil, when the operation was about canceling.
-func IgnoreCanceled(err error) error {
-	if errs.IsFunc(err, func(err error) bool {
+// IsCanceled returns true, when the error is a cancellation.
+func IsCanceled(err error) bool {
+	return errs.IsFunc(err, func(err error) bool {
 		return err == context.Canceled ||
 			err == grpc.ErrServerStopped ||
 			err == http.ErrServerClosed
-	}) {
+	})
+}
+
+// IgnoreCanceled returns nil, when the operation was about canceling.
+func IgnoreCanceled(err error) error {
+	if IsCanceled(err) {
 		return nil
 	}
-
 	return err
 }

@@ -221,7 +221,7 @@ kademlia.operator.wallet: ""
 # orders.expiration: 1080h0m0s
 
 # the number of times a node has been audited to not be considered a New Node
-# overlay.node.audit-count: 500
+# overlay.node.audit-count: 100
 
 # the initial shape 'alpha' used to calculate audit SNs reputation
 # overlay.node.audit-reputation-alpha0: 1
@@ -257,7 +257,7 @@ kademlia.operator.wallet: ""
 # overlay.node.online-window: 1h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 500
+# overlay.node.uptime-count: 100
 
 # the initial shape 'alpha' used to calculate uptime SNs reputation
 # overlay.node.uptime-reputation-alpha0: 2
@@ -266,7 +266,7 @@ kademlia.operator.wallet: ""
 # overlay.node.uptime-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on uptime history
-# overlay.node.uptime-reputation-dq: 0.4
+# overlay.node.uptime-reputation-dq: 0
 
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 0.99
