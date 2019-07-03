@@ -34,7 +34,7 @@ func TestCreateObject(t *testing.T) {
 	}
 
 	const stripesPerBlock = 2
-	customES := storj.EncryptionParameters{
+	customEP := storj.EncryptionParameters{
 		CipherSuite: storj.EncNull,
 		BlockSize:   stripesPerBlock * customRS.StripeSize(),
 	}
@@ -46,27 +46,27 @@ func TestCreateObject(t *testing.T) {
 		for i, tt := range []struct {
 			create     *storj.CreateObject
 			expectedRS storj.RedundancyScheme
-			expectedES storj.EncryptionParameters
+			expectedEP storj.EncryptionParameters
 		}{
 			{
 				create:     nil,
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: kvmetainfo.DefaultES,
+				expectedEP: kvmetainfo.DefaultES,
 			},
 			{
-				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionParameters: customES},
+				create:     &storj.CreateObject{RedundancyScheme: customRS, EncryptionParameters: customEP},
 				expectedRS: customRS,
-				expectedES: customES,
+				expectedEP: customEP,
 			},
 			{
 				create:     &storj.CreateObject{RedundancyScheme: customRS},
 				expectedRS: customRS,
-				expectedES: storj.EncryptionParameters{CipherSuite: kvmetainfo.DefaultES.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
+				expectedEP: storj.EncryptionParameters{CipherSuite: kvmetainfo.DefaultES.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 			{
-				create:     &storj.CreateObject{EncryptionParameters: customES},
+				create:     &storj.CreateObject{EncryptionParameters: customEP},
 				expectedRS: kvmetainfo.DefaultRS,
-				expectedES: storj.EncryptionParameters{CipherSuite: customES.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
+				expectedEP: storj.EncryptionParameters{CipherSuite: customEP.CipherSuite, BlockSize: kvmetainfo.DefaultES.BlockSize},
 			},
 		} {
 			errTag := fmt.Sprintf("%d. %+v", i, tt)
@@ -81,7 +81,7 @@ func TestCreateObject(t *testing.T) {
 			assert.Equal(t, TestFile, info.Path, errTag)
 			assert.EqualValues(t, 0, info.Size, errTag)
 			assert.Equal(t, tt.expectedRS, info.RedundancyScheme, errTag)
-			assert.Equal(t, tt.expectedES, info.EncryptionParameters, errTag)
+			assert.Equal(t, tt.expectedEP, info.EncryptionParameters, errTag)
 		}
 	})
 }

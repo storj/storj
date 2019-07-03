@@ -54,13 +54,13 @@ typedef struct BucketInfo {
     int64_t              created;
     CipherSuite          path_cipher;
     uint64_t             segment_size;
-    EncryptionParameters     encryption_parameters;
+    EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketInfo;
 
 typedef struct BucketConfig {
     CipherSuite          path_cipher;
-    EncryptionParameters     encryption_parameters;
+    EncryptionParameters encryption_parameters;
     RedundancyScheme     redundancy_scheme;
 } BucketConfig;
 

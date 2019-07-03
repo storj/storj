@@ -40,12 +40,12 @@ func TestCalcEncryptedSize(t *testing.T) {
 		} {
 			errTag := fmt.Sprintf("%d-%d. %+v", cipher, i, dataSize)
 
-			scheme := storj.EncryptionParameters{CipherSuite: cipher, BlockSize: 1 * memory.KiB.Int32()}
+			parameters := storj.EncryptionParameters{CipherSuite: cipher, BlockSize: 1 * memory.KiB.Int32()}
 
-			calculatedSize, err := encryption.CalcEncryptedSize(dataSize, scheme)
+			calculatedSize, err := encryption.CalcEncryptedSize(dataSize, parameters)
 			require.NoError(t, err, errTag)
 
-			encrypter, err := encryption.NewEncrypter(scheme.CipherSuite, new(storj.Key), new(storj.Nonce), int(scheme.BlockSize))
+			encrypter, err := encryption.NewEncrypter(parameters.CipherSuite, new(storj.Key), new(storj.Nonce), int(parameters.BlockSize))
 			require.NoError(t, err, errTag)
 
 			randReader := ioutil.NopCloser(io.LimitReader(testrand.Reader(), dataSize))

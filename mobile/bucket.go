@@ -153,8 +153,6 @@ func newStorjRedundancyScheme(scheme *RedundancyScheme) storj.RedundancyScheme {
 }
 
 // EncryptionParameters is the cipher suite and parameters used for encryption
-// It is like EncryptionParameters, but uses the CipherSuite type instead of Cipher.
-// EncryptionParameters is preferred for new uses.
 type EncryptionParameters struct {
 	// CipherSuite specifies the cipher suite to be used for encryption.
 	CipherSuite byte
