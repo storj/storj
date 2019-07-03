@@ -300,14 +300,13 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			repairThreshold  = 5
 			successThreshold = 7
 			maxThreshold     = 9
-			// TODO: WIP#if/v3-1927 this must be equal to the repair upload threshold
-			// calculation when it be implemented
-			maxRepairUploadThreshold = maxThreshold
 		)
 		var (
-			ul       = planet.Uplinks[0]
-			testData = testrand.Bytes(1 * memory.MiB)
+			maxRepairUploadThreshold = int(math.Ceil(float64(successThreshold) * 1.05))
+			ul                       = planet.Uplinks[0]
+			testData                 = testrand.Bytes(1 * memory.MiB)
 		)
+
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  repairThreshold,
