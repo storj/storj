@@ -6,13 +6,20 @@ package piecestore_test
 import (
 	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -21,6 +28,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -361,15 +369,129 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestTooManyRequests(t *testing.T) {
+	t.Skip("flaky, because of EOF issues")
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const uplinkCount = 6
+	const maxConcurrent = 3
+	const expectedFailures = uplinkCount - maxConcurrent
+
+	log := zaptest.NewLogger(t)
+
+	planet, err := testplanet.NewCustom(log, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: uplinkCount,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage2.MaxConcurrentRequests = maxConcurrent
+			},
+		},
+	})
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	doneWaiting := make(chan struct{})
+	failedCount := int64(expectedFailures)
+
+	uploads, _ := errgroup.WithContext(ctx)
+	defer ctx.Check(uploads.Wait)
+
+	for i, uplink := range planet.Uplinks {
+		i, uplink := i, uplink
+		uploads.Go(func() (err error) {
+			storageNode := planet.StorageNodes[0].Local()
+			signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
+			config := piecestore.DefaultConfig
+			config.UploadBufferSize = 0 // disable buffering so we can detect write error early
+
+			client, err := piecestore.Dial(ctx, uplink.Transport, &storageNode.Node, uplink.Log, signer, config)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if cerr := client.Close(); cerr != nil {
+					uplink.Log.Error("close failed", zap.Error(cerr))
+					err = errs.Combine(err, cerr)
+				}
+			}()
+
+			pieceID := storj.PieceID{byte(i + 1)}
+			serialNumber := testrand.SerialNumber()
+
+			orderLimit := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				uplink.ID(),
+				planet.StorageNodes[0].ID(),
+				pieceID,
+				pb.PieceAction_PUT,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(10000),
+			)
+
+			satelliteSigner := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, satelliteSigner, orderLimit)
+			if err != nil {
+				return err
+			}
+
+			upload, err := client.Upload(ctx, orderLimit)
+			if err != nil {
+				if errs2.IsRPC(err, codes.Unavailable) {
+					if atomic.AddInt64(&failedCount, -1) == 0 {
+						close(doneWaiting)
+					}
+					return nil
+				}
+				uplink.Log.Error("upload failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				return err
+			}
+
+			_, err = upload.Write(make([]byte, orderLimit.Limit))
+			if err != nil {
+				if errs2.IsRPC(err, codes.Unavailable) {
+					if atomic.AddInt64(&failedCount, -1) == 0 {
+						close(doneWaiting)
+					}
+					return nil
+				}
+				uplink.Log.Error("write failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				return err
+			}
+
+			_, err = upload.Commit(ctx)
+			if err != nil {
+				if errs2.IsRPC(err, codes.Unavailable) {
+					if atomic.AddInt64(&failedCount, -1) == 0 {
+						close(doneWaiting)
+					}
+					return nil
+				}
+				uplink.Log.Error("commit failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				return err
+			}
+
+			return nil
+		})
+	}
+}
+
 func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeID, storageNode storj.NodeID, pieceID storj.PieceID,
 	action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) *pb.OrderLimit {
 
 	pe, err := ptypes.TimestampProto(time.Now().Add(pieceExpiration))
 	require.NoError(t, err)
+
 	oe, err := ptypes.TimestampProto(time.Now().Add(orderExpiration))
 	require.NoError(t, err)
 
-	orderLimit := &pb.OrderLimit{
+	return &pb.OrderLimit{
 		SatelliteId:     satellite,
 		UplinkId:        uplink,
 		StorageNodeId:   storageNode,
@@ -381,5 +503,4 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeI
 		PieceExpiration: pe,
 		Limit:           limit,
 	}
-	return orderLimit
 }

@@ -105,7 +105,7 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
-		zap.S().Errorf("Failed to do periodic version check: ", err)
+		zap.S().Errorf("Failed to do periodic version check: %s", err.Error())
 		return true
 	}
 

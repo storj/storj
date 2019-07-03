@@ -12,13 +12,13 @@ import (
 )
 
 // EncryptPath encrypts path with the given key
-func EncryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (encrypted storj.Path, err error) {
+func EncryptPath(path storj.Path, cipher storj.CipherSuite, key *storj.Key) (encrypted storj.Path, err error) {
 	// do not encrypt empty paths
 	if len(path) == 0 {
 		return path, nil
 	}
 
-	if cipher == storj.Unencrypted {
+	if cipher == storj.EncNull {
 		return path, nil
 	}
 
@@ -37,8 +37,8 @@ func EncryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (encrypte
 }
 
 // DecryptPath decrypts path with the given key
-func DecryptPath(path storj.Path, cipher storj.Cipher, key *storj.Key) (decrypted storj.Path, err error) {
-	if cipher == storj.Unencrypted {
+func DecryptPath(path storj.Path, cipher storj.CipherSuite, key *storj.Key) (decrypted storj.Path, err error) {
+	if cipher == storj.EncNull {
 		return path, nil
 	}
 
@@ -101,7 +101,7 @@ func DeriveContentKey(path storj.Path, key *storj.Key) (derivedKey *storj.Key, e
 	return derivedKey, nil
 }
 
-func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
+func encryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
 	// derive the key for the current path component
 	derivedKey, err := DeriveKey(key, "path:"+comp)
 	if err != nil {
@@ -125,7 +125,7 @@ func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 	}
 
 	nonceSize := storj.NonceSize
-	if cipher == storj.AESGCM {
+	if cipher == storj.EncAESGCM {
 		nonceSize = AESGCMNonceSize
 	}
 
@@ -133,7 +133,7 @@ func encryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 	return base64.RawURLEncoding.EncodeToString(append(nonce[:nonceSize], cipherText...)), nil
 }
 
-func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
+func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
 	if comp == "" {
 		return "", nil
 	}
@@ -144,7 +144,7 @@ func decryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (str
 	}
 
 	nonceSize := storj.NonceSize
-	if cipher == storj.AESGCM {
+	if cipher == storj.EncAESGCM {
 		nonceSize = AESGCMNonceSize
 	}
 
