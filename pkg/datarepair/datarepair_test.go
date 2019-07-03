@@ -22,12 +22,14 @@ import (
 )
 
 // TestDataRepair does the following:
-// - Uploads test data to 7 nodes
-// - Kills 2 nodes and disqualifies 1
-// - Triggers data repair, which repairs the data from the remaining 4 nodes to additional 3 new nodes
-// - Shuts down the 4 nodes from which the data was repaired
-// - Now we have just the 3 new nodes to which the data was repaired
-// - Downloads the data from these 3 nodes (succeeds because 3 nodes are enough for download)
+// - Uploads test data
+// - Kills some nodes and disqualifies 1
+// - Triggers data repair, which repairs the data from the remaining nodes to
+//	 the numbers of nodes determined by the upload repair max threshold
+// - Shuts down several nodes, but keeping up a number equal to the minim
+//	 threshold
+// - Downloads the data from those left nodes and check that it's the same than
+//   the uploaded one
 func TestDataRepair(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
