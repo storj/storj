@@ -63,7 +63,6 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
 		WHERE satellite_id = ? AND piece_id = ?
 	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
-
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
