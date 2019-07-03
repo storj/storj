@@ -766,6 +766,17 @@ read one (
 	where bucket.name = ?
 )
 
+read all (
+	select bucket
+	where bucket.project_id = ?
+)
+
+read limitoffset (
+	select bucket
+	where bucket.project_id = ?
+	orderby asc bucket.name
+)
+
 delete bucket (
 	where bucket.project_id = ?
 	where bucket.name = ?

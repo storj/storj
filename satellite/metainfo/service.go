@@ -8,25 +8,27 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/bucketsDB"
 	"storj.io/storj/pkg/storage/meta"
+	"storj.io/storj/pkg/storj"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/storage"
 )
 
 // Service structure
 type Service struct {
-	logger *zap.Logger
-	DB     storage.KeyValueStore
-	bucketsDB bucketsDB.DB
+	logger    *zap.Logger
+	DB        storage.KeyValueStore
+	bucketsDB buckets.DB
 }
 
 // NewService creates new metainfo service
-func NewService(logger *zap.Logger, db storage.KeyValueStore) *Service {
-	return &Service{logger: logger, DB: db}
+func NewService(logger *zap.Logger, db storage.KeyValueStore, bucketsDB buckets.DB) *Service {
+	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
 }
 
 // Put puts pointer to db under specific path
@@ -169,27 +171,25 @@ func (s *Service) Iterate(ctx context.Context, prefix string, first string, recu
 }
 
 // CreateBucket creates a new bucket in the buckets db
-func (s *Service) CreateBucket(ctx context.Context, path string) (err error) {
+func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.DB.CreateBucket(ctx, []byte(path))
+	return s.bucketsDB.CreateBucket(ctx, bucket)
 }
 
-// GetBucket creates a new bucket in the buckets db
-func (s *Service) GetBucket(ctx context.Context, path string) (err error) {
+// GetBucket returns an existing bucket in the buckets db
+func (s *Service) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.DB.GetBucket(ctx, []byte(path))
+	return s.bucketsDB.GetBucket(ctx, bucketName, projectID)
 }
 
-// DeleteBucket deletes a bucket
-func (s *Service) DeleteBucket(ctx context.Context, path string) (err error) {
+// DeleteBucket deletes a bucket from the bucekts db
+func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.DB.DeleteBucket(ctx, []byte(path))
+	return s.bucketsDB.DeleteBucket(ctx, bucketName, projectID)
 }
 
-// ListBuckets deletes a bucket
-func (s *Service) ListBuckets(ctx context.Context, path string) (err error) {
+// ListBuckets returns a list of buckets for a project
+func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (buckets []storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.DB.ListBuckets(ctx, []byte(path))
+	return s.bucketsDB.ListBuckets(ctx, projectID, listOpts)
 }
-
-

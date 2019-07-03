@@ -600,7 +600,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}, nil
 }
 
-// GetBucket returns bucket metadata info
+// GetBucket returns a bucket
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -614,76 +614,41 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.validateBucket(ctx, req.Name)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	bucket, err := endpoint.metainfo.GetBucket(ctx, req.ID)
+	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.BucketGetResponse{Buckett: &pb.Buckett{
-		id:         bucket.ID,
-		name:       bucket.Name,
-		project_id: bucket.ProjectName,
-		path_cipher: bucket.PathCipher,
-		...
-	}}, nil
+	rs := bucket.RedundancyScheme
+	return &pb.BucketGetResponse{
+		Bucket: &pb.BucketItem{
+			Name: []byte(bucket.Name),
+			// PathCipher:         pb.CipherSuite(bucket.PathCipher),
+			AttributionId:      []byte(bucket.Attribution),
+			CreatedAt:          bucket.Created,
+			DefaultSegmentSize: bucket.SegmentsSize,
+			DefaultRedundancyScheme: &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_RS,
+				MinReq:           int32(rs.RequiredShares),
+				Total:            int32(rs.TotalShares),
+				RepairThreshold:  int32(rs.RepairShares),
+				SuccessThreshold: int32(rs.OptimalShares),
+				ErasureShareSize: rs.ShareSize,
+			},
+			DefaultEncryptionParameters: &pb.EncryptionParameters{
+				// CipherSuite: bucket.EncryptionParameters.CipherSuite,
+				BlockSize: int64(bucket.EncryptionParameters.BlockSize),
+			},
+		},
+	}, nil
 }
 
-// CreateBucket get a bucket
+// CreateBucket creates a new bucket
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
-		Bucket:        req.Bucket.Name,
-		EncryptedPath: []byte{},
-		Time:          time.Now(),
-	})
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, err.Error())
-	}
-	req.Bucket.ProjectID = keyInfo.ProjectID
-
-	err = endpoint.validateBucket(ctx, req.Bucket.Name)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	bucketID, err := uuid.New()
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	req.Bucket.Id = bucketID
-
-	// TODO: create metainfoDB method CreateBucket
-	err = endpoint.metainfo.CreateBucket(ctx, uplinkIdentity, req.Bucket)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return &pb.BucketCreateResponse{}, nil
-}
-
-// DeleteBucket deletes a bucket
-func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
-		Op:            macaroon.ActionDelete,
 		Bucket:        req.Name,
 		EncryptedPath: []byte{},
 		Time:          time.Now(),
@@ -697,7 +662,64 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.metainfo.DeleteBucket(ctx, req.ID)
+	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	bucketID, err := uuid.New()
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	rs := req.GetDefaultRedundancyScheme()
+	srs := storj.RedundancyScheme{
+		Algorithm:      storj.RedundancyAlgorithm(rs.GetType()),
+		ShareSize:      rs.GetErasureShareSize(),
+		RequiredShares: int16(rs.GetMinReq()),
+		RepairShares:   int16(rs.GetRepairThreshold()),
+		OptimalShares:  int16(rs.GetSuccessThreshold()),
+		TotalShares:    int16(rs.GetTotal()),
+	}
+
+	dep := req.GetDefaultEncryptionParameters()
+	bucket := storj.Bucket{
+		ID:               *bucketID,
+		Name:             string(req.GetName()),
+		ProjectID:        keyInfo.ProjectID,
+		Attribution:      string(req.GetAttributionId()),
+		PathCipher:       storj.Cipher(req.GetPathCipher().GetType()),
+		SegmentsSize:     req.GetDefaultSegmentSize(),
+		RedundancyScheme: srs,
+		EncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(dep.CipherSuite.GetType()),
+			BlockSize:   int32(dep.BlockSize),
+		},
+	}
+
+	err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &pb.BucketCreateResponse{}, nil
+}
+
+// DeleteBucket deletes a bucket
+func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        req.Name,
+		EncryptedPath: []byte{},
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -706,33 +728,45 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 }
 
 // ListBuckets returns all buckets in a project
-func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketsListRequest) (resp *pb.BucketsListResponse, err error) {
+func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
-		Op:            macaroon.ActionList,
-		Bucket:        req.Bucket,
-		EncryptedPath: req.Prefix,
+		Op:            macaroon.ActionRead,
+		Bucket:        []byte{},
+		EncryptedPath: []byte{},
 		Time:          time.Now(),
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	items, more, err := endpoint.metainfo.ListBuckets(ctx, req.ID, string(req.StartAfter), string(req.EndBefore), req.Limit)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "ListBuckets: %v", err)
+	listOpts := storj.BucketListOptions{
+		Cursor: string(req.GetCursor()),
+		// TODO: add direction to protobuf
+		Limit: int(req.GetLimit()),
 	}
 
-	bucketItems := make([]*pb.Bucket, len(items))
+	items, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "ListBucket: %v", err)
+	}
+
+	bucketItems := make([]*pb.BucketListItem, len(items))
 	for i, item := range items {
-		bucketItems[i] = &pb.Bucket{
-			Name: item.Name,
-			ID: item.ID,
-			projectID: projectID,
-			...
+		bucketItems[i] = &pb.BucketListItem{
+			Name:      []byte(item.Name),
+			CreatedAt: item.Created,
 		}
 	}
 
-	return &pb.ListSegmentsResponse{Items: segmentItems, More: more}, nil
+	return &pb.BucketListResponse{
+		Items: bucketItems,
+		// More:  more,
+	}, nil
+}
+
+// SetBucketAttribution does x
+func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
+	return resp, err
 }

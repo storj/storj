@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
+	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/rewards"
@@ -72,6 +73,47 @@ func (m *lockedAttribution) QueryAttribution(ctx context.Context, partnerID uuid
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryAttribution(ctx, partnerID, start, end)
+}
+
+// Buckets returns the database to interact with buckets
+func (m *locked) Buckets() buckets.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBuckets{m.Locker, m.db.Buckets()}
+}
+
+// lockedBuckets implements locking wrapper for buckets.DB
+type lockedBuckets struct {
+	sync.Locker
+	db buckets.DB
+}
+
+// Create creates a new bucket
+func (m *lockedBuckets) CreateBucket(ctx context.Context, bucket storj.Bucket) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateBucket(ctx, bucket)
+}
+
+// Delete deletes a bucket
+func (m *lockedBuckets) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteBucket(ctx, bucketName, projectID)
+}
+
+// Get returns an existing bucket
+func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (storj.Bucket, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBucket(ctx, bucketName, projectID)
+}
+
+// List returns all buckets for a project
+func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (buckets []storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListBuckets(ctx, projectID, listOpts)
 }
 
 // CertDB returns database for storing uplink's public key & ID
