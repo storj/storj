@@ -41,7 +41,7 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
 			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, uplink_piece_hash, uplink_cert_id)
-		VALUES (?,?,?,?,?,?)
+		VALUES (?,?,?,?,?,?,?)
 	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, uplinkPieceHash, certid)
 
 	return ErrInfo.Wrap(err)
