@@ -64,7 +64,7 @@ func TestGetAddress(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-	
+
 		// test address is stored correctly
 		for _, sat := range planet.Satellites {
 			address, err := planet.StorageNodes[0].Storage2.Trust.GetAddress(ctx, sat.ID())
@@ -73,7 +73,7 @@ func TestGetAddress(t *testing.T) {
 		}
 
 		var group errgroup.Group
-		
+
 		// test parallel reads
 		for i := 0; i < 10; i++ {
 			group.Go(func() error {

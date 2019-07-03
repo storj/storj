@@ -144,7 +144,7 @@ func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID)
 // GetAddress returns the address of a satellite in the trusted list
 func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	
+
 	pool.mu.RLock()
 	defer pool.mu.RUnlock()
 
