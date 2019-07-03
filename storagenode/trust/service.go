@@ -146,7 +146,7 @@ func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, er
 	defer mon.Task()(&ctx)(&err)
 	info, ok := pool.trustedSatellites[id]
 	if !ok {
-		return "", Error.New("ID not found in trusted satellites list (%v)", id)
+		return "", Error.New("ID %v not found in trusted list", id)
 	}
 	return info.nodeURL.Address, nil
 }
