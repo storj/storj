@@ -72,6 +72,7 @@ type Server struct {
 
 	server   http.Server
 	upgrader websocket.Upgrader
+	ticker   *time.Ticker
 }
 
 // NewServer creates new instance of storagenode console web server
@@ -101,6 +102,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 	}
 
 	server.upgrader = websocket.Upgrader{}
+	server.ticker = time.NewTicker(time.Minute)
 
 	return &server
 }
@@ -125,6 +127,10 @@ func (server *Server) Run(ctx context.Context) (err error) {
 
 // Close closes server and underlying listener
 func (server *Server) Close() error {
+	if server.ticker != nil {
+		server.ticker.Stop()
+	}
+
 	return server.server.Close()
 }
 
@@ -182,32 +188,49 @@ func (server *Server) liveReloadHandler(writer http.ResponseWriter, request *htt
 
 	conn, err := server.upgrader.Upgrade(writer, request, nil)
 	if err != nil {
-		server.log.Error("\nwebsocket error: ", zap.Error(err))
+		server.log.Error("websocket error", zap.Error(err))
+		return
 	}
 
 	var satelliteID *storj.NodeID
 
-	go func(conn *websocket.Conn) {
+	go func() {
+		defer func() {
+			if err = conn.Close(); err != nil {
+				server.log.Error("can not close websocket connection", zap.Error(err))
+			}
+		}()
+
 		for {
-			_, satelliteIDParam, err := conn.ReadMessage()
+			messageType, satelliteIDParam, err := conn.ReadMessage()
+			if messageType == websocket.CloseMessage {
+				return
+			}
 			if err != nil {
-				if err = conn.Close(); err != nil {
-					server.log.Error("can not close websocket connection", zap.Error(err))
-				}
+				server.log.Error("websocket error", zap.Error(err))
+				return
 			}
 
 			satelliteID, err = server.parseSatelliteIDParam(string(satelliteIDParam))
 			if err != nil {
-				server.log.Error("\nsatellite id is not valid", zap.Error(err))
+				server.log.Error("satellite id is not valid", zap.Error(err))
 				response.Error = "satellite id is not valid"
 			}
 		}
-	}(conn)
+	}()
 
-	go func(conn *websocket.Conn) {
-		ch := time.Tick(5 * time.Second)
+	go func() {
+		defer func() {
+			if err = conn.Close(); err != nil {
+				server.log.Error("can not close websocket connection", zap.Error(err))
+			}
+		}()
 
-		for range ch {
+		if server.ticker == nil {
+			return
+		}
+
+		for range server.ticker.C {
 			data, err := server.getDashboardData(context.Background(), satelliteID)
 			if err != nil {
 				server.log.Error("can not get dashboard data", zap.Error(err))
@@ -218,9 +241,10 @@ func (server *Server) liveReloadHandler(writer http.ResponseWriter, request *htt
 
 			if err = conn.WriteJSON(response); err != nil {
 				server.log.Error("can not send data", zap.Error(err))
+				return
 			}
 		}
-	}(conn)
+	}()
 }
 
 func (server *Server) getDashboardData(ctx context.Context, satelliteID *storj.NodeID) (DashboardData, error) {
