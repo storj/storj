@@ -155,7 +155,7 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	}
 
 	if successes < rs.OptimalThreshold() {
-		return nil, nil, Error.New("successful puts (%d) less than or equal to success threshold (%d)", successes, rs.OptimalThreshold())
+		return nil, nil, Error.New("successful puts (%d) less than success threshold (%d)", successes, rs.OptimalThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
