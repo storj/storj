@@ -2,9 +2,9 @@
 
 ## Background
 
-Our current metainfo rpc service isn't very future proof.
-If we shipped our current client code, it wouldn't be easy to update clients and add support for the following:
-- versions
+Our current metainfo RPC service isn't very future proof. If we shipped our current client code, it wouldn't be easy to update clients and add support for the following:
+
+- object versioning
 - multipart uploads
 - cleanup for uncommitted segments
 - general concurrency fixes
@@ -435,7 +435,18 @@ message BatchResponse {
 
 ## Rationale
 
-The current upload also uses the full path every time and the request includes bucket, path, stream id, and segment index. This is less future proof because the server can't squirrel away data in the opaque upload id that clients will send back to it. With the new design, whatever the server provides for the stream_upload_id, the client has to send back. In the future we may add a feature that will require extra info from the client, so this would allow the client to respond back with stream_upload_id content.
+The pointer DB design uses the full path every time and the request includes bucket, path, stream id, and segment index,
+which is not future proof because the server cannot easily change the way it stores and fetches data.
+Similarly there are many things that need to be verified prior to committing and the uplink shouldn't be able to modify.
+
+This design uses `stream_id` and `segment_id` fields as a way to communicate that information that needs to be carried from
+one request to another. Of course, these need to be signed and timestamped by the satellite to prevent tampering. 
+The `stream_id` and `segment_id` should be treated as transient and not stored in any form as they may change.
+
+The `BatchRequest` and `BatchResponse` will allow to send a sequence of commands without waiting for an immediate response.
+The nicer design would be to use streaming, however that increases the complexity of the RPC significantly.
+This also poses a challenge that the ObjectBegin and SegmentMakeInline need to carry information from one call to another.
+This can be implemented by leaving the corresponding `stream_id` and/or `segment_id` empty, and carried over from the last request.
 
 ## Implementation
 
