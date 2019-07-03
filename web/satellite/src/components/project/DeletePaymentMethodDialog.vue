@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-<div class="hhhh">
+<div class="dialog-container">
     <div class="delete-container">
         <h1>Confirm Delete Card</h1>
         <h2>Are you sure you want to remove your card?</h2>
@@ -17,10 +17,23 @@
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator";
     import Button from "@/components/common/Button.vue";
+    import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        props: {},
-        methods: {},
+        props: {
+            paymentMethodID: {
+                type: String,
+                default: ""
+            },
+        },
+        methods: {
+            onCancelClick: function () {
+                ;
+            },
+            onDeleteClick: function () {
+                this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.DELETE, this.$props.paymentMethodID);
+            }
+        },
         components: {
             Button,
         }
@@ -30,10 +43,12 @@
 </script>
 
 <style scoped lang="scss">
-    .hhhh{
+    .dialog-container{
         background-image: url('../../../static/images/container.svg');
         background-size: cover;
         background-repeat: no-repeat;
+
+        z-index: 1;
 
         position: absolute;
         top: 40px;
@@ -57,16 +72,11 @@
     }
 
     .delete-container {
-
-
         display: flex;
         flex-direction: column;
         padding: 25px 32px 33px 32px;
         box-shadow: 0px 4px 20px rgba(204, 208, 214, 0.25);
         margin-top: 12px;
-        /*background-color: white;*/
-
-
     }
 
     .button-container {

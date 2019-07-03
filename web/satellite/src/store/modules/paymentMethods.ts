@@ -3,7 +3,13 @@
 
 import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
 import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
-import { addProjectPaymentMethodRequest, fetchProjectPaymentMethods, setDefaultPaymentMethodRequest } from '@/api/paymentMethods';
+import {
+    addProjectPaymentMethodRequest,
+    deletePaymentMethodRequest,
+    fetchProjectPaymentMethods,
+    setDefaultPaymentMethodRequest
+} from '@/api/paymentMethods';
+import { async } from 'q';
 
 export const projectPaymentsMethodsModule = {
     state: {
@@ -18,10 +24,10 @@ export const projectPaymentsMethodsModule = {
         }
     },
     actions: {
-        [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function({commit, rootGetters}, cardToken: string): Promise<RequestResponse<null>> {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function({commit, rootGetters}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
             const projectID = rootGetters.selectedProject.id;
 
-            return await addProjectPaymentMethodRequest(projectID, cardToken);
+            return await addProjectPaymentMethodRequest(projectID, input.token, input.makeDefault);
         },
         [PROJECT_PAYMENT_METHODS_ACTIONS.FETCH]: async function({commit, rootGetters}): Promise<RequestResponse<PaymentMethod[]>> {
             const projectId = rootGetters.selectedProject.id;
@@ -40,6 +46,9 @@ export const projectPaymentsMethodsModule = {
             const projectID = rootGetters.selectedProject.id;
 
             return await setDefaultPaymentMethodRequest(projectID, projectPaymentID);
+        },
+        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function({commit}, projectPaymentID: string) {
+            return await deletePaymentMethodRequest(projectPaymentID);
         }
     },
 };

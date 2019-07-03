@@ -22,7 +22,8 @@ export const appStateModule = {
             isSuccessfulProjectCreationPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
-            isAddNewPaymentMethodPopupShown: false,
+            isDeletePaymentMethodPopupShown: '',
+            isSetDefaultPaymentMethodPopupShown: '',
         },
     },
     mutations: {
@@ -76,8 +77,11 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: any): void {
             state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP](state: any): void {
-            state.appState.isAddNewPaymentMethodPopupShown = !state.appState.isAddNewPaymentMethodPopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: any, id: string): void {
+            state.appState.isSetDefaultPaymentMethodPopupShown = id;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_DELETE_PAYMENT_METHOD_POPUP](state: any, id: string): void {
+            state.appState.isDeletePaymentMethodPopupShown = id;
         },
         // Mutation that closes each popup/dropdown
         [APP_STATE_MUTATIONS.CLOSE_ALL](state: any): void {
@@ -168,12 +172,19 @@ export const appStateModule = {
         [APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP);
         },
-        [APP_STATE_ACTIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP]: function ({commit, state}: any): void {
-            if (!state.appState.isAddNewPaymentMethodPopupShown) {
+        [APP_STATE_ACTIONS.TOGGLE_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({commit, state}: any, methodID: string): void {
+            if (!state.appState.isSetDefaultPaymentMethodPopupShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
             }
 
-            commit(APP_STATE_MUTATIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP);
+            commit(APP_STATE_MUTATIONS.TOGGLE_SET_DEFAULT_PAYMENT_METHOD_POPUP, methodID);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_DELETE_PAYMENT_METHOD_POPUP]: function ({commit, state}: any, methodID: string): void {
+            if (!state.appState.isDeletePaymentMethodPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_PAYMENT_METHOD_POPUP, methodID);
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);

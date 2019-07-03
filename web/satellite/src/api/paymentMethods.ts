@@ -4,7 +4,7 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 
-export async function addProjectPaymentMethodRequest(projectID: string, cardToken: string): Promise<RequestResponse<null>> {
+export async function addProjectPaymentMethodRequest(projectID: string, cardToken: string, makeDefault: boolean): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = {
         errorMessage: '',
         isSuccess: false,
@@ -17,7 +17,8 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
                 mutation {
                         addPaymentMethod(
                             projectID: "${projectID}",
-                            cardToken: "${cardToken}"
+                            cardToken: "${cardToken}",
+                            isDefault: ${makeDefault}
                         ) 
                 }
             `),
@@ -64,6 +65,36 @@ export async function setDefaultPaymentMethodRequest(projectID: string, paymentI
    }
 
    return result;
+}
+
+export async function deletePaymentMethodRequest(paymentID: string):Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
+
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+                mutation {
+                    deletePaymentMethod(
+                        id: "${paymentID}"
+                    )
+                }
+           `),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
 }
 
 // fetchProjectInvoices retrieves project invoices

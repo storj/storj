@@ -4,102 +4,112 @@
 <template>
     <div class="add-payment-popup-overflow" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
         <div class="add-payment-popup-container">
-            <h1 class="add-payment-popup-container__title">Add Payment Method</h1>
-            <form action="/charge" method="post" id="payment-form">
-                <div class="form-row">
-                    <div id="card-element">
-                        <!-- A Stripe Element will be inserted here. -->
-                    </div>
+            <div class="card-form-input">
+                <img src="../../../static/images/Card.svg"/>
+                <form id="payment-form">
+                    <div class="form-row">
+                        <div id="card-element">
+                            <!-- A Stripe Element will be inserted here. -->
+                        </div>
 
-                    <!-- Used to display form errors. -->
-                    <div class="cross" @click="onCloseClick">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z"
-                                  fill="#384B65"/>
-                        </svg>
+                        <!-- Used to display form errors. -->
+                        <div id="card-errors" role="alert"></div>
                     </div>
-                    <div id="card-errors" role="alert"></div>
-                </div>
-                <button
-                        width="140px"
-                        height="48px"
-                        label="Submit"
-                        :on-press="onSubmitClick"
-                >Submit</button>
-
-            </form>
+                    <div class="checkbox-container" v-if="projectPaymentMethodsCount > 0">
+                        <Checkbox @setData="toggleMakeDefault"/>
+                        <h2>Make Default</h2>
+                    </div>
+                    <Button
+                            label="Save"
+                            width="135px"
+                            height="48px"
+                            :on-press="onSaveClick"/>
+                </form>
+            </div>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from "vue-property-decorator";
-    import Button from "@/components/common/Button.vue";
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
     import {
-        APP_STATE_ACTIONS,
         NOTIFICATION_ACTIONS,
         PROJECT_PAYMENT_METHODS_ACTIONS
-    } from "@/utils/constants/actionNames";
-    // import Card from "@/components/project/CardChoiceItem.vue";
+    } from '@/utils/constants/actionNames';
+    import Checkbox from '@/components/common/Checkbox.vue';
+    // import Card from '@/components/project/CardChoiceItem.vue';
 
     @Component(
         {
+            data: function () {
+                return {
+                    makeDefault: false,
+                }
+            },
             mounted: function () {
-                if (!window["Stripe"]) {
-                    console.error("stripe v3 library not loaded!");
+                if (!window['Stripe']) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Stripe library not loaded');
 
                     return;
                 }
-                const stripe = window["Stripe"]("pk_test_bXKJTU49iu1dy9Al0iEqlfVc00Ze0m5lXT");
-                console.log(stripe)
+                const stripe = window['Stripe']('pk_test_bXKJTU49iu1dy9Al0iEqlfVc00Ze0m5lXT');
                 if (!stripe) {
-                    console.error("unable to initialize stripe");
+                    console.error('Unable to initialize stripe');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to initialize stripe');
 
                     return;
                 }
 
                 const elements = stripe.elements();
                 if (!elements) {
-                    console.error("Unable to instantiate elements");
+                    console.error('Unable to instantiate elements');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to instantiate elements');
 
                     return;
                 }
 
-                const card = elements.create("card");
+                const card = elements.create('card');
                 if (!card) {
-                    console.error("unable to create card");
+                    console.error('Unable to create card');
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to create card');
 
                     return;
                 }
 
-                card.mount("#card-element");
+                card.mount('#card-element');
 
-                card.addEventListener("change", function (event) {
-                    const displayError = document.getElementById("card-errors") as HTMLElement;
+                card.addEventListener('change', function (event) {
+                    const displayError = document.getElementById('card-errors') as HTMLElement;
                     if (event.error) {
                         displayError.textContent = event.error.message;
                     } else {
-                        displayError.textContent = "";
+                        displayError.textContent = '';
                     }
                 });
 
-                const form = document.getElementById("payment-form") as HTMLElement;
+                const form = document.getElementById('payment-form') as HTMLElement;
                 let self = this;
-                form.addEventListener("submit", function (event) {
+                form.addEventListener('submit', function (event) {
                     event.preventDefault();
                     stripe.createToken(card).then(async function (result: any) {
-                        if(result.token.card.funding == 'prepaid') {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards not supported')
+                        if (result.token.card.funding == 'prepaid') {
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards not supported');
+
                             return;
                         }
-                        const response = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
-                        if (!response.isSuccess){
+                        const input = {
+                            token: result.token.id,
+                            makeDefault: self.$data.makeDefault} as AddPaymentMethodInput;
+
+                        const response = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
+                        if (!response.isSuccess) {
                             self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
                         }
 
                         await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
                         self.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
-                        self.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP);
+                        card.clear();
                     });
                 });
             },
@@ -107,24 +117,32 @@
             computed: {
                 isPopupShown: function () {
                     return this.$store.state.appStateModule.appState.isAddNewPaymentMethodPopupShown;
+                },
+                projectPaymentMethodsCount: function () {
+                    if (this.$store.state.projectPaymentsMethodsModule.paymentMethods) {
+                        return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;}
+                    else {
+                        return 0;
+                    }
                 }
             },
 
             methods: {
-                test: function () {
+                toggleMakeDefault: function (value: boolean) {
+                    this.$data.makeDefault = value;
+                    console.log(this.$data.makeDefault)
                 },
-                onSubmitClick: function () {
-                    console.log("submit click");
-                },
-                onCloseClick: function () {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_NEW_PAYMENT_METHOD_POPUP);
+                onSaveClick: function () {
+                    const form = document.getElementById('payment-form') as HTMLElement;
+                    const saveEvent = new CustomEvent('submit', {'bubbles': true});
+                    const resetEvent = new CustomEvent('reset');
+                    form.dispatchEvent(saveEvent);
                 }
-
             },
 
             components: {
                 Button,
-                // Card,
+                Checkbox,
             }
         }
     )
@@ -137,9 +155,9 @@
     .StripeElement {
         box-sizing: border-box;
 
-        height: 40px;
+        width: 484px;
 
-        padding: 10px 12px;
+        padding: 13px 12px;
 
         border: 1px solid transparent;
         border-radius: 4px;
@@ -162,46 +180,53 @@
         background-color: #fefde5 !important;
     }
 
-    .add-payment-popup-overflow {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(134, 134, 148, 0.4);
-        z-index: 1121;
+    .card-form-input {
         display: flex;
         justify-content: center;
         align-items: center;
+        width: 100%;
+
+        form {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        img {
+            margin-top: 7px;
+            margin-right: 25px;
+            margin-left: -20px;
+        }
     }
 
-    .add-payment-popup-container {
-        position: relative;
-        width: 541px;
-        height: 678px;
-        background-color: white;
-        border-radius: 6px;
-        padding: 38px 30px;
+    .checkbox-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
 
-        &__title {
-            font-family: 'font_bold';
-            font-size: 24px;
-            line-height: 29px;
+        h2 {
+            font-family: 'font_regular';
+            font-size: 12px;
+            line-height: 18px;
             color: #384B65;
-            margin: 0;
         }
 
     }
 
-    .cross {
-        position: absolute;
-        top: 39px;
-        right: 39px;
-        width: 25px;
-        height: 25px;
+    .add-payment-popup-overflow {
+        margin-top: 37px;
+    }
+
+    .add-payment-popup-container {
+        width: calc(100% - 80px);
         display: flex;
         align-items: center;
-        justify-content: center;
-        cursor: pointer;
+        justify-content: space-between;
+        padding: 25px 40px 25px 40px;
+        background-color: white;
+        border-radius: 6px;
+
     }
+
 </style>

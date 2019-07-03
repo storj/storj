@@ -165,7 +165,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, projectID uuid.UUID, userID uuid.UUID) (payment ProjectPayment, err error) {
+func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID, userID uuid.UUID) (payment ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	info, err := s.store.UserPayments().Get(ctx, userID)
@@ -183,16 +183,11 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 		return ProjectPayment{}, err
 	}
 
-	projectPayments, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
-	if err != nil {
-		return ProjectPayment{}, err
-	}
-
 	projectPaymentInfo := ProjectPayment{ProjectID: projectID,
 		PayerID:         userID,
 		PaymentMethodID: []byte(method.ID),
 		CreatedAt:       time.Now(),
-		IsDefault:       len(projectPayments) == 0}
+		IsDefault:       isDefault}
 
 	create, err := s.store.ProjectPayments().Create(ctx, projectPaymentInfo)
 	if err != nil {

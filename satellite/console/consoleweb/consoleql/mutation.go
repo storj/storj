@@ -429,10 +429,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
 					FieldCardToken: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
+					FieldIsDefault: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.Boolean)},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					projectID, _ := p.Args[FieldProjectID].(string)
 					cardToken, _ := p.Args[FieldCardToken].(string)
+					isDefault, _ := p.Args[FieldIsDefault].(bool)
 
 					auth, err := console.GetAuth(p.Context)
 					if err != nil {
@@ -444,7 +446,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return false, err
 					}
 
-					_, err = service.AddNewPaymentMethod(p.Context, cardToken, *projID, auth.User.ID)
+					_, err = service.AddNewPaymentMethod(p.Context, cardToken, isDefault, *projID, auth.User.ID)
 					if err != nil {
 						return false, err
 					}
@@ -452,9 +454,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					return true, nil
 				},
 			},
-			DeletePaymentMethodMutation:     &graphql.Field{
-				Type:graphql.Boolean,
+			DeletePaymentMethodMutation: &graphql.Field{
+				Type: graphql.Boolean,
 				Args: graphql.FieldConfigArgument{
+					FieldID: &graphql.ArgumentConfig{Type: graphql.NewNonNull(graphql.String)},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
@@ -476,7 +479,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					return true, nil
 				},
-
 			},
 			SetDefaultPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,

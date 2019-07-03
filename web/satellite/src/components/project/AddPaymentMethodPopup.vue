@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="add-payment-popup-overflow" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
+	<div class="add-payment-popup-overflow">
 		<div class="add-payment-popup-container">
 			<h1 class="add-payment-popup-container__title">Add Payment Method</h1>
 			<div class="add-payment-popup-container__chosen-card-container">
