@@ -98,7 +98,7 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 	qb.WriteString("GROUP BY DATE(created_at), action ")
 	qb.WriteString("ORDER BY created_at ASC")
 
-	rows, err := db.db.QueryContext(ctx, db.Rebind(qb.String()), args)
+	rows, err := db.db.QueryContext(ctx, db.Rebind(qb.String()), args...)
 	if err != nil {
 		return nil, err
 	}
