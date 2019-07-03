@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
@@ -31,6 +32,8 @@ import (
 // - Downloads the data from those left nodes and check that it's the same than
 //   the uploaded one
 func TestDataRepair(t *testing.T) {
+	var repairMaxExcessOptimalThreshold int
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 		// TODO: After the changes applied by the ticket v3-1927, the number must be
@@ -40,6 +43,11 @@ func TestDataRepair(t *testing.T) {
 		// were turned down and the test doesn't pass
 		StorageNodeCount: 16,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				repairMaxExcessOptimalThreshold = config.Repairer.MaxExcessOptimalThreshold
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
@@ -77,7 +85,11 @@ func TestDataRepair(t *testing.T) {
 		toDisqualify := 1
 		toKill := numPieces - toDisqualify - int(minReq+1)
 		require.True(t, toKill >= 1)
-		maxNumRepairedPieces := int(math.Ceil(float64(successThreshold) * 1.05))
+		maxNumRepairedPieces := int(
+			math.Ceil(
+				float64(successThreshold) * float64(1+(repairMaxExcessOptimalThreshold/100)),
+			),
+		)
 		numStorageNodes := len(planet.StorageNodes)
 		// Ensure that there are enough storage nodes to upload repaired segments
 		require.Falsef(t,
@@ -285,10 +297,17 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 // - Verify that the number of pieces which repaired has uploaded don't overpass
 //	 the established limit (success threshold + % of excess)
 func TestDataRepairUploadLimit(t *testing.T) {
+	var repairMaxExcessOptimalThreshold int
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 13,
 		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				repairMaxExcessOptimalThreshold = config.Repairer.MaxExcessOptimalThreshold
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// stop discovery service so that we do not get a race condition when we delete nodes from overlay cache
@@ -305,9 +324,13 @@ func TestDataRepairUploadLimit(t *testing.T) {
 			maxThreshold     = 9
 		)
 		var (
-			maxRepairUploadThreshold = int(math.Ceil(float64(successThreshold) * 1.05))
-			ul                       = planet.Uplinks[0]
-			testData                 = testrand.Bytes(1 * memory.MiB)
+			maxRepairUploadThreshold = int(
+				math.Ceil(
+					float64(successThreshold) * float64(1+(repairMaxExcessOptimalThreshold/100)),
+				),
+			)
+			ul       = planet.Uplinks[0]
+			testData = testrand.Bytes(1 * memory.MiB)
 		)
 
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{

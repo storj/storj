@@ -24,12 +24,6 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// TODO: if/v3-1927 If this value should be set through settings, where should
-// it be?
-// The used value must be changed when the data science team provide a value
-// based on an analysis of the network behavior.
-var optimalThresholdExceessRate = 0.05 // 5%
-
 // Config is a configuration struct for orders Service.
 type Config struct {
 	Expiration time.Duration `help:"how long until an order expires" default:"1080h"`
@@ -44,19 +38,25 @@ type Service struct {
 	orders           DB
 	satelliteAddress *pb.NodeAddress
 
-	orderExpiration time.Duration
+	orderExpiration                 time.Duration
+	repairMaxExcessOptimalThreshold int
 }
 
 // NewService creates new service for creating order limits.
-func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, certdb certdb.DB, orders DB, orderExpiration time.Duration, satelliteAddress *pb.NodeAddress) *Service {
+func NewService(
+	log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
+	certdb certdb.DB, orders DB, orderExpiration time.Duration,
+	satelliteAddress *pb.NodeAddress, repairMaxExcessOptimalThreshold int,
+) *Service {
 	return &Service{
-		log:              log,
-		satellite:        satellite,
-		cache:            cache,
-		certdb:           certdb,
-		orders:           orders,
-		satelliteAddress: satelliteAddress,
-		orderExpiration:  orderExpiration,
+		log:                             log,
+		satellite:                       satellite,
+		cache:                           cache,
+		certdb:                          certdb,
+		orders:                          orders,
+		satelliteAddress:                satelliteAddress,
+		orderExpiration:                 orderExpiration,
+		repairMaxExcessOptimalThreshold: repairMaxExcessOptimalThreshold,
 	}
 }
 
@@ -643,9 +643,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		totalPieces := redundancy.TotalCount()
 		limits = make([]*pb.AddressedOrderLimit, totalPieces)
 
-		totalPiecesAfterRepair := int(math.Ceil(
-			float64(redundancy.OptimalThreshold()) * (1 + optimalThresholdExceessRate),
-		))
+		totalPiecesAfterRepair := int(
+			math.Ceil(
+				float64(redundancy.OptimalThreshold()) * (1 + float64(service.repairMaxExcessOptimalThreshold/100)),
+			),
+		)
 		if totalPiecesAfterRepair > totalPieces {
 			totalPiecesAfterRepair = totalPieces
 		}

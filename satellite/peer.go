@@ -389,6 +389,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Kademlia.ExternalAddress,
 			},
+			config.Repairer.MaxExcessOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
