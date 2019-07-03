@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -592,11 +591,11 @@ func TestSetAttribution(t *testing.T) {
 		}
 		{
 			//non attributed bucket, and adding files
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alphaNew", "path", []byte{1, 2, 3})
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha-new", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.SetAttribution(ctx, "alphaNew", partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha-new", partnerID)
 			require.Error(t, err)
 		}
 	})
@@ -677,10 +676,6 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 }
 
 func TestBucketNameValidation(t *testing.T) {
-	if !satMetainfo.BucketNameRestricted {
-		t.Skip("Skip until bucket name validation is not enabled")
-	}
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
