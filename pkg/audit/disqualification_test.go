@@ -134,9 +134,9 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
-		cipher := encScheme.Cipher
-		encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, "testbucket/test/path", cipher, &storj.Key{})
+		encParameters := upl.GetConfig(satellite).GetEncryptionParameters()
+		cipherSuite := encParameters.CipherSuite
+		encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, "testbucket/test/path", cipherSuite, &storj.Key{})
 		require.NoError(t, err)
 
 		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", encryptedAfterBucket)

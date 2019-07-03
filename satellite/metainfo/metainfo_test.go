@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -288,11 +289,6 @@ func TestServiceList(t *testing.T) {
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RS.Validate = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -325,6 +321,11 @@ func TestCommitSegment(t *testing.T) {
 				pieces[i] = &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
+					Hash: &pb.PieceHash{
+						PieceId:   limit.Limit.PieceId,
+						PieceSize: 256,
+						Timestamp: time.Now(),
+					},
 				}
 			}
 
@@ -332,7 +333,8 @@ func TestCommitSegment(t *testing.T) {
 			require.NoError(t, err)
 
 			pointer := &pb.Pointer{
-				Type: pb.Pointer_REMOTE,
+				Type:        pb.Pointer_REMOTE,
+				SegmentSize: 10,
 				Remote: &pb.RemoteSegment{
 					RootPieceId:  rootPieceID,
 					Redundancy:   redundancy,
@@ -529,6 +531,39 @@ func TestCommitSegmentPointer(t *testing.T) {
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
+		{
+			// no piece hash removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash = nil
+			},
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+		},
+		{
+			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
+			},
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+		},
+		{
+			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
+			},
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+		},
+		{
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
+			},
+			ErrorMessage: "all pieces needs to have the same size",
+		},
+		{
+			Modify: func(pointer *pb.Pointer) {
+				pointer.SegmentSize = 100
+			},
+			ErrorMessage: "expected piece size is different from provided",
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -540,13 +575,13 @@ func TestCommitSegmentPointer(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		for _, test := range tests {
+		for i, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
 			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), test.ErrorMessage)
+			require.Error(t, err, "Case #%v", i)
+			require.Contains(t, err.Error(), test.ErrorMessage, "Case #%v", i)
 		}
 	})
 }
@@ -563,7 +598,7 @@ func TestSetAttribution(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(cleanup)
 
-		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
+		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionParameters().CipherSuite})
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -636,12 +671,15 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Clie
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
-	pointer.Remote.RemotePieces[0].NodeId = addressedLimits[0].Limit.StorageNodeId
-	pointer.Remote.RemotePieces[1].NodeId = addressedLimits[1].Limit.StorageNodeId
 
 	limits := make([]*pb.OrderLimit, len(addressedLimits))
 	for i, addressedLimit := range addressedLimits {
 		limits[i] = addressedLimit.Limit
+
+		if len(pointer.Remote.RemotePieces) > i {
+			pointer.Remote.RemotePieces[i].NodeId = addressedLimits[i].Limit.StorageNodeId
+			pointer.Remote.RemotePieces[i].Hash.PieceId = addressedLimits[i].Limit.PieceId
+		}
 	}
 
 	return pointer, limits
@@ -657,16 +695,30 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Type:             pb.RedundancyScheme_RS,
 	}
 
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(rs)
+	require.NoError(t, err)
+	segmentSize := 4 * memory.KiB.Int64()
+	pieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
+	timestamp := time.Now()
 	pointer := &pb.Pointer{
-		Type: pb.Pointer_REMOTE,
+		Type:        pb.Pointer_REMOTE,
+		SegmentSize: segmentSize,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
 				{
 					PieceNum: 0,
+					Hash: &pb.PieceHash{
+						PieceSize: pieceSize,
+						Timestamp: timestamp,
+					},
 				},
 				{
 					PieceNum: 1,
+					Hash: &pb.PieceHash{
+						PieceSize: pieceSize,
+						Timestamp: timestamp,
+					},
 				},
 			},
 		},

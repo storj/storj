@@ -104,7 +104,7 @@ func TestRSRanger(t *testing.T) {
 	var firstNonce storj.Nonce
 	const stripesPerBlock = 2
 	blockSize := stripesPerBlock * rs.StripeSize()
-	encrypter, err := encryption.NewEncrypter(storj.AESGCM, &encKey, &firstNonce, blockSize)
+	encrypter, err := encryption.NewEncrypter(storj.EncAESGCM, &encKey, &firstNonce, blockSize)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestRSRanger(t *testing.T) {
 	for i, piece := range pieces {
 		rrs[i] = ranger.ByteRanger(piece)
 	}
-	decrypter, err := encryption.NewDecrypter(storj.AESGCM, &encKey, &firstNonce, blockSize)
+	decrypter, err := encryption.NewDecrypter(storj.EncAESGCM, &encKey, &firstNonce, blockSize)
 	if err != nil {
 		t.Fatal(err)
 	}
