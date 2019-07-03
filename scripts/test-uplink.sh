@@ -25,26 +25,29 @@ random_bytes_file () {
 random_bytes_file 2x1024      "$SRC_DIR/small-upload-testfile" # create 2kb file of random bytes (inline)
 random_bytes_file 5x1024x1024 "$SRC_DIR/big-upload-testfile"   # create 5mb file of random bytes (remote)
 
-uplink --config-dir "$GATEWAY_0_DIR"  mb "sj://$BUCKET/"
+UPLINK_DEBUG_ADDR=""
 
-uplink --config-dir "$GATEWAY_0_DIR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
-uplink --config-dir "$GATEWAY_0_DIR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" mb "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
-uplink --config-dir "$GATEWAY_0_DIR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/small-upload-testfile" "sj://$BUCKET/"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "$SRC_DIR/big-upload-testfile" "sj://$BUCKET/"
 
-uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/small-upload-testfile"
-uplink --config-dir "$GATEWAY_0_DIR" rm "sj://$BUCKET/big-upload-testfile"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/small-upload-testfile" "$DST_DIR"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" cp "sj://$BUCKET/big-upload-testfile" "$DST_DIR"
 
-uplink --config-dir "$GATEWAY_0_DIR" ls "sj://$BUCKET"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/small-upload-testfile"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rm "sj://$BUCKET/big-upload-testfile"
 
-uplink --config-dir "$GATEWAY_0_DIR" rb "sj://$BUCKET"
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" ls "sj://$BUCKET"
+
+uplink --config-dir "$GATEWAY_0_DIR" --debug.addr "$UPLINK_DEBUG_ADDR" rb "sj://$BUCKET"
 
 if cmp "$SRC_DIR/small-upload-testfile" "$DST_DIR/small-upload-testfile"
 then
     echo "small upload testfile matches uploaded file"
 else
     echo "small upload testfile does not match uploaded file"
+    exit 1
 fi
 
 if cmp "$SRC_DIR/big-upload-testfile" "$DST_DIR/big-upload-testfile"
@@ -52,6 +55,7 @@ then
     echo "big upload testfile matches uploaded file"
 else
     echo "big upload testfile does not match uploaded file"
+    exit 1
 fi
 
 # check if all data files were removed
