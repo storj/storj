@@ -59,3 +59,33 @@ func TestGetSignee(t *testing.T) {
 
 	assert.NoError(t, group.Wait())
 }
+
+func TestGetAddress(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 5, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		// test address is stored correctly
+		for _, sat := range planet.Satellites {
+			address, err := planet.StorageNodes[0].Storage2.Trust.GetAddress(ctx, sat.ID())
+			require.NoError(t, err)
+			assert.Equal(t, sat.Addr(), address)
+		}
+
+		var group errgroup.Group
+
+		// test parallel reads
+		for i := 0; i < 10; i++ {
+			group.Go(func() error {
+				address, err := planet.StorageNodes[0].Storage2.Trust.GetAddress(ctx, planet.Satellites[0].ID())
+				if err != nil {
+					return err
+				}
+				assert.Equal(t, planet.Satellites[0].Addr(), address)
+				return nil
+			})
+		}
+
+		assert.NoError(t, group.Wait())
+	})
+}
