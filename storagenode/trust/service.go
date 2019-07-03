@@ -39,7 +39,7 @@ type satelliteInfoCache struct {
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
-func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteURLs storj.NodeURLs) (*Pool, error) {
+func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatellites storj.NodeURLs) (*Pool, error) {
 	if trustAll {
 		return &Pool{
 			kademlia: kademlia,
@@ -54,7 +54,7 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteURLs st
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
 	trusted := make(map[storj.NodeID]*satelliteInfoCache)
 
-	for _, node := range trustedSatelliteURLs {
+	for _, node := range trustedSatellites {
 		trusted[node.ID] = &satelliteInfoCache{nodeURL: node}
 	}
 

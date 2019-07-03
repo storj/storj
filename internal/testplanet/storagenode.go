@@ -28,7 +28,7 @@ import (
 )
 
 // newStorageNodes initializes storage nodes
-func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteURLs storj.NodeURLs) ([]*storagenode.Peer, error) {
+func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.NodeURLs) ([]*storagenode.Peer, error) {
 	var xs []*storagenode.Peer
 	defer func() {
 		for _, x := range xs {
@@ -100,7 +100,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteURLs storj.
 				KBucketRefreshInterval: time.Hour,
 
 				SatelliteIDRestriction:   true,
-				WhitelistedSatelliteURLs: whitelistedSatelliteURLs,
+				WhitelistedSatellites: whitelistedSatellites,
 			},
 			Collector: collector.Config{
 				Interval: time.Minute,
