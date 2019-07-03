@@ -5,6 +5,7 @@ package bloomfilter
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"math/rand"
 
@@ -30,6 +31,7 @@ type Filter struct {
 
 // newExplicit returns a new custom filter.
 func newExplicit(seed, hashCount byte, sizeInBytes int) *Filter {
+	fmt.Println("SIZE IN BYTES", sizeInBytes)
 	return &Filter{
 		seed:      seed,
 		hashCount: hashCount,
