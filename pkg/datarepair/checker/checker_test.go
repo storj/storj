@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/storage"
 )
 
+// TODO(moby) nil pointer exceptions in these tests related to garbage collection
 func TestIdentifyInjuredSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
