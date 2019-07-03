@@ -1634,7 +1634,7 @@
         ],
         "messages": [
           {
-            "name": "BucketItem",
+            "name": "Bucket",
             "fields": [
               {
                 "id": 1,
@@ -1749,7 +1749,7 @@
               {
                 "id": 1,
                 "name": "bucket",
-                "type": "BucketItem"
+                "type": "Bucket"
               }
             ]
           },
@@ -1769,7 +1769,7 @@
               {
                 "id": 1,
                 "name": "bucket",
-                "type": "BucketItem"
+                "type": "Bucket"
               }
             ]
           },
