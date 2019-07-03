@@ -73,9 +73,6 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
 		log := service.log.Named(id.String())
 
-		service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
-		mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
-
 		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
 		target := &pb.Node{Id: id}
 		signer := signing.SignerFromFullIdentity(service.transport.Identity())
@@ -90,10 +87,17 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
 			}
 		}()
+
+		service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
+		mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
+
+		filterBytes := retainInfo.Filter.Bytes()
+		mon.IntVal("retain_filter_size_bytes").Observe(int64(len(filterBytes)))
+
 		// TODO: send the retain request to the storage node (PR #2424)
 		// retainReq := &pb.RetainRequest{
 		// 	CreationDate: retainInfo.CreationDate,
-		// 	Filter:       retainInfo.Filter.Bytes(),
+		// 	Filter:       filterBytes,
 		// }
 		// _, err := ps.gcendpoint.Retain(ctx, retainReq)
 		// if err != nil {
