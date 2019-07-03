@@ -124,6 +124,10 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
+		// TODO: WIP#if/v3-1927
+		// We may also change this to calculate exactly the number of nodes that
+		// are needed, however it's needed to access to the excess repair upload
+		// config parameter
 		RequestedCount: redundancy.TotalCount() - len(healthyPieces),
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
