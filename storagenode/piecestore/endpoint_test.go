@@ -410,7 +410,12 @@ func TestTooManyRequests(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			defer func() { err = errs.Combine(err, client.Close()) }()
+			defer func() {
+				if cerr := client.Close(); cerr != nil {
+					uplink.Log.Error("close failed", zap.Error(cerr))
+					err = errs.Combine(err, cerr)
+				}
+			}()
 
 			pieceID := storj.PieceID{byte(i + 1)}
 			serialNumber := testrand.SerialNumber()
@@ -442,7 +447,7 @@ func TestTooManyRequests(t *testing.T) {
 					}
 					return nil
 				}
-				uplink.Log.Error("upload failed", zap.Stringer("Piece ID", pieceID))
+				uplink.Log.Error("upload failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
 				return err
 			}
 
@@ -454,7 +459,7 @@ func TestTooManyRequests(t *testing.T) {
 					}
 					return nil
 				}
-				uplink.Log.Error("write failed", zap.Stringer("Piece ID", pieceID))
+				uplink.Log.Error("write failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
 				return err
 			}
 
@@ -466,7 +471,7 @@ func TestTooManyRequests(t *testing.T) {
 					}
 					return nil
 				}
-				uplink.Log.Error("commit failed", zap.Stringer("Piece ID", pieceID))
+				uplink.Log.Error("commit failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
 				return err
 			}
 
