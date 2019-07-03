@@ -29,6 +29,9 @@ type Bucket struct {
 
 // TODO: move the object related OpenObject to object.go
 
+// Info returns information about the bucket.
+func (bucket *Bucket) Info() storj.Bucket { return bucket.bucket }
+
 // OpenObject returns an Object handle, if authorized.
 func (b *Bucket) OpenObject(ctx context.Context, path storj.Path) (o *Object, err error) {
 	defer mon.Task()(&ctx)(&err)

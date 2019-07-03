@@ -26,7 +26,7 @@ var (
 // Bucket contains information about a specific bucket
 type Bucket struct {
 	Name                 string
-	Attribution          string
+	Attribution          string // TODO: this should be uuid.UUID
 	Created              time.Time
 	PathCipher           Cipher
 	SegmentsSize         int64
