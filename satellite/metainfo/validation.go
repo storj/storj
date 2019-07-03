@@ -325,7 +325,19 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 			endpoint.rsConfig.MinThreshold != int(redundancy.MinReq) ||
 			endpoint.rsConfig.RepairThreshold != int(redundancy.RepairThreshold) ||
 			endpoint.rsConfig.SuccessThreshold != int(redundancy.SuccessThreshold) {
-			return Error.New("provided redundancy scheme parameters not allowed")
+			return Error.New("provided redundancy scheme parameters not allowed: want [%d, %d, %d, %d, %d] got [%d, %d, %d, %d, %d]",
+				endpoint.rsConfig.MinThreshold,
+				endpoint.rsConfig.RepairThreshold,
+				endpoint.rsConfig.SuccessThreshold,
+				endpoint.rsConfig.MaxThreshold,
+				endpoint.rsConfig.ErasureShareSize.Int32(),
+
+				redundancy.MinReq,
+				redundancy.RepairThreshold,
+				redundancy.SuccessThreshold,
+				redundancy.Total,
+				redundancy.ErasureShareSize,
+			)
 		}
 	}
 
