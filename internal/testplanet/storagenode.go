@@ -109,6 +109,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatelliteIDs []strin
 				StaticDir: filepath.Join(developmentRoot, "web/operator/"),
 			},
 			Storage2: piecestore.Config{
+				ExpirationGracePeriod: 0,
+				MaxConcurrentRequests: 100,
 				OrderLimitGracePeriod: time.Hour * 24,
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,

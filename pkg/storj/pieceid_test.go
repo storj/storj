@@ -49,17 +49,19 @@ func TestPieceID_Derive(t *testing.T) {
 	n0 := testidentity.MustPregeneratedIdentity(0, storj.LatestIDVersion()).ID
 	n1 := testidentity.MustPregeneratedIdentity(1, storj.LatestIDVersion()).ID
 
-	assert.NotEqual(t, a.Derive(n0), a.Derive(n1), "a(n0) != a(n1)")
-	assert.NotEqual(t, b.Derive(n0), b.Derive(n1), "b(n0) != b(n1)")
-	assert.NotEqual(t, a.Derive(n0), b.Derive(n0), "a(n0) != b(n0)")
-	assert.NotEqual(t, a.Derive(n1), b.Derive(n1), "a(n1) != b(n1)")
+	assert.NotEqual(t, a.Derive(n0, 0), a.Derive(n1, 0), "a(n0, 0) != a(n1, 0)")
+	assert.NotEqual(t, b.Derive(n0, 0), b.Derive(n1, 0), "b(n0, 0) != b(n1, 0)")
+	assert.NotEqual(t, a.Derive(n0, 0), b.Derive(n0, 0), "a(n0, 0) != b(n0, 0)")
+	assert.NotEqual(t, a.Derive(n1, 0), b.Derive(n1, 0), "a(n1, 0) != b(n1, 0)")
+
+	assert.NotEqual(t, a.Derive(n0, 0), a.Derive(n0, 1), "a(n0, 0) != a(n0, 1)")
 
 	// idempotent
-	assert.Equal(t, a.Derive(n0), a.Derive(n0), "a(n0)")
-	assert.Equal(t, a.Derive(n1), a.Derive(n1), "a(n1)")
+	assert.Equal(t, a.Derive(n0, 0), a.Derive(n0, 0), "a(n0, 0)")
+	assert.Equal(t, a.Derive(n1, 0), a.Derive(n1, 0), "a(n1, 0)")
 
-	assert.Equal(t, b.Derive(n0), b.Derive(n0), "b(n0)")
-	assert.Equal(t, b.Derive(n1), b.Derive(n1), "b(n1)")
+	assert.Equal(t, b.Derive(n0, 0), b.Derive(n0, 0), "b(n0, 0)")
+	assert.Equal(t, b.Derive(n1, 0), b.Derive(n1, 0), "b(n1, 0)")
 }
 
 func TestPieceID_MarshalJSON(t *testing.T) {
