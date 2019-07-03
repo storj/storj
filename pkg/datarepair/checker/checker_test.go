@@ -76,6 +76,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			pieces = append(pieces, &pb.RemotePiece{
 				PieceNum: int32(i),
 				NodeId:   storagenode.ID(),
+				Hash: &pb.PieceHash{
+					PieceId: storj.PieceID{byte(i)},
+				},
 			})
 		}
 
@@ -85,6 +88,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			pieces = append(pieces, &pb.RemotePiece{
 				PieceNum: int32(i),
 				NodeId:   storj.NodeID{byte(i)},
+				Hash: &pb.PieceHash{
+					PieceId: storj.PieceID{byte(i)},
+				},
 			})
 			expectedLostPieces[int32(i)] = true
 		}
