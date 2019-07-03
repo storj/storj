@@ -626,11 +626,13 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+
 	totalPiecesToRepair := int(math.Ceil(
 		float64(redundancy.OptimalThreshold()) * (1 + optimalThresholdExceessRate),
 	))
-	expiration := pointer.ExpirationDate
+	if total := redundancy.TotalCount(); totalPiecesToRepair > total {
+		totalPiecesToRepair = total
+	}
 
 	// convert orderExpiration from duration to timestamp
 	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
@@ -644,8 +646,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, err
 	}
 
-	limits := make([]*pb.AddressedOrderLimit, totalPiecesToRepair)
-	var pieceNum int
+	var (
+		pieceNum  int
+		limits    = make([]*pb.AddressedOrderLimit, totalPiecesToRepair)
+		pieceSize = eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	)
 	for _, node := range newNodes {
 		for pieceNum < totalPiecesToRepair && getOrderLimits[pieceNum] != nil {
 			pieceNum++
@@ -664,7 +669,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 			PieceId:          rootPieceID.Derive(node.Id),
 			Action:           pb.PieceAction_PUT_REPAIR,
 			Limit:            pieceSize,
-			PieceExpiration:  expiration,
+			PieceExpiration:  pointer.ExpirationDate,
 			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
