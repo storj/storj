@@ -102,7 +102,7 @@ func (rt *RoutingTable) nodeHasValidVoucher(ctx context.Context, node *pb.Node, 
 	//        }
 	//    }
 	//}
-	return false
+	return true
 }
 
 func (rt *RoutingTable) iterateAntechamber(ctx context.Context, start storj.NodeID, f func(context.Context, storj.NodeID, []byte) error) (err error) {

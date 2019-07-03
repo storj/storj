@@ -237,11 +237,24 @@ func (rt *RoutingTable) ConnectionSuccess(ctx context.Context, node *pb.Node) (e
 		}
 		return nil
 	}
-	_, err = rt.addNode(ctx, node)
-	if err != nil {
-		return RoutingErr.New("could not add node %s", err)
-	}
 
+	hasVoucher := rt.nodeHasValidVoucher(ctx, node, []*pb.Voucher{})
+	if hasVoucher {
+		nodeAdded, err := rt.addNode(ctx, node)
+		if err != nil {
+			return RoutingErr.New("could not add node %s", err)
+		}
+		if nodeAdded {
+
+			// check new node neighborhood
+			// update antechamber by removing nodes that no longer fall in the neighborhood
+		}
+	} else {
+		err = rt.antechamberAddNode(ctx, node)
+		if err != nil {
+			return RoutingErr.New("could not add node to antechamber %s", err)
+		}
+	}
 	return nil
 }
 
