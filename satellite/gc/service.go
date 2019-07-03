@@ -49,7 +49,7 @@ func (service *Service) NewPieceTracker() PieceTracker {
 	// Creation date of the gc bloom filter - the storage nodes shouldn't delete any piece newer than this.
 	filterCreationDate := time.Now().UTC()
 
-	if filterCreationDate.Before(service.lastSendTime.Add(service.config.Interval)) {
+	if !service.config.Active || filterCreationDate.Before(service.lastSendTime.Add(service.config.Interval)) {
 		return &noOpPieceTracker{}
 	}
 
