@@ -186,7 +186,10 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	}
 
 	for _, piece := range pieces {
-		checker.pieceTracker.Add(ctx, piece.NodeId, piece.GetHash().PieceId)
+		err = checker.pieceTracker.Add(ctx, piece.NodeId, piece.GetHash().PieceId)
+		if err != nil {
+			checker.logger.Sugar().Debug("error adding (nodeID, pieceID) to pieceTracker (%s, %s)", piece.NodeId, piece.GetHash().PieceId)
+		}
 	}
 
 	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
