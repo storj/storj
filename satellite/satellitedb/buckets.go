@@ -80,8 +80,10 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 // ListBuckets returns a list of buckets for a project
 func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (buckets []storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rows, err := db.db.All_Bucket_By_ProjectId(ctx,
+	rows, err := db.db.Limited_Bucket_By_ProjectId_OrderBy_Asc_Name(ctx,
 		dbx.Bucket_ProjectId(projectID[:]),
+		listOpts.Limit,
+		listOpts.Cursor,
 	)
 	if err != nil {
 		return buckets, err

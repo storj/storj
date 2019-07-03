@@ -103,7 +103,7 @@ func (m *lockedBuckets) DeleteBucket(ctx context.Context, bucketName []byte, pro
 }
 
 // Get returns an existing bucket
-func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (storj.Bucket, error) {
+func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetBucket(ctx, bucketName, projectID)

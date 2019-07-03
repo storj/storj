@@ -742,9 +742,9 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}
 
 	listOpts := storj.BucketListOptions{
-		Cursor: string(req.GetCursor()),
-		// TODO: add direction to protobuf
-		Limit: int(req.GetLimit()),
+		Cursor:    string(req.GetCursor()),
+		Direction: storj.Forward,
+		Limit:     int(req.GetLimit()),
 	}
 
 	items, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
