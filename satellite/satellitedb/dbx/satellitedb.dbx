@@ -676,9 +676,9 @@ model offer (
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	// status corresponds to the values of rewards.OfferStatus
 	field status int ( updatable )
-	// type has two possible value: Invalid=0, FREE_CREDIT=1, REFERRAL=2
+	// type corresponds to the values of rewards.OfferType
 	field type int ( updatable )
 )
 
