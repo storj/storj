@@ -9,6 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
@@ -63,10 +64,16 @@ func NewService(log *zap.Logger, transport transport.Client, kademlia *kademlia.
 func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *UptimeCheck, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.getGRPCClientForSatellite(ctx, satelliteID)
+	client, conn, err := s.getGRPCClientForSatellite(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
+
+	defer func() {
+		if cerr := conn.Close(); cerr != nil {
+			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
+		}
+	}()
 
 	resp, err := client.UptimeCheck(ctx, &pb.UptimeCheckRequest{})
 	if err != nil {
@@ -86,10 +93,16 @@ func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID st
 func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []SpaceUsageStamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.getGRPCClientForSatellite(ctx, satelliteID)
+	client, conn, err := s.getGRPCClientForSatellite(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
+
+	defer func() {
+		if cerr := conn.Close(); cerr != nil {
+			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
+		}
+	}()
 
 	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{})
 	if err != nil {
@@ -99,19 +112,20 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 	return fromSpaceUsageResponse(resp, satelliteID), nil
 }
 
-// getGRPCClientForSatellite inits GRPC client for the satellite by id
-func (s *Service) getGRPCClientForSatellite(ctx context.Context, satelliteID storj.NodeID) (pb.NodeStatsClient, error) {
+// getGRPCClientForSatellite inits GRPC client for the satellite by id.
+// Returns client and GRPC client connection in order to be closed
+func (s *Service) getGRPCClientForSatellite(ctx context.Context, satelliteID storj.NodeID) (pb.NodeStatsClient, *grpc.ClientConn, error) {
 	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
 	if err != nil {
-		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
+		return nil, nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
 	}
 
 	conn, err := s.transport.DialNode(ctx, &satellite)
 	if err != nil {
-		return nil, errs.New("unable to connect to the satellite %s: %v", satelliteID, err)
+		return nil, nil, errs.New("unable to connect to the satellite %s: %v", satelliteID, err)
 	}
 
-	return pb.NewNodeStatsClient(conn), nil
+	return pb.NewNodeStatsClient(conn), conn, nil
 }
 
 // fromSpaceUsageResponse get SpaceUsageStamp slice from pb.SpaceUsageResponse
