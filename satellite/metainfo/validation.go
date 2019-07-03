@@ -12,6 +12,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -301,15 +302,13 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 		return Error.New("pointer type is INLINE but remote segment is set")
 	}
 
-	// TODO does it all?
 	if pointer.Type == pb.Pointer_REMOTE {
-		if pointer.Remote == nil {
+		switch {
+		case pointer.Remote == nil:
 			return Error.New("no remote segment specified")
-		}
-		if pointer.Remote.RemotePieces == nil {
+		case pointer.Remote.RemotePieces == nil:
 			return Error.New("no remote segment pieces specified")
-		}
-		if pointer.Remote.Redundancy == nil {
+		case pointer.Remote.Redundancy == nil:
 			return Error.New("no redundancy scheme specified")
 		}
 	}
@@ -341,5 +340,29 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 		}
 	}
 
+	return nil
+}
+
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if piece.Hash == nil {
+		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+	}
+
+	timestamp := piece.Hash.Timestamp
+	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
+		return errs.New("piece hash timestamp is too old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+	}
+
+	limit := limits[piece.PieceNum]
+	if limit != nil {
+		switch {
+		case limit.PieceId != piece.Hash.PieceId:
+			return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
+		case limit.Limit < piece.Hash.PieceSize:
+			return errs.New("piece hash PieceSize is larger than order limit, removing from pointer (%v > %v)", piece.Hash.PieceSize, limit.Limit)
+		}
+	}
 	return nil
 }
