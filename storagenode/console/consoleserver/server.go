@@ -11,8 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"storj.io/storj/storagenode/nodestats"
-
 	"github.com/gorilla/websocket"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,6 +20,7 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/nodestats"
 )
 
 const (
