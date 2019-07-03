@@ -67,6 +67,18 @@ defaults: "release"
 # the amount of nodes refreshed at each interval
 # discovery.refresh-limit: 100
 
+# set if garbage collection is actively running or not
+# garbage-collection.active: true
+
+# the false positive rate used for creating a filter
+# garbage-collection.false-positive-rate: 0.1
+
+# the initial number of pieces expected for a storage node to have, used for creating a filter
+# garbage-collection.initial-pieces: 400000
+
+# how frequently garbage collection filters should be sent to storage nodes
+# garbage-collection.interval: 168h0m0s
+
 # help for setup
 # help: false
 
