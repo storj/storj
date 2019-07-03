@@ -72,6 +72,7 @@ func TestReverifySuccess(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -139,6 +140,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -199,6 +201,7 @@ func TestReverifyFailBadData(t *testing.T) {
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
@@ -253,6 +256,7 @@ func TestReverifyOffline(t *testing.T) {
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
@@ -341,6 +345,7 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			ShareSize:         redundancy.ErasureShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		err = planet.Satellites[0].DB.Containment().IncrementPending(ctx, pending)
@@ -390,6 +395,7 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		containment := planet.Satellites[0].DB.Containment()
@@ -443,6 +449,7 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize(),
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
+			Path:              stripe.SegmentPath,
 		}
 
 		containment := planet.Satellites[0].DB.Containment()

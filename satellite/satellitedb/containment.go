@@ -137,6 +137,7 @@ func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.Pe
 		ShareSize:         int32(info.ShareSize),
 		ExpectedShareHash: info.ExpectedShareHash,
 		ReverifyCount:     int32(info.ReverifyCount),
+		Path:              info.Path,
 	}
 	return pending, nil
 }

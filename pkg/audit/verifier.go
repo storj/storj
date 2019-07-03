@@ -178,7 +178,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
 	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
-	err = verifier.RemoveFailedPieces(ctx, stripe, failedNodes)
+	err = verifier.RemoveFailedPieces(ctx, stripe.SegmentPath, stripe.Segment, failedNodes)
 	if err != nil {
 		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Error(err))
 	}
@@ -374,9 +374,24 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				}
 
 				if errs2.IsRPC(err, codes.NotFound) {
+
+					// Get the original segment pointer in the metainfo
+					oldPtr, err := verifier.metainfo.Get(ctx, pending.Path)
+					remoteSegment := oldPtr.GetRemote()
+					if err != nil || remoteSegment == nil || remoteSegment.RootPieceId != pending.PieceID {
+						ch <- result{nodeID: piece.NodeId, status: skipped}
+						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+						return
+					}
+					//remove failed audit pieces from the pointer so as to only penalize once for failed audits
+					err = verifier.RemoveFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+					if err != nil {
+						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Error(err))
+					}
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
 					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+
 					return
 				}
 
@@ -420,11 +435,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 		case erred:
 			err = errs.Combine(err, result.err)
 		}
-	}
-	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
-	err = verifier.RemoveFailedPieces(ctx, stripe, report.Fails)
-	if err != nil {
-		verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Error(err))
 	}
 
 	mon.Meter("reverify_successes_global").Mark(len(report.Successes))
@@ -500,10 +510,10 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // RemoveFailedPieces removes lost pieces from a pointer
-func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, stripe *Stripe, failedPieces storj.NodeIDList) (err error) {
+func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedPieces storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	remoteSegment := stripe.Segment.GetRemote()
+	remoteSegment := pointer.GetRemote()
 	for i, piece := range remoteSegment.GetRemotePieces() {
 		for _, failedPiece := range failedPieces {
 			if piece.NodeId == failedPiece {
@@ -513,7 +523,7 @@ func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, stripe *Stripe
 	}
 
 	// Update the segment pointer in the metainfo
-	return verifier.metainfo.Put(ctx, stripe.SegmentPath, stripe.Segment)
+	return verifier.metainfo.Put(ctx, path, pointer)
 }
 
 // checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.
@@ -662,6 +672,7 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 			StripeIndex:       stripe.Index,
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share),
+			Path:              stripe.SegmentPath,
 		})
 	}
 
