@@ -27,7 +27,7 @@ CREATE TABLE pieceinfo (
     uplink_cert_id    INTEGER NOT NULL,
 
     deletion_failed_at TIMESTAMP,
-    creation_date TIMESTAMP,
+    piece_creation TIMESTAMP,
 
     FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 );
