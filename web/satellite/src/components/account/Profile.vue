@@ -76,10 +76,10 @@
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 
     @Component(
-        {
-			mounted: function() {
+		{
+            mounted: function() {
                 this.$store.dispatch(USER_ACTIONS.GET);
-			},
+            },
             methods: {
                 toggleDeleteAccountPopup: function(): void {
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);

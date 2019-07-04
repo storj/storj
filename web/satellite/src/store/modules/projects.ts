@@ -32,9 +32,11 @@ export const projectsModule = {
 
                     if (project.id === state.selectedProject.id) {
                         state.selectedProject = project;
-                        break;
+                        return;
                     }
                 }
+
+                state.selectedProject = defaultSelectedProject
             }
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {

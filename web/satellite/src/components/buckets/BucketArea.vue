@@ -37,9 +37,9 @@
     import { BUCKET_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
 	@Component({
-		mounted: function() {
+        mounted: function() {
             this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
-		},
+        },
 		data: function () {
 			return {
 				emptyImage: EMPTY_STATE_IMAGES.API_KEY

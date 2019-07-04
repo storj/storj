@@ -58,9 +58,9 @@
 
     @Component(
         {
-			mounted: function() {
+            mounted: function() {
                 this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-			},
+            },
             data: function () {
                 return {
                     isEditing: false,

@@ -67,7 +67,7 @@ import { toUnixTimestamp } from '@/utils/time';
         {
 			mounted: function() {
                 this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-			},
+            },
             data: function () {
                 return {
                     startTime: {

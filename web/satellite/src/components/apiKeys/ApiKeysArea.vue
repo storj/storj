@@ -39,7 +39,7 @@ import Footer from '@/components/apiKeys/footerArea/Footer.vue';
 import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
-    mount: function() {
+    mounted: function() {
         this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
     },
     data: function () {
