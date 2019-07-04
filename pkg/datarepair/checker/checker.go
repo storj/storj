@@ -128,9 +128,6 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					// reset durability stats for next iteration
 					checker.monStats = durabilityStats{}
 
-					// TODO(moby) must make sure next checker iteration uses the new piece tracker
-					// in the current state, the checker can restart before the garbage service has sent
-					// we cannot set the new piece tracker before the send, because it is necessary for garbageservice.lastSendTime to be set before NewPieceTracker is called
 					go func() {
 						err := checker.garbageService.Send(ctx, checker.pieceTracker)
 						if err != nil {
