@@ -181,9 +181,6 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP, methodID);
         },
-        [APP_STATE_ACTIONS.CLOSE_SET_DEFAULT_PAYMENT_METHOD_POPUP]: function ({commit}: any): void {
-
-        },
         [APP_STATE_ACTIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP]: function ({commit, state}: any, methodID: string): void {
             if (!state.appState.deletePaymentMethodID) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);

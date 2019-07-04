@@ -14,9 +14,9 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from "vue-property-decorator";
-    import CardComponent from "@/components/project/CardComponent.vue";
-    import NewPaymentMethodPopup from '@/components/project/NewPaymentMethodPopup.vue'
+    import { Component, Vue } from 'vue-property-decorator';
+    import CardComponent from '@/components/project/paymentMethods/CardComponent.vue';
+    import NewPaymentMethodPopup from '@/components/project/paymentMethods/NewPaymentMethodPopup.vue';
 
     @Component({
         methods: {},

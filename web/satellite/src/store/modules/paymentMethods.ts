@@ -9,7 +9,6 @@ import {
     fetchProjectPaymentMethods,
     setDefaultPaymentMethodRequest
 } from '@/api/paymentMethods';
-import { async } from 'q';
 
 export const projectPaymentsMethodsModule = {
     state: {
@@ -24,12 +23,12 @@ export const projectPaymentsMethodsModule = {
         }
     },
     actions: {
-        [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function({commit, rootGetters}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function ({commit, rootGetters}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
             const projectID = rootGetters.selectedProject.id;
 
             return await addProjectPaymentMethodRequest(projectID, input.token, input.makeDefault);
         },
-        [PROJECT_PAYMENT_METHODS_ACTIONS.FETCH]: async function({commit, rootGetters}): Promise<RequestResponse<PaymentMethod[]>> {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.FETCH]: async function ({commit, rootGetters}): Promise<RequestResponse<PaymentMethod[]>> {
             const projectId = rootGetters.selectedProject.id;
 
             let result = await fetchProjectPaymentMethods(projectId);
@@ -39,15 +38,15 @@ export const projectPaymentsMethodsModule = {
 
             return result;
         },
-        [PROJECT_PAYMENT_METHODS_ACTIONS.CLEAR]: function({commit}) {
-            commit(PROJECT_PAYMENT_METHODS_MUTATIONS.CLEAR)
+        [PROJECT_PAYMENT_METHODS_ACTIONS.CLEAR]: function ({commit}) {
+            commit(PROJECT_PAYMENT_METHODS_MUTATIONS.CLEAR);
         },
-        [PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT]: async function({commit, rootGetters}, projectPaymentID: string) {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT]: async function ({commit, rootGetters}, projectPaymentID: string) {
             const projectID = rootGetters.selectedProject.id;
 
             return await setDefaultPaymentMethodRequest(projectID, projectPaymentID);
         },
-        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function({commit}, projectPaymentID: string) {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({commit}, projectPaymentID: string) {
             return await deletePaymentMethodRequest(projectPaymentID);
         }
     },

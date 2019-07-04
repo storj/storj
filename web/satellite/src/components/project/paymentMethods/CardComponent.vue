@@ -1,7 +1,10 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 <template>
         <div class="payment-methods-container__card-container">
             <div class="payment-methods-container__card-container__info-area">
-                <img class="payment-methods-container__card-container__info-area__card-logo" src="../../../static/images/Logo.svg">
+                <img class="payment-methods-container__card-container__info-area__card-logo" src="../../../../static/images/Logo.svg">
                 <div class="payment-methods-container__card-container__info-area__info-container">
                     <h1>xxxx {{paymentMethod.lastFour}}</h1>
                     <h2>{{paymentMethod.holderName}}</h2>
@@ -43,12 +46,9 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import NewPaymentMethodPopup from '@/components/project/NewPaymentMethodPopup.vue';
-    import {
-        APP_STATE_ACTIONS,
-    } from "@/utils/constants/actionNames";
-    import DeletePaymentMethodDialog from '@/components/project/DeletePaymentMethodDialog.vue';
-    import MakeDefaultPaymentMethodDialog from '@/components/project/MakeDefaultPaymentMethodDialog.vue';
+    import { APP_STATE_ACTIONS, } from '@/utils/constants/actionNames';
+    import DeletePaymentMethodDialog from '@/components/project/paymentMethods/DeletePaymentMethodDialog.vue';
+    import MakeDefaultPaymentMethodDialog from '@/components/project/paymentMethods/MakeDefaultPaymentMethodDialog.vue';
 
     @Component({
         props: {
@@ -59,7 +59,7 @@
         },
         methods: {
             formatDate: function (d: string): string {
-                return new Date(d).toLocaleDateString('en-US', {timeZone: 'UTC'})
+                return new Date(d).toLocaleDateString('en-US', {timeZone: 'UTC'});
             },
             onMakeDefaultClick: async function () {
                 if ((this as any).getSetDefaultPaymentMethodID == this.$props.paymentMethod.id) {
@@ -97,7 +97,6 @@
         components: {
             MakeDefaultPaymentMethodDialog,
             Button,
-            NewPaymentMethodPopup,
             DeletePaymentMethodDialog,
         }
     })

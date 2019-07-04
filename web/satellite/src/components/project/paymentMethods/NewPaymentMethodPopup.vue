@@ -5,7 +5,7 @@
     <div class="add-payment-popup-overflow" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
         <div class="add-payment-popup-container">
             <div class="card-form-input">
-                <img src="../../../static/images/Card.svg"/>
+                <img src="../../../../static/images/Card.svg"/>
                 <form id="payment-form">
                     <div class="form-row">
                         <div id="card-element">
@@ -38,14 +38,13 @@
         PROJECT_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
     import Checkbox from '@/components/common/Checkbox.vue';
-    // import Card from '@/components/project/CardChoiceItem.vue';
 
     @Component(
         {
             data: function () {
                 return {
                     makeDefault: false,
-                }
+                };
             },
             mounted: function () {
                 if (!window['Stripe']) {
@@ -53,6 +52,7 @@
 
                     return;
                 }
+
                 const stripe = window['Stripe']('pk_test_bXKJTU49iu1dy9Al0iEqlfVc00Ze0m5lXT');
                 if (!stripe) {
                     console.error('Unable to initialize stripe');
@@ -98,6 +98,7 @@
 
                             return;
                         }
+
                         const input = {
                             token: result.token.id,
                             makeDefault: self.$data.makeDefault} as AddPaymentMethodInput;
@@ -115,13 +116,10 @@
             },
 
             computed: {
-                isPopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isAddNewPaymentMethodPopupShown;
-                },
                 projectPaymentMethodsCount: function () {
                     if (this.$store.state.projectPaymentsMethodsModule.paymentMethods) {
-                        return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;}
-                    else {
+                        return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;
+                    } else {
                         return 0;
                     }
                 }
@@ -130,12 +128,10 @@
             methods: {
                 toggleMakeDefault: function (value: boolean) {
                     this.$data.makeDefault = value;
-                    console.log(this.$data.makeDefault)
                 },
                 onSaveClick: function () {
                     const form = document.getElementById('payment-form') as HTMLElement;
                     const saveEvent = new CustomEvent('submit', {'bubbles': true});
-                    const resetEvent = new CustomEvent('reset');
                     form.dispatchEvent(saveEvent);
                 }
             },
