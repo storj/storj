@@ -37,8 +37,8 @@ type Endpoint struct {
 	usageDB   bandwidth.DB
 
 	startTime        time.Time
-	dashboardAddress net.Addr
 	pieceStoreConfig piecestore.OldConfig
+	dashboardAddress net.Addr
 }
 
 // NewEndpoint creates piecestore inspector instance
