@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"net"
 	"strings"
 	"time"
 
@@ -17,7 +18,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 )
@@ -37,8 +37,8 @@ type Endpoint struct {
 	usageDB   bandwidth.DB
 
 	startTime        time.Time
+	dashboardAddress net.Addr
 	pieceStoreConfig piecestore.OldConfig
-	consoleConfig    consoleserver.Config
 }
 
 // NewEndpoint creates piecestore inspector instance
@@ -48,7 +48,7 @@ func NewEndpoint(
 	kademlia *kademlia.Kademlia,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
-	consoleConfig consoleserver.Config) *Endpoint {
+	dashbaordAddress net.Addr) *Endpoint {
 
 	return &Endpoint{
 		log:              log,
@@ -56,7 +56,7 @@ func NewEndpoint(
 		kademlia:         kademlia,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
-		consoleConfig:    consoleConfig,
+		dashboardAddress: dashbaordAddress,
 		startTime:        time.Now(),
 	}
 }
@@ -141,7 +141,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		BootstrapAddress: strings.Join(bsNodes, ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
-		DashboardAddress: inspector.consoleConfig.Address,
+		DashboardAddress: inspector.dashboardAddress.String(),
 		LastPinged:       pinged,
 		LastQueried:      queried,
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
