@@ -182,7 +182,7 @@ func encodeSegment(segment []byte) []byte {
 			result = append(result, []byte{escape2, 1}...)
 		case segment[i] == escape2+1:
 			result = append(result, []byte{escape2, 2}...)
-		case segment[i] == escape3 - 1:
+		case segment[i] == escape3-1:
 			result = append(result, []byte{escape3, 1}...)
 		case segment[i] == escape3:
 			result = append(result, []byte{escape3, 2}...)
@@ -202,16 +202,16 @@ func decodeSegment(segment []byte) []byte {
 	}
 
 	// TODO should first byte different than x02 should be invalid?
-	currentIndex :=0
+	currentIndex := 0
 	for i := 1; i < len(segment); i++ {
 		switch {
 		case i == len(segment)-1:
 			segment[currentIndex] = segment[i]
 		case segment[i] == escape1 || segment[i] == escape2:
-			segment[currentIndex] = segment[i]+segment[i+1]-1
+			segment[currentIndex] = segment[i] + segment[i+1] - 1
 			i++
 		case segment[i] == escape3:
-			segment[currentIndex] = segment[i+1]-1
+			segment[currentIndex] = segment[i+1] - 1
 			i++
 		default:
 			segment[currentIndex] = segment[i]
