@@ -766,7 +766,7 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
-read limitoffset (
+read all (
 	select bucket_metainfo
 	where bucket_metainfo.project_id = ?
 	orderby asc bucket_metainfo.name

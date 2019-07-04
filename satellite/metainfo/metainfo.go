@@ -652,7 +652,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 
 	rs := bucket.RedundancyScheme
 	return &pb.BucketGetResponse{
-		Bucket: &pb.BucketItem{
+		Bucket: &pb.Bucket{
 			Name: []byte(bucket.Name),
 			// PathCipher:         pb.CipherSuite(bucket.PathCipher),
 			AttributionId:      []byte(bucket.Attribution),
@@ -719,7 +719,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		Name:             string(req.GetName()),
 		ProjectID:        keyInfo.ProjectID,
 		Attribution:      string(req.GetAttributionId()),
-		PathCipher:       storj.Cipher(req.GetPathCipher().GetType()),
+		PathCipher:       storj.CipherSuite(req.GetPathCipher().GetType()),
 		SegmentsSize:     req.GetDefaultSegmentSize(),
 		RedundancyScheme: srs,
 		EncryptionParameters: storj.EncryptionParameters{
@@ -772,15 +772,9 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	listOpts := storj.BucketListOptions{
-		Cursor:    string(req.GetCursor()),
-		Direction: storj.Forward,
-		Limit:     int(req.GetLimit()),
-	}
-
-	items, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
+	items, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "ListBucket: %v", err)
+		return nil, status.Errorf(codes.Internal, "ListBuckets: %v", err)
 	}
 
 	bucketItems := make([]*pb.BucketListItem, len(items))
@@ -793,7 +787,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 
 	return &pb.BucketListResponse{
 		Items: bucketItems,
-		// More:  more,
+		More:  false,
 	}, nil
 }
 

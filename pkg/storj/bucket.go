@@ -28,7 +28,7 @@ type Bucket struct {
 	ProjectID            uuid.UUID
 	Attribution          string
 	Created              time.Time
-	PathCipher           Cipher
+	PathCipher           CipherSuite
 	SegmentsSize         int64
 	RedundancyScheme     RedundancyScheme
 	EncryptionParameters EncryptionParameters

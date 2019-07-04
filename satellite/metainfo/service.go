@@ -189,7 +189,7 @@ func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // ListBuckets returns a list of buckets for a project
-func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (buckets []storj.Bucket, err error) {
+func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID) (buckets []storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.bucketsDB.ListBuckets(ctx, projectID, listOpts)
+	return s.bucketsDB.ListBuckets(ctx, projectID)
 }

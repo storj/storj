@@ -110,10 +110,10 @@ func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projec
 }
 
 // List returns all buckets for a project
-func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (buckets []storj.Bucket, err error) {
+func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID) (buckets []storj.Bucket, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.ListBuckets(ctx, projectID, listOpts)
+	return m.db.ListBuckets(ctx, projectID)
 }
 
 // CertDB returns database for storing uplink's public key & ID

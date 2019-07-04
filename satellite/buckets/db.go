@@ -20,5 +20,5 @@ type DB interface {
 	// Delete deletes a bucket
 	DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error)
 	// List returns all buckets for a project
-	ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (buckets []storj.Bucket, err error)
+	ListBuckets(ctx context.Context, projectID uuid.UUID) (buckets []storj.Bucket, err error)
 }
