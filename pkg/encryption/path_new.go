@@ -17,7 +17,7 @@ import (
 
 // StoreEncryptPath encrypts the path using the provided cipher and looking up
 // keys from the provided store and bucket.
-func StoreEncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher, store *Store) (
+func StoreEncryptPath(bucket string, path paths.Unencrypted, cipher storj.CipherSuite, store *Store) (
 	encPath paths.Encrypted, err error) {
 
 	// Invalid paths map to invalid paths
@@ -25,7 +25,7 @@ func StoreEncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher
 		return paths.Encrypted{}, nil
 	}
 
-	if cipher == storj.Unencrypted {
+	if cipher == storj.EncNull {
 		return paths.NewEncrypted(path.Raw()), nil
 	}
 
@@ -69,8 +69,8 @@ func StoreEncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher
 
 // EncryptPathRaw encrypts the path using the provided key directly. EncryptPath should be
 // preferred if possible.
-func EncryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, error) {
-	if cipher == storj.Unencrypted {
+func EncryptPathRaw(raw string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
+	if cipher == storj.EncNull {
 		return raw, nil
 	}
 
@@ -95,7 +95,7 @@ func EncryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, er
 
 // StoreDecryptPath decrypts the path using the provided cipher and looking up
 // keys from the provided store and bucket.
-func StoreDecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, store *Store) (
+func StoreDecryptPath(bucket string, path paths.Encrypted, cipher storj.CipherSuite, store *Store) (
 	unencPath paths.Unencrypted, err error) {
 
 	// Invalid paths map to invalid paths
@@ -103,7 +103,7 @@ func StoreDecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, 
 		return paths.Unencrypted{}, nil
 	}
 
-	if cipher == storj.Unencrypted {
+	if cipher == storj.EncNull {
 		return paths.NewUnencrypted(path.Raw()), nil
 	}
 
@@ -147,8 +147,8 @@ func StoreDecryptPath(bucket string, path paths.Encrypted, cipher storj.Cipher, 
 
 // DecryptPathRaw decrypts the path using the provided key directly. DecryptPath should be
 // preferred if possible.
-func DecryptPathRaw(raw string, cipher storj.Cipher, key *storj.Key) (string, error) {
-	if cipher == storj.Unencrypted {
+func DecryptPathRaw(raw string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
+	if cipher == storj.EncNull {
 		return raw, nil
 	}
 
@@ -231,7 +231,7 @@ func derivePathKeyComponent(key *storj.Key, component string) (*storj.Key, error
 }
 
 // storeEncryptPathComponent encrypts a single path component with the provided cipher and key.
-func storeEncryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
+func storeEncryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
 	if comp == "" {
 		return "", nil
 	}
@@ -260,7 +260,7 @@ func storeEncryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 	}
 
 	nonceSize := storj.NonceSize
-	if cipher == storj.AESGCM {
+	if cipher == storj.EncAESGCM {
 		nonceSize = AESGCMNonceSize
 	}
 
@@ -269,7 +269,7 @@ func storeEncryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 }
 
 // storeDecryptPathComponent decrypts a single path component with the provided cipher and key.
-func storeDecryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key) (string, error) {
+func storeDecryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key) (string, error) {
 	if comp == "" {
 		return "", nil
 	}
@@ -280,7 +280,7 @@ func storeDecryptPathComponent(comp string, cipher storj.Cipher, key *storj.Key)
 	}
 
 	nonceSize := storj.NonceSize
-	if cipher == storj.AESGCM {
+	if cipher == storj.EncAESGCM {
 		nonceSize = AESGCMNonceSize
 	}
 	if len(data) < nonceSize || nonceSize < 0 {
