@@ -17,12 +17,12 @@
             </div>
             <div class="payment-methods-container__card-container__button-area" v-if="!paymentMethod.isDefault">
                 <div class="make-default-container">
-                    <div class="payment-methods-container__card-container__button-area__make-button" v-on:click="onMakeDefaultClick(paymentMethod.id)">
+                    <div class="payment-methods-container__card-container__button-area__make-button" v-on:click="onMakeDefaultClick(paymentMethod.id)" id="makeDefaultPaymentMethodButton">
                         <p class="payment-methods-container__card-container__button-area__make-button__label" >Make Default</p>
                     </div>
-                    <MakeDefaultPaymentMethodDialog v-if="isSetDefaultPaymentMethodPopupShown"/>
+                    <MakeDefaultPaymentMethodDialog :paymentMethodID="paymentMethod.id" v-if="isSetDefaultPaymentMethodPopupShown"/>
                 </div>
-                <div v-on:click="onDeletePaymentMethodClick">
+                <div v-on:click="onDeletePaymentMethodClick" id="deletePaymentMethodButton">
                     <svg class="payment-methods-container__card-container__button-area__delete-button"
                          width="34"
                          height="34"
@@ -34,19 +34,18 @@
                         <path d="M19.7834 11.9727V11.409C19.7834 10.6576 19.1215 10 18.2706 10H16.0014C15.1504 10 14.4886 10.6576 14.4886 11.409V11.9727H10.7065V13.1938H12.0302V22.3057C12.0302 23.5269 12.9758 24.4662 14.0158 24.4662H20.1616C21.2962 24.4662 22.1471 23.5269 22.1471 22.3057V13.1938H23.4709V11.9727H19.7834ZM16.6632 22.3057H15.3395V14.2271H16.6632V22.3057ZM18.9324 22.3057H17.6087V14.2271H18.9324V22.3057Z" fill="white"/>
                     </svg>
                 </div>
-                <DeletePaymentMethodDialog @paymentMethodID="paymentMethod.id" v-if="isDeletePaymentMethodPopupShown"/>
+                <DeletePaymentMethodDialog :paymentMethodID="paymentMethod.id" v-if="isDeletePaymentMethodPopupShown"/>
 
             </div>
         </div>
 </template>
+
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import NewPaymentMethodPopup from '@/components/project/NewPaymentMethodPopup.vue';
     import {
         APP_STATE_ACTIONS,
-        NOTIFICATION_ACTIONS,
-        PROJECT_PAYMENT_METHODS_ACTIONS
     } from "@/utils/constants/actionNames";
     import DeletePaymentMethodDialog from '@/components/project/DeletePaymentMethodDialog.vue';
     import MakeDefaultPaymentMethodDialog from '@/components/project/MakeDefaultPaymentMethodDialog.vue';
@@ -63,18 +62,36 @@
                 return new Date(d).toLocaleDateString('en-US', {timeZone: 'UTC'})
             },
             onMakeDefaultClick: async function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SET_DEFAULT_PAYMENT_METHOD_POPUP, this.$props.paymentMethod.id);
+                if ((this as any).getSetDefaultPaymentMethodID == this.$props.paymentMethod.id) {
+                    this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+
+                    return;
+                }
+
+                this.$store.dispatch(APP_STATE_ACTIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP, this.$props.paymentMethod.id);
             },
             onDeletePaymentMethodClick: async function() {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DELETE_PAYMENT_METHOD_POPUP, this.$props.paymentMethod.id);
+                if ((this as any).getDeletePaymentMethodID == this.$props.paymentMethod.id) {
+                    this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+
+                    return;
+                }
+
+                this.$store.dispatch(APP_STATE_ACTIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP, this.$props.paymentMethod.id);
             }
         },
         computed: {
+            getDeletePaymentMethodID: function(): string {
+                return this.$store.state.appStateModule.appState.deletePaymentMethodID;
+            },
+            getSetDefaultPaymentMethodID: function(): string {
+                return this.$store.state.appStateModule.appState.setDefaultPaymentMethodID;
+            },
             isDeletePaymentMethodPopupShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isDeletePaymentMethodPopupShown == this.$props.paymentMethod.id;
+                return this.$store.state.appStateModule.appState.deletePaymentMethodID == this.$props.paymentMethod.id;
             },
             isSetDefaultPaymentMethodPopupShown: function(): boolean {
-                return this.$store.state.appStateModule.appState.isSetDefaultPaymentMethodPopupShown == this.$props.paymentMethod.id;
+                return this.$store.state.appStateModule.appState.setDefaultPaymentMethodID == this.$props.paymentMethod.id;
             },
         },
         components: {
@@ -86,6 +103,7 @@
     })
     export default class CardComponent extends Vue {}
 </script>
+
 <style scoped lang="scss">
     .payment-methods-container__card-container {
         width: calc(100% - 80px);

@@ -14,8 +14,10 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
     TOGGLE_EDIT_PROFILE_POPUP: 'toggleEditProfilePopup',
     TOGGLE_CHANGE_PASSWORD_POPUP: 'toggleChangePasswordPopup',
-    TOGGLE_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'toggleSetDefaultPaymentMethodPopup',
-    TOGGLE_DELETE_PAYMENT_METHOD_POPUP: 'toggleDeletePaymentMethodPopup',
+    SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'showSetDefaultPaymentMethodPopup',
+    CLOSE_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'closeSetDefaultPaymentMethodPopup',
+    SHOW_DELETE_PAYMENT_METHOD_POPUP: 'showDeletePaymentMethodPopup',
+    CLOSE_DELETE_PAYMENT_METHOD_POPUP: 'closeDeletePaymentMethodPopup',
     CLOSE_POPUPS: 'closePopups',
     CHANGE_STATE: 'changeFetchState',
 };

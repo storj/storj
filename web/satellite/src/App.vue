@@ -26,6 +26,10 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
                 'successfulRegistrationPopup',
+                'deletePaymentMethodButton',
+                'deletePaymentMethodDialog',
+                'makeDefaultPaymentMethodButton',
+                'makeDefaultPaymentDialog'
             ]
         };
     },

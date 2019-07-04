@@ -2,13 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="dialog-container">
+    <div class="dialog-container" id="makeDefaultPaymentDialog">
         <div class="delete-container">
             <h1>Update Default Card</h1>
             <h2>We will automatically charge your default card at the close of the current billing period</h2>
             <div class="button-container">
-                <Button height="48px" width="128px" label="Cancel" isWhite/>
-                <Button class="delete-button" height="48px" width="128px" label="Update"/>
+                <Button height="48px" width="128px" label="Cancel" isWhite :on-press="onCancelClick"/>
+                <Button class="delete-button" height="48px" width="128px" label="Update" :on-press="onUpdateClick"/>
             </div>
         </div>
     </div>
@@ -17,7 +17,11 @@
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator";
     import Button from "@/components/common/Button.vue";
-    import { NOTIFICATION_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS } from "@/utils/constants/actionNames";
+    import {
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS
+    } from "@/utils/constants/actionNames";
 
     @Component({
         props: {
@@ -27,12 +31,16 @@
             },
         },
         methods: {
+            onCancelClick: function () {
+                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+            },
             onUpdateClick: async function () {
                 const result = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.SET_DEFAULT, this.$props.paymentMethodID);
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
                     return;
                 }
+
                 const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
                 if (!paymentMethodsResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, "Unable to fetch payment methods: " + paymentMethodsResponse.errorMessage);

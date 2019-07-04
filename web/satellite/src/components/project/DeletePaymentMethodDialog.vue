@@ -2,13 +2,13 @@
 // See LICENSE for copying information.
 
 <template>
-<div class="dialog-container">
+<div class="dialog-container" id="deletePaymentMethodDialog">
     <div class="delete-container">
         <h1>Confirm Delete Card</h1>
         <h2>Are you sure you want to remove your card?</h2>
         <div class="button-container">
-            <Button height="48px" width="128px" label="Cancel" isWhite/>
-            <Button class="delete-button" height="48px" width="128px" label="Delete"/>
+            <Button height="48px" width="128px" label="Cancel" isWhite :on-press="onCancelClick"/>
+            <Button class="delete-button" height="48px" width="128px" label="Delete" :on-press="onDeleteClick"/>
         </div>
     </div>
 </div>
@@ -17,7 +17,11 @@
 <script lang="ts">
     import { Component, Vue } from "vue-property-decorator";
     import Button from "@/components/common/Button.vue";
-    import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
+    import {
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS
+    } from "@/utils/constants/actionNames";
 
     @Component({
         props: {
@@ -28,10 +32,20 @@
         },
         methods: {
             onCancelClick: function () {
-                ;
+                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
             },
-            onDeleteClick: function () {
-                this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.DELETE, this.$props.paymentMethodID);
+            onDeleteClick: async function () {
+                const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.DELETE, this.$props.paymentMethodID);
+                if(!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+                }
+
+                const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+                if (!paymentMethodsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, "Unable to fetch payment methods: " + paymentMethodsResponse.errorMessage);
+                }
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, "Successfully delete payment method");
             }
         },
         components: {
