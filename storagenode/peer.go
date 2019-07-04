@@ -261,6 +261,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Kademlia.Service,
 			peer.DB.Bandwidth(),
 			config.Storage,
+			config.Console,
 		)
 		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 
