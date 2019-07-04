@@ -258,5 +258,8 @@ func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTabl
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
 
+// URL returns the storj.NodeURL
+func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
+
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }
