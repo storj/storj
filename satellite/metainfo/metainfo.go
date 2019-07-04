@@ -18,6 +18,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
@@ -761,13 +762,13 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 // ListBuckets returns all buckets in a project
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+	action := macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        []byte{},
 		EncryptedPath: []byte{},
 		Time:          time.Now(),
-	})
+	}
+	keyInfo, err := endpoint.validateAuth(ctx, action)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
@@ -777,11 +778,18 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		return nil, status.Errorf(codes.Internal, "ListBuckets: %v", err)
 	}
 
+	allowedBuckets, err := getAllowedBuckets(ctx, action)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "getAllowedBuckets: %v", err)
+	}
+
 	bucketItems := make([]*pb.BucketListItem, len(items))
 	for i, item := range items {
-		bucketItems[i] = &pb.BucketListItem{
-			Name:      []byte(item.Name),
-			CreatedAt: item.Created,
+		if _, ok := allowedBuckets[item.Name]; ok {
+			bucketItems[i] = &pb.BucketListItem{
+				Name:      []byte(item.Name),
+				CreatedAt: item.Created,
+			}
 		}
 	}
 
@@ -789,6 +797,18 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		Items: bucketItems,
 		More:  false,
 	}, nil
+}
+
+func getAllowedBuckets(ctx context.Context, action macaroon.Action) (allowedBuckets map[string]struct{}, err error) {
+	keyData, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+	key, err := macaroon.ParseAPIKey(string(keyData))
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+	}
+	return key.GetAllowedBuckets(ctx, action)
 }
 
 // SetBucketAttribution does x

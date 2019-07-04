@@ -131,6 +131,27 @@ func (a *APIKey) Check(ctx context.Context, secret []byte, action Action, revoke
 	return nil
 }
 
+// GetAllowedBuckets returns a list of all the allowed bucket paths that match the Action operation
+func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowedBuckets map[string]struct{}, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	caveats := a.mac.Caveats()
+	for _, cavbuf := range caveats {
+		var cav Caveat
+		err := proto.Unmarshal(cavbuf, &cav)
+		if err != nil {
+			return allowedBuckets, ErrFormat.New("invalid caveat format")
+		}
+		if cav.Allows(action) {
+			for _, caveatPath := range cav.AllowedPaths {
+				allowedBuckets[string(caveatPath.Bucket)] = struct{}{}
+			}
+		}
+	}
+
+	return allowedBuckets, err
+}
+
 // Restrict generates a new APIKey with the provided Caveat attached.
 func (a *APIKey) Restrict(caveat Caveat) (*APIKey, error) {
 	buf, err := proto.Marshal(&caveat)
@@ -180,6 +201,11 @@ func (c *Caveat) Allows(action Action) bool {
 	// buckets in the allowed paths.
 	if action.Op == ActionRead && len(action.EncryptedPath) == 0 {
 		if len(c.AllowedPaths) == 0 {
+			return true
+		}
+		if len(action.Bucket) == 0 {
+			// if no bucket name is provided, then this is for
+			// listing all buckets and should get filtered later
 			return true
 		}
 		for _, path := range c.AllowedPaths {
