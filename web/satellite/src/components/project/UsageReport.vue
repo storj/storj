@@ -65,6 +65,9 @@ import { toUnixTimestamp } from '@/utils/time';
 
 @Component(
         {
+			mounted: function() {
+                this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+			},
             data: function () {
                 return {
                     startTime: {
