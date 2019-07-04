@@ -118,7 +118,7 @@ func TestPeerDiscovery(t *testing.T) {
 		},
 	}
 	for _, v := range cases {
-		_, err := k.lookup(ctx, v.target, true)
+		_, err := k.lookup(ctx, v.target)
 		assert.Equal(t, v.expectedErr, err)
 	}
 }
@@ -418,7 +418,7 @@ func newKademlia(ctx context.Context, log *zap.Logger, nodeType pb.NodeType, boo
 		Operator: operator,
 	}
 
-	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)
+	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), teststore.New(), nil)
 	if err != nil {
 		return nil, err
 	}

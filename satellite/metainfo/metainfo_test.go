@@ -21,12 +21,12 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -234,8 +234,9 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, err := config.GetMetainfo(ctx, planet.Uplinks[0].Identity)
+	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, planet.Uplinks[0].Log.Named("metainfo"), config, planet.Uplinks[0].Identity)
 	require.NoError(t, err)
+	defer ctx.Check(cleanup)
 
 	type Test struct {
 		Request  storj.ListOptions
@@ -288,11 +289,6 @@ func TestServiceList(t *testing.T) {
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.RS.Validate = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -302,7 +298,7 @@ func TestCommitSegment(t *testing.T) {
 
 		{
 			// error if pointer is nil
-			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit2{})
+			_, err = metainfo.CommitSegment(ctx, "bucket", "path", -1, nil, []*pb.OrderLimit{})
 			require.Error(t, err)
 		}
 		{
@@ -325,6 +321,11 @@ func TestCommitSegment(t *testing.T) {
 				pieces[i] = &pb.RemotePiece{
 					PieceNum: int32(i),
 					NodeId:   limit.Limit.StorageNodeId,
+					Hash: &pb.PieceHash{
+						PieceId:   limit.Limit.PieceId,
+						PieceSize: 256,
+						Timestamp: time.Now(),
+					},
 				}
 			}
 
@@ -332,7 +333,8 @@ func TestCommitSegment(t *testing.T) {
 			require.NoError(t, err)
 
 			pointer := &pb.Pointer{
-				Type: pb.Pointer_REMOTE,
+				Type:        pb.Pointer_REMOTE,
+				SegmentSize: 10,
 				Remote: &pb.RemoteSegment{
 					RootPieceId:  rootPieceID,
 					Redundancy:   redundancy,
@@ -341,7 +343,7 @@ func TestCommitSegment(t *testing.T) {
 				ExpirationDate: expirationDateProto,
 			}
 
-			limits := make([]*pb.OrderLimit2, len(addresedLimits))
+			limits := make([]*pb.OrderLimit, len(addresedLimits))
 			for i, addresedLimit := range addresedLimits {
 				limits[i] = addresedLimit.Limit
 			}
@@ -529,6 +531,39 @@ func TestCommitSegmentPointer(t *testing.T) {
 			},
 			ErrorMessage: "pointer type is INLINE but remote segment is set",
 		},
+		{
+			// no piece hash removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash = nil
+			},
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+		},
+		{
+			// invalid timestamp removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.Timestamp = time.Now().Add(-24 * time.Hour)
+			},
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+		},
+		{
+			// invalid hash PieceID removes piece from pointer, not enough pieces for successful upload
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.PieceId = storj.PieceID{1}
+			},
+			ErrorMessage: "Number of valid pieces (1) is less than or equal to the repair threshold (1)",
+		},
+		{
+			Modify: func(pointer *pb.Pointer) {
+				pointer.Remote.RemotePieces[0].Hash.PieceSize = 1
+			},
+			ErrorMessage: "all pieces needs to have the same size",
+		},
+		{
+			Modify: func(pointer *pb.Pointer) {
+				pointer.SegmentSize = 100
+			},
+			ErrorMessage: "expected piece size is different from provided",
+		},
 	}
 
 	testplanet.Run(t, testplanet.Config{
@@ -540,13 +575,13 @@ func TestCommitSegmentPointer(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		for _, test := range tests {
+		for i, test := range tests {
 			pointer, limits := runCreateSegment(ctx, t, metainfo)
 			test.Modify(pointer)
 
 			_, err = metainfo.CommitSegment(ctx, "my-bucket-name", "file/path", -1, pointer, limits)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), test.ErrorMessage)
+			require.Error(t, err, "Case #%v", i)
+			require.Contains(t, err.Error(), test.ErrorMessage, "Case #%v", i)
 		}
 	})
 }
@@ -559,10 +594,11 @@ func TestSetAttribution(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, err := config.GetMetainfo(ctx, uplink.Identity)
+		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
 		require.NoError(t, err)
+		defer ctx.Check(cleanup)
 
-		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
+		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionParameters().CipherSuite})
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -580,17 +616,53 @@ func TestSetAttribution(t *testing.T) {
 			require.NoError(t, err)
 		}
 		{
+			// already attributed bucket, adding files
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
 			err = metainfoClient.SetAttribution(ctx, "alpha", partnerID)
+			require.NoError(t, err)
+		}
+		{
+			//non attributed bucket, and adding files
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha-new", "path", []byte{1, 2, 3})
+			assert.NoError(t, err)
+
+			// bucket with items
+			err = metainfoClient.SetAttribution(ctx, "alpha-new", partnerID)
 			require.Error(t, err)
 		}
 	})
 }
 
-func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit2) {
+func TestGetProjectInfo(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
+
+		metainfo0, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey0)
+		require.NoError(t, err)
+
+		metainfo1, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey1)
+		require.NoError(t, err)
+
+		info0, err := metainfo0.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info0.ProjectSalt)
+
+		info1, err := metainfo1.GetProjectInfo(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, info1.ProjectSalt)
+
+		// Different projects should have different salts
+		require.NotEqual(t, info0.ProjectSalt, info1.ProjectSalt)
+	})
+}
+
+func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 	expirationDate, err := ptypes.Timestamp(pointer.ExpirationDate)
 	require.NoError(t, err)
@@ -599,12 +671,15 @@ func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Clie
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
-	pointer.Remote.RemotePieces[0].NodeId = addressedLimits[0].Limit.StorageNodeId
-	pointer.Remote.RemotePieces[1].NodeId = addressedLimits[1].Limit.StorageNodeId
 
-	limits := make([]*pb.OrderLimit2, len(addressedLimits))
+	limits := make([]*pb.OrderLimit, len(addressedLimits))
 	for i, addressedLimit := range addressedLimits {
 		limits[i] = addressedLimit.Limit
+
+		if len(pointer.Remote.RemotePieces) > i {
+			pointer.Remote.RemotePieces[i].NodeId = addressedLimits[i].Limit.StorageNodeId
+			pointer.Remote.RemotePieces[i].Hash.PieceId = addressedLimits[i].Limit.PieceId
+		}
 	}
 
 	return pointer, limits
@@ -620,16 +695,30 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 		Type:             pb.RedundancyScheme_RS,
 	}
 
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(rs)
+	require.NoError(t, err)
+	segmentSize := 4 * memory.KiB.Int64()
+	pieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
+	timestamp := time.Now()
 	pointer := &pb.Pointer{
-		Type: pb.Pointer_REMOTE,
+		Type:        pb.Pointer_REMOTE,
+		SegmentSize: segmentSize,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
-				&pb.RemotePiece{
+				{
 					PieceNum: 0,
+					Hash: &pb.PieceHash{
+						PieceSize: pieceSize,
+						Timestamp: timestamp,
+					},
 				},
-				&pb.RemotePiece{
+				{
 					PieceNum: 1,
+					Hash: &pb.PieceHash{
+						PieceSize: pieceSize,
+						Timestamp: timestamp,
+					},
 				},
 			},
 		},
@@ -639,10 +728,6 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 }
 
 func TestBucketNameValidation(t *testing.T) {
-	if !satMetainfo.BucketNameRestricted {
-		t.Skip("Skip until bucket name validation is not enabled")
-	}
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

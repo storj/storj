@@ -57,6 +57,18 @@ func (client *slowTransport) WithObservers(obs ...Observer) Client {
 	return &slowTransport{client.client.WithObservers(obs...), client.network}
 }
 
+// AlertSuccess implements the transport.Client interface
+func (client *slowTransport) AlertSuccess(ctx context.Context, node *pb.Node) {
+	defer mon.Task()(&ctx)(nil)
+	client.client.AlertSuccess(ctx, node)
+}
+
+// AlertFail implements the transport.Client interface
+func (client *slowTransport) AlertFail(ctx context.Context, node *pb.Node, err error) {
+	defer mon.Task()(&ctx)(nil)
+	client.client.AlertFail(ctx, node, err)
+}
+
 // DialOptions returns options such that it will use simulated network parameters
 func (network *SimulatedNetwork) DialOptions() []grpc.DialOption {
 	return []grpc.DialOption{grpc.WithContextDialer(network.GRPCDialContext)}

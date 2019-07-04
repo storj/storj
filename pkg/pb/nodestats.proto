@@ -7,9 +7,11 @@ option go_package = "pb";
 package nodestats;
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 service NodeStats {
-    rpc UptimeCheck(UptimeCheckRequest) returns (UptimeCheckResponse) {}
+    rpc UptimeCheck(UptimeCheckRequest) returns (UptimeCheckResponse);
+    rpc DailyStorageUsage(DailyStorageUsageRequest) returns (DailyStorageUsageResponse);
 }
 
 message UptimeCheckRequest { }
@@ -20,5 +22,20 @@ message UptimeCheckResponse {
     double reputation_alpha = 3;
     double reputation_beta = 4;
     double reputation_score = 5;
+}
+
+message DailyStorageUsageRequest {
+    google.protobuf.Timestamp from = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp to = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message DailyStorageUsageResponse {
+    message StorageUsage {
+        double at_rest_total = 2;
+        google.protobuf.Timestamp time_stamp = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    }
+
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    repeated StorageUsage daily_storage_usage = 2;
 }
 

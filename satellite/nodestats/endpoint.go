@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -24,15 +25,17 @@ var (
 
 // Endpoint for querying node stats for the SNO
 type Endpoint struct {
-	log     *zap.Logger
-	overlay overlay.DB
+	log        *zap.Logger
+	overlay    overlay.DB
+	accounting accounting.StoragenodeAccounting
 }
 
 // NewEndpoint creates new endpoint
-func NewEndpoint(log *zap.Logger, overlay overlay.DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting) *Endpoint {
 	return &Endpoint{
-		log:     log,
-		overlay: overlay,
+		log:        log,
+		overlay:    overlay,
+		accounting: accounting,
 	}
 }
 
@@ -61,6 +64,45 @@ func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) 
 		ReputationBeta:  node.Reputation.UptimeReputationBeta,
 		ReputationScore: reputationScore,
 	}, nil
+}
+
+// DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date
+func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUsageRequest) (_ *pb.DailyStorageUsageResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	node, err := e.overlay.Get(ctx, peer.ID)
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	nodeSpaceUsages, err := e.accounting.QueryNodeDailySpaceUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
+	if err != nil {
+		return nil, NodeStatsEndpointErr.Wrap(err)
+	}
+
+	return &pb.DailyStorageUsageResponse{
+		NodeId:            node.Id,
+		DailyStorageUsage: toPBDailyStorageUsage(nodeSpaceUsages),
+	}, nil
+}
+
+// toPBDailyStorageUsage converts NodeSpaceUsage to PB DailyStorageUsageResponse_StorageUsage
+func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
+	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
+
+	for _, usage := range usages {
+		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
+			AtRestTotal: usage.AtRestTotal,
+			TimeStamp:   usage.TimeStamp,
+		})
+	}
+
+	return pbUsages
 }
 
 // calculateUptimeReputationScore is helper method to calculate reputation value for uptime checks

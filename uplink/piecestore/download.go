@@ -25,7 +25,7 @@ type Downloader interface {
 // Download implements downloading from a piecestore.
 type Download struct {
 	client *Client
-	limit  *pb.OrderLimit2
+	limit  *pb.OrderLimit
 	peer   *identity.PeerIdentity
 	stream pb.Piecestore_DownloadClient
 	ctx    context.Context
@@ -42,7 +42,7 @@ type Download struct {
 }
 
 // Download starts a new download using the specified order limit at the specified offset and size.
-func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit2, offset, size int64) (_ Downloader, err error) {
+func (client *Client) Download(ctx context.Context, limit *pb.OrderLimit, offset, size int64) (_ Downloader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stream, err := client.client.Download(ctx)
@@ -126,7 +126,7 @@ func (client *Download) Read(data []byte) (read int, err error) {
 			// send an order
 			if newAllocation > 0 {
 				// sign the order
-				order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order2{
+				order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order{
 					SerialNumber: client.limit.SerialNumber,
 					Amount:       newAllocation,
 				})

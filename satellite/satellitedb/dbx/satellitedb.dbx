@@ -730,3 +730,43 @@ read count (
 )
 
 create user_credit ()
+
+//--- metainfo buckets ---//
+
+model bucket_metainfo (
+	key    id
+	unique name project_id
+
+	field id             blob
+	field project_id     project.id restrict
+	field name           blob
+
+	field path_cipher    int
+
+	field created_at     timestamp ( autoinsert )
+
+	field default_segment_size int (updatable)
+
+	field default_encryption_cipher_suite int (updatable)
+	field default_encryption_block_size   int (updatable)
+
+	field default_redundancy_algorithm       int (updatable)
+	field default_redundancy_share_size      int (updatable)
+	field default_redundancy_required_shares int (updatable)
+	field default_redundancy_repair_shares   int (updatable)
+	field default_redundancy_optimal_shares  int (updatable)
+	field default_redundancy_total_shares    int (updatable)
+)
+
+create bucket_metainfo ()
+
+read one (
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+delete bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
