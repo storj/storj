@@ -905,6 +905,18 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
 			},
+			{
+				Description: "Move InjuredSegment path from string to bytes",
+				Version:     40,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
+					`ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
+					`UPDATE injuredsegments SET path = decode(path_old, 'escape');`,
+					`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`,
+					`ALTER TABLE injuredsegments DROP COLUMN path_old;`,
+					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
+				},
+			},
 		},
 	}
 }
