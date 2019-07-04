@@ -139,6 +139,7 @@ func BenchmarkSegmentEncoding(b *testing.B) {
 		[]byte{'/', '/', 'a', 0, 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', '/'},
 		[]byte{0, '/', 'a', '0', 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', 0},
 	}
+
 	b.Run("Loop", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, segment := range segments {

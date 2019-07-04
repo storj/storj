@@ -11,10 +11,12 @@ import (
 )
 
 var (
-	zero        = byte(0)
-	slash       = byte('/')
-	zeroEscape  = []byte{0, 1}
-	slashEscape = []byte{0, 2}
+	emptyComponent          = []byte{'\x01'}
+	notEmptyComponentPrefix = byte('\x02')
+
+	escape1 = byte('\x2e')
+	escape2 = byte('\xfe')
+	escape3 = byte('\x01')
 )
 
 // EncryptPath encrypts path with the given key
@@ -165,19 +167,25 @@ func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 
 func encodeSegment(segment []byte) []byte {
 	if len(segment) == 0 {
-		return segment
+		return emptyComponent
 	}
 
-	// escape 0x00 to `{0x00, 0x01}`
-	// escape `/` to `{0x00, 0x02}`
-
-	result := make([]byte, 0, len(segment)*2)
+	result := make([]byte, 0, len(segment)*2+1)
+	result = append(result, notEmptyComponentPrefix)
 	for i := 0; i < len(segment); i++ {
 		switch {
-		case segment[i] == zero:
-			result = append(result, zeroEscape...)
-		case segment[i] == slash:
-			result = append(result, slashEscape...)
+		case segment[i] == escape1:
+			result = append(result, []byte{escape1, 1}...)
+		case segment[i] == escape1+1:
+			result = append(result, []byte{escape1, 2}...)
+		case segment[i] == escape2:
+			result = append(result, []byte{escape2, 1}...)
+		case segment[i] == escape2+1:
+			result = append(result, []byte{escape2, 2}...)
+		case segment[i] == escape3 - 1:
+			result = append(result, []byte{escape3, 1}...)
+		case segment[i] == escape3:
+			result = append(result, []byte{escape3, 2}...)
 		default:
 			result = append(result, segment[i])
 		}
@@ -189,17 +197,21 @@ func decodeSegment(segment []byte) []byte {
 	if len(segment) == 0 {
 		return segment
 	}
+	if segment[0] == emptyComponent[0] {
+		return []byte{}
+	}
 
+	// TODO should first byte different than x02 should be invalid?
 	result := make([]byte, 0, len(segment))
-	for i := 0; i < len(segment); i++ {
+	for i := 1; i < len(segment); i++ {
 		switch {
 		case i == len(segment)-1:
 			result = append(result, segment[i])
-		case segment[i] == zeroEscape[0] && segment[i+1] == zeroEscape[1]:
-			result = append(result, zero)
+		case segment[i] == escape1 || segment[i] == escape2:
+			result = append(result, segment[i]+segment[i+1]-1)
 			i++
-		case segment[i] == slashEscape[0] && segment[i+1] == slashEscape[1]:
-			result = append(result, slash)
+		case segment[i] == escape3:
+			result = append(result, segment[i+1]-1)
 			i++
 		default:
 			result = append(result, segment[i])
