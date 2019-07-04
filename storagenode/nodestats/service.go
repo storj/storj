@@ -25,8 +25,16 @@ var (
 	mon = monkit.Package()
 )
 
-// UptimeCheck encapsulates storagenode uptime metrics
-type UptimeCheck struct {
+// Stats encapsulates storagenode stats retrieved from the satellite
+type Stats struct {
+	SatelliteID storj.NodeID
+
+	UptimeCheck CheckMetric
+	AuditCheck  CheckMetric
+}
+
+// CheckMetric encapsulates storagenode check metrics
+type CheckMetric struct {
 	TotalCount   int64
 	SuccessCount int64
 
@@ -71,8 +79,8 @@ func NewService(log *zap.Logger, transport transport.Client, kademlia *kademlia.
 	}
 }
 
-// GetUptimeCheckForSatellite retrieves UptimeChecks from particular satellite
-func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *UptimeCheck, err error) {
+// GetStatsFromSatellite retrieves node stats from particular satellite
+func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.DialNodeStats(ctx, satelliteID)
@@ -86,17 +94,30 @@ func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID st
 		}
 	}()
 
-	resp, err := client.UptimeCheck(ctx, &pb.UptimeCheckRequest{})
+	resp, err := client.GetStats(ctx, &pb.GetStatsRequest{})
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
 
-	return &UptimeCheck{
-		TotalCount:      resp.GetTotalCount(),
-		SuccessCount:    resp.GetSuccessCount(),
-		ReputationAlpha: resp.GetReputationAlpha(),
-		ReputationBeta:  resp.GetReputationBeta(),
-		ReputationScore: resp.GetReputationScore(),
+	uptime := resp.GetUptimeCheck()
+	audit := resp.GetAuditCheck()
+
+	return &Stats{
+		SatelliteID: satelliteID,
+		UptimeCheck: CheckMetric{
+			TotalCount:      uptime.GetTotalCount(),
+			SuccessCount:    uptime.GetSuccessCount(),
+			ReputationAlpha: uptime.GetReputationAlpha(),
+			ReputationBeta:  uptime.GetReputationBeta(),
+			ReputationScore: uptime.GetReputationScore(),
+		},
+		AuditCheck: CheckMetric{
+			TotalCount:      audit.GetTotalCount(),
+			SuccessCount:    audit.GetSuccessCount(),
+			ReputationAlpha: audit.GetReputationAlpha(),
+			ReputationBeta:  audit.GetReputationBeta(),
+			ReputationScore: audit.GetReputationScore(),
+		},
 	}, nil
 }
 
