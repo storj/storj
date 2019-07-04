@@ -202,20 +202,21 @@ func decodeSegment(segment []byte) []byte {
 	}
 
 	// TODO should first byte different than x02 should be invalid?
-	result := make([]byte, 0, len(segment))
+	currentIndex :=0
 	for i := 1; i < len(segment); i++ {
 		switch {
 		case i == len(segment)-1:
-			result = append(result, segment[i])
+			segment[currentIndex] = segment[i]
 		case segment[i] == escape1 || segment[i] == escape2:
-			result = append(result, segment[i]+segment[i+1]-1)
+			segment[currentIndex] = segment[i]+segment[i+1]-1
 			i++
 		case segment[i] == escape3:
-			result = append(result, segment[i+1]-1)
+			segment[currentIndex] = segment[i+1]-1
 			i++
 		default:
-			result = append(result, segment[i])
+			segment[currentIndex] = segment[i]
 		}
+		currentIndex++
 	}
-	return result
+	return segment[:currentIndex]
 }
