@@ -37,7 +37,7 @@ type NodeURL struct {
 //      12vha9oTFnerxYRgeQ2BZqoFrLrnmmf5UWTCY2jA77dF3YvWew7@
 func ParseNodeURL(s string) (NodeURL, error) {
 	if s == "" {
-		return NodeURL{}, ErrNodeURL.New("empty string")
+		return NodeURL{}, nil
 	}
 	if !strings.HasPrefix(s, "storj://") {
 		if strings.Index(s, "://") < 0 {
@@ -65,6 +65,11 @@ func ParseNodeURL(s string) (NodeURL, error) {
 	return node, nil
 }
 
+// IsZero returns whether tthe url is empty.
+func (url NodeURL) IsZero() bool {
+	return url == NodeURL{}
+}
+
 // String converts NodeURL to a string
 func (url NodeURL) String() string {
 	if url.ID.IsZero() {
@@ -83,6 +88,9 @@ func (url *NodeURL) Set(s string) error {
 	*url = parsed
 	return nil
 }
+
+// Type implements pflag.Value
+func (NodeURL) Type() string { return "storj.NodeURL" }
 
 // NodeURLs defines a comma delimited flag for defining a list node url-s.
 type NodeURLs []NodeURL
@@ -124,3 +132,6 @@ func (urls *NodeURLs) Set(s string) error {
 	*urls = parsed
 	return nil
 }
+
+// Type implements pflag.Value
+func (NodeURLs) Type() string { return "storj.NodeURLs" }

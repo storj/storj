@@ -30,6 +30,8 @@ import (
 	"storj.io/storj/storage"
 )
 
+const pieceHashExpiration = 2 * time.Hour
+
 var (
 	mon = monkit.Package()
 	// Error general metainfo error
@@ -235,7 +237,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	err = endpoint.filterValidPieces(ctx, req.Pointer)
+	err = endpoint.filterValidPieces(ctx, req.Pointer, req.OriginalLimits)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -453,12 +455,14 @@ func createBucketID(projectID uuid.UUID, bucket []byte) []byte {
 	return []byte(storj.JoinPaths(entries...))
 }
 
-func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer) (err error) {
+func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, limits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer.Type == pb.Pointer_REMOTE {
 		var remotePieces []*pb.RemotePiece
 		remote := pointer.Remote
+		allSizesValid := true
+		lastPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
 			// TODO enable verification
 
@@ -472,7 +476,34 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 			// 	s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
 			// }
 
+			err = endpoint.validatePieceHash(ctx, piece, limits)
+			if err != nil {
+				// TODO maybe this should be logged also to uplink too
+				endpoint.log.Sugar().Warn(err)
+				continue
+			}
+
+			if piece.Hash.PieceSize <= 0 || (lastPieceSize > 0 && lastPieceSize != piece.Hash.PieceSize) {
+				allSizesValid = false
+				break
+			}
+			lastPieceSize = piece.Hash.PieceSize
+
 			remotePieces = append(remotePieces, piece)
+		}
+
+		if allSizesValid {
+			redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			expectedPieceSize := eestream.CalcPieceSize(pointer.SegmentSize, redundancy)
+			if expectedPieceSize != lastPieceSize {
+				return Error.New("expected piece size is different from provided (%v != %v)", expectedPieceSize, lastPieceSize)
+			}
+		} else {
+			return Error.New("all pieces needs to have the same size")
 		}
 
 		// we repair when the number of healthy files is less than or equal to the repair threshold

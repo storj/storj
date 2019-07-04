@@ -17,6 +17,20 @@ var (
 	ErrObjectNotFound = errs.Class("object not found")
 )
 
+<<<<<<< HEAD
+=======
+// Bucket contains information about a specific bucket
+type Bucket struct {
+	Name                 string
+	Attribution          string
+	Created              time.Time
+	PathCipher           CipherSuite
+	SegmentsSize         int64
+	RedundancyScheme     RedundancyScheme
+	EncryptionParameters EncryptionParameters
+}
+
+>>>>>>> master
 // Object contains information about a specific object
 type Object struct {
 	Version  uint32
@@ -49,8 +63,8 @@ type Stream struct {
 
 	// RedundancyScheme specifies redundancy strategy used for this stream
 	RedundancyScheme
-	// EncryptionScheme specifies encryption strategy used for this stream
-	EncryptionScheme
+	// EncryptionParameters specifies encryption strategy used for this stream
+	EncryptionParameters
 
 	LastSegment LastSegment // TODO: remove
 }

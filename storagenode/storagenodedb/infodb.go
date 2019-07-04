@@ -5,12 +5,14 @@ package storagenodedb
 
 import (
 	"database/sql"
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
@@ -21,7 +23,6 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	mu sync.Mutex
 	db *sql.DB
 }
 
@@ -31,7 +32,7 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL")
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -43,12 +44,22 @@ func newInfo(path string) (*InfoDB, error) {
 
 // NewInfoInMemory creates a new inmemory InfoDB.
 func NewInfoInMemory() (*InfoDB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	// create memory DB with a shared cache and a unique name to avoid collisions
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()))
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	dbutil.Configure(db, mon)
+	// Set max idle and max open to 1 to control concurrent access to the memory DB
+	// Setting max open higher than 1 results in table locked errors
+	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxLifetime(-1)
+
+	mon.Chain("db_stats", monkit.StatSourceFunc(
+		func(cb func(name string, val float64)) {
+			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
+		}))
 
 	return &InfoDB{db: db}, nil
 }
@@ -56,12 +67,6 @@ func NewInfoInMemory() (*InfoDB, error) {
 // Close closes any resources.
 func (db *InfoDB) Close() error {
 	return db.db.Close()
-}
-
-// locked allows easy locking the database.
-func (db *InfoDB) locked() func() {
-	db.mu.Lock()
-	return db.mu.Unlock
 }
 
 // CreateTables creates any necessary tables.
