@@ -4,6 +4,7 @@
 package checker_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -49,7 +50,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		require.NoError(t, err)
 
 		numValidNode := int32(len(planet.StorageNodes))
-		require.Equal(t, "b", injuredSegment.Path)
+		require.Equal(t, []byte("b"), injuredSegment.Path)
 		require.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
 			// makePointer() starts with numValidNode good pieces
@@ -225,7 +226,7 @@ func TestCheckerResume(t *testing.T) {
 		// "a" should be the only segment in the repair queue
 		injuredSegment, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "a")
+		require.Equal(t, injuredSegment.Path, []byte("a"))
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
@@ -237,7 +238,7 @@ func TestCheckerResume(t *testing.T) {
 		// "c" should be the only segment in the repair queue
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "c")
+		require.Equal(t, injuredSegment.Path, []byte("c"))
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
@@ -249,7 +250,7 @@ func TestCheckerResume(t *testing.T) {
 		// "a" should be the only segment in the repair queue
 		injuredSegment, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, injuredSegment.Path, "a")
+		require.Equal(t, injuredSegment.Path, []byte("a"))
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 		injuredSegment, err = repairQueue.Select(ctx)
@@ -263,7 +264,7 @@ type mockRepairQueue struct {
 }
 
 func (mockRepairQueue *mockRepairQueue) Insert(ctx context.Context, s *pb.InjuredSegment) error {
-	if s.Path == "b" || s.Path == "d" {
+	if bytes.Equal(s.Path, []byte("b")) || bytes.Equal(s.Path, []byte("d")) {
 		return errs.New("mock Insert error")
 	}
 	mockRepairQueue.injuredSegments = append(mockRepairQueue.injuredSegments, *s)
@@ -282,7 +283,7 @@ func (mockRepairQueue *mockRepairQueue) Delete(ctx context.Context, s *pb.Injure
 	var toDelete int
 	found := false
 	for i, seg := range mockRepairQueue.injuredSegments {
-		if seg.Path == s.Path {
+		if bytes.Equal(seg.Path, s.Path) {
 			toDelete = i
 			found = true
 			break
