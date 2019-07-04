@@ -50,7 +50,7 @@ func TestStreamStoreMeta(t *testing.T) {
 	}
 
 	lastSegmentMetadata, err := proto.Marshal(&pb.StreamMeta{
-		EncryptedStreamInfo: stream,
+		EncryptedStreamInfo: stream, EncryptionType: int32(storj.EncNull),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -96,14 +96,14 @@ func TestStreamStoreMeta(t *testing.T) {
 			Meta(gomock.Any(), gomock.Any()).
 			Return(test.segmentMeta, test.segmentError)
 
-		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, storj.AESGCM, 4)
+		streamStore, err := NewStreamStore(mockSegmentStore, 10, newStore(), 10, storj.EncAESGCM, 4)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		meta, err := streamStore.Meta(ctx, test.path, storj.AESGCM)
+		meta, err := streamStore.Meta(ctx, test.path, storj.EncAESGCM)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%+v", err)
 		}
 
 		assert.Equal(t, test.streamMeta, meta, errTag)
@@ -119,8 +119,8 @@ func TestStreamStorePut(t *testing.T) {
 	const (
 		encBlockSize = 10
 		segSize      = 10
-		pathCipher   = storj.AESGCM
-		dataCipher   = storj.Unencrypted
+		pathCipher   = storj.EncAESGCM
+		dataCipher   = storj.EncNull
 		inlineSize   = 0
 	)
 
@@ -215,8 +215,8 @@ func TestStreamStoreGet(t *testing.T) {
 		segSize      = 10
 		inlineSize   = 5
 		encBlockSize = 10
-		dataCipher   = storj.Unencrypted
-		pathCipher   = storj.AESGCM
+		dataCipher   = storj.EncNull
+		pathCipher   = storj.EncAESGCM
 	)
 
 	mockSegmentStore := segments.NewMockStore(ctrl)
@@ -340,7 +340,7 @@ func TestStreamStoreDelete(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		err = streamStore.Delete(ctx, test.path, storj.AESGCM)
+		err = streamStore.Delete(ctx, test.path, storj.EncAESGCM)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -384,7 +384,7 @@ func TestStreamStoreList(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.AESGCM, test.recursive, test.limit, test.metaFlags)
+		items, more, err := streamStore.List(ctx, test.prefix, test.startAfter, test.endBefore, storj.EncAESGCM, test.recursive, test.limit, test.metaFlags)
 		if err != nil {
 			t.Fatal(err)
 		}

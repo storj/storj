@@ -14,7 +14,7 @@ import (
 )
 
 func TestEncryption(t *testing.T) {
-	forAllCiphers(func(cipher storj.Cipher) {
+	forAllCiphers(func(cipher storj.CipherSuite) {
 		for i, path := range []storj.Path{
 			"",
 			"/",
@@ -45,7 +45,7 @@ func TestEncryption(t *testing.T) {
 }
 
 func TestDeriveKey(t *testing.T) {
-	forAllCiphers(func(cipher storj.Cipher) {
+	forAllCiphers(func(cipher storj.CipherSuite) {
 		for i, tt := range []struct {
 			path      storj.Path
 			depth     int
@@ -89,11 +89,11 @@ func TestDeriveKey(t *testing.T) {
 	})
 }
 
-func forAllCiphers(test func(cipher storj.Cipher)) {
-	for _, cipher := range []storj.Cipher{
-		storj.Unencrypted,
-		storj.AESGCM,
-		storj.SecretBox,
+func forAllCiphers(test func(cipher storj.CipherSuite)) {
+	for _, cipher := range []storj.CipherSuite{
+		storj.EncNull,
+		storj.EncAESGCM,
+		storj.EncSecretBox,
 	} {
 		test(cipher)
 	}

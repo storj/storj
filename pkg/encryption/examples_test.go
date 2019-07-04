@@ -22,7 +22,7 @@ func ExampleEncryptPath() {
 	fmt.Printf("root key (%d bytes): %s\n", len(seed), hex.EncodeToString(seed[:]))
 
 	// use the seed for encrypting the path
-	encryptedPath, err := encryption.EncryptPath(path, storj.AESGCM, seed)
+	encryptedPath, err := encryption.EncryptPath(path, storj.EncAESGCM, seed)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +30,7 @@ func ExampleEncryptPath() {
 	fmt.Println("encrypted path: ", encryptedPath)
 
 	// decrypting the path
-	decryptedPath, err := encryption.DecryptPath(encryptedPath, storj.AESGCM, seed)
+	decryptedPath, err := encryption.DecryptPath(encryptedPath, storj.EncAESGCM, seed)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func ExampleEncryptPath() {
 	}
 
 	fmt.Printf("derived key (%d bytes): %s\n", len(derivedKey), hex.EncodeToString(derivedKey[:]))
-	decryptedPath, err = encryption.DecryptPath(sharedPath, storj.AESGCM, derivedKey)
+	decryptedPath, err = encryption.DecryptPath(sharedPath, storj.EncAESGCM, derivedKey)
 	if err != nil {
 		panic(err)
 	}

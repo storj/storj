@@ -878,12 +878,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add bucket metadata table",
 				Version:     38,
 				Action: migrate.SQL{
-					`CREATE TABLE buckets (
+					`CREATE TABLE bucket_metainfos (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL REFERENCES projects( id ),
 						name bytea NOT NULL,
 						path_cipher integer NOT NULL,
-						created_at timestamp NOT NULL,
+						created_at timestamp with time zone NOT NULL,
 						default_segment_size integer NOT NULL,
 						default_encryption_cipher_suite integer NOT NULL,
 						default_encryption_block_size integer NOT NULL,
