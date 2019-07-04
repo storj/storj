@@ -14,7 +14,7 @@ service NodeStats {
     rpc DailyStorageUsage(DailyStorageUsageRequest) returns (DailyStorageUsageResponse);
 }
 
-message CheckMetric {
+message ReputationStats {
     int64 total_count = 1;
     int64 success_count = 2;
     double reputation_alpha = 3;
@@ -25,8 +25,8 @@ message CheckMetric {
 message GetStatsRequest {}
 
 message GetStatsResponse {
-    CheckMetric uptime_check = 1;
-    CheckMetric audit_check = 2;
+    ReputationStats uptime_check = 1;
+    ReputationStats audit_check = 2;
 }
 
 message DailyStorageUsageRequest {

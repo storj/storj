@@ -62,14 +62,14 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		node.Reputation.AuditReputationBeta)
 
 	return &pb.GetStatsResponse{
-		UptimeCheck: &pb.CheckMetric{
+		UptimeCheck: &pb.ReputationStats{
 			TotalCount:      node.Reputation.UptimeCount,
 			SuccessCount:    node.Reputation.UptimeSuccessCount,
 			ReputationAlpha: node.Reputation.UptimeReputationAlpha,
 			ReputationBeta:  node.Reputation.UptimeReputationBeta,
 			ReputationScore: uptimeScore,
 		},
-		AuditCheck: &pb.CheckMetric{
+		AuditCheck: &pb.ReputationStats{
 			TotalCount:      node.Reputation.AuditCount,
 			SuccessCount:    node.Reputation.AuditSuccessCount,
 			ReputationAlpha: node.Reputation.AuditReputationAlpha,

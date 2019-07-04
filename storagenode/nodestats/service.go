@@ -29,12 +29,12 @@ var (
 type Stats struct {
 	SatelliteID storj.NodeID
 
-	UptimeCheck CheckMetric
-	AuditCheck  CheckMetric
+	UptimeCheck ReputationStats
+	AuditCheck  ReputationStats
 }
 
-// CheckMetric encapsulates storagenode check metrics
-type CheckMetric struct {
+// ReputationStats encapsulates storagenode reputation metrics
+type ReputationStats struct {
 	TotalCount   int64
 	SuccessCount int64
 
@@ -104,14 +104,14 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 
 	return &Stats{
 		SatelliteID: satelliteID,
-		UptimeCheck: CheckMetric{
+		UptimeCheck: ReputationStats{
 			TotalCount:      uptime.GetTotalCount(),
 			SuccessCount:    uptime.GetSuccessCount(),
 			ReputationAlpha: uptime.GetReputationAlpha(),
 			ReputationBeta:  uptime.GetReputationBeta(),
 			ReputationScore: uptime.GetReputationScore(),
 		},
-		AuditCheck: CheckMetric{
+		AuditCheck: ReputationStats{
 			TotalCount:      audit.GetTotalCount(),
 			SuccessCount:    audit.GetSuccessCount(),
 			ReputationAlpha: audit.GetReputationAlpha(),

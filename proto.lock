@@ -2444,7 +2444,7 @@
       "def": {
         "messages": [
           {
-            "name": "CheckMetric",
+            "name": "ReputationStats",
             "fields": [
               {
                 "id": 1,
@@ -2482,12 +2482,12 @@
               {
                 "id": 1,
                 "name": "uptime_check",
-                "type": "CheckMetric"
+                "type": "ReputationStats"
               },
               {
                 "id": 2,
                 "name": "audit_check",
-                "type": "CheckMetric"
+                "type": "ReputationStats"
               }
             ]
           },
