@@ -95,11 +95,11 @@ type Upload struct {
 
 // upload uploads a new object, if authorized.
 //export upload
-func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.char) (downloader C.UploaderRef) {
+func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.char) C.UploaderRef {
 	bucket, ok := universe.Get(cBucket._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
-		return
+		return C.UploaderRef{}
 	}
 
 	scope := bucket.scope.child()
@@ -118,7 +118,7 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 	writeCloser, err := bucket.NewWriter(scope.ctx, C.GoString(path), opts)
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return
+		return C.UploaderRef{}
 	}
 
 	return C.UploaderRef{universe.Add(&Upload{
@@ -223,11 +223,11 @@ type Download struct {
 // download returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
 //export download
-func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.DownloaderRef) {
+func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRef {
 	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {
 		*cErr = C.CString("invalid bucket")
-		return
+		return C.DownloaderRef{}
 	}
 
 	scope := bucket.scope.child()
@@ -235,7 +235,7 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) (downloader C.
 	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
 	if err != nil {
 		*cErr = C.CString(err.Error())
-		return
+		return C.DownloaderRef{}
 	}
 
 	return C.DownloaderRef{universe.Add(&Download{
