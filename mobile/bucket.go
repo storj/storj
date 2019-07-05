@@ -42,12 +42,6 @@ type Bucket struct {
 	lib *libuplink.Bucket
 }
 
-// BucketAccess defines access to bucket
-type BucketAccess struct {
-	PathEncryptionKey   []byte
-	EncryptedPathPrefix storj.Path
-}
-
 // BucketInfo bucket meta struct
 type BucketInfo struct {
 	Name                 string
@@ -159,8 +153,6 @@ func newStorjRedundancyScheme(scheme *RedundancyScheme) storj.RedundancyScheme {
 }
 
 // EncryptionParameters is the cipher suite and parameters used for encryption
-// It is like EncryptionScheme, but uses the CipherSuite type instead of Cipher.
-// EncryptionParameters is preferred for new uses.
 type EncryptionParameters struct {
 	// CipherSuite specifies the cipher suite to be used for encryption.
 	CipherSuite byte

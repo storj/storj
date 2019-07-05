@@ -133,32 +133,34 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 		}
 	}()
 
-	satelliteIDParam := req.URL.Query().Get("satelliteId")
-	s.log.Info("param: " + satelliteIDParam)
-	satelliteID, err := s.parseSatelliteIDParam(satelliteIDParam)
-	if satelliteID != nil {
-		s.log.Info("ID: " + satelliteID.String())
+	if req.Method != http.MethodGet {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
+
+	satelliteIDParam := req.URL.Query().Get("satelliteId")
+	satelliteID, err := s.parseSatelliteIDParam(satelliteIDParam)
 	if err != nil {
 		s.log.Error("satellite id is not valid", zap.Error(err))
 		response.Error = "satellite id is not valid"
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	satellites, err := s.service.GetSatellites(ctx)
-	if satellites == nil {
-		s.log.Info("SATELLITES ARE NIL")
-	}
 	if err != nil {
 		s.log.Error("can not get satellites list", zap.Error(err))
 		response.Error = "can not get satellites list"
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
+	// checks if current satellite id is related to current storage node
 	if satelliteID != nil {
 		if err = s.checkSatelliteID(satellites, *satelliteID); err != nil {
 			s.log.Error(err.Error())
 			response.Error = err.Error()
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 	}
@@ -167,6 +169,7 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		s.log.Error("can not get disk space usage", zap.Error(err))
 		response.Error = "can not get disk space usage"
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -174,6 +177,7 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		s.log.Error("can not get bandwidth usage", zap.Error(err))
 		response.Error = "can not get bandwidth usage"
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -185,6 +189,7 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		s.log.Error("can not check latest storage node version", zap.Error(err))
 		response.Error = "can not check latest storage node version"
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
@@ -199,6 +204,8 @@ func (s *Server) dashboardHandler(w http.ResponseWriter, req *http.Request) {
 	response.Data.Uptime = uptime
 	response.Data.NodeID = nodeID.String()
 	response.Data.Satellites = satellites
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) getBandwidth(ctx context.Context, satelliteID *storj.NodeID) (_ *console.BandwidthInfo, err error) {

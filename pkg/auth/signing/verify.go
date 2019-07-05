@@ -17,7 +17,7 @@ type Signee interface {
 }
 
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
-func VerifyOrderLimitSignature(ctx context.Context, satellite Signee, signed *pb.OrderLimit2) (err error) {
+func VerifyOrderLimitSignature(ctx context.Context, satellite Signee, signed *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrderLimit(ctx, signed)
 	if err != nil {
@@ -28,7 +28,7 @@ func VerifyOrderLimitSignature(ctx context.Context, satellite Signee, signed *pb
 }
 
 // VerifyOrderSignature verifies that the signature inside order belongs to the uplink.
-func VerifyOrderSignature(ctx context.Context, uplink Signee, signed *pb.Order2) (err error) {
+func VerifyOrderSignature(ctx context.Context, uplink Signee, signed *pb.Order) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrder(ctx, signed)
 	if err != nil {

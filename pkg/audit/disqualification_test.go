@@ -4,7 +4,6 @@
 package audit_test
 
 import (
-	"math/rand"
 	"testing"
 	"time"
 
@@ -15,9 +14,11 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/storage/streams"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -110,10 +111,9 @@ func calcReputation(dossier *overlay.NodeDossier) float64 {
 }
 
 func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
-
-	// - uploads random data
-	// - mark a node as disqualified
-	// - check we don't get it when we require order limit
+	// Uploads random data.
+	// Mark a node as disqualified.
+	// Check we don't get it when we require order limit.
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -124,9 +124,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err := satellite.Audit.Service.Close()
 		require.NoError(t, err)
 
-		testData := make([]byte, 8*memory.KiB)
-		_, err = rand.Read(testData)
-		require.NoError(t, err)
+		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
@@ -137,12 +135,13 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
-		cipher := encScheme.Cipher
-		encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, "testbucket/test/path", cipher, &storj.Key{})
+		encParameters := upl.GetConfig(satellite).GetEncryptionParameters()
+		cipherSuite := encParameters.CipherSuite
+		store := encryption.NewStore()
+		store.SetDefaultKey(new(storj.Key))
+		encryptedPath, err := encryption.EncryptPath("testbucket", paths.NewUnencrypted("test/path"), cipherSuite, store)
 		require.NoError(t, err)
-
-		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", encryptedAfterBucket)
+		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket", encryptedPath.Raw())
 		pointer, err := satellite.Metainfo.Service.Get(ctx, lastSegPath)
 		require.NoError(t, err)
 

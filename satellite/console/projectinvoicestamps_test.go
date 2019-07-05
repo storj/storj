@@ -4,7 +4,6 @@
 package console_test
 
 import (
-	"crypto/rand"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -25,9 +25,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 		startDate := time.Now().UTC()
 		endDate := startDate.Add(time.Hour * 24)
 
-		var invoiceID [8]byte
-		_, err := rand.Read(invoiceID[:])
-		require.NoError(t, err)
+		invoiceID := testrand.Bytes(8)
 
 		//create project
 		proj, err := consoleDB.Projects().Insert(ctx, &console.Project{
@@ -38,14 +36,14 @@ func TestProjectInvoiceStamps(t *testing.T) {
 		t.Run("create project invoice stamp", func(t *testing.T) {
 			stamp, err := consoleDB.ProjectInvoiceStamps().Create(ctx, console.ProjectInvoiceStamp{
 				ProjectID: proj.ID,
-				InvoiceID: invoiceID[:],
+				InvoiceID: invoiceID,
 				StartDate: startDate,
 				EndDate:   endDate,
 			})
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
-			assert.Equal(t, invoiceID[:], stamp.InvoiceID)
+			assert.Equal(t, invoiceID, stamp.InvoiceID)
 			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
 			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
 		})
@@ -55,7 +53,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
-			assert.Equal(t, invoiceID[:], stamp.InvoiceID)
+			assert.Equal(t, invoiceID, stamp.InvoiceID)
 			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
 			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
 		})

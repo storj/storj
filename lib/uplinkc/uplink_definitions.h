@@ -76,10 +76,6 @@ typedef struct BucketList {
     int32_t    length;
 } BucketList;
 
-typedef struct EncryptionAccess {
-    char key[32];
-} EncryptionAccess;
-
 typedef struct ObjectInfo {
     uint32_t   version;
     BucketInfo bucket;

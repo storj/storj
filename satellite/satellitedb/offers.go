@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -51,14 +52,17 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 
 	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 
+	var awardCreditInCents, inviteeCreditInCents int
 	o := rewards.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &o.AwardCreditInCents, &o.InviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
 		return nil, offerErr.New("no current offer")
 	}
 	if err != nil {
 		return nil, offerErr.Wrap(err)
 	}
+	o.AwardCredit = currency.Cents(awardCreditInCents)
+	o.InviteeCredit = currency.Cents(inviteeCreditInCents)
 
 	return &o, nil
 }
@@ -93,8 +97,8 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	offerDbx, err := tx.Create_Offer(ctx,
 		dbx.Offer_Name(o.Name),
 		dbx.Offer_Description(o.Description),
-		dbx.Offer_AwardCreditInCents(o.AwardCreditInCents),
-		dbx.Offer_InviteeCreditInCents(o.InviteeCreditInCents),
+		dbx.Offer_AwardCreditInCents(o.AwardCredit.Cents()),
+		dbx.Offer_InviteeCreditInCents(o.InviteeCredit.Cents()),
 		dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
 		dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
 		dbx.Offer_RedeemableCap(o.RedeemableCap),
@@ -175,8 +179,8 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
-		AwardCreditInCents:        offerDbx.AwardCreditInCents,
-		InviteeCreditInCents:      offerDbx.InviteeCreditInCents,
+		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
+		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
 		RedeemableCap:             offerDbx.RedeemableCap,
 		NumRedeemed:               offerDbx.NumRedeemed,
 		ExpiresAt:                 offerDbx.ExpiresAt,
