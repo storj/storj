@@ -195,22 +195,19 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}(i, addressedLimit)
 	}
 
-	successfulNodes = make([]*pb.Node, len(limits))
-	successfulHashes = make([]*pb.PieceHash, len(limits))
+	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s to %d nodes to reach at least the success threshold (%d nodes)...",
+		timeout, path, nonNilCount(limits), rs.OptimalThreshold())
+
 	var successfulCount int32
-
-	{ // log num of pieces to be repaired to reach the success threshold
-		optimalCount := rs.OptimalThreshold() - nonNilCount(limits)
-		ec.log.Sugar().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
-			timeout, path, optimalCount, rs.OptimalThreshold())
-	}
-
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
 			ec.log.Sugar().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
+
+	successfulNodes = make([]*pb.Node, len(limits))
+	successfulHashes = make([]*pb.PieceHash, len(limits))
 
 	for range limits {
 		info := <-infos
