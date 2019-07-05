@@ -562,7 +562,6 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 
 		//refetch the stripe
-		cursor = audit.NewCursor(planet.Satellites[0].Metainfo.Service)
 		stripe, _, err = cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)

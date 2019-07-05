@@ -378,7 +378,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					// Get the original segment pointer in the metainfo
 					oldPtr, err := verifier.metainfo.Get(ctx, pending.Path)
 					remoteSegment := oldPtr.GetRemote()
-					if err != nil || remoteSegment == nil || remoteSegment.RootPieceId != pending.PieceID {
+					if verifier.checkIfSegmentDeleted(ctx, remoteSegment) {
 						ch <- result{nodeID: piece.NodeId, status: skipped}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						return
@@ -523,6 +523,7 @@ func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, p
 	}
 
 	// Update the segment pointer in the metainfo
+	//TODO:  update in a safe manner - https://storjlabs.atlassian.net/browse/V3-2088
 	return verifier.metainfo.Put(ctx, path, pointer)
 }
 

@@ -32,7 +32,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Path:              "",
+			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, input)
@@ -68,7 +68,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Path:              "",
+			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, info1)
@@ -81,7 +81,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 			ShareSize:         1,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Path:              "",
+			Path:              "notnull",
 		}
 
 		// expect failure when an entry with the same nodeID but different expected share data already exists
@@ -116,7 +116,7 @@ func TestContainDelete(t *testing.T) {
 			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Path:              "",
+			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, info1)
@@ -158,7 +158,7 @@ func TestContainUpdateStats(t *testing.T) {
 			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Path:              "",
+			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, info1)
