@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
@@ -519,7 +520,8 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		err := planet.Satellites[0].Audit.Service.Close()
+		audits := planet.Satellites[0].Audit.Service
+		err := audits.Close()
 		require.NoError(t, err)
 
 		ul := planet.Uplinks[0]
@@ -528,33 +530,33 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		stripe, _, err := planet.Satellites[0].Audit.Service.Cursor.NextStripe(ctx)
+		stripe, _, err := audits.Cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
 		// delete the piece from the first node
 		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
-		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
-		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
-		node := getStorageNode(planet, nodeID)
+		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
+		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := planet.Satellites[0].Audit.Service.Verifier.Verify(ctx, stripe, nil)
+		report, err := audits.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, origNumPieces-1)
 		require.Len(t, report.Fails, 1)
-		require.Equal(t, report.Fails[0], nodeID)
+		require.Equal(t, report.Fails[0], piece.NodeId)
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 
 		//refetch the stripe
-		stripe, _, err = planet.Satellites[0].Audit.Service.Cursor.NextStripe(ctx)
+		stripe, _, err = audits.Cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
-		report, err = planet.Satellites[0].Audit.Service.Verifier.Verify(ctx, stripe, nil)
+		report, err = audits.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
 		//verify no failures because that segment is gone
