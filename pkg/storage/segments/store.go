@@ -117,7 +117,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 	var path storj.Path
 	var pointer *pb.Pointer
-	var originalLimits []*pb.OrderLimit2
+	var originalLimits []*pb.OrderLimit
 	if !remoteSized {
 		p, metadata, err := segmentInfo()
 		if err != nil {
@@ -167,7 +167,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
-		originalLimits = make([]*pb.OrderLimit2, len(limits))
+		originalLimits = make([]*pb.OrderLimit, len(limits))
 		for i, addressedLimit := range limits {
 			originalLimits[i] = addressedLimit.GetLimit()
 		}

@@ -26,8 +26,9 @@ var (
 // Bucket contains information about a specific bucket
 type Bucket struct {
 	Name                 string
+	Attribution          string
 	Created              time.Time
-	PathCipher           Cipher
+	PathCipher           CipherSuite
 	SegmentsSize         int64
 	RedundancyScheme     RedundancyScheme
 	EncryptionParameters EncryptionParameters
@@ -65,8 +66,8 @@ type Stream struct {
 
 	// RedundancyScheme specifies redundancy strategy used for this stream
 	RedundancyScheme
-	// EncryptionScheme specifies encryption strategy used for this stream
-	EncryptionScheme
+	// EncryptionParameters specifies encryption strategy used for this stream
+	EncryptionParameters
 
 	LastSegment LastSegment // TODO: remove
 }

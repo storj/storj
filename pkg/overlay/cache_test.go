@@ -71,14 +71,10 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 	{ // Put
 		err := cache.Put(ctx, valid1ID, pb.Node{Id: valid1ID, Address: address})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 
 	{ // Get

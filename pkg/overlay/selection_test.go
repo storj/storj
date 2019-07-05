@@ -41,7 +41,7 @@ func TestOffline(t *testing.T) {
 
 		result, err = service.KnownUnreliableOrOffline(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
-			storj.NodeID{1, 2, 3, 4}, //note that this succeeds by design
+			{1, 2, 3, 4}, //note that this succeeds by design
 			planet.StorageNodes[2].ID(),
 		})
 		require.NoError(t, err)

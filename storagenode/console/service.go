@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/version"
@@ -29,7 +29,15 @@ var (
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
+	// GetSatelliteIDs returns list of satelliteIDs that storagenode has interacted with
+	// at least once
 	GetSatelliteIDs(ctx context.Context, from, to time.Time) (storj.NodeIDList, error)
+	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+	// sorted in ascending order
+	GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) ([]BandwidthUsed, error)
+	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+	// sorted in ascending order for particular satellite
+	GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]BandwidthUsed, error)
 }
 
 // Service is handling storage node operator related logic
@@ -105,6 +113,32 @@ func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (_ *BandwidthInfo, 
 	return FromUsage(usage, s.allocatedBandwidth.Int64())
 }
 
+// GetDailyTotalBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+// sorted in ascending order
+func (s *Service) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []BandwidthUsed, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usage, err := s.consoleDB.GetDailyTotalBandwidthUsed(ctx, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	return usage, nil
+}
+
+// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+// sorted in ascending order for particular satellite
+func (s *Service) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []BandwidthUsed, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usage, err := s.consoleDB.GetDailyBandwidthUsed(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	return usage, nil
+}
+
 // GetBandwidthBySatellite returns all info about storage node bandwidth usage by satellite
 func (s *Service) GetBandwidthBySatellite(ctx context.Context, satelliteID storj.NodeID) (_ *BandwidthInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -164,6 +198,18 @@ func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID st
 	}
 
 	return uptime, nil
+}
+
+// GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps for a particular satellite
+func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []nodestats.SpaceUsageStamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stamps, err := s.nodestats.GetDailyStorageUsedForSatellite(ctx, satelliteID, from, to)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
+	return stamps, nil
 }
 
 // GetNodeID return current node id

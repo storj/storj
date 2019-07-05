@@ -104,7 +104,7 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 }
 
 // CommitSegment requests to store the pointer for the segment
-func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (savedPointer *pb.Pointer, err error) {
+func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
@@ -236,4 +236,11 @@ func (client *Client) SetAttribution(ctx context.Context, bucket string, partner
 	})
 
 	return err
+}
+
+// GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
+func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
 }

@@ -183,7 +183,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
-	// we repair when the number of healthy files is less than or equal to the repair threshold
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
@@ -237,7 +237,8 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
-// IrreparableProcess picks items from irrepairabledb and spawns a repair worker
+// IrreparableProcess picks items from irrepairabledb and add them to the repair
+// worker queue if they, now, can be repaired.
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
