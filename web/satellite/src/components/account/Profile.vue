@@ -70,13 +70,16 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { APP_STATE_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
     import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
     import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 
     @Component(
-        {
+		{
+            mounted: function() {
+                this.$store.dispatch(USER_ACTIONS.GET);
+            },
             methods: {
                 toggleDeleteAccountPopup: function(): void {
                     this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);

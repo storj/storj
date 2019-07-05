@@ -56,7 +56,7 @@ func Main() error {
 	}
 	encKey := storj.Key(sha256.Sum256([]byte(*key)))
 	var firstNonce storj.Nonce
-	encrypter, err := encryption.NewEncrypter(storj.AESGCM, &encKey, &firstNonce, es.StripeSize())
+	encrypter, err := encryption.NewEncrypter(storj.EncAESGCM, &encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}
