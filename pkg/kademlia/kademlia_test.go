@@ -35,9 +35,9 @@ const (
 )
 
 type testNode struct {
-	kad *Kademlia
+	kad       *Kademlia
 	transport transport.Client
-	server *grpc.Server
+	server    *grpc.Server
 }
 
 func TestNewKademlia(t *testing.T) {
@@ -117,7 +117,7 @@ func TestPeerDiscovery(t *testing.T) {
 
 	k, err := newKademlia(ctx, logger, bootstrapNodes, rt, tc, defaultAlpha)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, rt.Local().Operator.Wallet, "OperatorWallet")
 
 	defer ctx.Check(k.Close)
@@ -214,9 +214,9 @@ func newTestNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.No
 	})
 
 	node := testNode{
-		kad: k, 
+		kad:       k,
 		transport: tc,
-		server: grpcServer,
+		server:    grpcServer,
 	}
 
 	return node, func() {

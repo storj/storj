@@ -165,7 +165,7 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 	}
 	defer func() {
 		if cerr := conn.Close(); cerr != nil {
-			err = errs.Combine(err, OrderError.New("failed to close connection: %v", err))
+			err = errs.Combine(err, OrderError.New("failed to close connection: %v", cerr))
 		}
 	}()
 

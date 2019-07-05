@@ -10,8 +10,8 @@ import (
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storage"
 )
 
 // DHT is the interface for the DHT in the Storj network

@@ -46,7 +46,7 @@ func Main() error {
 	}
 	es := eestream.NewRSScheme(fc, *erasureShareSize)
 	var firstNonce storj.Nonce
-	decrypter, err := encryption.NewDecrypter(storj.AESGCM, &encKey, &firstNonce, es.StripeSize())
+	decrypter, err := encryption.NewDecrypter(storj.EncAESGCM, &encKey, &firstNonce, es.StripeSize())
 	if err != nil {
 		return err
 	}
