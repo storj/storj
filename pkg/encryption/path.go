@@ -165,6 +165,17 @@ func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 	return string(decrypted), nil
 }
 
+// encodeSegment encodes segment according to specific rules
+// The empty path component is encoded as `\x01`
+// Any other path component is encoded as `\x02 + escape(component)`
+//
+// `\x2e` escapes to `\x2e\x01`
+// `\x2f` escapes to `\x2e\x02`
+// `\xfe` escapes to `\xfe\x01`
+// `\xff` escapes to `\xfe\x02`
+// `\x00` escapes to `\x01\x01`
+// `\x01` escapes to `\x01\x02
+// for more details see docs/design/path-component-encoding.md
 func encodeSegment(segment []byte) []byte {
 	if len(segment) == 0 {
 		return emptyComponent
@@ -173,18 +184,18 @@ func encodeSegment(segment []byte) []byte {
 	result := make([]byte, 0, len(segment)*2+1)
 	result = append(result, notEmptyComponentPrefix)
 	for i := 0; i < len(segment); i++ {
-		switch {
-		case segment[i] == escape1:
+		switch segment[i] {
+		case escape1:
 			result = append(result, []byte{escape1, 1}...)
-		case segment[i] == escape1+1:
+		case escape1 + 1:
 			result = append(result, []byte{escape1, 2}...)
-		case segment[i] == escape2:
+		case escape2:
 			result = append(result, []byte{escape2, 1}...)
-		case segment[i] == escape2+1:
+		case escape2 + 1:
 			result = append(result, []byte{escape2, 2}...)
-		case segment[i] == escape3-1:
+		case escape3 - 1:
 			result = append(result, []byte{escape3, 1}...)
-		case segment[i] == escape3:
+		case escape3:
 			result = append(result, []byte{escape3, 2}...)
 		default:
 			result = append(result, segment[i])

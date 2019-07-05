@@ -27,7 +27,7 @@ func ExampleEncryptPath() {
 		panic(err)
 	}
 	fmt.Println("path to encrypt:", path)
-	fmt.Println("encrypted path: ", []byte(encryptedPath))
+	fmt.Println("encrypted path: ", hex.EncodeToString([]byte(encryptedPath)))
 
 	// decrypting the path
 	decryptedPath, err := encryption.DecryptPath(encryptedPath, storj.EncAESGCM, seed)
@@ -38,7 +38,7 @@ func ExampleEncryptPath() {
 
 	// handling of shared path
 	sharedPath := storj.JoinPaths(storj.SplitPath(encryptedPath)[2:]...)
-	fmt.Println("shared path:    ", []byte(sharedPath))
+	fmt.Println("shared path:    ", hex.EncodeToString([]byte(sharedPath)))
 	derivedKey, err := encryption.DerivePathKey(decryptedPath, seed, 2)
 	if err != nil {
 		panic(err)
@@ -54,9 +54,9 @@ func ExampleEncryptPath() {
 	// Output:
 	// root key (32 bytes): 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 	// path to encrypt: fold1/fold2/fold3/file.txt
-	// encrypted path:  [2 186 188 110 99 58 134 253 153 73 124 24 100 25 172 252 237 107 239 156 38 90 96 62 234 127 95 217 55 243 221 247 89 249 47 2 35 41 220 15 2 225 88 251 248 23 177 26 161 72 175 192 128 167 81 226 76 90 85 39 48 4 203 225 246 154 160 125 172 47 2 254 2 88 34 181 126 174 61 221 222 181 205 209 130 128 253 71 92 26 79 147 15 42 185 107 99 125 158 135 63 239 170 83 175 47 2 234 163 184 13 78 64 28 86 155 19 106 251 134 96 26 186 249 232 154 251 77 7 43 142 248 80 176 225 200 127 197 165 81 221 35 196]
+	// encrypted path:  02babc6e633a86fd99497c186419acfced6bef9c265a603eea7f5fd937f3ddf759f92f022329dc0f02e158fbf817b11aa148afc080a751e24c5a55273004cbe1f69aa07dac2f02fe025822b57eae3ddddeb5cdd18280fd475c1a4f930f2ab96b637d9e873fefaa53af2f02eaa3b80d4e401c569b136afb86601abaf9e89afb4d072b8ef850b0e1c87fc5a551dd23c4
 	// decrypted path:  fold1/fold2/fold3/file.txt
-	// shared path:     [2 254 2 88 34 181 126 174 61 221 222 181 205 209 130 128 253 71 92 26 79 147 15 42 185 107 99 125 158 135 63 239 170 83 175 47 2 234 163 184 13 78 64 28 86 155 19 106 251 134 96 26 186 249 232 154 251 77 7 43 142 248 80 176 225 200 127 197 165 81 221 35 196]
+	// shared path:     02fe025822b57eae3ddddeb5cdd18280fd475c1a4f930f2ab96b637d9e873fefaa53af2f02eaa3b80d4e401c569b136afb86601abaf9e89afb4d072b8ef850b0e1c87fc5a551dd23c4
 	// derived key (32 bytes): 909db5ccf2b645e3352ee8212305596ed514d9f84d5acd21d93b4527d2a0c7e1
 	// decrypted path:  fold3/file.txt
 }
