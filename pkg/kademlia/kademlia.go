@@ -15,8 +15,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia/dial"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia/dial"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
