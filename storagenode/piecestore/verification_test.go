@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/pieces"
 )
 
 const oneWeek = 7 * 24 * time.Hour
@@ -172,6 +171,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		err = errs.Combine(writeErr, commitErr)
 		testIndex := fmt.Sprintf("#%d", i)
 		if tt.err != "" {
+			fmt.Printf("EEEE\n%+v\n%+v\n", writeErr, commitErr)
 			require.Error(t, err, testIndex)
 			require.Contains(t, err.Error(), tt.err, testIndex)
 		} else {
@@ -309,8 +309,7 @@ func setBandwidth(ctx context.Context, t *testing.T, planet *testplanet.Planet, 
 		availableBandwidth, err := storageNode.Storage2.Monitor.AvailableBandwidth(ctx)
 		require.NoError(t, err)
 		diff := (bandwidth - availableBandwidth) * -1
-		err = storageNode.DB.Bandwidth().Add(ctx, planet.Satellites[0].ID(), pb.PieceAction_GET, diff, time.Now())
-		require.NoError(t, err)
+		storageNode.Storage2.Monitor.UpdateUsedBandwidth(diff)
 	}
 }
 
@@ -322,13 +321,6 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
 		diff := (space - availableSpace) * -1
-		err = storageNode.DB.PieceInfo().Add(ctx, &pieces.Info{
-			SatelliteID:     planet.Satellites[0].ID(),
-			PieceID:         storj.PieceID{99},
-			PieceSize:       diff,
-			Uplink:          planet.Uplinks[0].Identity.PeerIdentity(),
-			UplinkPieceHash: &pb.PieceHash{},
-		})
-		require.NoError(t, err)
+		storageNode.Storage2.Monitor.UpdateUsedSpace(diff)
 	}
 }
