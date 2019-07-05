@@ -5,7 +5,6 @@ package gc
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -46,27 +45,18 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, EndpointError.Wrap(err)
 	}
-	infos, err := endpoint.pieceinfo.GetPiecesID(ctx, peer.ID, retainReq.GetCreationDate())
+	pieceIDs, err := endpoint.pieceinfo.GetPiecesID(ctx, peer.ID, retainReq.GetCreationDate())
 	if err != nil {
 		return nil, EndpointError.Wrap(err)
 	}
 
-	count := 0
-	for _, info := range infos {
-		if !filter.Contains(info.PieceID) {
-			count++
-			err = endpoint.store.Delete(ctx, peer.ID, info.PieceID)
-			if err != nil {
-				return nil, EndpointError.Wrap(err)
-			}
-			err = endpoint.pieceinfo.Delete(ctx, peer.ID, info.PieceID)
-			if err != nil {
-				return nil, EndpointError.Wrap(err)
-			}
+	for _, pieceID := range pieceIDs {
+		if !filter.Contains(pieceID) {
+			err = errs.Combine(err, endpoint.store.Delete(ctx, peer.ID, pieceID))
+			err = errs.Combine(endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID))
 		}
 	}
-	fmt.Println("size = ", len(infos), " - count = ", count)
-	return &pb.RetainResponse{}, nil
+	return &pb.RetainResponse{}, EndpointError.Wrap(err)
 }
 
 // PieceInfo returns pieces info db
