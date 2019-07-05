@@ -121,7 +121,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		zap.L().Info("Dequeued segment from repair queue", zap.ByteString("segment", seg.GetPath()))
+		zap.L().Info("Dequeued segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -140,12 +140,12 @@ func (service *Service) process(ctx context.Context) (err error) {
 
 func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	zap.L().Info("Limiter running repair on segment", zap.ByteString("segment", seg.GetPath()))
+	zap.L().Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
 	err = service.repairer.Repair(ctx, string(seg.GetPath()))
 	if err != nil {
 		return Error.New("repair failed: %v", err)
 	}
-	zap.L().Info("Deleting segment from repair queue", zap.ByteString("segment", seg.GetPath()))
+	zap.L().Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
 	err = service.queue.Delete(ctx, seg)
 	if err != nil {
 		return Error.New("repair delete failed: %v", err)
