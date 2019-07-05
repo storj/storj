@@ -133,8 +133,9 @@ func TestSegmentEncoding(t *testing.T) {
 	}
 }
 
-func TestInvlidSegmentDecoding(t *testing.T) {
+func TestInvalidSegmentDecoding(t *testing.T) {
 	encoded := []byte{3, 4, 5, 6, 7}
+	// first byte should be '\x01' or '\x02'
 	_, err := decodeSegment(encoded)
 	require.Error(t, err)
 }
