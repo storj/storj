@@ -28,8 +28,8 @@ type EncryptionConfig struct {
 	EncryptionKey     string `help:"the root key for encrypting the data which will be stored in KeyFilePath" setup:"true"`
 	KeyFilepath       string `help:"the path to the file which contains the root key for encrypting the data"`
 	EncAccessFilepath string `help:"the path to a file containing a serialized encryption access"`
-	DataType          int    `help:"Type of encryption to use for content and metadata (1=AES-GCM, 2=SecretBox)" default:"1"`
-	PathType          int    `help:"Type of encryption to use for paths (0=Unencrypted, 1=AES-GCM, 2=SecretBox)" default:"1"`
+	DataType          int    `help:"Type of encryption to use for content and metadata (2=AES-GCM, 3=SecretBox)" default:"2"`
+	PathType          int    `help:"Type of encryption to use for paths (1=Unencrypted, 2=AES-GCM, 3=SecretBox)" default:"2"`
 }
 
 // ClientConfig is a configuration struct for the uplink that controls how
@@ -65,18 +65,18 @@ func (c Config) GetRedundancyScheme() storj.RedundancyScheme {
 
 // GetPathCipherSuite returns the cipher suite used for path encryption for bucket objects
 func (c Config) GetPathCipherSuite() storj.CipherSuite {
-	return storj.Cipher(c.Enc.PathType).ToCipherSuite()
+	return storj.CipherSuite(c.Enc.PathType)
 }
 
-// GetEncryptionScheme returns the configured encryption scheme for new uploads
+// GetEncryptionParameters returns the configured encryption scheme for new uploads
 // Blocksize should align with the stripe size therefore multiples of stripes
 // should fit in every encryption block. Instead of lettings users configure this
 // multiple value, we hardcode stripesPerBlock as 2 for simplicity.
-func (c Config) GetEncryptionScheme() storj.EncryptionScheme {
+func (c Config) GetEncryptionParameters() storj.EncryptionParameters {
 	const stripesPerBlock = 2
-	return storj.EncryptionScheme{
-		Cipher:    storj.Cipher(c.Enc.DataType),
-		BlockSize: c.GetRedundancyScheme().StripeSize() * stripesPerBlock,
+	return storj.EncryptionParameters{
+		CipherSuite: storj.CipherSuite(c.Enc.DataType),
+		BlockSize:   c.GetRedundancyScheme().StripeSize() * stripesPerBlock,
 	}
 }
 

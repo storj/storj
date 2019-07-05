@@ -86,13 +86,13 @@ func (s *EncryptionAccess) Restrict(apiKey APIKey, restrictions ...EncryptionRes
 
 	for _, res := range restrictions {
 		unencPath := paths.NewUnencrypted(res.PathPrefix)
-		cipher := storj.AESGCM // TODO(jeff): pick the right path cipher
+		cipher := storj.EncAESGCM // TODO(jeff): pick the right path cipher
 
-		encPath, err := encryption.StoreEncryptPath(res.Bucket, unencPath, cipher, s.store)
+		encPath, err := encryption.EncryptPath(res.Bucket, unencPath, cipher, s.store)
 		if err != nil {
 			return APIKey{}, nil, err
 		}
-		derivedKey, err := encryption.StoreDerivePathKey(res.Bucket, unencPath, s.store)
+		derivedKey, err := encryption.DerivePathKey(res.Bucket, unencPath, s.store)
 		if err != nil {
 			return APIKey{}, nil, err
 		}

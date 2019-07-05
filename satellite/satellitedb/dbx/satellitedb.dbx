@@ -733,7 +733,7 @@ create user_credit ()
 
 //--- metainfo buckets ---//
 
-model bucket (
+model bucket_metainfo (
 	key    id
 	unique name project_id
 
@@ -758,15 +758,15 @@ model bucket (
 	field default_redundancy_total_shares    int (updatable)
 )
 
-create bucket ()
+create bucket_metainfo ()
 
 read one (
-	select bucket
-	where bucket.project_id = ?
-	where bucket.name = ?
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
 )
 
-delete bucket (
-	where bucket.project_id = ?
-	where bucket.name = ?
+delete bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
 )

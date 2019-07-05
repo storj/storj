@@ -172,3 +172,15 @@ func safeError(err error) error {
 	}
 	return fmt.Errorf("%v", err.Error())
 }
+
+// SaltedKeyFromPassphrase returns a key generated from the given passphrase using a stable,
+// project-specific salt
+func (project *Project) SaltedKeyFromPassphrase(passphrase string) (keyData []byte, err error) {
+	scope := project.scope.child()
+
+	key, err := project.lib.SaltedKeyFromPassphrase(scope.ctx, passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return key[:], nil
+}
