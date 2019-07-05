@@ -189,7 +189,7 @@
       "def": {
         "enums": [
           {
-            "name": "CipherSuite.Type",
+            "name": "CipherSuite",
             "enum_fields": [
               {
                 "name": "ENC_UNSPECIFIED"
@@ -222,16 +222,6 @@
                 "id": 2,
                 "name": "block_size",
                 "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "CipherSuite",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "Type"
               }
             ]
           }
@@ -1605,11 +1595,6 @@
                 "type": "bytes"
               },
               {
-                "id": 2,
-                "name": "path_cipher",
-                "type": "encryption.CipherSuite"
-              },
-              {
                 "id": 3,
                 "name": "attribution_id",
                 "type": "bytes"
@@ -1678,11 +1663,6 @@
                 "id": 1,
                 "name": "name",
                 "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "path_cipher",
-                "type": "encryption.CipherSuite"
               },
               {
                 "id": 3,
