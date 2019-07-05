@@ -30,15 +30,15 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
 		dbx.BucketMetainfo_Name([]byte(bucket.Name)),
 		dbx.BucketMetainfo_PathCipher(int(bucket.PathCipher)),
-		dbx.BucketMetainfo_DefaultSegmentSize(int(bucket.SegmentsSize)),
-		dbx.BucketMetainfo_DefaultEncryptionCipherSuite(int(bucket.EncryptionParameters.CipherSuite)),
-		dbx.BucketMetainfo_DefaultEncryptionBlockSize(int(bucket.EncryptionParameters.BlockSize)),
-		dbx.BucketMetainfo_DefaultRedundancyAlgorithm(int(bucket.RedundancyScheme.Algorithm)),
-		dbx.BucketMetainfo_DefaultRedundancyShareSize(int(bucket.RedundancyScheme.ShareSize)),
-		dbx.BucketMetainfo_DefaultRedundancyRequiredShares(int(bucket.RedundancyScheme.RequiredShares)),
-		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.RedundancyScheme.RepairShares)),
-		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.RedundancyScheme.OptimalShares)),
-		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.RedundancyScheme.TotalShares)),
+		dbx.BucketMetainfo_DefaultSegmentSize(int(bucket.DefaultSegmentsSize)),
+		dbx.BucketMetainfo_DefaultEncryptionCipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+		dbx.BucketMetainfo_DefaultEncryptionBlockSize(int(bucket.DefaultEncryptionParameters.BlockSize)),
+		dbx.BucketMetainfo_DefaultRedundancyAlgorithm(int(bucket.DefaultRedundancyScheme.Algorithm)),
+		dbx.BucketMetainfo_DefaultRedundancyShareSize(int(bucket.DefaultRedundancyScheme.ShareSize)),
+		dbx.BucketMetainfo_DefaultRedundancyRequiredShares(int(bucket.DefaultRedundancyScheme.RequiredShares)),
+		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancyScheme.RepairShares)),
+		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancyScheme.OptimalShares)),
+		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
 	)
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
@@ -105,8 +105,8 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 		ProjectID:    project,
 		Created:      dbxBucket.CreatedAt,
 		PathCipher:   storj.CipherSuite(dbxBucket.PathCipher),
-		SegmentsSize: int64(dbxBucket.DefaultSegmentSize),
-		RedundancyScheme: storj.RedundancyScheme{
+		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
 			Algorithm:      storj.RedundancyAlgorithm(dbxBucket.DefaultRedundancyAlgorithm),
 			ShareSize:      int32(dbxBucket.DefaultRedundancyShareSize),
 			RequiredShares: int16(dbxBucket.DefaultRedundancyRequiredShares),
@@ -114,7 +114,7 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 			OptimalShares:  int16(dbxBucket.DefaultRedundancyOptimalShares),
 			TotalShares:    int16(dbxBucket.DefaultRedundancyTotalShares),
 		},
-		EncryptionParameters: storj.EncryptionParameters{
+		DefaultEncryptionParameters: storj.EncryptionParameters{
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},

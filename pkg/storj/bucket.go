@@ -23,13 +23,13 @@ var (
 
 // Bucket contains information about a specific bucket
 type Bucket struct {
-	ID                   uuid.UUID
-	Name                 string
-	ProjectID            uuid.UUID
-	Attribution          string
-	Created              time.Time
-	PathCipher           CipherSuite
-	SegmentsSize         int64
-	RedundancyScheme     RedundancyScheme
-	EncryptionParameters EncryptionParameters
+	ID                          uuid.UUID
+	Name                        string
+	ProjectID                   uuid.UUID
+	Attribution                 string
+	Created                     time.Time
+	PathCipher                  CipherSuite
+	DefaultSegmentsSize         int64
+	DefaultRedundancyScheme     RedundancyScheme
+	DefaultEncryptionParameters EncryptionParameters
 }

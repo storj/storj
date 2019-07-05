@@ -655,13 +655,13 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 }
 
 func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket) {
-	rs := bucket.RedundancyScheme
+	rs := bucket.DefaultRedundancyScheme
 	return &pb.Bucket{
 		Name:               []byte(bucket.Name),
 		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
 		AttributionId:      []byte(bucket.Attribution),
 		CreatedAt:          bucket.Created,
-		DefaultSegmentSize: bucket.SegmentsSize,
+		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_RS,
 			MinReq:           int32(rs.RequiredShares),
@@ -671,8 +671,8 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 			ErasureShareSize: rs.ShareSize,
 		},
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(int(bucket.EncryptionParameters.CipherSuite)),
-			BlockSize:   int64(bucket.EncryptionParameters.BlockSize),
+			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
 		},
 	}
 }
@@ -725,13 +725,13 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (sto
 	defaultRS := req.GetDefaultRedundancyScheme()
 	defaultEP := req.GetDefaultEncryptionParameters()
 	return storj.Bucket{
-		ID:           *bucketID,
-		Name:         string(req.GetName()),
-		ProjectID:    projectID,
-		Attribution:  string(req.GetAttributionId()),
-		PathCipher:   storj.CipherSuite(req.GetPathCipher()),
-		SegmentsSize: req.GetDefaultSegmentSize(),
-		RedundancyScheme: storj.RedundancyScheme{
+		ID:                  *bucketID,
+		Name:                string(req.GetName()),
+		ProjectID:           projectID,
+		Attribution:         string(req.GetAttributionId()),
+		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
+		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
 			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
 			ShareSize:      defaultRS.GetErasureShareSize(),
 			RequiredShares: int16(defaultRS.GetMinReq()),
@@ -739,7 +739,7 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (sto
 			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
 			TotalShares:    int16(defaultRS.GetTotal()),
 		},
-		EncryptionParameters: storj.EncryptionParameters{
+		DefaultEncryptionParameters: storj.EncryptionParameters{
 			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
 			BlockSize:   int32(defaultEP.BlockSize),
 		},
