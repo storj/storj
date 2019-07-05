@@ -221,7 +221,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
-					`ALTER TABLE pieceinfo ADD COLUMN piece_creation TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT 'epoch'`,
+					`ALTER TABLE pieceinfo ADD COLUMN piece_creation TIMESTAMP NOT NULL DEFAULT 'epoch'`,
 				},
 			},
 		},
