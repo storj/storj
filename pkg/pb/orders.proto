@@ -66,6 +66,10 @@ message PieceHash {
     bytes hash = 2;
     // signature either satellite or storage node
     bytes signature = 3;
+    // size of uploaded piece
+    int64 piece_size = 4;
+    // timestamp when upload occur
+    google.protobuf.Timestamp timestamp = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 

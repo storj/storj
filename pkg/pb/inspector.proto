@@ -113,10 +113,6 @@ message GetBucketResponse {
   repeated node.Node nodes = 2;
 }
 
-message Bucket {
-  repeated node.Node nodes = 2;
-}
-
 message BucketList {
   repeated node.Node nodes = 1;
 }
