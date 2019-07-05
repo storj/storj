@@ -47,23 +47,22 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	return ErrInfo.Wrap(err)
 }
 
-// GetAll gets piece information by satellite id.
-func (db *pieceinfo) GetAll(ctx context.Context, satelliteID storj.NodeID) (infos []*pieces.Info, err error) {
+// GetPiecesID gets piece information by satellite id.
+func (db *pieceinfo) GetPiecesID(ctx context.Context, satelliteID storj.NodeID, createdAt time.Time) (infos []*pieces.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT piece_id,  piece_expiration
+		SELECT piece_id
 		FROM pieceinfo
-		WHERE satellite_id = ?
-	`), satelliteID)
+		WHERE satellite_id = ? -- AND piece_creation < ?
+	`), satelliteID) //, createdAt)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
 		info := &pieces.Info{}
-		err = rows.Scan(&info.PieceID, &info.PieceExpiration)
+		err = rows.Scan(&info.PieceID)
 		if err != nil {
 			return infos, ErrInfo.Wrap(err)
 		}

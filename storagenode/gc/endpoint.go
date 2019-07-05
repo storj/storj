@@ -46,8 +46,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, EndpointError.Wrap(err)
 	}
-
-	infos, err := endpoint.pieceinfo.GetAll(ctx, peer.ID)
+	infos, err := endpoint.pieceinfo.GetPiecesID(ctx, peer.ID, retainReq.GetCreationDate())
 	if err != nil {
 		return nil, EndpointError.Wrap(err)
 	}
@@ -67,7 +66,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 	}
 	fmt.Println("size = ", len(infos), " - count = ", count)
-	return nil, nil
+	return &pb.RetainResponse{}, nil
 }
 
 // PieceInfo returns pieces info db
