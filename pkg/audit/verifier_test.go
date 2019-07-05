@@ -287,16 +287,15 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // If this test fails, this most probably means we made a backward-incompatible
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
-	var storageNodeDB *testblobs.SlowDB
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
-				storageNodeDB = testblobs.NewSlowDB(log.Named("slowdb"), db)
-				return storageNodeDB, nil
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 		err := planet.Satellites[0].Audit.Service.Close()
 		require.NoError(t, err)
 
