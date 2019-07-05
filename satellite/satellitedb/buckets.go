@@ -16,6 +16,11 @@ type bucketsDB struct {
 	db dbx.Methods
 }
 
+// Buckets returns database for interacting with buckets
+func (db *DB) Buckets() buckets.DB {
+	return &bucketsDB{db: db.db}
+}
+
 // CreateBucket creates a new bucket
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -43,28 +48,11 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (err
 // GetBucket returns a bucket from the database
 func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxbucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
+	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
-	id, err := uuid.Parse(string(dbxbucket.Id))
-	if err != nil {
-		return bucket, err
-	}
-	project, err := uuid.Parse(string(dbxbucket.ProjectId))
-	if err != nil {
-		return bucket, err
-	}
-	return storj.Bucket{
-		ID:                   *id,
-		Name:                 string(dbxbucket.Name),
-		ProjectID:            *project,
-		Created:              dbxbucket.CreatedAt,
-		PathCipher:           storj.CipherSuite(dbxbucket.PathCipher),
-		SegmentsSize:         int64(dbxbucket.DefaultSegmentSize),
-		RedundancyScheme:     storj.RedundancyScheme{},
-		EncryptionParameters: storj.EncryptionParameters{},
-	}, err
+	return convertDBXtoBucket(dbxBucket)
 }
 
 // DeleteBucket deletes a bucket
@@ -77,7 +65,7 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 	return err
 }
 
-// ListBuckets returns a list of buckets for a project
+// ListBuckets returns a list of all buckets for a project
 func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID) (buckets []storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rows, err := db.db.All_BucketMetainfo_By_ProjectId_OrderBy_Asc_Name(ctx,
@@ -86,31 +74,43 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID) (buck
 	if err != nil {
 		return buckets, err
 	}
-	for _, dbxbucket := range rows {
-		id, err := uuid.Parse(string(dbxbucket.Id))
+	for _, dbxBucket := range rows {
+		item, err := convertDBXtoBucket(dbxBucket)
 		if err != nil {
 			return buckets, err
-		}
-		project, err := uuid.Parse(string(dbxbucket.ProjectId))
-		if err != nil {
-			return buckets, err
-		}
-		item := storj.Bucket{
-			ID:                   *id,
-			Name:                 string(dbxbucket.Name),
-			ProjectID:            *project,
-			Created:              dbxbucket.CreatedAt,
-			PathCipher:           storj.CipherSuite(dbxbucket.PathCipher),
-			SegmentsSize:         int64(dbxbucket.DefaultSegmentSize),
-			RedundancyScheme:     storj.RedundancyScheme{},
-			EncryptionParameters: storj.EncryptionParameters{},
 		}
 		buckets = append(buckets, item)
 	}
 	return buckets, err
 }
 
-// Buckets returns database for interacting with buckets
-func (db *DB) Buckets() buckets.DB {
-	return &bucketsDB{db: db.db}
+func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
+	id, err := uuid.Parse(string(dbxBucket.Id))
+	if err != nil {
+		return bucket, err
+	}
+	project, err := uuid.Parse(string(dbxBucket.ProjectId))
+	if err != nil {
+		return bucket, err
+	}
+	return storj.Bucket{
+		ID:           *id,
+		Name:         string(dbxBucket.Name),
+		ProjectID:    *project,
+		Created:      dbxBucket.CreatedAt,
+		PathCipher:   storj.CipherSuite(dbxBucket.PathCipher),
+		SegmentsSize: int64(dbxBucket.DefaultSegmentSize),
+		RedundancyScheme: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(dbxBucket.DefaultRedundancyAlgorithm),
+			ShareSize:      int32(dbxBucket.DefaultRedundancyShareSize),
+			RequiredShares: int16(dbxBucket.DefaultRedundancyRequiredShares),
+			RepairShares:   int16(dbxBucket.DefaultRedundancyRepairShares),
+			OptimalShares:  int16(dbxBucket.DefaultRedundancyOptimalShares),
+			TotalShares:    int16(dbxBucket.DefaultRedundancyTotalShares),
+		},
+		EncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
+			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
+		},
+	}, err
 }
