@@ -34,8 +34,8 @@ type Conn struct {
 	client pb.NodesClient
 }
 
-// NewDialer creates a dialer.
-func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
+// New creates a dialer.
+func New(log *zap.Logger, transport transport.Client) *Dialer {
 	dialer := &Dialer{
 		log:       log,
 		transport: transport,

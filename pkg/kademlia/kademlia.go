@@ -66,7 +66,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
-		dialer:               dial.NewDialer(log.Named("dialer"), transport),
+		dialer:               dial.New(log.Named("dialer"), transport),
 		refreshThreshold:     int64(time.Minute),
 	}
 

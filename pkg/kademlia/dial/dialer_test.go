@@ -42,7 +42,7 @@ func TestDialer(t *testing.T) {
 	{ // PingNode: storage node pings all other storage nodes
 		self := planet.StorageNodes[0]
 
-		dialer := dial.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := dial.New(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -64,7 +64,7 @@ func TestDialer(t *testing.T) {
 	{ // FetchPeerIdentity: storage node fetches identity of the satellite
 		self := planet.StorageNodes[0]
 
-		dialer := dial.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := dial.New(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -93,7 +93,7 @@ func TestDialer(t *testing.T) {
 
 	{ // Lookup: storage node query every node for everyone elese
 		self := planet.StorageNodes[1]
-		dialer := dial.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := dial.New(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -128,7 +128,7 @@ func TestDialer(t *testing.T) {
 
 	{ // Lookup: storage node queries every node for missing storj.NodeID{} and storj.NodeID{255}
 		self := planet.StorageNodes[2]
-		dialer := dial.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := dial.New(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		targets := []storj.NodeID{
@@ -194,7 +194,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		dialer := dial.NewDialer(zaptest.NewLogger(t), slowClient)
+		dialer := dial.New(zaptest.NewLogger(t), slowClient)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -230,7 +230,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		dialer := dial.NewDialer(zaptest.NewLogger(t), slowClient)
+		dialer := dial.New(zaptest.NewLogger(t), slowClient)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -267,7 +267,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		dialer := dial.NewDialer(zaptest.NewLogger(t), slowClient)
+		dialer := dial.New(zaptest.NewLogger(t), slowClient)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
