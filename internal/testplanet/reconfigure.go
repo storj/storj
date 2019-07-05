@@ -19,7 +19,7 @@ type Reconfigure struct {
 	NewSatelliteDB func(log *zap.Logger, index int) (satellite.DB, error)
 	Satellite      func(log *zap.Logger, index int, config *satellite.Config)
 
-	NewStorageNodeDB func(index int) (storagenode.DB, error)
+	NewStorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode      func(index int, config *storagenode.Config)
 	NewIPCount       int
 }

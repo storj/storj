@@ -34,8 +34,12 @@
 	import SortingHeader from '@/components/buckets/SortingHeader.vue';
 	import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
 	import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { BUCKET_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
 	@Component({
+        mounted: function() {
+            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
+        },
 		data: function () {
 			return {
 				emptyImage: EMPTY_STATE_IMAGES.API_KEY
