@@ -35,13 +35,8 @@ func TestDataRepair(t *testing.T) {
 	var repairMaxExcessOptimalThreshold int
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-		// TODO: After the changes applied by the ticket v3-1927, the number must be
-		// this or greater than this otherwise for some unknown reason the repair
-		// upload repaired pieces to previous nodes which caused the repair to
-		// trigger; so with a lower number the repair contains pieces in nodes which
-		// were turned down and the test doesn't pass
-		StorageNodeCount: 16,
+		SatelliteCount:   1,
+		StorageNodeCount: 14,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
