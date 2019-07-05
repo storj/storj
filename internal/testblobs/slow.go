@@ -39,7 +39,6 @@ func (slow *SlowDB) Pieces() storage.Blobs {
 // SetLatency enables a sleep for delay duration for all piece operations.
 // A zero or negative delay means no sleep.
 func (slow *SlowDB) SetLatency(delay time.Duration) {
-	slow.log.Debug("SlowDB SetLatency", zap.Duration("delay", delay))
 	slow.blobs.SetLatency(delay)
 }
 
@@ -87,14 +86,11 @@ func (slow *SlowBlobs) FreeSpace() (int64, error) {
 // SetLatency configures the blob store to sleep for delay duration for all
 // operations. A zero or negative delay means no sleep.
 func (slow *SlowBlobs) SetLatency(delay time.Duration) {
-	slow.log.Debug("SlowBlobs SetLatency", zap.Duration("delay", delay))
 	atomic.StoreInt64(&slow.delay, int64(delay))
 }
 
 // sleep sleeps for the duration set to slow.delay
 func (slow *SlowBlobs) sleep() {
 	delay := time.Duration(atomic.LoadInt64(&slow.delay))
-	slow.log.Debug("sleeping", zap.Duration("delay", delay))
 	time.Sleep(delay)
-	slow.log.Debug("woke up")
 }
