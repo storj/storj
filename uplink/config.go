@@ -39,8 +39,8 @@ type ClientConfig struct {
 	SatelliteAddr  string        `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite" noprefix:"true"`
 	MaxInlineSize  memory.Size   `help:"max inline segment size in bytes" default:"4KiB"`
 	SegmentSize    memory.Size   `help:"the size of a segment in bytes" default:"64MiB"`
-	RequestTimeout time.Duration `help:"timeout for request" default:"0h0m20s"`
-	DialTimeout    time.Duration `help:"timeout for dials" default:"0h0m20s"`
+	RequestTimeout time.Duration `help:"timeout for request" default:"0h2m00s"`
+	DialTimeout    time.Duration `help:"timeout for dials" default:"0h2m00s"`
 }
 
 // Config uplink configuration
