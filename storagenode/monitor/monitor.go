@@ -5,6 +5,7 @@ package monitor
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -44,6 +45,16 @@ type Service struct {
 	allocatedBandwidth int64
 	Loop               sync2.Cycle
 	Config             Config
+	status             Status
+}
+
+// Status of bandwidth and storage for a storagenode
+type Status struct {
+	usedBandwidth int64
+	bwMutex       sync.RWMutex
+
+	usedSpace int64
+	sMutex    sync.RWMutex
 }
 
 // TODO: should it be responsible for monitoring actual bandwidth as well?
@@ -79,11 +90,13 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	service.SetUsedSpace(totalUsed)
 
 	usedBandwidth, err := service.usedBandwidth(ctx)
 	if err != nil {
 		return err
 	}
+	service.SetUsedBandwidth(usedBandwidth)
 
 	if usedBandwidth > service.allocatedBandwidth {
 		service.log.Warn("Exceed the allowed Bandwidth setting")
@@ -133,6 +146,73 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 }
 
+// GetUsedBandwidth returns the used bandwidth for a storagenode
+func (service *Service) GetUsedBandwidth() int64 {
+	service.status.bwMutex.RLock()
+	defer service.status.bwMutex.RUnlock()
+
+	return service.status.usedBandwidth
+}
+
+// SetUsedBandwidth sets the used bandwidth for a storagenode
+func (service *Service) SetUsedBandwidth(used int64) {
+	service.status.bwMutex.Lock()
+	defer service.status.bwMutex.Unlock()
+	service.log.Sugar().Debugf("setting used bandwidth to %d\n", used)
+	service.status.usedBandwidth = used
+}
+
+// UpdateUsedBandwidth add/subtract used bandwidth for a storagenode
+func (service *Service) UpdateUsedBandwidth(used int64) {
+	service.status.bwMutex.Lock()
+	defer service.status.bwMutex.Unlock()
+	service.log.Sugar().Debugf("update used bandwidth with %d\n", used)
+	service.status.usedBandwidth += used
+}
+
+// GetUsedSpace returns the used space for a storagenode
+func (service *Service) GetUsedSpace() int64 {
+	service.status.sMutex.RLock()
+	defer service.status.sMutex.RUnlock()
+	return service.status.usedSpace
+}
+
+// SetUsedSpace sets the used space for a storagenode
+func (service *Service) SetUsedSpace(used int64) {
+	service.status.sMutex.Lock()
+	defer service.status.sMutex.Unlock()
+	service.log.Sugar().Debugf("setting used space to %d\n", used)
+	service.status.usedSpace = used
+}
+
+// UpdateUsedSpace add/subtract used space for a storagenode
+func (service *Service) UpdateUsedSpace(used int64) {
+	service.status.sMutex.Lock()
+	defer service.status.sMutex.Unlock()
+	service.log.Sugar().Debugf("updating used space with %d\n", used)
+	service.status.usedSpace += used
+}
+
+// AvailableSpace returns available disk space for upload
+func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usedSpace := service.GetUsedSpace()
+	available := service.allocatedDiskSpace - usedSpace
+	service.log.Sugar().Debugf("available space is %d\n", available)
+	return available, nil
+}
+
+// AvailableBandwidth returns available bandwidth for upload/download
+func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	used := service.GetUsedBandwidth()
+	available := service.allocatedBandwidth - used
+	service.log.Sugar().Debugf("available bandwidth is %d\n", available)
+	return available, nil
+}
+
 // Close stops the monitor service.
 func (service *Service) Close() (err error) {
 	service.Loop.Close()
@@ -142,15 +222,8 @@ func (service *Service) Close() (err error) {
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace, err := service.usedSpace(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	usedBandwidth, err := service.usedBandwidth(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	usedSpace := service.GetUsedSpace()
+	usedBandwidth := service.GetUsedBandwidth()
 
 	service.routingTable.UpdateSelf(&pb.NodeCapacity{
 		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
@@ -176,26 +249,4 @@ func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) 
 		return 0, err
 	}
 	return usage.Total(), nil
-}
-
-// AvailableSpace returns available disk space for upload
-func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.pieceInfo.SpaceUsed(ctx)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-	allocatedSpace := service.allocatedDiskSpace
-	return allocatedSpace - usedSpace, nil
-}
-
-// AvailableBandwidth returns available bandwidth for upload/download
-func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usage, err := bandwidth.TotalMonthlySummary(ctx, service.usageDB)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-	allocatedBandwidth := service.allocatedBandwidth
-	return allocatedBandwidth - usage.Total(), nil
 }

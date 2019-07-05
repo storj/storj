@@ -118,16 +118,18 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	// TODO: parallelize this and maybe return early
+	piece, getErr := endpoint.pieceinfo.Get(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 	pieceInfoErr := endpoint.pieceinfo.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 	pieceErr := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
 
-	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
+	if err := errs.Combine(getErr, pieceInfoErr, pieceErr); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
 		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
 		// TODO: report internal server internal or missing error using grpc status,
 		// e.g. missing might happen when we get a deletion request after garbage collection has deleted it
 	} else {
+		endpoint.monitor.UpdateUsedSpace(-piece.PieceSize)
 		endpoint.log.Info("deleted", zap.Stringer("Piece ID", delete.Limit.PieceId))
 	}
 
@@ -318,6 +320,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 					deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
 					return ErrInternal.Wrap(errs.Combine(err, deleteErr))
 				}
+
+				endpoint.monitor.UpdateUsedSpace(info.PieceSize)
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
@@ -548,6 +552,7 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 		if err != nil {
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
+		endpoint.monitor.UpdateUsedBandwidth(order.Amount)
 	}
 }
 
