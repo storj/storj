@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
@@ -529,20 +528,9 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		cursor := audit.NewCursor(planet.Satellites[0].Metainfo.Service)
-		stripe, _, err := cursor.NextStripe(ctx)
+		stripe, _, err := planet.Satellites[0].Audit.Service.Cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
-
-		verifier := audit.NewVerifier(zap.L(),
-			planet.Satellites[0].Metainfo.Service,
-			planet.Satellites[0].Transport,
-			planet.Satellites[0].Overlay.Service,
-			planet.Satellites[0].DB.Containment(),
-			planet.Satellites[0].Orders.Service,
-			planet.Satellites[0].Identity,
-			128*memory.B,
-			5*time.Second)
 
 		// delete the piece from the first node
 		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
@@ -552,7 +540,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := verifier.Verify(ctx, stripe, nil)
+		report, err := planet.Satellites[0].Audit.Service.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, origNumPieces-1)
@@ -562,11 +550,11 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 
 		//refetch the stripe
-		stripe, _, err = cursor.NextStripe(ctx)
+		stripe, _, err = planet.Satellites[0].Audit.Service.Cursor.NextStripe(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, stripe)
 
-		report, err = verifier.Verify(ctx, stripe, nil)
+		report, err = planet.Satellites[0].Audit.Service.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
 		//verify no failures because that segment is gone
