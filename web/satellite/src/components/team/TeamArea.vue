@@ -36,6 +36,9 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
+    mounted: function() {
+        this.$store.dispatch(PM_ACTIONS.FETCH);
+    },
     data: function () {
         return {
             emptyImage: EMPTY_STATE_IMAGES.TEAM,
