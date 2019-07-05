@@ -11,12 +11,13 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
+	"storj.io/storj/pkg/transport"
 )
 
 // DHT is the interface for the DHT in the Storj network
 type DHT interface {
 	FindNear(ctx context.Context, start storj.NodeID, limit int) ([]*pb.Node, error)
-	Bootstrap(ctx context.Context) error
+	Bootstrap(ctx context.Context, transport transport.Client) error
 	Ping(ctx context.Context, node pb.Node) (pb.Node, error)
 	FindNode(ctx context.Context, ID storj.NodeID) (pb.Node, error)
 	Seen() []*pb.Node
