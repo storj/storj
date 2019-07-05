@@ -171,7 +171,6 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		err = errs.Combine(writeErr, commitErr)
 		testIndex := fmt.Sprintf("#%d", i)
 		if tt.err != "" {
-			fmt.Printf("EEEE\n%+v\n%+v\n", writeErr, commitErr)
 			require.Error(t, err, testIndex)
 			require.Contains(t, err.Error(), tt.err, testIndex)
 		} else {
