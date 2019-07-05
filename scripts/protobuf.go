@@ -17,8 +17,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-
-	"github.com/kylelemons/godebug/diff"
 )
 
 var ignoreProto = map[string]bool{
@@ -226,8 +224,11 @@ func checklock(dir string, dirs []string, files []string) error {
 	}
 
 	if !bytes.Equal(original, changed) {
-		diff, _ := difflines(string(original), string(changed))
-		return fmt.Errorf("protolock is not up to date: %v", diff)
+		diff, err := diff(original, changed)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err.Error())
+		}
+		return fmt.Errorf("protolock is not up to date: %v", string(diff))
 	}
 
 	return nil
@@ -316,21 +317,40 @@ func findProtolockDir(dir string) string {
 	return dir
 }
 
-func difflines(a, b string) (patch string, removed bool) {
-	alines, blines := strings.Split(a, "\n"), strings.Split(b, "\n")
-
-	chunks := diff.DiffChunks(alines, blines)
-
-	buf := new(bytes.Buffer)
-	for _, c := range chunks {
-		for _, line := range c.Added {
-			fmt.Fprintf(buf, "+%s\n", line)
-		}
-		for _, line := range c.Deleted {
-			fmt.Fprintf(buf, "-%s\n", line)
-			removed = true
-		}
+func diff(b1, b2 []byte) (data []byte, err error) {
+	f1, err := writeTempFile("protobuf-diff", b1)
+	if err != nil {
+		return
 	}
+	defer os.Remove(f1)
 
-	return strings.TrimRight(buf.String(), "\n"), removed
+	f2, err := writeTempFile("protobuf-diff", b2)
+	if err != nil {
+		return
+	}
+	defer os.Remove(f2)
+
+	data, err = exec.Command("diff", "-u", f1, f2).CombinedOutput()
+	if len(data) > 0 {
+		// diff exits with a non-zero status when the files don't match.
+		// Ignore that failure as long as we get output.
+		err = nil
+	}
+	return
+}
+
+func writeTempFile(prefix string, data []byte) (string, error) {
+	file, err := ioutil.TempFile("", prefix)
+	if err != nil {
+		return "", err
+	}
+	_, err = file.Write(data)
+	if err1 := file.Close(); err == nil {
+		err = err1
+	}
+	if err != nil {
+		os.Remove(file.Name())
+		return "", err
+	}
+	return file.Name(), nil
 }
