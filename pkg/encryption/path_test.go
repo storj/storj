@@ -4,6 +4,7 @@
 package encryption
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"testing"
@@ -117,8 +118,15 @@ func TestSegmentEncoding(t *testing.T) {
 		[]byte{0, '/', 'a', '0', 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', 0},
 	}
 
+	// additional random segment
+	segments = append(segments, testrand.BytesInt(255))
+
 	for _, segment := range segments {
 		encoded := encodeSegment(segment)
+		require.Equal(t, -1, bytes.IndexByte(encoded, 0))
+		require.Equal(t, -1, bytes.IndexByte(encoded, 255))
+		require.Equal(t, -1, bytes.IndexByte(encoded, '/'))
+
 		decoded, err := decodeSegment(encoded)
 		require.NoError(t, err)
 		require.Equal(t, segment, decoded)
