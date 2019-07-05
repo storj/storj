@@ -273,7 +273,10 @@ func storeDecryptPathComponent(comp string, cipher storj.CipherSuite, key *storj
 		return "", nil
 	}
 
-	data := decodeSegment([]byte(comp))
+	data, err := decodeSegment([]byte(comp))
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 
 	nonceSize := storj.NonceSize
 	if cipher == storj.EncAESGCM {

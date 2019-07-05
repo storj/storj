@@ -119,9 +119,16 @@ func TestSegmentEncoding(t *testing.T) {
 
 	for _, segment := range segments {
 		encoded := encodeSegment(segment)
-		decoded := decodeSegment(encoded)
+		decoded, err := decodeSegment(encoded)
+		require.NoError(t, err)
 		require.Equal(t, segment, decoded)
 	}
+}
+
+func TestInvlidSegmentDecoding(t *testing.T) {
+	encoded := []byte{3, 4, 5, 6, 7}
+	_, err := decodeSegment(encoded)
+	require.Error(t, err)
 }
 
 func BenchmarkSegmentEncoding(b *testing.B) {
@@ -144,7 +151,7 @@ func BenchmarkSegmentEncoding(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			for _, segment := range segments {
 				encoded := encodeSegment(segment)
-				_ = decodeSegment(encoded)
+				_, _ = decodeSegment(encoded)
 			}
 		}
 	})

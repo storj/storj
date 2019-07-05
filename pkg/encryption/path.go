@@ -7,6 +7,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/storj/pkg/storj"
 )
 
@@ -146,7 +148,10 @@ func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 		return "", nil
 	}
 
-	data := decodeSegment([]byte(comp))
+	data, err := decodeSegment([]byte(comp))
+	if err != nil {
+		return "", Error.Wrap(err)
+	}
 
 	nonceSize := storj.NonceSize
 	if cipher == storj.EncAESGCM {
@@ -204,15 +209,18 @@ func encodeSegment(segment []byte) []byte {
 	return result
 }
 
-func decodeSegment(segment []byte) []byte {
+func decodeSegment(segment []byte) ([]byte, error) {
 	if len(segment) == 0 {
-		return segment
+		return segment, nil
 	}
 	if segment[0] == emptyComponent[0] {
-		return []byte{}
+		return []byte{}, nil
 	}
 
-	// TODO should first byte different than x02 should be invalid?
+	if segment[0] != notEmptyComponentPrefix {
+		return []byte{}, errs.New("invalid encoded segment prefix")
+	}
+
 	currentIndex := 0
 	for i := 1; i < len(segment); i++ {
 		switch {
@@ -229,5 +237,5 @@ func decodeSegment(segment []byte) []byte {
 		}
 		currentIndex++
 	}
-	return segment[:currentIndex]
+	return segment[:currentIndex], nil
 }
