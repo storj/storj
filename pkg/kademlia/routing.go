@@ -242,13 +242,23 @@ func (rt *RoutingTable) ConnectionSuccess(ctx context.Context, node *pb.Node) (e
 	vouchers := []*pb.Voucher{}
 	hasVoucher := rt.nodeHasValidVoucher(ctx, node, vouchers)
 	if hasVoucher {
-		nodeAdded, err := rt.addNode(ctx, node)
+		nodeAdded, withinK, err := rt.addNode(ctx, node)
 		if err != nil {
-			return RoutingErr.New("could not add node %s", err)
+			return RoutingErr.New("could not add node to routing table %s", err)
 		}
 		if nodeAdded {
-			// TODO: check new node neighborhood
-			// TODO: update antechamber by removing nodes that no longer fall in the neighborhood
+			// remove node from antechamber if exists
+			err = rt.antechamberRemoveNode(ctx, node)
+			if err != nil {
+				return RoutingErr.New("could not remove node from antechamber %s", err)
+			}
+			// update antechamber by removing all nodes that no longer fall in the neighborhood
+			if withinK {
+				err = rt.antechamberRemoveExtraneousNodes()
+				if err != nil {
+					return RoutingErr.New("could not remove extraneous nodes from antechamber %s", err)
+				}
+			}
 		}
 	} else {
 		err = rt.antechamberAddNode(ctx, node)

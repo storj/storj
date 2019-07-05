@@ -77,3 +77,7 @@ func determineDifferingBitIndex(bID, comparisonID bucketID) (int, error) {
 
 	return -1, nil
 }
+
+// return index of target or nearest smaller nodeID
+func binarySearch(sortedNodeIDs storj.NodeIDList, target storj.NodeID) {
+}

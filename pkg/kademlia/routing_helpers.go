@@ -18,7 +18,7 @@ import (
 // addNode attempts to add a new contact to the routing table
 // Requires node not already in table
 // Returns true if node was added successfully
-func (rt *RoutingTable) addNode(ctx context.Context, node *pb.Node) (_ bool, err error) {
+func (rt *RoutingTable) addNode(ctx context.Context, node *pb.Node) (success bool, withinK bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
 	defer rt.mutex.Unlock()
@@ -26,69 +26,69 @@ func (rt *RoutingTable) addNode(ctx context.Context, node *pb.Node) (_ bool, err
 	if node.Id == rt.self.Id {
 		err := rt.createOrUpdateKBucket(ctx, firstBucketID, time.Now())
 		if err != nil {
-			return false, RoutingErr.New("could not create initial K bucket: %s", err)
+			return false, true, RoutingErr.New("could not create initial K bucket: %s", err)
 		}
 		err = rt.putNode(ctx, node)
 		if err != nil {
-			return false, RoutingErr.New("could not add initial node to nodeBucketDB: %s", err)
+			return false, true, RoutingErr.New("could not add initial node to nodeBucketDB: %s", err)
 		}
-		return true, nil
+		return true, true, nil
 	}
 	kadBucketID, err := rt.getKBucketID(ctx, node.Id)
 	if err != nil {
-		return false, RoutingErr.New("could not getKBucketID: %s", err)
+		return false, false, RoutingErr.New("could not getKBucketID: %s", err)
 	}
 	hasRoom, err := rt.kadBucketHasRoom(ctx, kadBucketID)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	containsLocal, err := rt.kadBucketContainsLocalNode(ctx, kadBucketID)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 
-	withinK, err := rt.wouldBeInNearestK(ctx, node.Id)
+	withinK, err = rt.wouldBeInNearestK(ctx, node.Id)
 	if err != nil {
-		return false, RoutingErr.New("could not determine if node is within k: %s", err)
+		return false, false, RoutingErr.New("could not determine if node is within k: %s", err)
 	}
 	for !hasRoom {
 		if containsLocal || withinK {
 			depth, err := rt.determineLeafDepth(ctx, kadBucketID)
 			if err != nil {
-				return false, RoutingErr.New("could not determine leaf depth: %s", err)
+				return false, withinK, RoutingErr.New("could not determine leaf depth: %s", err)
 			}
 			kadBucketID = rt.splitBucket(kadBucketID, depth)
 			err = rt.createOrUpdateKBucket(ctx, kadBucketID, time.Now())
 			if err != nil {
-				return false, RoutingErr.New("could not split and create K bucket: %s", err)
+				return false, withinK, RoutingErr.New("could not split and create K bucket: %s", err)
 			}
 			kadBucketID, err = rt.getKBucketID(ctx, node.Id)
 			if err != nil {
-				return false, RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
+				return false, withinK, RoutingErr.New("could not get k bucket Id within add node split bucket checks: %s", err)
 			}
 			hasRoom, err = rt.kadBucketHasRoom(ctx, kadBucketID)
 			if err != nil {
-				return false, err
+				return false, withinK, err
 			}
 			containsLocal, err = rt.kadBucketContainsLocalNode(ctx, kadBucketID)
 			if err != nil {
-				return false, err
+				return false, withinK, err
 			}
 
 		} else {
 			rt.addToReplacementCache(kadBucketID, node)
-			return false, nil
+			return false, withinK, nil
 		}
 	}
 	err = rt.putNode(ctx, node)
 	if err != nil {
-		return false, RoutingErr.New("could not add node to nodeBucketDB: %s", err)
+		return false, withinK, RoutingErr.New("could not add node to nodeBucketDB: %s", err)
 	}
 	err = rt.createOrUpdateKBucket(ctx, kadBucketID, time.Now())
 	if err != nil {
-		return false, RoutingErr.New("could not create or update K bucket: %s", err)
+		return false, withinK, RoutingErr.New("could not create or update K bucket: %s", err)
 	}
-	return true, nil
+	return true, withinK, nil
 }
 
 // updateNode will update the node information given that
@@ -214,7 +214,7 @@ func (rt *RoutingTable) wouldBeInNearestK(ctx context.Context, nodeID storj.Node
 		return true, nil
 	}
 	var furthestIDWithinK storj.NodeID
-	if len(closestNodes) <= rt.bucketSize {
+	if len(closestNodes) <= rt.bucketSize { // should this just be ==?
 		furthestIDWithinK = closestNodes[len(closestNodes)-1].Id
 	} else {
 		furthestIDWithinK = closestNodes[rt.bucketSize].Id

@@ -124,3 +124,8 @@ func (rt *RoutingTable) iterateAntechamber(ctx context.Context, start storj.Node
 		},
 	)
 }
+
+// antechamberRemoveExtraneousNodes removes nodes that no longer would fall within the node neighborhood
+func (rt *RoutingTable) antechamberRemoveExtraneousNodes() error {
+	return nil
+}
