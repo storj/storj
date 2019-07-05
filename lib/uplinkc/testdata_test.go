@@ -106,9 +106,9 @@ func TestLibstorj(t *testing.T) {
 	}
 
 	var libstorjIncludes []testcontext.Include
-	libstorjHeader := testcontext.Include{
-		Header: filepath.Join(currentdir, "..", "libstorj", "src", "storj.h"),
-	}
+	//libstorjHeader := testcontext.Include{
+	//	Header: filepath.Join(currentdir, "..", "libstorj", "src", "storj.h"),
+	//}
 
 	srcFiles := []string{
 		//"bip39.c",
@@ -117,7 +117,7 @@ func TestLibstorj(t *testing.T) {
 		//"http.c",
 		//"rs.c",
 		"storj.c",
-		//"uploader.c",
+		"uploader.c",
 		//"utils.c",
 	}
 	for i, base := range srcFiles {
@@ -148,12 +148,12 @@ func TestLibstorj(t *testing.T) {
 		libuplink,
 		definition,
 		testcontext.CLibJSON,
-		testcontext.CLibNettle,
+		//testcontext.CLibNettle,
 		testcontext.CLibUV,
-		testcontext.CLibCurl,
-		testcontext.CLibMath,
-		testcontext.CLibMicroHTTPD,
-		libstorjHeader,
+		//testcontext.CLibCurl,
+		//testcontext.CLibMath,
+		//testcontext.CLibMicroHTTPD,
+		//libstorjHeader,
 	}, libstorjIncludes...)
 
 	testexe := ctx.CompileC(t, testcontext.CompileCOptions{
@@ -169,6 +169,7 @@ func TestLibstorj(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
+			"TMPDIR="+ctx.Dir(),
 		)
 
 		out, err := cmd.CombinedOutput()
