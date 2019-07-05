@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/storage"
 )
 
@@ -23,11 +22,11 @@ import (
 type Service struct {
 	logger    *zap.Logger
 	DB        storage.KeyValueStore
-	bucketsDB buckets.DB
+	bucketsDB BucketsDB
 }
 
 // NewService creates new metainfo service
-func NewService(logger *zap.Logger, db storage.KeyValueStore, bucketsDB buckets.DB) *Service {
+func NewService(logger *zap.Logger, db storage.KeyValueStore, bucketsDB BucketsDB) *Service {
 	return &Service{logger: logger, DB: db, bucketsDB: bucketsDB}
 }
 
@@ -171,9 +170,9 @@ func (s *Service) Iterate(ctx context.Context, prefix string, first string, recu
 }
 
 // CreateBucket creates a new bucket in the buckets db
-func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (err error) {
+func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.bucketsDB.CreateBucket(ctx, bucket)
+	return s.bucketsDB.CreateBucket(ctx, bucket) 
 }
 
 // GetBucket returns an existing bucket in the buckets db

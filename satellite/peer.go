@@ -43,7 +43,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -100,7 +99,7 @@ type DB interface {
 	// Containment returns database for containment
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
-	Buckets() buckets.DB
+	Buckets() metainfo.BucketsDB
 }
 
 // Config is the global config satellite

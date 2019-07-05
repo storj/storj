@@ -24,8 +24,8 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
-	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/rewards"
 )
@@ -76,20 +76,20 @@ func (m *lockedAttribution) QueryAttribution(ctx context.Context, partnerID uuid
 }
 
 // Buckets returns the database to interact with buckets
-func (m *locked) Buckets() buckets.DB {
+func (m *locked) Buckets() metainfo.BucketsDB {
 	m.Lock()
 	defer m.Unlock()
 	return &lockedBuckets{m.Locker, m.db.Buckets()}
 }
 
-// lockedBuckets implements locking wrapper for buckets.DB
+// lockedBuckets implements locking wrapper for metainfo.BucketsDB
 type lockedBuckets struct {
 	sync.Locker
-	db buckets.DB
+	db metainfo.BucketsDB
 }
 
 // Create creates a new bucket
-func (m *lockedBuckets) CreateBucket(ctx context.Context, bucket storj.Bucket) (err error) {
+func (m *lockedBuckets) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.CreateBucket(ctx, bucket)

@@ -706,12 +706,14 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return &pb.BucketCreateResponse{}, nil
+	return &pb.BucketCreateResponse{
+		Bucket: convertBucketToProto(ctx, bucket),
+	}, nil
 }
 
 func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
@@ -756,6 +758,11 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
@@ -818,7 +825,7 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (allowedBuck
 	return key.GetAllowedBuckets(ctx, action)
 }
 
-// SetBucketAttribution does x
+// SetBucketAttribution sets the bucket attribution.
 func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
-	return resp, err
+	return resp, status.Error(codes.Unimplemented, "not implemented")
 }

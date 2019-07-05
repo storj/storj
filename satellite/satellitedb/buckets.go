@@ -7,8 +7,9 @@ import (
 	"context"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/buckets"
+	"storj.io/storj/satellite/metainfo"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -17,14 +18,14 @@ type bucketsDB struct {
 }
 
 // Buckets returns database for interacting with buckets
-func (db *DB) Buckets() buckets.DB {
+func (db *DB) Buckets() metainfo.BucketsDB {
 	return &bucketsDB{db: db.db}
 }
 
 // CreateBucket creates a new bucket
-func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (err error) {
+func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Create_BucketMetainfo(ctx,
+	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
 		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
 		dbx.BucketMetainfo_Name([]byte(bucket.Name)),
@@ -40,12 +41,17 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (err
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.RedundancyScheme.TotalShares)),
 	)
 	if err != nil {
-		return storj.ErrBucket.Wrap(err)
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
-	return nil
+
+	bucket, err = convertDBXtoBucket(row)
+	if err != nil {
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+	}
+	return bucket, nil
 }
 
-// GetBucket returns a bucket from the database
+// GetBucket returns a bucket
 func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
@@ -85,18 +91,18 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID) (buck
 }
 
 func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
-	id, err := uuid.Parse(string(dbxBucket.Id))
+	id, err := bytesToUUID(dbxBucket.Id)
 	if err != nil {
 		return bucket, err
 	}
-	project, err := uuid.Parse(string(dbxBucket.ProjectId))
+	project, err := bytesToUUID(dbxBucket.ProjectId)
 	if err != nil {
 		return bucket, err
 	}
 	return storj.Bucket{
-		ID:           *id,
+		ID:           id,
 		Name:         string(dbxBucket.Name),
-		ProjectID:    *project,
+		ProjectID:    project,
 		Created:      dbxBucket.CreatedAt,
 		PathCipher:   storj.CipherSuite(dbxBucket.PathCipher),
 		SegmentsSize: int64(dbxBucket.DefaultSegmentSize),

@@ -1,7 +1,7 @@
 // Copyright (C) 2018 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package buckets
+package metainfo
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// DB is the interface for the database to interact with buckets
-type DB interface {
+// BucketsDB is the interface for the database to interact with buckets
+type BucketsDB interface {
 	// Create creates a new bucket
-	CreateBucket(ctx context.Context, bucket storj.Bucket) (err error)
+	CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error)
 	// Get returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error)
 	// Delete deletes a bucket
