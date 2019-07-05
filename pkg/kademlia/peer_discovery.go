@@ -11,7 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/dial"
+	"storj.io/storj/pkg/kademlia/dial"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
