@@ -70,6 +70,14 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 	service.lastPieceCounts = make(map[storj.NodeID]int)
 	service.lastSendTime = time.Now().UTC()
 
+	go func() {
+		service.sendRetainInfos(ctx, pieceTracker)
+	}()
+
+	return nil
+}
+
+func (service *Service) sendRetainInfos(ctx context.Context, pieceTracker PieceTracker) {
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
 		log := service.log.Named(id.String())
 
@@ -79,7 +87,8 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 
 		ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
 		if err != nil {
-			return Error.Wrap(err)
+			service.log.Error(Error.Wrap(err).Error())
+			continue
 		}
 		defer func() {
 			err := ps.Close()
@@ -104,6 +113,4 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (er
 		// 	return Error.Wrap(err)
 		// }
 	}
-
-	return nil
 }

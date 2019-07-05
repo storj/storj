@@ -128,13 +128,11 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					// reset durability stats for next iteration
 					checker.monStats = durabilityStats{}
 
-					// go func() {
 					err := checker.garbageService.Send(ctx, checker.pieceTracker)
 					if err != nil {
 						checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
 					}
 					checker.pieceTracker = checker.garbageService.NewPieceTracker()
-					// }()
 
 				}
 			}()
