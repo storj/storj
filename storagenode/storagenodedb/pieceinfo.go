@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -16,7 +17,9 @@ import (
 	"storj.io/storj/storagenode/pieces"
 )
 
-type pieceinfo struct{ *InfoDB }
+type pieceinfo struct {
+	*InfoDB
+}
 
 // PieceInfo returns database for storing piece information
 func (db *DB) PieceInfo() pieces.DB { return db.info.PieceInfo() }
@@ -27,6 +30,7 @@ func (db *InfoDB) PieceInfo() pieces.DB { return &pieceinfo{db} }
 // Add inserts piece information into the database.
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	certdb := db.CertDB()
 	certid, err := certdb.Include(ctx, info.Uplink)
 	if err != nil {
@@ -44,6 +48,10 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 		VALUES (?,?,?,?,?,?)
 	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceExpiration, uplinkPieceHash, certid)
 
+	if err == nil {
+		db.loadSpaceUsed(ctx)
+		atomic.AddInt64(&db.usedSpace, info.PieceSize)
+	}
 	return ErrInfo.Wrap(err)
 }
 
@@ -86,11 +94,24 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var pieceSize int64
+	err = db.db.QueryRowContext(ctx, db.Rebind(`
+		SELECT piece_size
+		FROM pieceinfo
+		WHERE satellite_id = ? AND piece_id = ?
+	`), satelliteID, pieceID).Scan(&pieceSize)
+
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		DELETE FROM pieceinfo
 		WHERE satellite_id = ?
 		  AND piece_id = ?
 	`), satelliteID, pieceID)
+
+	if pieceSize != 0 && err == nil {
+		db.loadSpaceUsed(ctx)
+
+		atomic.AddInt64(&db.usedSpace, -pieceSize)
+	}
 
 	return ErrInfo.Wrap(err)
 }
@@ -133,6 +154,19 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 		infos = append(infos, info)
 	}
 	return infos, nil
+}
+
+func (db *pieceinfo) CachedSpaceUsed(ctx context.Context) (_ int64, err error) {
+	db.loadSpaceUsed(ctx)
+
+	return atomic.LoadInt64(&db.usedSpace), nil
+}
+
+func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
+	db.once.Do(func() {
+		usedSpace, _ := db.SpaceUsed(ctx)
+		atomic.AddInt64(&db.usedSpace, usedSpace)
+	})
 }
 
 // SpaceUsed calculates disk space used by all pieces

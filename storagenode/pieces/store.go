@@ -61,6 +61,8 @@ type DB interface {
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// DeleteFailed marks piece deletion from disk failed
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
+	// CachedSpaceUsed returns the in memory value for disk space used by all pieces
+	CachedSpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsed calculates disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsedBySatellite calculates disk space used by all pieces by satellite

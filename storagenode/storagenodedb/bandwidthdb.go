@@ -15,7 +15,9 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 )
 
-type bandwidthdb struct{ *InfoDB }
+type bandwidthdb struct {
+	*InfoDB
+}
 
 // Bandwidth returns table for storing bandwidth usage.
 func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
@@ -31,8 +33,47 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created)
+	if err == nil {
+		db.mu.Lock()
+		defer db.mu.Unlock()
 
+		beginningOfMonth := getBeginningOfMonth(created.UTC())
+		if beginningOfMonth.Equal(db.usedSince) {
+			db.usedBandwidth += amount
+		} else {
+			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
+			if err == nil {
+				return err
+			}
+			db.usedSince = beginningOfMonth
+			db.usedBandwidth = usage.Total()
+		}
+	}
 	return ErrInfo.Wrap(err)
+}
+
+// CachedBandwidthUsed returns summary of bandwidth usages
+func (db *bandwidthdb) CachedBandwidthUsed(ctx context.Context) (_ int64, err error) {
+	db.mu.RLock()
+	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
+	if beginningOfMonth.Equal(db.usedSince) {
+		defer db.mu.RUnlock()
+		return db.usedBandwidth, nil
+	}
+
+	db.mu.RUnlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	// double check no one else changed this
+	if !beginningOfMonth.Equal(db.usedSince) {
+		usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
+		if err != nil {
+			return 0, err
+		}
+		db.usedSince = beginningOfMonth
+		db.usedBandwidth = usage.Total()
+	}
+	return db.usedBandwidth, nil
 }
 
 // Summary returns summary of bandwidth usages
@@ -106,4 +147,9 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	}
 
 	return entries, ErrInfo.Wrap(rows.Err())
+}
+
+func getBeginningOfMonth(now time.Time) time.Time {
+	y, m, _ := now.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().UTC().Location())
 }
