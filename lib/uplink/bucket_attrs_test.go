@@ -6,6 +6,7 @@ package uplink_test
 import (
 	"bytes"
 	"io/ioutil"
+	"reflect"
 	"testing"
 	"time"
 
@@ -19,6 +20,16 @@ import (
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
+
+// hackyGetBucketAttribution exists to read the unexported Attribution field on a bucket.
+// It should be removed once there's an exported way to do this.
+func hackyGetBucketAttribution(bucket *uplink.Bucket) string {
+	return reflect.ValueOf(bucket).
+		Elem().
+		FieldByName("bucket").
+		FieldByName("Attribution").
+		String()
+}
 
 type testConfig struct {
 	uplinkCfg uplink.Config
@@ -105,7 +116,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			require.NoError(t, err)
 			defer ctx.Check(bucket.Close)
 
-			assert.Equal(t, bucket.Info().Attribution, partnerID.String())
+			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
 		})
 
 		t.Run("open with different partner id", func(t *testing.T) {
@@ -126,7 +137,7 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			defer ctx.Check(bucket.Close)
 
 			// shouldn't change
-			assert.Equal(t, bucket.Info().Attribution, partnerID.String())
+			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
 		})
 	})
 }
