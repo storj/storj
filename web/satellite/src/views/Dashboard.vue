@@ -12,9 +12,7 @@ import {AppState} from "../utils/constants/appStateEnum";
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
                 <div class="dashboard-container__main-area">
-                    <!--<keep-alive>-->
-                        <router-view />
-                    <!--</keep-alive>-->
+                    <router-view />
                 </div>
             </div>
         </div>
