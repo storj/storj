@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	_libuplink "storj.io/storj/lib/uplink"
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
@@ -94,7 +96,7 @@ func TestC(t *testing.T) {
 
 func TestLibstorj(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
-	defer ctx.Cleanup()
+	//defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
@@ -164,12 +166,50 @@ func TestLibstorj(t *testing.T) {
 	})
 
 	RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
+		cfg := _libuplink.Config{}
+		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
+
+		// TODO: temporary ------------------------------------------------- //
+		uplink, err := _libuplink.NewUplink(ctx, &cfg)
+		require.NoError(t, err)
+		require.NotNil(t, uplink)
+
+		apikey, err := _libuplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
+		require.NoError(t, err)
+		require.NotNil(t, apikey)
+
+		project, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), apikey)
+		require.NoError(t, err)
+		require.NotNil(t, project)
+
+		_, err = project.CreateBucket(ctx, "test-bucket", nil)
+		require.NoError(t, err)
+
+		//var defaultKey storj.Key
+		//copy(defaultKey[:], "123a123")
+		//encryptionAccess := _libuplink.NewEncryptionAccessWithDefaultKey(defaultKey)
+		encryptionAccess := _libuplink.NewEncryptionAccess()
+		encryptionAccessStr, err := encryptionAccess.Serialize()
+		require.NoError(t, err)
+		require.NotEmpty(t, encryptionAccess)
+
+		bucket, err := project.OpenBucket(ctx, "test-bucket", encryptionAccess)
+		require.NoError(t, err)
+		require.NotNil(t, bucket)
+
+		buf := bytes.NewBuffer([]byte("testing 123"))
+		err = bucket.UploadObject(ctx, "test-file", buf, nil)
+		require.NoError(t, err)
+		// ----------------------------------------------------------------- //
+
 		cmd := exec.Command(testexe)
 		cmd.Dir = filepath.Dir(testexe)
 		cmd.Env = append(os.Environ(),
 			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
 			"TMPDIR="+ctx.Dir(),
+			//-- TEMP
+			"ENC_ACCESS="+encryptionAccessStr,
 		)
 
 		out, err := cmd.CombinedOutput()
