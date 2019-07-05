@@ -17,37 +17,37 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
-import TabNavigation from '@/components/navigation/TabNavigation.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import TabNavigation from '@/components/navigation/TabNavigation.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
 
-@Component(
-    {
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                navigation: PROJECT_ROUTES,
-            };
-        },
-        computed: {
-            isProjectSelected: function (): boolean {
-                return this.$store.getters.selectedProject.id !== '';
+    @Component(
+        {
+            data: function () {
+                return {
+                    emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                    navigation: PROJECT_ROUTES,
+                };
             },
-        },
-        mounted() {
-            this.$router.push(PROJECT_ROUTES.DETAILS.path);
-        },
-        components: {
-            EmptyState,
-            TabNavigation,
+            computed: {
+                isProjectSelected: function (): boolean {
+                    return this.$store.getters.selectedProject.id !== '';
+                },
+            },
+            mounted() {
+                this.$router.push(PROJECT_ROUTES.DETAILS.path);
+            },
+            components: {
+                EmptyState,
+                TabNavigation,
+            }
         }
-    }
-)
+    )
 
-export default class ProjectDetailsArea extends Vue {
-}
+    export default class ProjectDetailsArea extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">

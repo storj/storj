@@ -4,75 +4,75 @@
 <template src="./registrationSuccessPopup.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import ROUTES from '@/utils/constants/routerConstants';
-import { resendEmailRequest } from '../../api/users';
-import { getUserID } from '@/utils/consoleLocalStorage';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import { resendEmailRequest } from '../../api/users';
+    import { getUserID } from '@/utils/consoleLocalStorage';
 
 
-@Component(
-    {
-        beforeDestroy: function() {
-            if (this.$data.intervalID) {
-                clearInterval(this.$data.intervalID);
-            }
-        },
-        data: function () {
-            return {
-                isResendEmailButtonDisabled: true,
-                timeToEnableResendEmailButton: '00:30',
-                intervalID: null,
-            };
-        },
-        computed: {
-            isPopupShown: function () {
-                return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
-            }
-        },
-        methods: {
-            onResendEmailButtonClick: async function () {
-                this.$data.isResendEmailButtonDisabled = true;
-
-                let userID = getUserID();
-                if (!userID) {
-                    return;
-                }
-
-                let response = await resendEmailRequest(userID);
-                if (response.isSuccess) {
-                    (this as any).startResendEmailCountdown();
+    @Component(
+        {
+            beforeDestroy: function() {
+                if (this.$data.intervalID) {
+                    clearInterval(this.$data.intervalID);
                 }
             },
-            onCloseClick: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-                this.$router.push(ROUTES.LOGIN.path);
+            data: function () {
+                return {
+                    isResendEmailButtonDisabled: true,
+                    timeToEnableResendEmailButton: '00:30',
+                    intervalID: null,
+                };
             },
-            startResendEmailCountdown: function () {
-                let countdown = 30;
-                let self = this;
-                this.$data.intervalID = setInterval(function () {
-                    countdown--;
+            computed: {
+                isPopupShown: function () {
+                    return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
+                }
+            },
+            methods: {
+                onResendEmailButtonClick: async function () {
+                    this.$data.isResendEmailButtonDisabled = true;
 
-                    let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-                    self.$data.timeToEnableResendEmailButton = `00:${secondsLeft}`;
-
-                    if (countdown <= 0) {
-                        clearInterval(self.$data.intervalID);
-                        self.$data.isResendEmailButtonDisabled = false;
+                    let userID = getUserID();
+                    if (!userID) {
+                        return;
                     }
-                }.bind(this), 1000);
-            }
-        },
-        components: {
-            Button,
-        },
-    }
-)
 
-export default class RegistrationSuccessPopup extends Vue {
-}
+                    let response = await resendEmailRequest(userID);
+                    if (response.isSuccess) {
+                        (this as any).startResendEmailCountdown();
+                    }
+                },
+                onCloseClick: function () {
+                    this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+                    this.$router.push(ROUTES.LOGIN.path);
+                },
+                startResendEmailCountdown: function () {
+                    let countdown = 30;
+                    let self = this;
+                    this.$data.intervalID = setInterval(function () {
+                        countdown--;
+
+                        let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
+                        self.$data.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+
+                        if (countdown <= 0) {
+                            clearInterval(self.$data.intervalID);
+                            self.$data.isResendEmailButtonDisabled = false;
+                        }
+                    }.bind(this), 1000);
+                }
+            },
+            components: {
+                Button,
+            },
+        }
+    )
+
+    export default class RegistrationSuccessPopup extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">

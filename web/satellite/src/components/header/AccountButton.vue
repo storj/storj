@@ -21,37 +21,37 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import AccountDropdown from './AccountDropdown.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import AccountDropdown from './AccountDropdown.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
-        computed: {
-            // May change later
-            avatarLetter: function (): string {
-                return this.$store.getters.userName.slice(0, 1).toUpperCase();
+    @Component(
+        {
+            computed: {
+                // May change later
+                avatarLetter: function (): string {
+                    return this.$store.getters.userName.slice(0, 1).toUpperCase();
+                },
+                userName: function (): string {
+                    return this.$store.getters.userName;
+                },
+                isDropdownShown: function (): boolean {
+                    return this.$store.state.appStateModule.appState.isAccountDropdownShown;
+                },
             },
-            userName: function (): string {
-                return this.$store.getters.userName;
+            methods: {
+                toggleSelection: function (): void {
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+                }
             },
-            isDropdownShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isAccountDropdownShown;
-            },
-        },
-        methods: {
-            toggleSelection: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+            components: {
+                AccountDropdown
             }
-        },
-        components: {
-            AccountDropdown
         }
-    }
-)
+    )
 
-export default class AccountButton extends Vue {
-}
+    export default class AccountButton extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">

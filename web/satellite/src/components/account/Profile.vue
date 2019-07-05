@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="profile-container">
+    <div class="profile-container">
 		<div class="profile-container__edit-profile no-margin" >
 			<div class="profile-container__edit-profile__row">
 				<div class="profile-container__edit-profile__avatar">
@@ -76,7 +76,7 @@
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 
     @Component(
-		{
+        {
             mounted: function() {
                 this.$store.dispatch(USER_ACTIONS.GET);
             },

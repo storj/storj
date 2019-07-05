@@ -63,162 +63,162 @@
 </template>
 
 <script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { EmailInput } from '@/types/EmailInput';
-import { validateEmail } from '@/utils/validation';
-import ROUTES from '@/utils/constants/routerConstants';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { EmailInput } from '@/types/EmailInput';
+    import { validateEmail } from '@/utils/validation';
+    import ROUTES from '@/utils/constants/routerConstants';
 
-@Component(
-    {
-        data: function() {
-            return {
-                inputs: [new EmailInput(), new EmailInput(), new EmailInput()],
-                formError: '',
-                imageSource: EMPTY_STATE_IMAGES.ADD_USER,
-                imageDeleteUser: EMPTY_STATE_IMAGES.DELETE_USER,
-                isLoading: false,
-            };
-        },
-        methods: {
-            onAddUsersClick: async function() {
-                if (this.$data.isLoading) {
-                    return;
-                }
-
-                this.$data.isLoading = true;
-
-                let length = this.$data.inputs.length;
-                let newInputsArray: any[] = [];
-                let areAllEmailsValid = true;
-                let emailArray: string[] = [];
-
-                for (let i = 0; i < length; i++) {
-                    let element = this.$data.inputs[i];
-                    let isEmail = validateEmail(element.value);
-
-                    if (isEmail) {
-                        emailArray.push(element.value);
+    @Component(
+        {
+            data: function() {
+                return {
+                    inputs: [new EmailInput(), new EmailInput(), new EmailInput()],
+                    formError: '',
+                    imageSource: EMPTY_STATE_IMAGES.ADD_USER,
+                    imageDeleteUser: EMPTY_STATE_IMAGES.DELETE_USER,
+                    isLoading: false,
+                };
+            },
+            methods: {
+                onAddUsersClick: async function() {
+                    if (this.$data.isLoading) {
+                        return;
                     }
 
-                    if (isEmail || element.value === '') {
-                        element.setError(false);
-                        newInputsArray.push(element);
+                    this.$data.isLoading = true;
 
-                        continue;
+                    let length = this.$data.inputs.length;
+                    let newInputsArray: any[] = [];
+                    let areAllEmailsValid = true;
+                    let emailArray: string[] = [];
+
+                    for (let i = 0; i < length; i++) {
+                        let element = this.$data.inputs[i];
+                        let isEmail = validateEmail(element.value);
+
+                        if (isEmail) {
+                            emailArray.push(element.value);
+                        }
+
+                        if (isEmail || element.value === '') {
+                            element.setError(false);
+                            newInputsArray.push(element);
+
+                            continue;
+                        }
+
+                        element.setError(true);
+                        newInputsArray.unshift(element);
+                        areAllEmailsValid = false;
+
+                        this.$data.formError = 'Field is required. Please enter a valid email address';
                     }
 
-                    element.setError(true);
-                    newInputsArray.unshift(element);
-                    areAllEmailsValid = false;
+                    this.$data.inputs = newInputsArray;
 
-                    this.$data.formError = 'Field is required. Please enter a valid email address';
-                }
+                    if (length > 3) {
+                        let scrollableDiv: any = document.querySelector('.add-user__form-container__inputs-group');
 
-                this.$data.inputs = newInputsArray;
-
-                if (length > 3) {
-                    let scrollableDiv: any = document.querySelector('.add-user__form-container__inputs-group');
-
-                    if (scrollableDiv) {
-                        let scrollableDivHeight = scrollableDiv.offsetHeight;
-                        scrollableDiv.scroll(0, -scrollableDivHeight);
+                        if (scrollableDiv) {
+                            let scrollableDivHeight = scrollableDiv.offsetHeight;
+                            scrollableDiv.scroll(0, -scrollableDivHeight);
+                        }
                     }
-                }
 
-                if (!areAllEmailsValid) {
+                    if (!areAllEmailsValid) {
+                        this.$data.isLoading = false;
+
+                        return;
+                    }
+
+                    let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
+
+                    if (!result.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
+                        this.$data.isLoading = false;
+
+                        return;
+                    }
+
+                    const response = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
+
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                        this.$data.isLoading = false;
+
+                        return;
+                    }
+
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
+                    this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
+
+                    const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                    if (!fetchMembersResponse.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+                    }
+
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+
                     this.$data.isLoading = false;
+                },
+                addInput: function(): void {
+                    let inputsLength = this.$data.inputs.length;
 
-                    return;
-                }
+                    if (inputsLength < 10) {
+                        this.$data.inputs.push(new EmailInput());
+                    }
+                },
+                deleteInput: function(index): void {
+                    if (this.$data.inputs.length === 1) return;
 
-                let result = await this.$store.dispatch(PM_ACTIONS.ADD, emailArray);
+                    (this as any).resetFormErrors(index);
 
-                if (!result.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error during adding team members!');
-                    this.$data.isLoading = false;
+                    this.$delete(this.$data.inputs, index);
+                },
+                resetFormErrors: function(index): void {
+                    this.$data.inputs[index].setError(false);
+                    if (!(this as any).hasInputError()) {
+                        this.$data.formError = '';
+                    }
+                },
+                onClose: function(): void {
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+                },
+                hasInputError: function (): boolean {
+                    return this.$data.inputs.some((element: EmailInput) => {
+                        return element.error;
+                    });
+                },
+             },
+            computed: {
+                isMaxInputsCount: function(): boolean {
+                    return this.$data.inputs.length > 9;
+                },
+                isButtonActive: function(): boolean {
+                    if (this.$data.formError) return false;
 
-                    return;
-                }
+                    let length = this.$data.inputs.length;
 
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
+                    for (let i = 0; i < length; i++) {
+                        if (this.$data.inputs[i].value !== '') return true;
+                    }
 
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                    this.$data.isLoading = false;
-
-                    return;
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
-                this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-
-                const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
-                if (!fetchMembersResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-                }
-
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-
-                this.$data.isLoading = false;
-            },
-            addInput: function(): void {
-                let inputsLength = this.$data.inputs.length;
-
-                if (inputsLength < 10) {
-                    this.$data.inputs.push(new EmailInput());
-                }
-            },
-            deleteInput: function(index): void {
-                if (this.$data.inputs.length === 1) return;
-
-                (this as any).resetFormErrors(index);
-
-                this.$delete(this.$data.inputs, index);
-            },
-            resetFormErrors: function(index): void {
-                this.$data.inputs[index].setError(false);
-                if (!(this as any).hasInputError()) {
-                    this.$data.formError = '';
+                    return false;
+                },
+                registerPath: function (): string {
+                    return location.host + ROUTES.REGISTER.path;
                 }
             },
-            onClose: function(): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-            },
-            hasInputError: function (): boolean {
-                return this.$data.inputs.some((element: EmailInput) => {
-                    return element.error;
-                });
-            },
-         },
-        computed: {
-            isMaxInputsCount: function(): boolean {
-                return this.$data.inputs.length > 9;
-            },
-            isButtonActive: function(): boolean {
-                if (this.$data.formError) return false;
-
-                let length = this.$data.inputs.length;
-
-                for (let i = 0; i < length; i++) {
-                    if (this.$data.inputs[i].value !== '') return true;
-                }
-
-                return false;
-            },
-            registerPath: function (): string {
-                return location.host + ROUTES.REGISTER.path;
+            components: {
+                Button
             }
-        },
-        components: {
-            Button
         }
-    }
-)
+    )
 
-export default class AddUserPopup extends Vue {}
+    export default class AddUserPopup extends Vue {}
 </script>
 
 <style scoped lang='scss'>

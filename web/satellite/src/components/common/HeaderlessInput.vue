@@ -35,78 +35,77 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom input component for login page
-@Component(
-    {
-        data: () => {
-            return {
-                value: '',
-                textType: 'text',
-                passwordType: 'password',
-                isPasswordShown: false
-            };
-        },
-        methods: {
-            // Emits data to parent component
-            onInput: function(): void {
-                this.$emit('setData', this.$data.value);
-            },
-            // Change condition of password visibility
-            changeVision: function(): void {
-                this.$data.isPasswordShown = !this.$data.isPasswordShown;
-                if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
-            },
-            setValue(value: string) {
-                this.$data.value = value;
-            }
-        },
-        props: {
-            placeholder: {
-                type: String,
-                default: 'default'
-            },
-            isPassword: {
-                type: Boolean,
-                default: false
-            },
-            height: {
-                type: String,
-                default: '48px'
-            },
-            width: {
-                type: String,
-                default: '100%'
-            },
-            isWhite: {
-                type: Boolean,
-                default: false
-            },
-            label: String,
-            error: String
-        },
-        computed: {
-            style: function () {
+    // Custom input component for login page
+    @Component(
+        {
+            data: () => {
                 return {
-                    inputStyle: {
-                        width: this.$props.width,
-                        height: this.$props.height
-                    },
-                    labelStyle: {
-                        color: this.$props.isWhite ? 'white' : '#354049'
-                    },
-                    errorStyle: {
-                        color: this.$props.isWhite ? 'white' : '#FF5560'
-                    },
+                    value: '',
+                    textType: 'text',
+                    passwordType: 'password',
+                    isPasswordShown: false
                 };
+            },
+            methods: {
+                // Emits data to parent component
+                onInput: function(): void {
+                    this.$emit('setData', this.$data.value);
+                },
+                // Change condition of password visibility
+                changeVision: function(): void {
+                    this.$data.isPasswordShown = !this.$data.isPasswordShown;
+                    if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
+                },
+                setValue(value: string) {
+                    this.$data.value = value;
+                }
+            },
+            props: {
+                placeholder: {
+                    type: String,
+                    default: 'default'
+                },
+                isPassword: {
+                    type: Boolean,
+                    default: false
+                },
+                height: {
+                    type: String,
+                    default: '48px'
+                },
+                width: {
+                    type: String,
+                    default: '100%'
+                },
+                isWhite: {
+                    type: Boolean,
+                    default: false
+                },
+                label: String,
+                error: String
+            },
+            computed: {
+                style: function () {
+                    return {
+                        inputStyle: {
+                            width: this.$props.width,
+                            height: this.$props.height
+                        },
+                        labelStyle: {
+                            color: this.$props.isWhite ? 'white' : '#354049'
+                        },
+                        errorStyle: {
+                            color: this.$props.isWhite ? 'white' : '#FF5560'
+                        },
+                    };
+                }
             }
-        }
-    },
-)
-export default class HeaderlessInput extends Vue {
-}
-
+        },
+    )
+    export default class HeaderlessInput extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">

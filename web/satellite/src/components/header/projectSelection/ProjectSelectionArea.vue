@@ -16,44 +16,44 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { mapState } from 'vuex';
-import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
-import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import { mapState } from 'vuex';
+    import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
+    import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
-        methods: {
-            toggleSelection: async function (): Promise<any> {
-                const response = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+    @Component(
+        {
+            methods: {
+                toggleSelection: async function (): Promise<any> {
+                    const response = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+                    if (!response.isSuccess) {
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
-                    return;
+                        return;
+                    }
+
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
                 }
-
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PROJECTS);
-            }
-        },
-        computed: mapState({
-            name: (state: any): string => {
-                let selectedProject = state.projectsModule.selectedProject;
-
-                return selectedProject.id ? selectedProject.name : 'Choose project';
             },
-            isDropdownShown: (state: any) => state.appStateModule.appState.isProjectsDropdownShown,
-            hasProjects: function (state: any): boolean {
-                return state.projectsModule.projects.length;
-            }
-        }),
-        components: {
-            ProjectSelectionDropdown
-        }
-    }
-)
+            computed: mapState({
+                name: (state: any): string => {
+                    let selectedProject = state.projectsModule.selectedProject;
 
-export default class ProjectSelectionArea extends Vue {
-}
+                    return selectedProject.id ? selectedProject.name : 'Choose project';
+                },
+                isDropdownShown: (state: any) => state.appStateModule.appState.isProjectsDropdownShown,
+                hasProjects: function (state: any): boolean {
+                    return state.projectsModule.projects.length;
+                }
+            }),
+            components: {
+                ProjectSelectionDropdown
+            }
+        }
+    )
+
+    export default class ProjectSelectionArea extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">

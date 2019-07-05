@@ -11,35 +11,35 @@
 </template>
 
 <script lang="ts">
-import { mapState } from 'vuex';
-import { Component, Vue } from 'vue-property-decorator';
-import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { mapState } from 'vuex';
+    import { Component, Vue } from 'vue-property-decorator';
+    import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-// Button and popup for adding new Project
-@Component(
-    {
-        methods: {
-            toggleSelection: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-            }
-        },
-        components: {
-            NewProjectPopup
-        },
-        computed: mapState({
-            isPopupShown: function (state: any): boolean {
-                return state.appStateModule.appState.isNewProjectPopupShown;
+    // Button and popup for adding new Project
+    @Component(
+        {
+            methods: {
+                toggleSelection: function () {
+                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+                }
             },
-            hasProjects: function (state: any): boolean {
-                return state.projectsModule.projects.length;
-            }
-        }),
-    }
-)
+            components: {
+                NewProjectPopup
+            },
+            computed: mapState({
+                isPopupShown: function (state: any): boolean {
+                    return state.appStateModule.appState.isNewProjectPopupShown;
+                },
+                hasProjects: function (state: any): boolean {
+                    return state.projectsModule.projects.length;
+                }
+            }),
+        }
+    )
 
-export default class NewProjectArea extends Vue {
-}
+    export default class NewProjectArea extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">

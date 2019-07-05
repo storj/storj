@@ -4,13 +4,13 @@
 <template src="./page50X.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-@Component({})
+    @Component({})
 
-// Page for server errors
-export default class Page50X extends Vue {
-}
+    // Page for server errors
+    export default class Page50X extends Vue {
+    }
 </script>
 
 <style scoped lang="scss">
