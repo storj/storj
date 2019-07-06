@@ -1002,17 +1002,6 @@
             ]
           },
           {
-            "name": "Bucket",
-            "fields": [
-              {
-                "id": 2,
-                "name": "nodes",
-                "type": "node.Node",
-                "is_repeated": true
-              }
-            ]
-          },
-          {
             "name": "BucketList",
             "fields": [
               {
@@ -1284,21 +1273,26 @@
               },
               {
                 "id": 6,
+                "name": "dashboard_address",
+                "type": "string"
+              },
+              {
+                "id": 7,
                 "name": "stats",
                 "type": "StatSummaryResponse"
               },
               {
-                "id": 7,
+                "id": 8,
                 "name": "uptime",
                 "type": "google.protobuf.Duration"
               },
               {
-                "id": 8,
+                "id": 9,
                 "name": "last_pinged",
                 "type": "google.protobuf.Timestamp"
               },
               {
-                "id": 9,
+                "id": 10,
                 "name": "last_queried",
                 "type": "google.protobuf.Timestamp"
               }
@@ -1608,7 +1602,7 @@
       "def": {
         "messages": [
           {
-            "name": "BucketItem",
+            "name": "Bucket",
             "fields": [
               {
                 "id": 1,
@@ -1723,7 +1717,7 @@
               {
                 "id": 1,
                 "name": "bucket",
-                "type": "BucketItem"
+                "type": "Bucket"
               }
             ]
           },
@@ -1743,7 +1737,7 @@
               {
                 "id": 1,
                 "name": "bucket",
-                "type": "BucketItem"
+                "type": "Bucket"
               }
             ]
           },
@@ -2455,6 +2449,39 @@
       "def": {
         "messages": [
           {
+            "name": "AuditCheckRequest"
+          },
+          {
+            "name": "AuditCheckResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total_count",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "success_count",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "reputation_alpha",
+                "type": "double"
+              },
+              {
+                "id": 4,
+                "name": "reputation_beta",
+                "type": "double"
+              },
+              {
+                "id": 5,
+                "name": "reputation_score",
+                "type": "double"
+              }
+            ]
+          },
+          {
             "name": "UptimeCheckRequest"
           },
           {
@@ -2580,6 +2607,11 @@
           {
             "name": "NodeStats",
             "rpcs": [
+              {
+                "name": "AuditCheck",
+                "in_type": "AuditCheckRequest",
+                "out_type": "AuditCheckResponse"
+              },
               {
                 "name": "UptimeCheck",
                 "in_type": "UptimeCheckRequest",
