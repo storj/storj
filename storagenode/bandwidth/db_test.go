@@ -90,6 +90,10 @@ func TestDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedUsage, usage)
 
+		cachedBandwidthUsage, err := bandwidthdb.CachedBandwidthUsed(ctx)
+		require.NoError(t, err)
+		require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
+
 		// only range capturing second satellite
 		expectedUsageBySatellite = map[storj.NodeID]*bandwidth.Usage{
 			satellite1: expectedUsage,

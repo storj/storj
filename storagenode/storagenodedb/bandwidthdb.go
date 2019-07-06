@@ -42,7 +42,7 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 			db.bandwidth.usedBandwidth += amount
 		} else {
 			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
-			if err == nil {
+			if err != nil {
 				return err
 			}
 			db.bandwidth.usedSince = beginningOfMonth
