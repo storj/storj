@@ -53,7 +53,7 @@ type Store interface {
 }
 
 type segmentStore struct {
-	metainfo                metainfo.Client
+	metainfo                *metainfo.Client
 	ec                      ecclient.Client
 	rs                      eestream.RedundancyStrategy
 	thresholdSize           int
@@ -61,7 +61,7 @@ type segmentStore struct {
 }
 
 // NewSegmentStore creates a new instance of segmentStore
-func NewSegmentStore(metainfo metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
+func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.RedundancyStrategy, threshold int, maxEncryptedSegmentSize int64) Store {
 	return &segmentStore{
 		metainfo:                metainfo,
 		ec:                      ec,
@@ -117,7 +117,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 
 	var path storj.Path
 	var pointer *pb.Pointer
-	var originalLimits []*pb.OrderLimit2
+	var originalLimits []*pb.OrderLimit
 	if !remoteSized {
 		p, metadata, err := segmentInfo()
 		if err != nil {
@@ -167,7 +167,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			return Meta{}, Error.Wrap(err)
 		}
 
-		originalLimits = make([]*pb.OrderLimit2, len(limits))
+		originalLimits = make([]*pb.OrderLimit, len(limits))
 		for i, addressedLimit := range limits {
 			originalLimits[i] = addressedLimit.GetLimit()
 		}

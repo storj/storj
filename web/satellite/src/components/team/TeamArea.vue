@@ -36,6 +36,9 @@ import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
+    mounted: function() {
+        this.$store.dispatch(PM_ACTIONS.FETCH);
+    },
     data: function () {
         return {
             emptyImage: EMPTY_STATE_IMAGES.TEAM,
@@ -96,17 +99,18 @@ export default class TeamArea extends Vue {
 
     .team-header {
         position: fixed;
-        top: 100px;
         padding: 55px 30px 0px 64px;
-        max-width: 79.7%;
+        max-width: 78.7%;
         width: 100%;
         background-color: #F5F6FA;
         z-index: 999;
+        top: auto;
     }
     .team-container {
        padding: 0px 30px 55px 64px;
        overflow-y: scroll;
        max-height: 84vh;
+        height: 84vh;
        position: relative;
 
        &__content {
@@ -118,7 +122,7 @@ export default class TeamArea extends Vue {
             justify-content: space-between;
             margin-top: 150px;
             margin-bottom: 100px;
-        }
+       }
    }
 
     .user-container {

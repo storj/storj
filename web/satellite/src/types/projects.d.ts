@@ -28,12 +28,3 @@ declare type TeamMemberModel = {
     }
     joinedAt: string,
 };
-
-// ProjectUsage sums usage for given period
-declare type ProjectUsage = {
-    storage: number,
-    egress: number,
-    objectCount: number,
-    since: Date,
-    before: Date
-};

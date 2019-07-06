@@ -30,7 +30,7 @@
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
-                    <Button label="Create Project" width="205px" height="48px" :onPress="createProjectClick"/>
+                    <Button label="Next" width="205px" height="48px" :onPress="createProjectClick"/>
                 </div>
             </div>
             <div class="new-project-popup__close-cross-container">
@@ -48,7 +48,7 @@
     import Checkbox from '@/components/common/Checkbox.vue';
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
-    import { PM_ACTIONS } from '../../utils/constants/actionNames';
+    import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component(
         {

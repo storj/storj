@@ -17,7 +17,7 @@ import (
 func TestAddToReplacementCache(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	rt := createRoutingTable(storj.NodeID{244, 255})
+	rt := createRoutingTable(ctx, storj.NodeID{244, 255})
 	defer ctx.Check(rt.Close)
 
 	kadBucketID := bucketID{255, 255}
@@ -40,7 +40,7 @@ func TestAddToReplacementCache(t *testing.T) {
 func TestRemoveFromReplacementCache(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
-	rt := createRoutingTableWith(storj.NodeID{244, 255}, routingTableOpts{cacheSize: 3})
+	rt := createRoutingTableWith(ctx, storj.NodeID{244, 255}, routingTableOpts{cacheSize: 3})
 	defer ctx.Check(rt.Close)
 
 	kadBucketID2 := bucketID{127, 255}

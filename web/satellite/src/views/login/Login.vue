@@ -14,6 +14,7 @@ import { getTokenRequest } from '@/api/users';
 import { LOADING_CLASSES } from '@/utils/constants/classConstants';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { validateEmail, validatePassword } from '@/utils/validation';
+import EVENTS from '../../utils/constants/analyticsEventNames';
 
 @Component({
     data: function () {
@@ -45,6 +46,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
         },
         onLogin: async function (): Promise<any> {
             let self = this as any;
+            this.$segment.track(EVENTS.CLICKED_LOGIN);
 
             if (!self.validateFields()) {
                 return;
@@ -62,7 +64,7 @@ import { validateEmail, validatePassword } from '@/utils/validation';
             setTimeout(() => {
                 setToken(loginResponse.data);
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-                this.$router.push(ROUTES.PROJECT_DETAILS.path);
+                this.$router.push(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
             }, 2000);
         },
         validateFields: function (): boolean {

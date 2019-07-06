@@ -22,12 +22,12 @@ type Config struct {
 
 // DB contains access to different database tables
 type DB struct {
-	kdb, ndb storage.KeyValueStore
+	kdb, ndb, adb storage.KeyValueStore
 }
 
 // New creates a new master database for storage node
 func New(config Config) (*DB, error) {
-	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket)
+	dbs, err := boltdb.NewShared(config.Kademlia, kademlia.KademliaBucket, kademlia.NodeBucket, kademlia.AntechamberBucket)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,7 @@ func New(config Config) (*DB, error) {
 	return &DB{
 		kdb: dbs[0],
 		ndb: dbs[1],
+		adb: dbs[2],
 	}, nil
 }
 
@@ -44,6 +45,7 @@ func NewInMemory(storageDir string) (*DB, error) {
 	return &DB{
 		kdb: teststore.New(),
 		ndb: teststore.New(),
+		adb: teststore.New(),
 	}, nil
 }
 
@@ -55,10 +57,11 @@ func (db *DB) Close() error {
 	return errs.Combine(
 		db.kdb.Close(),
 		db.ndb.Close(),
+		db.adb.Close(),
 	)
 }
 
 // RoutingTable returns kademlia routing table
-func (db *DB) RoutingTable() (kdb, ndb storage.KeyValueStore) {
-	return db.kdb, db.ndb
+func (db *DB) RoutingTable() (kdb, ndb, adb storage.KeyValueStore) {
+	return db.kdb, db.ndb, db.adb
 }

@@ -14,6 +14,7 @@ import (
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -42,8 +43,10 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	var access libuplink.EncryptionAccess
-	copy(access.Key[:], []byte(cfg.Enc.Key))
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	if err != nil {
+		return err
+	}
 
 	if len(args) > 0 {
 		src, err := fpath.New(args[0])
@@ -55,7 +58,7 @@ func list(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("No bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.Bucket(), &access)
+		bucket, err := project.OpenBucket(ctx, src.Bucket(), access)
 		if err != nil {
 			return err
 		}
@@ -103,13 +106,13 @@ func list(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access libuplink.EncryptionAccess) error {
+func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access *libuplink.EncryptionAccess) error {
 	prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucketName))
 	if err != nil {
 		return err
 	}
 
-	bucket, err := project.OpenBucket(ctx, bucketName, &access)
+	bucket, err := project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
 		return err
 	}

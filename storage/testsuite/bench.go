@@ -51,7 +51,7 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					err := store.Put(key, value)
+					err := store.Put(ctx, key, value)
 					if err != nil {
 						b.Fatal("store.Put err", err)
 					}
@@ -65,7 +65,7 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 		b.SetBytes(int64(len(items)))
 		for k := 0; k < b.N; k++ {
 			for _, item := range items {
-				_, err := store.Get(item.Key)
+				_, err := store.Get(ctx, item.Key)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -76,7 +76,7 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	b.Run("ListV2 5", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))
 		for k := 0; k < b.N; k++ {
-			_, _, err := storage.ListV2(store, storage.ListOptions{
+			_, _, err := storage.ListV2(ctx, store, storage.ListOptions{
 				StartAfter: storage.Key("gamma"),
 				Limit:      5,
 			})

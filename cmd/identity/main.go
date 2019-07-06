@@ -69,8 +69,8 @@ func init() {
 	rootCmd.AddCommand(newServiceCmd)
 	rootCmd.AddCommand(authorizeCmd)
 
-	cfgstruct.Bind(newServiceCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
-	cfgstruct.Bind(authorizeCmd.Flags(), &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(newServiceCmd, &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
+	process.Bind(authorizeCmd, &config, defaults, cfgstruct.ConfDir(defaultConfigDir), cfgstruct.IdentityDir(defaultIdentityDir))
 }
 
 func main() {

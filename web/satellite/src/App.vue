@@ -25,6 +25,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 'sortTeamMemberByDropdown',
                 'sortTeamMemberByDropdownButton',
                 'notificationArea',
+                'successfulRegistrationPopup',
             ]
         };
     },
@@ -77,5 +78,22 @@ export default class App extends Vue {
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
         caret-color: #2683FF;
+    }
+
+    /* width */
+    ::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        box-shadow: inset 0 0 5px #fff;
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+        background: #AFB7C1;
+        border-radius: 6px;
+        height: 5px;
     }
 </style>

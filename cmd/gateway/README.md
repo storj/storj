@@ -10,8 +10,7 @@ go install storj.io/storj/cmd/gateway
 gateway setup
 ```
 
-The gateway shares the uplink config file.
-You can edit `~/.storj/uplink/config.yaml` to your liking. Then run it!
+You can edit `~/.local/share/storj/gateway/config.yaml` to your liking. Then run it!
 
 ```
 gateway run

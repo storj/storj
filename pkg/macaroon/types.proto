@@ -15,12 +15,19 @@ message Caveat {
   bool disallow_lists = 3;
   bool disallow_deletes = 4;
 
-  // if one of these two lists are not empty, restrict accesses
-  // to the given values
-  repeated bytes buckets = 10;
-  repeated bytes encrypted_path_prefixes = 11;
+  // If any entries exist, require all access to happen in at least
+  // one of them.
+  message Path {
+    bytes bucket = 1;
+    bytes encrypted_path_prefix = 2;
+  }
+  repeated Path allowed_paths = 10;
 
   // if set, the validity time window
   google.protobuf.Timestamp not_after = 20 [(gogoproto.stdtime) = true];
   google.protobuf.Timestamp not_before = 21 [(gogoproto.stdtime) = true];
+
+  // nonce is set to some random bytes so that you can make arbitrarily
+  // many restricted macaroons with the same (or no) restrictions.
+  bytes nonce = 30;
 }

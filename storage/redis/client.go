@@ -4,6 +4,7 @@
 package redis
 
 import (
+	"context"
 	"net/url"
 	"sort"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/storage"
 )
@@ -18,6 +20,8 @@ import (
 var (
 	// Error is a redis error
 	Error = errs.Class("redis error")
+
+	mon = monkit.Package()
 )
 
 // TODO(coyle): this should be set to 61 * time.Minute after we implement Ping and Refresh on Overlay Cache
@@ -71,7 +75,8 @@ func NewClientFrom(address string) (*Client, error) {
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
-func (client *Client) Get(key storage.Key) (storage.Value, error) {
+func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return nil, storage.ErrEmptyKey.New("")
 	}
@@ -87,12 +92,13 @@ func (client *Client) Get(key storage.Key) (storage.Value, error) {
 }
 
 // Put adds a value to the provided key in redis, returning an error on failure.
-func (client *Client) Put(key storage.Key, value storage.Value) error {
+func (client *Client) Put(ctx context.Context, key storage.Key, value storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	err := client.db.Set(key.String(), []byte(value), client.TTL).Err()
+	err = client.db.Set(key.String(), []byte(value), client.TTL).Err()
 	if err != nil {
 		return Error.New("put error: %v", err)
 	}
@@ -100,17 +106,19 @@ func (client *Client) Put(key storage.Key, value storage.Value) error {
 }
 
 // List returns either a list of keys for which boltdb has values or an error.
-func (client *Client) List(first storage.Key, limit int) (storage.Keys, error) {
-	return storage.ListKeys(client, first, limit)
+func (client *Client) List(ctx context.Context, first storage.Key, limit int) (_ storage.Keys, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return storage.ListKeys(ctx, client, first, limit)
 }
 
 // Delete deletes a key/value pair from redis, for a given the key
-func (client *Client) Delete(key storage.Key) error {
+func (client *Client) Delete(ctx context.Context, key storage.Key) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
 
-	err := client.db.Del(key.String()).Err()
+	err = client.db.Del(key.String()).Err()
 	if err != nil {
 		return Error.New("delete error: %v", err)
 	}
@@ -125,7 +133,8 @@ func (client *Client) Close() error {
 // GetAll is the bulk method for gets from the redis data store.
 // The maximum keys returned will be storage.LookupLimit. If more than that
 // is requested, an error will be returned
-func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
+func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.Values, err error) {
+	defer mon.Task()(&ctx)(&err)
 	if len(keys) > storage.LookupLimit {
 		return nil, storage.ErrLimitExceeded
 	}
@@ -156,9 +165,9 @@ func (client *Client) GetAll(keys storage.Keys) (storage.Values, error) {
 }
 
 // Iterate iterates over items based on opts
-func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.Iterator) error) error {
+func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	var all storage.Items
-	var err error
 	if !opts.Reverse {
 		all, err = client.allPrefixedItems(opts.Prefix, opts.First, nil)
 	} else {
@@ -173,7 +182,7 @@ func (client *Client) Iterate(opts storage.IterateOptions, fn func(it storage.It
 	if opts.Reverse {
 		all = storage.ReverseItems(all)
 	}
-	return fn(&storage.StaticIterator{
+	return fn(ctx, &storage.StaticIterator{
 		Items: all,
 	})
 }

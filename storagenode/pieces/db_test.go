@@ -40,7 +40,7 @@ func TestPieceInfo(t *testing.T) {
 
 		now := time.Now()
 
-		piecehash0, err := signing.SignPieceHash(
+		piecehash0, err := signing.SignPieceHash(ctx,
 			signing.SignerFromFullIdentity(uplink0),
 			&pb.PieceHash{
 				PieceId: pieceid0,
@@ -59,7 +59,7 @@ func TestPieceInfo(t *testing.T) {
 			Uplink:          uplink0.PeerIdentity(),
 		}
 
-		piecehash1, err := signing.SignPieceHash(
+		piecehash1, err := signing.SignPieceHash(ctx,
 			signing.SignerFromFullIdentity(uplink1),
 			&pb.PieceHash{
 				PieceId: pieceid0,
@@ -78,7 +78,7 @@ func TestPieceInfo(t *testing.T) {
 			Uplink:          uplink1.PeerIdentity(),
 		}
 
-		piecehash2, err := signing.SignPieceHash(
+		piecehash2, err := signing.SignPieceHash(ctx,
 			signing.SignerFromFullIdentity(uplink2),
 			&pb.PieceHash{
 				PieceId: pieceid0,

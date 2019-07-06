@@ -9,9 +9,13 @@ import (
 	"io"
 	"io/ioutil"
 
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
 	"storj.io/storj/internal/readcloser"
 	"storj.io/storj/pkg/ranger"
 )
+
+var mon = monkit.Package()
 
 // A Transformer is a data transformation that may change the size of the blocks
 // of data it operates on in a deterministic fashion.
@@ -79,7 +83,7 @@ func TransformReaderSize(r io.ReadCloser, t Transformer,
 }
 
 func (t *transformedReader) Read(p []byte) (n int, err error) {
-	if len(t.outbuf) <= 0 {
+	if len(t.outbuf) == 0 {
 		// If there's no more buffered data left, let's fill the buffer with
 		// the next block
 		b, err := io.ReadFull(t.r, t.inbuf)
@@ -144,7 +148,9 @@ func CalcEncompassingBlocks(offset, length int64, blockSize int) (
 	return firstBlock, 1 + lastBlock - firstBlock
 }
 
-func (t *transformedRanger) Range(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+func (t *transformedRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Range may not have been called for block-aligned offsets and lengths, so
 	// let's figure out which blocks encompass the request
 	firstBlock, blockCount := CalcEncompassingBlocks(

@@ -49,7 +49,8 @@ func NewService(config Config, info Info, service string) (client *Service) {
 }
 
 // CheckVersion checks to make sure the version is still okay, returning an error if not
-func (srv *Service) CheckVersion(ctx context.Context) error {
+func (srv *Service) CheckVersion(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !srv.checkVersion(ctx) {
 		return fmt.Errorf("outdated software version (%v), please update", srv.info.Version.String())
 	}
@@ -58,12 +59,14 @@ func (srv *Service) CheckVersion(ctx context.Context) error {
 
 // CheckProcessVersion is not meant to be used for peers but is meant to be
 // used for other utilities
-func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) error {
+func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return NewService(config, info, service).CheckVersion(ctx)
 }
 
 // Run logs the current version information
-func (srv *Service) Run(ctx context.Context) error {
+func (srv *Service) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if !srv.checked.Released() {
 		err := srv.CheckVersion(ctx)
 		if err != nil {
@@ -102,18 +105,18 @@ func (srv *Service) checkVersion(ctx context.Context) (allowed bool) {
 	accepted, err := srv.queryVersionFromControlServer(ctx)
 	if err != nil {
 		// Log about the error, but dont crash the service and allow further operation
-		zap.S().Errorf("Failed to do periodic version check: ", err)
+		zap.S().Errorf("Failed to do periodic version check: %s", err.Error())
 		return true
 	}
 
-	list := getFieldString(&accepted, srv.service)
-	zap.S().Debugf("allowed versions from Control Server: %v", list)
+	minimum := getFieldString(&accepted, srv.service)
+	zap.S().Debugf("allowed minimum version from control server is: %s", minimum.String())
 
-	if list == nil {
-		zap.S().Errorf("Empty List from Versioning Server")
+	if minimum.String() == "" {
+		zap.S().Errorf("no version from control server, accepting to run")
 		return true
 	}
-	if containsVersion(list, srv.info.Version) {
+	if isAcceptedVersion(srv.info.Version, minimum) {
 		zap.S().Infof("running on version %s", srv.info.Version.String())
 		return true
 	}
@@ -165,12 +168,12 @@ func DebugHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getFieldString(array *AllowedVersions, field string) []SemVer {
+func getFieldString(array *AllowedVersions, field string) SemVer {
 	r := reflect.ValueOf(array)
 	f := reflect.Indirect(r).FieldByName(field).Interface()
-	result, ok := f.([]SemVer)
+	result, ok := f.(SemVer)
 	if ok {
 		return result
 	}
-	return nil
+	return SemVer{}
 }

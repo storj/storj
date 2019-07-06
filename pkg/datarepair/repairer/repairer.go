@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/datarepair/queue"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
+	"storj.io/storj/pkg/pb"
 	ecclient "storj.io/storj/pkg/storage/ec"
 	"storj.io/storj/pkg/storage/segments"
 	"storj.io/storj/pkg/storj"
@@ -34,27 +35,28 @@ var (
 // Config contains configurable values for repairer
 type Config struct {
 	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
-	Interval     time.Duration `help:"how frequently checker should audit segments" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" default:"10m0s"`
+	Interval     time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
+	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" devDefault:"10m0s" releaseDefault:"2h"`
 	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
-func (c Config) GetSegmentRepairer(ctx context.Context, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
+func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, identity *identity.FullIdentity) (ss SegmentRepairer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ec := ecclient.NewClient(tc, c.MaxBufferMem.Int())
+	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(metainfo, orders, cache, ec, identity, c.Timeout), nil
+	return segments.NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout), nil
 }
 
 // SegmentRepairer is a repairer for segments
 type SegmentRepairer interface {
-	Repair(ctx context.Context, path storj.Path, lostPieces []int32) (err error)
+	Repair(ctx context.Context, path storj.Path) (err error)
 }
 
 // Service contains the information needed to run the repair service
 type Service struct {
+	log       *zap.Logger
 	queue     queue.RepairQueue
 	config    *Config
 	Limiter   *sync2.Limiter
@@ -67,8 +69,9 @@ type Service struct {
 }
 
 // NewService creates repairing service
-func NewService(queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, interval time.Duration, concurrency int, transport transport.Client, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache) *Service {
 	return &Service{
+		log:       log,
 		queue:     queue,
 		config:    config,
 		Limiter:   sync2.NewLimiter(concurrency),
@@ -90,6 +93,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// TODO: close segment repairer, currently this leaks connections
 	service.repairer, err = service.config.GetSegmentRepairer(
 		ctx,
+		service.log,
 		service.transport,
 		service.metainfo,
 		service.orders,
@@ -113,9 +117,11 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 // process picks items from repair queue and spawns a repair worker
-func (service *Service) process(ctx context.Context) error {
+func (service *Service) process(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
+		zap.L().Info("Dequeued segment from repair queue", zap.String("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -124,14 +130,25 @@ func (service *Service) process(ctx context.Context) error {
 		}
 
 		service.Limiter.Go(ctx, func() {
-			err := service.repairer.Repair(ctx, seg.GetPath(), seg.GetLostPieces())
+			err := service.worker(ctx, seg)
 			if err != nil {
-				zap.L().Error("repair failed", zap.Error(err))
-			}
-			err = service.queue.Delete(ctx, seg)
-			if err != nil {
-				zap.L().Error("repair delete failed", zap.Error(err))
+				zap.L().Error("repair failed:", zap.Error(err))
 			}
 		})
 	}
+}
+
+func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
+	err = service.repairer.Repair(ctx, seg.GetPath())
+	if err != nil {
+		return Error.New("repair failed: %v", err)
+	}
+	zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
+	err = service.queue.Delete(ctx, seg)
+	if err != nil {
+		return Error.New("repair delete failed: %v", err)
+	}
+	return nil
 }

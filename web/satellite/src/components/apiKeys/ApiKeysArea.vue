@@ -39,6 +39,9 @@ import Footer from '@/components/apiKeys/footerArea/Footer.vue';
 import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
+    mounted: function() {
+        this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+    },
     data: function () {
         return {
             emptyImage: EMPTY_STATE_IMAGES.API_KEY,
@@ -80,25 +83,20 @@ export default class ApiKeysArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    // .api-keys-header {
-    //     padding: 44px 40px 0 40px;
-    // }
-
-    // .api-keys-container {
-    //     padding: 0px 40px 0 60px;
-    // }
     .api-keys-header {
         position: fixed;
         padding: 55px 30px 0px 64px;
-        max-width: 79.7%;
+        max-width: 78.7%;
         width: 100%;
         background-color: #F5F6FA;
         z-index: 999;
+        top: auto;
     }
     .api-keys-container {
        padding: 0px 30px 55px 64px;
        overflow-y: scroll;
        max-height: 84vh;
+       height: 84vh;
        position: relative;
 
        &__content {

@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509/pkix"
 	"database/sql/driver"
+	"encoding/json"
 	"math/bits"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -91,7 +92,7 @@ func NodeIDFromBytes(b []byte) (NodeID, error) {
 	}
 
 	var id NodeID
-	copy(id[:], b[:])
+	copy(id[:], b)
 	return id, nil
 }
 
@@ -178,6 +179,19 @@ func (id *NodeID) Unmarshal(data []byte) error {
 	return err
 }
 
+func (id NodeID) versionByte() byte {
+	return id[NodeIDSize-1]
+}
+
+// unversioned returns the node ID with the version byte replaced with `0`.
+// NB: Legacy node IDs (i.e. pre-identity-versions) with a difficulty less
+// than `8` are unsupported.
+func (id NodeID) unversioned() NodeID {
+	unversionedID := NodeID{}
+	copy(unversionedID[:], id[:NodeIDSize-1])
+	return unversionedID
+}
+
 // Size returns the length of a node ID (implements gogo's custom type interface)
 func (id *NodeID) Size() int {
 	return len(id)
@@ -188,7 +202,7 @@ func (id NodeID) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + id.String() + `"`), nil
 }
 
-// Value set a NodeID to a database field
+// Value converts a NodeID to a database field
 func (id NodeID) Value() (driver.Value, error) {
 	return id.Bytes(), nil
 }
@@ -206,12 +220,26 @@ func (id *NodeID) Scan(src interface{}) (err error) {
 
 // UnmarshalJSON deserializes a json string (as bytes) to a node ID
 func (id *NodeID) UnmarshalJSON(data []byte) error {
-	var err error
-	*id, err = NodeIDFromString(string(data))
+	var unquoted string
+	err := json.Unmarshal(data, &unquoted)
+	if err != nil {
+		return err
+	}
+
+	*id, err = NodeIDFromString(unquoted)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+// Strings returns a string slice of the node IDs
+func (n NodeIDList) Strings() []string {
+	var strings []string
+	for _, nid := range n {
+		strings = append(strings, nid.String())
+	}
+	return strings
 }
 
 // Bytes returns a 2d byte slice of the node IDs
@@ -230,16 +258,3 @@ func (n NodeIDList) Swap(i, j int) { n[i], n[j] = n[j], n[i] }
 
 // Less implements sort.Interface.Less()
 func (n NodeIDList) Less(i, j int) bool { return n[i].Less(n[j]) }
-
-func (id NodeID) versionByte() byte {
-	return id[NodeIDSize-1]
-}
-
-// unversioned returns the node ID with the version byte replaced with `0`.
-// NB: Legacy node IDs (i.e. pre-identity-versions) with a difficulty less
-// than `8` are unsupported.
-func (id NodeID) unversioned() NodeID {
-	unversionedID := NodeID{}
-	copy(unversionedID[:], id[:NodeIDSize-1])
-	return unversionedID
-}

@@ -12,9 +12,7 @@ import {AppState} from "../utils/constants/appStateEnum";
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
                 <div class="dashboard-container__main-area">
-                    <keep-alive>
-                        <router-view />
-                    </keep-alive>
+                    <router-view />
                 </div>
             </div>
         </div>
@@ -35,6 +33,7 @@ import {AppState} from "../utils/constants/appStateEnum";
         PROJETS_ACTIONS,
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
+        BUCKET_USAGE_ACTIONS
     } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
@@ -54,7 +53,6 @@ import {AppState} from "../utils/constants/appStateEnum";
             }
 
             let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-
             if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 
@@ -74,13 +72,14 @@ import {AppState} from "../utils/constants/appStateEnum";
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch api keys');
             }
 
-            const currentDate = new Date();
-            const previousDate = new Date();
-            previousDate.setMonth(currentDate.getMonth() - 1);
-
-            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate: previousDate, endDate: currentDate});
+            const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
             if (!usageResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+            }
+
+            const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+            if (!bucketsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
             }
 
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);

@@ -38,9 +38,9 @@ type BlobReader interface {
 type BlobWriter interface {
 	io.Writer
 	// Cancel discards the blob.
-	Cancel() error
+	Cancel(context.Context) error
 	// Commit ensures that the blob is readable by others.
-	Commit() error
+	Commit(context.Context) error
 	// Size returns the size of the blob
 	Size() (int64, error)
 }

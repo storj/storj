@@ -43,7 +43,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := store.Put(key, value)
+			err := store.Put(ctx, key, value)
 			if err != nil {
 				t.Fatal("store.Put err:", err)
 			}
@@ -55,32 +55,32 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	t.Run("Put Empty", func(t *testing.T) {
 		var key storage.Key
 		var val storage.Value
-		defer func() { _ = store.Delete(key) }()
+		defer func() { _ = store.Delete(ctx, key) }()
 
-		err := store.Put(key, val)
+		err := store.Put(ctx, key, val)
 		if err == nil {
 			t.Fatal("putting empty key should fail")
 		}
 	})
 
 	t.Run("GetAll limit", func(t *testing.T) {
-		_, err := store.GetAll(items[:storage.LookupLimit].GetKeys())
+		_, err := store.GetAll(ctx, items[:storage.LookupLimit].GetKeys())
 		if err != nil {
 			t.Fatalf("GetAll LookupLimit should succeed: %v", err)
 		}
 
-		_, err = store.GetAll(items[:storage.LookupLimit+1].GetKeys())
+		_, err = store.GetAll(ctx, items[:storage.LookupLimit+1].GetKeys())
 		if err == nil && err == storage.ErrLimitExceeded {
 			t.Fatalf("GetAll LookupLimit+1 should fail: %v", err)
 		}
 	})
 
 	t.Run("List limit", func(t *testing.T) {
-		keys, err := store.List(nil, storage.LookupLimit)
+		keys, err := store.List(ctx, nil, storage.LookupLimit)
 		if err != nil || len(keys) != storage.LookupLimit {
 			t.Fatalf("List LookupLimit should succeed: %v / got %d", err, len(keys))
 		}
-		_, err = store.List(nil, storage.LookupLimit+1)
+		_, err = store.List(ctx, nil, storage.LookupLimit+1)
 		if err != nil || len(keys) != storage.LookupLimit {
 			t.Fatalf("List LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
 		}

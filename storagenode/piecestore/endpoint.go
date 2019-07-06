@@ -6,12 +6,16 @@ package piecestore
 import (
 	"context"
 	"io"
+	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
@@ -19,6 +23,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
@@ -40,18 +45,19 @@ var _ pb.PiecestoreServer = (*Endpoint)(nil)
 
 // OldConfig contains everything necessary for a server
 type OldConfig struct {
-	Path string `help:"path to store data in" default:"$CONFDIR/storage"`
-
-	WhitelistedSatelliteIDs string        `help:"a comma-separated list of approved satellite node ids" default:""`
-	SatelliteIDRestriction  bool          `help:"if true, only allow data from approved satellites" devDefault:"false" releaseDefault:"true"`
-	AllocatedDiskSpace      memory.Size   `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
-	AllocatedBandwidth      memory.Size   `user:"true" help:"total allocated bandwidth in bytes" default:"500GiB"`
-	KBucketRefreshInterval  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	Path                   string         `help:"path to store data in" default:"$CONFDIR/storage"`
+	WhitelistedSatellites  storj.NodeURLs `help:"a comma-separated list of approved satellite node urls" devDefault:"" releaseDefault:"12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S@mars.tardigrade.io:7777,118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW@satellite.stefan-benten.de:7777,121RTSDpyNZVcEU84Ticf2L1ntiuUimbWgfATz21tuvgk3vzoA6@saturn.tardigrade.io:7777,12L9ZFwhzVpuEKMUNUqkaTLGzwY9G24tbiigLiXpmZWKwmcNDDs@jupiter.tardigrade.io:7777"`
+	SatelliteIDRestriction bool           `help:"if true, only allow data from approved satellites" devDefault:"false" releaseDefault:"true"`
+	AllocatedDiskSpace     memory.Size    `user:"true" help:"total allocated disk space in bytes" default:"1TB"`
+	AllocatedBandwidth     memory.Size    `user:"true" help:"total allocated bandwidth in bytes" default:"2TB"`
+	KBucketRefreshInterval time.Duration  `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
 }
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
+	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
@@ -71,6 +77,8 @@ type Endpoint struct {
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
+
+	liveRequests int32
 }
 
 // NewEndpoint creates a new piecestore endpoint.
@@ -88,12 +96,17 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		orders:      orders,
 		usage:       usage,
 		usedSerials: usedSerials,
+
+		liveRequests: 0,
 	}, nil
 }
 
 // Delete handles deleting a piece on piece store.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
 	if delete.Limit.Action != pb.PieceAction_DELETE {
 		return nil, Error.New("expected delete action got %v", delete.Limit.Action) // TODO: report grpc status unauthorized or bad request
@@ -126,6 +139,16 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
+	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
+	if int(liveRequests) > endpoint.config.MaxConcurrentRequests {
+		endpoint.log.Error("upload rejected, too many requests", zap.Int32("live requests", liveRequests))
+		return status.Error(codes.Unavailable, "storage node overloaded")
+	}
+
+	startTime := time.Now().UTC()
+
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
 
@@ -142,6 +165,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 	limit := message.Limit
 
+	endpoint.log.Info("upload started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+
 	// TODO: verify that we have have expected amount of storage before continuing
 
 	if limit.Action != pb.PieceAction_PUT && limit.Action != pb.PieceAction_PUT_REPAIR {
@@ -152,11 +177,32 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return err // TODO: report grpc status unauthorized or bad request
 	}
 
+	var pieceWriter *pieces.Writer
 	defer func() {
+		endTime := time.Now().UTC()
+		dt := endTime.Sub(startTime)
+		uploadSize := int64(0)
+		if pieceWriter != nil {
+			uploadSize = pieceWriter.Size()
+		}
+		uploadRate := float64(0)
+		if dt.Seconds() > 0 {
+			uploadRate = float64(uploadSize) / dt.Seconds()
+		}
+		uploadDuration := dt.Nanoseconds()
+
 		if err != nil {
-			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Node ID", limit.StorageNodeId), zap.Error(err))
+			mon.Meter("upload_failure_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_failure_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_failure_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_failure_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Info("upload failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
-			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
+			mon.Meter("upload_success_byte_meter").Mark64(uploadSize)
+			mon.IntVal("upload_success_size_bytes").Observe(uploadSize)
+			mon.IntVal("upload_success_duration_ns").Observe(uploadDuration)
+			mon.FloatVal("upload_success_rate_bytes_per_sec").Observe(uploadRate)
+			endpoint.log.Info("uploaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -165,13 +211,13 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return Error.Wrap(err)
 	}
 
-	pieceWriter, err := endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
+	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 	}
 	defer func() {
 		// cancel error if it hasn't been committed
-		if cancelErr := pieceWriter.Cancel(); cancelErr != nil {
+		if cancelErr := pieceWriter.Cancel(ctx); cancelErr != nil {
 			endpoint.log.Error("error during canceling a piece write", zap.Error(cancelErr))
 		}
 	}()
@@ -186,7 +232,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return ErrInternal.Wrap(err)
 	}
 
-	largestOrder := pb.Order2{}
+	largestOrder := pb.Order{}
 	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
 
 	for {
@@ -240,7 +286,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				return err // TODO: report grpc status internal server error
 			}
 
-			if err := pieceWriter.Commit(); err != nil {
+			if err := pieceWriter.Commit(ctx); err != nil {
 				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
 			}
 
@@ -268,13 +314,17 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				}
 
 				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
-					return ErrInternal.Wrap(err)
+					ignoreCancelContext := context.Background()
+					deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
+					return ErrInternal.Wrap(errs.Combine(err, deleteErr))
 				}
 			}
 
-			storageNodeHash, err := signing.SignPieceHash(endpoint.signer, &pb.PieceHash{
-				PieceId: limit.PieceId,
-				Hash:    expectedHash,
+			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
+				PieceId:   limit.PieceId,
+				Hash:      expectedHash,
+				PieceSize: pieceWriter.Size(),
+				Timestamp: time.Now(),
 			})
 			if err != nil {
 				return ErrInternal.Wrap(err)
@@ -293,6 +343,11 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
+	atomic.AddInt32(&endpoint.liveRequests, 1)
+	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+
+	startTime := time.Now().UTC()
+
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
 
@@ -308,6 +363,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	}
 	limit, chunk := message.Limit, message.Chunk
 
+	endpoint.log.Info("download started", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
+
 	if limit.Action != pb.PieceAction_GET && limit.Action != pb.PieceAction_GET_REPAIR && limit.Action != pb.PieceAction_GET_AUDIT {
 		return ErrProtocol.New("expected get or get repair or audit action got %v", limit.Action) // TODO: report grpc status unauthorized or bad request
 	}
@@ -320,11 +377,31 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err) // TODO: report grpc status unauthorized or bad request
 	}
 
+	var pieceReader *pieces.Reader
 	defer func() {
+		endTime := time.Now().UTC()
+		dt := endTime.Sub(startTime)
+		downloadSize := int64(0)
+		if pieceReader != nil {
+			downloadSize = pieceReader.Size()
+		}
+		downloadRate := float64(0)
+		if dt.Seconds() > 0 {
+			downloadRate = float64(downloadSize) / dt.Seconds()
+		}
+		downloadDuration := dt.Nanoseconds()
 		if err != nil {
-			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Error(err))
+			mon.Meter("download_failure_byte_meter").Mark64(downloadSize)
+			mon.IntVal("download_failure_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_failure_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_failure_rate_bytes_per_sec").Observe(downloadRate)
+			endpoint.log.Info("download failed", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action), zap.Error(err))
 		} else {
-			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("Action", limit.Action))
+			mon.Meter("download_success_byte_meter").Mark64(downloadSize)
+			mon.IntVal("download_success_size_bytes").Observe(downloadSize)
+			mon.IntVal("download_success_duration_ns").Observe(downloadDuration)
+			mon.FloatVal("download_success_rate_bytes_per_sec").Observe(downloadRate)
+			endpoint.log.Info("downloaded", zap.Stringer("Piece ID", limit.PieceId), zap.Stringer("SatelliteID", limit.SatelliteId), zap.Stringer("Action", limit.Action))
 		}
 	}()
 
@@ -333,9 +410,12 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		return Error.Wrap(err)
 	}
 
-	pieceReader, err := endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
+	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
-		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+		if os.IsNotExist(err) {
+			return status.Error(codes.NotFound, err.Error())
+		}
+		return status.Error(codes.Internal, err.Error())
 	}
 	defer func() {
 		err := pieceReader.Close() // similarly how transcation Rollback works
@@ -405,7 +485,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	})
 
 	recvErr := func() (err error) {
-		largestOrder := pb.Order2{}
+		largestOrder := pb.Order{}
 		defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
 
 		// ensure that we always terminate sending goroutine
@@ -448,12 +528,15 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 }
 
 // SaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, order *pb.Order2, uplink *identity.PeerIdentity) {
+func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, uplink *identity.PeerIdentity) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
 	// TODO: do this in a goroutine
 	if order == nil || order.Amount <= 0 {
 		return
 	}
-	err := endpoint.orders.Enqueue(ctx, &orders.Info{
+	err = endpoint.orders.Enqueue(ctx, &orders.Info{
 		Limit:  limit,
 		Order:  order,
 		Uplink: uplink,
@@ -461,7 +544,7 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit2, 
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
 	} else {
-		err := endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
+		err = endpoint.usage.Add(ctx, limit.SatelliteId, limit.Action, order.Amount, time.Now())
 		if err != nil {
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}

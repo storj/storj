@@ -28,7 +28,9 @@ func TestHandlers_Register(t *testing.T) {
 		chains   [][][]*x509.Certificate
 	)
 
-	for i := 0; i < 5; i++ {
+	for idx := 0; idx < 5; idx++ {
+		i := idx
+
 		ids = append(ids, &extensions.ExtensionID{2, 999, 999, i})
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})
@@ -79,7 +81,9 @@ func TestHandlers_WithOptions(t *testing.T) {
 		chains   [][][]*x509.Certificate
 	)
 
-	for i := 0; i < 5; i++ {
+	for idx := 0; idx < 5; idx++ {
+		i := idx
+
 		ids = append(ids, &extensions.ExtensionID{2, 999, 999, i})
 		opts = append(opts, &extensions.Options{})
 		exts = append(exts, pkix.Extension{Id: *ids[i]})

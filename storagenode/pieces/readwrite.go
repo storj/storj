@@ -5,6 +5,7 @@ package pieces
 
 import (
 	"bufio"
+	"context"
 	"hash"
 	"io"
 
@@ -48,25 +49,27 @@ func (w *Writer) Size() int64 { return w.size }
 func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 
 // Commit commits piece to permanent storage.
-func (w *Writer) Commit() error {
+func (w *Writer) Commit(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return Error.New("already closed")
 	}
 	w.closed = true
 	if err := w.buf.Flush(); err != nil {
-		return Error.Wrap(errs.Combine(err, w.blob.Cancel()))
+		return Error.Wrap(errs.Combine(err, w.blob.Cancel(ctx)))
 	}
-	return Error.Wrap(w.blob.Commit())
+	return Error.Wrap(w.blob.Commit(ctx))
 }
 
 // Cancel deletes any temporarily written data.
-func (w *Writer) Cancel() error {
+func (w *Writer) Cancel(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return nil
 	}
 	w.closed = true
 	w.buf.Reset(nil)
-	return Error.Wrap(w.blob.Cancel())
+	return Error.Wrap(w.blob.Cancel(ctx))
 }
 
 // Reader implements a piece reader that reads content from blob store.

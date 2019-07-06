@@ -4,6 +4,8 @@
 package metainfo
 
 import (
+	"context"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
@@ -26,7 +28,9 @@ func NewService(logger *zap.Logger, db storage.KeyValueStore) *Service {
 }
 
 // Put puts pointer to db under specific path
-func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
+func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Update the pointer with the creation date
 	pointer.CreationDate = ptypes.TimestampNow()
 
@@ -38,7 +42,7 @@ func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
 	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
 	// In such case we should delete the pieces of the old segment if it was
 	// a remote one.
-	if err = s.DB.Put([]byte(path), pointerBytes); err != nil {
+	if err = s.DB.Put(ctx, []byte(path), pointerBytes); err != nil {
 		return err
 	}
 
@@ -46,8 +50,9 @@ func (s *Service) Put(path string, pointer *pb.Pointer) (err error) {
 }
 
 // Get gets pointer from db
-func (s *Service) Get(path string) (pointer *pb.Pointer, err error) {
-	pointerBytes, err := s.DB.Get([]byte(path))
+func (s *Service) Get(ctx context.Context, path string) (pointer *pb.Pointer, err error) {
+	defer mon.Task()(&ctx)(&err)
+	pointerBytes, err := s.DB.Get(ctx, []byte(path))
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +67,9 @@ func (s *Service) Get(path string) (pointer *pb.Pointer, err error) {
 }
 
 // List returns all Path keys in the pointers bucket
-func (s *Service) List(prefix string, startAfter string, endBefore string, recursive bool, limit int32,
+func (s *Service) List(ctx context.Context, prefix string, startAfter string, endBefore string, recursive bool, limit int32,
 	metaFlags uint32) (items []*pb.ListResponse_Item, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	var prefixKey storage.Key
 	if prefix != "" {
@@ -73,7 +79,7 @@ func (s *Service) List(prefix string, startAfter string, endBefore string, recur
 		}
 	}
 
-	rawItems, more, err := storage.ListV2(s.DB, storage.ListOptions{
+	rawItems, more, err := storage.ListV2(ctx, s.DB, storage.ListOptions{
 		Prefix:       prefixKey,
 		StartAfter:   storage.Key(startAfter),
 		EndBefore:    storage.Key(endBefore),
@@ -86,14 +92,15 @@ func (s *Service) List(prefix string, startAfter string, endBefore string, recur
 	}
 
 	for _, rawItem := range rawItems {
-		items = append(items, s.createListItem(rawItem, metaFlags))
+		items = append(items, s.createListItem(ctx, rawItem, metaFlags))
 	}
 	return items, more, nil
 }
 
 // createListItem creates a new list item with the given path. It also adds
 // the metadata according to the given metaFlags.
-func (s *Service) createListItem(rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+func (s *Service) createListItem(ctx context.Context, rawItem storage.ListItem, metaFlags uint32) *pb.ListResponse_Item {
+	defer mon.Task()(&ctx)(nil)
 	item := &pb.ListResponse_Item{
 		Path:     rawItem.Key.String(),
 		IsPrefix: rawItem.IsPrefix,
@@ -142,17 +149,19 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 }
 
 // Delete deletes from item from db
-func (s *Service) Delete(path string) (err error) {
-	return s.DB.Delete([]byte(path))
+func (s *Service) Delete(ctx context.Context, path string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.DB.Delete(ctx, []byte(path))
 }
 
 // Iterate iterates over items in db
-func (s *Service) Iterate(prefix string, first string, recurse bool, reverse bool, f func(it storage.Iterator) error) (err error) {
+func (s *Service) Iterate(ctx context.Context, prefix string, first string, recurse bool, reverse bool, f func(context.Context, storage.Iterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	opts := storage.IterateOptions{
 		Prefix:  storage.Key(prefix),
 		First:   storage.Key(first),
 		Recurse: recurse,
 		Reverse: reverse,
 	}
-	return s.DB.Iterate(opts, f)
+	return s.DB.Iterate(ctx, opts, f)
 }

@@ -37,6 +37,7 @@ export default class DashboardHeader extends Vue {
     .header-container {
         width: 100%;
         height: 100px;
+        min-height: 100px;
         background-color: white;
         display: flex;
         flex-direction: row;

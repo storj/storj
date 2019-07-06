@@ -5,6 +5,7 @@ package macaroon
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -13,26 +14,29 @@ import (
 	"github.com/zeebo/errs"
 )
 
+var ctx = context.Background() // test context
+
 func TestSerializeParseRestrictAndCheck(t *testing.T) {
 	secret, err := NewSecret()
 	require.NoError(t, err)
 	key, err := NewAPIKey(secret)
 	require.NoError(t, err)
 
-	serialized, err := key.Serialize()
-	require.NoError(t, err)
+	serialized := key.Serialize()
 	parsedKey, err := ParseAPIKey(serialized)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(key.Head(), parsedKey.Head()))
 	require.True(t, bytes.Equal(key.Tail(), parsedKey.Tail()))
 
 	restricted, err := key.Restrict(Caveat{
-		EncryptedPathPrefixes: [][]byte{[]byte("a-test-path")},
+		AllowedPaths: []*Caveat_Path{{
+			Bucket:              []byte("a-test-bucket"),
+			EncryptedPathPrefix: []byte("a-test-path"),
+		}},
 	})
 	require.NoError(t, err)
 
-	serialized, err = restricted.Serialize()
-	require.NoError(t, err)
+	serialized = restricted.Serialize()
 	parsedKey, err = ParseAPIKey(serialized)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(key.Head(), parsedKey.Head()))
@@ -42,18 +46,20 @@ func TestSerializeParseRestrictAndCheck(t *testing.T) {
 	action1 := Action{
 		Op:            ActionRead,
 		Time:          now,
+		Bucket:        []byte("a-test-bucket"),
 		EncryptedPath: []byte("a-test-path"),
 	}
 	action2 := Action{
 		Op:            ActionRead,
 		Time:          now,
+		Bucket:        []byte("another-test-bucket"),
 		EncryptedPath: []byte("another-test-path"),
 	}
 
-	require.NoError(t, key.Check(secret, action1, nil))
-	require.NoError(t, key.Check(secret, action2, nil))
-	require.NoError(t, parsedKey.Check(secret, action1, nil))
-	err = parsedKey.Check(secret, action2, nil)
+	require.NoError(t, key.Check(ctx, secret, action1, nil))
+	require.NoError(t, key.Check(ctx, secret, action2, nil))
+	require.NoError(t, parsedKey.Check(ctx, secret, action1, nil))
+	err = parsedKey.Check(ctx, secret, action2, nil)
 	require.True(t, ErrUnauthorized.Has(err), err)
 }
 
@@ -74,11 +80,11 @@ func TestRevocation(t *testing.T) {
 		Time: now,
 	}
 
-	require.NoError(t, key.Check(secret, action, nil))
-	require.NoError(t, restricted.Check(secret, action, nil))
+	require.NoError(t, key.Check(ctx, secret, action, nil))
+	require.NoError(t, restricted.Check(ctx, secret, action, nil))
 
-	require.True(t, ErrRevoked.Has(key.Check(secret, action, [][]byte{restricted.Head()})))
-	require.True(t, ErrRevoked.Has(restricted.Check(secret, action, [][]byte{restricted.Head()})))
+	require.True(t, ErrRevoked.Has(key.Check(ctx, secret, action, [][]byte{restricted.Head()})))
+	require.True(t, ErrRevoked.Has(restricted.Check(ctx, secret, action, [][]byte{restricted.Head()})))
 }
 
 func TestExpiration(t *testing.T) {
@@ -123,7 +129,7 @@ func TestExpiration(t *testing.T) {
 		{notBeforeMinuteFromNow, twoMinutesFromNow, nil},
 		{notAfterMinuteAgo, twoMinutesFromNow, &ErrUnauthorized},
 	} {
-		err := test.keyToTest.Check(secret, Action{
+		err := test.keyToTest.Check(ctx, secret, Action{
 			Op:   ActionRead,
 			Time: test.timestampToTest,
 		}, nil)

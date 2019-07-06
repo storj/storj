@@ -6,10 +6,10 @@ package trust
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/zeebo/errs"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -19,6 +19,7 @@ import (
 
 // Error is the default error class
 var Error = errs.Class("trust:")
+var mon = monkit.Package()
 
 // Pool implements different peer verifications.
 type Pool struct {
@@ -34,10 +35,11 @@ type Pool struct {
 type satelliteInfoCache struct {
 	mu       sync.Mutex
 	identity *identity.PeerIdentity
+	nodeURL  storj.NodeURL
 }
 
 // NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
-func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs string) (*Pool, error) {
+func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatellites storj.NodeURLs) (*Pool, error) {
 	if trustAll {
 		return &Pool{
 			kademlia: kademlia,
@@ -52,16 +54,8 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 	// parse the comma separated list of approved satellite IDs into an array of storj.NodeIDs
 	trusted := make(map[storj.NodeID]*satelliteInfoCache)
 
-	for _, s := range strings.Split(trustedSatelliteIDs, ",") {
-		if s == "" {
-			continue
-		}
-
-		satelliteID, err := storj.NodeIDFromString(s)
-		if err != nil {
-			return nil, err
-		}
-		trusted[satelliteID] = &satelliteInfoCache{} // we will set these later
+	for _, node := range trustedSatellites {
+		trusted[node.ID] = &satelliteInfoCache{nodeURL: node}
 	}
 
 	return &Pool{
@@ -73,7 +67,8 @@ func NewPool(kademlia *kademlia.Kademlia, trustAll bool, trustedSatelliteIDs str
 }
 
 // VerifySatelliteID checks whether id corresponds to a trusted satellite.
-func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error {
+func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	if pool.trustAllSatellites {
 		return nil
 	}
@@ -89,14 +84,17 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) error 
 }
 
 // VerifyUplinkID verifides whether id corresponds to a trusted uplink.
-func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) error {
+func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	// trusting all the uplinks for now
 	return nil
 }
 
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
-func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signee, error) {
+func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// lookup peer identity with id
 	pool.mu.RLock()
 	info, ok := pool.trustedSatellites[id]
@@ -126,13 +124,33 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (signing.Signe
 	if info.identity == nil {
 		identity, err := pool.kademlia.FetchPeerIdentity(ctx, id)
 		if err != nil {
-			if err == context.Canceled {
-				return nil, err
-			}
 			return nil, Error.Wrap(err)
 		}
 		info.identity = identity
 	}
 
 	return signing.SigneeFromPeerIdentity(info.identity), nil
+}
+
+// GetSatellites returns a slice containing all trusted satellites
+func (pool *Pool) GetSatellites(ctx context.Context) (satellites []storj.NodeID) {
+	defer mon.Task()(&ctx)(nil)
+	for sat := range pool.trustedSatellites {
+		satellites = append(satellites, sat)
+	}
+	return satellites
+}
+
+// GetAddress returns the address of a satellite in the trusted list
+func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+
+	info, ok := pool.trustedSatellites[id]
+	if !ok {
+		return "", Error.New("ID %v not found in trusted list", id)
+	}
+	return info.nodeURL.Address, nil
 }

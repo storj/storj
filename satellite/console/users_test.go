@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -20,12 +20,12 @@ func TestUserRepository(t *testing.T) {
 	//testing constants
 	const (
 		lastName    = "lastName"
-		email       = "email@ukr.net"
+		email       = "email@mail.test"
 		passValid   = "123456"
 		name        = "name"
 		newName     = "newName"
 		newLastName = "newLastName"
-		newEmail    = "newEmail@ukr.net"
+		newEmail    = "newEmail@mail.test"
 		newPass     = "newPass1234567890123456789012345"
 	)
 
@@ -36,11 +36,8 @@ func TestUserRepository(t *testing.T) {
 		repository := db.Console().Users()
 
 		t.Run("User insertion success", func(t *testing.T) {
-			id, err := uuid.New()
-			assert.NoError(t, err)
-
 			user := &console.User{
-				ID:           *id,
+				ID:           testrand.UUID(),
 				FullName:     name,
 				ShortName:    lastName,
 				Email:        email,

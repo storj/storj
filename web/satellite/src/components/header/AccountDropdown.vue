@@ -59,7 +59,7 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS, API_KEYS_
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
             },
             onAccountSettingsClick: function (): void {
-                this.$router.push('/account-settings');
+                this.$router.push(ROUTES.ACCOUNT_SETTINGS.path + '/' + ROUTES.PROFILE.path);
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
             },
             onLogoutClick: function () {

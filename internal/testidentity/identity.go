@@ -36,7 +36,7 @@ func NewTestIdentity(ctx context.Context) (*identity.FullIdentity, error) {
 func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) {
 	return identity.NewCA(ctx, identity.NewCAOptions{
 		VersionNumber: storj.LatestIDVersion().Number,
-		Difficulty:    8,
+		Difficulty:    9,
 		Concurrency:   4,
 	})
 }
@@ -44,7 +44,9 @@ func NewTestCA(ctx context.Context) (*identity.FullCertificateAuthority, error) 
 // IdentityVersionsTest runs the `IdentityTest` for each identity
 // version, with an unsigned identity.
 func IdentityVersionsTest(t *testing.T, test IdentityTest) {
-	for versionNumber, version := range storj.IDVersions {
+	for vn, v := range storj.IDVersions {
+		versionNumber := vn
+		version := v
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
 			ident, err := IdentityVersions[versionNumber].NewIdentity()
 			require.NoError(t, err)
@@ -57,7 +59,9 @@ func IdentityVersionsTest(t *testing.T, test IdentityTest) {
 // SignedIdentityVersionsTest runs the `IdentityTest` for each identity
 // version, with an signed identity.
 func SignedIdentityVersionsTest(t *testing.T, test IdentityTest) {
-	for versionNumber, version := range storj.IDVersions {
+	for vn, v := range storj.IDVersions {
+		versionNumber := vn
+		version := v
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
 			ident, err := SignedIdentityVersions[versionNumber].NewIdentity()
 			require.NoError(t, err)
@@ -82,7 +86,11 @@ func CompleteIdentityVersionsTest(t *testing.T, test IdentityTest) {
 // SignerVersionsTest runs the `SignerTest` for each identity version, with the
 // respective signer used to sign pregenerated, signed  identities.
 func SignerVersionsTest(t *testing.T, test SignerTest) {
-	for versionNumber, version := range storj.IDVersions {
+	for vn, v := range storj.IDVersions {
+		var (
+			versionNumber = vn
+			version       = v
+		)
 		t.Run(fmt.Sprintf("identity version %d", versionNumber), func(t *testing.T) {
 			ca := SignerVersions[versionNumber]
 

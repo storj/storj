@@ -24,11 +24,11 @@ func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 func (db *InfoDB) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
 
 // Add adds bandwidth usage to the table
-func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error {
-	defer db.locked()()
+func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	_, err := db.db.Exec(`
-		INSERT INTO 
+	_, err = db.db.Exec(`
+		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created)
 
@@ -37,12 +37,12 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 
 // Summary returns summary of bandwidth usages
 func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *bandwidth.Usage, err error) {
-	defer db.locked()()
+	defer mon.Task()(&ctx)(&err)
 
 	usage := &bandwidth.Usage{}
 
 	rows, err := db.db.Query(`
-		SELECT action, sum(amount) 
+		SELECT action, sum(amount)
 		FROM bandwidth_usage
 		WHERE ? <= created_at AND created_at <= ?
 		GROUP BY action`, from, to)
@@ -69,12 +69,12 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 
 // SummaryBySatellite returns summary of bandwidth usage grouping by satellite.
 func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Time) (_ map[storj.NodeID]*bandwidth.Usage, err error) {
-	defer db.locked()()
+	defer mon.Task()(&ctx)(&err)
 
 	entries := map[storj.NodeID]*bandwidth.Usage{}
 
 	rows, err := db.db.Query(`
-		SELECT satellite_id, action, sum(amount) 
+		SELECT satellite_id, action, sum(amount)
 		FROM bandwidth_usage
 		WHERE ? <= created_at AND created_at <= ?
 		GROUP BY satellite_id, action`, from, to)

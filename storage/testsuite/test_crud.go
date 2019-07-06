@@ -29,7 +29,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 
 	t.Run("Put", func(t *testing.T) {
 		for _, item := range items {
-			err := store.Put(item.Key, item.Value)
+			err := store.Put(ctx, item.Key, item.Value)
 			if err != nil {
 				t.Fatalf("failed to put %q = %v: %v", item.Key, item.Value, err)
 			}
@@ -40,7 +40,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 
 	t.Run("Get", func(t *testing.T) {
 		for _, item := range items {
-			value, err := store.Get(item.Key)
+			value, err := store.Get(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to get %q = %v: %v", item.Key, item.Value, err)
 			}
@@ -53,7 +53,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 	t.Run("GetAll", func(t *testing.T) {
 		subset := items[:len(items)/2]
 		keys := subset.GetKeys()
-		values, err := store.GetAll(keys)
+		values, err := store.GetAll(ctx, keys)
 		if err != nil {
 			t.Fatalf("failed to GetAll %q: %v", keys, err)
 		}
@@ -70,7 +70,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 	t.Run("Update", func(t *testing.T) {
 		for i, item := range items {
 			next := items[(i+1)%len(items)]
-			err := store.Put(item.Key, next.Value)
+			err := store.Put(ctx, item.Key, next.Value)
 			if err != nil {
 				t.Fatalf("failed to update %q = %v: %v", item.Key, next.Value, err)
 			}
@@ -78,7 +78,7 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 
 		for i, item := range items {
 			next := items[(i+1)%len(items)]
-			value, err := store.Get(item.Key)
+			value, err := store.Get(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to get updated %q = %v: %v", item.Key, next.Value, err)
 			}
@@ -90,14 +90,14 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 
 	t.Run("Delete", func(t *testing.T) {
 		for _, item := range items {
-			err := store.Delete(item.Key)
+			err := store.Delete(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to delete %v: %v", item.Key, err)
 			}
 		}
 
 		for _, item := range items {
-			value, err := store.Get(item.Key)
+			value, err := store.Get(ctx, item.Key)
 			if err == nil {
 				t.Fatalf("got deleted value %q = %v", item.Key, value)
 			}

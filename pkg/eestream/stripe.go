@@ -4,6 +4,7 @@
 package eestream
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -11,32 +12,39 @@ import (
 	"sync"
 
 	"github.com/vivint/infectious"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 // StripeReader can read and decodes stripes from a set of readers
 type StripeReader struct {
-	scheme      ErasureScheme
-	cond        *sync.Cond
-	readerCount int
-	bufs        map[int]*PieceBuffer
-	inbufs      map[int][]byte
-	inmap       map[int][]byte
-	errmap      map[int]error
+	scheme              ErasureScheme
+	cond                *sync.Cond
+	readerCount         int
+	bufs                map[int]*PieceBuffer
+	inbufs              map[int][]byte
+	inmap               map[int][]byte
+	errmap              map[int]error
+	forceErrorDetection bool
 }
 
 // NewStripeReader creates a new StripeReader from the given readers, erasure
 // scheme and max buffer memory.
-func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int) *StripeReader {
+func NewStripeReader(rs map[int]io.ReadCloser, es ErasureScheme, mbm int, forceErrorDetection bool) *StripeReader {
 	readerCount := len(rs)
 
 	r := &StripeReader{
-		scheme:      es,
-		cond:        sync.NewCond(&sync.Mutex{}),
-		readerCount: readerCount,
-		bufs:        make(map[int]*PieceBuffer, readerCount),
-		inbufs:      make(map[int][]byte, readerCount),
-		inmap:       make(map[int][]byte, readerCount),
-		errmap:      make(map[int]error, readerCount),
+		scheme:              es,
+		cond:                sync.NewCond(&sync.Mutex{}),
+		readerCount:         readerCount,
+		bufs:                make(map[int]*PieceBuffer, readerCount),
+		inbufs:              make(map[int][]byte, readerCount),
+		inmap:               make(map[int][]byte, readerCount),
+		errmap:              make(map[int]error, readerCount),
+		forceErrorDetection: forceErrorDetection,
 	}
 
 	bufSize := mbm / readerCount
@@ -82,7 +90,8 @@ func (r *StripeReader) Close() error {
 
 // ReadStripe reads and decodes the num-th stripe and concatenates it to p. The
 // return value is the updated byte slice.
-func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
+func (r *StripeReader) ReadStripe(ctx context.Context, num int64, p []byte) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
 	for i := range r.inmap {
 		delete(r.inmap, i)
 	}
@@ -91,7 +100,7 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 	defer r.cond.L.Unlock()
 
 	for r.pendingReaders() {
-		for r.readAvailableShares(num) == 0 {
+		for r.readAvailableShares(ctx, num) == 0 {
 			r.cond.Wait()
 		}
 		if r.hasEnoughShares() {
@@ -112,7 +121,8 @@ func (r *StripeReader) ReadStripe(num int64, p []byte) ([]byte, error) {
 // readAvailableShares reads the available num-th erasure shares from the piece
 // buffers without blocking. The return value n is the number of erasure shares
 // read.
-func (r *StripeReader) readAvailableShares(num int64) (n int) {
+func (r *StripeReader) readAvailableShares(ctx context.Context, num int64) (n int) {
+	defer mon.Task()(&ctx)(nil)
 	for i, buf := range r.bufs {
 		if r.inmap[i] != nil || r.errmap[i] != nil {
 			continue
@@ -140,7 +150,7 @@ func (r *StripeReader) pendingReaders() bool {
 // a decode.
 func (r *StripeReader) hasEnoughShares() bool {
 	return len(r.inmap) >= r.scheme.RequiredCount()+1 ||
-		(len(r.inmap) == r.scheme.RequiredCount() && !r.pendingReaders())
+		(!r.forceErrorDetection && len(r.inmap) == r.scheme.RequiredCount() && !r.pendingReaders())
 }
 
 // shouldWaitForMore checks the returned decode error if it makes sense to wait

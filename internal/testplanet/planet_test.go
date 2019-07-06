@@ -64,10 +64,11 @@ func TestBasic(t *testing.T) {
 func BenchmarkCreate(b *testing.B) {
 	storageNodes := []int{4, 10, 100}
 	for _, count := range storageNodes {
-		b.Run(strconv.Itoa(count), func(b *testing.B) {
+		storageNodeCount := count
+		b.Run(strconv.Itoa(storageNodeCount), func(b *testing.B) {
 			ctx := context.Background()
 			for i := 0; i < b.N; i++ {
-				planet, err := testplanet.New(nil, 1, count, 1)
+				planet, err := testplanet.New(nil, 1, storageNodeCount, 1)
 				require.NoError(b, err)
 
 				planet.Start(ctx)

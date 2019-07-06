@@ -57,7 +57,7 @@ func (c Config) Verify(log *zap.Logger) error {
 // OperatorConfig defines properties related to storage node operator metadata
 type OperatorConfig struct {
 	Email  string `user:"true" help:"operator email address" default:""`
-	Wallet string `user:"true" help:"operator wallet adress" default:""`
+	Wallet string `user:"true" help:"operator wallet address" default:""`
 }
 
 // Verify verifies whether operator config is valid.

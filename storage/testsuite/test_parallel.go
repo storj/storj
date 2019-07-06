@@ -21,18 +21,19 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 	rand.Shuffle(len(items), items.Swap)
 	defer cleanupItems(store, items)
 
-	for i := range items {
+	for idx := range items {
+		i := idx
 		item := items[i]
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Parallel()
 			// Put
-			err := store.Put(item.Key, item.Value)
+			err := store.Put(ctx, item.Key, item.Value)
 			if err != nil {
 				t.Fatalf("failed to put %q = %v: %v", item.Key, item.Value, err)
 			}
 
 			// Get
-			value, err := store.Get(item.Key)
+			value, err := store.Get(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to get %q = %v: %v", item.Key, item.Value, err)
 			}
@@ -41,7 +42,7 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 			}
 
 			// GetAll
-			values, err := store.GetAll([]storage.Key{item.Key})
+			values, err := store.GetAll(ctx, []storage.Key{item.Key})
 			if len(values) != 1 {
 				t.Fatalf("failed to GetAll: %v", err)
 			}
@@ -52,12 +53,12 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 
 			// Update value
 			nextValue := storage.Value(string(item.Value) + "X")
-			err = store.Put(item.Key, nextValue)
+			err = store.Put(ctx, item.Key, nextValue)
 			if err != nil {
 				t.Fatalf("failed to update %q = %v: %v", item.Key, nextValue, err)
 			}
 
-			value, err = store.Get(item.Key)
+			value, err = store.Get(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to get %q = %v: %v", item.Key, nextValue, err)
 			}
@@ -65,7 +66,7 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 				t.Fatalf("invalid updated value for %q = %v: got %v", item.Key, nextValue, value)
 			}
 
-			err = store.Delete(item.Key)
+			err = store.Delete(ctx, item.Key)
 			if err != nil {
 				t.Fatalf("failed to delete %v: %v", item.Key, err)
 			}

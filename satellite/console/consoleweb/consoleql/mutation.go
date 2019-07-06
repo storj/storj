@@ -75,26 +75,26 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)
 					if err != nil {
+						log.Error("register: failed to parse secret",
+							zap.String("rawSecret", secretInput),
+							zap.Error(err))
+
 						return nil, err
 					}
-
-					log.Error("register: failed to parse secret",
-						zap.String("rawSecret", secretInput),
-						zap.Error(err))
 
 					user, err := service.CreateUser(p.Context, createUser, secret)
 					if err != nil {
+						log.Error("register: failed to create account",
+							zap.String("rawSecret", secretInput),
+							zap.Error(err))
+
 						return nil, err
 					}
-
-					log.Error("register: failed to create account",
-						zap.String("rawSecret", secretInput),
-						zap.Error(err))
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
 					if err != nil {
 						log.Error("register: failed to generate activation token",
-							zap.String("id", user.ID.String()),
+							zap.Stringer("id", user.ID),
 							zap.String("email", user.Email),
 							zap.Error(err))
 
@@ -109,17 +109,14 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						userName = user.FullName
 					}
 
-					// TODO: think of a better solution
-					go func() {
-						_ = mailService.SendRendered(
-							p.Context,
-							[]post.Address{{Address: user.Email, Name: userName}},
-							&AccountActivationEmail{
-								Origin:         origin,
-								ActivationLink: link,
-							},
-						)
-					}()
+					mailService.SendRenderedAsync(
+						p.Context,
+						[]post.Address{{Address: user.Email, Name: userName}},
+						&AccountActivationEmail{
+							Origin:         origin,
+							ActivationLink: link,
+						},
+					)
 
 					return user, nil
 				},
@@ -302,26 +299,23 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					origin := rootObject["origin"].(string)
 					signIn := origin + rootObject[SignInPath].(string)
 
-					// TODO: think of a better solution
-					go func() {
-						for _, user := range users {
-							userName := user.ShortName
-							if user.ShortName == "" {
-								userName = user.FullName
-							}
-
-							_ = mailService.SendRendered(
-								p.Context,
-								[]post.Address{{Address: user.Email, Name: userName}},
-								&ProjectInvitationEmail{
-									Origin:      origin,
-									UserName:    userName,
-									ProjectName: project.Name,
-									SignInLink:  signIn,
-								},
-							)
+					for _, user := range users {
+						userName := user.ShortName
+						if user.ShortName == "" {
+							userName = user.FullName
 						}
-					}()
+
+						mailService.SendRenderedAsync(
+							p.Context,
+							[]post.Address{{Address: user.Email, Name: userName}},
+							&ProjectInvitationEmail{
+								Origin:      origin,
+								UserName:    userName,
+								ProjectName: project.Name,
+								SignInLink:  signIn,
+							},
+						)
+					}
 
 					return project, nil
 				},
@@ -385,7 +379,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					}
 
 					return createAPIKey{
-						Key:     key,
+						Key:     key.Serialize(),
 						KeyInfo: info,
 					}, nil
 				},

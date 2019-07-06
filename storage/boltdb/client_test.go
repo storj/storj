@@ -4,6 +4,7 @@
 package boltdb
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,10 +13,13 @@ import (
 	"testing"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )
+
+var ctx = context.Background() // test context
 
 func TestSuite(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "storj-bolt")
@@ -96,8 +100,8 @@ func (store *boltLongBenchmarkStore) BulkImport(iter storage.Iterator) (err erro
 	defer func() { store.db.NoSync = oldval }()
 
 	var item storage.ListItem
-	for iter.Next(&item) {
-		if err := store.Put(item.Key, item.Value); err != nil {
+	for iter.Next(ctx, &item) {
+		if err := store.Put(ctx, item.Key, item.Value); err != nil {
 			return fmt.Errorf("Failed to insert data (%q, %q): %v", item.Key, item.Value, err)
 		}
 	}
@@ -172,7 +176,7 @@ func BenchmarkClientWrite(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err := kdb.PutAndCommit(key, value)
+				err := kdb.PutAndCommit(ctx, key, value)
 				if err != nil {
 					b.Fatal("Put err:", err)
 				}
@@ -214,7 +218,7 @@ func BenchmarkClientNoSyncWrite(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err := kdb.PutAndCommit(key, value)
+				err := kdb.PutAndCommit(ctx, key, value)
 				if err != nil {
 					b.Fatal("PutAndCommit Nosync err:", err)
 				}
@@ -262,7 +266,7 @@ func BenchmarkClientBatchWrite(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err := kdb.Put(key, value)
+				err := kdb.Put(ctx, key, value)
 				if err != nil {
 					b.Fatalf("boltDB put: %v\n", err)
 				}
@@ -310,7 +314,7 @@ func BenchmarkClientBatchNoSyncWrite(b *testing.B) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err := kdb.Put(key, value)
+				err := kdb.Put(ctx, key, value)
 				if err != nil {
 					b.Fatalf("boltDB put: %v\n", err)
 				}
