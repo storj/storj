@@ -39,6 +39,9 @@ import Footer from '@/components/apiKeys/footerArea/Footer.vue';
 import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component({
+    mounted: function() {
+        this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+    },
     data: function () {
         return {
             emptyImage: EMPTY_STATE_IMAGES.API_KEY,
