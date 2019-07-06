@@ -5,6 +5,7 @@ package inspector
 
 import (
 	"context"
+	"net"
 	"strings"
 	"time"
 
@@ -35,19 +36,28 @@ type Endpoint struct {
 	kademlia  *kademlia.Kademlia
 	usageDB   bandwidth.DB
 
-	startTime time.Time
-	config    piecestore.OldConfig
+	startTime        time.Time
+	pieceStoreConfig piecestore.OldConfig
+	dashboardAddress net.Addr
 }
 
 // NewEndpoint creates piecestore inspector instance
-func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, config piecestore.OldConfig) *Endpoint {
+func NewEndpoint(
+	log *zap.Logger,
+	pieceInfo pieces.DB,
+	kademlia *kademlia.Kademlia,
+	usageDB bandwidth.DB,
+	pieceStoreConfig piecestore.OldConfig,
+	dashbaordAddress net.Addr) *Endpoint {
+
 	return &Endpoint{
-		log:       log,
-		pieceInfo: pieceInfo,
-		kademlia:  kademlia,
-		usageDB:   usageDB,
-		config:    config,
-		startTime: time.Now(),
+		log:              log,
+		pieceInfo:        pieceInfo,
+		kademlia:         kademlia,
+		usageDB:          usageDB,
+		pieceStoreConfig: pieceStoreConfig,
+		dashboardAddress: dashbaordAddress,
+		startTime:        time.Now(),
 	}
 }
 
@@ -70,11 +80,11 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace,
+		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - totalUsedSpace,
 		UsedIngress:        ingress,
 		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth,
+		AvailableBandwidth: inspector.pieceStoreConfig.AllocatedBandwidth.Int64() - totalUsedBandwidth,
 	}, nil
 }
 
@@ -131,6 +141,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		BootstrapAddress: strings.Join(bsNodes, ", "),
 		InternalAddress:  "",
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
+		DashboardAddress: inspector.dashboardAddress.String(),
 		LastPinged:       pinged,
 		LastQueried:      queried,
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
