@@ -34,19 +34,19 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created)
 	if err == nil {
-		db.mu.Lock()
-		defer db.mu.Unlock()
+		db.bandwidth.mu.Lock()
+		defer db.bandwidth.mu.Unlock()
 
 		beginningOfMonth := getBeginningOfMonth(created.UTC())
-		if beginningOfMonth.Equal(db.usedSince) {
-			db.usedBandwidth += amount
+		if beginningOfMonth.Equal(db.bandwidth.usedSince) {
+			db.bandwidth.usedBandwidth += amount
 		} else {
 			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
 			if err == nil {
 				return err
 			}
-			db.usedSince = beginningOfMonth
-			db.usedBandwidth = usage.Total()
+			db.bandwidth.usedSince = beginningOfMonth
+			db.bandwidth.usedBandwidth = usage.Total()
 		}
 	}
 	return ErrInfo.Wrap(err)
@@ -54,26 +54,26 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 
 // CachedBandwidthUsed returns summary of bandwidth usages
 func (db *bandwidthdb) CachedBandwidthUsed(ctx context.Context) (_ int64, err error) {
-	db.mu.RLock()
+	db.bandwidth.mu.RLock()
 	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
-	if beginningOfMonth.Equal(db.usedSince) {
-		defer db.mu.RUnlock()
-		return db.usedBandwidth, nil
+	if beginningOfMonth.Equal(db.bandwidth.usedSince) {
+		defer db.bandwidth.mu.RUnlock()
+		return db.bandwidth.usedBandwidth, nil
 	}
 
-	db.mu.RUnlock()
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.bandwidth.mu.RUnlock()
+	db.bandwidth.mu.Lock()
+	defer db.bandwidth.mu.Unlock()
 	// double check no one else changed this
-	if !beginningOfMonth.Equal(db.usedSince) {
+	if !beginningOfMonth.Equal(db.bandwidth.usedSince) {
 		usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
 		if err != nil {
 			return 0, err
 		}
-		db.usedSince = beginningOfMonth
-		db.usedBandwidth = usage.Total()
+		db.bandwidth.usedSince = beginningOfMonth
+		db.bandwidth.usedBandwidth = usage.Total()
 	}
-	return db.usedBandwidth, nil
+	return db.bandwidth.usedBandwidth, nil
 }
 
 // Summary returns summary of bandwidth usages

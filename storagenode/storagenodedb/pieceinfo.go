@@ -50,7 +50,7 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 
 	if err == nil {
 		db.loadSpaceUsed(ctx)
-		atomic.AddInt64(&db.usedSpace, info.PieceSize)
+		atomic.AddInt64(&db.space.usedSpace, info.PieceSize)
 	}
 	return ErrInfo.Wrap(err)
 }
@@ -100,7 +100,10 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 		FROM pieceinfo
 		WHERE satellite_id = ? AND piece_id = ?
 	`), satelliteID, pieceID).Scan(&pieceSize)
-
+	// Ignore no rows found errors
+	if err != nil && err != sql.ErrNoRows {
+		return ErrInfo.Wrap(err)
+	}
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		DELETE FROM pieceinfo
 		WHERE satellite_id = ?
@@ -110,7 +113,7 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	if pieceSize != 0 && err == nil {
 		db.loadSpaceUsed(ctx)
 
-		atomic.AddInt64(&db.usedSpace, -pieceSize)
+		atomic.AddInt64(&db.space.usedSpace, -pieceSize)
 	}
 
 	return ErrInfo.Wrap(err)
@@ -159,13 +162,13 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 func (db *pieceinfo) CachedSpaceUsed(ctx context.Context) (_ int64, err error) {
 	db.loadSpaceUsed(ctx)
 
-	return atomic.LoadInt64(&db.usedSpace), nil
+	return atomic.LoadInt64(&db.space.usedSpace), nil
 }
 
 func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
-	db.once.Do(func() {
+	db.space.once.Do(func() {
 		usedSpace, _ := db.SpaceUsed(ctx)
-		atomic.AddInt64(&db.usedSpace, usedSpace)
+		atomic.AddInt64(&db.space.usedSpace, usedSpace)
 	})
 }
 
