@@ -184,6 +184,9 @@ kademlia.operator.wallet: ""
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # metainfo.rs.max-buffer-mem: 4.0 MiB
 
+# maximum segment size (in bytes)
+# metainfo.rs.max-segment-size: 64.0 MiB
+
 # the largest amount of pieces to encode to. n.
 # metainfo.rs.max-threshold: 130
 
