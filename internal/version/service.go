@@ -61,6 +61,9 @@ func (srv *Service) CheckVersion(ctx context.Context) (err error) {
 // used for other utilities
 func CheckProcessVersion(ctx context.Context, config Config, info Info, service string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	fmt.Println(config.ServerAddress)
+	fmt.Println(config.CheckInterval)
+	fmt.Println(config.RequestTimeout)
 	return NewService(config, info, service).CheckVersion(ctx)
 }
 
