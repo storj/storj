@@ -337,7 +337,7 @@ func cleanup(cmd *cobra.Command) {
 
 		err = workErr
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
+			//_, _ = fmt.Fprintf(os.Stderr, "Fatal error: %v\n", err)
 			logger.Sugar().Debugf("Fatal error: %+v", err)
 			_ = logger.Sync()
 			os.Exit(1)
