@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
@@ -37,6 +38,8 @@ type GatewayFlags struct {
 	Minio  miniogw.MinioConfig
 
 	uplink.Config
+
+	Version version.Config
 }
 
 var (
@@ -153,6 +156,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	if err := process.InitMetrics(ctx, nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
+	}
+
+	err = version.CheckProcessVersion(ctx, runCfg.Version, version.Build, "Identity")
+	if err != nil {
+		return err
 	}
 
 	err = checkCfg(ctx)
