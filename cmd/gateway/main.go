@@ -158,7 +158,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
-	err = version.CheckProcessVersion(ctx, runCfg.Version, version.Build, "Identity")
+	err = version.CheckProcessVersion(ctx, runCfg.Version, version.Build, "Gateway")
 	if err != nil {
 		return err
 	}
