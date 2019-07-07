@@ -10,6 +10,8 @@ COPY resources/certs.pem /etc/ssl/certs/ca-certificates.crt
 COPY release/${TAG}/storagenode_linux_${GOARCH:-amd64} /app/storagenode
 COPY cmd/storagenode/entrypoint /entrypoint
 COPY cmd/storagenode/dashboard.sh /app/dashboard.sh
+RUN addgroup storj && adduser -D -G storj storj && chown -R storj:storj /app
+USER storj
 ENTRYPOINT ["/entrypoint"]
 
 # Remove after the alpha
