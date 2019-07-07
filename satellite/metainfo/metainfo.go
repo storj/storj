@@ -261,7 +261,8 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 	//ToDo: check if comparison is right
 	if inlineUsed+remoteUsed != req.Pointer.SegmentSize {
-		return nil, status.Errorf(codes.FailedPrecondition, "mismatched segmentsize and piece usage")
+		endpoint.log.Sugar().Debugf("size mismatch, got segment: %d, pieces: %d", req.Pointer.SegmentSize, inlineUsed+remoteUsed)
+		//return nil, status.Errorf(codes.FailedPrecondition, "mismatched segmentsize and piece usage")
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
