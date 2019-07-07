@@ -124,7 +124,7 @@ func (endpoint *Endpoint) SegmentInfo(ctx context.Context, req *pb.SegmentInfoRe
 	return &pb.SegmentInfoResponse{Pointer: pointer}, nil
 }
 
-// CreateSegment will generate requested number of OrderLimit with coresponding node addresses for them
+// CreateSegment will generate requested number of OrderLimit with corresponding node addresses for them
 func (endpoint *Endpoint) CreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (resp *pb.SegmentWriteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 

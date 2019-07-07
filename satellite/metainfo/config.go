@@ -21,6 +21,7 @@ const (
 // RSConfig is a configuration struct that keeps details about default
 // redundancy strategy information
 type RSConfig struct {
+	MaxSegmentSize   memory.Size `help:"maximum segment size (in bytes)" default:"64MiB"`
 	MaxBufferMem     memory.Size `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4MiB"`
 	ErasureShareSize memory.Size `help:"the size of each new erasure share in bytes" default:"256B"`
 	MinThreshold     int         `help:"the minimum pieces required to recover a segment. k." releaseDefault:"29" devDefault:"4"`

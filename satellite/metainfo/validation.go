@@ -189,6 +189,10 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("invalid no order limit for piece")
 		}
 
+		if req.Pointer.SegmentSize > endpoint.rsConfig.MaxSegmentSize.Int64() {
+			return Error.New("invalid segment size")
+		}
+
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
