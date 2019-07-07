@@ -94,12 +94,12 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
 func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	apiKey, err := libuplink.ParseAPIKey(cliCfg.Client.APIKey)
+	err := version.CheckProcessVersion(ctx, cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
 		return nil, err
 	}
 
-	err = version.CheckProcessVersion(ctx, cliCfg.Version, version.Build, "Uplink")
+	apiKey, err := libuplink.ParseAPIKey(cliCfg.Client.APIKey)
 	if err != nil {
 		return nil, err
 	}
