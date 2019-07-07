@@ -59,7 +59,7 @@ var (
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
 		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
 
-		//Version
+		Version version.Config
 	}
 
 	identityDir, configDir string
@@ -86,7 +86,7 @@ func serviceDirectory(serviceName string) string {
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
