@@ -166,7 +166,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = checkCfg(ctx)
 	if err != nil {
 		zap.S().Warn("Failed to contact Satellite. Perhaps your configuration is invalid?")
-		//zap.S().Fatal(err)
 		return err
 	}
 
