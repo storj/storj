@@ -54,28 +54,26 @@
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
 
-    @Component(
-        {
-            computed: {
-                isPopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
-                }
-            },
-            methods: {
-                onCloseClick: function (): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
-                },
-                onCreateAPIKeyClick: function (): void {
-                    this.$router.push(ROUTES.API_KEYS.path);
-                    (this as any).onCloseClick();
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-                }
-            },
-            components: {
-                Button,
+    @Component({
+        computed: {
+            isPopupShown: function (): boolean {
+                return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
             }
+        },
+        methods: {
+            onCloseClick: function (): void {
+				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+            },
+            onCreateAPIKeyClick: function (): void {
+                this.$router.push(ROUTES.API_KEYS.path);
+                (this as any).onCloseClick();
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+            }
+        },
+        components: {
+            Button,
         }
-    )
+    })
 
     export default class ProjectCreationSuccessPopup extends Vue {}
 </script>

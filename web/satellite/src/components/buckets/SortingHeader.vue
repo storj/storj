@@ -31,8 +31,7 @@
 
     @Component({})
 
-    export default class SortBucketsHeader extends Vue {
-    }
+    export default class SortBucketsHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">

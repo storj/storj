@@ -237,7 +237,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
-// IrreparableProcess picks items from irrepairabledb and add them to the repair
+// IrreparableProcess picks items from irreparabledb and add them to the repair
 // worker queue if they, now, can be repaired.
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
