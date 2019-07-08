@@ -187,8 +187,8 @@ message DashboardResponse {
   string dashboard_address = 6;
   StatSummaryResponse stats = 7;
   google.protobuf.Duration uptime = 8;
-  google.protobuf.Timestamp last_pinged = 9;
-  google.protobuf.Timestamp last_queried = 10;
+  google.protobuf.Timestamp last_pinged = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp last_queried = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message SegmentHealthRequest {

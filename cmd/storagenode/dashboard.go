@@ -100,25 +100,18 @@ func printDashboard(data *pb.DashboardResponse) error {
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)
 	fmt.Fprintf(w, "ID\t%s\n", color.YellowString(data.NodeId.String()))
 
-	lastContacted, err := ptypes.Timestamp(data.LastPinged)
-	if err != nil {
-		lastContacted = time.Time{}
-	}
-	lastQueried, err := ptypes.Timestamp(data.LastQueried)
-	if err == nil {
-		if lastQueried.After(lastContacted) {
-			lastContacted = lastQueried
-		}
+	if data.LastQueried.After(data.LastPinged) {
+		data.LastPinged = data.LastQueried
 	}
 	switch {
-	case lastContacted.IsZero():
+	case data.LastPinged.IsZero():
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString("OFFLINE"))
-	case time.Since(lastContacted) >= contactWindow:
+	case time.Since(data.LastPinged) >= contactWindow:
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.RedString(fmt.Sprintf("%s ago",
-			time.Since(lastContacted).Truncate(time.Second))))
+			time.Since(data.LastPinged).Truncate(time.Second))))
 	default:
 		fmt.Fprintf(w, "Last Contact\t%s\n", color.GreenString(fmt.Sprintf("%s ago",
-			time.Since(lastContacted).Truncate(time.Second))))
+			time.Since(data.LastPinged).Truncate(time.Second))))
 	}
 
 	uptime, err := ptypes.Duration(data.GetUptime())
