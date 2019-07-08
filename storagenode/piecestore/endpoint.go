@@ -598,11 +598,6 @@ func (endpoint *Endpoint) PieceInfo() pieces.DB {
 	return endpoint.pieceinfo
 }
 
-// Store returns pieces store
-func (endpoint *Endpoint) Store() *pieces.Store {
-	return endpoint.store
-}
-
 // min finds the min of two values
 func min(a, b int64) int64 {
 	if a < b {
