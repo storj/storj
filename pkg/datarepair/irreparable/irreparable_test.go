@@ -28,8 +28,8 @@ func TestIrreparable(t *testing.T) {
 		var segments []*pb.IrreparableSegment
 		for i := 0; i < 3; i++ {
 			segments = append(segments, &pb.IrreparableSegment{
-				Path:               []byte(strconv.Itoa(i)),
-				SegmentDetail:      &pb.Pointer{
+				Path: []byte(strconv.Itoa(i)),
+				SegmentDetail: &pb.Pointer{
 					CreationDate: time.Now(),
 				},
 				LostPieces:         int32(i),
@@ -40,7 +40,6 @@ func TestIrreparable(t *testing.T) {
 			err := irrdb.IncrementRepairAttempts(ctx, segments[i])
 			require.NoError(t, err)
 		}
-
 
 		{ // GetLimited limit 1, offset 0
 			segs, err := irrdb.GetLimited(ctx, 1, 0)
