@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -549,6 +551,50 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
 	}
+}
+
+// Retain keeps only piece ids specified in the request
+func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (*pb.RetainResponse, error) {
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	limit := 20
+	offset := 0
+	piecesRemaining := true
+
+	for piecesRemaining {
+		pieceIDs, err := endpoint.pieceinfo.GetPiecesID(ctx, peer.ID, retainReq.GetCreationDate(), limit, offset)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		for _, pieceID := range pieceIDs {
+			if !filter.Contains(pieceID) {
+				err = errs.Combine(err, endpoint.store.Delete(ctx, peer.ID, pieceID))
+				err = errs.Combine(endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID))
+			}
+		}
+		piecesRemaining = (len(pieceIDs) == limit)
+		offset += limit
+		runtime.Gosched()
+	}
+	return &pb.RetainResponse{}, Error.Wrap(err)
+}
+
+// PieceInfo returns pieces info db
+func (endpoint *Endpoint) PieceInfo() pieces.DB {
+	return endpoint.pieceinfo
+}
+
+// Store returns pieces store
+func (endpoint *Endpoint) Store() *pieces.Store {
+	return endpoint.store
 }
 
 // min finds the min of two values
