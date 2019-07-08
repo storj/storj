@@ -13,8 +13,9 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/encryption"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storage/streams"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -34,6 +35,7 @@ func TestGarbageCollection(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// TODO uncomment below when test is enabled
 				// config.GarbageCollection.FalsePositiveRate = 0.0001
 			},
 		},
@@ -52,12 +54,26 @@ func TestGarbageCollection(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
 		require.NoError(t, err)
 		deletedEncPath, pointerToDelete := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/1")
-		deletedPieceID := pointerToDelete.GetRemote().RootPieceId.Derive(targetNode.ID())
+		var deletedPieceID storj.PieceID
+		for _, p := range pointerToDelete.GetRemote().GetRemotePieces() {
+			if p.NodeId == targetNode.ID() {
+				deletedPieceID = pointerToDelete.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+				break
+			}
+		}
+		require.NotNil(t, deletedPieceID)
 
 		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
 		_, pointerToKeep := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/2")
-		keptPieceID := pointerToKeep.GetRemote().RootPieceId.Derive(targetNode.ID())
+		var keptPieceID storj.PieceID
+		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
+			if p.NodeId == targetNode.ID() {
+				keptPieceID = pointerToDelete.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+				break
+			}
+		}
+		require.NotNil(t, keptPieceID)
 
 		// Delete object from metainfo service on satellite
 		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
@@ -71,6 +87,8 @@ func TestGarbageCollection(t *testing.T) {
 		// Trigger bloom filter generation by running checker
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
+		// TODO uncomment below when test is enabled
+		// checker.WaitForGCSend()
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
@@ -84,19 +102,19 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (encryptedPath string, pointer *pb.Pointer) {
+func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
 	projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 	require.NoError(t, err)
 	require.Len(t, projects, 1)
 
-	encScheme := upl.GetConfig(satellite).GetEncryptionScheme()
-	cipher := encScheme.Cipher
-	unencryptedPathWithBucket := storj.JoinPaths(bucket, path)
-
-	encryptedAfterBucket, err := streams.EncryptAfterBucket(ctx, unencryptedPathWithBucket, cipher, &storj.Key{})
+	encParameters := upl.GetConfig(satellite).GetEncryptionParameters()
+	cipherSuite := encParameters.CipherSuite
+	store := encryption.NewStore()
+	store.SetDefaultKey(new(storj.Key))
+	encryptedPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), cipherSuite, store)
 	require.NoError(t, err)
 
-	lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", encryptedAfterBucket)
+	lastSegPath = storj.JoinPaths(projects[0].ID.String(), "l", bucket, encryptedPath.Raw())
 	pointer, err = satellite.Metainfo.Service.Get(ctx, lastSegPath)
 	require.NoError(t, err)
 
