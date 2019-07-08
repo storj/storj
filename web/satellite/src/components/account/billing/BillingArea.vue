@@ -1,20 +1,20 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-	<div>
-		<div v-if="billing > 0" class="billing-overflow">
-			<div class="billing-container">
-				<div class="billing-container__table-holder">
-					<table class="billing-container__table">
-						<SortingHeader />
-						<BillingItem />
-					</table>
+    <div>
+        <div v-if="billing > 0" class="billing-overflow">
+            <div class="billing-container">
+                <div class="billing-container__table-holder">
+                    <table class="billing-container__table">
+                        <SortingHeader />
+                        <BillingItem />
+                    </table>
 				</div>
-				<PaginationArea />
-			</div>
-		</div>
-	</div>
+                <PaginationArea />
+            </div>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
@@ -37,6 +37,7 @@
             PaginationArea,
         }
     })
+
     export default class BillingArea extends Vue {}
 </script>
 

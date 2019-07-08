@@ -16,13 +16,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { mapState } from 'vuex';
-import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
-import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import { mapState } from 'vuex';
+    import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
+    import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         methods: {
             toggleSelection: async function (): Promise<any> {
                 const response = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
@@ -49,11 +48,9 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/util
         components: {
             ProjectSelectionDropdown
         }
-    }
-)
+    })
 
-export default class ProjectSelectionArea extends Vue {
-}
+    export default class ProjectSelectionArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
