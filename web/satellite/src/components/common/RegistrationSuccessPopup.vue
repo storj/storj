@@ -31,7 +31,7 @@
             }
         },
         methods: {
-            onResendEmailButtonClick: async function (): void {
+            onResendEmailButtonClick: async function () {
                 this.$data.isResendEmailButtonDisabled = true;
 
                 let userID = getUserID();

@@ -53,7 +53,7 @@
                     return;
                 }
 
-                const stripe = window['Stripe']('pk_test_bXKJTU49iu1dy9Al0iEqlfVc00Ze0m5lXT');
+                const stripe = window['Stripe'](process.env.VUE_APP_STRIPE_PUBLIC_KEY);
                 if (!stripe) {
                     console.error('Unable to initialize stripe');
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to initialize stripe');
