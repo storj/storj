@@ -264,7 +264,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
 		if float64(remoteUsed) > float64(req.Pointer.SegmentSize)/float64(req.Pointer.Remote.Redundancy.MinReq*req.Pointer.Remote.Redundancy.Total) {
-			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d", req.Pointer.SegmentSize, remoteUsed)
+			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min,Max: %d,%d", req.Pointer.SegmentSize, remoteUsed, req.Pointer.Remote.Redundancy.MinReq, req.Pointer.Remote.Redundancy.Total)
 			return nil, status.Errorf(codes.InvalidArgument, "mismatched segment size and piece usage")
 		}
 	}
