@@ -137,7 +137,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					checker.monStats = durabilityStats{}
 
 					err := checker.garbageService.Send(ctx, checker.pieceTracker, func() {
-						checker.gcwaitgroup.Done()
+						checker.gcWaitGroup.Done()
 					})
 					if err != nil {
 						checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
@@ -146,7 +146,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 				}
 			}()
-			checker.gcwaitgroup.Add(1)
+			checker.gcWaitGroup.Add(1)
 
 			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
