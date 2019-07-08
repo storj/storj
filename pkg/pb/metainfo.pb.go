@@ -632,7 +632,7 @@ func (m *AddressedOrderLimit) GetStorageNodeAddress() *NodeAddress {
 	return nil
 }
 
-type SegmentWriteRequest struct {
+type SegmentWriteRequestOld struct {
 	Bucket                  []byte               `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                    []byte               `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment                 int64                `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
@@ -644,73 +644,73 @@ type SegmentWriteRequest struct {
 	XXX_sizecache           int32                `json:"-"`
 }
 
-func (m *SegmentWriteRequest) Reset()         { *m = SegmentWriteRequest{} }
-func (m *SegmentWriteRequest) String() string { return proto.CompactTextString(m) }
-func (*SegmentWriteRequest) ProtoMessage()    {}
-func (*SegmentWriteRequest) Descriptor() ([]byte, []int) {
+func (m *SegmentWriteRequestOld) Reset()         { *m = SegmentWriteRequestOld{} }
+func (m *SegmentWriteRequestOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentWriteRequestOld) ProtoMessage()    {}
+func (*SegmentWriteRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{13}
 }
-func (m *SegmentWriteRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentWriteRequest.Unmarshal(m, b)
+func (m *SegmentWriteRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentWriteRequestOld.Unmarshal(m, b)
 }
-func (m *SegmentWriteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentWriteRequest.Marshal(b, m, deterministic)
+func (m *SegmentWriteRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentWriteRequestOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentWriteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentWriteRequest.Merge(m, src)
+func (m *SegmentWriteRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentWriteRequestOld.Merge(m, src)
 }
-func (m *SegmentWriteRequest) XXX_Size() int {
-	return xxx_messageInfo_SegmentWriteRequest.Size(m)
+func (m *SegmentWriteRequestOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentWriteRequestOld.Size(m)
 }
-func (m *SegmentWriteRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentWriteRequest.DiscardUnknown(m)
+func (m *SegmentWriteRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentWriteRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentWriteRequest proto.InternalMessageInfo
+var xxx_messageInfo_SegmentWriteRequestOld proto.InternalMessageInfo
 
-func (m *SegmentWriteRequest) GetBucket() []byte {
+func (m *SegmentWriteRequestOld) GetBucket() []byte {
 	if m != nil {
 		return m.Bucket
 	}
 	return nil
 }
 
-func (m *SegmentWriteRequest) GetPath() []byte {
+func (m *SegmentWriteRequestOld) GetPath() []byte {
 	if m != nil {
 		return m.Path
 	}
 	return nil
 }
 
-func (m *SegmentWriteRequest) GetSegment() int64 {
+func (m *SegmentWriteRequestOld) GetSegment() int64 {
 	if m != nil {
 		return m.Segment
 	}
 	return 0
 }
 
-func (m *SegmentWriteRequest) GetRedundancy() *RedundancyScheme {
+func (m *SegmentWriteRequestOld) GetRedundancy() *RedundancyScheme {
 	if m != nil {
 		return m.Redundancy
 	}
 	return nil
 }
 
-func (m *SegmentWriteRequest) GetMaxEncryptedSegmentSize() int64 {
+func (m *SegmentWriteRequestOld) GetMaxEncryptedSegmentSize() int64 {
 	if m != nil {
 		return m.MaxEncryptedSegmentSize
 	}
 	return 0
 }
 
-func (m *SegmentWriteRequest) GetExpiration() *timestamp.Timestamp {
+func (m *SegmentWriteRequestOld) GetExpiration() *timestamp.Timestamp {
 	if m != nil {
 		return m.Expiration
 	}
 	return nil
 }
 
-type SegmentWriteResponse struct {
+type SegmentWriteResponseOld struct {
 	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
 	RootPieceId          PieceID                `protobuf:"bytes,2,opt,name=root_piece_id,json=rootPieceId,proto3,customtype=PieceID" json:"root_piece_id"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
@@ -718,38 +718,38 @@ type SegmentWriteResponse struct {
 	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *SegmentWriteResponse) Reset()         { *m = SegmentWriteResponse{} }
-func (m *SegmentWriteResponse) String() string { return proto.CompactTextString(m) }
-func (*SegmentWriteResponse) ProtoMessage()    {}
-func (*SegmentWriteResponse) Descriptor() ([]byte, []int) {
+func (m *SegmentWriteResponseOld) Reset()         { *m = SegmentWriteResponseOld{} }
+func (m *SegmentWriteResponseOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentWriteResponseOld) ProtoMessage()    {}
+func (*SegmentWriteResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{14}
 }
-func (m *SegmentWriteResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentWriteResponse.Unmarshal(m, b)
+func (m *SegmentWriteResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentWriteResponseOld.Unmarshal(m, b)
 }
-func (m *SegmentWriteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentWriteResponse.Marshal(b, m, deterministic)
+func (m *SegmentWriteResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentWriteResponseOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentWriteResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentWriteResponse.Merge(m, src)
+func (m *SegmentWriteResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentWriteResponseOld.Merge(m, src)
 }
-func (m *SegmentWriteResponse) XXX_Size() int {
-	return xxx_messageInfo_SegmentWriteResponse.Size(m)
+func (m *SegmentWriteResponseOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentWriteResponseOld.Size(m)
 }
-func (m *SegmentWriteResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentWriteResponse.DiscardUnknown(m)
+func (m *SegmentWriteResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentWriteResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentWriteResponse proto.InternalMessageInfo
+var xxx_messageInfo_SegmentWriteResponseOld proto.InternalMessageInfo
 
-func (m *SegmentWriteResponse) GetAddressedLimits() []*AddressedOrderLimit {
+func (m *SegmentWriteResponseOld) GetAddressedLimits() []*AddressedOrderLimit {
 	if m != nil {
 		return m.AddressedLimits
 	}
 	return nil
 }
 
-type SegmentCommitRequest struct {
+type SegmentCommitRequestOld struct {
 	Bucket               []byte        `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                 []byte        `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment              int64         `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
@@ -760,104 +760,104 @@ type SegmentCommitRequest struct {
 	XXX_sizecache        int32         `json:"-"`
 }
 
-func (m *SegmentCommitRequest) Reset()         { *m = SegmentCommitRequest{} }
-func (m *SegmentCommitRequest) String() string { return proto.CompactTextString(m) }
-func (*SegmentCommitRequest) ProtoMessage()    {}
-func (*SegmentCommitRequest) Descriptor() ([]byte, []int) {
+func (m *SegmentCommitRequestOld) Reset()         { *m = SegmentCommitRequestOld{} }
+func (m *SegmentCommitRequestOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentCommitRequestOld) ProtoMessage()    {}
+func (*SegmentCommitRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{15}
 }
-func (m *SegmentCommitRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentCommitRequest.Unmarshal(m, b)
+func (m *SegmentCommitRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentCommitRequestOld.Unmarshal(m, b)
 }
-func (m *SegmentCommitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentCommitRequest.Marshal(b, m, deterministic)
+func (m *SegmentCommitRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentCommitRequestOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentCommitRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentCommitRequest.Merge(m, src)
+func (m *SegmentCommitRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentCommitRequestOld.Merge(m, src)
 }
-func (m *SegmentCommitRequest) XXX_Size() int {
-	return xxx_messageInfo_SegmentCommitRequest.Size(m)
+func (m *SegmentCommitRequestOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentCommitRequestOld.Size(m)
 }
-func (m *SegmentCommitRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentCommitRequest.DiscardUnknown(m)
+func (m *SegmentCommitRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentCommitRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentCommitRequest proto.InternalMessageInfo
+var xxx_messageInfo_SegmentCommitRequestOld proto.InternalMessageInfo
 
-func (m *SegmentCommitRequest) GetBucket() []byte {
+func (m *SegmentCommitRequestOld) GetBucket() []byte {
 	if m != nil {
 		return m.Bucket
 	}
 	return nil
 }
 
-func (m *SegmentCommitRequest) GetPath() []byte {
+func (m *SegmentCommitRequestOld) GetPath() []byte {
 	if m != nil {
 		return m.Path
 	}
 	return nil
 }
 
-func (m *SegmentCommitRequest) GetSegment() int64 {
+func (m *SegmentCommitRequestOld) GetSegment() int64 {
 	if m != nil {
 		return m.Segment
 	}
 	return 0
 }
 
-func (m *SegmentCommitRequest) GetPointer() *Pointer {
+func (m *SegmentCommitRequestOld) GetPointer() *Pointer {
 	if m != nil {
 		return m.Pointer
 	}
 	return nil
 }
 
-func (m *SegmentCommitRequest) GetOriginalLimits() []*OrderLimit {
+func (m *SegmentCommitRequestOld) GetOriginalLimits() []*OrderLimit {
 	if m != nil {
 		return m.OriginalLimits
 	}
 	return nil
 }
 
-type SegmentCommitResponse struct {
+type SegmentCommitResponseOld struct {
 	Pointer              *Pointer `protobuf:"bytes,1,opt,name=pointer,proto3" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SegmentCommitResponse) Reset()         { *m = SegmentCommitResponse{} }
-func (m *SegmentCommitResponse) String() string { return proto.CompactTextString(m) }
-func (*SegmentCommitResponse) ProtoMessage()    {}
-func (*SegmentCommitResponse) Descriptor() ([]byte, []int) {
+func (m *SegmentCommitResponseOld) Reset()         { *m = SegmentCommitResponseOld{} }
+func (m *SegmentCommitResponseOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentCommitResponseOld) ProtoMessage()    {}
+func (*SegmentCommitResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{16}
 }
-func (m *SegmentCommitResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentCommitResponse.Unmarshal(m, b)
+func (m *SegmentCommitResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentCommitResponseOld.Unmarshal(m, b)
 }
-func (m *SegmentCommitResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentCommitResponse.Marshal(b, m, deterministic)
+func (m *SegmentCommitResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentCommitResponseOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentCommitResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentCommitResponse.Merge(m, src)
+func (m *SegmentCommitResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentCommitResponseOld.Merge(m, src)
 }
-func (m *SegmentCommitResponse) XXX_Size() int {
-	return xxx_messageInfo_SegmentCommitResponse.Size(m)
+func (m *SegmentCommitResponseOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentCommitResponseOld.Size(m)
 }
-func (m *SegmentCommitResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentCommitResponse.DiscardUnknown(m)
+func (m *SegmentCommitResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentCommitResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentCommitResponse proto.InternalMessageInfo
+var xxx_messageInfo_SegmentCommitResponseOld proto.InternalMessageInfo
 
-func (m *SegmentCommitResponse) GetPointer() *Pointer {
+func (m *SegmentCommitResponseOld) GetPointer() *Pointer {
 	if m != nil {
 		return m.Pointer
 	}
 	return nil
 }
 
-type SegmentDownloadRequest struct {
+type SegmentDownloadRequestOld struct {
 	Bucket               []byte   `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                 []byte   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment              int64    `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
@@ -866,52 +866,52 @@ type SegmentDownloadRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SegmentDownloadRequest) Reset()         { *m = SegmentDownloadRequest{} }
-func (m *SegmentDownloadRequest) String() string { return proto.CompactTextString(m) }
-func (*SegmentDownloadRequest) ProtoMessage()    {}
-func (*SegmentDownloadRequest) Descriptor() ([]byte, []int) {
+func (m *SegmentDownloadRequestOld) Reset()         { *m = SegmentDownloadRequestOld{} }
+func (m *SegmentDownloadRequestOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentDownloadRequestOld) ProtoMessage()    {}
+func (*SegmentDownloadRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{17}
 }
-func (m *SegmentDownloadRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentDownloadRequest.Unmarshal(m, b)
+func (m *SegmentDownloadRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentDownloadRequestOld.Unmarshal(m, b)
 }
-func (m *SegmentDownloadRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentDownloadRequest.Marshal(b, m, deterministic)
+func (m *SegmentDownloadRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentDownloadRequestOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentDownloadRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDownloadRequest.Merge(m, src)
+func (m *SegmentDownloadRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDownloadRequestOld.Merge(m, src)
 }
-func (m *SegmentDownloadRequest) XXX_Size() int {
-	return xxx_messageInfo_SegmentDownloadRequest.Size(m)
+func (m *SegmentDownloadRequestOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentDownloadRequestOld.Size(m)
 }
-func (m *SegmentDownloadRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentDownloadRequest.DiscardUnknown(m)
+func (m *SegmentDownloadRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentDownloadRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentDownloadRequest proto.InternalMessageInfo
+var xxx_messageInfo_SegmentDownloadRequestOld proto.InternalMessageInfo
 
-func (m *SegmentDownloadRequest) GetBucket() []byte {
+func (m *SegmentDownloadRequestOld) GetBucket() []byte {
 	if m != nil {
 		return m.Bucket
 	}
 	return nil
 }
 
-func (m *SegmentDownloadRequest) GetPath() []byte {
+func (m *SegmentDownloadRequestOld) GetPath() []byte {
 	if m != nil {
 		return m.Path
 	}
 	return nil
 }
 
-func (m *SegmentDownloadRequest) GetSegment() int64 {
+func (m *SegmentDownloadRequestOld) GetSegment() int64 {
 	if m != nil {
 		return m.Segment
 	}
 	return 0
 }
 
-type SegmentDownloadResponse struct {
+type SegmentDownloadResponseOld struct {
 	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
 	Pointer              *Pointer               `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
@@ -919,45 +919,45 @@ type SegmentDownloadResponse struct {
 	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *SegmentDownloadResponse) Reset()         { *m = SegmentDownloadResponse{} }
-func (m *SegmentDownloadResponse) String() string { return proto.CompactTextString(m) }
-func (*SegmentDownloadResponse) ProtoMessage()    {}
-func (*SegmentDownloadResponse) Descriptor() ([]byte, []int) {
+func (m *SegmentDownloadResponseOld) Reset()         { *m = SegmentDownloadResponseOld{} }
+func (m *SegmentDownloadResponseOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentDownloadResponseOld) ProtoMessage()    {}
+func (*SegmentDownloadResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{18}
 }
-func (m *SegmentDownloadResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentDownloadResponse.Unmarshal(m, b)
+func (m *SegmentDownloadResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentDownloadResponseOld.Unmarshal(m, b)
 }
-func (m *SegmentDownloadResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentDownloadResponse.Marshal(b, m, deterministic)
+func (m *SegmentDownloadResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentDownloadResponseOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentDownloadResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDownloadResponse.Merge(m, src)
+func (m *SegmentDownloadResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDownloadResponseOld.Merge(m, src)
 }
-func (m *SegmentDownloadResponse) XXX_Size() int {
-	return xxx_messageInfo_SegmentDownloadResponse.Size(m)
+func (m *SegmentDownloadResponseOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentDownloadResponseOld.Size(m)
 }
-func (m *SegmentDownloadResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentDownloadResponse.DiscardUnknown(m)
+func (m *SegmentDownloadResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentDownloadResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentDownloadResponse proto.InternalMessageInfo
+var xxx_messageInfo_SegmentDownloadResponseOld proto.InternalMessageInfo
 
-func (m *SegmentDownloadResponse) GetAddressedLimits() []*AddressedOrderLimit {
+func (m *SegmentDownloadResponseOld) GetAddressedLimits() []*AddressedOrderLimit {
 	if m != nil {
 		return m.AddressedLimits
 	}
 	return nil
 }
 
-func (m *SegmentDownloadResponse) GetPointer() *Pointer {
+func (m *SegmentDownloadResponseOld) GetPointer() *Pointer {
 	if m != nil {
 		return m.Pointer
 	}
 	return nil
 }
 
-type SegmentInfoRequest struct {
+type SegmentInfoRequestOld struct {
 	Bucket               []byte   `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                 []byte   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment              int64    `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
@@ -966,90 +966,90 @@ type SegmentInfoRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SegmentInfoRequest) Reset()         { *m = SegmentInfoRequest{} }
-func (m *SegmentInfoRequest) String() string { return proto.CompactTextString(m) }
-func (*SegmentInfoRequest) ProtoMessage()    {}
-func (*SegmentInfoRequest) Descriptor() ([]byte, []int) {
+func (m *SegmentInfoRequestOld) Reset()         { *m = SegmentInfoRequestOld{} }
+func (m *SegmentInfoRequestOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentInfoRequestOld) ProtoMessage()    {}
+func (*SegmentInfoRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{19}
 }
-func (m *SegmentInfoRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentInfoRequest.Unmarshal(m, b)
+func (m *SegmentInfoRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentInfoRequestOld.Unmarshal(m, b)
 }
-func (m *SegmentInfoRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentInfoRequest.Marshal(b, m, deterministic)
+func (m *SegmentInfoRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentInfoRequestOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentInfoRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentInfoRequest.Merge(m, src)
+func (m *SegmentInfoRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentInfoRequestOld.Merge(m, src)
 }
-func (m *SegmentInfoRequest) XXX_Size() int {
-	return xxx_messageInfo_SegmentInfoRequest.Size(m)
+func (m *SegmentInfoRequestOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentInfoRequestOld.Size(m)
 }
-func (m *SegmentInfoRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentInfoRequest.DiscardUnknown(m)
+func (m *SegmentInfoRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentInfoRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentInfoRequest proto.InternalMessageInfo
+var xxx_messageInfo_SegmentInfoRequestOld proto.InternalMessageInfo
 
-func (m *SegmentInfoRequest) GetBucket() []byte {
+func (m *SegmentInfoRequestOld) GetBucket() []byte {
 	if m != nil {
 		return m.Bucket
 	}
 	return nil
 }
 
-func (m *SegmentInfoRequest) GetPath() []byte {
+func (m *SegmentInfoRequestOld) GetPath() []byte {
 	if m != nil {
 		return m.Path
 	}
 	return nil
 }
 
-func (m *SegmentInfoRequest) GetSegment() int64 {
+func (m *SegmentInfoRequestOld) GetSegment() int64 {
 	if m != nil {
 		return m.Segment
 	}
 	return 0
 }
 
-type SegmentInfoResponse struct {
+type SegmentInfoResponseOld struct {
 	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SegmentInfoResponse) Reset()         { *m = SegmentInfoResponse{} }
-func (m *SegmentInfoResponse) String() string { return proto.CompactTextString(m) }
-func (*SegmentInfoResponse) ProtoMessage()    {}
-func (*SegmentInfoResponse) Descriptor() ([]byte, []int) {
+func (m *SegmentInfoResponseOld) Reset()         { *m = SegmentInfoResponseOld{} }
+func (m *SegmentInfoResponseOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentInfoResponseOld) ProtoMessage()    {}
+func (*SegmentInfoResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{20}
 }
-func (m *SegmentInfoResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentInfoResponse.Unmarshal(m, b)
+func (m *SegmentInfoResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentInfoResponseOld.Unmarshal(m, b)
 }
-func (m *SegmentInfoResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentInfoResponse.Marshal(b, m, deterministic)
+func (m *SegmentInfoResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentInfoResponseOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentInfoResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentInfoResponse.Merge(m, src)
+func (m *SegmentInfoResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentInfoResponseOld.Merge(m, src)
 }
-func (m *SegmentInfoResponse) XXX_Size() int {
-	return xxx_messageInfo_SegmentInfoResponse.Size(m)
+func (m *SegmentInfoResponseOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentInfoResponseOld.Size(m)
 }
-func (m *SegmentInfoResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentInfoResponse.DiscardUnknown(m)
+func (m *SegmentInfoResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentInfoResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentInfoResponse proto.InternalMessageInfo
+var xxx_messageInfo_SegmentInfoResponseOld proto.InternalMessageInfo
 
-func (m *SegmentInfoResponse) GetPointer() *Pointer {
+func (m *SegmentInfoResponseOld) GetPointer() *Pointer {
 	if m != nil {
 		return m.Pointer
 	}
 	return nil
 }
 
-type SegmentDeleteRequest struct {
+type SegmentDeleteRequestOld struct {
 	Bucket               []byte   `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Path                 []byte   `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
 	Segment              int64    `protobuf:"varint,3,opt,name=segment,proto3" json:"segment,omitempty"`
@@ -1058,90 +1058,90 @@ type SegmentDeleteRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SegmentDeleteRequest) Reset()         { *m = SegmentDeleteRequest{} }
-func (m *SegmentDeleteRequest) String() string { return proto.CompactTextString(m) }
-func (*SegmentDeleteRequest) ProtoMessage()    {}
-func (*SegmentDeleteRequest) Descriptor() ([]byte, []int) {
+func (m *SegmentDeleteRequestOld) Reset()         { *m = SegmentDeleteRequestOld{} }
+func (m *SegmentDeleteRequestOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentDeleteRequestOld) ProtoMessage()    {}
+func (*SegmentDeleteRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{21}
 }
-func (m *SegmentDeleteRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentDeleteRequest.Unmarshal(m, b)
+func (m *SegmentDeleteRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentDeleteRequestOld.Unmarshal(m, b)
 }
-func (m *SegmentDeleteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentDeleteRequest.Marshal(b, m, deterministic)
+func (m *SegmentDeleteRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentDeleteRequestOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentDeleteRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDeleteRequest.Merge(m, src)
+func (m *SegmentDeleteRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDeleteRequestOld.Merge(m, src)
 }
-func (m *SegmentDeleteRequest) XXX_Size() int {
-	return xxx_messageInfo_SegmentDeleteRequest.Size(m)
+func (m *SegmentDeleteRequestOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentDeleteRequestOld.Size(m)
 }
-func (m *SegmentDeleteRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentDeleteRequest.DiscardUnknown(m)
+func (m *SegmentDeleteRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentDeleteRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentDeleteRequest proto.InternalMessageInfo
+var xxx_messageInfo_SegmentDeleteRequestOld proto.InternalMessageInfo
 
-func (m *SegmentDeleteRequest) GetBucket() []byte {
+func (m *SegmentDeleteRequestOld) GetBucket() []byte {
 	if m != nil {
 		return m.Bucket
 	}
 	return nil
 }
 
-func (m *SegmentDeleteRequest) GetPath() []byte {
+func (m *SegmentDeleteRequestOld) GetPath() []byte {
 	if m != nil {
 		return m.Path
 	}
 	return nil
 }
 
-func (m *SegmentDeleteRequest) GetSegment() int64 {
+func (m *SegmentDeleteRequestOld) GetSegment() int64 {
 	if m != nil {
 		return m.Segment
 	}
 	return 0
 }
 
-type SegmentDeleteResponse struct {
+type SegmentDeleteResponseOld struct {
 	AddressedLimits      []*AddressedOrderLimit `protobuf:"bytes,1,rep,name=addressed_limits,json=addressedLimits,proto3" json:"addressed_limits,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
 	XXX_sizecache        int32                  `json:"-"`
 }
 
-func (m *SegmentDeleteResponse) Reset()         { *m = SegmentDeleteResponse{} }
-func (m *SegmentDeleteResponse) String() string { return proto.CompactTextString(m) }
-func (*SegmentDeleteResponse) ProtoMessage()    {}
-func (*SegmentDeleteResponse) Descriptor() ([]byte, []int) {
+func (m *SegmentDeleteResponseOld) Reset()         { *m = SegmentDeleteResponseOld{} }
+func (m *SegmentDeleteResponseOld) String() string { return proto.CompactTextString(m) }
+func (*SegmentDeleteResponseOld) ProtoMessage()    {}
+func (*SegmentDeleteResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{22}
 }
-func (m *SegmentDeleteResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SegmentDeleteResponse.Unmarshal(m, b)
+func (m *SegmentDeleteResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SegmentDeleteResponseOld.Unmarshal(m, b)
 }
-func (m *SegmentDeleteResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SegmentDeleteResponse.Marshal(b, m, deterministic)
+func (m *SegmentDeleteResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SegmentDeleteResponseOld.Marshal(b, m, deterministic)
 }
-func (m *SegmentDeleteResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SegmentDeleteResponse.Merge(m, src)
+func (m *SegmentDeleteResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SegmentDeleteResponseOld.Merge(m, src)
 }
-func (m *SegmentDeleteResponse) XXX_Size() int {
-	return xxx_messageInfo_SegmentDeleteResponse.Size(m)
+func (m *SegmentDeleteResponseOld) XXX_Size() int {
+	return xxx_messageInfo_SegmentDeleteResponseOld.Size(m)
 }
-func (m *SegmentDeleteResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SegmentDeleteResponse.DiscardUnknown(m)
+func (m *SegmentDeleteResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SegmentDeleteResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SegmentDeleteResponse proto.InternalMessageInfo
+var xxx_messageInfo_SegmentDeleteResponseOld proto.InternalMessageInfo
 
-func (m *SegmentDeleteResponse) GetAddressedLimits() []*AddressedOrderLimit {
+func (m *SegmentDeleteResponseOld) GetAddressedLimits() []*AddressedOrderLimit {
 	if m != nil {
 		return m.AddressedLimits
 	}
 	return nil
 }
 
-type ListSegmentsRequest struct {
+type ListSegmentsRequestOld struct {
 	Bucket               []byte   `protobuf:"bytes,1,opt,name=bucket,proto3" json:"bucket,omitempty"`
 	Prefix               []byte   `protobuf:"bytes,2,opt,name=prefix,proto3" json:"prefix,omitempty"`
 	StartAfter           []byte   `protobuf:"bytes,3,opt,name=start_after,json=startAfter,proto3" json:"start_after,omitempty"`
@@ -1154,126 +1154,126 @@ type ListSegmentsRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListSegmentsRequest) Reset()         { *m = ListSegmentsRequest{} }
-func (m *ListSegmentsRequest) String() string { return proto.CompactTextString(m) }
-func (*ListSegmentsRequest) ProtoMessage()    {}
-func (*ListSegmentsRequest) Descriptor() ([]byte, []int) {
+func (m *ListSegmentsRequestOld) Reset()         { *m = ListSegmentsRequestOld{} }
+func (m *ListSegmentsRequestOld) String() string { return proto.CompactTextString(m) }
+func (*ListSegmentsRequestOld) ProtoMessage()    {}
+func (*ListSegmentsRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{23}
 }
-func (m *ListSegmentsRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListSegmentsRequest.Unmarshal(m, b)
+func (m *ListSegmentsRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListSegmentsRequestOld.Unmarshal(m, b)
 }
-func (m *ListSegmentsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListSegmentsRequest.Marshal(b, m, deterministic)
+func (m *ListSegmentsRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListSegmentsRequestOld.Marshal(b, m, deterministic)
 }
-func (m *ListSegmentsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListSegmentsRequest.Merge(m, src)
+func (m *ListSegmentsRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSegmentsRequestOld.Merge(m, src)
 }
-func (m *ListSegmentsRequest) XXX_Size() int {
-	return xxx_messageInfo_ListSegmentsRequest.Size(m)
+func (m *ListSegmentsRequestOld) XXX_Size() int {
+	return xxx_messageInfo_ListSegmentsRequestOld.Size(m)
 }
-func (m *ListSegmentsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListSegmentsRequest.DiscardUnknown(m)
+func (m *ListSegmentsRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListSegmentsRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListSegmentsRequest proto.InternalMessageInfo
+var xxx_messageInfo_ListSegmentsRequestOld proto.InternalMessageInfo
 
-func (m *ListSegmentsRequest) GetBucket() []byte {
+func (m *ListSegmentsRequestOld) GetBucket() []byte {
 	if m != nil {
 		return m.Bucket
 	}
 	return nil
 }
 
-func (m *ListSegmentsRequest) GetPrefix() []byte {
+func (m *ListSegmentsRequestOld) GetPrefix() []byte {
 	if m != nil {
 		return m.Prefix
 	}
 	return nil
 }
 
-func (m *ListSegmentsRequest) GetStartAfter() []byte {
+func (m *ListSegmentsRequestOld) GetStartAfter() []byte {
 	if m != nil {
 		return m.StartAfter
 	}
 	return nil
 }
 
-func (m *ListSegmentsRequest) GetEndBefore() []byte {
+func (m *ListSegmentsRequestOld) GetEndBefore() []byte {
 	if m != nil {
 		return m.EndBefore
 	}
 	return nil
 }
 
-func (m *ListSegmentsRequest) GetRecursive() bool {
+func (m *ListSegmentsRequestOld) GetRecursive() bool {
 	if m != nil {
 		return m.Recursive
 	}
 	return false
 }
 
-func (m *ListSegmentsRequest) GetLimit() int32 {
+func (m *ListSegmentsRequestOld) GetLimit() int32 {
 	if m != nil {
 		return m.Limit
 	}
 	return 0
 }
 
-func (m *ListSegmentsRequest) GetMetaFlags() uint32 {
+func (m *ListSegmentsRequestOld) GetMetaFlags() uint32 {
 	if m != nil {
 		return m.MetaFlags
 	}
 	return 0
 }
 
-type ListSegmentsResponse struct {
-	Items                []*ListSegmentsResponse_Item `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
-	More                 bool                         `protobuf:"varint,2,opt,name=more,proto3" json:"more,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
-	XXX_unrecognized     []byte                       `json:"-"`
-	XXX_sizecache        int32                        `json:"-"`
+type ListSegmentsResponseOld struct {
+	Items                []*ListSegmentsResponseOld_Item `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
+	More                 bool                            `protobuf:"varint,2,opt,name=more,proto3" json:"more,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                        `json:"-"`
+	XXX_unrecognized     []byte                          `json:"-"`
+	XXX_sizecache        int32                           `json:"-"`
 }
 
-func (m *ListSegmentsResponse) Reset()         { *m = ListSegmentsResponse{} }
-func (m *ListSegmentsResponse) String() string { return proto.CompactTextString(m) }
-func (*ListSegmentsResponse) ProtoMessage()    {}
-func (*ListSegmentsResponse) Descriptor() ([]byte, []int) {
+func (m *ListSegmentsResponseOld) Reset()         { *m = ListSegmentsResponseOld{} }
+func (m *ListSegmentsResponseOld) String() string { return proto.CompactTextString(m) }
+func (*ListSegmentsResponseOld) ProtoMessage()    {}
+func (*ListSegmentsResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{24}
 }
-func (m *ListSegmentsResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListSegmentsResponse.Unmarshal(m, b)
+func (m *ListSegmentsResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListSegmentsResponseOld.Unmarshal(m, b)
 }
-func (m *ListSegmentsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListSegmentsResponse.Marshal(b, m, deterministic)
+func (m *ListSegmentsResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListSegmentsResponseOld.Marshal(b, m, deterministic)
 }
-func (m *ListSegmentsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListSegmentsResponse.Merge(m, src)
+func (m *ListSegmentsResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSegmentsResponseOld.Merge(m, src)
 }
-func (m *ListSegmentsResponse) XXX_Size() int {
-	return xxx_messageInfo_ListSegmentsResponse.Size(m)
+func (m *ListSegmentsResponseOld) XXX_Size() int {
+	return xxx_messageInfo_ListSegmentsResponseOld.Size(m)
 }
-func (m *ListSegmentsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListSegmentsResponse.DiscardUnknown(m)
+func (m *ListSegmentsResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListSegmentsResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListSegmentsResponse proto.InternalMessageInfo
+var xxx_messageInfo_ListSegmentsResponseOld proto.InternalMessageInfo
 
-func (m *ListSegmentsResponse) GetItems() []*ListSegmentsResponse_Item {
+func (m *ListSegmentsResponseOld) GetItems() []*ListSegmentsResponseOld_Item {
 	if m != nil {
 		return m.Items
 	}
 	return nil
 }
 
-func (m *ListSegmentsResponse) GetMore() bool {
+func (m *ListSegmentsResponseOld) GetMore() bool {
 	if m != nil {
 		return m.More
 	}
 	return false
 }
 
-type ListSegmentsResponse_Item struct {
+type ListSegmentsResponseOld_Item struct {
 	Path                 []byte   `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	Pointer              *Pointer `protobuf:"bytes,2,opt,name=pointer,proto3" json:"pointer,omitempty"`
 	IsPrefix             bool     `protobuf:"varint,3,opt,name=is_prefix,json=isPrefix,proto3" json:"is_prefix,omitempty"`
@@ -1282,52 +1282,52 @@ type ListSegmentsResponse_Item struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *ListSegmentsResponse_Item) Reset()         { *m = ListSegmentsResponse_Item{} }
-func (m *ListSegmentsResponse_Item) String() string { return proto.CompactTextString(m) }
-func (*ListSegmentsResponse_Item) ProtoMessage()    {}
-func (*ListSegmentsResponse_Item) Descriptor() ([]byte, []int) {
+func (m *ListSegmentsResponseOld_Item) Reset()         { *m = ListSegmentsResponseOld_Item{} }
+func (m *ListSegmentsResponseOld_Item) String() string { return proto.CompactTextString(m) }
+func (*ListSegmentsResponseOld_Item) ProtoMessage()    {}
+func (*ListSegmentsResponseOld_Item) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{24, 0}
 }
-func (m *ListSegmentsResponse_Item) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ListSegmentsResponse_Item.Unmarshal(m, b)
+func (m *ListSegmentsResponseOld_Item) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ListSegmentsResponseOld_Item.Unmarshal(m, b)
 }
-func (m *ListSegmentsResponse_Item) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ListSegmentsResponse_Item.Marshal(b, m, deterministic)
+func (m *ListSegmentsResponseOld_Item) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ListSegmentsResponseOld_Item.Marshal(b, m, deterministic)
 }
-func (m *ListSegmentsResponse_Item) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ListSegmentsResponse_Item.Merge(m, src)
+func (m *ListSegmentsResponseOld_Item) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ListSegmentsResponseOld_Item.Merge(m, src)
 }
-func (m *ListSegmentsResponse_Item) XXX_Size() int {
-	return xxx_messageInfo_ListSegmentsResponse_Item.Size(m)
+func (m *ListSegmentsResponseOld_Item) XXX_Size() int {
+	return xxx_messageInfo_ListSegmentsResponseOld_Item.Size(m)
 }
-func (m *ListSegmentsResponse_Item) XXX_DiscardUnknown() {
-	xxx_messageInfo_ListSegmentsResponse_Item.DiscardUnknown(m)
+func (m *ListSegmentsResponseOld_Item) XXX_DiscardUnknown() {
+	xxx_messageInfo_ListSegmentsResponseOld_Item.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ListSegmentsResponse_Item proto.InternalMessageInfo
+var xxx_messageInfo_ListSegmentsResponseOld_Item proto.InternalMessageInfo
 
-func (m *ListSegmentsResponse_Item) GetPath() []byte {
+func (m *ListSegmentsResponseOld_Item) GetPath() []byte {
 	if m != nil {
 		return m.Path
 	}
 	return nil
 }
 
-func (m *ListSegmentsResponse_Item) GetPointer() *Pointer {
+func (m *ListSegmentsResponseOld_Item) GetPointer() *Pointer {
 	if m != nil {
 		return m.Pointer
 	}
 	return nil
 }
 
-func (m *ListSegmentsResponse_Item) GetIsPrefix() bool {
+func (m *ListSegmentsResponseOld_Item) GetIsPrefix() bool {
 	if m != nil {
 		return m.IsPrefix
 	}
 	return false
 }
 
-type SetAttributionRequest struct {
+type SetAttributionRequestOld struct {
 	BucketName           []byte   `protobuf:"bytes,1,opt,name=bucket_name,json=bucketName,proto3" json:"bucket_name,omitempty"`
 	PartnerId            []byte   `protobuf:"bytes,2,opt,name=partner_id,json=partnerId,proto3" json:"partner_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -1335,73 +1335,73 @@ type SetAttributionRequest struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SetAttributionRequest) Reset()         { *m = SetAttributionRequest{} }
-func (m *SetAttributionRequest) String() string { return proto.CompactTextString(m) }
-func (*SetAttributionRequest) ProtoMessage()    {}
-func (*SetAttributionRequest) Descriptor() ([]byte, []int) {
+func (m *SetAttributionRequestOld) Reset()         { *m = SetAttributionRequestOld{} }
+func (m *SetAttributionRequestOld) String() string { return proto.CompactTextString(m) }
+func (*SetAttributionRequestOld) ProtoMessage()    {}
+func (*SetAttributionRequestOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{25}
 }
-func (m *SetAttributionRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetAttributionRequest.Unmarshal(m, b)
+func (m *SetAttributionRequestOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetAttributionRequestOld.Unmarshal(m, b)
 }
-func (m *SetAttributionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetAttributionRequest.Marshal(b, m, deterministic)
+func (m *SetAttributionRequestOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetAttributionRequestOld.Marshal(b, m, deterministic)
 }
-func (m *SetAttributionRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetAttributionRequest.Merge(m, src)
+func (m *SetAttributionRequestOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetAttributionRequestOld.Merge(m, src)
 }
-func (m *SetAttributionRequest) XXX_Size() int {
-	return xxx_messageInfo_SetAttributionRequest.Size(m)
+func (m *SetAttributionRequestOld) XXX_Size() int {
+	return xxx_messageInfo_SetAttributionRequestOld.Size(m)
 }
-func (m *SetAttributionRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetAttributionRequest.DiscardUnknown(m)
+func (m *SetAttributionRequestOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetAttributionRequestOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SetAttributionRequest proto.InternalMessageInfo
+var xxx_messageInfo_SetAttributionRequestOld proto.InternalMessageInfo
 
-func (m *SetAttributionRequest) GetBucketName() []byte {
+func (m *SetAttributionRequestOld) GetBucketName() []byte {
 	if m != nil {
 		return m.BucketName
 	}
 	return nil
 }
 
-func (m *SetAttributionRequest) GetPartnerId() []byte {
+func (m *SetAttributionRequestOld) GetPartnerId() []byte {
 	if m != nil {
 		return m.PartnerId
 	}
 	return nil
 }
 
-type SetAttributionResponse struct {
+type SetAttributionResponseOld struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SetAttributionResponse) Reset()         { *m = SetAttributionResponse{} }
-func (m *SetAttributionResponse) String() string { return proto.CompactTextString(m) }
-func (*SetAttributionResponse) ProtoMessage()    {}
-func (*SetAttributionResponse) Descriptor() ([]byte, []int) {
+func (m *SetAttributionResponseOld) Reset()         { *m = SetAttributionResponseOld{} }
+func (m *SetAttributionResponseOld) String() string { return proto.CompactTextString(m) }
+func (*SetAttributionResponseOld) ProtoMessage()    {}
+func (*SetAttributionResponseOld) Descriptor() ([]byte, []int) {
 	return fileDescriptor_631e2f30a93cd64e, []int{26}
 }
-func (m *SetAttributionResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_SetAttributionResponse.Unmarshal(m, b)
+func (m *SetAttributionResponseOld) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetAttributionResponseOld.Unmarshal(m, b)
 }
-func (m *SetAttributionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_SetAttributionResponse.Marshal(b, m, deterministic)
+func (m *SetAttributionResponseOld) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetAttributionResponseOld.Marshal(b, m, deterministic)
 }
-func (m *SetAttributionResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SetAttributionResponse.Merge(m, src)
+func (m *SetAttributionResponseOld) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetAttributionResponseOld.Merge(m, src)
 }
-func (m *SetAttributionResponse) XXX_Size() int {
-	return xxx_messageInfo_SetAttributionResponse.Size(m)
+func (m *SetAttributionResponseOld) XXX_Size() int {
+	return xxx_messageInfo_SetAttributionResponseOld.Size(m)
 }
-func (m *SetAttributionResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_SetAttributionResponse.DiscardUnknown(m)
+func (m *SetAttributionResponseOld) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetAttributionResponseOld.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_SetAttributionResponse proto.InternalMessageInfo
+var xxx_messageInfo_SetAttributionResponseOld proto.InternalMessageInfo
 
 type ProjectInfoRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -1485,21 +1485,21 @@ func init() {
 	proto.RegisterType((*BucketSetAttributionRequest)(nil), "metainfo.BucketSetAttributionRequest")
 	proto.RegisterType((*BucketSetAttributionResponse)(nil), "metainfo.BucketSetAttributionResponse")
 	proto.RegisterType((*AddressedOrderLimit)(nil), "metainfo.AddressedOrderLimit")
-	proto.RegisterType((*SegmentWriteRequest)(nil), "metainfo.SegmentWriteRequest")
-	proto.RegisterType((*SegmentWriteResponse)(nil), "metainfo.SegmentWriteResponse")
-	proto.RegisterType((*SegmentCommitRequest)(nil), "metainfo.SegmentCommitRequest")
-	proto.RegisterType((*SegmentCommitResponse)(nil), "metainfo.SegmentCommitResponse")
-	proto.RegisterType((*SegmentDownloadRequest)(nil), "metainfo.SegmentDownloadRequest")
-	proto.RegisterType((*SegmentDownloadResponse)(nil), "metainfo.SegmentDownloadResponse")
-	proto.RegisterType((*SegmentInfoRequest)(nil), "metainfo.SegmentInfoRequest")
-	proto.RegisterType((*SegmentInfoResponse)(nil), "metainfo.SegmentInfoResponse")
-	proto.RegisterType((*SegmentDeleteRequest)(nil), "metainfo.SegmentDeleteRequest")
-	proto.RegisterType((*SegmentDeleteResponse)(nil), "metainfo.SegmentDeleteResponse")
-	proto.RegisterType((*ListSegmentsRequest)(nil), "metainfo.ListSegmentsRequest")
-	proto.RegisterType((*ListSegmentsResponse)(nil), "metainfo.ListSegmentsResponse")
-	proto.RegisterType((*ListSegmentsResponse_Item)(nil), "metainfo.ListSegmentsResponse.Item")
-	proto.RegisterType((*SetAttributionRequest)(nil), "metainfo.SetAttributionRequest")
-	proto.RegisterType((*SetAttributionResponse)(nil), "metainfo.SetAttributionResponse")
+	proto.RegisterType((*SegmentWriteRequestOld)(nil), "metainfo.SegmentWriteRequestOld")
+	proto.RegisterType((*SegmentWriteResponseOld)(nil), "metainfo.SegmentWriteResponseOld")
+	proto.RegisterType((*SegmentCommitRequestOld)(nil), "metainfo.SegmentCommitRequestOld")
+	proto.RegisterType((*SegmentCommitResponseOld)(nil), "metainfo.SegmentCommitResponseOld")
+	proto.RegisterType((*SegmentDownloadRequestOld)(nil), "metainfo.SegmentDownloadRequestOld")
+	proto.RegisterType((*SegmentDownloadResponseOld)(nil), "metainfo.SegmentDownloadResponseOld")
+	proto.RegisterType((*SegmentInfoRequestOld)(nil), "metainfo.SegmentInfoRequestOld")
+	proto.RegisterType((*SegmentInfoResponseOld)(nil), "metainfo.SegmentInfoResponseOld")
+	proto.RegisterType((*SegmentDeleteRequestOld)(nil), "metainfo.SegmentDeleteRequestOld")
+	proto.RegisterType((*SegmentDeleteResponseOld)(nil), "metainfo.SegmentDeleteResponseOld")
+	proto.RegisterType((*ListSegmentsRequestOld)(nil), "metainfo.ListSegmentsRequestOld")
+	proto.RegisterType((*ListSegmentsResponseOld)(nil), "metainfo.ListSegmentsResponseOld")
+	proto.RegisterType((*ListSegmentsResponseOld_Item)(nil), "metainfo.ListSegmentsResponseOld.Item")
+	proto.RegisterType((*SetAttributionRequestOld)(nil), "metainfo.SetAttributionRequestOld")
+	proto.RegisterType((*SetAttributionResponseOld)(nil), "metainfo.SetAttributionResponseOld")
 	proto.RegisterType((*ProjectInfoRequest)(nil), "metainfo.ProjectInfoRequest")
 	proto.RegisterType((*ProjectInfoResponse)(nil), "metainfo.ProjectInfoResponse")
 }
@@ -1507,93 +1507,95 @@ func init() {
 func init() { proto.RegisterFile("metainfo.proto", fileDescriptor_631e2f30a93cd64e) }
 
 var fileDescriptor_631e2f30a93cd64e = []byte{
-	// 1374 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x57, 0xcd, 0x8e, 0x1b, 0x45,
-	0x10, 0x66, 0xf6, 0xc7, 0x6b, 0x97, 0xf7, 0x2f, 0xbd, 0x66, 0xd7, 0xcc, 0xee, 0xc6, 0xce, 0xa0,
-	0x44, 0x46, 0x42, 0x0e, 0xda, 0x5c, 0x02, 0x11, 0x12, 0xfb, 0x13, 0xc2, 0xa2, 0x24, 0xac, 0xc6,
-	0x88, 0x44, 0x11, 0x62, 0x34, 0xf6, 0x94, 0x9d, 0x01, 0xcf, 0x0f, 0x3d, 0x6d, 0xd8, 0xe4, 0xcc,
-	0x03, 0x90, 0x03, 0xcf, 0xc0, 0x03, 0xf0, 0x10, 0x70, 0xe0, 0x01, 0x10, 0x87, 0xf0, 0x20, 0x5c,
-	0x50, 0x4f, 0x77, 0x7b, 0x7a, 0xec, 0xf1, 0x2e, 0x89, 0x8c, 0xb8, 0xb9, 0xab, 0x6a, 0xaa, 0xab,
-	0xea, 0xfb, 0xaa, 0xaa, 0x0d, 0xeb, 0x01, 0x32, 0xd7, 0x0f, 0xfb, 0x51, 0x3b, 0xa6, 0x11, 0x8b,
-	0x48, 0x59, 0x9d, 0xcd, 0x4d, 0x0c, 0x7b, 0xf4, 0x59, 0xcc, 0xfc, 0x28, 0x14, 0x3a, 0x13, 0x06,
-	0xd1, 0x40, 0xda, 0x99, 0x8d, 0x41, 0x14, 0x0d, 0x86, 0x78, 0x33, 0x3d, 0x75, 0x47, 0xfd, 0x9b,
-	0xcc, 0x0f, 0x30, 0x61, 0x6e, 0x10, 0x2b, 0xe3, 0x30, 0xf2, 0x50, 0xfe, 0xde, 0x88, 0x23, 0x3f,
-	0x64, 0x48, 0xbd, 0xae, 0x14, 0xac, 0x46, 0xd4, 0x43, 0x9a, 0x88, 0x93, 0xf5, 0xcb, 0x22, 0x94,
-	0x8e, 0x46, 0xbd, 0x6f, 0x90, 0x11, 0x02, 0x4b, 0xa1, 0x1b, 0x60, 0xdd, 0x68, 0x1a, 0xad, 0x55,
-	0x3b, 0xfd, 0x4d, 0x6e, 0x43, 0x35, 0x76, 0xd9, 0x53, 0xa7, 0xe7, 0xc7, 0x4f, 0x91, 0xd6, 0x17,
-	0x9a, 0x46, 0x6b, 0xfd, 0x60, 0xa7, 0xad, 0x85, 0x77, 0x9c, 0x6a, 0x3a, 0x23, 0x9f, 0xa1, 0x0d,
-	0xdc, 0x56, 0x08, 0xc8, 0x75, 0x58, 0x77, 0x19, 0xa3, 0x7e, 0x77, 0xc4, 0xcd, 0x1c, 0xdf, 0xab,
-	0x2f, 0xa6, 0x7e, 0xd7, 0x34, 0xe9, 0xa9, 0x47, 0x8e, 0x01, 0x7a, 0x14, 0x5d, 0x86, 0x9e, 0xe3,
-	0xb2, 0xfa, 0x52, 0xd3, 0x68, 0x55, 0x0f, 0xcc, 0xb6, 0x48, 0xb0, 0xad, 0x12, 0x6c, 0x7f, 0xae,
-	0x12, 0x3c, 0x2a, 0xff, 0xf6, 0xb2, 0xf1, 0xc6, 0x8f, 0x7f, 0x35, 0x0c, 0xbb, 0x22, 0xbf, 0x3b,
-	0x64, 0xe4, 0x3d, 0xa8, 0x79, 0xd8, 0x77, 0x47, 0x43, 0xe6, 0x24, 0x38, 0x08, 0x30, 0x64, 0x4e,
-	0xe2, 0x3f, 0xc7, 0xfa, 0x72, 0xd3, 0x68, 0x2d, 0xda, 0x44, 0xea, 0x3a, 0x42, 0xd5, 0xf1, 0x9f,
-	0x23, 0x79, 0x04, 0x6f, 0xa9, 0x2f, 0x28, 0x7a, 0xa3, 0xd0, 0x73, 0xc3, 0xde, 0x33, 0x27, 0xe9,
-	0x3d, 0xc5, 0x00, 0xeb, 0xa5, 0x34, 0x8a, 0xdd, 0x76, 0x56, 0x39, 0x7b, 0x6c, 0xd3, 0x49, 0x4d,
-	0xec, 0x1d, 0xf9, 0xf5, 0xa4, 0x82, 0x78, 0xb0, 0xaf, 0x1c, 0x67, 0x45, 0x72, 0x62, 0x97, 0xba,
-	0x01, 0x32, 0xa4, 0x49, 0x7d, 0x25, 0x75, 0xde, 0xd4, 0x4b, 0x78, 0x77, 0xfc, 0xf3, 0x6c, 0x6c,
-	0x67, 0xef, 0x4a, 0x37, 0x45, 0x4a, 0xcb, 0x87, 0x75, 0x01, 0xda, 0x7d, 0x3f, 0x61, 0xa7, 0x0c,
-	0x83, 0x42, 0xf0, 0xf2, 0xb5, 0x5d, 0x78, 0xad, 0xda, 0x5a, 0x7f, 0x2f, 0xc0, 0x96, 0xb8, 0xeb,
-	0x38, 0x95, 0xd9, 0xf8, 0xed, 0x08, 0x93, 0xff, 0x89, 0x2d, 0xb3, 0x80, 0x5e, 0x7a, 0x3d, 0xa0,
-	0x97, 0xff, 0x4b, 0xa0, 0x4b, 0xf3, 0x00, 0xfa, 0x23, 0xa8, 0xe5, 0x8b, 0x9f, 0xc4, 0x51, 0x98,
-	0x20, 0x69, 0x41, 0xa9, 0x9b, 0xca, 0xd3, 0xfa, 0x57, 0x0f, 0x36, 0xdb, 0xe3, 0x59, 0x22, 0xec,
-	0x6d, 0xa9, 0xb7, 0x6e, 0xc0, 0xa6, 0x90, 0xdc, 0x43, 0x76, 0x01, 0x76, 0xd6, 0x87, 0x70, 0x45,
-	0xb3, 0x7b, 0xe5, 0x6b, 0xde, 0x51, 0x2c, 0x39, 0xc1, 0x21, 0x5e, 0xc8, 0x12, 0x6b, 0x5b, 0xe5,
-	0xa4, 0x4c, 0xc5, 0x65, 0xd6, 0xa1, 0x8a, 0x80, 0x93, 0x5a, 0x39, 0xd8, 0x86, 0x52, 0x6f, 0x44,
-	0x93, 0x88, 0x4a, 0x17, 0xf2, 0x44, 0x6a, 0xb0, 0x3c, 0xf4, 0x03, 0x5f, 0xd0, 0x7a, 0xd9, 0x16,
-	0x07, 0xeb, 0x31, 0x10, 0xdd, 0x85, 0xcc, 0xa2, 0x0d, 0xcb, 0x3e, 0xc3, 0x20, 0xa9, 0x1b, 0xcd,
-	0xc5, 0x56, 0xf5, 0xa0, 0x3e, 0x99, 0x84, 0x6a, 0x22, 0x5b, 0x98, 0xf1, 0xa0, 0x83, 0x88, 0x62,
-	0xea, 0xba, 0x6c, 0xa7, 0xbf, 0xad, 0xc7, 0xb0, 0x2b, 0x8c, 0x3b, 0xc8, 0x0e, 0x33, 0x4e, 0x5e,
-	0xd4, 0x0d, 0xd3, 0x9c, 0x5e, 0x28, 0xe0, 0xb4, 0x75, 0x15, 0xf6, 0x8a, 0x3d, 0xcb, 0xb2, 0xfc,
-	0x60, 0xc0, 0xd6, 0xa1, 0xe7, 0x51, 0x4c, 0x12, 0xf4, 0x3e, 0xe3, 0xb3, 0xfb, 0x3e, 0xcf, 0x95,
-	0xb4, 0x54, 0x05, 0x04, 0x34, 0xa4, 0x2d, 0xe7, 0x7a, 0x66, 0x22, 0xab, 0x42, 0x8e, 0xa1, 0x96,
-	0xb0, 0x88, 0xba, 0x03, 0x74, 0xf8, 0x62, 0x70, 0x5c, 0xe1, 0x4d, 0x4e, 0x84, 0x2b, 0xed, 0x74,
-	0x5b, 0x3c, 0x8c, 0x3c, 0x94, 0xd7, 0xd8, 0x44, 0x9a, 0x6b, 0x32, 0xeb, 0xc5, 0x02, 0x6c, 0xc9,
-	0xc6, 0x7a, 0x44, 0xfd, 0x0c, 0xe1, 0xed, 0x1c, 0x45, 0x56, 0x15, 0x21, 0x78, 0x45, 0x78, 0x7f,
-	0xcb, 0x9c, 0xd3, 0xdf, 0xa4, 0x0e, 0x2b, 0xb2, 0x6d, 0xd3, 0xf6, 0x5e, 0xb4, 0xd5, 0x91, 0xdc,
-	0x01, 0xc8, 0xda, 0x53, 0xae, 0x81, 0x0b, 0xfb, 0x52, 0x33, 0x27, 0x77, 0xc0, 0x0c, 0xdc, 0x73,
-	0xd5, 0x86, 0xe8, 0x15, 0x2d, 0x81, 0x9d, 0xc0, 0x3d, 0xbf, 0xab, 0x0c, 0xf4, 0x01, 0xf1, 0x01,
-	0x00, 0x9e, 0xc7, 0x3e, 0x75, 0x79, 0xd1, 0x65, 0xd3, 0x5e, 0x30, 0x24, 0x6d, 0xcd, 0xda, 0xfa,
-	0xc9, 0x80, 0x5a, 0xbe, 0x26, 0x92, 0x71, 0x9f, 0xc0, 0xa6, 0xab, 0x20, 0x73, 0x52, 0x10, 0x14,
-	0xf9, 0xf6, 0x33, 0xf2, 0x15, 0x80, 0x6a, 0x6f, 0x8c, 0x3f, 0x4b, 0xcf, 0x09, 0xb9, 0x05, 0x6b,
-	0x34, 0x8a, 0x98, 0x13, 0xfb, 0xd8, 0xc3, 0x31, 0x87, 0x8e, 0x36, 0xf8, 0xa8, 0xfe, 0xf3, 0x65,
-	0x63, 0xe5, 0x8c, 0xcb, 0x4f, 0x4f, 0xec, 0x2a, 0xb7, 0x12, 0x07, 0xcf, 0xfa, 0x35, 0x8b, 0xeb,
-	0x38, 0x0a, 0xb8, 0xdf, 0xb9, 0x82, 0xf5, 0x2e, 0xac, 0x48, 0x64, 0x24, 0x52, 0x44, 0x43, 0xea,
-	0x4c, 0xfc, 0xb2, 0x95, 0x09, 0xb9, 0x03, 0x1b, 0x11, 0xf5, 0x07, 0x7e, 0xe8, 0x0e, 0x55, 0x29,
-	0x96, 0xd3, 0x52, 0x14, 0x31, 0x76, 0x5d, 0x99, 0x8a, 0xf4, 0xad, 0xbb, 0xf0, 0xe6, 0x44, 0x22,
-	0xb2, 0xc2, 0x5a, 0x0c, 0xc6, 0xa5, 0x31, 0x58, 0x5f, 0xc1, 0xb6, 0x74, 0x73, 0x12, 0x7d, 0x1f,
-	0x0e, 0x23, 0xd7, 0x9b, 0x6b, 0x45, 0xac, 0x17, 0x06, 0xec, 0x4c, 0x5d, 0x30, 0x77, 0x2e, 0x68,
-	0x39, 0x2f, 0x5c, 0x9e, 0xf3, 0x13, 0x20, 0x32, 0xa4, 0xd3, 0xb0, 0x1f, 0xcd, 0x37, 0xdf, 0xe3,
-	0xf1, 0x2c, 0x10, 0xbe, 0xa7, 0x41, 0xf9, 0x17, 0x01, 0x7e, 0x39, 0x26, 0x69, 0x7e, 0x67, 0xcc,
-	0x27, 0x44, 0x77, 0xcc, 0x9c, 0xfc, 0x9a, 0x99, 0x1f, 0x1e, 0xd6, 0x1f, 0x06, 0x6c, 0xf1, 0xdd,
-	0x21, 0xef, 0x49, 0x2e, 0x4b, 0x60, 0x1b, 0x4a, 0x31, 0xc5, 0xbe, 0x7f, 0x2e, 0x53, 0x90, 0x27,
-	0xd2, 0x80, 0x6a, 0xc2, 0x5c, 0xca, 0x1c, 0xb7, 0xcf, 0x4b, 0x27, 0x5e, 0x3e, 0x90, 0x8a, 0x0e,
-	0xb9, 0x84, 0xec, 0x03, 0x60, 0xe8, 0x39, 0x5d, 0xec, 0xf3, 0xb5, 0xb4, 0x94, 0xea, 0x2b, 0x18,
-	0x7a, 0x47, 0xa9, 0x80, 0xec, 0x41, 0x85, 0x22, 0xdf, 0x8b, 0xfe, 0x77, 0x62, 0xdc, 0x95, 0xed,
-	0x4c, 0x90, 0x6d, 0xca, 0x92, 0xb6, 0x29, 0xb9, 0x4b, 0x9e, 0xac, 0xd3, 0x1f, 0xba, 0x03, 0xf1,
-	0x28, 0x5d, 0xb1, 0x2b, 0x5c, 0xf2, 0x31, 0x17, 0x58, 0xbf, 0x1b, 0x50, 0xcb, 0xa7, 0x26, 0xab,
-	0xf7, 0x7e, 0x7e, 0x97, 0xbe, 0x9d, 0x95, 0xac, 0xc8, 0xbc, 0x7d, 0xc9, 0x5a, 0x35, 0x11, 0x96,
-	0xd4, 0xf3, 0x35, 0xc5, 0xd6, 0xd0, 0xb0, 0x7d, 0x25, 0x36, 0x91, 0x5d, 0xa8, 0xf8, 0x89, 0x23,
-	0xeb, 0xbb, 0x98, 0x5e, 0x51, 0xf6, 0x93, 0xb3, 0xf4, 0x6c, 0x3d, 0xe2, 0x64, 0x28, 0xda, 0xdb,
-	0x0d, 0xa8, 0x0a, 0x70, 0x1c, 0x6d, 0x7d, 0x83, 0x10, 0x3d, 0xe4, 0x4b, 0x7c, 0x1f, 0x20, 0x76,
-	0x29, 0x0b, 0x91, 0x66, 0x0b, 0xbc, 0x22, 0x25, 0xa7, 0x9e, 0x55, 0xe7, 0x83, 0xa5, 0x70, 0x6d,
-	0xd7, 0x80, 0x9c, 0xd1, 0xe8, 0x6b, 0xec, 0xe9, 0xed, 0x67, 0xdd, 0x86, 0xad, 0x9c, 0x54, 0x56,
-	0xf5, 0x1a, 0xac, 0xc6, 0x42, 0xec, 0x24, 0xee, 0x50, 0xf1, 0xa6, 0x2a, 0x65, 0x1d, 0x77, 0xc8,
-	0x0e, 0x7e, 0x2e, 0x43, 0xf9, 0x81, 0xac, 0x35, 0x79, 0x00, 0xab, 0xe2, 0x41, 0x28, 0xff, 0xba,
-	0xed, 0x4f, 0x3e, 0x69, 0x72, 0x6f, 0x75, 0xf3, 0xea, 0x2c, 0xb5, 0xbc, 0xfe, 0x04, 0x2a, 0xf7,
-	0x90, 0x49, 0x5f, 0xe6, 0xa4, 0x71, 0xf6, 0x70, 0x34, 0x77, 0x0b, 0x75, 0xd2, 0xcb, 0x03, 0x58,
-	0x15, 0xad, 0x36, 0x2b, 0xa8, 0x5c, 0x9b, 0x4f, 0x07, 0x35, 0xd5, 0xa7, 0x55, 0x4e, 0x29, 0xa1,
-	0x4b, 0xc8, 0x6e, 0xd1, 0xab, 0x4d, 0xf9, 0xda, 0x2b, 0x56, 0x4a, 0x4f, 0xc8, 0x07, 0x8d, 0x74,
-	0xa4, 0x41, 0x45, 0xae, 0x4f, 0x7e, 0x55, 0xc8, 0x11, 0xf3, 0xc6, 0x65, 0x66, 0xf2, 0x9a, 0x87,
-	0xb0, 0x26, 0xea, 0x2a, 0xbb, 0x40, 0x2f, 0x40, 0xc1, 0xcb, 0x49, 0x2f, 0x40, 0xe1, 0x23, 0xe2,
-	0x0c, 0xd6, 0xc4, 0xd2, 0x53, 0xfe, 0xa6, 0x3f, 0xc8, 0x6d, 0x77, 0xb3, 0x31, 0x53, 0x2f, 0x3d,
-	0x7e, 0x0a, 0x55, 0x6d, 0x6c, 0x93, 0xbd, 0x29, 0x7b, 0x8d, 0xaa, 0xe6, 0xfe, 0x0c, 0xad, 0xf4,
-	0xf5, 0x05, 0x6c, 0xa8, 0x55, 0xa7, 0xe2, 0x6b, 0x4e, 0x7d, 0x31, 0xb1, 0x6d, 0xcd, 0x6b, 0x17,
-	0x58, 0x64, 0x59, 0x0b, 0x22, 0xcc, 0xce, 0x3a, 0xcf, 0xa3, 0xc6, 0x4c, 0x7d, 0xc6, 0x4b, 0x7d,
-	0x36, 0xe9, 0xb0, 0x14, 0x4c, 0x6f, 0x1d, 0x96, 0xc2, 0x09, 0xd8, 0x81, 0xf5, 0x3c, 0x01, 0x48,
-	0x2e, 0x82, 0x22, 0x06, 0x35, 0x67, 0x1b, 0x64, 0xc8, 0x68, 0x73, 0x41, 0x47, 0x66, 0x7a, 0x88,
-	0xe8, 0xc8, 0x14, 0x0c, 0x93, 0xa3, 0xa5, 0x27, 0x0b, 0x71, 0xb7, 0x5b, 0x4a, 0xdf, 0xae, 0xb7,
-	0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0x0a, 0x00, 0x3f, 0x7a, 0x65, 0x12, 0x00, 0x00,
+	// 1406 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x57, 0x4b, 0x6f, 0xdb, 0xc6,
+	0x16, 0xbe, 0x94, 0x6d, 0x59, 0x3a, 0x72, 0x6c, 0x67, 0xe2, 0x6b, 0x2b, 0x54, 0x1c, 0x2b, 0xcc,
+	0x4d, 0xa0, 0x0b, 0x5c, 0x28, 0x17, 0xce, 0x26, 0x68, 0x5a, 0xa0, 0x7e, 0xe4, 0xe1, 0x22, 0x0f,
+	0x83, 0x2a, 0x9a, 0x34, 0x68, 0x41, 0x50, 0xe2, 0x91, 0xc2, 0x56, 0x7c, 0x74, 0x38, 0x6a, 0x9d,
+	0xac, 0xfb, 0x03, 0xba, 0xc8, 0xa2, 0xff, 0xa3, 0x7f, 0xa2, 0xe8, 0xb2, 0xcb, 0x16, 0x48, 0x77,
+	0xfd, 0x13, 0xdd, 0x14, 0xf3, 0x12, 0x49, 0x89, 0x92, 0x93, 0xc0, 0x41, 0x77, 0x9c, 0x33, 0xdf,
+	0x9c, 0x39, 0xe7, 0x3b, 0xaf, 0x21, 0xac, 0x06, 0xc8, 0x5c, 0x3f, 0xec, 0x47, 0xed, 0x98, 0x46,
+	0x2c, 0x22, 0x15, 0xbd, 0x36, 0xd7, 0x31, 0xec, 0xd1, 0x17, 0x31, 0xf3, 0xa3, 0x50, 0xee, 0x99,
+	0x30, 0x88, 0x06, 0x0a, 0x67, 0xee, 0x0c, 0xa2, 0x68, 0x30, 0xc4, 0x1b, 0x62, 0xd5, 0x1d, 0xf5,
+	0x6f, 0x30, 0x3f, 0xc0, 0x84, 0xb9, 0x41, 0xac, 0xc1, 0x61, 0xe4, 0xa1, 0xfa, 0x5e, 0x8b, 0x23,
+	0x3f, 0x64, 0x48, 0xbd, 0xae, 0x12, 0xac, 0x44, 0xd4, 0x43, 0x9a, 0xc8, 0x95, 0xf5, 0xd3, 0x02,
+	0x94, 0xf7, 0x47, 0xbd, 0xaf, 0x91, 0x11, 0x02, 0x8b, 0xa1, 0x1b, 0x60, 0xdd, 0x68, 0x1a, 0xad,
+	0x15, 0x5b, 0x7c, 0x93, 0x5b, 0x50, 0x8b, 0x5d, 0xf6, 0xdc, 0xe9, 0xf9, 0xf1, 0x73, 0xa4, 0xf5,
+	0x52, 0xd3, 0x68, 0xad, 0xee, 0x6e, 0xb5, 0x33, 0xe6, 0x1d, 0x88, 0x9d, 0xce, 0xc8, 0x67, 0x68,
+	0x03, 0xc7, 0x4a, 0x01, 0xb9, 0x06, 0xab, 0x2e, 0x63, 0xd4, 0xef, 0x8e, 0x38, 0xcc, 0xf1, 0xbd,
+	0xfa, 0x82, 0xd0, 0x7b, 0x2e, 0x23, 0x3d, 0xf2, 0xc8, 0x01, 0x40, 0x8f, 0xa2, 0xcb, 0xd0, 0x73,
+	0x5c, 0x56, 0x5f, 0x6c, 0x1a, 0xad, 0xda, 0xae, 0xd9, 0x96, 0x0e, 0xb6, 0xb5, 0x83, 0xed, 0x4f,
+	0xb5, 0x83, 0xfb, 0x95, 0x9f, 0x5f, 0xef, 0xfc, 0xeb, 0x87, 0x3f, 0x76, 0x0c, 0xbb, 0xaa, 0xce,
+	0xed, 0x31, 0xf2, 0x7f, 0xd8, 0xf0, 0xb0, 0xef, 0x8e, 0x86, 0xcc, 0x49, 0x70, 0x10, 0x60, 0xc8,
+	0x9c, 0xc4, 0x7f, 0x89, 0xf5, 0xa5, 0xa6, 0xd1, 0x5a, 0xb0, 0x89, 0xda, 0xeb, 0xc8, 0xad, 0x8e,
+	0xff, 0x12, 0xc9, 0x13, 0xb8, 0xa8, 0x4f, 0x50, 0xf4, 0x46, 0xa1, 0xe7, 0x86, 0xbd, 0x17, 0x4e,
+	0xd2, 0x7b, 0x8e, 0x01, 0xd6, 0xcb, 0xc2, 0x8a, 0x46, 0x3b, 0x65, 0xce, 0x1e, 0x63, 0x3a, 0x02,
+	0x62, 0x6f, 0xa9, 0xd3, 0x93, 0x1b, 0xc4, 0x83, 0x6d, 0xad, 0x38, 0x25, 0xc9, 0x89, 0x5d, 0xea,
+	0x06, 0xc8, 0x90, 0x26, 0xf5, 0x65, 0xa1, 0xbc, 0x99, 0xa5, 0xf0, 0xce, 0xf8, 0xf3, 0x78, 0x8c,
+	0xb3, 0x1b, 0x4a, 0x4d, 0xd1, 0xa6, 0xe5, 0xc3, 0xaa, 0x0c, 0xda, 0x03, 0x3f, 0x61, 0x47, 0x0c,
+	0x83, 0xc2, 0xe0, 0xe5, 0xb9, 0x2d, 0xbd, 0x13, 0xb7, 0xd6, 0x5f, 0x25, 0xb8, 0x20, 0xef, 0x3a,
+	0x10, 0x32, 0x1b, 0xbf, 0x19, 0x61, 0xf2, 0x0f, 0x65, 0xcb, 0xac, 0x40, 0x2f, 0xbe, 0x5b, 0xa0,
+	0x97, 0xde, 0x67, 0xa0, 0xcb, 0x67, 0x11, 0xe8, 0x8f, 0x61, 0x23, 0x4f, 0x7e, 0x12, 0x47, 0x61,
+	0x82, 0xa4, 0x05, 0xe5, 0xae, 0x90, 0x0b, 0xfe, 0x6b, 0xbb, 0xeb, 0xed, 0x71, 0x2f, 0x91, 0x78,
+	0x5b, 0xed, 0x5b, 0xd7, 0x61, 0x5d, 0x4a, 0xee, 0x21, 0x9b, 0x13, 0x3b, 0xeb, 0x23, 0x38, 0x9f,
+	0xc1, 0xbd, 0xf5, 0x35, 0xff, 0xd5, 0x59, 0x72, 0x88, 0x43, 0x9c, 0x9b, 0x25, 0xd6, 0xa6, 0xf6,
+	0x49, 0x43, 0xe5, 0x65, 0xd6, 0x9e, 0xb6, 0x80, 0x27, 0xb5, 0x56, 0xb0, 0x09, 0xe5, 0xde, 0x88,
+	0x26, 0x11, 0x55, 0x2a, 0xd4, 0x8a, 0x6c, 0xc0, 0xd2, 0xd0, 0x0f, 0x7c, 0x99, 0xd6, 0x4b, 0xb6,
+	0x5c, 0x58, 0x4f, 0x81, 0x64, 0x55, 0x28, 0x2f, 0xda, 0xb0, 0xe4, 0x33, 0x0c, 0x92, 0xba, 0xd1,
+	0x5c, 0x68, 0xd5, 0x76, 0xeb, 0x93, 0x4e, 0xe8, 0x22, 0xb2, 0x25, 0x8c, 0x1b, 0x1d, 0x44, 0x14,
+	0x85, 0xea, 0x8a, 0x2d, 0xbe, 0xad, 0xa7, 0xd0, 0x90, 0xe0, 0x0e, 0xb2, 0xbd, 0x34, 0x27, 0xe7,
+	0x55, 0xc3, 0x74, 0x4e, 0x97, 0x0a, 0x72, 0xda, 0xba, 0x0c, 0x97, 0x8a, 0x35, 0x2b, 0x5a, 0xbe,
+	0x37, 0xe0, 0xc2, 0x9e, 0xe7, 0x51, 0x4c, 0x12, 0xf4, 0x1e, 0xf3, 0xde, 0xfd, 0x80, 0xfb, 0x4a,
+	0x5a, 0x9a, 0x01, 0x19, 0x1a, 0xd2, 0x56, 0x7d, 0x3d, 0x85, 0x28, 0x56, 0xc8, 0x01, 0x6c, 0x24,
+	0x2c, 0xa2, 0xee, 0x00, 0x1d, 0x3e, 0x18, 0x1c, 0x57, 0x6a, 0x53, 0x1d, 0xe1, 0x7c, 0x5b, 0x4c,
+	0x8b, 0x47, 0x91, 0x87, 0xea, 0x1a, 0x9b, 0x28, 0x78, 0x46, 0x66, 0xbd, 0x2a, 0xc1, 0xa6, 0x2a,
+	0xac, 0x27, 0xd4, 0x1f, 0x47, 0xf8, 0xf1, 0xd0, 0xe3, 0x31, 0xca, 0x64, 0xc9, 0x8a, 0xce, 0x09,
+	0x4e, 0x0a, 0x2f, 0x71, 0xe5, 0xb6, 0xf8, 0x26, 0x75, 0x58, 0x56, 0x95, 0x2b, 0x2a, 0x7c, 0xc1,
+	0xd6, 0x4b, 0x72, 0x1b, 0x20, 0xad, 0x50, 0x35, 0x09, 0xe6, 0x96, 0x66, 0x06, 0x4e, 0x6e, 0x83,
+	0x19, 0xb8, 0x27, 0xba, 0x12, 0xd1, 0x2b, 0x9a, 0x03, 0x5b, 0x81, 0x7b, 0x72, 0x47, 0x03, 0xb2,
+	0x3d, 0xe2, 0x03, 0x00, 0x3c, 0x89, 0x7d, 0xea, 0x72, 0xde, 0x55, 0xdd, 0xce, 0xe9, 0x93, 0x76,
+	0x06, 0x6d, 0xfd, 0x68, 0xc0, 0x56, 0x9e, 0x16, 0x19, 0x36, 0xce, 0xcb, 0x7d, 0x58, 0x77, 0x75,
+	0xe0, 0x1c, 0x11, 0x0a, 0x9d, 0x82, 0xdb, 0x69, 0x0a, 0x16, 0x84, 0xd6, 0x5e, 0x1b, 0x1f, 0x13,
+	0xeb, 0x84, 0xdc, 0x84, 0x73, 0x34, 0x8a, 0x98, 0x13, 0xfb, 0xd8, 0xc3, 0x71, 0x26, 0xed, 0xaf,
+	0xf1, 0x86, 0xfd, 0xdb, 0xeb, 0x9d, 0xe5, 0x63, 0x2e, 0x3f, 0x3a, 0xb4, 0x6b, 0x1c, 0x25, 0x17,
+	0x9e, 0xf5, 0x4b, 0x6a, 0xda, 0x41, 0x14, 0x70, 0xbd, 0x67, 0x1d, 0xb2, 0xff, 0xc1, 0xb2, 0x8a,
+	0x8f, 0x8a, 0x17, 0xc9, 0xc4, 0xeb, 0x58, 0x7e, 0xd9, 0x1a, 0x42, 0x6e, 0xc3, 0x5a, 0x44, 0xfd,
+	0x81, 0x1f, 0xba, 0x43, 0xcd, 0xc6, 0x92, 0x60, 0xa3, 0x28, 0x75, 0x57, 0x35, 0x54, 0x32, 0x60,
+	0xdd, 0x87, 0xfa, 0x84, 0x2f, 0x29, 0xcf, 0x19, 0x33, 0x8c, 0x53, 0xcd, 0xb0, 0x5c, 0xb8, 0xa8,
+	0x34, 0x1d, 0x46, 0xdf, 0x85, 0xc3, 0xc8, 0xf5, 0xce, 0x9a, 0x17, 0xeb, 0x95, 0x01, 0xe6, 0xd4,
+	0x1d, 0xef, 0x23, 0x2f, 0x32, 0x9e, 0x97, 0x4e, 0xf7, 0xfc, 0x4b, 0xf8, 0xb7, 0xb2, 0xea, 0x28,
+	0xec, 0x47, 0x67, 0xee, 0xf5, 0xdd, 0x71, 0x83, 0x90, 0xea, 0x0b, 0x03, 0xf4, 0x06, 0x66, 0x3a,
+	0xe3, 0xb4, 0xcd, 0xcd, 0x92, 0xb3, 0x33, 0xd4, 0x1b, 0xe7, 0x52, 0x7e, 0x02, 0x9d, 0x69, 0x6c,
+	0xac, 0xdf, 0x0d, 0xd8, 0xe4, 0x93, 0x45, 0x5d, 0x95, 0xbc, 0x81, 0x1b, 0x9b, 0x50, 0x8e, 0x29,
+	0xf6, 0xfd, 0x13, 0xe5, 0x88, 0x5a, 0x91, 0x1d, 0xa8, 0x25, 0xcc, 0xa5, 0xcc, 0x71, 0xfb, 0x9c,
+	0x43, 0xf9, 0x34, 0x02, 0x21, 0xda, 0xe3, 0x12, 0xb2, 0x0d, 0x80, 0xa1, 0xe7, 0x74, 0xb1, 0xcf,
+	0xe7, 0xd6, 0xa2, 0xd8, 0xaf, 0x62, 0xe8, 0xed, 0x0b, 0x01, 0xb9, 0x04, 0x55, 0x8a, 0x7c, 0x70,
+	0xfa, 0xdf, 0xca, 0x66, 0x58, 0xb1, 0x53, 0x41, 0x3a, 0x4a, 0xcb, 0x99, 0x51, 0xca, 0x55, 0x72,
+	0x7f, 0x9d, 0xfe, 0xd0, 0x1d, 0xc8, 0x57, 0xeb, 0xb2, 0x5d, 0xe5, 0x92, 0xbb, 0x5c, 0x60, 0xfd,
+	0x6a, 0xc0, 0x56, 0xde, 0xbb, 0x94, 0xc3, 0x0f, 0xf3, 0xf3, 0xf6, 0x7a, 0x4a, 0xdc, 0x8c, 0x13,
+	0xed, 0x53, 0xa6, 0xaf, 0x89, 0xb0, 0xa8, 0x5f, 0xb9, 0x22, 0xce, 0x46, 0x26, 0xce, 0x6f, 0x95,
+	0x5c, 0xa4, 0x01, 0x55, 0x3f, 0x71, 0x14, 0xcb, 0x0b, 0xe2, 0x8a, 0x8a, 0x9f, 0x1c, 0x8b, 0xb5,
+	0xf5, 0x8c, 0x27, 0x46, 0xc1, 0x78, 0xe7, 0x4e, 0xed, 0x40, 0x4d, 0x46, 0xc9, 0xc9, 0x0c, 0x7a,
+	0x90, 0xa2, 0x47, 0x7c, 0xdc, 0x6f, 0x03, 0xc4, 0x2e, 0x65, 0x21, 0xd2, 0x74, 0xd4, 0x57, 0x95,
+	0xe4, 0xc8, 0xb3, 0x1a, 0xbc, 0xed, 0x14, 0x0d, 0xf8, 0xc7, 0x43, 0xcf, 0xda, 0x00, 0x72, 0x4c,
+	0xa3, 0xaf, 0xb0, 0x97, 0xad, 0x4c, 0xeb, 0x16, 0x5c, 0xc8, 0x49, 0xd5, 0x73, 0xe6, 0x0a, 0xac,
+	0xc4, 0x52, 0xec, 0x24, 0xee, 0x50, 0xe7, 0x50, 0x4d, 0xc9, 0x3a, 0xee, 0x90, 0xed, 0xfe, 0x59,
+	0x81, 0xca, 0x43, 0x45, 0x3a, 0x79, 0x08, 0x2b, 0xf2, 0xf5, 0xa8, 0xfe, 0xf3, 0xb6, 0x27, 0xdf,
+	0x3f, 0xb9, 0x87, 0xbd, 0x79, 0x79, 0xd6, 0xb6, 0xba, 0xfe, 0x10, 0xaa, 0xf7, 0x90, 0x29, 0x5d,
+	0xe6, 0x24, 0x38, 0x7d, 0x65, 0x9a, 0x8d, 0xc2, 0x3d, 0xa5, 0xe5, 0x21, 0xac, 0xc8, 0xe2, 0x9b,
+	0x65, 0x54, 0xae, 0xf6, 0xa7, 0x8d, 0xca, 0x57, 0x2e, 0xb9, 0x0f, 0x35, 0x9e, 0x5b, 0x72, 0x2f,
+	0x21, 0x8d, 0xa2, 0x27, 0x9e, 0xd6, 0x75, 0xa9, 0x78, 0x53, 0x69, 0x42, 0xd8, 0xe8, 0x68, 0xf7,
+	0x32, 0xd1, 0x22, 0xd7, 0x26, 0x4f, 0x15, 0x66, 0x8a, 0x79, 0xfd, 0x34, 0x98, 0xba, 0xe6, 0x09,
+	0xac, 0x4b, 0x5e, 0x55, 0x39, 0xf0, 0x14, 0x6b, 0xa6, 0x67, 0x8b, 0x5f, 0x5a, 0xe6, 0x95, 0x59,
+	0x88, 0xb4, 0xf8, 0x3e, 0x87, 0x75, 0x39, 0x21, 0x33, 0x8a, 0xa7, 0x8f, 0x4d, 0x3e, 0x08, 0x4c,
+	0x6b, 0x26, 0x24, 0x55, 0xdd, 0x81, 0xd5, 0x4c, 0x83, 0x17, 0x45, 0x31, 0x75, 0x2a, 0x3f, 0x59,
+	0xcc, 0xe6, 0x0c, 0x40, 0xaa, 0xd4, 0x01, 0xa2, 0x67, 0x64, 0xc6, 0xe2, 0xab, 0x53, 0xe7, 0xa6,
+	0x87, 0xb5, 0xf9, 0x9f, 0x39, 0xa0, 0x1c, 0x21, 0x32, 0x59, 0xe6, 0x12, 0x32, 0x39, 0x6a, 0x0a,
+	0x08, 0x99, 0x1e, 0x16, 0x9f, 0xc1, 0x5a, 0xb6, 0xa3, 0x4d, 0xc4, 0xb0, 0xb8, 0xf9, 0x67, 0x63,
+	0x38, 0xab, 0x81, 0x7e, 0x01, 0xe7, 0xf3, 0x69, 0xc3, 0x85, 0x39, 0x83, 0x8a, 0x9b, 0x94, 0x79,
+	0x75, 0x36, 0x26, 0xd5, 0xfe, 0x09, 0xd4, 0x32, 0x6d, 0x85, 0x64, 0xca, 0x61, 0xba, 0x07, 0x99,
+	0xdb, 0x33, 0x76, 0xa5, 0xba, 0xfd, 0xc5, 0x67, 0xa5, 0xb8, 0xdb, 0x2d, 0x8b, 0x47, 0xf2, 0xcd,
+	0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0xb9, 0xbc, 0x93, 0xd5, 0xd1, 0x12, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1613,13 +1615,13 @@ type MetainfoClient interface {
 	DeleteBucket(ctx context.Context, in *BucketDeleteRequest, opts ...grpc.CallOption) (*BucketDeleteResponse, error)
 	ListBuckets(ctx context.Context, in *BucketListRequest, opts ...grpc.CallOption) (*BucketListResponse, error)
 	SetBucketAttribution(ctx context.Context, in *BucketSetAttributionRequest, opts ...grpc.CallOption) (*BucketSetAttributionResponse, error)
-	CreateSegment(ctx context.Context, in *SegmentWriteRequest, opts ...grpc.CallOption) (*SegmentWriteResponse, error)
-	CommitSegment(ctx context.Context, in *SegmentCommitRequest, opts ...grpc.CallOption) (*SegmentCommitResponse, error)
-	SegmentInfo(ctx context.Context, in *SegmentInfoRequest, opts ...grpc.CallOption) (*SegmentInfoResponse, error)
-	DownloadSegment(ctx context.Context, in *SegmentDownloadRequest, opts ...grpc.CallOption) (*SegmentDownloadResponse, error)
-	DeleteSegment(ctx context.Context, in *SegmentDeleteRequest, opts ...grpc.CallOption) (*SegmentDeleteResponse, error)
-	ListSegments(ctx context.Context, in *ListSegmentsRequest, opts ...grpc.CallOption) (*ListSegmentsResponse, error)
-	SetAttribution(ctx context.Context, in *SetAttributionRequest, opts ...grpc.CallOption) (*SetAttributionResponse, error)
+	CreateSegmentOld(ctx context.Context, in *SegmentWriteRequestOld, opts ...grpc.CallOption) (*SegmentWriteResponseOld, error)
+	CommitSegmentOld(ctx context.Context, in *SegmentCommitRequestOld, opts ...grpc.CallOption) (*SegmentCommitResponseOld, error)
+	SegmentInfoOld(ctx context.Context, in *SegmentInfoRequestOld, opts ...grpc.CallOption) (*SegmentInfoResponseOld, error)
+	DownloadSegmentOld(ctx context.Context, in *SegmentDownloadRequestOld, opts ...grpc.CallOption) (*SegmentDownloadResponseOld, error)
+	DeleteSegmentOld(ctx context.Context, in *SegmentDeleteRequestOld, opts ...grpc.CallOption) (*SegmentDeleteResponseOld, error)
+	ListSegmentsOld(ctx context.Context, in *ListSegmentsRequestOld, opts ...grpc.CallOption) (*ListSegmentsResponseOld, error)
+	SetAttributionOld(ctx context.Context, in *SetAttributionRequestOld, opts ...grpc.CallOption) (*SetAttributionResponseOld, error)
 	ProjectInfo(ctx context.Context, in *ProjectInfoRequest, opts ...grpc.CallOption) (*ProjectInfoResponse, error)
 }
 
@@ -1676,63 +1678,63 @@ func (c *metainfoClient) SetBucketAttribution(ctx context.Context, in *BucketSet
 	return out, nil
 }
 
-func (c *metainfoClient) CreateSegment(ctx context.Context, in *SegmentWriteRequest, opts ...grpc.CallOption) (*SegmentWriteResponse, error) {
-	out := new(SegmentWriteResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/CreateSegment", in, out, opts...)
+func (c *metainfoClient) CreateSegmentOld(ctx context.Context, in *SegmentWriteRequestOld, opts ...grpc.CallOption) (*SegmentWriteResponseOld, error) {
+	out := new(SegmentWriteResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/CreateSegmentOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metainfoClient) CommitSegment(ctx context.Context, in *SegmentCommitRequest, opts ...grpc.CallOption) (*SegmentCommitResponse, error) {
-	out := new(SegmentCommitResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/CommitSegment", in, out, opts...)
+func (c *metainfoClient) CommitSegmentOld(ctx context.Context, in *SegmentCommitRequestOld, opts ...grpc.CallOption) (*SegmentCommitResponseOld, error) {
+	out := new(SegmentCommitResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/CommitSegmentOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metainfoClient) SegmentInfo(ctx context.Context, in *SegmentInfoRequest, opts ...grpc.CallOption) (*SegmentInfoResponse, error) {
-	out := new(SegmentInfoResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/SegmentInfo", in, out, opts...)
+func (c *metainfoClient) SegmentInfoOld(ctx context.Context, in *SegmentInfoRequestOld, opts ...grpc.CallOption) (*SegmentInfoResponseOld, error) {
+	out := new(SegmentInfoResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/SegmentInfoOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metainfoClient) DownloadSegment(ctx context.Context, in *SegmentDownloadRequest, opts ...grpc.CallOption) (*SegmentDownloadResponse, error) {
-	out := new(SegmentDownloadResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/DownloadSegment", in, out, opts...)
+func (c *metainfoClient) DownloadSegmentOld(ctx context.Context, in *SegmentDownloadRequestOld, opts ...grpc.CallOption) (*SegmentDownloadResponseOld, error) {
+	out := new(SegmentDownloadResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/DownloadSegmentOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metainfoClient) DeleteSegment(ctx context.Context, in *SegmentDeleteRequest, opts ...grpc.CallOption) (*SegmentDeleteResponse, error) {
-	out := new(SegmentDeleteResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/DeleteSegment", in, out, opts...)
+func (c *metainfoClient) DeleteSegmentOld(ctx context.Context, in *SegmentDeleteRequestOld, opts ...grpc.CallOption) (*SegmentDeleteResponseOld, error) {
+	out := new(SegmentDeleteResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/DeleteSegmentOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metainfoClient) ListSegments(ctx context.Context, in *ListSegmentsRequest, opts ...grpc.CallOption) (*ListSegmentsResponse, error) {
-	out := new(ListSegmentsResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/ListSegments", in, out, opts...)
+func (c *metainfoClient) ListSegmentsOld(ctx context.Context, in *ListSegmentsRequestOld, opts ...grpc.CallOption) (*ListSegmentsResponseOld, error) {
+	out := new(ListSegmentsResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/ListSegmentsOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *metainfoClient) SetAttribution(ctx context.Context, in *SetAttributionRequest, opts ...grpc.CallOption) (*SetAttributionResponse, error) {
-	out := new(SetAttributionResponse)
-	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/SetAttribution", in, out, opts...)
+func (c *metainfoClient) SetAttributionOld(ctx context.Context, in *SetAttributionRequestOld, opts ...grpc.CallOption) (*SetAttributionResponseOld, error) {
+	out := new(SetAttributionResponseOld)
+	err := c.cc.Invoke(ctx, "/metainfo.Metainfo/SetAttributionOld", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1755,13 +1757,13 @@ type MetainfoServer interface {
 	DeleteBucket(context.Context, *BucketDeleteRequest) (*BucketDeleteResponse, error)
 	ListBuckets(context.Context, *BucketListRequest) (*BucketListResponse, error)
 	SetBucketAttribution(context.Context, *BucketSetAttributionRequest) (*BucketSetAttributionResponse, error)
-	CreateSegment(context.Context, *SegmentWriteRequest) (*SegmentWriteResponse, error)
-	CommitSegment(context.Context, *SegmentCommitRequest) (*SegmentCommitResponse, error)
-	SegmentInfo(context.Context, *SegmentInfoRequest) (*SegmentInfoResponse, error)
-	DownloadSegment(context.Context, *SegmentDownloadRequest) (*SegmentDownloadResponse, error)
-	DeleteSegment(context.Context, *SegmentDeleteRequest) (*SegmentDeleteResponse, error)
-	ListSegments(context.Context, *ListSegmentsRequest) (*ListSegmentsResponse, error)
-	SetAttribution(context.Context, *SetAttributionRequest) (*SetAttributionResponse, error)
+	CreateSegmentOld(context.Context, *SegmentWriteRequestOld) (*SegmentWriteResponseOld, error)
+	CommitSegmentOld(context.Context, *SegmentCommitRequestOld) (*SegmentCommitResponseOld, error)
+	SegmentInfoOld(context.Context, *SegmentInfoRequestOld) (*SegmentInfoResponseOld, error)
+	DownloadSegmentOld(context.Context, *SegmentDownloadRequestOld) (*SegmentDownloadResponseOld, error)
+	DeleteSegmentOld(context.Context, *SegmentDeleteRequestOld) (*SegmentDeleteResponseOld, error)
+	ListSegmentsOld(context.Context, *ListSegmentsRequestOld) (*ListSegmentsResponseOld, error)
+	SetAttributionOld(context.Context, *SetAttributionRequestOld) (*SetAttributionResponseOld, error)
 	ProjectInfo(context.Context, *ProjectInfoRequest) (*ProjectInfoResponse, error)
 }
 
@@ -1859,128 +1861,128 @@ func _Metainfo_SetBucketAttribution_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_CreateSegment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SegmentWriteRequest)
+func _Metainfo_CreateSegmentOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SegmentWriteRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).CreateSegment(ctx, in)
+		return srv.(MetainfoServer).CreateSegmentOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/CreateSegment",
+		FullMethod: "/metainfo.Metainfo/CreateSegmentOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).CreateSegment(ctx, req.(*SegmentWriteRequest))
+		return srv.(MetainfoServer).CreateSegmentOld(ctx, req.(*SegmentWriteRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_CommitSegment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SegmentCommitRequest)
+func _Metainfo_CommitSegmentOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SegmentCommitRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).CommitSegment(ctx, in)
+		return srv.(MetainfoServer).CommitSegmentOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/CommitSegment",
+		FullMethod: "/metainfo.Metainfo/CommitSegmentOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).CommitSegment(ctx, req.(*SegmentCommitRequest))
+		return srv.(MetainfoServer).CommitSegmentOld(ctx, req.(*SegmentCommitRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_SegmentInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SegmentInfoRequest)
+func _Metainfo_SegmentInfoOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SegmentInfoRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).SegmentInfo(ctx, in)
+		return srv.(MetainfoServer).SegmentInfoOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/SegmentInfo",
+		FullMethod: "/metainfo.Metainfo/SegmentInfoOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).SegmentInfo(ctx, req.(*SegmentInfoRequest))
+		return srv.(MetainfoServer).SegmentInfoOld(ctx, req.(*SegmentInfoRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_DownloadSegment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SegmentDownloadRequest)
+func _Metainfo_DownloadSegmentOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SegmentDownloadRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).DownloadSegment(ctx, in)
+		return srv.(MetainfoServer).DownloadSegmentOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/DownloadSegment",
+		FullMethod: "/metainfo.Metainfo/DownloadSegmentOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).DownloadSegment(ctx, req.(*SegmentDownloadRequest))
+		return srv.(MetainfoServer).DownloadSegmentOld(ctx, req.(*SegmentDownloadRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_DeleteSegment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SegmentDeleteRequest)
+func _Metainfo_DeleteSegmentOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SegmentDeleteRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).DeleteSegment(ctx, in)
+		return srv.(MetainfoServer).DeleteSegmentOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/DeleteSegment",
+		FullMethod: "/metainfo.Metainfo/DeleteSegmentOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).DeleteSegment(ctx, req.(*SegmentDeleteRequest))
+		return srv.(MetainfoServer).DeleteSegmentOld(ctx, req.(*SegmentDeleteRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_ListSegments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSegmentsRequest)
+func _Metainfo_ListSegmentsOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSegmentsRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).ListSegments(ctx, in)
+		return srv.(MetainfoServer).ListSegmentsOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/ListSegments",
+		FullMethod: "/metainfo.Metainfo/ListSegmentsOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).ListSegments(ctx, req.(*ListSegmentsRequest))
+		return srv.(MetainfoServer).ListSegmentsOld(ctx, req.(*ListSegmentsRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Metainfo_SetAttribution_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetAttributionRequest)
+func _Metainfo_SetAttributionOld_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetAttributionRequestOld)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MetainfoServer).SetAttribution(ctx, in)
+		return srv.(MetainfoServer).SetAttributionOld(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/metainfo.Metainfo/SetAttribution",
+		FullMethod: "/metainfo.Metainfo/SetAttributionOld",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetainfoServer).SetAttribution(ctx, req.(*SetAttributionRequest))
+		return srv.(MetainfoServer).SetAttributionOld(ctx, req.(*SetAttributionRequestOld))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2028,32 +2030,32 @@ var _Metainfo_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Metainfo_SetBucketAttribution_Handler,
 		},
 		{
-			MethodName: "CreateSegment",
-			Handler:    _Metainfo_CreateSegment_Handler,
+			MethodName: "CreateSegmentOld",
+			Handler:    _Metainfo_CreateSegmentOld_Handler,
 		},
 		{
-			MethodName: "CommitSegment",
-			Handler:    _Metainfo_CommitSegment_Handler,
+			MethodName: "CommitSegmentOld",
+			Handler:    _Metainfo_CommitSegmentOld_Handler,
 		},
 		{
-			MethodName: "SegmentInfo",
-			Handler:    _Metainfo_SegmentInfo_Handler,
+			MethodName: "SegmentInfoOld",
+			Handler:    _Metainfo_SegmentInfoOld_Handler,
 		},
 		{
-			MethodName: "DownloadSegment",
-			Handler:    _Metainfo_DownloadSegment_Handler,
+			MethodName: "DownloadSegmentOld",
+			Handler:    _Metainfo_DownloadSegmentOld_Handler,
 		},
 		{
-			MethodName: "DeleteSegment",
-			Handler:    _Metainfo_DeleteSegment_Handler,
+			MethodName: "DeleteSegmentOld",
+			Handler:    _Metainfo_DeleteSegmentOld_Handler,
 		},
 		{
-			MethodName: "ListSegments",
-			Handler:    _Metainfo_ListSegments_Handler,
+			MethodName: "ListSegmentsOld",
+			Handler:    _Metainfo_ListSegmentsOld_Handler,
 		},
 		{
-			MethodName: "SetAttribution",
-			Handler:    _Metainfo_SetAttribution_Handler,
+			MethodName: "SetAttributionOld",
+			Handler:    _Metainfo_SetAttributionOld_Handler,
 		},
 		{
 			MethodName: "ProjectInfo",

@@ -1263,23 +1263,48 @@
               },
               {
                 "id": 6,
+                "name": "dashboard_address",
+                "type": "string"
+              },
+              {
+                "id": 7,
                 "name": "stats",
                 "type": "StatSummaryResponse"
               },
               {
-                "id": 7,
+                "id": 8,
                 "name": "uptime",
                 "type": "google.protobuf.Duration"
               },
               {
-                "id": 8,
+                "id": 9,
                 "name": "last_pinged",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
-                "id": 9,
+                "id": 10,
                 "name": "last_queried",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1794,7 +1819,7 @@
             ]
           },
           {
-            "name": "SegmentWriteRequest",
+            "name": "SegmentWriteRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1829,7 +1854,7 @@
             ]
           },
           {
-            "name": "SegmentWriteResponse",
+            "name": "SegmentWriteResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1855,7 +1880,7 @@
             ]
           },
           {
-            "name": "SegmentCommitRequest",
+            "name": "SegmentCommitRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1886,7 +1911,7 @@
             ]
           },
           {
-            "name": "SegmentCommitResponse",
+            "name": "SegmentCommitResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1896,7 +1921,7 @@
             ]
           },
           {
-            "name": "SegmentDownloadRequest",
+            "name": "SegmentDownloadRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1916,7 +1941,7 @@
             ]
           },
           {
-            "name": "SegmentDownloadResponse",
+            "name": "SegmentDownloadResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1932,7 +1957,7 @@
             ]
           },
           {
-            "name": "SegmentInfoRequest",
+            "name": "SegmentInfoRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1952,7 +1977,7 @@
             ]
           },
           {
-            "name": "SegmentInfoResponse",
+            "name": "SegmentInfoResponseOld",
             "fields": [
               {
                 "id": 2,
@@ -1962,7 +1987,7 @@
             ]
           },
           {
-            "name": "SegmentDeleteRequest",
+            "name": "SegmentDeleteRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1982,7 +2007,7 @@
             ]
           },
           {
-            "name": "SegmentDeleteResponse",
+            "name": "SegmentDeleteResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1993,7 +2018,7 @@
             ]
           },
           {
-            "name": "ListSegmentsRequest",
+            "name": "ListSegmentsRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -2033,7 +2058,7 @@
             ]
           },
           {
-            "name": "ListSegmentsResponse",
+            "name": "ListSegmentsResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -2071,7 +2096,7 @@
             ]
           },
           {
-            "name": "SetAttributionRequest",
+            "name": "SetAttributionRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -2086,7 +2111,7 @@
             ]
           },
           {
-            "name": "SetAttributionResponse"
+            "name": "SetAttributionResponseOld"
           },
           {
             "name": "ProjectInfoRequest"
@@ -2132,39 +2157,39 @@
                 "out_type": "BucketSetAttributionResponse"
               },
               {
-                "name": "CreateSegment",
-                "in_type": "SegmentWriteRequest",
-                "out_type": "SegmentWriteResponse"
+                "name": "CreateSegmentOld",
+                "in_type": "SegmentWriteRequestOld",
+                "out_type": "SegmentWriteResponseOld"
               },
               {
-                "name": "CommitSegment",
-                "in_type": "SegmentCommitRequest",
-                "out_type": "SegmentCommitResponse"
+                "name": "CommitSegmentOld",
+                "in_type": "SegmentCommitRequestOld",
+                "out_type": "SegmentCommitResponseOld"
               },
               {
-                "name": "SegmentInfo",
-                "in_type": "SegmentInfoRequest",
-                "out_type": "SegmentInfoResponse"
+                "name": "SegmentInfoOld",
+                "in_type": "SegmentInfoRequestOld",
+                "out_type": "SegmentInfoResponseOld"
               },
               {
-                "name": "DownloadSegment",
-                "in_type": "SegmentDownloadRequest",
-                "out_type": "SegmentDownloadResponse"
+                "name": "DownloadSegmentOld",
+                "in_type": "SegmentDownloadRequestOld",
+                "out_type": "SegmentDownloadResponseOld"
               },
               {
-                "name": "DeleteSegment",
-                "in_type": "SegmentDeleteRequest",
-                "out_type": "SegmentDeleteResponse"
+                "name": "DeleteSegmentOld",
+                "in_type": "SegmentDeleteRequestOld",
+                "out_type": "SegmentDeleteResponseOld"
               },
               {
-                "name": "ListSegments",
-                "in_type": "ListSegmentsRequest",
-                "out_type": "ListSegmentsResponse"
+                "name": "ListSegmentsOld",
+                "in_type": "ListSegmentsRequestOld",
+                "out_type": "ListSegmentsResponseOld"
               },
               {
-                "name": "SetAttribution",
-                "in_type": "SetAttributionRequest",
-                "out_type": "SetAttributionResponse"
+                "name": "SetAttributionOld",
+                "in_type": "SetAttributionRequestOld",
+                "out_type": "SetAttributionResponseOld"
               },
               {
                 "name": "ProjectInfo",
@@ -2424,10 +2449,7 @@
       "def": {
         "messages": [
           {
-            "name": "AuditCheckRequest"
-          },
-          {
-            "name": "AuditCheckResponse",
+            "name": "ReputationStats",
             "fields": [
               {
                 "id": 1,
@@ -2457,35 +2479,20 @@
             ]
           },
           {
-            "name": "UptimeCheckRequest"
+            "name": "GetStatsRequest"
           },
           {
-            "name": "UptimeCheckResponse",
+            "name": "GetStatsResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "total_count",
-                "type": "int64"
+                "name": "uptime_check",
+                "type": "ReputationStats"
               },
               {
                 "id": 2,
-                "name": "success_count",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "reputation_alpha",
-                "type": "double"
-              },
-              {
-                "id": 4,
-                "name": "reputation_beta",
-                "type": "double"
-              },
-              {
-                "id": 5,
-                "name": "reputation_score",
-                "type": "double"
+                "name": "audit_check",
+                "type": "ReputationStats"
               }
             ]
           },
@@ -2583,14 +2590,9 @@
             "name": "NodeStats",
             "rpcs": [
               {
-                "name": "AuditCheck",
-                "in_type": "AuditCheckRequest",
-                "out_type": "AuditCheckResponse"
-              },
-              {
-                "name": "UptimeCheck",
-                "in_type": "UptimeCheckRequest",
-                "out_type": "UptimeCheckResponse"
+                "name": "GetStats",
+                "in_type": "GetStatsRequest",
+                "out_type": "GetStatsResponse"
               },
               {
                 "name": "DailyStorageUsage",
