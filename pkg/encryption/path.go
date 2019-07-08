@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	emptyComponent          = []byte{'\x01'}
+	emptyComponentPrefix    = byte('\x01')
 	notEmptyComponentPrefix = byte('\x02')
+	emptyComponent          = []byte{emptyComponentPrefix}
 
 	escape1 = byte('\x2e')
 	escape2 = byte('\xfe')
@@ -343,15 +344,12 @@ func encodeSegment(segment []byte) []byte {
 }
 
 func decodeSegment(segment []byte) ([]byte, error) {
-	if len(segment) == 0 {
-		return segment, nil
+	err := validateEncodedSegment(segment)
+	if err != nil {
+		return []byte{}, err
 	}
-	if segment[0] == emptyComponent[0] {
+	if segment[0] == emptyComponentPrefix {
 		return []byte{}, nil
-	}
-
-	if segment[0] != notEmptyComponentPrefix {
-		return []byte{}, errs.New("invalid encoded segment prefix")
 	}
 
 	currentIndex := 0
@@ -371,4 +369,59 @@ func decodeSegment(segment []byte) ([]byte, error) {
 		currentIndex++
 	}
 	return segment[:currentIndex], nil
+}
+
+// validateEncodedSegment checks if:
+// * The last byte/sequence is not in {escape1, escape2, escape3}
+// * Any byte after an escape character is \x01 or \x02
+// * It does not contain any characters in {\x00, \xff, \x2f}
+// * It is non-empty
+// * It begins with a character in {\x01, \x02}
+func validateEncodedSegment(segment []byte) error {
+	switch {
+	case len(segment) == 0:
+		return errs.New("encoded segment cannot be empty")
+	case segment[0] != emptyComponentPrefix && segment[0] != notEmptyComponentPrefix:
+		return errs.New("invalid segment prefix")
+	case segment[0] == emptyComponentPrefix && len(segment) > 1:
+		return errs.New("segment encoded as empty but contains data")
+	case segment[0] == notEmptyComponentPrefix && len(segment) == 1:
+		return errs.New("segment encoded as not empty but doesn't contain data")
+	}
+
+	if len(segment) == 1 {
+		return nil
+	}
+
+	index := 1
+	for ; index < len(segment)-1; index++ {
+		if isEscapeByte(segment[index]) {
+			if segment[index+1] == 1 || segment[index+1] == 2 {
+				index++
+				continue
+			}
+			return errs.New("invalid escape sequence")
+		}
+		if isDisallowedByte(segment[index]) {
+			return errs.New("invalid character in segment")
+		}
+	}
+	if index == len(segment)-1 {
+		if isEscapeByte(segment[index]) {
+			return errs.New("invalid escape sequence")
+		}
+		if isDisallowedByte(segment[index]) {
+			return errs.New("invalid character")
+		}
+	}
+
+	return nil
+}
+
+func isEscapeByte(b byte) bool {
+	return b == escape1 || b == escape2 || b == escape3
+}
+
+func isDisallowedByte(b byte) bool {
+	return b == 0 || b == '\xff' || b == '/'
 }

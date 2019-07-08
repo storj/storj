@@ -84,15 +84,15 @@ func TestSegmentEncoding(t *testing.T) {
 	// additional random segment
 	segments = append(segments, testrand.BytesInt(255))
 
-	for _, segment := range segments {
+	for i, segment := range segments {
 		encoded := encodeSegment(segment)
 		require.Equal(t, -1, bytes.IndexByte(encoded, 0))
 		require.Equal(t, -1, bytes.IndexByte(encoded, 255))
 		require.Equal(t, -1, bytes.IndexByte(encoded, '/'))
 
 		decoded, err := decodeSegment(encoded)
-		require.NoError(t, err)
-		require.Equal(t, segment, decoded)
+		require.NoError(t, err, "#%d", i)
+		require.Equal(t, segment, decoded, "#%d", i)
 	}
 }
 
@@ -101,6 +101,27 @@ func TestInvalidSegmentDecoding(t *testing.T) {
 	// first byte should be '\x01' or '\x02'
 	_, err := decodeSegment(encoded)
 	require.Error(t, err)
+}
+
+func TestValidateEncodedSegment(t *testing.T) {
+	// all segments should be invalid
+	encodedSegments := [][]byte{
+		{},
+		{1, 1},
+		{2},
+		{2, 0},
+		{2, '\xff'},
+		{2, '\x2f'},
+		{2, escape1, '3'},
+		{2, escape2, '3'},
+		{2, escape3, '3'},
+		{3, 4, 4, 4},
+	}
+
+	for i, segment := range encodedSegments {
+		_, err := decodeSegment(segment)
+		require.Error(t, err, "#%d", i)
+	}
 }
 
 func BenchmarkSegmentEncoding(b *testing.B) {
@@ -118,6 +139,9 @@ func BenchmarkSegmentEncoding(b *testing.B) {
 		{'/', '/', 'a', 0, 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', '/'},
 		{0, '/', 'a', '0', 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', 0},
 	}
+
+	// additional random segment
+	segments = append(segments, testrand.BytesInt(255))
 
 	b.Run("Loop", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
