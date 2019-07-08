@@ -260,6 +260,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 
+	//ToDo: Replace with hash & signature validation
 	//Ensure neither uplink or storage nodes are cheating on us
 	if req.Pointer.Type == pb.Pointer_REMOTE {
 		//We cannot have more redundancy than total/min
