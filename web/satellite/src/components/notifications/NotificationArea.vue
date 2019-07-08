@@ -23,8 +23,7 @@
         }
     })
 
-    export default class NotificationArea extends Vue {
-    }
+    export default class NotificationArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -10,36 +10,33 @@
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
-    @Component(
-        {
-            data: function () {
-                return {
-                    navigation: NAVIGATION_ITEMS,
-                    isPopupShown: false,
-                };
-            },
-            components: {
-                AddUserPopup,
-            },
-            methods: {
-                togglePopup: function(): void {
-                    if (!this.$store.getters.selectedProject.id) return;
+    @Component({
+        data: function () {
+            return {
+                navigation: NAVIGATION_ITEMS,
+                isPopupShown: false,
+            };
+        },
+        components: {
+            AddUserPopup,
+        },
+        methods: {
+            togglePopup: function(): void {
+                if (!this.$store.getters.selectedProject.id) return;
 
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-                },
-                onLogoClick: function (): void {
-                    location.reload();
-                }
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
             },
-            computed: mapState({
-                isAddTeamMembersPopupShown: (state: any) => state.appStateModule.appState.isAddTeamMembersPopupShown,
-                isProjectNotSelected: (state: any) => state.projectsModule.selectedProject.id === '',
-            }),
-        }
-    )
+            onLogoClick: function (): void {
+                location.reload();
+            }
+        },
+        computed: mapState({
+            isAddTeamMembersPopupShown: (state: any) => state.appStateModule.appState.isAddTeamMembersPopupShown,
+            isProjectNotSelected: (state: any) => state.projectsModule.selectedProject.id === '',
+        }),
+    })
 
-    export default class NavigationArea extends Vue {
-    }
+    export default class NavigationArea extends Vue {}
 </script>
 
 <style src="./navigationArea.scss" lang="scss"></style>

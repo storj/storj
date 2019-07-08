@@ -53,6 +53,7 @@
             Button,
         }
     })
+
     export default class ProjectPaymentMethods extends Vue {}
 </script>
 

@@ -39,8 +39,7 @@
         }
     })
 
-    export default class EmptyStateProjectArea extends Vue {
-    }
+    export default class EmptyStateProjectArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

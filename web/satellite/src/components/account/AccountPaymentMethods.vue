@@ -52,6 +52,7 @@
             Button,
         }
     })
+
     export default class AccountPaymentMethods extends Vue {}
 </script>
 

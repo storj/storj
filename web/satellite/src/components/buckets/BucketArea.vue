@@ -2,27 +2,27 @@
 // See LICENSE for copying information.
 
 <template>
-<div>
-    <div class="buckets-overflow" v-if="pages !== 0">
-		<div class="buckets-header">
-            <p>Buckets</p>
-            <SearchArea/>
+    <div>
+        <div class="buckets-overflow" v-if="pages !== 0">
+    		<div class="buckets-header">
+                <p>Buckets</p>
+                <SearchArea/>
+            </div>
+            <div v-if="buckets.length > 0" class="buckets-container">
+                <table>
+                    <SortingHeader />
+                    <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
+                </table>
+                <PaginationArea />
+            </div>
+            <EmptyState
+            class="empty-container"
+            v-if="pages === 0 && search && search.length > 0"
+            mainTitle="Nothing found :("
+            :imageSource="emptyImage" />
         </div>
-        <div v-if="buckets.length > 0" class="buckets-container">
-            <table>
-                <SortingHeader />
-                <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
-            </table>
-            <PaginationArea />
-        </div>
-        <EmptyState
-        class="empty-container"
-        v-if="pages === 0 && search && search.length > 0"
-        mainTitle="Nothing found :("
-        :imageSource="emptyImage" />
+        <NoBucketArea v-if="pages === 0 && !search" />
     </div>
-    <NoBucketArea v-if="pages === 0 && !search" />
-</div>
 </template>
 
 <script lang="ts">
@@ -65,6 +65,7 @@
 			}
 		}
 	})
+
 	export default class BucketArea extends Vue {}
 </script>
 

@@ -17,29 +17,26 @@
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     // Button and popup for adding new Project
-    @Component(
-        {
-            methods: {
-                toggleSelection: function () {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                }
+    @Component({
+        methods: {
+            toggleSelection: function () {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            }
+        },
+        components: {
+            NewProjectPopup
+        },
+        computed: mapState({
+            isPopupShown: function (state: any): boolean {
+                return state.appStateModule.appState.isNewProjectPopupShown;
             },
-            components: {
-                NewProjectPopup
-            },
-            computed: mapState({
-                isPopupShown: function (state: any): boolean {
-                    return state.appStateModule.appState.isNewProjectPopupShown;
-                },
-                hasProjects: function (state: any): boolean {
-                    return state.projectsModule.projects.length;
-                }
-            }),
-        }
-    )
+            hasProjects: function (state: any): boolean {
+                return state.projectsModule.projects.length;
+            }
+        }),
+    })
 
-    export default class NewProjectArea extends Vue {
-    }
+    export default class NewProjectArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

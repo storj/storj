@@ -12,30 +12,27 @@
     import { Component, Vue } from 'vue-property-decorator';
 
     // Custom checkbox component
-    @Component(
-        {
-            data: () => {
-                return {
-                    checked: false
-                };
+    @Component({
+        data: function() {
+            return {
+                checked: false
+            };
+        },
+        methods: {
+            // Emits data to parent component
+            onChange() {
+                this.$emit('setData', this.$data.checked);
+            }
+        },
+        props: {
+            isCheckboxError: {
+                type: Boolean,
+                default: false
             },
-            methods: {
-                // Emits data to parent component
-                onChange() {
-                    this.$emit('setData', this.$data.checked);
-                }
-            },
-            props: {
-                isCheckboxError: {
-                    type: Boolean,
-                    default: false
-                },
-            },
-        }
-    )
-    export default class Checkbox extends Vue {
+        },
+    })
 
-    }
+    export default class Checkbox extends Vue {}
 </script>
 
 <style scoped lang="scss">

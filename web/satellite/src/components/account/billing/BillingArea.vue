@@ -37,6 +37,7 @@
             PaginationArea,
         }
     })
+
     export default class BillingArea extends Vue {}
 </script>
 

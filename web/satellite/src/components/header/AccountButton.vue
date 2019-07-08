@@ -25,33 +25,30 @@
     import AccountDropdown from './AccountDropdown.vue';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component(
-        {
-            computed: {
-                // May change later
-                avatarLetter: function (): string {
-                    return this.$store.getters.userName.slice(0, 1).toUpperCase();
-                },
-                userName: function (): string {
-                    return this.$store.getters.userName;
-                },
-                isDropdownShown: function (): boolean {
-                    return this.$store.state.appStateModule.appState.isAccountDropdownShown;
-                },
+    @Component({
+        computed: {
+        // May change later
+            avatarLetter: function (): string {
+                return this.$store.getters.userName.slice(0, 1).toUpperCase();
             },
-            methods: {
-                toggleSelection: function (): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
-                }
+            userName: function (): string {
+                return this.$store.getters.userName;
             },
-            components: {
-                AccountDropdown
+            isDropdownShown: function (): boolean {
+                return this.$store.state.appStateModule.appState.isAccountDropdownShown;
+            },
+        },
+        methods: {
+            toggleSelection: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
             }
+        },
+        components: {
+            AccountDropdown
         }
-    )
+    })
 
-    export default class AccountButton extends Vue {
-    }
+    export default class AccountButton extends Vue {}
 </script>
 
 <style scoped lang="scss">

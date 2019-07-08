@@ -23,31 +23,28 @@
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
 
-    @Component(
-        {
-            data: function () {
-                return {
-                    emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                    navigation: PROJECT_ROUTES,
-                };
+    @Component({
+        data: function () {
+            return {
+                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+                navigation: PROJECT_ROUTES,
+            };
+        },
+        computed: {
+            isProjectSelected: function (): boolean {
+                return this.$store.getters.selectedProject.id !== '';
             },
-            computed: {
-                isProjectSelected: function (): boolean {
-                    return this.$store.getters.selectedProject.id !== '';
-                },
-            },
-            mounted() {
-                this.$router.push(PROJECT_ROUTES.DETAILS.path);
-            },
-            components: {
-                EmptyState,
-                TabNavigation,
-            }
+        },
+        mounted() {
+            this.$router.push(PROJECT_ROUTES.DETAILS.path);
+        },
+        components: {
+            EmptyState,
+            TabNavigation,
         }
-    )
+    })
 
-    export default class ProjectDetailsArea extends Vue {
-    }
+    export default class ProjectDetailsArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

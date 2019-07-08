@@ -9,8 +9,7 @@
     @Component({})
 
     // 404 component on page not found error
-    export default class Page404 extends Vue {
-    }
+    export default class Page404 extends Vue {}
 </script>
 
 <style scoped lang="scss">
