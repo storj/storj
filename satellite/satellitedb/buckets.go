@@ -73,7 +73,7 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 }
 
 // ListBuckets returns a list of buckets for a project
-func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (bucketList storj.BucketList, err error) {
+func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets map[string]struct{}) (bucketList storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const defaultListLimit = 10000
@@ -82,38 +82,60 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 	}
 	limit := listOpts.Limit + 1 // add one to detect More
 
-	var dbxBuckets []*dbx.BucketMetainfo
-	switch listOpts.Direction {
-	// for listing buckets we are only supporting the forward direction for simplicity
-	case storj.Forward:
-		dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
-			limit,
-			0,
-		)
-	default:
-		return bucketList, errors.New("unknown list direction")
-	}
-	if err != nil {
-		return bucketList, err
-	}
-
-	bucketList.More = len(dbxBuckets) > listOpts.Limit
-	if bucketList.More {
-		// if there are more buckets than listOpts.limit returned,
-		// then remove the extra buckets so that we do not return
-		// more then the limit
-		dbxBuckets = dbxBuckets[0:listOpts.Limit]
-	}
-
-	bucketList.Items = make([]storj.Bucket, len(dbxBuckets))
-	for i, dbxBucket := range dbxBuckets {
-		item, err := convertDBXtoBucket(dbxBucket)
+	for {
+		var dbxBuckets []*dbx.BucketMetainfo
+		switch listOpts.Direction {
+		// for listing buckets we are only supporting the forward direction for simplicity
+		case storj.Forward:
+			dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
+				dbx.BucketMetainfo_ProjectId(projectID[:]),
+				dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
+				limit,
+				0,
+			)
+		default:
+			return bucketList, errors.New("unknown list direction")
+		}
 		if err != nil {
 			return bucketList, err
 		}
-		bucketList.Items[i] = item
+
+		bucketList.More = len(dbxBuckets) > listOpts.Limit
+		var nextCursor string
+		if bucketList.More {
+			nextCursor = string(dbxBuckets[listOpts.Limit].Name)
+			// If there are more buckets than listOpts.limit returned,
+			// then remove the extra buckets so that we do not return
+			// more then the limit
+			dbxBuckets = dbxBuckets[0:listOpts.Limit]
+		}
+
+		if bucketList.Items == nil {
+			bucketList.Items = []storj.Bucket{}
+		}
+
+		for _, dbxBucket := range dbxBuckets {
+			// Check that the bucket is allowed to be viewed
+			if _, ok := allowedBuckets[string(dbxBucket.Name)]; ok {
+				item, err := convertDBXtoBucket(dbxBucket)
+				if err != nil {
+					return bucketList, err
+				}
+				bucketList.Items = append(bucketList.Items, item)
+			}
+		}
+
+		if len(bucketList.Items) < listOpts.Limit && bucketList.More {
+			// If we filtered out disallowed buckets, then get more buckets
+			// out of database so that we return `limit` number of buckets
+			listOpts = storj.BucketListOptions{
+				Cursor:    nextCursor,
+				Limit:     listOpts.Limit,
+				Direction: storj.Forward,
+			}
+			continue
+		}
+		break
 	}
 
 	return bucketList, err

@@ -4,19 +4,16 @@
 package metainfo_test
 
 import (
-	"context"
-	"fmt"
 	"testing"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/satellite/console"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -74,7 +71,7 @@ func TestBasicBucketOperations(t *testing.T) {
 	})
 }
 
-func TestListBuckets(t *testing.T) {
+func TestListBucketsAllAllowed(t *testing.T) {
 	testCases := []struct {
 		name          string
 		cursor        string
@@ -100,6 +97,7 @@ func TestListBuckets(t *testing.T) {
 
 		bucketsDB := db.Buckets()
 
+		var allowedPaths = map[string]struct{}{}
 		{ // setup some test buckets
 			var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
 				"test.bucket", "123", "0test", "999", "test-bucket.thing",
@@ -107,12 +105,12 @@ func TestListBuckets(t *testing.T) {
 			for _, bucket := range testBucketNames {
 				testBucket := newTestBucket(bucket, project.ID)
 				_, err := bucketsDB.CreateBucket(ctx, testBucket)
+				allowedPaths[bucket] = struct{}{}
 				if err != nil {
-					fmt.Println(err)
+					require.NoError(t, err)
 				}
 			}
 		}
-		setup(ctx, bucketsDB, project.ID)
 
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
@@ -121,7 +119,66 @@ func TestListBuckets(t *testing.T) {
 					Cursor:    tt.cursor,
 					Direction: tt.direction,
 					Limit:     tt.limit,
-				})
+				},
+					allowedPaths,
+				)
+				require.NoError(t, err)
+				require.Equal(t, tt.expectedItems, len(bucketList.Items))
+				require.Equal(t, tt.expectedMore, bucketList.More)
+			})
+		}
+	})
+}
+
+func TestListBucketsNotAllowed(t *testing.T) {
+	testCases := []struct {
+		name          string
+		cursor        string
+		direction     storj.ListDirection
+		limit         int
+		expectedItems int
+		expectedMore  bool
+		allowedPaths  map[string]struct{}
+	}{
+		{"empty string cursor, 2 allowed", "", storj.Forward, 10, 1, false, map[string]struct{}{"aaa": {}, "ddd": {}}},
+		{"empty string cursor, more", "", storj.Forward, 2, 2, true, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}},
+		{"empty string cursor, 3 allowed", "", storj.Forward, 4, 3, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}},
+		{"last bucket cursor", "zzz", storj.Forward, 2, 1, false, map[string]struct{}{"zzz": {}}},
+	}
+	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		consoleDB := db.Console()
+		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
+		require.NoError(t, err)
+
+		bucketsDB := db.Buckets()
+
+		{ // setup some test buckets
+			var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
+				"test.bucket", "123", "0test", "999", "test-bucket.thing",
+			}
+			for _, bucket := range testBucketNames {
+				testBucket := newTestBucket(bucket, project.ID)
+				_, err := bucketsDB.CreateBucket(ctx, testBucket)
+				if err != nil {
+					require.NoError(t, err)
+				}
+			}
+		}
+
+		for _, tt := range testCases {
+			tt := tt // avoid scopelint error
+			listOpts := storj.BucketListOptions{
+				Cursor:    tt.cursor,
+				Direction: tt.direction,
+				Limit:     tt.limit,
+			}
+			t.Run(tt.name, func(t *testing.T) {
+				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID,
+					listOpts,
+					tt.allowedPaths,
+				)
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedItems, len(bucketList.Items))
 				require.Equal(t, tt.expectedMore, bucketList.More)

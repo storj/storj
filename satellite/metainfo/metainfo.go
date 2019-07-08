@@ -637,9 +637,9 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
-		Op:            macaroon.ActionRead,
-		Bucket:        req.Name,
-		Time:          time.Now(),
+		Op:     macaroon.ActionRead,
+		Bucket: req.Name,
+		Time:   time.Now(),
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
@@ -660,9 +660,9 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
-		Op:            macaroon.ActionWrite,
-		Bucket:        req.Name,
-		Time:          time.Now(),
+		Op:     macaroon.ActionWrite,
+		Bucket: req.Name,
+		Time:   time.Now(),
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
@@ -698,9 +698,9 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	defer mon.Task()(&ctx)(&err)
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
-		Op:            macaroon.ActionDelete,
-		Bucket:        req.Name,
-		Time:          time.Now(),
+		Op:     macaroon.ActionDelete,
+		Bucket: req.Name,
+		Time:   time.Now(),
 	})
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
@@ -723,12 +723,17 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	action := macaroon.Action{
-		Op:            macaroon.ActionRead,
-		Time:          time.Now(),
+		Op:   macaroon.ActionRead,
+		Time: time.Now(),
 	}
 	keyInfo, err := endpoint.validateAuth(ctx, action)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	allowedBuckets, err := getAllowedBuckets(ctx, action)
+	if err != nil {
+		return nil, err
 	}
 
 	listOpts := storj.BucketListOptions{
@@ -737,23 +742,16 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		// We are only supporting the forward direction for listing buckets
 		Direction: storj.Forward,
 	}
-	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	allowedBuckets, err := getAllowedBuckets(ctx, action)
+	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
 	if err != nil {
 		return nil, err
 	}
 
 	bucketItems := make([]*pb.BucketListItem, len(bucketList.Items))
 	for i, item := range bucketList.Items {
-		if _, ok := allowedBuckets[item.Name]; ok {
-			bucketItems[i] = &pb.BucketListItem{
-				Name:      []byte(item.Name),
-				CreatedAt: item.Created,
-			}
+		bucketItems[i] = &pb.BucketListItem{
+			Name:      []byte(item.Name),
+			CreatedAt: item.Created,
 		}
 	}
 
