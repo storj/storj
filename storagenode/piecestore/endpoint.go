@@ -226,6 +226,9 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		if message == nil {
 			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
 		}
+		if message.Order == nil && message.Chunk == nil && message.Done == nil {
+			return ErrProtocol.New("expected a message") // TODO: report grpc status bad message
+		}
 
 		if message.Order != nil {
 			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
