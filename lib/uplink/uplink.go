@@ -92,10 +92,10 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.Log = zap.NewNop()
 	}
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
-		cfg.Volatile.DialTimeout = 20 * time.Second
+		cfg.Volatile.DialTimeout = transport.DefaultDialTimeout
 	}
 	if cfg.Volatile.RequestTimeout.Seconds() == 0 {
-		cfg.Volatile.RequestTimeout = 20 * time.Second
+		cfg.Volatile.RequestTimeout = transport.DefaultRequestTimeout
 	}
 	return nil
 }

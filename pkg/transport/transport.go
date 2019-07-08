@@ -53,10 +53,10 @@ func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 // NewClientWithTimeouts returns a transport client with a specified timeout for requests
 func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...Observer) Client {
 	if timeouts.Request == 0 {
-		timeouts.Request = defaultRequestTimeout
+		timeouts.Request = DefaultRequestTimeout
 	}
 	if timeouts.Dial == 0 {
-		timeouts.Dial = defaultDialTimeout
+		timeouts.Dial = DefaultDialTimeout
 	}
 
 	return &Transport{
