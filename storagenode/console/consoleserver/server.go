@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -57,7 +56,8 @@ type DashboardData struct {
 	Uptime             time.Duration               `json:"uptime"`
 	NodeID             string                      `json:"nodeId"`
 	Satellites         storj.NodeIDList            `json:"satellites"`
-	UptimeCheck        *nodestats.UptimeCheck      `json:"uptimeCheck"`
+	UptimeCheck        nodestats.ReputationStats   `json:"uptimeCheck"`
+	AuditCheck         nodestats.ReputationStats   `json:"auditCheck"`
 	BandwidthChartData []console.BandwidthUsed     `json:"bandwidthChartData"`
 	DiskSpaceChartData []nodestats.SpaceUsageStamp `json:"diskSpaceChartData"`
 }
@@ -71,8 +71,6 @@ type Server struct {
 	listener net.Listener
 
 	server   http.Server
-	upgrader websocket.Upgrader
-	ticker   *time.Ticker
 }
 
 // NewServer creates new instance of storagenode console web server
@@ -94,15 +92,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, list
 		mux.Handle("/static/", http.StripPrefix("/static", fs))
 		mux.Handle("/", http.HandlerFunc(server.appHandler))
 		mux.Handle("/api/dashboard/", http.HandlerFunc(server.dashboardHandler))
-		mux.Handle("/api/update/", http.HandlerFunc(server.liveReloadHandler))
 	}
 
 	server.server = http.Server{
 		Handler: mux,
 	}
-
-	server.upgrader = websocket.Upgrader{}
-	server.ticker = time.NewTicker(time.Minute)
 
 	return &server
 }
@@ -127,10 +121,6 @@ func (server *Server) Run(ctx context.Context) (err error) {
 
 // Close closes server and underlying listener
 func (server *Server) Close() error {
-	if server.ticker != nil {
-		server.ticker.Stop()
-	}
-
 	return server.server.Close()
 }
 
@@ -177,74 +167,6 @@ func (server *Server) dashboardHandler(writer http.ResponseWriter, request *http
 	response.Data = data
 
 	writer.WriteHeader(http.StatusOK)
-}
-
-// appHandler is web app http handler function
-func (server *Server) liveReloadHandler(writer http.ResponseWriter, request *http.Request) {
-	ctx := request.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	var response = &DashboardResponse{}
-
-	conn, err := server.upgrader.Upgrade(writer, request, nil)
-	if err != nil {
-		server.log.Error("websocket error", zap.Error(err))
-		return
-	}
-
-	var satelliteID *storj.NodeID
-
-	go func() {
-		defer func() {
-			if err = conn.Close(); err != nil {
-				server.log.Error("can not close websocket connection", zap.Error(err))
-			}
-		}()
-
-		for {
-			messageType, satelliteIDParam, err := conn.ReadMessage()
-			if messageType == websocket.CloseMessage {
-				return
-			}
-			if err != nil {
-				server.log.Error("websocket error", zap.Error(err))
-				return
-			}
-
-			satelliteID, err = server.parseSatelliteIDParam(string(satelliteIDParam))
-			if err != nil {
-				server.log.Error("satellite id is not valid", zap.Error(err))
-				response.Error = "satellite id is not valid"
-			}
-		}
-	}()
-
-	go func() {
-		defer func() {
-			if err = conn.Close(); err != nil {
-				server.log.Error("can not close websocket connection", zap.Error(err))
-			}
-		}()
-
-		if server.ticker == nil {
-			return
-		}
-
-		for range server.ticker.C {
-			data, err := server.getDashboardData(context.Background(), satelliteID)
-			if err != nil {
-				server.log.Error("can not get dashboard data", zap.Error(err))
-				response.Error = err.Error()
-			}
-
-			response.Data = data
-
-			if err = conn.WriteJSON(response); err != nil {
-				server.log.Error("can not send data", zap.Error(err))
-				return
-			}
-		}
-	}()
 }
 
 func (server *Server) getDashboardData(ctx context.Context, satelliteID *storj.NodeID) (DashboardData, error) {
@@ -295,10 +217,13 @@ func (server *Server) getDashboardData(ctx context.Context, satelliteID *storj.N
 	nodeID := server.service.GetNodeID(ctx)
 
 	if satelliteID != nil {
-		response.UptimeCheck, err = server.service.GetUptimeCheckForSatellite(ctx, *satelliteID)
+		satelliteStats, err := server.service.GetStatsFromSatellite(ctx, *satelliteID)
 		if err != nil {
 			return response, err
 		}
+
+		response.UptimeCheck = satelliteStats.UptimeCheck
+		response.AuditCheck = satelliteStats.AuditCheck
 	}
 
 	response.DiskSpace = *space
