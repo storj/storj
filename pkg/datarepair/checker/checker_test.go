@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -221,7 +222,8 @@ func TestCheckerResume(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := &mockRepairQueue{}
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
-		c := checker.NewChecker(nil, 30*time.Second, 15*time.Second, irrepairQueue, repairQueue, planet.Satellites[0].Metainfo.Service, planet.Satellites[0].Overlay.Service, &gc.Service{})
+		gcService := gc.NewService(zaptest.NewLogger(t), gc.Config{}, planet.Satellites[0].Transport)
+		c := checker.NewChecker(nil, 30*time.Second, 15*time.Second, irrepairQueue, repairQueue, planet.Satellites[0].Metainfo.Service, planet.Satellites[0].Overlay.Service, gcService)
 
 		// create pointer that needs repair
 		makePointer(t, planet, "a", true)
