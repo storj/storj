@@ -4,13 +4,12 @@
 package irreparable_test
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pb"
@@ -39,7 +38,7 @@ func TestIrreparable(t *testing.T) {
 			})
 
 			err := irrdb.IncrementRepairAttempts(ctx, segments[i])
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 
 
