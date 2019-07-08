@@ -117,7 +117,7 @@ func (rt *RoutingTable) removeNode(ctx context.Context, node *pb.Node) (err erro
 		//check replacement cache
 		rt.removeFromReplacementCache(kadBucketID, node)
 		// check antechamber
-		err = rt.antechamberRemoveNode(ctx, node)
+		err = rt.antechamberRemoveNode(ctx, node.Id)
 		if err != nil {
 			return RoutingErr.Wrap(err)
 		}

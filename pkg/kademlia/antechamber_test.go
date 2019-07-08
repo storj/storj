@@ -68,7 +68,7 @@ func TestAntechamberRemoveNode(t *testing.T) {
 	defer ctx.Check(rt.Close)
 	// remove non existent node
 	node := &pb.Node{Id: storj.NodeID{191, 255}}
-	err := rt.antechamberRemoveNode(ctx, node)
+	err := rt.antechamberRemoveNode(ctx, node.Id)
 	assert.NoError(t, err)
 
 	// add node to antechamber
@@ -76,10 +76,18 @@ func TestAntechamberRemoveNode(t *testing.T) {
 	assert.NoError(t, err)
 
 	// remove node
-	err = rt.antechamberRemoveNode(ctx, node)
+	err = rt.antechamberRemoveNode(ctx, node.Id)
 	assert.NoError(t, err)
 
 	// check if gone
 	_, err = rt.antechamber.Get(ctx, node.Id.Bytes())
 	assert.Error(t, err)
+}
+
+func TestTrimAntechamber(t *testing.T) {
+
+}
+
+func TestGetAllAntechamberNodes(t *testing.T) {
+
 }

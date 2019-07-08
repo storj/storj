@@ -166,7 +166,6 @@ func (rt *RoutingTable) GetBucketIds(ctx context.Context) (_ storage.Keys, err e
 
 // DumpNodes iterates through all nodes in the nodeBucketDB and marshals them to &pb.Nodes, then returns them
 func (rt *RoutingTable) DumpNodes(ctx context.Context) (_ []*pb.Node, err error) {
-	defer mon.Task()(&ctx)(&err)
 
 	var nodes []*pb.Node
 	var nodeErrors errs.Group
