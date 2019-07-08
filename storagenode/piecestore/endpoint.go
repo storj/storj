@@ -565,12 +565,12 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, Error.Wrap(err)
 	}
 
-	limit := 20
+	limit := 1000
 	offset := 0
 	piecesRemaining := true
 
 	for piecesRemaining {
-		pieceIDs, err := endpoint.pieceinfo.GetPiecesID(ctx, peer.ID, retainReq.GetCreationDate(), limit, offset)
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, retainReq.GetCreationDate(), limit, offset)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -581,10 +581,15 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 			}
 		}
 		piecesRemaining = (len(pieceIDs) == limit)
-		offset += limit
+		offset += len(pieceIDs)
+		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
+		// so other goroutines can continue serving requests.
 		runtime.Gosched()
 	}
-	return &pb.RetainResponse{}, Error.Wrap(err)
+	if err != nil {
+		endpoint.log.Error("failed to get retaining info", zap.Error(Error.Wrap(err)))
+	}
+	return &pb.RetainResponse{}, nil
 }
 
 // PieceInfo returns pieces info db

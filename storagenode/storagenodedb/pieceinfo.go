@@ -47,8 +47,8 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	return ErrInfo.Wrap(err)
 }
 
-// GetPiecesID gets piece information by satellite id.
-func (db *pieceinfo) GetPiecesID(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error) {
+// GetPieceIDs gets pieceIDs using the satelliteID
+func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
