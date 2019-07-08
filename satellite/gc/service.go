@@ -67,7 +67,6 @@ func (service *Service) NewPieceTracker() PieceTracker {
 func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	service.lastPieceCounts = make(map[storj.NodeID]int)
 	service.lastSendTime = time.Now().UTC()
 
 	go func() {
