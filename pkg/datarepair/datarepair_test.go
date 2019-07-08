@@ -231,7 +231,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 			}
 		}
 
-		err = satellite.Repair.Checker.RefreshReliableCache(ctx)
+		err = satellite.Repair.Checker.RefreshReliabilityCache(ctx)
 		require.NoError(t, err)
 
 		satellite.Repair.Checker.Loop.TriggerWait()

@@ -35,7 +35,7 @@ type Config struct {
 	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
 
-	ReliableCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
+	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
 }
 
 // durabilityStats remote segment information
@@ -52,7 +52,7 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	lastChecked     string
 	repairQueue     queue.RepairQueue
-	nodestate       *ReliableCache
+	nodestate       *ReliabilityCache
 	irrdb           irreparable.DB
 	logger          *zap.Logger
 	Loop            sync2.Cycle
@@ -67,7 +67,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		metainfo:        metainfo,
 		lastChecked:     "",
 		repairQueue:     repairQueue,
-		nodestate:       NewReliableCache(overlay, config.ReliableCacheStaleness),
+		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		irrdb:           irrdb,
 		logger:          logger,
 		Loop:            *sync2.NewCycle(config.Interval),
@@ -93,8 +93,8 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
-// RefreshReliableCache forces refreshing node online status cache.
-func (checker *Checker) RefreshReliableCache(ctx context.Context) error {
+// RefreshReliabilityCache forces refreshing node online status cache.
+func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
 	return checker.nodestate.Refresh(ctx)
 }
 

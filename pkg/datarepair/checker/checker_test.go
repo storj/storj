@@ -209,9 +209,9 @@ func TestCheckerResume(t *testing.T) {
 		repairQueue := &mockRepairQueue{}
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
 		config := checker.Config{
-			Interval:               30 * time.Second,
-			IrreparableInterval:    15 * time.Second,
-			ReliableCacheStaleness: 5 * time.Minute,
+			Interval:                  30 * time.Second,
+			IrreparableInterval:       15 * time.Second,
+			ReliabilityCacheStaleness: 5 * time.Minute,
 		}
 		c := checker.NewChecker(planet.Satellites[0].Metainfo.Service, repairQueue, planet.Satellites[0].Overlay.Service, irrepairQueue, 0, nil, config)
 

@@ -12,18 +12,20 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// ReliableCache caches the reliable nodes for the specified staleness duration
+// ReliabilityCache caches the reliable nodes for the specified staleness duration
 // and updates automatically from overlay.
-type ReliableCache struct {
+//
+// ReliabilityCache is NOT safe for concurrent use.
+type ReliabilityCache struct {
 	overlay    *overlay.Cache
 	staleness  time.Duration
 	lastUpdate time.Time
 	reliable   map[storj.NodeID]struct{}
 }
 
-// NewReliableCache creates a new reliability checking cache.
-func NewReliableCache(overlay *overlay.Cache, staleness time.Duration) *ReliableCache {
-	return &ReliableCache{
+// NewReliabilityCache creates a new reliability checking cache.
+func NewReliabilityCache(overlay *overlay.Cache, staleness time.Duration) *ReliabilityCache {
+	return &ReliabilityCache{
 		overlay:   overlay,
 		staleness: staleness,
 		reliable:  map[storj.NodeID]struct{}{},
@@ -31,10 +33,10 @@ func NewReliableCache(overlay *overlay.Cache, staleness time.Duration) *Reliable
 }
 
 // LastUpdate returns when the cache was last updated.
-func (cache *ReliableCache) LastUpdate() time.Time { return cache.lastUpdate }
+func (cache *ReliabilityCache) LastUpdate() time.Time { return cache.lastUpdate }
 
 // MissingPieces returns piece indices that are unreliable with the given staleness period.
-func (cache *ReliableCache) MissingPieces(ctx context.Context, created time.Time, pieces []*pb.RemotePiece) ([]int32, error) {
+func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces []*pb.RemotePiece) ([]int32, error) {
 	if created.After(cache.lastUpdate) || time.Since(cache.lastUpdate) > cache.staleness {
 		err := cache.Refresh(ctx)
 		if err != nil {
@@ -52,7 +54,7 @@ func (cache *ReliableCache) MissingPieces(ctx context.Context, created time.Time
 }
 
 // Refresh refreshes the cache.
-func (cache *ReliableCache) Refresh(ctx context.Context) error {
+func (cache *ReliabilityCache) Refresh(ctx context.Context) error {
 	for id := range cache.reliable {
 		delete(cache.reliable, id)
 	}
