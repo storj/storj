@@ -118,24 +118,6 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	return newOffer, offerErr.Wrap(tx.Commit())
 }
 
-// Redeem adds 1 to the amount of offers redeemed based on offer id
-func (db *offersDB) Redeem(ctx context.Context, oID int, isDefault bool) error {
-	if isDefault {
-		return nil
-	}
-
-	statement := db.db.Rebind(
-		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
-	)
-
-	_, err := db.db.DB.ExecContext(ctx, statement, oID, rewards.Active)
-	if err != nil {
-		return offerErr.Wrap(err)
-	}
-
-	return nil
-}
-
 // Finish changes the offer status to be Done and its expiration date to be now based on offer id
 func (db *offersDB) Finish(ctx context.Context, oID int) error {
 	updateFields := dbx.Offer_Update_Fields{
