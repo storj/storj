@@ -9,11 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
+	"github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/overlay"
@@ -734,15 +733,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			if err != nil {
 				return nil, errs.New("unable to convert version to semVer")
 			}
-			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
-			if err != nil {
-				return nil, errs.New("unable to convert version timestamp")
-			}
 			updateFields.Major = dbx.Node_Major(semVer.Major)
 			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
 			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
 			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
-			updateFields.Timestamp = dbx.Node_Timestamp(pbts)
+			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.GetVersion().Timestamp)
 			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
 		}
 	}
@@ -853,11 +848,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Patch: info.Patch,
 	}
 
-	pbts, err := ptypes.TimestampProto(info.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
@@ -880,7 +870,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Version: pb.NodeVersion{
 			Version:    ver.String(),
 			CommitHash: info.Hash,
-			Timestamp:  pbts,
+			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
 		Contained:    info.Contained,
