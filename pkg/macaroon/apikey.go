@@ -204,8 +204,9 @@ func (c *Caveat) Allows(action Action) bool {
 			return true
 		}
 		if len(action.Bucket) == 0 {
-			// if no bucket name is provided, then this is for
-			// listing all buckets and should get filtered later
+			// if no action.bucket name is provided, then this call is checking that
+			// we can list all buckets. In that case, return true here and we will
+			// filter out buckets that aren't allowed later with `GetAllowedBuckets()`
 			return true
 		}
 		for _, path := range c.AllowedPaths {

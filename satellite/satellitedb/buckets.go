@@ -102,7 +102,8 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 	bucketList.More = len(dbxBuckets) > listOpts.Limit
 	if bucketList.More {
 		// if there are more buckets than listOpts.limit returned,
-		// then remove the extra
+		// then remove the extra buckets so that we do not return
+		// more then the limit
 		dbxBuckets = dbxBuckets[0:listOpts.Limit]
 	}
 

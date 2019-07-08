@@ -651,7 +651,9 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	return &pb.BucketGetResponse{Bucket: convertBucketToProto(ctx, bucket)}, nil
+	return &pb.BucketGetResponse{
+		Bucket: convertBucketToProto(ctx, bucket),
+	}, nil
 }
 
 func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket) {
@@ -773,7 +775,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	return &pb.BucketDeleteResponse{}, nil
 }
 
-// ListBuckets returns all buckets in a project
+// ListBuckets returns buckets in a project where the bucket name matches the request cursor
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	action := macaroon.Action{
@@ -790,6 +792,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	listOpts := storj.BucketListOptions{
 		Cursor:    string(req.Cursor),
 		Limit:     int(req.Limit),
+		// We are only supporting the forward direction for listing buckets
 		Direction: storj.Forward,
 	}
 	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
