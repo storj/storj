@@ -168,7 +168,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-// AddNewPaymentMethod - is a method to add new payment method for project
+// AddNewPaymentMethod adds new payment method for project
 func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -207,7 +207,7 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 	return create, nil
 }
 
-// SetDefaultPaymentMethod - is a method to set default payment method for current project
+// SetDefaultPaymentMethod set default payment method for given project
 func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -236,7 +236,7 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 	return s.store.ProjectPayments().Update(ctx, *projectPayment)
 }
 
-// DeletePaymentMethod - is a method to delete selected payment method
+// DeletePaymentMethod deletes selected payment method
 func (s *Service) DeletePaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
