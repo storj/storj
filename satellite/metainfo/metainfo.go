@@ -639,7 +639,6 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Name,
-		EncryptedPath: []byte{},
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -656,29 +655,6 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}, nil
 }
 
-func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket) {
-	rs := bucket.DefaultRedundancyScheme
-	return &pb.Bucket{
-		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
-		AttributionId:      []byte(bucket.Attribution),
-		CreatedAt:          bucket.Created,
-		DefaultSegmentSize: bucket.DefaultSegmentsSize,
-		DefaultRedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_RS,
-			MinReq:           int32(rs.RequiredShares),
-			Total:            int32(rs.TotalShares),
-			RepairThreshold:  int32(rs.RepairShares),
-			SuccessThreshold: int32(rs.OptimalShares),
-			ErasureShareSize: rs.ShareSize,
-		},
-		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
-			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
-		},
-	}
-}
-
 // CreateBucket creates a new bucket
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -686,7 +662,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Name,
-		EncryptedPath: []byte{},
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -718,36 +693,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}, nil
 }
 
-func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
-	bucketID, err := uuid.New()
-	if err != nil {
-		return storj.Bucket{}, err
-	}
-
-	defaultRS := req.GetDefaultRedundancyScheme()
-	defaultEP := req.GetDefaultEncryptionParameters()
-	return storj.Bucket{
-		ID:                  *bucketID,
-		Name:                string(req.GetName()),
-		ProjectID:           projectID,
-		Attribution:         string(req.GetAttributionId()),
-		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
-		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
-		DefaultRedundancyScheme: storj.RedundancyScheme{
-			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
-			ShareSize:      defaultRS.GetErasureShareSize(),
-			RequiredShares: int16(defaultRS.GetMinReq()),
-			RepairShares:   int16(defaultRS.GetRepairThreshold()),
-			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
-			TotalShares:    int16(defaultRS.GetTotal()),
-		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
-			BlockSize:   int32(defaultEP.BlockSize),
-		},
-	}, nil
-}
-
 // DeleteBucket deletes a bucket
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -755,7 +700,6 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Name,
-		EncryptedPath: []byte{},
 		Time:          time.Now(),
 	})
 	if err != nil {
@@ -780,8 +724,6 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	defer mon.Task()(&ctx)(&err)
 	action := macaroon.Action{
 		Op:            macaroon.ActionRead,
-		Bucket:        []byte{},
-		EncryptedPath: []byte{},
 		Time:          time.Now(),
 	}
 	keyInfo, err := endpoint.validateAuth(ctx, action)
@@ -835,10 +777,62 @@ func getAllowedBuckets(ctx context.Context, action macaroon.Action) (allowedBuck
 		return nil, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
 	}
 	return allowedBuckets, err
-
 }
 
 // SetBucketAttribution sets the bucket attribution.
 func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
 	return resp, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
+	bucketID, err := uuid.New()
+	if err != nil {
+		return storj.Bucket{}, err
+	}
+
+	defaultRS := req.GetDefaultRedundancyScheme()
+	defaultEP := req.GetDefaultEncryptionParameters()
+	return storj.Bucket{
+		ID:                  *bucketID,
+		Name:                string(req.GetName()),
+		ProjectID:           projectID,
+		Attribution:         string(req.GetAttributionId()),
+		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
+		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
+			ShareSize:      defaultRS.GetErasureShareSize(),
+			RequiredShares: int16(defaultRS.GetMinReq()),
+			RepairShares:   int16(defaultRS.GetRepairThreshold()),
+			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
+			TotalShares:    int16(defaultRS.GetTotal()),
+		},
+		DefaultEncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int32(defaultEP.BlockSize),
+		},
+	}, nil
+}
+
+func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket) {
+	rs := bucket.DefaultRedundancyScheme
+	return &pb.Bucket{
+		Name:               []byte(bucket.Name),
+		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
+		AttributionId:      []byte(bucket.Attribution),
+		CreatedAt:          bucket.Created,
+		DefaultSegmentSize: bucket.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_RS,
+			MinReq:           int32(rs.RequiredShares),
+			Total:            int32(rs.TotalShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			ErasureShareSize: rs.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+		},
+	}
 }

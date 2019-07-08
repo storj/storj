@@ -6,12 +6,12 @@ package metainfo_test
 import (
 	"context"
 	"fmt"
-	"storj.io/storj/satellite/console"
 	"testing"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func setupBucket(name string, projectID uuid.UUID) storj.Bucket {
+func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 	return storj.Bucket{
 		ID:                  testrand.UUID(),
 		Name:                name,
@@ -51,7 +51,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.NoError(t, err)
 
 		bucketsDB := db.Buckets()
-		expectedBucket := setupBucket("testbucket", project.ID)
+		expectedBucket := newTestBucket("testbucket", project.ID)
 
 		// CreateBucket
 		_, err = bucketsDB.CreateBucket(ctx, expectedBucket)
@@ -72,29 +72,6 @@ func TestBasicBucketOperations(t *testing.T) {
 		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"), project.ID)
 		require.NoError(t, err)
 	})
-}
-
-var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
-	"test.bucket", "123", "0test", "999", "test-bucket.thing",
-}
-
-func setup(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.UUID) {
-	for _, bucket := range testBucketNames {
-		b := setupBucket(bucket, projectID)
-		_, err := bucketsDB.CreateBucket(ctx, b)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func teardown(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.UUID) {
-	for _, bucket := range testBucketNames {
-		err := bucketsDB.DeleteBucket(ctx, []byte(bucket), projectID)
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
 }
 
 func TestListBuckets(t *testing.T) {
@@ -122,6 +99,19 @@ func TestListBuckets(t *testing.T) {
 		require.NoError(t, err)
 
 		bucketsDB := db.Buckets()
+
+		{ // setup some test buckets
+			var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
+				"test.bucket", "123", "0test", "999", "test-bucket.thing",
+			}
+			for _, bucket := range testBucketNames {
+				testBucket := newTestBucket(bucket, project.ID)
+				_, err := bucketsDB.CreateBucket(ctx, testBucket)
+				if err != nil {
+					fmt.Println(err)
+				}
+			}
+		}
 		setup(ctx, bucketsDB, project.ID)
 
 		for _, tt := range testCases {
@@ -137,6 +127,5 @@ func TestListBuckets(t *testing.T) {
 				require.Equal(t, tt.expectedMore, bucketList.More)
 			})
 		}
-		teardown(ctx, bucketsDB, project.ID)
 	})
 }
