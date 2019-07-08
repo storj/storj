@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	_libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
@@ -96,7 +97,7 @@ func TestC(t *testing.T) {
 
 func TestLibstorj(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
-	//defer ctx.Cleanup()
+	defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
@@ -185,13 +186,15 @@ func TestLibstorj(t *testing.T) {
 		_, err = project.CreateBucket(ctx, "test-bucket", nil)
 		require.NoError(t, err)
 
-		//var defaultKey storj.Key
-		//copy(defaultKey[:], "123a123")
-		//encryptionAccess := _libuplink.NewEncryptionAccessWithDefaultKey(defaultKey)
-		encryptionAccess := _libuplink.NewEncryptionAccess()
+		var defaultKey storj.Key
+		copy(defaultKey[:], "123a123")
+		encryptionAccess := _libuplink.NewEncryptionAccessWithDefaultKey(defaultKey)
+		//encryptionAccess := _libuplink.NewEncryptionAccess()
+		require.NotEmpty(t, encryptionAccess)
+
 		encryptionAccessStr, err := encryptionAccess.Serialize()
 		require.NoError(t, err)
-		require.NotEmpty(t, encryptionAccess)
+		require.NotEmpty(t, encryptionAccessStr)
 
 		bucket, err := project.OpenBucket(ctx, "test-bucket", encryptionAccess)
 		require.NoError(t, err)

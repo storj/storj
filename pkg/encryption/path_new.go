@@ -31,7 +31,7 @@ func StoreEncryptPath(bucket string, path paths.Unencrypted, cipher storj.Cipher
 
 	_, consumed, base := store.LookupUnencrypted(bucket, path)
 	if base == nil {
-		return paths.Encrypted{}, errs.New("unable to find encryption base for: %s/%q", bucket, path)
+		return paths.Encrypted{}, errs.New("unable to find encryption base for: %s/%s", bucket, path)
 	}
 
 	remaining, ok := path.Consume(consumed)
