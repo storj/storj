@@ -255,15 +255,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		}
 		pb.RegisterPiecestoreServer(peer.Server.GRPC(), peer.Storage2.Endpoint)
 
-		peer.Storage2.Inspector = inspector.NewEndpoint(
-			peer.Log.Named("pieces:inspector"),
-			peer.DB.PieceInfo(),
-			peer.Kademlia.Service,
-			peer.DB.Bandwidth(),
-			config.Storage,
-		)
-		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
-
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
 			peer.Transport,
@@ -316,6 +307,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Console.Service,
 			peer.Console.Listener,
 		)
+	}
+
+	{ // setup storage inspector
+		peer.Storage2.Inspector = inspector.NewEndpoint(
+			peer.Log.Named("pieces:inspector"),
+			peer.DB.PieceInfo(),
+			peer.Kademlia.Service,
+			peer.DB.Bandwidth(),
+			config.Storage,
+			peer.Console.Listener.Addr(),
+		)
+		pb.RegisterPieceStoreInspectorServer(peer.Server.PrivateGRPC(), peer.Storage2.Inspector)
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
