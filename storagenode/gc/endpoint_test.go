@@ -3,7 +3,6 @@ package gc_test
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"testing"
 	"time"
 
@@ -86,7 +85,7 @@ func TestRetain(t *testing.T) {
 				SatelliteID:     satellite0.ID,
 				PieceSize:       4,
 				PieceID:         id,
-				PieceExpiration: &pieceCreation,
+				PieceCreation:   &pieceCreation,
 				UplinkPieceHash: piecehash0,
 				Uplink:          uplink.PeerIdentity(),
 			}
@@ -94,10 +93,11 @@ func TestRetain(t *testing.T) {
 				SatelliteID:     satellite1.ID,
 				PieceSize:       4,
 				PieceID:         id,
-				PieceExpiration: &pieceCreation,
+				PieceCreation:   &pieceCreation,
 				UplinkPieceHash: piecehash1,
 				Uplink:          uplink.PeerIdentity(),
 			}
+
 			err = endpoint.PieceInfo().Add(ctx, &pieceinfo0)
 			require.NoError(t, err)
 
@@ -122,20 +122,19 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err := endpoint.PieceInfo().GetPiecesID(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
+		satellite1Pieces, err := endpoint.PieceInfo().GetPiecesID(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
 		assert.Equal(t, len(satellite1Pieces), nbPieces)
 
 		// check we did not delete recent pieces
-		satellite0Pieces, err := endpoint.PieceInfo().GetPiecesID(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second))
+		satellite0Pieces, err := endpoint.PieceInfo().GetPiecesID(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
 
 		for _, id := range pieceIDs[:nbPiecesToKeep] {
 			assert.Contains(t, satellite0Pieces, id, "piece should not have been deleted (not in bloom filter)")
 		}
 
-		for _, id := range pieceIDs[nbPiecesToKeep+nbOldPieces-1:] {
-			fmt.Println("here")
+		for _, id := range pieceIDs[nbPiecesToKeep+nbOldPieces:] {
 			assert.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
 		}
 	})

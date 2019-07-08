@@ -59,7 +59,7 @@ type DB interface {
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
 	// GetAll returns Info about pieces held for a satellite
-	GetPiecesID(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time) (pieceIDs []storj.PieceID, err error)
+	GetPiecesID(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// DeleteFailed marks piece deletion from disk failed
