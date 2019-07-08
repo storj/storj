@@ -75,18 +75,17 @@ func TestListBucketsAllAllowed(t *testing.T) {
 	testCases := []struct {
 		name          string
 		cursor        string
-		direction     storj.ListDirection
 		limit         int
 		expectedItems int
 		expectedMore  bool
 	}{
-		{"empty string cursor", "", storj.Forward, 10, 10, false},
-		{"last bucket cursor", "zzz", storj.Forward, 2, 1, false},
-		{"non matching cursor", "ccc", storj.Forward, 10, 5, false},
-		{"first bucket cursor", "0test", storj.Forward, 10, 10, false},
-		{"empty string cursor, more", "", storj.Forward, 5, 5, true},
-		{"non matching cursor, more", "ccc", storj.Forward, 3, 3, true},
-		{"first bucket cursor, more", "0test", storj.Forward, 5, 5, true},
+		{"empty string cursor", "", 10, 10, false},
+		{"last bucket cursor", "zzz", 2, 1, false},
+		{"non matching cursor", "ccc", 10, 5, false},
+		{"first bucket cursor", "0test", 10, 10, false},
+		{"empty string cursor, more", "", 5, 5, true},
+		{"non matching cursor, more", "ccc", 3, 3, true},
+		{"first bucket cursor, more", "0test", 5, 5, true},
 	}
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -117,7 +116,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID, storj.BucketListOptions{
 					Cursor:    tt.cursor,
-					Direction: tt.direction,
+					Direction: storj.Forward,
 					Limit:     tt.limit,
 				},
 					allowedPaths,
@@ -134,16 +133,16 @@ func TestListBucketsNotAllowed(t *testing.T) {
 	testCases := []struct {
 		name          string
 		cursor        string
-		direction     storj.ListDirection
 		limit         int
 		expectedItems int
 		expectedMore  bool
 		allowedPaths  map[string]struct{}
+		expectedNames []string
 	}{
-		{"empty string cursor, 2 allowed", "", storj.Forward, 10, 1, false, map[string]struct{}{"aaa": {}, "ddd": {}}},
-		{"empty string cursor, more", "", storj.Forward, 2, 2, true, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}},
-		{"empty string cursor, 3 allowed", "", storj.Forward, 4, 3, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}},
-		{"last bucket cursor", "zzz", storj.Forward, 2, 1, false, map[string]struct{}{"zzz": {}}},
+		{"empty string cursor, 2 allowed", "", 10, 1, false, map[string]struct{}{"aaa": {}, "ddd": {}}, []string{"aaa"}},
+		{"empty string cursor, more", "", 2, 2, true, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb"}},
+		{"empty string cursor, 3 allowed", "", 4, 3, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb", "zzz"}},
+		{"last bucket cursor", "zzz", 2, 1, false, map[string]struct{}{"zzz": {}},[]string{"zzz"}},
 	}
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -171,7 +170,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 			tt := tt // avoid scopelint error
 			listOpts := storj.BucketListOptions{
 				Cursor:    tt.cursor,
-				Direction: tt.direction,
+				Direction: storj.Forward,
 				Limit:     tt.limit,
 			}
 			t.Run(tt.name, func(t *testing.T) {
@@ -182,6 +181,9 @@ func TestListBucketsNotAllowed(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedItems, len(bucketList.Items))
 				require.Equal(t, tt.expectedMore, bucketList.More)
+				for _, actualItem := range bucketList.Items {
+					require.Contains(t, tt.expectedNames, actualItem.Name)
+				}
 			})
 		}
 	})

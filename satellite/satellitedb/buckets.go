@@ -111,7 +111,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 		}
 
 		if bucketList.Items == nil {
-			bucketList.Items = []storj.Bucket{}
+			bucketList.Items = make([]storj.Bucket, 0, len(dbxBuckets))
 		}
 
 		for _, dbxBucket := range dbxBuckets {
