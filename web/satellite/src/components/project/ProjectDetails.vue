@@ -56,72 +56,69 @@
     import ROUTES from '@/utils/constants/routerConstants';
     import DeleteProjectPopup from '@/components/project/DeleteProjectPopup.vue';
 
-    @Component(
-        {
-            mounted: function() {
-                this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+    @Component({
+        mounted: function() {
+            this.$store.dispatch(PROJETS_ACTIONS.FETCH);
+        },
+        data: function () {
+            return {
+                isEditing: false,
+                newDescription: '',
+            };
+        },
+        methods: {
+            toggleEditing: function (): void {
+                this.$data.isEditing = !this.$data.isEditing;
+                // TODO: cache this value in future
+                this.$data.newDescription = '';
             },
-            data: function () {
-                return {
-                    isEditing: false,
-                    newDescription: '',
-                };
+            setNewDescription: function (value: string): void {
+                this.$data.newDescription = value;
             },
-            methods: {
-                toggleEditing: function (): void {
-                    this.$data.isEditing = !this.$data.isEditing;
-                    // TODO: cache this value in future
-                    this.$data.newDescription = '';
-                },
-                setNewDescription: function (value: string): void {
-                    this.$data.newDescription = value;
-                },
-                onSaveButtonClick: async function (): Promise<any> {
-                    let response = await this.$store.dispatch(
-                        PROJETS_ACTIONS.UPDATE, {
-                            id: this.$store.getters.selectedProject.id,
-                            description: this.$data.newDescription,
-                        }
-                    );
+            onSaveButtonClick: async function (): Promise<any> {
+                let response = await this.$store.dispatch(
+                    PROJETS_ACTIONS.UPDATE, {
+                        id: this.$store.getters.selectedProject.id,
+                        description: this.$data.newDescription
+                    }
+                );
 
-                    response.isSuccess
-                        // TODO: call toggleEditing method instead of this IIF
-                        ? (() => {
-                            this.$data.isEditing = !this.$data.isEditing;
-                            this.$data.newDescription = '';
-                            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
-                        })()
-                        : this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-                },
-                toggleDeleteDialog: function (): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
-                },
-                onMoreClick: function (): void {
-                    this.$router.push(ROUTES.USAGE_REPORT);
-                },
+                response.isSuccess
+                    ? (() => {
+                        this.$data.isEditing = !this.$data.isEditing;
+                        this.$data.newDescription = '';
+                        this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project updated successfully!');
+                    })()
+                    : this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
             },
-            computed: {
-                name: function (): string {
-                    return this.$store.getters.selectedProject.name;
-                },
-                description: function (): string {
-                    return this.$store.getters.selectedProject.description ?
-                        this.$store.getters.selectedProject.description :
-                        'No description yet. Please enter some information about the project if any.';
-                },
-                isPopupShown: function (): boolean {
-                    return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
-                }
+            toggleDeleteDialog: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
             },
-            components: {
-                Button,
-                HeaderedInput,
-                Checkbox,
-                EmptyState,
-                DeleteProjectPopup,
+            onMoreClick: function (): void {
+                this.$router.push(ROUTES.USAGE_REPORT);
+            },
+        },
+        computed: {
+            name: function (): string {
+                return this.$store.getters.selectedProject.name;
+            },
+            description: function (): string {
+                return this.$store.getters.selectedProject.description ?
+                this.$store.getters.selectedProject.description :
+                'No description yet. Please enter some information about the project if any.';
+            },
+            isPopupShown: function (): boolean {
+                return this.$store.state.appStateModule.appState.isDeleteProjectPopupShown;
             }
+        },
+        components: {
+            Button,
+            HeaderedInput,
+            Checkbox,
+            EmptyState,
+            DeleteProjectPopup,
         }
-    )
+    })
 
     export default class ProjectDetailsArea extends Vue {}
 </script>

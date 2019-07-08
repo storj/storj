@@ -17,14 +17,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
-import TabNavigation from '@/components/navigation/TabNavigation.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import TabNavigation from '@/components/navigation/TabNavigation.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
 
-@Component(
-    {
+    @Component({
         data: function () {
             return {
                 emptyImage: EMPTY_STATE_IMAGES.PROJECT,
@@ -43,11 +42,9 @@ import { PROJECT_ROUTES } from '@/utils/constants/tabNavigation';
             EmptyState,
             TabNavigation,
         }
-    }
-)
+    })
 
-export default class ProjectDetailsArea extends Vue {
-}
+    export default class ProjectDetailsArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
