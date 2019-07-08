@@ -545,10 +545,10 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		require.Len(t, report.Successes, origNumPieces-1)
-		require.Len(t, report.Fails, 1)
-		require.Equal(t, report.Fails[0], piece.NodeId)
-		require.Len(t, report.Offlines, 0)
+		assert.Len(t, report.Successes, origNumPieces-1)
+		assert.Len(t, report.Fails, 1)
+		assert.Equal(t, report.Fails[0], piece.NodeId)
+		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 
 		//refetch the stripe
@@ -560,9 +560,9 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		require.NoError(t, err)
 
 		//verify no failures because that segment is gone
-		require.Len(t, report.Successes, origNumPieces-1)
-		require.Len(t, report.Fails, 0)
-		require.Len(t, report.Offlines, 0)
+		assert.Len(t, report.Successes, origNumPieces-1)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 	})
 }

@@ -106,7 +106,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		}, err
 	}
 
-	err = verifier.checkIfSegmentDeleted(ctx, stripe)
+	err = verifier.checkIfSegmentDeleted(ctx, stripe.SegmentPath, stripe.Segment)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
@@ -372,13 +372,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				if errs2.IsRPC(err, codes.NotFound) {
-
 					// Get the original segment pointer in the metainfo
 					oldPtr, err := verifier.metainfo.Get(ctx, pending.Path)
-					remoteSegment := oldPtr.GetRemote()
-					if verifier.checkIfSegmentDeleted(ctx, remoteSegment) {
+					if err = verifier.checkIfSegmentDeleted(ctx, pending.Path, oldPtr); err != nil {
 						ch <- result{nodeID: piece.NodeId, status: skipped}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						return
@@ -391,23 +388,19 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
 					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
-
 					return
 				}
-
 				if errs2.IsRPC(err, codes.DeadlineExceeded) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 					verifier.log.Debug("Reverify: download timeout (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				// unknown error
 				ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 				verifier.log.Debug("Reverify: unknown error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				return
 			}
-
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
 				ch <- result{nodeID: piece.NodeId, status: success}
@@ -416,6 +409,15 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				ch <- result{nodeID: piece.NodeId, status: failed}
 				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.Stringer("Node ID", piece.NodeId),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
+				//remove failed audit pieces from the pointer so as to only penalize once for failed audits
+				// Get the original segment pointer in the metainfo
+				oldPtr, err := verifier.metainfo.Get(ctx, pending.Path)
+				if err = verifier.checkIfSegmentDeleted(ctx, pending.Path, oldPtr); err != nil {
+					ch <- result{nodeID: piece.NodeId, status: skipped}
+					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+					return
+				}
+				err = verifier.RemoveFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
 			}
 		}(pending, piece)
 	}
@@ -528,20 +530,20 @@ func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, p
 }
 
 // checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.
-func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, stripe *Stripe) (err error) {
+func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, err := verifier.metainfo.Get(ctx, stripe.SegmentPath)
+	pointer, err := verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return ErrSegmentDeleted.New(stripe.SegmentPath)
+			return ErrSegmentDeleted.New(segmentPath)
 		}
 		return err
 	}
 
-	if pointer.GetCreationDate().GetSeconds() != stripe.Segment.GetCreationDate().GetSeconds() ||
-		pointer.GetCreationDate().GetNanos() != stripe.Segment.GetCreationDate().GetNanos() {
-		return ErrSegmentDeleted.New(stripe.SegmentPath)
+	if pointer.GetCreationDate().GetSeconds() != oldPointer.GetCreationDate().GetSeconds() ||
+		pointer.GetCreationDate().GetNanos() != oldPointer.GetCreationDate().GetNanos() {
+		return ErrSegmentDeleted.New(segmentPath)
 	}
 
 	return nil

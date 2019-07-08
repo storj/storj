@@ -50,12 +50,11 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	switch err {
 	case sql.ErrNoRows:
 		statement := containment.db.Rebind(
-			`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
-			VALUES (?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, path)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		)
-		_, err = tx.Tx.ExecContext(ctx, statement,
-			pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
-		)
+		_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
+			pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, pendingAudit.Path)
 		if err != nil {
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
