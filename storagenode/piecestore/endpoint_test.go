@@ -535,6 +535,7 @@ func TestRetain(t *testing.T) {
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, nil, nil, store, pieceinfos, nil, nil, nil, ps.Config{})
+		require.NoError(t, err)
 
 		now := time.Now()
 		oldTime := now.Add(-time.Duration(48) * time.Hour)
@@ -594,7 +595,7 @@ func TestRetain(t *testing.T) {
 
 		}
 
-		ctx_satellite0 := peer.NewContext(ctx, &peer.Peer{
+		ctxSatellite0 := peer.NewContext(ctx, &peer.Peer{
 			AuthInfo: credentials.TLSInfo{
 				State: tls.ConnectionState{
 					PeerCertificates: []*x509.Certificate{satellite0.PeerIdentity().Leaf, satellite0.PeerIdentity().CA},
@@ -606,7 +607,7 @@ func TestRetain(t *testing.T) {
 		retainReq.Filter = filter.Bytes()
 		retainReq.CreationDate = now
 
-		_, err = endpoint.Retain(ctx_satellite0, &retainReq)
+		_, err = endpoint.Retain(ctxSatellite0, &retainReq)
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1

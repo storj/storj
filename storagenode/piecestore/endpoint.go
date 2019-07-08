@@ -577,7 +577,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
 				err = errs.Combine(err, endpoint.store.Delete(ctx, peer.ID, pieceID))
-				err = errs.Combine(endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID))
+				err = errs.Combine(err, endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID))
 			}
 		}
 		piecesRemaining = (len(pieceIDs) == limit)
