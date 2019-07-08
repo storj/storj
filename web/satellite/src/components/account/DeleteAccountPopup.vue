@@ -34,15 +34,14 @@
 </template>
 
 <script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Button from '@/components/common/Button.vue';
-import { removeToken } from '@/utils/tokenManager';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import Button from '@/components/common/Button.vue';
+    import { removeToken } from '@/utils/tokenManager';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function() {
             return {
                 password: '',
@@ -85,10 +84,9 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
             HeaderedInput,
             Button
         }
-    }
-)
+    })
 
-export default class DeleteAccountPopup extends Vue {}
+    export default class DeleteAccountPopup extends Vue {}
 </script>
 
 <style scoped lang='scss'>

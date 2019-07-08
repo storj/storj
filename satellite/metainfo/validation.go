@@ -150,7 +150,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (err error) {
+func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -166,7 +166,7 @@ func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.Seg
 	return nil
 }
 
-func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
+func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
