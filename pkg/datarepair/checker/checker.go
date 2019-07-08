@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -181,12 +180,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		return nil
 	}
 
-	createdAt, err := ptypes.Timestamp(pointer.CreationDate)
-	if err != nil {
-		return Error.New("error parsing creation date %s", err)
-	}
-
-	missingPieces, err := checker.nodestate.MissingPieces(ctx, createdAt, pieces)
+	missingPieces, err := checker.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
 	if err != nil {
 		return Error.New("error getting missing pieces %s", err)
 	}

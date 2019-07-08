@@ -333,8 +333,9 @@ func TestCommitSegment(t *testing.T) {
 			require.NoError(t, err)
 
 			pointer := &pb.Pointer{
-				Type:        pb.Pointer_REMOTE,
-				SegmentSize: 10,
+				CreationDate: time.Now(),
+				Type:         pb.Pointer_REMOTE,
+				SegmentSize:  10,
 				Remote: &pb.RemoteSegment{
 					RootPieceId:  rootPieceID,
 					Redundancy:   redundancy,
@@ -746,8 +747,9 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 	expiration, err := ptypes.TimestampProto(timestamp)
 	require.NoError(t, err)
 	pointer := &pb.Pointer{
-		Type:        pb.Pointer_REMOTE,
-		SegmentSize: segmentSize,
+		CreationDate: time.Now(),
+		Type:         pb.Pointer_REMOTE,
+		SegmentSize:  segmentSize,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
