@@ -148,8 +148,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Expiration: 45 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
-				Interval:            30 * time.Second,
-				IrreparableInterval: 15 * time.Second,
+				Interval:               30 * time.Second,
+				IrreparableInterval:    15 * time.Second,
+				ReliableCacheStaleness: 5 * time.Minute,
 			},
 			Repairer: repairer.Config{
 				MaxRepair:    10,

@@ -19,6 +19,9 @@
 # how frequently irrepairable checker should check for lost pieces
 # checker.irreparable-interval: 30m0s
 
+# how stale reliable node cache can be
+# checker.reliable-cache-staleness: 5m0s
+
 # server address of the graphql api gateway and frontend app
 # console.address: ":10100"
 

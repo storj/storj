@@ -231,12 +231,11 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 			}
 		}
 
-		satellite.Repair.Checker.Loop.Restart()
+		err = satellite.Repair.Checker.RefreshReliableCache(ctx)
+		require.NoError(t, err)
+
 		satellite.Repair.Checker.Loop.TriggerWait()
-		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
-		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
 
 		// kill nodes kept alive to ensure repair worked
