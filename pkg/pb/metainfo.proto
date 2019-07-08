@@ -4,7 +4,7 @@
 syntax = "proto3";
 option go_package = "pb";
 
-package metainfo;
+package satellite;
 
 import "encryption.proto";
 import "gogo.proto";
@@ -53,15 +53,14 @@ service Metainfo {
 }
 
 message Bucket {
-    bytes                  name = 1;
-    encryption.CipherSuite path_cipher = 2;
-    bytes                  attribution_id = 3;
+    bytes   name = 1;
+    string  attribution = 2;
 
-    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp created_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    int64                           default_segment_size = 5;
-    pointerdb.RedundancyScheme      default_redundancy_scheme = 6;
-    encryption.EncryptionParameters default_encryption_parameters = 7;
+    int64                           default_segment_size = 4;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
+    encryption.EncryptionParameters default_encryption_parameters = 6;
 }
 
 message BucketListItem {
@@ -71,13 +70,8 @@ message BucketListItem {
 }
 
 message BucketCreateRequest {
-    bytes                  name = 1;
-    encryption.CipherSuite path_cipher = 2;
-    bytes                  attribution_id = 3;
-
-    int64                           default_segment_size = 4;
-    pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
-    encryption.EncryptionParameters default_encryption_parameters = 6;
+    bytes   name = 1;
+    string  attribution = 2; 
 }
 
 message BucketCreateResponse {
@@ -110,8 +104,8 @@ message BucketListResponse {
 }
 
 message BucketSetAttributionRequest {
-    bytes name = 1;
-    bytes attribution_id = 2;
+    bytes   name = 1;
+    string  attribution = 2;
 }
 
 message BucketSetAttributionResponse {
@@ -229,7 +223,7 @@ message Object {
     }
 
     bytes  bucket         = 1;
-    bytes  encrypted_path = 2;
+    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
     int32  version        = 3;
     Status status         = 4;
 
@@ -239,7 +233,7 @@ message Object {
     google.protobuf.Timestamp status_at  = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expires_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 9;
+    bytes  encrypted_metadata_nonce = 9 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes  encrypted_metadata       = 10;
 
     int64                           fixed_segment_size    = 11;
@@ -253,12 +247,12 @@ message Object {
 
 message ObjectBeginRequest {
     bytes  bucket = 1;
-    bytes  encrypted_path = 2;
+    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
     int32  version = 3;
 
     google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 5;
+    bytes  encrypted_metadata_nonce = 5 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes  encrypted_metadata = 6; // TODO: set maximum size limit
 
     pointerdb.RedundancyScheme      redundancy_scheme = 7; // can be zero
@@ -267,7 +261,7 @@ message ObjectBeginRequest {
 
 message ObjectBeginResponse {
     bytes  bucket = 1;
-    bytes  encrypted_path = 2;
+    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
     int32  version = 3;
 
     bytes  stream_id = 4 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
@@ -277,11 +271,10 @@ message ObjectBeginResponse {
 }
 
 message ObjectCommitRequest {
-    bytes  stream_id = 4 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
 }
 
 message ObjectCommitResponse {
-    Object object = 1;
 }
 
 message ObjectListRequest {
@@ -289,9 +282,8 @@ message ObjectListRequest {
     bytes     encrypted_prefix = 2;
     bytes     encrypted_cursor = 3;
     int32     limit = 4;
-    bool      recursive = 5;
 
-    ObjectListItemFlags object_flags = 6;
+    ObjectListItemIncludes object_includes = 5;
 }
 
 message ObjectListResponse {
@@ -308,24 +300,22 @@ message ObjectListItem {
     google.protobuf.Timestamp status_at  = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expires_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes  encrypted_metadata_nonce = 7;
+    bytes  encrypted_metadata_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes  encrypted_metadata       = 8;
 }
 
-message ObjectListItemFlags {
+message ObjectListItemIncludes {
     bool metadata = 1;
 }
 
 message ObjectBeginDeleteRequest {
     bytes  bucket = 1;
-    bytes  encrypted_path = 2;
+    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
     int32  version = 3;
 }
 
 message ObjectBeginDeleteResponse {
     bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-
-    // TODO: should this contain a list of segments needing to be deleted?
 }
 
 message ObjectFinishDeleteRequest {
@@ -333,46 +323,47 @@ message ObjectFinishDeleteRequest {
 }
 
 message ObjectFinishDeleteResponse {
-    // TODO: should this contain a list of segments needing to be deleted when not all segements have been deleted?
 }
 
 message Segment {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    int32 part_number = 2;
-    int32 index = 3;
+    SegmentPosition position = 2;
 
-    bytes encrypted_key_nonce = 4;
-    bytes encrypted_key = 5;
+    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 4;
 
-    bytes checksum_encrypted_data = 6;
-    int64 size_encrypted_data = 7;
+    int64 size_encrypted_data = 5; // refers to segment size not piece size
 
-    bytes encrypted_inline_data = 8;
-    repeated bytes nodes = 9 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes encrypted_inline_data = 6;
+    repeated bytes nodes = 7 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SegmentPosition {
+    int32 part_number = 1;
+    int32 index = 2;
 }
 
 message SegmentBeginRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    int32 part_number = 2;
-    int32 index = 3;
+    SegmentPosition position = 2;
 
-    int64 max_order_limit = 4;
+    int64 max_order_limit = 3;
 }
 
 message SegmentBeginResponse {
-    bytes    segment_id = 1;
+    bytes    segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
     repeated AddressedOrderLimit addressed_limits = 2;
 }
 
 message SegmentCommitRequest {
-    bytes segment_id = 1;
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
 
-    bytes encrypted_key_nonce = 2;
+    bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes encrypted_key = 3;
 
-    bytes checksum_encrypted_data = 4;
+    int64 size_encrypted_data = 5; // refers to segment size not piece size
 
-    repeated SegmentPieceUploadResult upload_result = 5;
+    repeated SegmentPieceUploadResult upload_result = 6;
 }
 
 message SegmentCommitResponse {}
@@ -391,10 +382,10 @@ message SatStreamID {
 
     pointerdb.RedundancyScheme redundancy = 4;
 
-    google.protobuf.Timestamp creation_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-    google.protobuf.Timestamp expiration_date = 7  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes satellite_signature = 8;
+    bytes satellite_signature = 7;
 }
 
 // only for satellite use
@@ -413,45 +404,43 @@ message SatSegmentID {
 
 message SegmentMakeInlineRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    int32 part_number = 2;
-    int32 index = 3;
+    SegmentPosition position = 2;
 
-    bytes encrypted_key_nonce = 4;
-    bytes encrypted_key = 5;
+    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    bytes encrypted_key = 4;
 
-    bytes checksum_encrypted_data = 6;
-    bytes encrypted_inline_data = 7;
+    bytes encrypted_inline_data = 5;
 }
 
 message SegmentMakeInlineResponse {}
 
 message SegmentBeginDeleteRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    int32 part_number = 2;
-    int32 index = 3;
+    SegmentPosition position = 2;
 }
 
 message SegmentBeginDeleteResponse {
-    bytes segment_id = 1;
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
     repeated AddressedOrderLimit addressed_limits = 2;
-    
-    // TODO: should we include here bool finished for inline segments, or should we use batching to combine SegmentBeginDeleteRequest/SegmentFinishDeleteResponse
 }
 
 message SegmentFinishDeleteRequest {
-    bytes segment_id = 1;
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated SegmentPieceDeleteResult results = 2;
+}
 
-    // TODO: check for uplink not sending order limits to storage nodes
+message SegmentPieceDeleteResult {
+    int32 piece_num = 1;
+    bytes node_id   = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    orders.PieceHash hash = 3;
 }
 
 message SegmentFinishDeleteResponse {}
 
 message SegmentListRequest {
-    bytes stream_id          = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    int32 cursor_part_number = 2;
-    int32 cursor_index       = 3;
-    int32 limit              = 4;
-    // TODO: is there a neater way to express cursor
+    bytes stream_id                 = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    SegmentPosition cursor_position = 2;
+    int32 limit                     = 3;
 }
 
 message SegmentListResponse {
@@ -459,22 +448,19 @@ message SegmentListResponse {
     bool more = 2;
 }
 
-message SegmentListItem { // TODO: should we rename this to SegmentIndex and use it elsewhere?
-    int32 part_number = 1;
-    int32 index = 2;
+message SegmentListItem {
+    SegmentPosition position = 1;
 }
 
 message SegmentDownloadRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
-    int32 part_number = 2;
-    int32 index = 3;
-
-    SegmentListItem next = 4;
+    SegmentPosition cursor_position = 2;
 }
 
 message SegmentDownloadResponse {
-    bytes                           segment_id = 1;
+    bytes                           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
     repeated AddressedOrderLimit    addressed_limits = 2;
+    SegmentPosition                 next = 3; // can be nil
 }
 
 message BatchRequest {
@@ -509,6 +495,7 @@ message BatchRequestItem {
 
 message BatchResponse {
     repeated BatchRequestItem responses = 1;
+    string error = 2;
 }
 
 message BatchResponseItem {
