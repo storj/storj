@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -129,6 +130,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	stripe := Stripe{
 		Index: 3,
 		Segment: &pb.Pointer{
+			CreationDate: time.Now(),
 			Type: pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{
 				RootPieceId: storj.NewPieceID(),
