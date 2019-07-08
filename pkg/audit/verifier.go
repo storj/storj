@@ -517,6 +517,9 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedPieces storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if len(path) == 0 {
+		return nil
+	}
 	remoteSegment := pointer.GetRemote()
 	for i, piece := range remoteSegment.GetRemotePieces() {
 		for _, failedPiece := range failedPieces {
