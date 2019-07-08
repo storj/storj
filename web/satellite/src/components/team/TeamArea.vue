@@ -28,68 +28,68 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
-import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-import Footer from '@/components/team/footerArea/Footer.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
+    import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
+    import Footer from '@/components/team/footerArea/Footer.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    mounted: function() {
-        this.$store.dispatch(PM_ACTIONS.FETCH);
-    },
-    data: function () {
-        return {
-            emptyImage: EMPTY_STATE_IMAGES.TEAM,
-            isFetchInProgress: false,
-        };
-    },
-    methods: {
-        onMemberClick: function (member: any) {
-            this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+    @Component({
+        mounted: function() {
+            this.$store.dispatch(PM_ACTIONS.FETCH);
         },
-        handleScroll: async function () {
-            const documentElement = document.getElementById('scrollable_team_container');
-            if (!documentElement) {
-                return;
-            }
-
-            const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
-
-            if (!isAtBottom || this.$data.isFetchInProgress) return;
-
-            this.$data.isFetchInProgress = true;
-
-            const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
-
-            this.$data.isFetchInProgress = false;
-
-            if (response.isSuccess) return;
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        data: function () {
+            return {
+                emptyImage: EMPTY_STATE_IMAGES.TEAM,
+                isFetchInProgress: false,
+            };
         },
-    },
-    computed: {
-        projectMembers: function () {
-            return this.$store.getters.projectMembers;
+        methods: {
+            onMemberClick: function (member: any) {
+                this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+            },
+            handleScroll: async function () {
+                const documentElement = document.getElementById('scrollable_team_container');
+                if (!documentElement) {
+                    return;
+                }
+
+                const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
+
+                if (!isAtBottom || this.$data.isFetchInProgress) return;
+
+                this.$data.isFetchInProgress = true;
+
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+
+                this.$data.isFetchInProgress = false;
+
+                if (response.isSuccess) return;
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            },
         },
-        projectMembersCount: function () {
-            return this.$store.getters.projectMembersCountGetter;
+        computed: {
+            projectMembers: function () {
+                return this.$store.getters.projectMembers;
+            },
+            projectMembersCount: function () {
+                return this.$store.getters.projectMembersCountGetter;
+            },
+            selectedProjectMembers: function () {
+                return this.$store.getters.selectedProjectMembers;
+            },
         },
-        selectedProjectMembers: function () {
-            return this.$store.getters.selectedProjectMembers;
-        },
-    },
-    components: {
-        TeamMemberItem,
-        HeaderArea,
-        Footer,
+        components: {
+            TeamMemberItem,
+            HeaderArea,
+            Footer,
+        }
+    })
+
+    export default class TeamArea extends Vue {
     }
-})
-
-export default class TeamArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">

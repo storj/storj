@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
@@ -27,6 +28,8 @@ import (
 type UplinkFlags struct {
 	NonInteractive bool `help:"disable interactive mode" default:"false" setup:"true"`
 	uplink.Config
+
+	Version version.Config
 }
 
 var (
@@ -91,6 +94,11 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 
 // GetProject returns a *libuplink.Project for interacting with a specific project
 func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
+	err := version.CheckProcessVersion(ctx, cliCfg.Version, version.Build, "Uplink")
+	if err != nil {
+		return nil, err
+	}
+
 	apiKey, err := libuplink.ParseAPIKey(cliCfg.Client.APIKey)
 	if err != nil {
 		return nil, err

@@ -1,17 +1,17 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-	<div class="pagination-container">
-		<div class="pagination-container__pages">
+    <div class="pagination-container">
+        <div class="pagination-container__pages">
 			<div v-html="arrowLeft" class="pagination-container__button"></div>
 			<div class="pagination-container__items">
-				<span class="selected">1</span>
-				<span>2</span>
-			</div>
-			<div v-html="arrowRight" class="pagination-container__button"></div>
-		</div>
-	</div>
+			    <span class="selected">1</span>
+			    <span>2</span>
+             </div>
+             <div v-html="arrowRight" class="pagination-container__button"></div>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
