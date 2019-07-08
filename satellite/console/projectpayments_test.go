@@ -74,7 +74,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info[0].ProjectID)
-			assert.Equal(t, userPmInfo.UserID[0], info[0].PayerID)
+			assert.Equal(t, userPmInfo.UserID, info[0].PayerID)
 			assert.Equal(t, paymentMethodID, info[0].PaymentMethodID)
 		})
 	})
