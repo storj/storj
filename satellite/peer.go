@@ -200,7 +200,7 @@ type Peer struct {
 	}
 
 	Vouchers struct {
-		Service *vouchers.Service
+		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -341,13 +341,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Service = vouchers.NewService(
+		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			config.Vouchers.Expiration,
 		)
-		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting

@@ -55,7 +55,6 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 					schema: schema,
 				}, nil
 			}
-			planetConfig.Reconfigure.NewStorageNodeDB = nil
 
 			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig)
 			if err != nil {
