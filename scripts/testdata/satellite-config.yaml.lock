@@ -184,8 +184,11 @@ kademlia.operator.wallet: ""
 # the size of each new erasure share in bytes
 # metainfo.rs.erasure-share-size: 256 B
 
-# maximum buffer memory (in bytes) to be allocated for read buffers
+# maximum buffer memory to be allocated for read buffers
 # metainfo.rs.max-buffer-mem: 4.0 MiB
+
+# maximum segment size
+# metainfo.rs.max-segment-size: 64.0 MiB
 
 # the largest amount of pieces to encode to. n.
 # metainfo.rs.max-threshold: 130
