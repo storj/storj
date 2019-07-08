@@ -140,7 +140,7 @@ func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowedB
 		var cav Caveat
 		err := proto.Unmarshal(cavbuf, &cav)
 		if err != nil {
-			return allowedBuckets, ErrFormat.New("invalid caveat format")
+			return allowedBuckets, ErrFormat.New("invalid caveat format: %v", err)
 		}
 		if cav.Allows(action) {
 			for _, caveatPath := range cav.AllowedPaths {

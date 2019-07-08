@@ -794,12 +794,12 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}
 	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "ListBuckets: %v", err)
+		return nil, err
 	}
 
 	allowedBuckets, err := getAllowedBuckets(ctx, action)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "getAllowedBuckets: %v", err)
+		return nil, err
 	}
 
 	bucketItems := make([]*pb.BucketListItem, len(bucketList.Items))
@@ -821,13 +821,18 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 func getAllowedBuckets(ctx context.Context, action macaroon.Action) (allowedBuckets map[string]struct{}, err error) {
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
 	}
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential")
+		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
 	}
-	return key.GetAllowedBuckets(ctx, action)
+	allowedBuckets, err = key.GetAllowedBuckets(ctx, action)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
+	}
+	return allowedBuckets, err
+
 }
 
 // SetBucketAttribution sets the bucket attribution.

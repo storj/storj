@@ -84,27 +84,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 
 	var dbxBuckets []*dbx.BucketMetainfo
 	switch listOpts.Direction {
-	case storj.Before:
-		dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_Less_OrderBy_Desc_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
-			limit,
-			0,
-		)
-	case storj.Backward:
-		dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_LessOrEqual_OrderBy_Desc_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
-			limit,
-			0,
-		)
-	case storj.After:
-		dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
-			limit,
-			0,
-		)
+	// for listing buckets we are only supporting the forward direction for simplicity
 	case storj.Forward:
 		dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
 			dbx.BucketMetainfo_ProjectId(projectID[:]),

@@ -106,18 +106,13 @@ func TestListBuckets(t *testing.T) {
 		expectedItems int
 		expectedMore  bool
 	}{
-		{"empty string, forward", "", storj.Forward, 10, 10, false},
-		{"empty string, after, more", "", storj.After, 5, 5, true},
-		{"empty string, backward", "", storj.Backward, 10, 0, false},
-		{"empty string, before", "", storj.Before, 10, 0, false},
-		{"last, forward", "zzz", storj.Forward, 2, 1, false},
-		{"last, after", "zzz", storj.After, 2, 0, false},
-		{"last, backward", "zzz", storj.Backward, 2, 2, true},
-		{"last, before", "zzz", storj.Before, 2, 2, true},
-		{"aa, forward", "aa", storj.Forward, 10, 7, false},
-		{"aa, after", "aaaa", storj.After, 10, 6, false},
-		{"aa, backward", "aa", storj.Backward, 10, 3, false},
-		{"aa, before", "aa", storj.Before, 2, 2, true},
+		{"empty string cursor", "", storj.Forward, 10, 10, false},
+		{"last bucket cursor", "zzz", storj.Forward, 2, 1, false},
+		{"non matching cursor", "ccc", storj.Forward, 10, 5, false},
+		{"first bucket cursor", "0test", storj.Forward, 10, 10, false},
+		{"empty string cursor, more", "", storj.Forward, 5, 5, true},
+		{"non matching cursor, more", "ccc", storj.Forward, 3, 3, true},
+		{"first bucket cursor, more", "0test", storj.Forward, 5, 5, true},
 	}
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
