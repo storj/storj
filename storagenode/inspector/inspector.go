@@ -5,10 +5,11 @@ package inspector
 
 import (
 	"context"
-	"github.com/golang/protobuf/ptypes"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
