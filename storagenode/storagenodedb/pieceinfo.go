@@ -158,7 +158,8 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	return infos, nil
 }
 
-func (db *pieceinfo) CachedSpaceUsed(ctx context.Context) (_ int64, err error) {
+// SpaceUsed returns disk space used by all pieces from cache
+func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	db.loadSpaceUsed(ctx)
 
@@ -168,15 +169,14 @@ func (db *pieceinfo) CachedSpaceUsed(ctx context.Context) (_ int64, err error) {
 func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
 	defer mon.Task()(&ctx)
 	db.space.once.Do(func() {
-		usedSpace, _ := db.SpaceUsed(ctx)
+		usedSpace, _ := db.CalculatedSpaceUsed(ctx)
 		atomic.AddInt64(&db.space.used, usedSpace)
 	})
 }
 
-// SpaceUsed calculates disk space used by all pieces
-func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
+// CalculatedSpaceUsed calculates disk space used by all pieces
+func (db *pieceinfo) CalculatedSpaceUsed(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	var sum sql.NullInt64
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT SUM(piece_size)
