@@ -5,9 +5,9 @@ package metainfo
 
 import (
 	"context"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -32,7 +32,7 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	defer mon.Task()(&ctx)(&err)
 
 	// Update the pointer with the creation date
-	pointer.CreationDate = ptypes.TimestampNow()
+	pointer.CreationDate = time.Now()
 
 	pointerBytes, err := proto.Marshal(pointer)
 	if err != nil {
