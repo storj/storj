@@ -12,5 +12,5 @@ var (
 	mon = monkit.Package()
 
 	// Error is a pkg/server error
-	Error = errs.Class("pkg/server error")
+	Error = errs.Class("server error")
 )
