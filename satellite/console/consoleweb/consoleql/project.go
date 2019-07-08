@@ -218,8 +218,8 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 							LastFour:   paymentMethod.Card.LastFour,
 							AddedAt:    paymentMethod.CreatedAt,
 							CardBrand:  paymentMethod.Card.Brand,
-							ExpMonth:   paymentMethod.Card.ExpMonth,
-							ExpYear:    paymentMethod.Card.ExpYear,
+							ExpMonth:   paymentMethod.Card.ExpirationMonth,
+							ExpYear:    paymentMethod.Card.ExpirationYear,
 							HolderName: paymentMethod.Card.Name,
 							IsDefault:  paymentMethod.IsDefault,
 						}

@@ -288,12 +288,12 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 			PayerID:         user.ID,
 			ProjectID:       projectID,
 			Card: Card{
-				LastFour: pm.Card.LastFour,
-				Name:     pm.Card.Name,
-				Brand:    pm.Card.Brand,
-				Country:  pm.Card.Country,
-				ExpMonth: pm.Card.ExpMonth,
-				ExpYear:  pm.Card.ExpYear,
+				LastFour:        pm.Card.LastFour,
+				Name:            pm.Card.Name,
+				Brand:           pm.Card.Brand,
+				Country:         pm.Card.Country,
+				ExpirationMonth: pm.Card.ExpMonth,
+				ExpirationYear:  pm.Card.ExpYear,
 			},
 		}
 
