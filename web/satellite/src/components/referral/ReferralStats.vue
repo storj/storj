@@ -8,8 +8,7 @@
             <div class="referral-stats__card"
                 v-for="(stat, key) in stats"
                 :key="key"
-                :style="stat.background"
-            >
+                :style="stat.background">
                 <span class="referral-stats__card-text">
                     <span class="referral-stats__card-title">{{ stat.title }}</span>
                     <span class="referral-stats__card-description">{{ stat.description }}</span>
@@ -28,34 +27,34 @@
 
     @Component({
         data() {
-          return {
-              stats: {
-                 referred: {
-                     title: "referrals made",
-                     description: "People you referred who signed up",
-                     symbol: "",
-                     background: {
-                         backgroundColor: "#FFFFFF",
-                     }
-                 },
-                  availableCredits: {
-                     title: "earned credits",
-                     description: "Free credits that will apply to your upcoming bill",
-                     symbol: "$",
-                   background: {
-                         backgroundColor: "rgba(217, 225, 236, 0.5)",
-                     }
-                  },
-                  usedCredits: {
-                     title: "applied credits",
-                     description: "Free credits that have already been applied to your bill",
-                     symbol: "$",
-                   background: {
-                         backgroundColor: "#D1D7E0",
-                     }
-                  },
-              }
-          }
+            return {
+                stats: {
+                    referred: {
+                        title: "referrals made",
+                        description: "People you referred who signed up",
+                        symbol: "",
+                        background: {
+                            backgroundColor: "#FFFFFF",
+                        }
+                    },
+                    availableCredits: {
+                        title: "earned credits",
+                        description: "Free credits that will apply to your upcoming bill",
+                        symbol: "$",
+                        background: {
+                            backgroundColor: "rgba(217, 225, 236, 0.5)",
+                        }
+                    },
+                    usedCredits: {
+                        title: "applied credits",
+                        description: "Free credits that have already been applied to your bill",
+                        symbol: "$",
+                        background: {
+                            backgroundColor: "#D1D7E0",
+                        }
+                    },
+                }
+            }
         },
         methods: {
             fetch: async function() {

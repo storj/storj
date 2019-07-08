@@ -12,67 +12,65 @@
     import { getUserID } from '@/utils/consoleLocalStorage';
 
 
-    @Component(
-        {
-            beforeDestroy: function() {
-                if (this.$data.intervalID) {
-                    clearInterval(this.$data.intervalID);
-                }
-            },
-            data: function () {
-                return {
-                    isResendEmailButtonDisabled: true,
-                    timeToEnableResendEmailButton: '00:30',
-                    intervalID: null,
-                };
-            },
-            computed: {
-                isPopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
-                }
-            },
-            methods: {
-                onResendEmailButtonClick: async function () {
-                    this.$data.isResendEmailButtonDisabled = true;
+    @Component({
+        beforeDestroy: function() {
+            if (this.$data.intervalID) {
+                clearInterval(this.$data.intervalID);
+            }
+        },
+        data: function () {
+            return {
+                isResendEmailButtonDisabled: true,
+                timeToEnableResendEmailButton: '00:30',
+                intervalID: null,
+            };
+        },
+        computed: {
+            isPopupShown: function () {
+                return this.$store.state.appStateModule.appState.isSuccessfulRegistrationPopupShown;
+            }
+        },
+        methods: {
+            onResendEmailButtonClick: async function (): void {
+                this.$data.isResendEmailButtonDisabled = true;
 
-                    let userID = getUserID();
-                    if (!userID) {
-                        return;
+                let userID = getUserID();
+                if (!userID) {
+                    return;
+                }
+
+                let response = await resendEmailRequest(userID);
+                if (response.isSuccess) {
+                    (this as any).startResendEmailCountdown();
+                }
+            },
+            onCloseClick: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
+                this.$router.push(ROUTES.LOGIN.path);
+            },
+            startResendEmailCountdown: function () {
+                let countdown = 30;
+                let self = this;
+
+                this.$data.intervalID = setInterval(function () {
+                    countdown--;
+
+                    let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
+                    self.$data.timeToEnableResendEmailButton = `00:${secondsLeft}`;
+
+                    if (countdown <= 0) {
+                        clearInterval(self.$data.intervalID);
+                        self.$data.isResendEmailButtonDisabled = false;
                     }
+                }.bind(this), 1000);
+            }
+        },
+        components: {
+        Button,
+        },
+    })
 
-                    let response = await resendEmailRequest(userID);
-                    if (response.isSuccess) {
-                        (this as any).startResendEmailCountdown();
-                    }
-                },
-                onCloseClick: function () {
-                    this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-                    this.$router.push(ROUTES.LOGIN.path);
-                },
-                startResendEmailCountdown: function () {
-                    let countdown = 30;
-                    let self = this;
-                    this.$data.intervalID = setInterval(function () {
-                        countdown--;
-
-                        let secondsLeft = countdown > 9 ? countdown : `0${countdown}`;
-                        self.$data.timeToEnableResendEmailButton = `00:${secondsLeft}`;
-
-                        if (countdown <= 0) {
-                            clearInterval(self.$data.intervalID);
-                            self.$data.isResendEmailButtonDisabled = false;
-                        }
-                    }.bind(this), 1000);
-                }
-            },
-            components: {
-                Button,
-            },
-        }
-    )
-
-    export default class RegistrationSuccessPopup extends Vue {
-    }
+    export default class RegistrationSuccessPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">

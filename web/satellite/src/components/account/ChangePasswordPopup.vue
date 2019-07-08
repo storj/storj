@@ -67,115 +67,116 @@
     import { validatePassword } from '@/utils/validation';
 
     @Component({
-		data: function () {
-			return {
-				oldPassword: '',
-				newPassword: '',
-				confirmationPassword: '',
-				oldPasswordError: '',
-				newPasswordError: '',
-				confirmationPasswordError: '',
-			};
-		},
-		methods: {
-			setOldPassword: function (value: string) {
-				this.$data.oldPassword = value;
-				this.$data.oldPasswordError = '';
-			},
-			setNewPassword: function (value: string) {
-				this.$data.newPassword = value;
-				this.$data.newPasswordError = '';
-			},
-			setPasswordConfirmation: function (value: string) {
-				this.$data.confirmationPassword = value;
-				this.$data.confirmationPasswordError = '';
-			},
-			cancel: function () {
-				this.$data.oldPassword = '';
-				this.$data.newPassword = '';
-				this.$data.confirmationPassword = '';
+        data: function () {
+            return {
+                oldPassword: '',
+                newPassword: '',
+                confirmationPassword: '',
+                oldPasswordError: '',
+                newPasswordError: '',
+                confirmationPasswordError: '',
+            };
+        },
+        methods: {
+            setOldPassword: function (value: string) {
+                this.$data.oldPassword = value;
+                this.$data.oldPasswordError = '';
+            },
+            setNewPassword: function (value: string) {
+                this.$data.newPassword = value;
+                this.$data.newPasswordError = '';
+            },
+            setPasswordConfirmation: function (value: string) {
+                this.$data.confirmationPassword = value;
+                this.$data.confirmationPasswordError = '';
+            },
+            cancel: function () {
+                this.$data.oldPassword = '';
+                this.$data.newPassword = '';
+                this.$data.confirmationPassword = '';
 
-				this.$data.oldPasswordError = '';
-				this.$data.newPasswordError = '';
-				this.$data.confirmationPasswordError = '';
+                this.$data.oldPasswordError = '';
+                this.$data.newPasswordError = '';
+                this.$data.confirmationPasswordError = '';
 
-				let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-				oldPasswordInput.setValue('');
+                let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+                oldPasswordInput.setValue('');
 
-				let newPasswordInput: any = this.$refs['newPasswordInput'];
-				newPasswordInput.setValue('');
+                let newPasswordInput: any = this.$refs['newPasswordInput'];
+                newPasswordInput.setValue('');
 
-				let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-				confirmPasswordInput.setValue('');
-			},
-			onUpdateClick: async function () {
-				let hasError = false;
-				if (!this.$data.oldPassword) {
-					this.$data.oldPasswordError = 'Password required';
-					hasError = true;
-				}
+                let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+                confirmPasswordInput.setValue('');
+            },
+            onUpdateClick: async function () {
+                let hasError = false;
+                if (!this.$data.oldPassword) {
+                    this.$data.oldPasswordError = 'Password required';
+                    hasError = true;
+                }
 
-				if (!validatePassword(this.$data.newPassword)) {
-					this.$data.newPasswordError = 'Invalid password. Use 6 or more characters';
-					hasError = true;
-				}
+                if (!validatePassword(this.$data.newPassword)) {
+                    this.$data.newPasswordError = 'Invalid password. Use 6 or more characters';
+                    hasError = true;
+                }
 
-				if (!this.$data.confirmationPassword) {
-					this.$data.confirmationPasswordError = 'Password required';
-					hasError = true;
-				}
+                if (!this.$data.confirmationPassword) {
+                    this.$data.confirmationPasswordError = 'Password required';
+                    hasError = true;
+                }
 
-				if (this.$data.newPassword !== this.$data.confirmationPassword) {
-					this.$data.confirmationPasswordError = 'Password not match to new one';
-					hasError = true;
-				}
+                if (this.$data.newPassword !== this.$data.confirmationPassword) {
+                    this.$data.confirmationPasswordError = 'Password not match to new one';
+                    hasError = true;
+                }
 
-				if (hasError) {
-					return;
-				}
+                if (hasError) {
+                    return;
+                }
 
-				let response = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
+                let response = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
 					{
-						oldPassword: this.$data.oldPassword,
-						newPassword: this.$data.newPassword
+                        oldPassword: this.$data.oldPassword,
+                        newPassword: this.$data.newPassword
 					}
 				);
-				if (!response.isSuccess) {
-					this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
-					return;
-				}
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
-				this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+                    return;
+                }
 
-				this.$data.oldPassword = '';
-				this.$data.newPassword = '';
-				this.$data.confirmationPassword = '';
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
 
-				this.$data.oldPasswordError = '';
-				this.$data.newPasswordError = '';
-				this.$data.confirmationPasswordError = '';
+                this.$data.oldPassword = '';
+                this.$data.newPassword = '';
+                this.$data.confirmationPassword = '';
 
-				let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-				oldPasswordInput.setValue('');
+                this.$data.oldPasswordError = '';
+                this.$data.newPasswordError = '';
+                this.$data.confirmationPasswordError = '';
 
-				let newPasswordInput: any = this.$refs['newPasswordInput'];
-				newPasswordInput.setValue('');
+                let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+                oldPasswordInput.setValue('');
 
-				let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-				confirmPasswordInput.setValue('');
-			},
-			onCloseClick: function () {
-				(this as any).cancel();
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-			}
-		},
-		components: {
-			HeaderlessInput,
-			Button,
-		}
-	})
+                let newPasswordInput: any = this.$refs['newPasswordInput'];
+                newPasswordInput.setValue('');
+
+                let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+                confirmPasswordInput.setValue('');
+            },
+            onCloseClick: function () {
+                (this as any).cancel();
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+            }
+        },
+        components: {
+            HeaderlessInput,
+            Button,
+        }
+    })
 
     export default class ChangePasswordPopup extends Vue {}
 </script>

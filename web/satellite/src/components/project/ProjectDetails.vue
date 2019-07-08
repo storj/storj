@@ -81,7 +81,7 @@
                         id: this.$store.getters.selectedProject.id,
                         description: this.$data.newDescription
                     }
-    		    );
+                );
 
                 response.isSuccess
                     ? (() => {

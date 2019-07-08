@@ -27,7 +27,3 @@
 
     export default class DashboardArea extends Vue {}
 </script>
-
-<!--<style scoped lang="scss">-->
-
-<!--</style>-->

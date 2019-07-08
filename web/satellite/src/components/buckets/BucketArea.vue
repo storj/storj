@@ -4,7 +4,7 @@
 <template>
     <div>
         <div class="buckets-overflow" v-if="pages !== 0">
-    		<div class="buckets-header">
+            <div class="buckets-header">
                 <p>Buckets</p>
                 <SearchArea/>
             </div>

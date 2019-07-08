@@ -57,11 +57,11 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import ROUTES from '@/utils/constants/routerConstants';
-	import Datepicker from '@/components/project/DatePicker.vue';
-	import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
-	import { toUnixTimestamp } from '@/utils/time';
+    import { Component, Vue } from 'vue-property-decorator';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import Datepicker from '@/components/project/DatePicker.vue';
+    import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
+    import { toUnixTimestamp } from '@/utils/time';
 
     @Component({
 		mounted: function() {

@@ -43,7 +43,7 @@
             },
             onPress: {
                 type: Function,
-                    default: () => {
+                default: () => {
                     console.error('onPress is not reinitialized');
                 }
             }
