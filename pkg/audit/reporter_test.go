@@ -32,7 +32,6 @@ func TestReportPendingAudits(t *testing.T) {
 			StripeIndex:       1,
 			ShareSize:         1 * memory.KiB.Int32(),
 			ExpectedShareHash: pkcrypto.SHA256Hash([]byte("test")),
-			Path:              "",
 		}
 
 		report := audit.Report{PendingAudits: []*audit.PendingAudit{&pending}}
