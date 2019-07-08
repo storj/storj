@@ -590,9 +590,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
 	}
-	if err != nil {
-		endpoint.log.Error("failed to get retaining info", zap.Error(Error.Wrap(err)))
-	}
 	return &pb.RetainResponse{}, nil
 }
 
