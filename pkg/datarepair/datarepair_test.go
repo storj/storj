@@ -7,7 +7,6 @@ import (
 	"context"
 	"math"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -58,16 +57,16 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 
 		var (
-			testData         = testrand.Bytes(1 * memory.MiB)
+			testData         = testrand.Bytes(10 * memory.KiB)
 			minThreshold     = 3
 			successThreshold = 7
 		)
-		err := ul.UploadWithExpirationAndConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     minThreshold,
 			RepairThreshold:  5,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     10,
-		}, "testbucket", "test/path", testData, time.Now().Add(24*time.Hour))
+		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
@@ -194,14 +193,14 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		testData := testrand.Bytes(1 * memory.MiB)
+		testData := testrand.Bytes(10 * memory.KiB)
 
-		err := ul.UploadWithExpirationAndConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  5,
 			SuccessThreshold: 7,
 			MaxThreshold:     7,
-		}, "testbucket", "test/path", testData, time.Now().Add(24*time.Hour))
+		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		// get a remote segment from metainfo
@@ -326,15 +325,15 @@ func TestDataRepairUploadLimit(t *testing.T) {
 				),
 			)
 			ul       = planet.Uplinks[0]
-			testData = testrand.Bytes(1 * memory.MiB)
+			testData = testrand.Bytes(10 * memory.KiB)
 		)
 
-		err := ul.UploadWithExpirationAndConfig(ctx, satellite, &uplink.RSConfig{
+		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
 			RepairThreshold:  repairThreshold,
 			SuccessThreshold: successThreshold,
 			MaxThreshold:     maxThreshold,
-		}, "testbucket", "test/path", testData, time.Now().Add(24*time.Hour))
+		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
