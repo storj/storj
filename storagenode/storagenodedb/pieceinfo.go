@@ -24,7 +24,7 @@ type pieceinfo struct {
 }
 
 type spaceUsed struct {
-	once *sync.Once
+	once sync.Once
 	used int64
 }
 
