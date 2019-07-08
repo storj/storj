@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -33,6 +34,8 @@ var (
 type Config struct {
 	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
+
+	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
 }
 
 // durabilityStats remote segment information
@@ -49,7 +52,7 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	lastChecked     string
 	repairQueue     queue.RepairQueue
-	overlay         *overlay.Cache
+	nodestate       *ReliabilityCache
 	irrdb           irreparable.DB
 	logger          *zap.Logger
 	Loop            sync2.Cycle
@@ -58,20 +61,19 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, repairInterval, irreparableInterval time.Duration) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, config Config) *Checker {
 	// TODO: reorder arguments
-	checker := &Checker{
+	return &Checker{
 		metainfo:        metainfo,
 		lastChecked:     "",
 		repairQueue:     repairQueue,
-		overlay:         overlay,
+		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		irrdb:           irrdb,
 		logger:          logger,
-		Loop:            *sync2.NewCycle(repairInterval),
-		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
+		Loop:            *sync2.NewCycle(config.Interval),
+		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
 		monStats:        durabilityStats{},
 	}
-	return checker
 }
 
 // Run the checker loop
@@ -89,6 +91,11 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	})
 
 	return group.Wait()
+}
+
+// RefreshReliabilityCache forces refreshing node online status cache.
+func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
+	return checker.nodestate.Refresh(ctx)
 }
 
 // Close halts the Checker loop
@@ -131,6 +138,10 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				if err != nil {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
+				remote := pointer.GetRemote()
+				if remote == nil {
+					continue
+				}
 
 				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
@@ -170,7 +181,12 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		return nil
 	}
 
-	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
+	createdAt, err := ptypes.Timestamp(pointer.CreationDate)
+	if err != nil {
+		return Error.New("error parsing creation date %s", err)
+	}
+
+	missingPieces, err := checker.nodestate.MissingPieces(ctx, createdAt, pieces)
 	if err != nil {
 		return Error.New("error getting missing pieces %s", err)
 	}
