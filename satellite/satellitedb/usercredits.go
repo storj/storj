@@ -55,21 +55,41 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 }
 
 // Create insert a new record of user credit
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
-	credit, err := c.db.Create_UserCredit(ctx,
-		dbx.UserCredit_UserId(userCredit.UserID[:]),
-		dbx.UserCredit_OfferId(userCredit.OfferID),
-		dbx.UserCredit_CreditsEarnedInCents(userCredit.CreditsEarned.Cents()),
-		dbx.UserCredit_ExpiresAt(userCredit.ExpiresAt),
-		dbx.UserCredit_Create_Fields{
-			ReferredBy: dbx.UserCredit_ReferredBy(userCredit.ReferredBy[:]),
-		},
-	)
-	if err != nil {
-		return nil, errs.Wrap(err)
+func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit, offerCap int) error {
+	var statement string
+
+	switch t := c.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		statement = `
+			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
+				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, time('now'))) AS v
+					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < ?;
+		`
+	case *pq.Driver:
+		statement = `
+			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
+				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, ?::bytea, now())) AS v
+					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < ?;
+		`
+	default:
+		return errs.New("Unsupported database %t", t)
 	}
 
-	return convertDBCredit(credit)
+	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, userCredit.ReferredBy[:], userCredit.OfferID, offerCap)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	if rows != 1 {
+		return errs.New("Create user credit failed")
+	}
+
+	return nil
 }
 
 // UpdateAvailableCredits updates user's available credits based on their spending and the time of their spending
@@ -150,31 +170,4 @@ func generateQuery(totalRows int, toInt bool) (query string) {
 	}
 
 	return query
-}
-
-func convertDBCredit(userCreditDBX *dbx.UserCredit) (*console.UserCredit, error) {
-	if userCreditDBX == nil {
-		return nil, errs.New("userCreditDBX parameter is nil")
-	}
-
-	userID, err := bytesToUUID(userCreditDBX.UserId)
-	if err != nil {
-		return nil, err
-	}
-
-	referredByID, err := bytesToUUID(userCreditDBX.ReferredBy)
-	if err != nil {
-		return nil, err
-	}
-
-	return &console.UserCredit{
-		ID:            userCreditDBX.Id,
-		UserID:        userID,
-		OfferID:       userCreditDBX.OfferId,
-		ReferredBy:    referredByID,
-		CreditsEarned: currency.Cents(userCreditDBX.CreditsEarnedInCents),
-		CreditsUsed:   currency.Cents(userCreditDBX.CreditsUsedInCents),
-		ExpiresAt:     userCreditDBX.ExpiresAt,
-		CreatedAt:     userCreditDBX.CreatedAt,
-	}, nil
 }
