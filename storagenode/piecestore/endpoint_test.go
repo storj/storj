@@ -613,18 +613,18 @@ func TestRetain(t *testing.T) {
 		// check we have deleted nothing for satellite1
 		satellite1Pieces, err := endpoint.PieceInfo().GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
-		assert.Equal(t, len(satellite1Pieces), nbPieces)
+		require.Equal(t, len(satellite1Pieces), nbPieces)
 
 		// check we did not delete recent pieces
 		satellite0Pieces, err := endpoint.PieceInfo().GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
 
 		for _, id := range pieceIDs[:nbPiecesToKeep] {
-			assert.Contains(t, satellite0Pieces, id, "piece should not have been deleted (not in bloom filter)")
+			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (not in bloom filter)")
 		}
 
 		for _, id := range pieceIDs[nbPiecesToKeep+nbOldPieces:] {
-			assert.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
+			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
 		}
 	})
 }
