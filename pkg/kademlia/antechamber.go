@@ -21,7 +21,9 @@ var AntechamberErr = errs.Class("antechamber error")
 func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
+	rt.acMutex.Lock()
 	defer rt.mutex.Unlock()
+	defer rt.acMutex.Unlock()
 	inNeighborhood, err := rt.wouldBeInNearestK(ctx, node.Id)
 	if err != nil {
 		return AntechamberErr.New("could not check node neighborhood: %s", err)
@@ -43,8 +45,8 @@ func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (
 // Called when node moves into RT, node is outside neighborhood (check when any node is added to RT), or node failed contact
 func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
+	rt.acMutex.Lock()
+	defer rt.acMutex.Unlock()
 	err = rt.antechamber.Delete(ctx, node.Id.Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return AntechamberErr.New("could not delete node %s", err)
@@ -56,8 +58,8 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, node *pb.Node
 // it is called in conjunction with RT FindNear in some circumstances
 func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rt.mutex.Lock()
-	defer rt.mutex.Unlock()
+	rt.acMutex.Lock()
+	defer rt.acMutex.Unlock()
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err = rt.iterateAntechamber(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)

@@ -122,6 +122,7 @@ func (planet *Planet) newVersionControlServer() (peer *versioncontrol.Peer, err 
 			Storagenode: "v0.0.1",
 			Uplink:      "v0.0.1",
 			Gateway:     "v0.0.1",
+			Identity:    "v0.0.1",
 		},
 	}
 	peer, err = versioncontrol.New(log, config)

@@ -1,33 +1,33 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
-	<tr class="container">
-		<td class="container__item">{{ bucket.bucketName }}</td>
-		<td class="container__item">{{ storage }}</td>
-		<td class="container__item">{{ egress }}</td>
-		<td class="container__item">{{ objectCount }}</td>
-	</tr>
+    <tr class="container">
+        <td class="container__item">{{ bucket.bucketName }}</td>
+        <td class="container__item">{{ storage }}</td>
+        <td class="container__item">{{ egress }}</td>
+        <td class="container__item">{{ objectCount }}</td>
+    </tr>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
     @Component({
-		props: {
-			bucket: Object
-		},
-		computed: {
-			storage: function (): string {
-                return (this as any).bucket.storage.toFixed(4);
-            },
-			egress: function (): string {
-				return (this as any).bucket.egress.toFixed(4);
-			},
-			objectCount: function (): string {
-				return (this as any).bucket.objectCount.toString();
-			}
-		}
+	    props: {
+	        bucket: Object
+	    },
+	    computed: {
+	        storage: function (): string {
+	            return (this as any).bucket.storage.toFixed(4);
+	        },
+	        egress: function (): string {
+	            return (this as any).bucket.egress.toFixed(4);
+	        },
+	        objectCount: function (): string {
+	            return (this as any).bucket.objectCount.toString();
+	        }
+	    }
 	})
 
     export default class BucketItem extends Vue {}

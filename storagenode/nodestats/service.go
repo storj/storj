@@ -5,9 +5,11 @@ package nodestats
 
 import (
 	"context"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
@@ -33,6 +35,25 @@ type UptimeCheck struct {
 	ReputationScore float64
 }
 
+// SpaceUsageStamp is space usage for satellite at some point in time
+type SpaceUsageStamp struct {
+	SatelliteID storj.NodeID
+	AtRestTotal float64
+
+	TimeStamp time.Time
+}
+
+// Client encapsulates NodeStatsClient with underlying connection
+type Client struct {
+	conn *grpc.ClientConn
+	pb.NodeStatsClient
+}
+
+// Close closes underlying client connection
+func (c *Client) Close() error {
+	return c.conn.Close()
+}
+
 // Service retrieves info from satellites using GRPC client
 type Service struct {
 	log *zap.Logger
@@ -54,17 +75,16 @@ func NewService(log *zap.Logger, transport transport.Client, kademlia *kademlia.
 func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *UptimeCheck, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
+	client, err := s.DialNodeStats(ctx, satelliteID)
 	if err != nil {
-		return nil, NodeStatsServiceErr.New("unable to find satellite %s: %v", satelliteID, err)
+		return nil, NodeStatsServiceErr.Wrap(err)
 	}
 
-	conn, err := s.transport.DialNode(ctx, &satellite)
-	if err != nil {
-		return nil, NodeStatsServiceErr.New("unable to connect to the satellite %s: %v", satelliteID, err)
-	}
-
-	client := pb.NewNodeStatsClient(conn)
+	defer func() {
+		if cerr := client.Close(); cerr != nil {
+			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
+		}
+	}()
 
 	resp, err := client.UptimeCheck(ctx, &pb.UptimeCheckRequest{})
 	if err != nil {
@@ -78,4 +98,60 @@ func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID st
 		ReputationBeta:  resp.GetReputationBeta(),
 		ReputationScore: resp.GetReputationScore(),
 	}, nil
+}
+
+// GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps over a period of time for a particular satellite
+func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []SpaceUsageStamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	client, err := s.DialNodeStats(ctx, satelliteID)
+	if err != nil {
+		return nil, NodeStatsServiceErr.Wrap(err)
+	}
+
+	defer func() {
+		if cerr := client.Close(); cerr != nil {
+			err = errs.Combine(err, NodeStatsServiceErr.New("failed to close connection: %v", cerr))
+		}
+	}()
+
+	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{})
+	if err != nil {
+		return nil, NodeStatsServiceErr.Wrap(err)
+	}
+
+	return fromSpaceUsageResponse(resp, satelliteID), nil
+}
+
+// DialNodeStats dials GRPC NodeStats client for the satellite by id
+func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (*Client, error) {
+	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
+	if err != nil {
+		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
+	}
+
+	conn, err := s.transport.DialNode(ctx, &satellite)
+	if err != nil {
+		return nil, errs.New("unable to connect to the satellite %s: %v", satelliteID, err)
+	}
+
+	return &Client{
+		conn:            conn,
+		NodeStatsClient: pb.NewNodeStatsClient(conn),
+	}, nil
+}
+
+// fromSpaceUsageResponse get SpaceUsageStamp slice from pb.SpaceUsageResponse
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []SpaceUsageStamp {
+	var stamps []SpaceUsageStamp
+
+	for _, pbUsage := range resp.GetDailyStorageUsage() {
+		stamps = append(stamps, SpaceUsageStamp{
+			SatelliteID: satelliteID,
+			AtRestTotal: pbUsage.AtRestTotal,
+			TimeStamp:   pbUsage.TimeStamp,
+		})
+	}
+
+	return stamps
 }

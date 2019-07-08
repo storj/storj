@@ -9,12 +9,11 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom checkbox component
-@Component(
-    {
-        data: () => {
+    // Custom checkbox component
+    @Component({
+        data: function() {
             return {
                 checked: false
             };
@@ -31,11 +30,9 @@ import { Component, Vue } from 'vue-property-decorator';
                 default: false
             },
         },
-    }
-)
-export default class Checkbox extends Vue {
+    })
 
-}
+    export default class Checkbox extends Vue {}
 </script>
 
 <style scoped lang="scss">
