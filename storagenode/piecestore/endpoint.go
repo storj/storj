@@ -593,11 +593,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	return &pb.RetainResponse{}, nil
 }
 
-// PieceInfo returns pieces info db
-func (endpoint *Endpoint) PieceInfo() pieces.DB {
-	return endpoint.pieceinfo
-}
-
 // min finds the min of two values
 func min(a, b int64) int64 {
 	if a < b {

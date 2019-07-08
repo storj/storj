@@ -518,7 +518,7 @@ func TestRetain(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
-		pieceinfos := db.PieceInfo()
+		pieceInfos := db.PieceInfo()
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces())
 
 		const nbPieces = 1000
@@ -534,7 +534,7 @@ func TestRetain(t *testing.T) {
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, nil, nil, store, pieceinfos, nil, nil, nil, ps.Config{})
+		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, nil, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
 		require.NoError(t, err)
 
 		now := time.Now()
@@ -587,10 +587,10 @@ func TestRetain(t *testing.T) {
 				Uplink:          uplink.PeerIdentity(),
 			}
 
-			err = endpoint.PieceInfo().Add(ctx, &pieceinfo0)
+			err = pieceInfos.Add(ctx, &pieceinfo0)
 			require.NoError(t, err)
 
-			err = endpoint.PieceInfo().Add(ctx, &pieceinfo1)
+			err = pieceInfos.Add(ctx, &pieceinfo1)
 			require.NoError(t, err)
 
 		}
@@ -611,12 +611,12 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err := endpoint.PieceInfo().GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
+		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
 		require.Equal(t, len(satellite1Pieces), nbPieces)
 
 		// check we did not delete recent pieces
-		satellite0Pieces, err := endpoint.PieceInfo().GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
+		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
 
 		for _, id := range pieceIDs[:nbPiecesToKeep] {
