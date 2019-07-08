@@ -87,7 +87,6 @@ func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, er
 		PeerCAWhitelistPath: cliCfg.TLS.PeerCAWhitelistPath,
 	}
 
-	// We use longer timeouts for cmd/uplink to account for slower connections.
 	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
 	libuplinkCfg.Volatile.RequestTimeout = cliCfg.Client.RequestTimeout
 
