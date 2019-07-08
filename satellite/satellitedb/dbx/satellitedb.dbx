@@ -766,13 +766,35 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
-read all (
-	select bucket_metainfo
-	where bucket_metainfo.project_id = ?
-	orderby asc bucket_metainfo.name
-)
-
 delete bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
+)
+
+read limitoffset ( // Before
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name < ?
+	orderby desc bucket_metainfo.name
+)
+
+read limitoffset ( // Backward
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name <= ?
+	orderby desc bucket_metainfo.name
+)
+
+read limitoffset ( // After
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name > ?
+	orderby asc bucket_metainfo.name
+)
+
+read limitoffset ( // Foward
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name >= ?
+	orderby asc bucket_metainfo.name
 )

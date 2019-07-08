@@ -787,7 +787,12 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	items, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID)
+	listOpts := storj.BucketListOptions{
+		Cursor: string(req.Cursor),
+		Limit: int(req.Limit),
+		Direction: storj.Forward,
+	}
+	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "ListBuckets: %v", err)
 	}
@@ -797,8 +802,8 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 		return nil, status.Errorf(codes.Internal, "getAllowedBuckets: %v", err)
 	}
 
-	bucketItems := make([]*pb.BucketListItem, len(items))
-	for i, item := range items {
+	bucketItems := make([]*pb.BucketListItem, len(bucketList.Items))
+	for i, item := range bucketList.Items {
 		if _, ok := allowedBuckets[item.Name]; ok {
 			bucketItems[i] = &pb.BucketListItem{
 				Name:      []byte(item.Name),
@@ -809,7 +814,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 
 	return &pb.BucketListResponse{
 		Items: bucketItems,
-		More:  false,
+		More:  bucketList.More,
 	}, nil
 }
 

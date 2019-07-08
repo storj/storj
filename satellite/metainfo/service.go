@@ -172,7 +172,7 @@ func (s *Service) Iterate(ctx context.Context, prefix string, first string, recu
 // CreateBucket creates a new bucket in the buckets db
 func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.bucketsDB.CreateBucket(ctx, bucket) 
+	return s.bucketsDB.CreateBucket(ctx, bucket)
 }
 
 // GetBucket returns an existing bucket in the buckets db
@@ -188,7 +188,7 @@ func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // ListBuckets returns a list of buckets for a project
-func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID) (buckets []storj.Bucket, err error) {
+func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions) (bucketList storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.bucketsDB.ListBuckets(ctx, projectID)
+	return s.bucketsDB.ListBuckets(ctx, projectID, listOpts)
 }
