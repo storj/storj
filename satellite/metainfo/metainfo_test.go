@@ -469,6 +469,10 @@ func TestExpirationTimeSegment(t *testing.T) {
 			expirationDate time.Time
 			errFlag        bool
 		}{
+			{ // expiration time not set
+				time.Time{},
+				false,
+			},
 			{ // 10 days into future
 				time.Now().AddDate(0, 0, 10),
 				false,

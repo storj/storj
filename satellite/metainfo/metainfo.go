@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -130,15 +129,16 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	exp, err := ptypes.Timestamp(req.Expiration)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
+	if req.Expiration != nil {
+		exp, err := ptypes.Timestamp(req.Expiration)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
 
-	err = validateExpiration(ctx, exp)
-	if err != nil {
-		fmt.Println(status.Errorf(codes.InvalidArgument, err.Error()))
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		err = validateExpiration(ctx, exp)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
 	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
@@ -629,16 +629,16 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 func validateExpiration(ctx context.Context, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if expiration.IsZero() {
+		return nil
+	}
+
 	now := time.Now()
 	diff := now.Sub(expiration)
 
-	//@TODO: what is the absolute min expiration time supported?
-	//@TODO: currently it is minimum set to 1 day ie 24 hrs
-	days := int(diff.Hours() / 24)
-
-	// days --> +ve value indicates past time than current
-	// days --> -ve value indicates future time than current
-	if days < 0 {
+	// +ve value indicates past time than current
+	// -ve value indicates future time than current
+	if diff.Seconds() < 0 {
 		return nil
 	}
 	return errs.New("Invalid expiration time")
