@@ -12,9 +12,7 @@ import {AppState} from "../utils/constants/appStateEnum";
             <div class="dashboard-container__wrap__column">
                 <DashboardHeader />
                 <div class="dashboard-container__main-area">
-                    <keep-alive>
-                        <router-view />
-                    </keep-alive>
+                    <router-view />
                 </div>
             </div>
         </div>
@@ -55,7 +53,6 @@ import {AppState} from "../utils/constants/appStateEnum";
             }
 
             let getProjectsResponse: RequestResponse<Project[]> = await this.$store.dispatch(PROJETS_ACTIONS.FETCH);
-
             if (!getProjectsResponse.isSuccess || getProjectsResponse.data.length < 1) {
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED_EMPTY);
 

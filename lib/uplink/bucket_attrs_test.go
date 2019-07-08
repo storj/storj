@@ -1,11 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package uplink
+package uplink_test
 
 import (
 	"bytes"
 	"io/ioutil"
+	"reflect"
 	"testing"
 	"time"
 
@@ -16,15 +17,26 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
 
+// hackyGetBucketAttribution exists to read the unexported Attribution field on a bucket.
+// It should be removed once there's an exported way to do this.
+func hackyGetBucketAttribution(bucket *uplink.Bucket) string {
+	return reflect.ValueOf(bucket).
+		Elem().
+		FieldByName("bucket").
+		FieldByName("Attribution").
+		String()
+}
+
 type testConfig struct {
-	uplinkCfg Config
+	uplinkCfg uplink.Config
 }
 
 func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
-	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *Project)) {
+	testFunc func(*testing.T, *testcontext.Context, *testplanet.Planet, *uplink.Project)) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -34,18 +46,18 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 		satellite := planet.Satellites[0]
 		cfg.uplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-		apiKey, err := ParseAPIKey(testUplink.APIKey[satellite.ID()])
+		apiKey, err := uplink.ParseAPIKey(testUplink.APIKey[satellite.ID()])
 		if err != nil {
 			t.Fatalf("could not parse API key from testplanet: %v", err)
 		}
-		uplink, err := NewUplink(ctx, &cfg.uplinkCfg)
+		up, err := uplink.NewUplink(ctx, &cfg.uplinkCfg)
 		if err != nil {
 			t.Fatalf("could not create new Uplink object: %v", err)
 		}
-		defer ctx.Check(uplink.Close)
-		proj, err := uplink.OpenProject(ctx, satellite.Addr(), apiKey)
+		defer ctx.Check(up.Close)
+		proj, err := up.OpenProject(ctx, satellite.Addr(), apiKey)
 		if err != nil {
-			t.Fatalf("could not open project from libuplink under testplanet: %v", err)
+			t.Fatalf("could not open project from uplink under testplanet: %v", err)
 		}
 		defer ctx.Check(proj.Close)
 
@@ -53,66 +65,93 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 	})
 }
 
-func simpleEncryptionAccess(encKey string) (access *EncryptionAccess) {
-	key, err := storj.NewKey([]byte(encKey))
-	if err != nil {
-		panic(err)
-	}
-	return NewEncryptionAccessWithDefaultKey(*key)
-}
-
 // check that partner bucket attributes are stored and retrieved correctly.
 func TestPartnerBucketAttrs(t *testing.T) {
 	var (
-		access     = simpleEncryptionAccess("voxmachina")
+		access     = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
 		bucketName = "mightynein"
 	)
 
-	testPlanetWithLibUplink(t, testConfig{},
-		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
-			_, err := proj.CreateBucket(ctx, bucketName, nil)
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()])
+		require.NoError(t, err)
+
+		partnerID := testrand.UUID()
+
+		t.Run("without partner id", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucketInfo, err := project.CreateBucket(ctx, bucketName, nil) // TODO: by specifying config here it can be rolled into the testAttrs test
 			require.NoError(t, err)
 
-			partnerID := testrand.UUID().String()
-
-			consoleProjects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
-			assert.NoError(t, err)
-
-			consoleProject := consoleProjects[0]
-
-			db := planet.Satellites[0].DB.Attribution()
-			_, err = db.Get(ctx, consoleProject.ID, []byte(bucketName))
-			require.Error(t, err)
-
-			// partner ID set
-			proj.uplinkCfg.Volatile.PartnerID = partnerID
-			got, err := proj.OpenBucket(ctx, bucketName, access)
-			require.NoError(t, err)
-			assert.Equal(t, got.bucket.Attribution, partnerID)
-
-			info, err := db.Get(ctx, consoleProject.ID, []byte(bucketName))
-			require.NoError(t, err)
-			assert.Equal(t, info.PartnerID.String(), partnerID)
-
-			// partner ID not set but bucket's attribution already set(from above)
-			proj.uplinkCfg.Volatile.PartnerID = ""
-			got, err = proj.OpenBucket(ctx, bucketName, access)
-			require.NoError(t, err)
-			defer ctx.Check(got.Close)
-			assert.Equal(t, got.bucket.Attribution, partnerID)
+			assert.Equal(t, bucketInfo.Attribution, "")
 		})
+
+		t.Run("open with partner id", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			config.Volatile.PartnerID = partnerID.String()
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucket, err := project.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
+		})
+
+		t.Run("open with different partner id", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			config.Volatile.PartnerID = testrand.UUID().String()
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucket, err := project.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			// shouldn't change
+			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
+		})
+	})
 }
 
 // check that bucket attributes are stored and retrieved correctly.
 func TestBucketAttrs(t *testing.T) {
 	var (
-		access          = simpleEncryptionAccess("voxmachina")
+		access          = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
 		bucketName      = "mightynein"
 		shareSize       = memory.KiB.Int32()
 		requiredShares  = 2
 		stripeSize      = shareSize * int32(requiredShares)
 		stripesPerBlock = 2
-		inBucketConfig  = BucketConfig{
+		inBucketConfig  = uplink.BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
@@ -136,7 +175,7 @@ func TestBucketAttrs(t *testing.T) {
 	)
 
 	testPlanetWithLibUplink(t, testConfig{},
-		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *uplink.Project) {
 			before := time.Now()
 			bucket, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)
@@ -164,7 +203,7 @@ func TestBucketAttrs(t *testing.T) {
 // specific config, the specific config applies and not the bucket attrs.
 func TestBucketAttrsApply(t *testing.T) {
 	var (
-		access          = simpleEncryptionAccess("howdoyouwanttodothis")
+		access          = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
 		bucketName      = "dodecahedron"
 		objectPath1     = "vax/vex/vox"
 		objectContents  = "Willingham,Ray,Jaffe,Johnson,Riegel,O'Brien,Bailey,Mercer"
@@ -172,7 +211,7 @@ func TestBucketAttrsApply(t *testing.T) {
 		requiredShares  = 3
 		stripeSize      = shareSize * int32(requiredShares)
 		stripesPerBlock = 2
-		inBucketConfig  = BucketConfig{
+		inBucketConfig  = uplink.BucketConfig{
 			PathCipher: storj.EncSecretBox,
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncSecretBox,
@@ -199,7 +238,7 @@ func TestBucketAttrsApply(t *testing.T) {
 	testConfig.uplinkCfg.Volatile.MaxInlineSize = 1
 
 	testPlanetWithLibUplink(t, testConfig,
-		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *Project) {
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, proj *uplink.Project) {
 			_, err := proj.CreateBucket(ctx, bucketName, &inBucketConfig)
 			require.NoError(t, err)
 
