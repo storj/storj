@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -17,13 +18,20 @@ import (
 
 type bandwidthdb struct {
 	*InfoDB
+	bandwidth bandwidthUsed
+}
+
+type bandwidthUsed struct {
+	mu        sync.RWMutex
+	usedSince time.Time
+	used      int64
 }
 
 // Bandwidth returns table for storing bandwidth usage.
 func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 
 // Bandwidth returns table for storing bandwidth usage.
-func (db *InfoDB) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
+func (db *InfoDB) Bandwidth() bandwidth.DB { return &db.bandwidthdb }
 
 // Add adds bandwidth usage to the table
 func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {

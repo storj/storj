@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -19,13 +20,19 @@ import (
 
 type pieceinfo struct {
 	*InfoDB
+	space spaceUsed
+}
+
+type spaceUsed struct {
+	once *sync.Once
+	used int64
 }
 
 // PieceInfo returns database for storing piece information
 func (db *DB) PieceInfo() pieces.DB { return db.info.PieceInfo() }
 
 // PieceInfo returns database for storing piece information
-func (db *InfoDB) PieceInfo() pieces.DB { return &pieceinfo{db} }
+func (db *InfoDB) PieceInfo() pieces.DB { return &db.pieceinfo }
 
 // Add inserts piece information into the database.
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {

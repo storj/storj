@@ -25,20 +25,9 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db        *sql.DB
-	space     spaceUsed
-	bandwidth bandwidthUsed
-}
-
-type spaceUsed struct {
-	once *sync.Once
-	used int64
-}
-
-type bandwidthUsed struct {
-	mu        sync.RWMutex
-	usedSince time.Time
-	used      int64
+	db          *sql.DB
+	bandwidthdb bandwidthdb
+	pieceinfo   pieceinfo
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -54,7 +43,11 @@ func newInfo(path string) (*InfoDB, error) {
 
 	dbutil.Configure(db, mon)
 
-	return &InfoDB{db: db, space: spaceUsed{&sync.Once{}, 0}, bandwidth: bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}, nil
+	infoDb := &InfoDB{db: db}
+	infoDb.pieceinfo = pieceinfo{infoDb, spaceUsed{&sync.Once{}, 0}}
+	infoDb.bandwidthdb = bandwidthdb{infoDb, bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}
+
+	return infoDb, nil
 }
 
 // NewInfoInMemory creates a new inmemory InfoDB.
@@ -76,7 +69,11 @@ func NewInfoInMemory() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	return &InfoDB{db: db, space: spaceUsed{&sync.Once{}, 0}, bandwidth: bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}, nil
+	infoDb := &InfoDB{db: db}
+	infoDb.pieceinfo = pieceinfo{infoDb, spaceUsed{&sync.Once{}, 0}}
+	infoDb.bandwidthdb = bandwidthdb{infoDb, bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}
+
+	return infoDb, nil
 }
 
 // Close closes any resources.
