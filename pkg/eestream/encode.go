@@ -191,8 +191,6 @@ type encodedPiece struct {
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
-	ctx := ep.er.ctx
-	defer mon.Task()(&ctx)(&err)
 	if ep.err != nil {
 		return 0, ep.err
 	}
