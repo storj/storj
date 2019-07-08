@@ -183,6 +183,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 				require.Equal(t, tt.expectedMore, bucketList.More)
 				for _, actualItem := range bucketList.Items {
 					require.Contains(t, tt.expectedNames, actualItem.Name)
+
 				}
 			})
 		}

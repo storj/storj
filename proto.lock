@@ -1620,6 +1620,11 @@
                 "type": "bytes"
               },
               {
+                "id": 2,
+                "name": "path_cipher",
+                "type": "encryption.CipherSuite"
+              },
+              {
                 "id": 3,
                 "name": "attribution_id",
                 "type": "bytes"
@@ -1688,6 +1693,11 @@
                 "id": 1,
                 "name": "name",
                 "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "path_cipher",
+                "type": "encryption.CipherSuite"
               },
               {
                 "id": 3,
