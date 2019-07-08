@@ -927,6 +927,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
 			},
+			{
+				Description: "Add unique id for project payments. Add is_default property",
+				Version:     40,
+				Action: migrate.SQL{
+					`ALTER TABLE project_payments ADD id bytea;`,
+					`ALTER TABLE project_payments ADD PRIMARY KEY (id);`,
+					`ALTER TABLE project_payments ADD is_default boolean`,
+				},
+			},
 		},
 	}
 }
