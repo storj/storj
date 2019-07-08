@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/pkg/audit"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
 )
 
 func TestContainIncrementAndGet(t *testing.T) {
@@ -27,12 +26,7 @@ func TestContainIncrementAndGet(t *testing.T) {
 
 		input := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
-			PieceID:           storj.PieceID{},
-			StripeIndex:       0,
-			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-			ReverifyCount:     0,
-			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, input)
@@ -63,12 +57,7 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 
 		info1 := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
-			PieceID:           storj.PieceID{},
-			StripeIndex:       0,
-			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-			ReverifyCount:     0,
-			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, info1)
@@ -76,12 +65,9 @@ func TestContainIncrementPendingEntryExists(t *testing.T) {
 
 		info2 := &audit.PendingAudit{
 			NodeID:            info1.NodeID,
-			PieceID:           storj.PieceID{},
 			StripeIndex:       1,
 			ShareSize:         1,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-			ReverifyCount:     0,
-			Path:              "notnull",
 		}
 
 		// expect failure when an entry with the same nodeID but different expected share data already exists
@@ -111,12 +97,7 @@ func TestContainDelete(t *testing.T) {
 
 		info1 := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
-			PieceID:           storj.PieceID{},
-			StripeIndex:       0,
-			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-			ReverifyCount:     0,
-			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, info1)
@@ -153,12 +134,7 @@ func TestContainUpdateStats(t *testing.T) {
 
 		info1 := &audit.PendingAudit{
 			NodeID:            planet.StorageNodes[0].ID(),
-			PieceID:           storj.PieceID{},
-			StripeIndex:       0,
-			ShareSize:         0,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
-			ReverifyCount:     0,
-			Path:              "notnull",
 		}
 
 		err := containment.IncrementPending(ctx, info1)
