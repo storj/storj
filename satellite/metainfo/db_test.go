@@ -142,7 +142,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 		{"empty string cursor, 2 allowed", "", 10, 1, false, map[string]struct{}{"aaa": {}, "ddd": {}}, []string{"aaa"}},
 		{"empty string cursor, more", "", 2, 2, true, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb"}},
 		{"empty string cursor, 3 allowed", "", 4, 3, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb", "zzz"}},
-		{"last bucket cursor", "zzz", 2, 1, false, map[string]struct{}{"zzz": {}},[]string{"zzz"}},
+		{"last bucket cursor", "zzz", 2, 1, false, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
 	}
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
