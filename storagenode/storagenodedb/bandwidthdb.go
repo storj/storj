@@ -39,26 +39,27 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 
 		beginningOfMonth := getBeginningOfMonth(created.UTC())
 		if beginningOfMonth.Equal(db.bandwidth.usedSince) {
-			db.bandwidth.usedBandwidth += amount
+			db.bandwidth.used += amount
 		} else {
 			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
 			if err != nil {
 				return err
 			}
 			db.bandwidth.usedSince = beginningOfMonth
-			db.bandwidth.usedBandwidth = usage.Total()
+			db.bandwidth.used = usage.Total()
 		}
 	}
 	return ErrInfo.Wrap(err)
 }
 
-// CachedBandwidthUsed returns summary of bandwidth usages
-func (db *bandwidthdb) CachedBandwidthUsed(ctx context.Context) (_ int64, err error) {
+// BandwidthUsed returns summary of bandwidth usages
+func (db *bandwidthdb) BandwidthUsed(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
 	db.bandwidth.mu.RLock()
 	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
 	if beginningOfMonth.Equal(db.bandwidth.usedSince) {
 		defer db.bandwidth.mu.RUnlock()
-		return db.bandwidth.usedBandwidth, nil
+		return db.bandwidth.used, nil
 	}
 
 	db.bandwidth.mu.RUnlock()
@@ -71,9 +72,9 @@ func (db *bandwidthdb) CachedBandwidthUsed(ctx context.Context) (_ int64, err er
 			return 0, err
 		}
 		db.bandwidth.usedSince = beginningOfMonth
-		db.bandwidth.usedBandwidth = usage.Total()
+		db.bandwidth.used = usage.Total()
 	}
-	return db.bandwidth.usedBandwidth, nil
+	return db.bandwidth.used, nil
 }
 
 // Summary returns summary of bandwidth usages

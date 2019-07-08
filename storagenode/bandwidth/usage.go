@@ -14,7 +14,7 @@ import (
 // DB contains information about bandwidth usage.
 type DB interface {
 	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
-	CachedBandwidthUsed(ctx context.Context) (int64, error)
+	BandwidthUsed(ctx context.Context) (int64, error)
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
 }
@@ -76,11 +76,6 @@ func (usage *Usage) Total() int64 {
 		usage.GetRepair +
 		usage.PutRepair +
 		usage.Delete
-}
-
-// CachedBandwidthUsed returns total bandwidth for the current month from cache
-func CachedBandwidthUsed(ctx context.Context, db DB) (int64, error) {
-	return db.CachedBandwidthUsed(ctx)
 }
 
 // TotalMonthlySummary returns total bandwidth usage for current month

@@ -26,19 +26,19 @@ var ErrInfo = errs.Class("infodb")
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
 	db        *sql.DB
-	space     *space
-	bandwidth *bw
+	space     spaceUsed
+	bandwidth bandwidthUsed
 }
 
-type space struct {
-	usedSpace int64
-	once      *sync.Once
+type spaceUsed struct {
+	once *sync.Once
+	used int64
 }
 
-type bw struct {
-	usedSince     time.Time
-	usedBandwidth int64
-	mu            sync.RWMutex
+type bandwidthUsed struct {
+	mu        sync.RWMutex
+	usedSince time.Time
+	used      int64
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -54,7 +54,7 @@ func newInfo(path string) (*InfoDB, error) {
 
 	dbutil.Configure(db, mon)
 
-	return &InfoDB{db: db, space: &space{0, &sync.Once{}}, bandwidth: &bw{time.Time{}, 0, sync.RWMutex{}}}, nil
+	return &InfoDB{db: db, space: spaceUsed{&sync.Once{}, 0}, bandwidth: bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}, nil
 }
 
 // NewInfoInMemory creates a new inmemory InfoDB.
@@ -76,7 +76,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	return &InfoDB{db: db, space: &space{0, &sync.Once{}}, bandwidth: &bw{time.Time{}, 0, sync.RWMutex{}}}, nil
+	return &InfoDB{db: db, space: spaceUsed{&sync.Once{}, 0}, bandwidth: bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}, nil
 }
 
 // Close closes any resources.
