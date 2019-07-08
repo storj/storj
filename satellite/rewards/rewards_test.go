@@ -65,20 +65,11 @@ func TestOffer_Database(t *testing.T) {
 				ExpiresAt: time.Now(),
 			}
 
-			isDefault := update.Status == rewards.Default
-			err = planet.Satellites[0].DB.Rewards().Redeem(ctx, update.ID, isDefault)
-			require.NoError(t, err)
-
 			err = planet.Satellites[0].DB.Rewards().Finish(ctx, update.ID)
 			require.NoError(t, err)
 
 			current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
-			if new.Status == rewards.Default {
-				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
-			} else {
-				require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
-			}
 			require.Equal(t, rewards.Done, current[i].Status)
 		}
 
