@@ -334,8 +334,8 @@ func TestCommitSegment(t *testing.T) {
 
 			pointer := &pb.Pointer{
 				CreationDate: time.Now(),
-				Type:        pb.Pointer_REMOTE,
-				SegmentSize: 10,
+				Type:         pb.Pointer_REMOTE,
+				SegmentSize:  10,
 				Remote: &pb.RemoteSegment{
 					RootPieceId:  rootPieceID,
 					Redundancy:   redundancy,
@@ -748,8 +748,8 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 	require.NoError(t, err)
 	pointer := &pb.Pointer{
 		CreationDate: time.Now(),
-		Type:        pb.Pointer_REMOTE,
-		SegmentSize: segmentSize,
+		Type:         pb.Pointer_REMOTE,
+		SegmentSize:  segmentSize,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
