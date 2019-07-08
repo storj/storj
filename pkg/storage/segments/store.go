@@ -356,7 +356,7 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 // convertMeta converts pointer to segment metadata
 func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
-		Modified:   convertTime(pr.GetCreationDate()),
+		Modified:   pr.CreationDate,
 		Expiration: convertTime(pr.GetExpirationDate()),
 		Size:       pr.GetSegmentSize(),
 		Data:       pr.GetMetadata(),
