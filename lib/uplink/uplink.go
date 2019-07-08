@@ -6,6 +6,8 @@ package uplink
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/metainfo/kvmetainfo"
@@ -19,6 +21,9 @@ type Config struct {
 	// Volatile groups config values that are likely to change semantics
 	// or go away entirely between releases. Be careful when using them!
 	Volatile struct {
+		// Log is the logger to use for uplink components
+		Log *zap.Logger
+
 		// TLS defines options that affect TLS negotiation for outbound
 		// connections initiated by this uplink.
 		TLS struct {
@@ -73,6 +78,9 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.MaxMemory = 4 * memory.MiB
 	} else if cfg.Volatile.MaxMemory.Int() < 0 {
 		cfg.Volatile.MaxMemory = 0
+	}
+	if cfg.Volatile.Log == nil {
+		cfg.Volatile.Log = zap.NewNop()
 	}
 	return nil
 }

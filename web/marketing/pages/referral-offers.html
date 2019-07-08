@@ -14,13 +14,13 @@ See LICENSE for copying information. -->
         <div class="col col-heading">Status</div>
     </div><hr>
     <div class="row offer-heading ">
-        <p class="offer-type">default offer</p>
+        <p class="offer-type">Default&nbsp;Offer</p>
     </div>
     {{$defaultOffer := .ReferralOffers.GetDefaultFromSet}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
-        <div class="col">${{ToDollars $defaultOffer.InviteeCreditInCents}}</div> 
-        <div class="col">${{ToDollars $defaultOffer.AwardCreditInCents}}</div>
+        <div class="col">${{$defaultOffer.InviteeCredit}}</div> 
+        <div class="col">${{$defaultOffer.AwardCredit}}</div>
         <div class="col">{{$defaultOffer.NumRedeemed}}</div>
         <div class="col">&#8734;</div>
         <div class="col">{{printf "%.10s" $defaultOffer.CreatedAt}}</div>
@@ -28,14 +28,14 @@ See LICENSE for copying information. -->
         <div class="col"></div>
     </div><hr>
     <div class="row offer-heading ">
-        <p class="offer-type">current offer</p>
+        <p class="offer-type">Current&nbsp;Offer</p>
     </div>
     {{if gt (len .ReferralOffers.Set) 0}}
         {{$currentOffer := .ReferralOffers.GetCurrentFromSet}}
         <div class="row data-row">
             <div class="col ml-3">{{$currentOffer.Name}}</div>
-            <div class="col">${{ToDollars $currentOffer.InviteeCreditInCents}}</div> 
-            <div class="col">${{ToDollars $currentOffer.AwardCreditInCents}}</div>
+            <div class="col">${{$currentOffer.InviteeCredit}}</div> 
+            <div class="col">${{$currentOffer.AwardCredit}}</div>
             <div class="col">{{$currentOffer.NumRedeemed}}</div>
             <div class="col">{{$currentOffer.RedeemableCap}}</div>
             <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
@@ -48,7 +48,7 @@ See LICENSE for copying information. -->
         </div><hr>
     {{end}}
     <div class="row offer-heading ">
-        <p class="offer-type">other offers</p>
+        <p class="offer-type">Other&nbsp;Offers</p>
     </div>
     {{if gt (len .ReferralOffers.Set) 0}}
     {{range .ReferralOffers.Set}}
@@ -56,8 +56,8 @@ See LICENSE for copying information. -->
         {{if $offer.IsDone}}
         <div class="row data-row">
             <div class="col ml-3">{{$offer.Name}}</div>
-            <div class="col">${{ToDollars $offer.InviteeCreditInCents}}</div> 
-            <div class="col">${{ToDollars $offer.AwardCreditInCents}}</div>
+            <div class="col">${{$offer.InviteeCredit}}</div> 
+            <div class="col">${{$offer.AwardCredit}}</div>
             <div class="col">{{.NumRedeemed}}</div>
             <div class="col">{{.RedeemableCap}}</div>
             <div class="col">{{printf "%.10s" .CreatedAt}}</div>

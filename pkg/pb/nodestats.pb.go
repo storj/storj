@@ -8,14 +8,17 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
+	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
 	math "math"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+var _ = time.Kitchen
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -23,37 +26,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type UptimeCheckRequest struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *UptimeCheckRequest) Reset()         { *m = UptimeCheckRequest{} }
-func (m *UptimeCheckRequest) String() string { return proto.CompactTextString(m) }
-func (*UptimeCheckRequest) ProtoMessage()    {}
-func (*UptimeCheckRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0b184ee117142aa, []int{0}
-}
-func (m *UptimeCheckRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_UptimeCheckRequest.Unmarshal(m, b)
-}
-func (m *UptimeCheckRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_UptimeCheckRequest.Marshal(b, m, deterministic)
-}
-func (m *UptimeCheckRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UptimeCheckRequest.Merge(m, src)
-}
-func (m *UptimeCheckRequest) XXX_Size() int {
-	return xxx_messageInfo_UptimeCheckRequest.Size(m)
-}
-func (m *UptimeCheckRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_UptimeCheckRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_UptimeCheckRequest proto.InternalMessageInfo
-
-type UptimeCheckResponse struct {
+type ReputationStats struct {
 	TotalCount           int64    `protobuf:"varint,1,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
 	SuccessCount         int64    `protobuf:"varint,2,opt,name=success_count,json=successCount,proto3" json:"success_count,omitempty"`
 	ReputationAlpha      float64  `protobuf:"fixed64,3,opt,name=reputation_alpha,json=reputationAlpha,proto3" json:"reputation_alpha,omitempty"`
@@ -64,90 +37,319 @@ type UptimeCheckResponse struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UptimeCheckResponse) Reset()         { *m = UptimeCheckResponse{} }
-func (m *UptimeCheckResponse) String() string { return proto.CompactTextString(m) }
-func (*UptimeCheckResponse) ProtoMessage()    {}
-func (*UptimeCheckResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0b184ee117142aa, []int{1}
+func (m *ReputationStats) Reset()         { *m = ReputationStats{} }
+func (m *ReputationStats) String() string { return proto.CompactTextString(m) }
+func (*ReputationStats) ProtoMessage()    {}
+func (*ReputationStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0b184ee117142aa, []int{0}
 }
-func (m *UptimeCheckResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_UptimeCheckResponse.Unmarshal(m, b)
+func (m *ReputationStats) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ReputationStats.Unmarshal(m, b)
 }
-func (m *UptimeCheckResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_UptimeCheckResponse.Marshal(b, m, deterministic)
+func (m *ReputationStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ReputationStats.Marshal(b, m, deterministic)
 }
-func (m *UptimeCheckResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_UptimeCheckResponse.Merge(m, src)
+func (m *ReputationStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ReputationStats.Merge(m, src)
 }
-func (m *UptimeCheckResponse) XXX_Size() int {
-	return xxx_messageInfo_UptimeCheckResponse.Size(m)
+func (m *ReputationStats) XXX_Size() int {
+	return xxx_messageInfo_ReputationStats.Size(m)
 }
-func (m *UptimeCheckResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_UptimeCheckResponse.DiscardUnknown(m)
+func (m *ReputationStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_ReputationStats.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_UptimeCheckResponse proto.InternalMessageInfo
+var xxx_messageInfo_ReputationStats proto.InternalMessageInfo
 
-func (m *UptimeCheckResponse) GetTotalCount() int64 {
+func (m *ReputationStats) GetTotalCount() int64 {
 	if m != nil {
 		return m.TotalCount
 	}
 	return 0
 }
 
-func (m *UptimeCheckResponse) GetSuccessCount() int64 {
+func (m *ReputationStats) GetSuccessCount() int64 {
 	if m != nil {
 		return m.SuccessCount
 	}
 	return 0
 }
 
-func (m *UptimeCheckResponse) GetReputationAlpha() float64 {
+func (m *ReputationStats) GetReputationAlpha() float64 {
 	if m != nil {
 		return m.ReputationAlpha
 	}
 	return 0
 }
 
-func (m *UptimeCheckResponse) GetReputationBeta() float64 {
+func (m *ReputationStats) GetReputationBeta() float64 {
 	if m != nil {
 		return m.ReputationBeta
 	}
 	return 0
 }
 
-func (m *UptimeCheckResponse) GetReputationScore() float64 {
+func (m *ReputationStats) GetReputationScore() float64 {
 	if m != nil {
 		return m.ReputationScore
 	}
 	return 0
 }
 
+type GetStatsRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetStatsRequest) Reset()         { *m = GetStatsRequest{} }
+func (m *GetStatsRequest) String() string { return proto.CompactTextString(m) }
+func (*GetStatsRequest) ProtoMessage()    {}
+func (*GetStatsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0b184ee117142aa, []int{1}
+}
+func (m *GetStatsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetStatsRequest.Unmarshal(m, b)
+}
+func (m *GetStatsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetStatsRequest.Marshal(b, m, deterministic)
+}
+func (m *GetStatsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetStatsRequest.Merge(m, src)
+}
+func (m *GetStatsRequest) XXX_Size() int {
+	return xxx_messageInfo_GetStatsRequest.Size(m)
+}
+func (m *GetStatsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetStatsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetStatsRequest proto.InternalMessageInfo
+
+type GetStatsResponse struct {
+	UptimeCheck          *ReputationStats `protobuf:"bytes,1,opt,name=uptime_check,json=uptimeCheck,proto3" json:"uptime_check,omitempty"`
+	AuditCheck           *ReputationStats `protobuf:"bytes,2,opt,name=audit_check,json=auditCheck,proto3" json:"audit_check,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
+	XXX_unrecognized     []byte           `json:"-"`
+	XXX_sizecache        int32            `json:"-"`
+}
+
+func (m *GetStatsResponse) Reset()         { *m = GetStatsResponse{} }
+func (m *GetStatsResponse) String() string { return proto.CompactTextString(m) }
+func (*GetStatsResponse) ProtoMessage()    {}
+func (*GetStatsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0b184ee117142aa, []int{2}
+}
+func (m *GetStatsResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetStatsResponse.Unmarshal(m, b)
+}
+func (m *GetStatsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetStatsResponse.Marshal(b, m, deterministic)
+}
+func (m *GetStatsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetStatsResponse.Merge(m, src)
+}
+func (m *GetStatsResponse) XXX_Size() int {
+	return xxx_messageInfo_GetStatsResponse.Size(m)
+}
+func (m *GetStatsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetStatsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetStatsResponse proto.InternalMessageInfo
+
+func (m *GetStatsResponse) GetUptimeCheck() *ReputationStats {
+	if m != nil {
+		return m.UptimeCheck
+	}
+	return nil
+}
+
+func (m *GetStatsResponse) GetAuditCheck() *ReputationStats {
+	if m != nil {
+		return m.AuditCheck
+	}
+	return nil
+}
+
+type DailyStorageUsageRequest struct {
+	From                 time.Time `protobuf:"bytes,1,opt,name=from,proto3,stdtime" json:"from"`
+	To                   time.Time `protobuf:"bytes,2,opt,name=to,proto3,stdtime" json:"to"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *DailyStorageUsageRequest) Reset()         { *m = DailyStorageUsageRequest{} }
+func (m *DailyStorageUsageRequest) String() string { return proto.CompactTextString(m) }
+func (*DailyStorageUsageRequest) ProtoMessage()    {}
+func (*DailyStorageUsageRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0b184ee117142aa, []int{3}
+}
+func (m *DailyStorageUsageRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DailyStorageUsageRequest.Unmarshal(m, b)
+}
+func (m *DailyStorageUsageRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DailyStorageUsageRequest.Marshal(b, m, deterministic)
+}
+func (m *DailyStorageUsageRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DailyStorageUsageRequest.Merge(m, src)
+}
+func (m *DailyStorageUsageRequest) XXX_Size() int {
+	return xxx_messageInfo_DailyStorageUsageRequest.Size(m)
+}
+func (m *DailyStorageUsageRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DailyStorageUsageRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DailyStorageUsageRequest proto.InternalMessageInfo
+
+func (m *DailyStorageUsageRequest) GetFrom() time.Time {
+	if m != nil {
+		return m.From
+	}
+	return time.Time{}
+}
+
+func (m *DailyStorageUsageRequest) GetTo() time.Time {
+	if m != nil {
+		return m.To
+	}
+	return time.Time{}
+}
+
+type DailyStorageUsageResponse struct {
+	NodeId               NodeID                                    `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3,customtype=NodeID" json:"node_id"`
+	DailyStorageUsage    []*DailyStorageUsageResponse_StorageUsage `protobuf:"bytes,2,rep,name=daily_storage_usage,json=dailyStorageUsage,proto3" json:"daily_storage_usage,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}                                  `json:"-"`
+	XXX_unrecognized     []byte                                    `json:"-"`
+	XXX_sizecache        int32                                     `json:"-"`
+}
+
+func (m *DailyStorageUsageResponse) Reset()         { *m = DailyStorageUsageResponse{} }
+func (m *DailyStorageUsageResponse) String() string { return proto.CompactTextString(m) }
+func (*DailyStorageUsageResponse) ProtoMessage()    {}
+func (*DailyStorageUsageResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0b184ee117142aa, []int{4}
+}
+func (m *DailyStorageUsageResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DailyStorageUsageResponse.Unmarshal(m, b)
+}
+func (m *DailyStorageUsageResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DailyStorageUsageResponse.Marshal(b, m, deterministic)
+}
+func (m *DailyStorageUsageResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DailyStorageUsageResponse.Merge(m, src)
+}
+func (m *DailyStorageUsageResponse) XXX_Size() int {
+	return xxx_messageInfo_DailyStorageUsageResponse.Size(m)
+}
+func (m *DailyStorageUsageResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_DailyStorageUsageResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DailyStorageUsageResponse proto.InternalMessageInfo
+
+func (m *DailyStorageUsageResponse) GetDailyStorageUsage() []*DailyStorageUsageResponse_StorageUsage {
+	if m != nil {
+		return m.DailyStorageUsage
+	}
+	return nil
+}
+
+type DailyStorageUsageResponse_StorageUsage struct {
+	AtRestTotal          float64   `protobuf:"fixed64,2,opt,name=at_rest_total,json=atRestTotal,proto3" json:"at_rest_total,omitempty"`
+	TimeStamp            time.Time `protobuf:"bytes,3,opt,name=time_stamp,json=timeStamp,proto3,stdtime" json:"time_stamp"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *DailyStorageUsageResponse_StorageUsage) Reset() {
+	*m = DailyStorageUsageResponse_StorageUsage{}
+}
+func (m *DailyStorageUsageResponse_StorageUsage) String() string { return proto.CompactTextString(m) }
+func (*DailyStorageUsageResponse_StorageUsage) ProtoMessage()    {}
+func (*DailyStorageUsageResponse_StorageUsage) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0b184ee117142aa, []int{4, 0}
+}
+func (m *DailyStorageUsageResponse_StorageUsage) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_DailyStorageUsageResponse_StorageUsage.Unmarshal(m, b)
+}
+func (m *DailyStorageUsageResponse_StorageUsage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_DailyStorageUsageResponse_StorageUsage.Marshal(b, m, deterministic)
+}
+func (m *DailyStorageUsageResponse_StorageUsage) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DailyStorageUsageResponse_StorageUsage.Merge(m, src)
+}
+func (m *DailyStorageUsageResponse_StorageUsage) XXX_Size() int {
+	return xxx_messageInfo_DailyStorageUsageResponse_StorageUsage.Size(m)
+}
+func (m *DailyStorageUsageResponse_StorageUsage) XXX_DiscardUnknown() {
+	xxx_messageInfo_DailyStorageUsageResponse_StorageUsage.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DailyStorageUsageResponse_StorageUsage proto.InternalMessageInfo
+
+func (m *DailyStorageUsageResponse_StorageUsage) GetAtRestTotal() float64 {
+	if m != nil {
+		return m.AtRestTotal
+	}
+	return 0
+}
+
+func (m *DailyStorageUsageResponse_StorageUsage) GetTimeStamp() time.Time {
+	if m != nil {
+		return m.TimeStamp
+	}
+	return time.Time{}
+}
+
 func init() {
-	proto.RegisterType((*UptimeCheckRequest)(nil), "nodestats.UptimeCheckRequest")
-	proto.RegisterType((*UptimeCheckResponse)(nil), "nodestats.UptimeCheckResponse")
+	proto.RegisterType((*ReputationStats)(nil), "nodestats.ReputationStats")
+	proto.RegisterType((*GetStatsRequest)(nil), "nodestats.GetStatsRequest")
+	proto.RegisterType((*GetStatsResponse)(nil), "nodestats.GetStatsResponse")
+	proto.RegisterType((*DailyStorageUsageRequest)(nil), "nodestats.DailyStorageUsageRequest")
+	proto.RegisterType((*DailyStorageUsageResponse)(nil), "nodestats.DailyStorageUsageResponse")
+	proto.RegisterType((*DailyStorageUsageResponse_StorageUsage)(nil), "nodestats.DailyStorageUsageResponse.StorageUsage")
 }
 
 func init() { proto.RegisterFile("nodestats.proto", fileDescriptor_e0b184ee117142aa) }
 
 var fileDescriptor_e0b184ee117142aa = []byte{
-	// 241 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0xd0, 0xc1, 0x4e, 0xc2, 0x40,
-	0x10, 0xc6, 0x71, 0x17, 0xd0, 0x84, 0x41, 0xc5, 0xac, 0x1e, 0x1a, 0x12, 0x95, 0xd4, 0x83, 0x78,
-	0xe1, 0xa0, 0x4f, 0x20, 0xdc, 0x39, 0x94, 0x78, 0xd1, 0x43, 0xb3, 0x5d, 0x26, 0x40, 0xc4, 0xce,
-	0xda, 0x99, 0x7d, 0x59, 0x9f, 0xc6, 0xec, 0x96, 0x58, 0xac, 0xf1, 0xfa, 0xdb, 0x2f, 0x93, 0xec,
-	0x1f, 0x86, 0x25, 0xad, 0x90, 0xc5, 0x08, 0x4f, 0x5d, 0x45, 0x42, 0xba, 0xff, 0x03, 0x23, 0x58,
-	0xd3, 0x9a, 0x6a, 0x4e, 0xaf, 0x40, 0xbf, 0x38, 0xd9, 0x7e, 0xe0, 0x7c, 0x83, 0xf6, 0x3d, 0xc3,
-	0x4f, 0x8f, 0x2c, 0xe9, 0x97, 0x82, 0xcb, 0x5f, 0xcc, 0x8e, 0x4a, 0x46, 0x7d, 0x0b, 0x03, 0x21,
-	0x31, 0xbb, 0xdc, 0x92, 0x2f, 0x25, 0x51, 0x63, 0x35, 0xe9, 0x66, 0x10, 0x69, 0x1e, 0x44, 0xdf,
-	0xc1, 0x19, 0x7b, 0x6b, 0x91, 0x79, 0x3f, 0xe9, 0xc4, 0xc9, 0xe9, 0x1e, 0xeb, 0xd1, 0x03, 0x5c,
-	0x54, 0xe8, 0xbc, 0x18, 0xd9, 0x52, 0x99, 0x9b, 0x9d, 0xdb, 0x98, 0xa4, 0x3b, 0x56, 0x13, 0x95,
-	0x0d, 0x1b, 0x7f, 0x0e, 0xac, 0xef, 0xe1, 0x80, 0xf2, 0x02, 0xc5, 0x24, 0xbd, 0xb8, 0x3c, 0x6f,
-	0x78, 0x86, 0x62, 0x5a, 0x37, 0xd9, 0x52, 0x85, 0xc9, 0x71, 0xfb, 0xe6, 0x32, 0xf0, 0xe3, 0x1b,
-	0xf4, 0x17, 0xb4, 0xc2, 0x65, 0x68, 0xa1, 0x17, 0x30, 0x38, 0xf8, 0xa8, 0xbe, 0x9e, 0x36, 0xdd,
-	0xfe, 0x76, 0x19, 0xdd, 0xfc, 0xf7, 0x5c, 0xf7, 0x49, 0x8f, 0x66, 0xbd, 0xd7, 0x8e, 0x2b, 0x8a,
-	0x93, 0x18, 0xf7, 0xe9, 0x3b, 0x00, 0x00, 0xff, 0xff, 0xa7, 0x45, 0x2f, 0x78, 0x86, 0x01, 0x00,
-	0x00,
+	// 509 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x93, 0xcf, 0x6e, 0xd3, 0x40,
+	0x10, 0xc6, 0x59, 0x27, 0x84, 0x66, 0x9c, 0x36, 0xcd, 0x72, 0x31, 0xe1, 0xe0, 0xc8, 0x45, 0x6a,
+	0xb8, 0xb8, 0x22, 0x70, 0x40, 0x42, 0x1c, 0x48, 0x2a, 0xa1, 0x5e, 0x38, 0x6c, 0xca, 0x85, 0x03,
+	0xab, 0x8d, 0xbd, 0x75, 0x2d, 0x92, 0xac, 0xf1, 0x8e, 0x85, 0x78, 0x05, 0x0e, 0x88, 0x47, 0xe0,
+	0x11, 0x78, 0x0c, 0x9e, 0x80, 0x03, 0x87, 0xf2, 0x2a, 0x68, 0xd7, 0xce, 0x1f, 0x4c, 0xa1, 0x39,
+	0xfa, 0xb7, 0xdf, 0x7c, 0x99, 0xf9, 0x66, 0x02, 0xdd, 0xa5, 0x8a, 0xa5, 0x46, 0x81, 0x3a, 0xcc,
+	0x72, 0x85, 0x8a, 0xb6, 0xd7, 0xa0, 0x0f, 0x89, 0x4a, 0x54, 0x89, 0xfb, 0x7e, 0xa2, 0x54, 0x32,
+	0x97, 0x27, 0xf6, 0x6b, 0x56, 0x5c, 0x9c, 0x60, 0xba, 0x30, 0xb2, 0x45, 0x56, 0x0a, 0x82, 0x1f,
+	0x04, 0xba, 0x4c, 0x66, 0x05, 0x0a, 0x4c, 0xd5, 0x72, 0x6a, 0x0c, 0xa8, 0x0f, 0x2e, 0x2a, 0x14,
+	0x73, 0x1e, 0xa9, 0x62, 0x89, 0x1e, 0x19, 0x90, 0x61, 0x83, 0x81, 0x45, 0x13, 0x43, 0xe8, 0x11,
+	0xec, 0xeb, 0x22, 0x8a, 0xa4, 0xd6, 0x95, 0xc4, 0xb1, 0x92, 0x4e, 0x05, 0x4b, 0xd1, 0x43, 0x38,
+	0xcc, 0xd7, 0xc6, 0x5c, 0xcc, 0xb3, 0x4b, 0xe1, 0x35, 0x06, 0x64, 0x48, 0x58, 0x77, 0xc3, 0x5f,
+	0x18, 0x4c, 0x8f, 0x61, 0x0b, 0xf1, 0x99, 0x44, 0xe1, 0x35, 0xad, 0xf2, 0x60, 0x83, 0xc7, 0x12,
+	0x45, 0xcd, 0x53, 0x47, 0x2a, 0x97, 0xde, 0xed, 0xba, 0xe7, 0xd4, 0xe0, 0xa0, 0x07, 0xdd, 0x97,
+	0x12, 0xed, 0x40, 0x4c, 0xbe, 0x2f, 0xa4, 0xc6, 0xe0, 0x33, 0x81, 0xc3, 0x0d, 0xd3, 0x99, 0x5a,
+	0x6a, 0x49, 0x9f, 0x43, 0xa7, 0xc8, 0x4c, 0x2a, 0x3c, 0xba, 0x94, 0xd1, 0x3b, 0x3b, 0xad, 0x3b,
+	0xea, 0x87, 0x9b, 0x80, 0x6b, 0xf1, 0x30, 0xb7, 0xd4, 0x4f, 0x8c, 0x9c, 0x3e, 0x03, 0x57, 0x14,
+	0x71, 0x8a, 0x55, 0xb5, 0x73, 0x63, 0x35, 0x58, 0xb9, 0x2d, 0x0e, 0x3e, 0x11, 0xf0, 0x4e, 0x45,
+	0x3a, 0xff, 0x38, 0x45, 0x95, 0x8b, 0x44, 0xbe, 0xd6, 0x22, 0x91, 0x55, 0xb7, 0xf4, 0x29, 0x34,
+	0x2f, 0x72, 0xb5, 0x58, 0x37, 0x54, 0x6e, 0x32, 0x5c, 0x6d, 0x32, 0x3c, 0x5f, 0x6d, 0x72, 0xbc,
+	0xf7, 0xfd, 0xca, 0xbf, 0xf5, 0xe5, 0x97, 0x4f, 0x98, 0xad, 0xa0, 0x4f, 0xc0, 0x41, 0xb5, 0x6e,
+	0x65, 0x97, 0x3a, 0x07, 0x55, 0xf0, 0xd5, 0x81, 0x7b, 0xd7, 0x34, 0x53, 0xc5, 0x74, 0x0c, 0x77,
+	0xcc, 0x4c, 0x3c, 0x8d, 0x6d, 0x43, 0x9d, 0xf1, 0x81, 0x29, 0xfe, 0x79, 0xe5, 0xb7, 0x5e, 0xa9,
+	0x58, 0x9e, 0x9d, 0xb2, 0x96, 0x79, 0x3e, 0x8b, 0xa9, 0x80, 0xbb, 0xb1, 0x71, 0xe1, 0xba, 0xb4,
+	0xe1, 0x85, 0xf1, 0xf1, 0x9c, 0x41, 0x63, 0xe8, 0x8e, 0x1e, 0x6d, 0x05, 0xf3, 0xcf, 0xdf, 0x0a,
+	0xff, 0x80, 0xbd, 0xb8, 0xae, 0xeb, 0x7f, 0x80, 0xce, 0xf6, 0x37, 0x0d, 0x60, 0x5f, 0x20, 0xcf,
+	0xa5, 0x46, 0x6e, 0x8f, 0xd4, 0x8e, 0x4e, 0x98, 0x2b, 0x90, 0x49, 0x8d, 0xe7, 0x06, 0xd1, 0x09,
+	0x80, 0x5d, 0xb2, 0x9d, 0xdc, 0xde, 0xe1, 0xae, 0xd9, 0xb4, 0x4d, 0xdd, 0xd4, 0xc0, 0xd1, 0x37,
+	0x02, 0x6d, 0x33, 0x6e, 0xf9, 0x37, 0x99, 0xc0, 0xde, 0xea, 0x9a, 0xe8, 0xf6, 0xc6, 0x6b, 0x67,
+	0xd7, 0xbf, 0x7f, 0xed, 0x5b, 0x95, 0xeb, 0x5b, 0xe8, 0xfd, 0x15, 0x04, 0x3d, 0xfa, 0x7f, 0x4c,
+	0xa5, 0xed, 0x83, 0x5d, 0xb2, 0x1c, 0x37, 0xdf, 0x38, 0xd9, 0x6c, 0xd6, 0xb2, 0x13, 0x3e, 0xfe,
+	0x1d, 0x00, 0x00, 0xff, 0xff, 0xf4, 0xc8, 0x68, 0x4c, 0x37, 0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -162,7 +364,8 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type NodeStatsClient interface {
-	UptimeCheck(ctx context.Context, in *UptimeCheckRequest, opts ...grpc.CallOption) (*UptimeCheckResponse, error)
+	GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error)
+	DailyStorageUsage(ctx context.Context, in *DailyStorageUsageRequest, opts ...grpc.CallOption) (*DailyStorageUsageResponse, error)
 }
 
 type nodeStatsClient struct {
@@ -173,9 +376,18 @@ func NewNodeStatsClient(cc *grpc.ClientConn) NodeStatsClient {
 	return &nodeStatsClient{cc}
 }
 
-func (c *nodeStatsClient) UptimeCheck(ctx context.Context, in *UptimeCheckRequest, opts ...grpc.CallOption) (*UptimeCheckResponse, error) {
-	out := new(UptimeCheckResponse)
-	err := c.cc.Invoke(ctx, "/nodestats.NodeStats/UptimeCheck", in, out, opts...)
+func (c *nodeStatsClient) GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error) {
+	out := new(GetStatsResponse)
+	err := c.cc.Invoke(ctx, "/nodestats.NodeStats/GetStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nodeStatsClient) DailyStorageUsage(ctx context.Context, in *DailyStorageUsageRequest, opts ...grpc.CallOption) (*DailyStorageUsageResponse, error) {
+	out := new(DailyStorageUsageResponse)
+	err := c.cc.Invoke(ctx, "/nodestats.NodeStats/DailyStorageUsage", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,27 +396,46 @@ func (c *nodeStatsClient) UptimeCheck(ctx context.Context, in *UptimeCheckReques
 
 // NodeStatsServer is the server API for NodeStats service.
 type NodeStatsServer interface {
-	UptimeCheck(context.Context, *UptimeCheckRequest) (*UptimeCheckResponse, error)
+	GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
+	DailyStorageUsage(context.Context, *DailyStorageUsageRequest) (*DailyStorageUsageResponse, error)
 }
 
 func RegisterNodeStatsServer(s *grpc.Server, srv NodeStatsServer) {
 	s.RegisterService(&_NodeStats_serviceDesc, srv)
 }
 
-func _NodeStats_UptimeCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UptimeCheckRequest)
+func _NodeStats_GetStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStatsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NodeStatsServer).UptimeCheck(ctx, in)
+		return srv.(NodeStatsServer).GetStats(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/nodestats.NodeStats/UptimeCheck",
+		FullMethod: "/nodestats.NodeStats/GetStats",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NodeStatsServer).UptimeCheck(ctx, req.(*UptimeCheckRequest))
+		return srv.(NodeStatsServer).GetStats(ctx, req.(*GetStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NodeStats_DailyStorageUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DailyStorageUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeStatsServer).DailyStorageUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/nodestats.NodeStats/DailyStorageUsage",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeStatsServer).DailyStorageUsage(ctx, req.(*DailyStorageUsageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -214,8 +445,12 @@ var _NodeStats_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*NodeStatsServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "UptimeCheck",
-			Handler:    _NodeStats_UptimeCheck_Handler,
+			MethodName: "GetStats",
+			Handler:    _NodeStats_GetStats_Handler,
+		},
+		{
+			MethodName: "DailyStorageUsage",
+			Handler:    _NodeStats_DailyStorageUsage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

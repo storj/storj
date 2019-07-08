@@ -36,35 +36,33 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component(
-        {
-            props: {
-                isChosen: {
-                    type: Boolean,
-                    default: false
-                },
-                lastDigits: {
-                    type: String,
-                    default: '0000'
-                },
-                fullName: {
-                    type: String,
-                    default: 'Shawn Wilkinson'
-                },
-	            expireLabel: {
-                    type: String,
-		            default: 'Expires:'
-	            },
-	            expireDate: {
-                    type: String,
-                    default: '12/2020'
-	            },
-	            logoPath: {
-                    type: String,
-	            }
+    @Component({
+        props: {
+            isChosen: {
+                type: Boolean,
+                default: false
             },
-        }
-    )
+            lastDigits: {
+                type: String,
+                default: '0000'
+            },
+            fullName: {
+                type: String,
+                default: 'Shawn Wilkinson'
+            },
+            expireLabel: {
+                type: String,
+                default: 'Expires:'
+            },
+            expireDate: {
+                type: String,
+                default: '12/2020'
+            },
+            logoPath: {
+                type: String,
+            }
+        },
+    })
 
     export default class CardChoiceItem extends Vue {}
 </script>

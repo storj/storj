@@ -10,12 +10,21 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
 
-func TestEncryption(t *testing.T) {
-	forAllCiphers(func(cipher storj.Cipher) {
-		for i, path := range []storj.Path{
+func newStore(key storj.Key) *Store {
+	store := NewStore()
+	if err := store.Add("bucket", paths.Unencrypted{}, paths.Encrypted{}, key); err != nil {
+		panic(err)
+	}
+	return store
+}
+
+func TestStoreEncryption(t *testing.T) {
+	forAllCiphers(func(cipher storj.CipherSuite) {
+		for i, rawPath := range []string{
 			"",
 			"/",
 			"//",
@@ -25,75 +34,31 @@ func TestEncryption(t *testing.T) {
 			"fold1/fold2/file.txt",
 			"/fold1/fold2/fold3/file.txt",
 		} {
-			errTag := fmt.Sprintf("%d. %+v", i, path)
+			errTag := fmt.Sprintf("test:%d path:%q cipher:%v", i, rawPath, cipher)
 
-			key := testrand.Key()
+			store := newStore(testrand.Key())
+			path := paths.NewUnencrypted(rawPath)
 
-			encrypted, err := EncryptPath(path, cipher, &key)
+			encPath, err := EncryptPath("bucket", path, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			decrypted, err := DecryptPath(encrypted, cipher, &key)
+			decPath, err := DecryptPath("bucket", encPath, cipher, store)
 			if !assert.NoError(t, err, errTag) {
 				continue
 			}
 
-			assert.Equal(t, path, decrypted, errTag)
+			assert.Equal(t, rawPath, decPath.Raw(), errTag)
 		}
 	})
 }
 
-func TestDeriveKey(t *testing.T) {
-	forAllCiphers(func(cipher storj.Cipher) {
-		for i, tt := range []struct {
-			path      storj.Path
-			depth     int
-			errString string
-		}{
-			{"fold1/fold2/fold3/file.txt", -1, "encryption error: negative depth"},
-			{"fold1/fold2/fold3/file.txt", 0, ""},
-			{"fold1/fold2/fold3/file.txt", 1, ""},
-			{"fold1/fold2/fold3/file.txt", 2, ""},
-			{"fold1/fold2/fold3/file.txt", 3, ""},
-			{"fold1/fold2/fold3/file.txt", 4, ""},
-			{"fold1/fold2/fold3/file.txt", 5, "encryption error: depth greater than path length"},
-		} {
-			errTag := fmt.Sprintf("%d. %+v", i, tt)
-
-			key := testrand.Key()
-
-			encrypted, err := EncryptPath(tt.path, cipher, &key)
-			if !assert.NoError(t, err, errTag) {
-				continue
-			}
-
-			derivedKey, err := DerivePathKey(tt.path, &key, tt.depth)
-			if tt.errString != "" {
-				assert.EqualError(t, err, tt.errString, errTag)
-				continue
-			}
-			if !assert.NoError(t, err, errTag) {
-				continue
-			}
-
-			shared := storj.JoinPaths(storj.SplitPath(encrypted)[tt.depth:]...)
-			decrypted, err := DecryptPath(shared, cipher, derivedKey)
-			if !assert.NoError(t, err, errTag) {
-				continue
-			}
-
-			expected := storj.JoinPaths(storj.SplitPath(tt.path)[tt.depth:]...)
-			assert.Equal(t, expected, decrypted, errTag)
-		}
-	})
-}
-
-func forAllCiphers(test func(cipher storj.Cipher)) {
-	for _, cipher := range []storj.Cipher{
-		storj.Unencrypted,
-		storj.AESGCM,
-		storj.SecretBox,
+func forAllCiphers(test func(cipher storj.CipherSuite)) {
+	for _, cipher := range []storj.CipherSuite{
+		storj.EncNull,
+		storj.EncAESGCM,
+		storj.EncSecretBox,
 	} {
 		test(cipher)
 	}
