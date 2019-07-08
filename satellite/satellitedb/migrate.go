@@ -932,7 +932,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     40,
 				Action: migrate.SQL{
 					`ALTER TABLE pending_audits ADD COLUMN path text NOT NULL DEFAULT '';`,
-					`DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
 				},
 			},
 		},
