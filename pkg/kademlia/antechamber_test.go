@@ -83,37 +83,3 @@ func TestAntechamberRemoveNode(t *testing.T) {
 	_, err = rt.antechamber.Get(ctx, node.Id.Bytes())
 	assert.Error(t, err)
 }
-
-func TestAntechamberFindNear(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-	nodeID := storj.NodeID{127, 255}
-	rt := createRoutingTable(ctx, nodeID)
-	defer ctx.Check(rt.Close)
-
-	// Check empty antechamber, expect empty findNear
-	nodes, err := rt.antechamberFindNear(ctx, nodeID, 2)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, len(nodes))
-
-	// add 4 nodes
-	node1 := &pb.Node{Id: storj.NodeID{191, 255}} // [191, 255] XOR [127, 255] = 192 -> second closest
-	err = rt.antechamberAddNode(ctx, node1)
-	assert.NoError(t, err)
-	node2 := &pb.Node{Id: storj.NodeID{143, 255}}
-	err = rt.antechamberAddNode(ctx, node2)
-	assert.NoError(t, err)
-	node3 := &pb.Node{Id: storj.NodeID{133, 255}}
-	err = rt.antechamberAddNode(ctx, node3)
-	assert.NoError(t, err)
-	node4 := &pb.Node{Id: storj.NodeID{255, 255}} // [255, 255] XOR [127, 255] = 128 -> closest node
-	err = rt.antechamberAddNode(ctx, node4)
-	assert.NoError(t, err)
-
-	// select 2 closest
-	nodes, err = rt.antechamberFindNear(ctx, nodeID, 2)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(nodes))
-	assert.Equal(t, node4.Id, nodes[0].Id)
-	assert.Equal(t, node1.Id, nodes[1].Id)
-}

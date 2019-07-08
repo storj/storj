@@ -59,16 +59,16 @@ type RoutingTableConfig struct {
 type RoutingTable struct {
 	log              *zap.Logger
 	self             *overlay.NodeDossier
-	kadBucketDB      storage.KeyValueStore
-	nodeBucketDB     storage.KeyValueStore
+	kadBucketDB      storage.KeyValueStore // key: prefix, value: timestamp
+	nodeBucketDB     storage.KeyValueStore // key: node.Id, value: node
 	transport        *pb.NodeTransport
 	mutex            *sync.Mutex
 	rcMutex          *sync.Mutex
 	acMutex          *sync.Mutex
 	replacementCache map[bucketID][]*pb.Node
-	bucketSize       int // max number of nodes stored in a kbucket = 20 (k)
-	rcBucketSize     int // replacementCache bucket max length
-	antechamber      storage.KeyValueStore
+	bucketSize       int                   // max number of nodes stored in a kbucket = 20 (k)
+	rcBucketSize     int                   // replacementCache bucket max length
+	antechamber      storage.KeyValueStore // key: node.Id xor self.Id, value: node
 }
 
 // NewRoutingTable returns a newly configured instance of a RoutingTable
@@ -192,8 +192,7 @@ func (rt *RoutingTable) DumpNodes(ctx context.Context) (_ []*pb.Node, err error)
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	closestNodes := make([]*pb.Node, 0, limit+1)
+	closestNodes := make([]*pb.Node, 0, limit+1) //why is this capacity limit+1?
 	err = rt.iterateNodes(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)
 		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- {

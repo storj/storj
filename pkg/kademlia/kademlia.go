@@ -294,7 +294,7 @@ func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node
 	return *results[0], nil
 }
 
-//lookup initiates a kadmelia node lookup
+//lookup initiates a kademlia node lookup
 func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
