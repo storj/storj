@@ -57,7 +57,7 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 
 		var (
-			testData         = testrand.Bytes(10 * memory.KiB)
+			testData         = testrand.Bytes(1 * memory.MiB)
 			minThreshold     = 3
 			successThreshold = 7
 		)
@@ -193,7 +193,7 @@ func TestRepairMultipleDisqualified(t *testing.T) {
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
-		testData := testrand.Bytes(10 * memory.KiB)
+		testData := testrand.Bytes(1 * memory.MiB)
 
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
 			MinThreshold:     3,
@@ -325,7 +325,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 				),
 			)
 			ul       = planet.Uplinks[0]
-			testData = testrand.Bytes(10 * memory.KiB)
+			testData = testrand.Bytes(1 * memory.MiB)
 		)
 
 		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
