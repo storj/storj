@@ -39,8 +39,8 @@ func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.Stor
 	}
 }
 
-// AuditCheck returns audit check information for client node
-func (e *Endpoint) AuditCheck(ctx context.Context, req *pb.AuditCheckRequest) (_ *pb.AuditCheckResponse, err error) {
+// GetStats sends node stats for client node
+func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
@@ -53,43 +53,29 @@ func (e *Endpoint) AuditCheck(ctx context.Context, req *pb.AuditCheckRequest) (_
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	reputationScore := calculateReputationScore(
-		node.Reputation.AuditReputationAlpha,
-		node.Reputation.AuditReputationBeta)
-
-	return &pb.AuditCheckResponse{
-		TotalCount:      node.Reputation.AuditCount,
-		SuccessCount:    node.Reputation.AuditSuccessCount,
-		ReputationAlpha: node.Reputation.AuditReputationAlpha,
-		ReputationBeta:  node.Reputation.AuditReputationBeta,
-		ReputationScore: reputationScore,
-	}, nil
-}
-
-// UptimeCheck returns uptime checks information for client node
-func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) (_ *pb.UptimeCheckResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
-	}
-
-	node, err := e.overlay.Get(ctx, peer.ID)
-	if err != nil {
-		return nil, NodeStatsEndpointErr.Wrap(err)
-	}
-
-	reputationScore := calculateReputationScore(
+	uptimeScore := calculateReputationScore(
 		node.Reputation.UptimeReputationAlpha,
 		node.Reputation.UptimeReputationBeta)
 
-	return &pb.UptimeCheckResponse{
-		TotalCount:      node.Reputation.UptimeCount,
-		SuccessCount:    node.Reputation.UptimeSuccessCount,
-		ReputationAlpha: node.Reputation.UptimeReputationAlpha,
-		ReputationBeta:  node.Reputation.UptimeReputationBeta,
-		ReputationScore: reputationScore,
+	auditScore := calculateReputationScore(
+		node.Reputation.AuditReputationAlpha,
+		node.Reputation.AuditReputationBeta)
+
+	return &pb.GetStatsResponse{
+		UptimeCheck: &pb.ReputationStats{
+			TotalCount:      node.Reputation.UptimeCount,
+			SuccessCount:    node.Reputation.UptimeSuccessCount,
+			ReputationAlpha: node.Reputation.UptimeReputationAlpha,
+			ReputationBeta:  node.Reputation.UptimeReputationBeta,
+			ReputationScore: uptimeScore,
+		},
+		AuditCheck: &pb.ReputationStats{
+			TotalCount:      node.Reputation.AuditCount,
+			SuccessCount:    node.Reputation.AuditSuccessCount,
+			ReputationAlpha: node.Reputation.AuditReputationAlpha,
+			ReputationBeta:  node.Reputation.AuditReputationBeta,
+			ReputationScore: auditScore,
+		},
 	}, nil
 }
 
