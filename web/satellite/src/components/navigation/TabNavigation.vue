@@ -12,16 +12,14 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component(
-        {
-            props: {
-                navigation: {
-                    type: Object,
-                    default: {},
-                }
-            },
-        }
-    )
+    @Component({
+        props: {
+            navigation: {
+                type: Object,
+                default: {},
+            }
+        },
+    })
 
     export default class TabNavigation extends Vue {}
 </script>

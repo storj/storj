@@ -35,11 +35,10 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom input component for login page
-@Component(
-    {
+    // Custom input component for login page
+    @Component({
         data: () => {
             return {
                 value: '',
@@ -102,11 +101,9 @@ import { Component, Vue } from 'vue-property-decorator';
                 };
             }
         }
-    },
-)
-export default class HeaderlessInput extends Vue {
-}
+    })
 
+    export default class HeaderlessInput extends Vue {}
 </script>
 
 <style scoped lang="scss">

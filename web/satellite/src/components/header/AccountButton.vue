@@ -21,14 +21,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import AccountDropdown from './AccountDropdown.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import AccountDropdown from './AccountDropdown.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         computed: {
-            // May change later
+        // May change later
             avatarLetter: function (): string {
                 return this.$store.getters.userName.slice(0, 1).toUpperCase();
             },
@@ -47,11 +46,9 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         components: {
             AccountDropdown
         }
-    }
-)
+    })
 
-export default class AccountButton extends Vue {
-}
+    export default class AccountButton extends Vue {}
 </script>
 
 <style scoped lang="scss">
