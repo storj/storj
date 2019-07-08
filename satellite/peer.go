@@ -98,6 +98,8 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
+	// Buckets returns the database to interact with buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Config is the global config satellite
@@ -401,7 +403,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
+		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
+			peer.Metainfo.Database,
+			peer.DB.Buckets(),
+		)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),

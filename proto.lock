@@ -189,7 +189,7 @@
       "def": {
         "enums": [
           {
-            "name": "CipherSuite.Type",
+            "name": "CipherSuite",
             "enum_fields": [
               {
                 "name": "ENC_UNSPECIFIED"
@@ -222,16 +222,6 @@
                 "id": 2,
                 "name": "block_size",
                 "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "CipherSuite",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "Type"
               }
             ]
           }
