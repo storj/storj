@@ -191,6 +191,7 @@ type encodedPiece struct {
 }
 
 func (ep *encodedPiece) Read(p []byte) (n int, err error) {
+	// No need to trace this function because it's very fast and called many times.
 	if ep.err != nil {
 		return 0, ep.err
 	}
