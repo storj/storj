@@ -190,7 +190,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 		}
 
 		if req.Pointer.SegmentSize > endpoint.rsConfig.MaxSegmentSize.Int64() || req.Pointer.SegmentSize < 0 {
-			return Error.New("segment size %v too large, maximum is %v", req.Pointer.SegmentSize, endpoint.rsConfig.MaxSegmentSize)
+			return Error.New("segment size %v is out of range, maximum is %v", req.Pointer.SegmentSize, endpoint.rsConfig.MaxSegmentSize)
 		}
 
 		for _, piece := range remote.RemotePieces {
