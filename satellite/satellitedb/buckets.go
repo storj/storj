@@ -59,6 +59,9 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
+	if err != nil {
+		return bucket, err
+	}
 	return convertDBXtoBucket(dbxBucket)
 }
 
