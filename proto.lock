@@ -2469,10 +2469,7 @@
       "def": {
         "messages": [
           {
-            "name": "AuditCheckRequest"
-          },
-          {
-            "name": "AuditCheckResponse",
+            "name": "ReputationStats",
             "fields": [
               {
                 "id": 1,
@@ -2502,35 +2499,20 @@
             ]
           },
           {
-            "name": "UptimeCheckRequest"
+            "name": "GetStatsRequest"
           },
           {
-            "name": "UptimeCheckResponse",
+            "name": "GetStatsResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "total_count",
-                "type": "int64"
+                "name": "uptime_check",
+                "type": "ReputationStats"
               },
               {
                 "id": 2,
-                "name": "success_count",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "reputation_alpha",
-                "type": "double"
-              },
-              {
-                "id": 4,
-                "name": "reputation_beta",
-                "type": "double"
-              },
-              {
-                "id": 5,
-                "name": "reputation_score",
-                "type": "double"
+                "name": "audit_check",
+                "type": "ReputationStats"
               }
             ]
           },
@@ -2628,14 +2610,9 @@
             "name": "NodeStats",
             "rpcs": [
               {
-                "name": "AuditCheck",
-                "in_type": "AuditCheckRequest",
-                "out_type": "AuditCheckResponse"
-              },
-              {
-                "name": "UptimeCheck",
-                "in_type": "UptimeCheckRequest",
-                "out_type": "UptimeCheckResponse"
+                "name": "GetStats",
+                "in_type": "GetStatsRequest",
+                "out_type": "GetStatsResponse"
               },
               {
                 "name": "DailyStorageUsage",
