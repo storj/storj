@@ -55,7 +55,7 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total
 	FieldTotalCount = "totalCount"
-	// FieldCardBrand is a field name for credit card bard
+	// FieldCardBrand is a field name for credit card brand
 	FieldCardBrand = "brand"
 	// FieldCardLastFour is a field name for credit card last four digits
 	FieldCardLastFour = "lastFour"
