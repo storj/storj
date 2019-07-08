@@ -788,8 +788,8 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}
 
 	listOpts := storj.BucketListOptions{
-		Cursor: string(req.Cursor),
-		Limit: int(req.Limit),
+		Cursor:    string(req.Cursor),
+		Limit:     int(req.Limit),
 		Direction: storj.Forward,
 	}
 	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts)

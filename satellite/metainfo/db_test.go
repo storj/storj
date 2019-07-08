@@ -4,13 +4,13 @@
 package metainfo_test
 
 import (
+	"context"
 	"fmt"
 	"storj.io/storj/satellite/console"
 	"testing"
-	"context"
 
-	"github.com/stretchr/testify/require"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -22,10 +22,10 @@ import (
 
 func setupBucket(name string, projectID uuid.UUID) storj.Bucket {
 	return storj.Bucket{
-		ID: testrand.UUID(),
-		Name: name,
-		ProjectID: projectID,
-		PathCipher: storj.CipherSuite(storj.EncAESGCM),
+		ID:                  testrand.UUID(),
+		Name:                name,
+		ProjectID:           projectID,
+		PathCipher:          storj.EncAESGCM,
 		DefaultSegmentsSize: 65536,
 		DefaultRedundancyScheme: storj.RedundancyScheme{
 			Algorithm:      storj.ReedSolomon,
@@ -36,8 +36,8 @@ func setupBucket(name string, projectID uuid.UUID) storj.Bucket {
 			TotalShares:    13,
 		},
 		DefaultEncryptionParameters: storj.EncryptionParameters{
-				CipherSuite: storj.EncAESGCM,
-				BlockSize:   32,
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   32,
 		},
 	}
 }
@@ -69,13 +69,13 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 
 		// DeleteBucket
-		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"),project.ID)
+		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"), project.ID)
 		require.NoError(t, err)
 	})
 }
 
 var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
-"test.bucket", "123", "0test", "999", "test-bucket.thing",
+	"test.bucket", "123", "0test", "999", "test-bucket.thing",
 }
 
 func setup(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.UUID) {
@@ -96,7 +96,6 @@ func teardown(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.
 		}
 	}
 }
-
 
 func TestListBuckets(t *testing.T) {
 	testCases := []struct {
@@ -131,6 +130,7 @@ func TestListBuckets(t *testing.T) {
 		setup(ctx, bucketsDB, project.ID)
 
 		for _, tt := range testCases {
+			tt := tt // avoid scopelint error
 			t.Run(tt.name, func(t *testing.T) {
 				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID, storj.BucketListOptions{
 					Cursor:    tt.cursor,
