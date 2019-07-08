@@ -57,7 +57,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, expectedSize, meta.Size)
 					assert.Equal(t, test.metadata, meta.Data)
-					assert.Equal(t, test.expiration, meta.Expiration)
+					assert.True(t, test.expiration.Equal(meta.Expiration))
 					assert.True(t, meta.Modified.After(beforeModified))
 				}
 
@@ -66,7 +66,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, expectedSize, meta.Size)
 					assert.Equal(t, test.metadata, meta.Data)
-					assert.Equal(t, test.expiration, meta.Expiration)
+					assert.True(t, test.expiration.Equal(meta.Expiration))
 					assert.True(t, meta.Modified.After(beforeModified))
 				} else {
 					require.Contains(t, err.Error(), test.err)
