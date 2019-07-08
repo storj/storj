@@ -30,8 +30,8 @@
             CardComponent
         }
     })
-    export default class PaymentMethods extends Vue {
-    }
+
+    export default class ProjectPaymentMethods extends Vue {}
 </script>
 
 <style scoped lang="scss">

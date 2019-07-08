@@ -45,6 +45,14 @@ type Rollup struct {
 	AtRestTotal    float64
 }
 
+// NodeSpaceUsage is node at rest space usage over a period of time
+type NodeSpaceUsage struct {
+	NodeID      storj.NodeID
+	AtRestTotal float64
+
+	TimeStamp time.Time
+}
+
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
 type StoragenodeAccounting interface {
 	// SaveTallies records tallies of data at rest
@@ -61,6 +69,8 @@ type StoragenodeAccounting interface {
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
+	// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
+	QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]NodeSpaceUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
 }
@@ -72,7 +82,7 @@ type ProjectAccounting interface {
 	// CreateStorageTally creates a record for BucketStorageTally in the accounting DB table
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
-	GetAllocatedBandwidthTotal(ctx context.Context, bucketID []byte, from time.Time) (int64, error)
+	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// GetProjectUsageLimits returns project usage limit

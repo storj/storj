@@ -139,6 +139,8 @@ func TestOptions_ServerOption_Peer_CA_Whitelist(t *testing.T) {
 		conn, err := transportClient.DialNode(ctx, &target.Node, dialOption)
 		assert.NotNil(t, conn)
 		assert.NoError(t, err)
+
+		assert.NoError(t, conn.Close())
 	})
 }
 

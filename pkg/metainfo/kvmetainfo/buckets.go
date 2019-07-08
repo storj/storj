@@ -19,7 +19,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// CreateBucket creates a new bucket with the specified information
+// CreateBucket creates a new bucket or updates and existing bucket with the specified information
 func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *storj.Bucket) (bucketInfo storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -27,7 +27,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 	if info == nil {
-		info = &storj.Bucket{PathCipher: storj.AESGCM}
+		info = &storj.Bucket{PathCipher: storj.EncAESGCM}
 	}
 	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
 		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
@@ -61,15 +61,16 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		return bucketInfo, err
 	}
 
-	if info.PathCipher < storj.Unencrypted || info.PathCipher > storj.SecretBox {
+	if info.PathCipher < storj.EncNull || info.PathCipher > storj.EncSecretBox {
 		return storj.Bucket{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", info.PathCipher)
 	}
 
 	r := bytes.NewReader(nil)
 	userMeta := map[string]string{
+		"attribution-to":    info.Attribution,
 		"path-enc-type":     strconv.Itoa(int(info.PathCipher)),
 		"default-seg-size":  strconv.FormatInt(info.SegmentsSize, 10),
-		"default-enc-type":  strconv.Itoa(int(info.EncryptionParameters.CipherSuite.ToCipher())),
+		"default-enc-type":  strconv.Itoa(int(info.EncryptionParameters.CipherSuite)),
 		"default-enc-blksz": strconv.FormatInt(int64(info.EncryptionParameters.BlockSize), 10),
 		"default-rs-algo":   strconv.Itoa(int(info.RedundancyScheme.Algorithm)),
 		"default-rs-sharsz": strconv.FormatInt(int64(info.RedundancyScheme.ShareSize), 10),
@@ -198,9 +199,6 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 
 	out.Name = bucketName
 	out.Created = m.Modified
-	// backwards compatibility for old buckets
-	out.PathCipher = storj.AESGCM
-	out.EncryptionParameters.CipherSuite = storj.EncUnspecified
 
 	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
 		if err != nil {
@@ -220,9 +218,10 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 	es := &out.EncryptionParameters
 	rs := &out.RedundancyScheme
 
-	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.Cipher(v) })
+	out.Attribution = m.UserDefined["attribution-to"]
+	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.CipherSuite(v) })
 	applySetting("default-seg-size", 64, func(v int64) { out.SegmentsSize = v })
-	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.Cipher(v).ToCipherSuite() })
+	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.CipherSuite(v) })
 	applySetting("default-enc-blksz", 32, func(v int64) { es.BlockSize = int32(v) })
 	applySetting("default-rs-algo", 32, func(v int64) { rs.Algorithm = storj.RedundancyAlgorithm(v) })
 	applySetting("default-rs-sharsz", 32, func(v int64) { rs.ShareSize = int32(v) })

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -142,9 +143,13 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 					bucketID := storj.JoinPaths(project, bucketName)
 
 					bucketTally := bucketTallies[bucketID]
+					projectID, err := uuid.Parse(project)
+					if err != nil {
+						return Error.Wrap(err)
+					}
 					if bucketTally == nil {
 						bucketTally = &accounting.BucketTally{}
-						bucketTally.ProjectID = []byte(project)
+						bucketTally.ProjectID = projectID[:]
 						bucketTally.BucketName = []byte(bucketName)
 
 						bucketTallies[bucketID] = bucketTally

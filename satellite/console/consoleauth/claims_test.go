@@ -7,18 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/testrand"
 )
 
 func TestClaims(t *testing.T) {
-	id, err := uuid.New()
-	assert.Nil(t, err)
-	assert.NoError(t, err)
-	assert.NotNil(t, id)
+	id := testrand.UUID()
 
 	claims := Claims{
-		ID:         *id,
+		ID:         id,
 		Email:      "alice@mail.test",
 		Expiration: time.Now(),
 	}

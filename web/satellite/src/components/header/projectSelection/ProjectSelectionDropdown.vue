@@ -27,11 +27,11 @@ import {
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
-} from "@/utils/constants/actionNames";
+    BUCKET_USAGE_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS
+} from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         computed: {
             projects: function () {
                 return this.$store.getters.projects;
@@ -70,11 +70,9 @@ import {
                 }
             }
         },
-    }
-)
+    })
 
-export default class ProjectSelectionDropdown extends Vue {
-}
+    export default class ProjectSelectionDropdown extends Vue {}
 </script>
 
 <style scoped lang="scss">

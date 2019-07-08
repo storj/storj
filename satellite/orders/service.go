@@ -4,6 +4,7 @@
 package orders
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -53,7 +54,7 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 }
 
 // VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
-func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit2) (err error) {
+func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
 }
@@ -72,7 +73,7 @@ func (service *Service) saveSerial(ctx context.Context, serialNumber storj.Seria
 	return service.orders.CreateSerialInfo(ctx, serialNumber, bucketID, expiresAt)
 }
 
-func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
+func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(addressedOrderLimits) == 0 {
 		return nil
@@ -105,7 +106,7 @@ func (service *Service) updateBandwidth(ctx context.Context, bucketID []byte, ad
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
-	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, bucketID, action, bucketAllocation, intervalStart); err != nil {
+	if err := service.orders.UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, action, bucketAllocation, intervalStart); err != nil {
 		return Error.Wrap(err)
 	}
 
@@ -151,10 +152,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 			continue
 		}
 
-		if node != nil {
-			node.Type.DPanicOnInvalid("order service get order limits")
-		}
-
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
@@ -163,20 +160,21 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkId:         uplink.ID,
 			StorageNodeId:    piece.NodeId,
-			PieceId:          rootPieceID.Derive(piece.NodeId),
+			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:           pb.PieceAction_GET,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -204,7 +202,11 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, uplink *identi
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -230,16 +232,17 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 	limits := make([]*pb.AddressedOrderLimit, len(nodes))
 	var pieceNum int32
 	for _, node := range nodes {
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkId:         uplink.ID,
 			StorageNodeId:    node.Id,
-			PieceId:          rootPieceID.Derive(node.Id),
+			PieceId:          rootPieceID.Derive(node.Id, pieceNum),
 			Action:           pb.PieceAction_PUT,
 			Limit:            maxPieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -263,7 +266,11 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, uplink *identi
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return rootPieceID, limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return storj.PieceID{}, nil, Error.Wrap(err)
 	}
 
@@ -293,13 +300,9 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 	for _, piece := range pointer.GetRemote().GetRemotePieces() {
 		node, err := service.cache.Get(ctx, piece.NodeId)
 		if err != nil {
-			service.log.Debug("error getting node from overlay cache", zap.Error(err))
+			service.log.Error("error getting node from overlay cache", zap.Error(err))
 			combinedErrs = errs.Combine(combinedErrs, err)
 			continue
-		}
-
-		if node != nil {
-			node.Type.DPanicOnInvalid("order service delete order limits")
 		}
 
 		if node.Disqualified != nil {
@@ -310,20 +313,21 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, uplink *ide
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkId:         uplink.ID,
 			StorageNodeId:    piece.NodeId,
-			PieceId:          rootPieceID.Derive(piece.NodeId),
+			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:           pb.PieceAction_DELETE,
 			Limit:            0,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -390,32 +394,29 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 			continue
 		}
 
-		if node != nil {
-			node.Type.DPanicOnInvalid("order service audit order limits")
-		}
-
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is disqualified: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
 			continue
 		}
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkId:         auditor.ID,
 			StorageNodeId:    piece.NodeId,
-			PieceId:          rootPieceID.Derive(piece.NodeId),
+			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:           pb.PieceAction_GET_AUDIT,
 			Limit:            int64(shareSize),
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -439,7 +440,11 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -447,7 +452,8 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, auditor *ide
 }
 
 // CreateAuditOrderLimit creates an order limit for auditing a single the piece from a pointer.
-func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, nodeID storj.NodeID, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *identity.PeerIdentity, bucketID []byte, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, err error) {
+	// TODO reduce number of params ?
 	defer mon.Task()(&ctx)(&err)
 	// convert orderExpiration from duration to timestamp
 	orderExpirationTime := time.Now().UTC().Add(service.orderExpiration)
@@ -466,10 +472,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		return nil, Error.Wrap(err)
 	}
 
-	if node != nil {
-		node.Type.DPanicOnInvalid("order service audit order limits")
-	}
-
 	if node.Disqualified != nil {
 		return nil, overlay.ErrNodeDisqualified.New(nodeID.String())
 	}
@@ -478,15 +480,16 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		return nil, overlay.ErrNodeOffline.New(nodeID.String())
 	}
 
-	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+	orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 		SerialNumber:     serialNumber,
 		SatelliteId:      service.satellite.ID(),
 		SatelliteAddress: service.satelliteAddress,
 		UplinkId:         auditor.ID,
 		StorageNodeId:    nodeID,
-		PieceId:          rootPieceID.Derive(nodeID),
+		PieceId:          rootPieceID.Derive(nodeID, pieceNum),
 		Action:           pb.PieceAction_GET_AUDIT,
 		Limit:            int64(shareSize),
+		OrderCreation:    time.Now(),
 		OrderExpiration:  orderExpiration,
 	})
 	if err != nil {
@@ -503,7 +506,11 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, auditor *iden
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limit); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limit, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -545,10 +552,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 			continue
 		}
 
-		if node != nil {
-			node.Type.DPanicOnInvalid("order service get repair order limits")
-		}
-
 		if node.Disqualified != nil {
 			service.log.Debug("node is disqualified", zap.Stringer("ID", node.Id))
 			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeDisqualified.New(node.Id.String()))
@@ -557,20 +560,21 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 
 		if !service.cache.IsOnline(node) {
 			service.log.Debug("node is offline", zap.Stringer("ID", node.Id))
-			combinedErrs = errs.Combine(combinedErrs, Error.New("node is offline: %s", node.Id.String()))
+			combinedErrs = errs.Combine(combinedErrs, overlay.ErrNodeOffline.New(node.Id.String()))
 			continue
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkId:         repairer.ID,
 			StorageNodeId:    piece.NodeId,
-			PieceId:          rootPieceID.Derive(piece.NodeId),
+			PieceId:          rootPieceID.Derive(piece.NodeId, piece.PieceNum),
 			Action:           pb.PieceAction_GET_REPAIR,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -594,7 +598,11 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -626,26 +634,27 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 	}
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	var pieceNum int
+	var pieceNum int32
 	for _, node := range newNodes {
-		for pieceNum < totalPieces && getOrderLimits[pieceNum] != nil {
+		for int(pieceNum) < totalPieces && getOrderLimits[pieceNum] != nil {
 			pieceNum++
 		}
 
-		if pieceNum >= totalPieces { // should not happen
+		if int(pieceNum) >= totalPieces { // should not happen
 			return nil, Error.New("piece num greater than total pieces: %d >= %d", pieceNum, totalPieces)
 		}
 
-		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit2{
+		orderLimit, err := signing.SignOrderLimit(ctx, service.satellite, &pb.OrderLimit{
 			SerialNumber:     serialNumber,
 			SatelliteId:      service.satellite.ID(),
 			SatelliteAddress: service.satelliteAddress,
 			UplinkId:         repairer.ID,
 			StorageNodeId:    node.Id,
-			PieceId:          rootPieceID.Derive(node.Id),
+			PieceId:          rootPieceID.Derive(node.Id, pieceNum),
 			Action:           pb.PieceAction_PUT_REPAIR,
 			Limit:            pieceSize,
 			PieceExpiration:  expiration,
+			OrderCreation:    time.Now(),
 			OrderExpiration:  orderExpiration,
 		})
 		if err != nil {
@@ -664,7 +673,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 		return nil, Error.Wrap(err)
 	}
 
-	if err := service.updateBandwidth(ctx, bucketID, limits...); err != nil {
+	projectID, bucketName, err := SplitBucketID(bucketID)
+	if err != nil {
+		return limits, err
+	}
+	if err := service.updateBandwidth(ctx, *projectID, bucketName, limits...); err != nil {
 		return nil, Error.Wrap(err)
 	}
 
@@ -672,19 +685,32 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 }
 
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
-func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_GET, amount, intervalStart)
+	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
 }
 
 // UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
-func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucketID []byte, amount int64) (err error) {
+func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
-	return service.orders.UpdateBucketBandwidthInline(ctx, bucketID, pb.PieceAction_PUT, amount, intervalStart)
+	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, intervalStart)
+}
+
+// SplitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
+func SplitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
+	pathElements := bytes.Split(bucketID, []byte("/"))
+	if len(pathElements) > 1 {
+		bucketName = pathElements[1]
+	}
+	projectID, err = uuid.Parse(string(pathElements[0]))
+	if err != nil {
+		return nil, nil, err
+	}
+	return projectID, bucketName, nil
 }

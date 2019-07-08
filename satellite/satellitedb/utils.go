@@ -4,7 +4,6 @@
 package satellitedb
 
 import (
-	"bytes"
 	"database/sql/driver"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -23,17 +22,6 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 	}
 
 	return id, nil
-}
-
-// splitBucketID takes a bucketID, splits on /, and returns a projectID and bucketName
-func splitBucketID(bucketID []byte) (projectID *uuid.UUID, bucketName []byte, err error) {
-	pathElements := bytes.Split(bucketID, []byte("/"))
-	bucketName = pathElements[1]
-	projectID, err = uuid.Parse(string(pathElements[0]))
-	if err != nil {
-		return nil, nil, err
-	}
-	return projectID, bucketName, nil
 }
 
 type postgresNodeIDList storj.NodeIDList

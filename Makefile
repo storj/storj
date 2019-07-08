@@ -71,6 +71,13 @@ proto: ## Rebuild protobuf files
 	go run scripts/protobuf.go install
 	go run scripts/protobuf.go generate
 
+.PHONY: build-packages
+build-packages: build-packages-race build-packages-normal ## Test docker images locally
+build-packages-race:
+	go install -v ./...
+build-packages-normal:
+	go install -v -race ./...
+
 ##@ Simulator
 
 .PHONY: install-sim

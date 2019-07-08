@@ -23,8 +23,11 @@ export const projectPaymentsMethodsModule = {
         }
     },
     actions: {
-        [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function ({commit, rootGetters}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.ADD]: async function ({commit, rootGetters, state}, input: AddPaymentMethodInput): Promise<RequestResponse<null>> {
             const projectID = rootGetters.selectedProject.id;
+            if (state.paymentMethods.length == 0) {
+                input.makeDefault = true;
+            }
 
             return await addProjectPaymentMethodRequest(projectID, input.token, input.makeDefault);
         },

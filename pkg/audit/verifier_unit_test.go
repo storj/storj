@@ -5,13 +5,13 @@ package audit
 
 import (
 	"context"
-	"crypto/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
@@ -121,9 +121,7 @@ func TestCreatePendingAudits(t *testing.T) {
 	err = f.Encode([]byte("hello, world! __"), output)
 	require.NoError(t, err)
 
-	var testNodeID storj.NodeID
-	_, err = rand.Read(testNodeID[:])
-	require.NoError(t, err)
+	testNodeID := testrand.NodeID()
 
 	ctx := context.Background()
 	contained := make(map[int]storj.NodeID)

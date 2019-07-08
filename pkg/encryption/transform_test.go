@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"storj.io/storj/internal/testrand"
 )
 
 func TestCalcEncompassingBlocks(t *testing.T) {
@@ -87,9 +89,11 @@ func (t *nopTransformer) Transform(out, in []byte, blockNum int64) (
 
 func TestTransformer(t *testing.T) {
 	transformer := NopTransformer(4 * 1024)
-	data := randData(transformer.InBlockSize() * 10)
+	data := testrand.BytesInt(transformer.InBlockSize() * 10)
+
 	transformed := TransformReader(
-		ioutil.NopCloser(bytes.NewReader(data)), transformer, 0)
+		ioutil.NopCloser(bytes.NewReader(data)),
+		transformer, 0)
 	data2, err := ioutil.ReadAll(transformed)
 	if assert.NoError(t, err) {
 		assert.Equal(t, data, data2)
@@ -112,7 +116,7 @@ func TestTransformerSize(t *testing.T) {
 	} {
 		errTag := fmt.Sprintf("Test case #%d", i)
 		transformer := NopTransformer(tt.blockSize)
-		data := randData(transformer.InBlockSize() * tt.blocks)
+		data := testrand.BytesInt(transformer.InBlockSize() * tt.blocks)
 		transformed := TransformReaderSize(
 			ioutil.NopCloser(bytes.NewReader(data)),
 			transformer, 0, tt.expectedSize)

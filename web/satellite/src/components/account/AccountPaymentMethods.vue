@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -35,11 +35,11 @@
 			</div>
 		</div>
 		<Button
-				class="payment-methods-container__add-button"
-				label="Add Card"
-				width="140px"
-				height="48px"
-				isDisabled />
+			class="payment-methods-container__add-button"
+			label="Add Card"
+			width="140px"
+			height="48px"
+			isDisabled />
 	</div>
 </template>
 
@@ -52,6 +52,7 @@
             Button,
         }
     })
+
     export default class AccountPaymentMethods extends Vue {}
 </script>
 

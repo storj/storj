@@ -76,11 +76,10 @@ void handle_project(ProjectRef project) {
         }
     }
 
-    { // encryption access handling
-        EncryptionAccess access = {};
-        memcpy(&access.key[0], "abcdefghijklmnopqrstuvwxyzABCDEF", 32);
+    { // encryption context handling
+        char *enc_ctx = "12VtN2sbbn9PvaEvNbNUBiSKnRcSUNxBADwDWGsPY7UV85e82tT6u";
 
-        BucketRef bucket = open_bucket(project, bucket_names[0], access, err);
+        BucketRef bucket = open_bucket(project, bucket_names[0], enc_ctx, err);
         require_noerror(*err);
         requiref(bucket._handle != 0, "got empty bucket\n");
 

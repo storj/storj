@@ -7,10 +7,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -29,19 +30,17 @@ func TestProjectMembersRepository(t *testing.T) {
 		createdUsers, createdProjects := prepareUsersAndProjects(ctx, t, users, projects)
 
 		t.Run("Can't insert projectMember without memberID", func(t *testing.T) {
-			unexistingUserID, err := uuid.New()
-			assert.NoError(t, err)
+			missingUserID := testrand.UUID()
 
-			projMember, err := projectMembers.Insert(ctx, *unexistingUserID, createdProjects[0].ID)
+			projMember, err := projectMembers.Insert(ctx, missingUserID, createdProjects[0].ID)
 			assert.Nil(t, projMember)
 			assert.Error(t, err)
 		})
 
 		t.Run("Can't insert projectMember without projectID", func(t *testing.T) {
-			unexistingProjectID, err := uuid.New()
-			assert.NoError(t, err)
+			missingProjectID := testrand.UUID()
 
-			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, *unexistingProjectID)
+			projMember, err := projectMembers.Insert(ctx, createdUsers[0].ID, missingProjectID)
 			assert.Nil(t, projMember)
 			assert.Error(t, err)
 		})
@@ -191,9 +190,7 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Us
 	var err error
 	for i, user := range usersList {
 		usersList[i], err = users.Insert(ctx, user)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 
 	projectList := []*console.Project{
@@ -209,9 +206,7 @@ func prepareUsersAndProjects(ctx context.Context, t *testing.T, users console.Us
 
 	for i, project := range projectList {
 		projectList[i], err = projects.Insert(ctx, project)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 	}
 
 	return usersList, projectList
