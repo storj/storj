@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
