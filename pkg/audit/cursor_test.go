@@ -173,7 +173,7 @@ func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
 		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
 	return &pb.Pointer{
-		CreationDate: time.Now(),
+		CreationDate:   time.Now(),
 		ExpirationDate: expiration,
 		Type:           pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{

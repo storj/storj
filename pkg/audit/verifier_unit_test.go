@@ -131,7 +131,7 @@ func TestCreatePendingAudits(t *testing.T) {
 		Index: 3,
 		Segment: &pb.Pointer{
 			CreationDate: time.Now(),
-			Type: pb.Pointer_REMOTE,
+			Type:         pb.Pointer_REMOTE,
 			Remote: &pb.RemoteSegment{
 				RootPieceId: storj.NewPieceID(),
 				Redundancy: &pb.RedundancyScheme{

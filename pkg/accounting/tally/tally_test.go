@@ -273,7 +273,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 
 	if inline {
 		inlinePointer := &pb.Pointer{
-			CreationDate: time.Now(),
+			CreationDate:  time.Now(),
 			Type:          pb.Pointer_INLINE,
 			InlineSegment: make([]byte, segmentSize),
 			SegmentSize:   segmentSize,
@@ -292,7 +292,7 @@ func makePointer(storageNodes []*storagenode.Peer, rs storj.RedundancyScheme,
 
 	pointer := &pb.Pointer{
 		CreationDate: time.Now(),
-		Type: pb.Pointer_REMOTE,
+		Type:         pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_RS,
