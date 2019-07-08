@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
-
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 
