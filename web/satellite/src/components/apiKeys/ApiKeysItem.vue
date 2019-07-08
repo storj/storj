@@ -17,10 +17,9 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-@Component(
-    {
+    @Component({
         props: {
             apiKey: Object,
         },
@@ -35,9 +34,9 @@ import { Component, Vue } from 'vue-property-decorator';
                 return name.slice(0, 12) + '...';
             }
         }
-    }
-)
-export default class ApiKeysItem extends Vue {}
+    })
+
+    export default class ApiKeysItem extends Vue {}
 </script>
 
 <style scoped lang="scss">

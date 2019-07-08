@@ -47,30 +47,26 @@
     import Button from '@/components/common/Button.vue';
     import Card from '@/components/project/CardChoiceItem.vue'
 
-    @Component(
-        {
-            data: function () {
-                return {
+    @Component({
+        data: function () {
+            return {};
+        },
+        methods: {
+            onDoneClick: function (): void {
 
-                };
             },
-            methods: {
-                onDoneClick: function (): void {
+            onCloseClick: function (): void {
 
-                },
-                onCloseClick: function (): void {
-
-                },
-	            onNewCardClick: function (): void {
-
-                }
             },
-            components: {
-                Button,
-                Card,
+            onNewCardClick: function (): void {
+
             }
+        },
+        components: {
+            Button,
+            Card,
         }
-    )
+    })
 
     export default class AddPaymentMethodPopup extends Vue {}
 </script>
