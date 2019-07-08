@@ -74,12 +74,12 @@ func TestBasicBucketOperations(t *testing.T) {
 	})
 }
 
+var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
+"test.bucket", "123", "0test", "999", "test-bucket.thing",
+}
+
 func setup(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.UUID) {
-	// create a bunch of buckets
-	bucketNames := []string{"aaa", "bbb", "mmm", "qqq", "zzz",
-		"test.bucket", "123", "0test", "999", "test-bucket.thing",
-	}
-	for _, bucket := range bucketNames {
+	for _, bucket := range testBucketNames {
 		b := setupBucket(bucket, projectID)
 		_, err := bucketsDB.CreateBucket(ctx, b)
 		if err != nil {
@@ -89,11 +89,7 @@ func setup(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.UUI
 }
 
 func teardown(ctx context.Context, bucketsDB metainfo.BucketsDB, projectID uuid.UUID) {
-	bucketNames := []string{"aaa", "bbb", "testbucket", "test2",
-		"joe.bucket", "ttt", "zzz", "xyz",
-		"123", "0test", "999", "joe-shmoe.thing",
-	}
-	for _, bucket := range bucketNames {
+	for _, bucket := range testBucketNames {
 		err := bucketsDB.DeleteBucket(ctx, []byte(bucket), projectID)
 		if err != nil {
 			fmt.Println(err)
