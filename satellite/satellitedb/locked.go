@@ -819,6 +819,13 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// Reliable returns all nodes that are reliable
+func (m *lockedOverlayCache) Reliable(ctx context.Context, a1 *overlay.NodeCriteria) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Reliable(ctx, a1)
+}
+
 // SelectNewStorageNodes looks up nodes based on new node criteria
 func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
