@@ -30,24 +30,25 @@ service Metainfo {
     rpc FinishDeleteObject(ObjectFinishDeleteRequest) returns (ObjectFinishDeleteResponse);
     // Segment
     rpc BeginSegment(SegmentBeginRequest) returns (SegmentBeginResponse);
-    rpc CommitSegment2(SegmentCommitRequest2) returns (SegmentCommitResponse2);
+    rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
     rpc MakeInlineSegment(SegmentMakeInlineRequest) returns (SegmentMakeInlineResponse);
     rpc BeginDeleteSegment(SegmentBeginDeleteRequest) returns (SegmentBeginDeleteResponse);
     rpc FinishDeleteSegment(SegmentFinishDeleteRequest) returns (SegmentFinishDeleteResponse);
-    rpc ListSegments2(SegmentListRequest) returns (SegmentListResponse);
-    rpc DownloadSegment2(SegmentDownloadRequest2) returns (SegmentDownloadResponse2);
+    rpc ListSegments(SegmentListRequest) returns (SegmentListResponse);
+    rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
 
     rpc Batch(BatchRequest) returns (BatchResponse);
 
     // old API
 
-    rpc CreateSegment(SegmentWriteRequest) returns (SegmentWriteResponse);
-    rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
-    rpc SegmentInfo(SegmentInfoRequest) returns (SegmentInfoResponse);
-    rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
-    rpc DeleteSegment(SegmentDeleteRequest) returns (SegmentDeleteResponse);
-    rpc ListSegments(ListSegmentsRequest) returns (ListSegmentsResponse);
-    rpc SetAttribution(SetAttributionRequest) returns (SetAttributionResponse);
+    rpc CreateSegmentOld(SegmentWriteRequestOld) returns (SegmentWriteResponseOld);
+    rpc CommitSegmentOld(SegmentCommitRequestOld) returns (SegmentCommitResponseOld);
+    rpc SegmentInfoOld(SegmentInfoRequestOld) returns (SegmentInfoResponseOld);
+    rpc DownloadSegmentOld(SegmentDownloadRequestOld) returns (SegmentDownloadResponseOld);
+    rpc DeleteSegmentOld(SegmentDeleteRequestOld) returns (SegmentDeleteResponseOld);
+    rpc ListSegmentsOld(ListSegmentsRequestOld) returns (ListSegmentsResponseOld);
+    rpc SetAttributionOld(SetAttributionRequestOld) returns (SetAttributionResponseOld);
+    
     rpc ProjectInfo(ProjectInfoRequest) returns (ProjectInfoResponse);
 }
 
@@ -121,7 +122,7 @@ message AddressedOrderLimit {
     node.NodeAddress storage_node_address = 2;
 }
 
-message SegmentWriteRequest {
+message SegmentWriteRequestOld {
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -130,12 +131,12 @@ message SegmentWriteRequest {
     google.protobuf.Timestamp expiration = 6;
 }
 
-message SegmentWriteResponse {
+message SegmentWriteResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
     bytes root_piece_id = 2 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
 }
 
-message SegmentCommitRequest {
+message SegmentCommitRequestOld {
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
@@ -143,42 +144,42 @@ message SegmentCommitRequest {
     repeated orders.OrderLimit original_limits = 5;
 }
 
-message SegmentCommitResponse {
+message SegmentCommitResponseOld {
     pointerdb.Pointer pointer = 1;
 }
 
-message SegmentDownloadRequest {
+message SegmentDownloadRequestOld {
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
 }
 
-message SegmentDownloadResponse {
+message SegmentDownloadResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
     pointerdb.Pointer pointer = 2;
 }
 
-message SegmentInfoRequest {
+message SegmentInfoRequestOld {
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
 }
 
-message SegmentInfoResponse {
+message SegmentInfoResponseOld {
     pointerdb.Pointer pointer = 2;
 }
 
-message SegmentDeleteRequest {
+message SegmentDeleteRequestOld {
     bytes bucket = 1;
     bytes path = 2;
     int64 segment = 3;
 }
 
-message SegmentDeleteResponse {
+message SegmentDeleteResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
 }
 
-message ListSegmentsRequest {
+message ListSegmentsRequestOld {
     bytes bucket = 1;
     bytes prefix = 2;
     bytes start_after = 3;
@@ -188,7 +189,7 @@ message ListSegmentsRequest {
     fixed32 meta_flags = 7;
 }
 
-message ListSegmentsResponse {
+message ListSegmentsResponseOld {
     message Item {
         bytes path = 1;
         pointerdb.Pointer pointer = 2;
@@ -199,12 +200,12 @@ message ListSegmentsResponse {
     bool more = 2;
 }
 
-message SetAttributionRequest{
+message SetAttributionRequestOld {
     bytes bucket_name = 1;
     bytes partner_id = 2 ;
 }
 
-message SetAttributionResponse {
+message SetAttributionResponseOld {
 }
 
 message ProjectInfoRequest {
@@ -365,7 +366,7 @@ message SegmentBeginResponse {
     repeated AddressedOrderLimit addressed_limits = 2;
 }
 
-message SegmentCommitRequest2 {
+message SegmentCommitRequest {
     bytes segment_id = 1;
 
     bytes encrypted_key_nonce = 2;
@@ -376,7 +377,7 @@ message SegmentCommitRequest2 {
     repeated SegmentPieceUploadResult upload_result = 5;
 }
 
-message SegmentCommitResponse2 {}
+message SegmentCommitResponse {}
 
 message SegmentPieceUploadResult {
     int32 piece_num = 1;
@@ -465,7 +466,7 @@ message SegmentListItem { // TODO: should we rename this to SegmentIndex and use
     int32 index = 2;
 }
 
-message SegmentDownloadRequest2 {
+message SegmentDownloadRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     int32 part_number = 2;
     int32 index = 3;
@@ -473,7 +474,7 @@ message SegmentDownloadRequest2 {
     SegmentListItem next = 4;
 }
 
-message SegmentDownloadResponse2 {
+message SegmentDownloadResponse {
     bytes                           segment_id = 1;
     repeated AddressedOrderLimit    addressed_limits = 2;
 }

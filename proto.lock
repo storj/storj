@@ -1845,7 +1845,7 @@
             ]
           },
           {
-            "name": "SegmentWriteRequest",
+            "name": "SegmentWriteRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1880,7 +1880,7 @@
             ]
           },
           {
-            "name": "SegmentWriteResponse",
+            "name": "SegmentWriteResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1906,7 +1906,7 @@
             ]
           },
           {
-            "name": "SegmentCommitRequest",
+            "name": "SegmentCommitRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1937,7 +1937,7 @@
             ]
           },
           {
-            "name": "SegmentCommitResponse",
+            "name": "SegmentCommitResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1947,7 +1947,7 @@
             ]
           },
           {
-            "name": "SegmentDownloadRequest",
+            "name": "SegmentDownloadRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -1967,7 +1967,7 @@
             ]
           },
           {
-            "name": "SegmentDownloadResponse",
+            "name": "SegmentDownloadResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -1983,7 +1983,7 @@
             ]
           },
           {
-            "name": "SegmentInfoRequest",
+            "name": "SegmentInfoRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -2003,7 +2003,7 @@
             ]
           },
           {
-            "name": "SegmentInfoResponse",
+            "name": "SegmentInfoResponseOld",
             "fields": [
               {
                 "id": 2,
@@ -2013,7 +2013,7 @@
             ]
           },
           {
-            "name": "SegmentDeleteRequest",
+            "name": "SegmentDeleteRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -2033,7 +2033,7 @@
             ]
           },
           {
-            "name": "SegmentDeleteResponse",
+            "name": "SegmentDeleteResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -2044,7 +2044,7 @@
             ]
           },
           {
-            "name": "ListSegmentsRequest",
+            "name": "ListSegmentsRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -2084,7 +2084,7 @@
             ]
           },
           {
-            "name": "ListSegmentsResponse",
+            "name": "ListSegmentsResponseOld",
             "fields": [
               {
                 "id": 1,
@@ -2122,7 +2122,7 @@
             ]
           },
           {
-            "name": "SetAttributionRequest",
+            "name": "SetAttributionRequestOld",
             "fields": [
               {
                 "id": 1,
@@ -2137,7 +2137,7 @@
             ]
           },
           {
-            "name": "SetAttributionResponse"
+            "name": "SetAttributionResponseOld"
           },
           {
             "name": "ProjectInfoRequest"
@@ -2729,7 +2729,7 @@
             ]
           },
           {
-            "name": "SegmentCommitRequest2",
+            "name": "SegmentCommitRequest",
             "fields": [
               {
                 "id": 1,
@@ -2760,7 +2760,7 @@
             ]
           },
           {
-            "name": "SegmentCommitResponse2"
+            "name": "SegmentCommitResponse"
           },
           {
             "name": "SegmentPieceUploadResult",
@@ -2818,12 +2818,32 @@
               {
                 "id": 6,
                 "name": "creation_date",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 7,
                 "name": "expiration_date",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 8,
@@ -3067,7 +3087,7 @@
             ]
           },
           {
-            "name": "SegmentDownloadRequest2",
+            "name": "SegmentDownloadRequest",
             "fields": [
               {
                 "id": 1,
@@ -3102,7 +3122,7 @@
             ]
           },
           {
-            "name": "SegmentDownloadResponse2",
+            "name": "SegmentDownloadResponse",
             "fields": [
               {
                 "id": 1,
@@ -3380,9 +3400,9 @@
                 "out_type": "SegmentBeginResponse"
               },
               {
-                "name": "CommitSegment2",
-                "in_type": "SegmentCommitRequest2",
-                "out_type": "SegmentCommitResponse2"
+                "name": "CommitSegment",
+                "in_type": "SegmentCommitRequest",
+                "out_type": "SegmentCommitResponse"
               },
               {
                 "name": "MakeInlineSegment",
@@ -3400,34 +3420,9 @@
                 "out_type": "SegmentFinishDeleteResponse"
               },
               {
-                "name": "ListSegments2",
+                "name": "ListSegments",
                 "in_type": "SegmentListRequest",
                 "out_type": "SegmentListResponse"
-              },
-              {
-                "name": "DownloadSegment2",
-                "in_type": "SegmentDownloadRequest2",
-                "out_type": "SegmentDownloadResponse2"
-              },
-              {
-                "name": "Batch",
-                "in_type": "BatchRequest",
-                "out_type": "BatchResponse"
-              },
-              {
-                "name": "CreateSegment",
-                "in_type": "SegmentWriteRequest",
-                "out_type": "SegmentWriteResponse"
-              },
-              {
-                "name": "CommitSegment",
-                "in_type": "SegmentCommitRequest",
-                "out_type": "SegmentCommitResponse"
-              },
-              {
-                "name": "SegmentInfo",
-                "in_type": "SegmentInfoRequest",
-                "out_type": "SegmentInfoResponse"
               },
               {
                 "name": "DownloadSegment",
@@ -3435,19 +3430,44 @@
                 "out_type": "SegmentDownloadResponse"
               },
               {
-                "name": "DeleteSegment",
-                "in_type": "SegmentDeleteRequest",
-                "out_type": "SegmentDeleteResponse"
+                "name": "Batch",
+                "in_type": "BatchRequest",
+                "out_type": "BatchResponse"
               },
               {
-                "name": "ListSegments",
-                "in_type": "ListSegmentsRequest",
-                "out_type": "ListSegmentsResponse"
+                "name": "CreateSegmentOld",
+                "in_type": "SegmentWriteRequestOld",
+                "out_type": "SegmentWriteResponseOld"
               },
               {
-                "name": "SetAttribution",
-                "in_type": "SetAttributionRequest",
-                "out_type": "SetAttributionResponse"
+                "name": "CommitSegmentOld",
+                "in_type": "SegmentCommitRequestOld",
+                "out_type": "SegmentCommitResponseOld"
+              },
+              {
+                "name": "SegmentInfoOld",
+                "in_type": "SegmentInfoRequestOld",
+                "out_type": "SegmentInfoResponseOld"
+              },
+              {
+                "name": "DownloadSegmentOld",
+                "in_type": "SegmentDownloadRequestOld",
+                "out_type": "SegmentDownloadResponseOld"
+              },
+              {
+                "name": "DeleteSegmentOld",
+                "in_type": "SegmentDeleteRequestOld",
+                "out_type": "SegmentDeleteResponseOld"
+              },
+              {
+                "name": "ListSegmentsOld",
+                "in_type": "ListSegmentsRequestOld",
+                "out_type": "ListSegmentsResponseOld"
+              },
+              {
+                "name": "SetAttributionOld",
+                "in_type": "SetAttributionRequestOld",
+                "out_type": "SetAttributionResponseOld"
               },
               {
                 "name": "ProjectInfo",
