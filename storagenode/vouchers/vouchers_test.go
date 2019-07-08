@@ -35,7 +35,6 @@ func TestVouchersDB(t *testing.T) {
 		satellite := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		storagenode := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-
 		voucher := &pb.Voucher{
 			SatelliteId:   satellite.ID,
 			StorageNodeId: storagenode.ID,
