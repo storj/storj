@@ -329,9 +329,7 @@ message ObjectBeginDeleteResponse {
 }
 
 message ObjectFinishDeleteRequest {
-    bytes  bucket = 1;
-    bytes  encrypted_path = 2;
-    int32  version = 3;
+    bytes  stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
 }
 
 message ObjectFinishDeleteResponse {
