@@ -63,137 +63,140 @@ import Datepicker from '@/components/project/DatePicker.vue';
 import { NOTIFICATION_ACTIONS, PROJECT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 import { toUnixTimestamp } from '@/utils/time';
 
-@Component(
-        {
-            data: function () {
-                return {
-                    startTime: {
-                        time: '',
-                    },
-                };
-            },
-            components: {
-                Datepicker,
-            },
-            beforeRouteLeave: function(to, from, next) {
-            	this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
+	@Component(
+		{
+			mounted: function() {
+				this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+			},
+			data: function () {
+				return {
+					startTime: {
+						time: '',
+					},
+				};
+			},
+			components: {
+				Datepicker,
+			},
+			beforeRouteLeave: function(to, from, next) {
+				this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP, this.$data.dateRange);
 
-                const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
-                buttons.forEach(option => {
-                    option.classList.remove('active');
-                });
-                buttons[0].classList.add('active');
+				const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
+				buttons.forEach(option => {
+					option.classList.remove('active');
+				});
+				buttons[0].classList.add('active');
 
-                next();
-            },
-            methods: {
-                getDates: async function(datesArray: string[]) {
-                	const now = new Date();
-                    const firstDate = new Date(datesArray[0]);
-                    const secondDate = new Date(datesArray[1]);
+				next();
+			},
+			methods: {
+				getDates: async function(datesArray: string[]) {
+					const now = new Date();
+					const firstDate = new Date(datesArray[0]);
+					const secondDate = new Date(datesArray[1]);
 
-                    const isInverted = firstDate > secondDate;
+					const isInverted = firstDate > secondDate;
 
-                    let startDate = isInverted ? secondDate : firstDate;
-                    let endDate = isInverted ? firstDate : secondDate;
+					let startDate = isInverted ? secondDate : firstDate;
+					let endDate = isInverted ? firstDate : secondDate;
 
-                    endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
+					endDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
 
-                    if (now.getUTCFullYear() === endDate.getUTCFullYear()
+					if (now.getUTCFullYear() === endDate.getUTCFullYear()
 							&& now.getUTCMonth() === endDate.getUTCMonth()
 							&& now.getUTCDate() === endDate.getUTCDate()
 					) {
 						endDate = now;
 					}
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate, endDate});
-                    if (!response.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                    }
-                },
-                onBackClick: function (): void {
-                    this.$router.push(ROUTES.PROJECT_OVERVIEW);
-                },
-                onCurrentRollupClick: async function (event: any) {
-                    (this as any).onButtonClickAction(event);
+					const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH, {startDate, endDate});
+					if (!response.isSuccess) {
+						this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+					}
+				},
+				onBackClick: function (): void {
+					this.$router.push(ROUTES.PROJECT_OVERVIEW);
+				},
+				onCurrentRollupClick: async function (event: any) {
+					(this as any).onButtonClickAction(event);
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
-                    if (!response.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                    }
-                },
-                onPreviousRollupClick: async function (event: any) {
-                    (this as any).onButtonClickAction(event);
+					const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
+					if (!response.isSuccess) {
+						this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+					}
+				},
+				onPreviousRollupClick: async function (event: any) {
+					(this as any).onButtonClickAction(event);
 
-                    const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
-                    if (!response.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
-                    }
-                },
-                onCustomDateClick: function (event: any) {
-                    (this as any).$refs.datePicker.showCheck();
-                    (this as any).onButtonClickAction(event);
-                },
-                onButtonClickAction: function (event: any) {
-                    let eventTarget = event.target;
+					const response = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_PREVIOUS_ROLLUP);
+					if (!response.isSuccess) {
+						this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project usage');
+					}
+				},
+				onCustomDateClick: function (event: any) {
+					(this as any).$refs.datePicker.showCheck();
+					(this as any).onButtonClickAction(event);
+				},
+				onButtonClickAction: function (event: any) {
+					let eventTarget = event.target;
 
-                    if (eventTarget.children.length === 0) {
-                        eventTarget = eventTarget.parentNode;
-                    }
+					if (eventTarget.children.length === 0) {
+						eventTarget = eventTarget.parentNode;
+					}
 
-                    if (eventTarget.classList.contains('active')) {
-                        return;
-                    }
+					if (eventTarget.classList.contains('active')) {
+						return;
+					}
 
-                    (this as any).changeActiveClass(eventTarget);
-                },
-                changeActiveClass: function (target: any): void {
-                    (this as any).removeActiveClass();
+					(this as any).changeActiveClass(eventTarget);
+				},
+				changeActiveClass: function (target: any): void {
+					(this as any).removeActiveClass();
 
-                    target.classList.add('active');
-                },
-                removeActiveClass: function(): void {
-                    const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
-                    buttons.forEach(option => {
-                        option.classList.remove('active');
-                    });
-                },
-                onReportClick: function (): void {
-                    const projectID = this.$store.getters.selectedProject.id;
-                    const startDate = this.$store.state.usageModule.startDate;
-                    const endDate = this.$store.state.usageModule.endDate;
+					target.classList.add('active');
+				},
+				removeActiveClass: function(): void {
+					const buttons = [...(document as any).querySelectorAll('.usage-report-container__options-area__option')];
+					buttons.forEach(option => {
+						option.classList.remove('active');
+					});
+				},
+				onReportClick: function (): void {
+					const projectID = this.$store.getters.selectedProject.id;
+					const startDate = this.$store.state.usageModule.startDate;
+					const endDate = this.$store.state.usageModule.endDate;
 
-                    let url = new URL(location.origin);
-                    url.pathname = 'usage-report';
-                    url.searchParams.append('projectID', projectID);
-                    url.searchParams.append('since', toUnixTimestamp(startDate).toString());
-                    url.searchParams.append('before', toUnixTimestamp(endDate).toString());
+					let url = new URL(location.origin);
+					url.pathname = 'usage-report';
+					url.searchParams.append('projectID', projectID);
+					url.searchParams.append('since', toUnixTimestamp(startDate).toString());
+					url.searchParams.append('before', toUnixTimestamp(endDate).toString());
 
-                    window.open(url.href, '_blank');
-                },
+					window.open(url.href, '_blank');
+				},
 				toLocaleDateString: function (d: Date): string {
 					return d.toLocaleDateString("en-US", {timeZone: "UTC"});
 				}
-            },
-            computed: {
-            	startDate: function (): Date {
+			},
+			computed: {
+				startDate: function (): Date {
 					return this.$store.state.usageModule.startDate;
 				},
 				endDate: function (): Date {
 					return this.$store.state.usageModule.endDate;
 				},
-                storage: function (): string {
-                    return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
-                },
-                egress: function (): string {
-                    return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
-                },
-                objectsCount: function (): string {
-                    return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
-                }
-            }
-        }
-    )
+				storage: function (): string {
+					return this.$store.state.usageModule.projectUsage.storage.toPrecision(5);
+				},
+				egress: function (): string {
+					return this.$store.state.usageModule.projectUsage.egress.toPrecision(5);
+				},
+				objectsCount: function (): string {
+					return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
+				}
+			}
+		}
+	)
 
     export default class UsageReport extends Vue {}
 </script>
