@@ -5,14 +5,13 @@ package payments
 
 import (
 	"context"
-	"github.com/stripe/stripe-go"
 	"time"
 )
 
 // Service is interfaces that defines behavior for working with payments
 type Service interface {
 	CreateCustomer(ctx context.Context, params CreateCustomerParams) (*Customer, error)
-	AddPaymentMethod(ctx context.Context, params AddPaymentMethodParams) (*stripe.PaymentMethod, error)
+	AddPaymentMethod(ctx context.Context, params AddPaymentMethodParams) (*PaymentMethod, error)
 	GetCustomer(ctx context.Context, id []byte) (*Customer, error)
 	GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (*PaymentMethod, error)
 	GetCustomerPaymentsMethods(ctx context.Context, customerID []byte) ([]PaymentMethod, error)

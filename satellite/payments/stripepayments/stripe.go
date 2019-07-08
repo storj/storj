@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	stripe "github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go"
 	"github.com/stripe/stripe-go/client"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 )
@@ -91,11 +91,10 @@ func (s *service) GetCustomer(ctx context.Context, id []byte) (_ *payments.Custo
 }
 
 // AddPaymentMethod add payment method to defined customer
-func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*stripe.PaymentMethod, error) {
+func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*payments.PaymentMethod, error) {
 	cparams := &stripe.PaymentMethodParams{
 		Type: stripe.String(string(stripe.PaymentMethodTypeCard)),
 		Card: &stripe.PaymentMethodCardParams{Token: &params.Token},
-		//Customer: &params.CustomerID,
 	}
 
 	method, err := s.client.PaymentMethods.New(cparams)
@@ -107,7 +106,22 @@ func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPayme
 		Customer: &params.CustomerID,
 	}
 
-	return s.client.PaymentMethods.Attach(method.ID, pparams)
+	paymentMethod, err := s.client.PaymentMethods.Attach(method.ID, pparams)
+	if err != nil {
+		return nil, err
+	}
+
+	return &payments.PaymentMethod{
+		CustomerID: []byte(paymentMethod.Customer.ID),
+		ID: []byte(paymentMethod.ID),
+		Card: payments.Card{
+			ExpYear:  int64(paymentMethod.Card.ExpYear),
+			ExpMonth: int64(paymentMethod.Card.ExpMonth),
+			Brand:    string(paymentMethod.Card.Brand),
+			LastFour: paymentMethod.Card.Last4,
+			Country:  paymentMethod.Card.Country,
+		},
+	}, nil
 }
 
 // GetCustomerDefaultPaymentMethod retrieves customer default payment method from stripe network

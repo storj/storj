@@ -6,11 +6,10 @@ package localpayments
 import (
 	"context"
 	"crypto/rand"
-	"github.com/stripe/stripe-go"
 	"time"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 )
@@ -60,8 +59,8 @@ type service struct {
 	db DB
 }
 
-func (*service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*stripe.PaymentMethod, error) {
-	panic("implement me")
+func (*service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*payments.PaymentMethod, error) {
+	return &defaultPaymentMethod, nil
 }
 
 // NewService create new instance of local payments service

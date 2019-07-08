@@ -436,17 +436,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					cardToken, _ := p.Args[FieldCardToken].(string)
 					isDefault, _ := p.Args[FieldIsDefault].(bool)
 
-					auth, err := console.GetAuth(p.Context)
-					if err != nil {
-						return false, err
-					}
-
 					projID, err := uuid.Parse(projectID)
 					if err != nil {
 						return false, err
 					}
 
-					_, err = service.AddNewPaymentMethod(p.Context, cardToken, isDefault, *projID, auth.User.ID)
+					_, err = service.AddNewPaymentMethod(p.Context, cardToken, isDefault, *projID)
 					if err != nil {
 						return false, err
 					}
@@ -461,11 +456,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
-
-					_, err := console.GetAuth(p.Context)
-					if err != nil {
-						return false, err
-					}
 
 					paymentID, err := uuid.Parse(fieldProjectPaymentID)
 					if err != nil {
@@ -489,11 +479,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					fieldProjectID, _ := p.Args[FieldProjectID].(string)
 					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
-
-					_, err := console.GetAuth(p.Context)
-					if err != nil {
-						return false, err
-					}
 
 					paymentID, err := uuid.Parse(fieldProjectPaymentID)
 					if err != nil {

@@ -127,8 +127,7 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
             errorPolicy: 'all'
         }
     );
-        console.log('fetch pm methods')
-    console.log(response)
+
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
     } else {

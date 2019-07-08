@@ -165,12 +165,18 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID, userID uuid.UUID) (payment ProjectPayment, err error) {
+func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	info, err := s.store.UserPayments().Get(ctx, userID)
+	authorization, err := GetAuth(ctx)
 	if err != nil {
-		return ProjectPayment{}, err
+		return nil, err
+	}
+
+
+	info, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	params := payments.AddPaymentMethodParams{
@@ -180,21 +186,22 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 
 	method, err := s.pm.AddPaymentMethod(ctx, params)
 	if err != nil {
-		return ProjectPayment{}, err
+		return nil, err
 	}
 
-	projectPaymentInfo := ProjectPayment{ProjectID: projectID,
-		PayerID:         userID,
-		PaymentMethodID: []byte(method.ID),
+	projectPaymentInfo := ProjectPayment{
+		ProjectID:       projectID,
+		PayerID:         authorization.User.ID,
+		PaymentMethodID: method.ID,
 		CreatedAt:       time.Now(),
 		IsDefault:       isDefault}
 
 	create, err := s.store.ProjectPayments().Create(ctx, projectPaymentInfo)
 	if err != nil {
-		return ProjectPayment{}, err
+		return nil, err
 	}
 
-	return *create, nil
+	return create, nil
 }
 
 func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
@@ -222,9 +229,7 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 	}
 	projectPayment.IsDefault = true
 
-	err = s.store.ProjectPayments().Update(ctx, *projectPayment)
-
-	return err
+	return s.store.ProjectPayments().Update(ctx, *projectPayment)
 }
 
 func (s *Service) DeletePaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
@@ -283,7 +288,8 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 				Brand:    pm.Card.Brand,
 				Country:  pm.Card.Country,
 				ExpMonth: pm.Card.ExpMonth,
-				ExpYear:  pm.Card.ExpYear},
+				ExpYear:  pm.Card.ExpYear,
+			},
 		}
 
 		projectPayments = append(projectPayments, projectPayment)
@@ -754,11 +760,6 @@ func (s *Service) DeleteProjectMembers(ctx context.Context, projectID uuid.UUID,
 		return ErrUnauthorized.Wrap(err)
 	}
 
-	//projectPaymentInfo, err := s.store.ProjectPaymentInfos().GetDefaultByProjctID(ctx, projectID)
-	//if err != nil {
-	//	return err
-	//}
-
 	var userIDs []uuid.UUID
 	var userErr errs.Group
 
@@ -1048,7 +1049,6 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		//paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
 		paymentInfo, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, proj.ID)
 		if err != nil {
 			invoiceError.Add(err)

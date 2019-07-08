@@ -35,6 +35,10 @@ type ProjectPayment struct {
 	CreatedAt time.Time
 }
 
+type ProjectPaymentMethod struct {
+
+}
+
 type Card struct {
 	Country  string
 	Brand    string
