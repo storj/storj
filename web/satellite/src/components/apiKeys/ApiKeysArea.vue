@@ -29,57 +29,56 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import EmptyState from '@/components/common/EmptyStateArea.vue';
-import HeaderArea from '@/components/apiKeys/headerArea/HeaderArea.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
-import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
-import Footer from '@/components/apiKeys/footerArea/Footer.vue';
-import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import HeaderArea from '@/components/apiKeys/headerArea/HeaderArea.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import ApiKeysItem from '@/components/apiKeys/ApiKeysItem.vue';
+    import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
+    import Footer from '@/components/apiKeys/footerArea/Footer.vue';
+    import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    mounted: function() {
-        this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-    },
-    data: function () {
-        return {
-            emptyImage: EMPTY_STATE_IMAGES.API_KEY,
-        };
-    },
-    methods: {
-        toggleSelection: function(id: string): void {
-            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+    @Component({
+        mounted: function() {
+            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
         },
-        togglePopup: function (): void {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        data: function () {
+            return {
+                emptyImage: EMPTY_STATE_IMAGES.API_KEY,
+            };
         },
-    },
-    computed: {
-        apiKeys: function (): any {
-            return this.$store.state.apiKeysModule.apiKeys;
+        methods: {
+            toggleSelection: function(id: string): void {
+                this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+            },
+            togglePopup: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+            },
         },
-        isEmpty: function (): boolean {
-            return this.$store.state.apiKeysModule.apiKeys.length === 0;
+        computed: {
+            apiKeys: function (): any {
+                return this.$store.state.apiKeysModule.apiKeys;
+            },
+            isEmpty: function (): boolean {
+                return this.$store.state.apiKeysModule.apiKeys.length === 0;
+            },
+            isSelected: function (): boolean {
+                return this.$store.getters.selectedAPIKeys.length > 0;
+            },
+            isPopupShown: function (): boolean {
+                return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
+            }
         },
-        isSelected: function (): boolean {
-            return this.$store.getters.selectedAPIKeys.length > 0;
+        components: {
+            EmptyState,
+            HeaderArea,
+            ApiKeysItem,
+            AddAPIKeyPopup,
+            Footer
         },
-        isPopupShown: function (): boolean {
-            return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
-        }
-    },
-    components: {
-        EmptyState,
-        HeaderArea,
-        ApiKeysItem,
-        AddAPIKeyPopup,
-        Footer
-    },
-})
+    })
 
-export default class ApiKeysArea extends Vue {
-}
+    export default class ApiKeysArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
