@@ -27,13 +27,14 @@ import (
 // * Check that pieces of the deleted object are deleted on the storagenode
 // * Check that pieces of the kept object are not deleted on the storagenode
 func TestGarbageCollection(t *testing.T) {
+	// TODO(green) enable test as part of PR 2366
 	t.Skip("Garbage collection not implemented yet.")
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				// TODO see if we should reconfigure anything
+				// config.GarbageCollection.FalsePositiveRate = 0.0001
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
