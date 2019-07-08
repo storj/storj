@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -116,13 +115,9 @@ func TestInspectorDashboard(t *testing.T) {
 			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
 			require.NoError(t, err)
 
-			lastPinged, err := ptypes.Timestamp(response.LastPinged)
-			assert.NoError(t, err)
-			assert.True(t, lastPinged.After(testStartedTime))
+			assert.True(t, response.LastPinged.After(testStartedTime))
 
-			lastQueried, err := ptypes.Timestamp(response.LastQueried)
-			assert.NoError(t, err)
-			assert.True(t, lastQueried.After(testStartedTime))
+			assert.True(t, response.LastQueried.After(testStartedTime))
 
 			assert.True(t, response.Uptime.Nanos > 0)
 			assert.Equal(t, storageNode.ID(), response.NodeId)

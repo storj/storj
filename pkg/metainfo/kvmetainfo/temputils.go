@@ -41,7 +41,7 @@ func SetupProject(m *metainfo.Client) (*Project, error) {
 	// TODO: https://storjlabs.atlassian.net/browse/V3-1967
 	encStore := encryption.NewStore()
 	encStore.SetDefaultKey(new(storj.Key))
-	strms, err := streams.NewStreamStore(segment, maxBucketMetaSize.Int64(), encStore, memory.KiB.Int(), storj.AESGCM, maxBucketMetaSize.Int())
+	strms, err := streams.NewStreamStore(segment, maxBucketMetaSize.Int64(), encStore, memory.KiB.Int(), storj.EncAESGCM, maxBucketMetaSize.Int())
 	if err != nil {
 		return nil, Error.New("failed to create streams: %v", err)
 	}
