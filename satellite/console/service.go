@@ -197,7 +197,8 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 		PayerID:         authorization.User.ID,
 		PaymentMethodID: method.ID,
 		CreatedAt:       time.Now(),
-		IsDefault:       isDefault}
+		IsDefault:       isDefault,
+	}
 
 	create, err := s.store.ProjectPayments().Create(ctx, projectPaymentInfo)
 	if err != nil {
