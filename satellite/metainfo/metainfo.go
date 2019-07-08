@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -127,6 +128,17 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 // CreateSegmentOld will generate requested number of OrderLimit with coresponding node addresses for them
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if req.Expiration != nil {
+		exp, err := ptypes.Timestamp(req.Expiration)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
+
+		if !exp.After(time.Now()) {
+			return nil, errs.New("Invalid expiration time")
+		}
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
