@@ -135,9 +135,8 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		}
 
-		err = validateExpiration(ctx, exp)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		if !exp.After(time.Now()) {
+			return nil, errs.New("Invalid expiration time")
 		}
 	}
 
@@ -623,25 +622,6 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 	}
 
 	return id, nil
-}
-
-// validateExpiration checks the validity of the expiration timer
-func validateExpiration(ctx context.Context, expiration time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if expiration.IsZero() {
-		return nil
-	}
-
-	now := time.Now()
-	diff := now.Sub(expiration)
-
-	// +ve value indicates past time than current
-	// -ve value indicates future time than current
-	if diff.Seconds() < 0 {
-		return nil
-	}
-	return errs.New("Invalid expiration time")
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key
