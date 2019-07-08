@@ -146,9 +146,12 @@ func generate(dir string, dirs []string, files []string) error {
 }
 
 func appendCommonArguments(args []string, dir string, dirs []string, files []string) []string {
+	var includes []string
+	prependDirInclude := false
 	for _, otherdir := range dirs {
 		if otherdir == dir {
-			args = append(args, "-I=.")
+			// the include for the directory must be added first... see below.
+			prependDirInclude = true
 			continue
 		}
 
@@ -157,9 +160,16 @@ func appendCommonArguments(args []string, dir string, dirs []string, files []str
 			panic(err)
 		}
 
-		args = append(args, "-I="+reldir)
+		includes = append(includes, "-I="+reldir)
 	}
 
+	if prependDirInclude {
+		// The include for the directory needs to be added first, otherwise the
+		// .proto files it contains will be shadowed by .proto files in the
+		// other directories with matching names (causing protoc to bail).
+		args = append(args, "-I=.")
+	}
+	args = append(args, includes...)
 	args = append(args, files...)
 
 	return args

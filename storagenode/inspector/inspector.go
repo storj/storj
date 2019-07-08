@@ -5,10 +5,11 @@ package inspector
 
 import (
 	"context"
+	"github.com/golang/protobuf/ptypes"
+	"net"
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
@@ -35,19 +36,28 @@ type Endpoint struct {
 	kademlia  *kademlia.Kademlia
 	usageDB   bandwidth.DB
 
-	startTime time.Time
-	config    piecestore.OldConfig
+	startTime        time.Time
+	pieceStoreConfig piecestore.OldConfig
+	dashboardAddress net.Addr
 }
 
 // NewEndpoint creates piecestore inspector instance
-func NewEndpoint(log *zap.Logger, pieceInfo pieces.DB, kademlia *kademlia.Kademlia, usageDB bandwidth.DB, config piecestore.OldConfig) *Endpoint {
+func NewEndpoint(
+	log *zap.Logger,
+	pieceInfo pieces.DB,
+	kademlia *kademlia.Kademlia,
+	usageDB bandwidth.DB,
+	pieceStoreConfig piecestore.OldConfig,
+	dashbaordAddress net.Addr) *Endpoint {
+
 	return &Endpoint{
-		log:       log,
-		pieceInfo: pieceInfo,
-		kademlia:  kademlia,
-		usageDB:   usageDB,
-		config:    config,
-		startTime: time.Now(),
+		log:              log,
+		pieceInfo:        pieceInfo,
+		kademlia:         kademlia,
+		usageDB:          usageDB,
+		pieceStoreConfig: pieceStoreConfig,
+		dashboardAddress: dashbaordAddress,
+		startTime:        time.Now(),
 	}
 }
 
@@ -70,11 +80,11 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     inspector.config.AllocatedDiskSpace.Int64() - totalUsedSpace,
+		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - totalUsedSpace,
 		UsedIngress:        ingress,
 		UsedEgress:         egress,
 		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: inspector.config.AllocatedBandwidth.Int64() - totalUsedBandwidth,
+		AvailableBandwidth: inspector.pieceStoreConfig.AllocatedBandwidth.Int64() - totalUsedBandwidth,
 	}, nil
 }
 
@@ -122,6 +132,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 		ExternalAddress:  inspector.kademlia.Local().Address.Address,
 		LastPinged:       inspector.kademlia.LastPinged(),
 		LastQueried:      inspector.kademlia.LastQueried(),
+		DashboardAddress: inspector.dashboardAddress.String(),
 		Uptime:           ptypes.DurationProto(time.Since(inspector.startTime)),
 		Stats:            statsSummary,
 	}, nil

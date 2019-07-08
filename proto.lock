@@ -1273,16 +1273,21 @@
               },
               {
                 "id": 6,
+                "name": "dashboard_address",
+                "type": "string"
+              },
+              {
+                "id": 7,
                 "name": "stats",
                 "type": "StatSummaryResponse"
               },
               {
-                "id": 7,
+                "id": 8,
                 "name": "uptime",
                 "type": "google.protobuf.Duration"
               },
               {
-                "id": 8,
+                "id": 9,
                 "name": "last_pinged",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -1297,7 +1302,7 @@
                 ]
               },
               {
-                "id": 9,
+                "id": 10,
                 "name": "last_queried",
                 "type": "google.protobuf.Timestamp",
                 "options": [
