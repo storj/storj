@@ -55,7 +55,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 }
 
 // Create insert a new record of user credit
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit, offerCap int) error {
+func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit, redeemableCap int) error {
 	var statement string
 
 	switch t := c.db.Driver().(type) {
@@ -75,7 +75,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit,
 		return errs.New("Unsupported database %t", t)
 	}
 
-	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, userCredit.ReferredBy[:], userCredit.OfferID, offerCap)
+	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, userCredit.ReferredBy[:], userCredit.OfferID, redeemableCap)
 	if err != nil {
 		return errs.Wrap(err)
 	}

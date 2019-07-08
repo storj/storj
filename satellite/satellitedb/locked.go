@@ -504,10 +504,10 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit, offerCap int) error {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit, redeemableCap int) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, userCredit, offerCap)
+	return m.db.Create(ctx, userCredit, redeemableCap)
 }
 
 func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
@@ -969,7 +969,6 @@ func (m *lockedRewards) Create(ctx context.Context, offer *rewards.NewOffer) (*r
 	return m.db.Create(ctx, offer)
 }
 
-// Redeem(ctx context.Context, offerID int, isDefault bool) error
 func (m *lockedRewards) Finish(ctx context.Context, offerID int) error {
 	m.Lock()
 	defer m.Unlock()

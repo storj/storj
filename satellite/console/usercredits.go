@@ -15,7 +15,7 @@ import (
 // UserCredits holds information to interact with database
 type UserCredits interface {
 	GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*UserCreditUsage, error)
-	Create(ctx context.Context, userCredit UserCredit, offerCap int) error
+	Create(ctx context.Context, userCredit UserCredit, redeemableCap int) error
 	UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error)
 }
 
