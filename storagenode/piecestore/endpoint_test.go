@@ -23,6 +23,7 @@ import (
 
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
+
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
