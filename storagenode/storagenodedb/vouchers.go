@@ -29,7 +29,7 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	id := voucher.SatelliteId
-	expiration := voucher.Expiration
+	expiration := voucher.Expiration.UTC()
 
 	voucherSerialized, err := proto.Marshal(voucher)
 	if err != nil {
