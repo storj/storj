@@ -5,6 +5,7 @@ package checker
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -57,6 +58,7 @@ type Checker struct {
 	overlay         *overlay.Cache
 	garbageService  *gc.Service
 	pieceTracker    gc.PieceTracker
+	gcWaitGroup     sync.WaitGroup
 	lastChecked     string
 }
 
@@ -73,6 +75,7 @@ func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Dur
 		overlay:         overlay,
 		garbageService:  garbageService,
 		pieceTracker:    garbageService.NewPieceTracker(),
+		gcWaitGroup:     sync.WaitGroup{},
 		lastChecked:     "",
 	}
 
@@ -102,6 +105,11 @@ func (checker *Checker) Close() error {
 	return nil
 }
 
+// WaitForGCSend will wait for gc service to send retain requests to all storage nodes
+func (checker *Checker) WaitForGCSend() {
+	checker.gcWaitGroup.Wait()
+}
+
 // IdentifyInjuredSegments checks for missing pieces off of the metainfo and overlay cache
 func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -128,7 +136,9 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					// reset durability stats for next iteration
 					checker.monStats = durabilityStats{}
 
-					err := checker.garbageService.Send(ctx, checker.pieceTracker)
+					err := checker.garbageService.Send(ctx, checker.pieceTracker, func() {
+						checker.gcwaitgroup.Done()
+					})
 					if err != nil {
 						checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
 					}
@@ -136,6 +146,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 
 				}
 			}()
+			checker.gcwaitgroup.Add(1)
 
 			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
