@@ -26,8 +26,9 @@ type CreateCustomerParams struct {
 	Name  string
 }
 
+// AddPaymentMethodParams contains info needed to create new payment method
 type AddPaymentMethodParams struct {
-	Token string
+	Token      string
 	CustomerID string
 }
 

@@ -113,7 +113,7 @@ func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPayme
 
 	return &payments.PaymentMethod{
 		CustomerID: []byte(paymentMethod.Customer.ID),
-		ID: []byte(paymentMethod.ID),
+		ID:         []byte(paymentMethod.ID),
 		Card: payments.Card{
 			ExpYear:  int64(paymentMethod.Card.ExpYear),
 			ExpMonth: int64(paymentMethod.Card.ExpMonth),

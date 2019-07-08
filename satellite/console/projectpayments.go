@@ -35,10 +35,7 @@ type ProjectPayment struct {
 	CreatedAt time.Time
 }
 
-type ProjectPaymentMethod struct {
-
-}
-
+// Card contains customer card info
 type Card struct {
 	Country  string
 	Brand    string

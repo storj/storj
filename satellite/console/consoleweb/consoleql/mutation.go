@@ -42,8 +42,11 @@ const (
 	// DeleteAPIKeysMutation is a mutation name for api key deleting
 	DeleteAPIKeysMutation = "deleteAPIKeys"
 
-	AddPaymentMethodMutation        = "addPaymentMethod"
-	DeletePaymentMethodMutation     = "deletePaymentMethod"
+	// AddPaymentMethodMutation is mutation name for adding new payment method
+	AddPaymentMethodMutation = "addPaymentMethod"
+	// DeletePaymentMethodMutation is mutation name for deleting payment method
+	DeletePaymentMethodMutation = "deletePaymentMethod"
+	// SetDefaultPaymentMethodMutation is mutation name setting payment method as default payment method
 	SetDefaultPaymentMethodMutation = "setDefaultPaymentMethod"
 
 	// InputArg is argument name for all input types
