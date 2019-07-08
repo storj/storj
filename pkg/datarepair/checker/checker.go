@@ -195,8 +195,9 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		}
 		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:       path,
-			LostPieces: missingPieces,
+			Path:         path,
+			LostPieces:   missingPieces,
+			InsertedTime: time.Now().UTC(),
 		})
 		if err != nil {
 			return Error.New("error adding injured segment to queue %s", err)
