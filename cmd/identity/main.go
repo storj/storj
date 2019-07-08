@@ -57,7 +57,9 @@ var (
 		ParentKeyPath  string `help:"path to the parent authority's private key"`
 		Signer         certificates.CertClientConfig
 		// TODO: ideally the default is the latest version; can't interpolate struct tags
-		Version uint `default:"0" help:"identity version to use when creating an identity or CA"`
+		IdentityVersion uint `default:"0" help:"identity version to use when creating an identity or CA"`
+
+		Version version.Config
 	}
 
 	identityDir, configDir string
@@ -84,7 +86,7 @@ func serviceDirectory(serviceName string) string {
 func cmdNewService(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -103,7 +105,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 		Concurrency:    config.Concurrency,
 		ParentCertPath: config.ParentCertPath,
 		ParentKeyPath:  config.ParentKeyPath,
-		VersionNumber:  config.Version,
+		VersionNumber:  config.IdentityVersion,
 	}
 
 	status, err := caConfig.Status()

@@ -386,6 +386,7 @@
     let _moment2 = _interopRequireDefault(_moment);
 
     function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
     @Component({
         props: {
             required: false,

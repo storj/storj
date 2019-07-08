@@ -38,11 +38,10 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom input component with labeled header
-@Component(
-    {
+	// Custom input component with labeled header
+    @Component({
         data: function () {
             return {
                 value: this.$props.initValue ? this.$props.initValue : '',
@@ -102,10 +101,9 @@ import { Component, Vue } from 'vue-property-decorator';
                 return {width: this.$props.width, height: this.$props.height};
             },
         },
-    },
-)
+    })
 
-export default class HeaderedInput extends Vue {}
+    export default class HeaderedInput extends Vue {}
 
 </script>
 
