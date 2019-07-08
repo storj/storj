@@ -376,14 +376,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					// Get the original segment pointer in the metainfo
 					oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, stripe.Segment)
 					if err != nil {
-						ch <- result{nodeID: piece.NodeId, status: skipped}
+						ch <- result{nodeID: piece.NodeId, status: success}
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						return
 					}
 					//remove failed audit pieces from the pointer so as to only penalize once for failed audits
 					err = verifier.RemoveFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
 					if err != nil {
-						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Error(err))
+						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					}
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
@@ -412,13 +412,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				//remove failed audit pieces from the pointer so as to only penalize once for failed audits
 				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, nil)
 				if err != nil {
-					ch <- result{nodeID: piece.NodeId, status: skipped}
+					ch <- result{nodeID: piece.NodeId, status: success}
 					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
 				err = verifier.RemoveFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
 				if err != nil {
-					verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Error(err))
+					verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				}
 			}
 		}(pending, piece)

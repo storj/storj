@@ -564,5 +564,10 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
+
+		for _, newPiece := range stripe.Segment.GetRemote().GetRemotePieces() {
+			require.NotEqual(t, newPiece.NodeId, piece.NodeId)
+		}
+
 	})
 }
