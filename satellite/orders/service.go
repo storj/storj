@@ -38,25 +38,25 @@ type Service struct {
 	orders           DB
 	satelliteAddress *pb.NodeAddress
 
-	orderExpiration                 time.Duration
-	repairMaxExcessOptimalThreshold int
+	orderExpiration                     time.Duration
+	repairMaxExcessRateOptimalThreshold float64
 }
 
 // NewService creates new service for creating order limits.
 func NewService(
 	log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 	certdb certdb.DB, orders DB, orderExpiration time.Duration,
-	satelliteAddress *pb.NodeAddress, repairMaxExcessOptimalThreshold int,
+	satelliteAddress *pb.NodeAddress, repairMaxExcessRateOptimalThreshold float64,
 ) *Service {
 	return &Service{
-		log:                             log,
-		satellite:                       satellite,
-		cache:                           cache,
-		certdb:                          certdb,
-		orders:                          orders,
-		satelliteAddress:                satelliteAddress,
-		orderExpiration:                 orderExpiration,
-		repairMaxExcessOptimalThreshold: repairMaxExcessOptimalThreshold,
+		log:                                 log,
+		satellite:                           satellite,
+		cache:                               cache,
+		certdb:                              certdb,
+		orders:                              orders,
+		satelliteAddress:                    satelliteAddress,
+		orderExpiration:                     orderExpiration,
+		repairMaxExcessRateOptimalThreshold: repairMaxExcessRateOptimalThreshold,
 	}
 }
 
@@ -646,7 +646,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 
 		totalPiecesAfterRepair := int(
 			math.Ceil(
-				float64(redundancy.OptimalThreshold()) * (1 + float64(service.repairMaxExcessOptimalThreshold/100)),
+				float64(redundancy.OptimalThreshold()) * (1 + service.repairMaxExcessRateOptimalThreshold),
 			),
 		)
 		if totalPiecesAfterRepair > totalPieces {

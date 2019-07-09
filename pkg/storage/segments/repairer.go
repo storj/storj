@@ -45,11 +45,11 @@ type Repairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration,
-	excessPercentageOptimaThreshold int,
+	excessOptimalThreshold float64,
 ) *Repairer {
 
-	if excessPercentageOptimaThreshold < 0 {
-		excessPercentageOptimaThreshold = 0
+	if excessOptimalThreshold < 0 {
+		excessOptimalThreshold = 0
 	}
 
 	return &Repairer{
@@ -60,7 +60,7 @@ func NewSegmentRepairer(
 		ec:                         ec.WithForceErrorDetection(true),
 		identity:                   identity,
 		timeout:                    timeout,
-		multiplierOptimalThreshold: 1 + float64((excessPercentageOptimaThreshold / 100)),
+		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
 }
 
