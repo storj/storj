@@ -943,6 +943,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     41,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP num_redeemed;`,
+				},
+			},
 		},
 	}
 }

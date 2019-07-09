@@ -683,7 +683,6 @@ model offer (
 	field invitee_credit_duration_days int ( updatable )
 
 	field redeemable_cap int ( updatable )
-	field num_redeemed int ( updatable, autoinsert )
 
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )

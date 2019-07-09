@@ -117,7 +117,6 @@ CREATE TABLE offers (
 	award_credit_duration_days INTEGER NOT NULL,
 	invitee_credit_duration_days INTEGER NOT NULL,
 	redeemable_cap INTEGER NOT NULL,
-	num_redeemed INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,
