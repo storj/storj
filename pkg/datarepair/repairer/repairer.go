@@ -141,10 +141,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	insertedTime := seg.GetInsertedTime()
 	workerStartTime := time.Now().UTC()
-	timeSinceQueued := workerStartTime.Sub(insertedTime)
-	mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds())
 
 	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
 	err = service.repairer.Repair(ctx, seg.GetPath())
@@ -156,9 +153,16 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	if err != nil {
 		return Error.New("repair delete failed: %v", err)
 	}
-	repairedTime := time.Now().UTC()
-	timeForRepair := repairedTime.Sub(repairedTime)
-	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds())
+
+	insertedTime := seg.GetInsertedTime()
+	// do not send metrics if segment was added before the InsertedTime field was added
+	if !insertedTime.IsZero() {
+		timeSinceQueued := workerStartTime.Sub(insertedTime)
+		repairedTime := time.Now().UTC()
+		timeForRepair := repairedTime.Sub(repairedTime)
+		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds())
+		mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds())
+	}
 
 	return nil
 }
