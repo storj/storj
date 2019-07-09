@@ -341,6 +341,6 @@ INSERT INTO "buckets" ("id", "project_id", "name", "created_at", "path_cipher", 
 
 -- NEW DATA --
 
-INSERT INTO "offers" ("id","name","description","award_credit_in_cents","invitee_credit_in_cents","award_credit_duration_days","invitee_credit_duration_days","redeemable_cap","num_redeemed","expires_at","created_at","status","type") VALUES (1,'Default referral offer','Is active when no other active referral offer',300,600,99999,99999,99999,0,'2119-03-14 08:28:24.636949+00','2019-07-14 08:28:24.636949+00',2,1);
+INSERT INTO "offers" ("id","name","description","award_credit_in_cents","invitee_credit_in_cents","award_credit_duration_days","invitee_credit_duration_days","redeemable_cap","num_redeemed","expires_at","created_at","status","type") VALUES (2,'Default referral offer','Is active when no other active referral offer',300,600,99999,99999,99999,0,'2119-03-14 08:28:24.636949+00','2019-07-14 08:28:24.636949+00',2,1);
 
-INSERT INTO "offers" ("id","name","description","award_credit_in_cents","invitee_credit_in_cents","award_credit_duration_days","invitee_credit_duration_days","redeemable_cap","num_redeemed","expires_at","created_at","status","type") VALUES (2,'Default free credit offer','Is active when no active free credit offer',300,0,99999,99999,99999,0,'2119-03-14 08:28:24.636949+00','2019-07-14 08:28:24.636949+00',2,0);
+INSERT INTO "offers" ("id","name","description","award_credit_in_cents","invitee_credit_in_cents","award_credit_duration_days","invitee_credit_duration_days","redeemable_cap","num_redeemed","expires_at","created_at","status","type") VALUES (3,'Default free credit offer','Is active when no active free credit offer',300,0,99999,99999,99999,0,'2119-03-14 08:28:24.636949+00','2019-07-14 08:28:24.636949+00',2,0);
