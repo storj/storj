@@ -41,7 +41,7 @@ export async function createProjectRequest(createProjectModel: CreateProjectMode
 
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
-    } else if (result.data) {
+    } else {
         result.isSuccess = true;
         result.data.id = response.data.createProject.id;
     }
