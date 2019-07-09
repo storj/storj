@@ -2,52 +2,52 @@
 <!--See LICENSE for copying information.-->
 
 <div class="login-container" @keyup.enter="onLogin">
-	<div :class="loadingClassName"></div>
-	<img :class="loadingLogoClassName" src="../../../static/images/LogoWhite.svg" alt="loading-logo">
-	<img class="image" src="../../../static/images/AuthImage.svg" alt="" >
-	<div class="login-container__wrapper">
-		<div class="login-container__header">
-			<img class="login-container__logo" src="../../../static/images/Logo.svg" alt="logo" @click="onLogoClick">
-			<div class="login-container__register-button" @click.prevent="onSignUpClick">
-				<p>Create Account</p>
-			</div>
-		</div>
-		<div class="login-area-wrapper">
-			<div class="login-area">
-				<div class="login-area__title-container">
-					<h1>Login to Storj</h1>
-				</div>
-				<HeaderlessInput
-						class="login-area__email-input"
-						placeholder="Email"
-                        :error="emailError"
-						@setData="setEmail"
-						height="46px"
-						width="100%">
-				</HeaderlessInput>
-				<HeaderlessInput
-						class="login-area__password-input"
-						placeholder="Password"
-                        :error="passwordError"
-						@setData="setPassword"
-						width="100%"
-						height="46px"
-						isPassword>
-				</HeaderlessInput>
-				<div class="login-area__submit-area">
-					<router-link :to="forgotPasswordRouterPath" class="login-area__navigation-area__nav-link" exact>
-						<h3><strong>Forgot password?</strong></h3>
-					</router-link>
-					<div class="login-area__submit-area__login-button" @click.prevent="onLogin">
-						<p>Log In</p>
-					</div>
-				</div>
-				<div class="login-area__info-area">
-					<p class="login-area__info-area__signature">Storj Labs Inc 2019.</p>
-					<a class="login-area__info-area__terms" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a>
-					<a class="login-area__info-area__help" href="mailto:support@storj.io" target="_blank">Support</a>
-				</div>
-			</div>
-		</div>
-	</div>
+    <div :class="loadingClassName"></div>
+    <img :class="loadingLogoClassName" src="../../../static/images/LogoWhite.svg" alt="loading-logo">
+    <img class="image" src="../../../static/images/AuthImage.svg" alt="" >
+    <div class="login-container__wrapper">
+        <div class="login-container__header">
+            <img class="login-container__logo" src="../../../static/images/Logo.svg" alt="logo" @click="onLogoClick">
+            <div class="login-container__register-button" @click.prevent="onSignUpClick">
+                <p>Create Account</p>
+            </div>
+        </div>
+        <div class="login-area-wrapper">
+            <div class="login-area">
+                <div class="login-area__title-container">
+                    <h1>Login to Storj</h1>
+                </div>
+                <HeaderlessInput
+                    class="login-area__email-input"
+                    placeholder="Email"
+                    :error="emailError"
+                    @setData="setEmail"
+                    height="46px"
+                    width="100%">
+                </HeaderlessInput>
+                <HeaderlessInput
+                    class="login-area__password-input"
+                    placeholder="Password"
+                    :error="passwordError"
+                    @setData="setPassword"
+                    width="100%"
+                    height="46px"
+                    isPassword>
+                </HeaderlessInput>
+                <div class="login-area__submit-area">
+                    <router-link :to="forgotPasswordRouterPath" class="login-area__navigation-area__nav-link" exact>
+                        <h3><strong>Forgot password?</strong></h3>
+                    </router-link>
+                    <div class="login-area__submit-area__login-button" @click.prevent="onLogin">
+                        <p>Log In</p>
+                    </div>
+                </div>
+                <div class="login-area__info-area">
+                    <p class="login-area__info-area__signature">Storj Labs Inc 2019.</p>
+                    <a class="login-area__info-area__terms" href="https://tardigrade.io/terms-of-use/" target="_blank">Terms & Conditions</a>
+                    <a class="login-area__info-area__help" href="mailto:support@storj.io" target="_blank">Support</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
