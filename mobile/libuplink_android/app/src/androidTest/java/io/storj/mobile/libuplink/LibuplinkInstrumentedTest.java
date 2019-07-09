@@ -328,8 +328,7 @@ public class LibuplinkInstrumentedTest {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
                 byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
-                EncryptionAccess ea = new EncryptionAccess();
-                ea.setDefaultKey(saltedKey);
+                EncryptionAccess ea = new EncryptionAccess(saltedKey);
                 String serialized = ea.serialize();
                 assertNotEquals("", serialized);
             } finally {
