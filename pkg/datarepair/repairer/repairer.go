@@ -142,7 +142,8 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	defer mon.Task()(&ctx)(&err)
 
 	insertedTime := seg.GetInsertedTime()
-	timeSinceQueued := time.Now().UTC().Sub(insertedTime)
+	dequeueTime := time.Now().UTC()
+	timeSinceQueued := dequeueTime.Sub(insertedTime)
 	mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds())
 
 	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
@@ -155,5 +156,9 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	if err != nil {
 		return Error.New("repair delete failed: %v", err)
 	}
+	repairedTime := time.Now().UTC()
+	timeForRepair := repairedTime.Sub(repairedTime)
+	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds())
+
 	return nil
 }
