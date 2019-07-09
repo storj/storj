@@ -148,7 +148,26 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result, err := db.db.Exec(`
+	txn, err := db.Begin()
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+	defer func() {
+		if err == nil {
+			err = txn.Commit()
+		} else {
+			err = errs.Combine(err, txn.Rollback())
+		}
+	}()
+
+	return db.archiveTransaction(ctx, txn, satellite, serial, status)
+}
+
+// archiveTransaction marks order as being handled.
+func (db *ordersdb) archiveTransaction(ctx context.Context, txn *sql.Tx, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err := txn.Exec(`
 		INSERT INTO order_archive (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,
@@ -231,4 +250,49 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 	}
 
 	return infos, ErrInfo.Wrap(rows.Err())
+}
+
+// Archive marks order as being handled.
+func (db *ordersdb) BeginArchive(ctx context.Context) (_ orders.ArchiveTransaction, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	txn, err := db.Begin()
+	if err != nil {
+		return nil, ErrInfo.Wrap(err)
+	}
+	return &archiveTransaction{db: db, txn: txn}, nil
+}
+
+// archiveTransaction holds on to a database transaction for Archive calls.
+type archiveTransaction struct {
+	db  *ordersdb
+	txn *sql.Tx
+}
+
+// Archive marks order as being handled.
+func (arTxn *archiveTransaction) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) error {
+	if arTxn.txn == nil {
+		return ErrInfo.New("transaction closed")
+	}
+	return arTxn.db.archiveTransaction(ctx, arTxn.txn, satellite, serial, status)
+}
+
+// Commit persists the transaction, invalidating it.
+func (arTxn *archiveTransaction) Commit() error {
+	if arTxn.txn == nil {
+		return ErrInfo.New("transaction closed")
+	}
+	err := arTxn.txn.Commit()
+	arTxn.txn = nil
+	return err
+}
+
+// Rollback cancels any changes in the transaction, invalidating it.
+func (arTxn *archiveTransaction) Rollback() error {
+	if arTxn.txn == nil {
+		return ErrInfo.New("transaction closed")
+	}
+	err := arTxn.txn.Rollback()
+	arTxn.txn = nil
+	return err
 }
