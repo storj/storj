@@ -6,7 +6,9 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
+
 	"github.com/gogo/protobuf/proto"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
