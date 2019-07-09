@@ -55,18 +55,18 @@ const (
 	Referral
 )
 
-// OfferStatus indicates the status of an offer
+// OfferStatus represents the different stage an offer can have in its life-cycle.
 type OfferStatus int
 
 const (
 
-	// Done is a default offer status when an offer is not being used currently
+	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
 
-	// Active is a offer status when an offer is currently being used
+	// Active is the status of an offer that is currently in use.
 	Active
 
-	// Default is a offer status when an offer is used as a default offer
+	// Default is the status of an offer when there is no active offer.
 	Default
 )
 
