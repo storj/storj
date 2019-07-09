@@ -157,8 +157,8 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	offerType := mux.Vars(req)["offer_type"]
 	offer.Status = rewards.Active
+	offerType := mux.Vars(req)["offer_type"]
 
 	switch offerType {
 	case "referral-offer":
