@@ -145,15 +145,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
-		_, err = s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
-			UserID: u.ID,
-			Email:  email,
-			Name:   user.FullName,
-		})
-		if err != nil {
-			return err
-		}
-
 		return err
 	})
 
