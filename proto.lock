@@ -2148,17 +2148,7 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "EncryptedPath"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 3,
@@ -2293,17 +2283,7 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "EncryptedPath"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 3,
@@ -2368,17 +2348,7 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "EncryptedPath"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 3,
@@ -2587,17 +2557,7 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "EncryptedPath"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 3,
@@ -2771,17 +2731,7 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 2,
@@ -2797,17 +2747,7 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 2,
@@ -3075,17 +3015,7 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 2,
@@ -3101,17 +3031,7 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 2,
@@ -3241,17 +3161,7 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "SegmentID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "type": "bytes"
               },
               {
                 "id": 2,
