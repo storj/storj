@@ -4,10 +4,7 @@
 package datarepair_test
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/require"
-
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -17,6 +14,7 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
+	"testing"
 )
 
 // TestDataRepair does the following:
@@ -31,6 +29,7 @@ func TestDataRepair(t *testing.T) {
 		SatelliteCount:   1,
 		StorageNodeCount: 12,
 		UplinkCount:      1,
+		Reconfigure:      testplanet.ShortenOnlineWindow,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		ul := planet.Uplinks[0]
