@@ -4,7 +4,10 @@
 package datarepair_test
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -14,7 +17,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/uplink"
-	"testing"
 )
 
 // TestDataRepair does the following:
