@@ -707,12 +707,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
-	}
-
-	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	bucket, err := endpoint.convertProtoToBucket(req, keyInfo.ProjectID)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
@@ -816,21 +811,27 @@ func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAtt
 	return resp, status.Error(codes.Unimplemented, "not implemented")
 }
 
-func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
+func (endpoint *Endpoint) convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
 	bucketID, err := uuid.New()
 	if err != nil {
 		return storj.Bucket{}, err
 	}
 
-	defaultRS := req.GetDefaultRedundancyScheme()
-	defaultEP := req.GetDefaultEncryptionParameters()
+	defaultRS := &pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_RS,
+		ErasureShareSize: int32(endpoint.rsConfig.ErasureShareSize),
+		MinReq:           int32(endpoint.rsConfig.MinThreshold),
+		RepairThreshold:  int32(endpoint.rsConfig.RepairThreshold),
+		SuccessThreshold: int32(endpoint.rsConfig.SuccessThreshold),
+		Total:            int32(endpoint.rsConfig.MaxThreshold),
+	}
+	// defaultEP := req.GetDefaultEncryptionParameters()
 	return storj.Bucket{
 		ID:                  *bucketID,
 		Name:                string(req.GetName()),
 		ProjectID:           projectID,
-		Attribution:         string(req.GetAttributionId()),
-		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
-		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
+		Attribution:         req.GetAttribution(),
+		DefaultSegmentsSize: endpoint.rsConfig.MaxSegmentSize.Int64(),
 		DefaultRedundancyScheme: storj.RedundancyScheme{
 			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
 			ShareSize:      defaultRS.GetErasureShareSize(),
@@ -839,10 +840,10 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (sto
 			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
 			TotalShares:    int16(defaultRS.GetTotal()),
 		},
-		DefaultEncryptionParameters: storj.EncryptionParameters{
-			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
-			BlockSize:   int32(defaultEP.BlockSize),
-		},
+		// DefaultEncryptionParameters: storj.EncryptionParameters{
+		// 	CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
+		// 	BlockSize:   int32(defaultEP.BlockSize),
+		// },
 	}, nil
 }
 
@@ -850,8 +851,7 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 	rs := bucket.DefaultRedundancyScheme
 	return &pb.Bucket{
 		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
-		AttributionId:      []byte(bucket.Attribution),
+		Attribution:        bucket.Attribution,
 		CreatedAt:          bucket.Created,
 		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{
@@ -911,11 +911,11 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	return &pb.SegmentBeginResponse{}, status.Error(codes.Unimplemented, "not implemented")
 }
 
-// CommitSegment2 TODO
-func (endpoint *Endpoint) CommitSegment2(ctx context.Context, req *pb.SegmentCommitRequest2) (resp *pb.SegmentCommitResponse2, err error) {
+// CommitSegment TODO
+func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return &pb.SegmentCommitResponse2{}, status.Error(codes.Unimplemented, "not implemented")
+	return &pb.SegmentCommitResponse{}, status.Error(codes.Unimplemented, "not implemented")
 }
 
 // MakeInlineSegment TODO
@@ -939,18 +939,18 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 	return &pb.SegmentFinishDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
 }
 
-// ListSegments2 TODO
-func (endpoint *Endpoint) ListSegments2(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
+// ListSegments TODO
+func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return &pb.SegmentListResponse{}, status.Error(codes.Unimplemented, "not implemented")
 }
 
-// DownloadSegment2 TODO
-func (endpoint *Endpoint) DownloadSegment2(ctx context.Context, req *pb.SegmentDownloadRequest2) (resp *pb.SegmentDownloadResponse2, err error) {
+// DownloadSegment TODO
+func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return &pb.SegmentDownloadResponse2{}, status.Error(codes.Unimplemented, "not implemented")
+	return &pb.SegmentDownloadResponse{}, status.Error(codes.Unimplemented, "not implemented")
 }
 
 // Batch TODO

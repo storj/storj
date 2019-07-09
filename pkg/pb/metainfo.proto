@@ -223,7 +223,7 @@ message Object {
     }
 
     bytes  bucket         = 1;
-    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
+    bytes  encrypted_path = 2;
     int32  version        = 3;
     Status status         = 4;
 
@@ -247,7 +247,7 @@ message Object {
 
 message ObjectBeginRequest {
     bytes  bucket = 1;
-    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
+    bytes  encrypted_path = 2;
     int32  version = 3;
 
     google.protobuf.Timestamp expires_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
@@ -261,7 +261,7 @@ message ObjectBeginRequest {
 
 message ObjectBeginResponse {
     bytes  bucket = 1;
-    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
+    bytes  encrypted_path = 2;
     int32  version = 3;
 
     bytes  stream_id = 4 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
@@ -310,7 +310,7 @@ message ObjectListItemIncludes {
 
 message ObjectBeginDeleteRequest {
     bytes  bucket = 1;
-    bytes  encrypted_path = 2 [(gogoproto.customtype) = "EncryptedPath", (gogoproto.nullable) = false];
+    bytes  encrypted_path = 2;
     int32  version = 3;
 }
 
@@ -351,12 +351,12 @@ message SegmentBeginRequest {
 }
 
 message SegmentBeginResponse {
-    bytes    segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes    segment_id = 1;
     repeated AddressedOrderLimit addressed_limits = 2;
 }
 
 message SegmentCommitRequest {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes segment_id = 1;
 
     bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes encrypted_key = 3;
@@ -420,12 +420,12 @@ message SegmentBeginDeleteRequest {
 }
 
 message SegmentBeginDeleteResponse {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes segment_id = 1;
     repeated AddressedOrderLimit addressed_limits = 2;
 }
 
 message SegmentFinishDeleteRequest {
-    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes segment_id = 1;
     repeated SegmentPieceDeleteResult results = 2;
 }
 
@@ -458,7 +458,7 @@ message SegmentDownloadRequest {
 }
 
 message SegmentDownloadResponse {
-    bytes                           segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    bytes                           segment_id = 1;
     repeated AddressedOrderLimit    addressed_limits = 2;
     SegmentPosition                 next = 3; // can be nil
 }
