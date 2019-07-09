@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
@@ -46,18 +45,13 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 		return ErrInfo.Wrap(err)
 	}
 
-	expirationTime, err := ptypes.Timestamp(info.Limit.OrderExpiration)
-	if err != nil {
-		return ErrInfo.Wrap(err)
-	}
-
 	_, err = db.db.Exec(`
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized, order_limit_expiration,
 			uplink_cert_id
 		) VALUES (?,?, ?,?,?, ?)
-	`, info.Limit.SatelliteId, info.Limit.SerialNumber, limitSerialized, orderSerialized, expirationTime, uplinkCertID)
+	`, info.Limit.SatelliteId, info.Limit.SerialNumber, limitSerialized, orderSerialized, info.Limit.OrderExpiration.UTC(), uplinkCertID)
 
 	return ErrInfo.Wrap(err)
 }

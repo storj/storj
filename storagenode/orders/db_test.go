@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
@@ -48,8 +47,6 @@ func TestOrders(t *testing.T) {
 		require.Len(t, emptyArchive, 0)
 
 		now := time.Now()
-		nowTimestamp, err := ptypes.TimestampProto(now)
-		require.NoError(t, err)
 
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
@@ -60,8 +57,8 @@ func TestOrders(t *testing.T) {
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
 			OrderCreation:   now.AddDate(0, 0, -1),
-			PieceExpiration: nowTimestamp,
-			OrderExpiration: nowTimestamp,
+			PieceExpiration: now,
+			OrderExpiration: now,
 		})
 		require.NoError(t, err)
 

@@ -53,8 +53,8 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   &now,
-			PieceExpiration: &now,
+			PieceCreation:   now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash0,
 			Uplink:          uplink0.PeerIdentity(),
@@ -73,8 +73,8 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   &now,
-			PieceExpiration: &now,
+			PieceCreation:   now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash1,
 			Uplink:          uplink1.PeerIdentity(),
@@ -93,8 +93,8 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   &now,
-			PieceExpiration: &now,
+			PieceCreation:   now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash2,
 			Uplink:          uplink2.PeerIdentity(),
