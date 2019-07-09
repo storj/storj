@@ -206,9 +206,10 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	}
 
 	for _, piece := range pieces {
-		err = checker.pieceTracker.Add(ctx, piece.NodeId, piece.GetHash().PieceId)
+		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		err = checker.pieceTracker.Add(ctx, piece.NodeId, pieceID)
 		if err != nil {
-			checker.logger.Sugar().Debug("error adding (nodeID, pieceID) to pieceTracker (%s, %s)", piece.NodeId, piece.GetHash().PieceId)
+			checker.logger.Sugar().Debug("error adding (nodeID, pieceID) to pieceTracker (%s, %s)", piece.NodeId, pieceID)
 		}
 	}
 
