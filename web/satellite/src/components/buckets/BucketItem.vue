@@ -50,6 +50,7 @@
 			background: #fff;
 			box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
 		}
+
 		&__item {
 			width: 20%;
 			height: 80px;
@@ -63,6 +64,7 @@
 			font-weight: bold;
 		}
 	}
+
 	@media screen and (max-width: 1600px) {
 		.container {
 			grid-template-columns: 2% 20% 30% 20% 15% 13%;

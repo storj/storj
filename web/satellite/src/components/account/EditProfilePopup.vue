@@ -129,6 +129,7 @@
 		color: #354049;
 		display: flex;
 	}
+
 	.edit-profile-row-container {
 		width: 100%;
 		display: flex;
@@ -136,6 +137,7 @@
 		align-content: center;
 		justify-content: flex-start;
 	}
+
 	.edit-profile-popup-container {
 		position: fixed;
 		top: 0;
@@ -148,9 +150,11 @@
 		justify-content: center;
 		align-items: center;
 	}
+
 	.input-container.full-input {
 		width: 100%;
 	}
+
 	.edit-profile-popup {
 		width: 100%;
 		max-width: 440px;

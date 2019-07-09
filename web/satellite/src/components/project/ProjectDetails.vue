@@ -128,6 +128,7 @@
 		position: relative;
 		overflow: hidden;
 		height: 85vh;
+
 		h1 {
 			font-family: 'font_bold';
 			font-size: 24px;
@@ -136,6 +137,7 @@
 			margin-block-start: 0.5em;
 			margin-block-end: 0.5em;
 		}
+
 		h2 {
 			@extend h1;
 			font-family: 'font_regular';
@@ -143,6 +145,7 @@
 			line-height: 21px;
 			color: rgba(56, 75, 101, 0.4);
 		}
+
 		h3 {
 			@extend h2;
 			color: #354049;
@@ -183,6 +186,7 @@
 			margin-bottom: 100px;
 		}
 	}
+
 	.project-details-info-container {
 		height: auto;
 		margin-top: 37px;

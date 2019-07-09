@@ -67,7 +67,9 @@
 			overflow-y: scroll;
 			height: 555px;
 
-			&::-webkit-scrollbar, &::-webkit-scrollbar-track, &::-webkit-scrollbar-thumb {
+			&::-webkit-scrollbar,
+			&::-webkit-scrollbar-track,
+			&::-webkit-scrollbar-thumb {
 				visibility: hidden;
 			}
 		}

@@ -84,6 +84,7 @@
 		justify-content: center;
 		align-items: center;
 	}
+
 	.add-payment-popup-container {
 		position: relative;
 		width: 810px;

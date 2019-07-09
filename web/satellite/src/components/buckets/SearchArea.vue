@@ -44,8 +44,10 @@
 		width: 100%;
 		height: 56px;
 		margin: 0 24px;
+
 		&__wrap {
 			position: relative;
+
 			&::after {
 				content: '';
 				display: block;
@@ -60,7 +62,9 @@
 				background-size: cover;
 				z-index: 20;
 			}
+
 			&__input {
+
 				input {
 					box-sizing: border-box;
 					position: relative;
@@ -79,6 +83,7 @@
 			}
 		}
 	}
+
 	::-webkit-input-placeholder {
 		color: #AFB7C1;
 	}

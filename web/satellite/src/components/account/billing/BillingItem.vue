@@ -70,9 +70,11 @@
 			}
 
 			svg:hover {
+
 				.background {
 					fill: #2683FF !important;
 				}
+
 				.blue {
 					fill: white !important;
 				}

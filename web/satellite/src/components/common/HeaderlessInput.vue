@@ -107,76 +107,80 @@
 </script>
 
 <style scoped lang="scss">
-
-
-input {
-	font-family: 'font_regular';
-	font-size: 16px;
-	line-height: 21px;
-	resize: none;
-	height: 46px;
-	padding: 0;
-	width: 100%;
-	text-indent: 20px;
-	border-color: rgba(56, 75, 101, 0.4);
-	border-radius: 6px;
-}
-input::placeholder {
-    color: #384B65;
-    opacity: 0.4;
-}
-.inputError::placeholder {
-    color: #EB5757;
-    opacity: 0.4;
-}
-h3 {
-	font-family: 'font_regular';
-	font-size: 16px;
-	line-height: 21px;
-	color: #354049;
-}
-.label-container {
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-end;
-    padding-bottom: 8px;
-    flex-direction: row;
-
-    h3 {
-        margin-bottom: 0;
-    }
-
-    &__add-label {
-        margin-left: 5px;
+    input {
         font-family: 'font_regular';
         font-size: 16px;
         line-height: 21px;
-        color: rgba(56, 75, 101, 0.4);
+        resize: none;
+        height: 46px;
+        padding: 0;
+        width: 100%;
+        text-indent: 20px;
+        border-color: rgba(56, 75, 101, 0.4);
+        border-radius: 6px;
     }
 
-    &__error {
+    input::placeholder {
+        color: #384B65;
+        opacity: 0.4;
+    }
+
+    .inputError::placeholder {
+        color: #EB5757;
+        opacity: 0.4;
+    }
+
+    h3 {
+        font-family: 'font_regular';
+        font-size: 16px;
+        line-height: 21px;
+        color: #354049;
+    }
+
+    .label-container {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-end;
+        padding-bottom: 8px;
+        flex-direction: row;
+
+        h3 {
+            margin-bottom: 0;
+        }
+
+        &__add-label {
+            margin-left: 5px;
+            font-family: 'font_regular';
+            font-size: 16px;
+            line-height: 21px;
+            color: rgba(56, 75, 101, 0.4);
+        }
+
+        &__error {
+            margin-left: 10px;
+        }
+    }
+
+    .error {
+        color: #FF5560;
         margin-left: 10px;
     }
-}
-.error {
-	color: #FF5560;
-	margin-left: 10px;
-}
-.input-wrap {
-  position: relative;
-  width: 100%;
 
-	svg {
-		position: absolute;
-		right: 15px;
-		bottom: 5px;
-		transform: translateY(-50%);
-		z-index: 20;
-		cursor: pointer;
+    .input-wrap {
+      position: relative;
+      width: 100%;
 
-		&:hover path {
-			fill: #2683FF !important;
-		}
-	}
-}
+        svg {
+            position: absolute;
+            right: 15px;
+            bottom: 5px;
+            transform: translateY(-50%);
+            z-index: 20;
+            cursor: pointer;
+
+            &:hover path {
+                fill: #2683FF !important;
+            }
+        }
+    }
 </style>

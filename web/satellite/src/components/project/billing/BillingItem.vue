@@ -60,6 +60,7 @@
 			background: #fff;
 			box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
 		}
+
 		&__item {
 			width: 20%;
 			height: 80px;
@@ -73,6 +74,7 @@
 			}
 
 			svg:hover {
+
 				.background {
 					fill: #2683FF !important;
 				}

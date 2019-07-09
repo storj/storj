@@ -86,6 +86,7 @@
 			margin-block-end: 0em;
 		}
 	}
+
 	.table-header {
 		display: flex;
 		align-items: center;
@@ -96,6 +97,7 @@
 			padding-left: 20px;
 		}
 	}
+
 	.buckets-container {
 		padding: 0px 40px 0 60px;
 
@@ -110,6 +112,7 @@
 			overflow-y: scroll;
 			height: 600px;
 		}
+
 		.empty-container {
 			position: absolute;
 			top: 50%;

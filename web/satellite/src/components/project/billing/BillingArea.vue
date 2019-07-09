@@ -61,6 +61,7 @@
 	}
 
 	.billing-container {
+
 		&__table-holder {
 			margin-top: 20px;
 		}

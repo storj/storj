@@ -133,12 +133,14 @@
 			margin-left: 10px;
 		}
 	}
+
 	.optional-label-container {
 		display: flex;
 		flex-direction: row;
 		justify-content: space-between;
 		align-items: center;
 		width: 100%;
+
 		h4 {
 			font-family: 'font_regular';
 			font-size: 16px;
@@ -146,6 +148,7 @@
 			color: #AFB7C1;
 		}
 	}
+
 	input,
 	textarea {
 		font-family: 'font_regular';
@@ -160,9 +163,11 @@
 		outline: none;
 		box-shadow: none;
 	}
+
 	textarea {
 		padding-top: 20px;
 	}
+
 	h3 {
 		font-family: 'font_regular';
 		font-size: 16px;

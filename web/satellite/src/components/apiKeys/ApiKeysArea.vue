@@ -91,6 +91,7 @@
         z-index: 999;
         top: auto;
     }
+
     .api-keys-container {
        padding: 0px 30px 55px 64px;
        overflow-y: scroll;
@@ -117,6 +118,7 @@
                 grid-template-columns: 200px 200px 200px 200px 200px;
             }
         }
+
         .api-keys-header {
             max-width: 75%;
         }
@@ -159,6 +161,7 @@
                 grid-template-columns: 200px 200px 200px 200px;
             }
         }
+
         .api-keys-header {
             max-width: 80%;
         }
@@ -176,6 +179,7 @@
                 grid-row-gap: 0px;
             }
         }
+
         .api-keys-header {
             max-width: 80%;
         }

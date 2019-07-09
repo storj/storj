@@ -142,12 +142,14 @@
 			margin-block-start: 0.5em;
 			margin-block-end: 0.5em;
 		}
+
 		h2 {
 			@extend h1;
 			font-size: 18px;
 			line-height: 27px;
 			word-break: break-all;
 		}
+
 		h3 {
 			@extend h2;
 			font-family: 'font_regular';
@@ -249,21 +251,26 @@
 			justify-content: flex-start;
 		}
 	}
+
 	.no-margin {
 		margin-top: 0;
 	}
+
 	.edit-svg {
 		cursor: pointer;
 
 		&:hover {
+
 			rect {
 				fill: #2683FF !important;
 			}
+
 			path {
 				fill: white !important;
 			}
 		}
 	}
+
 	.input-container.full-input,
 	.input-wrap.full-input {
 		width: 100%;
@@ -271,6 +278,7 @@
 
 	@media screen and (max-width: 1300px) {
 		.profile-container {
+
 			&__secondary-container {
 				flex-direction: column;
 				justify-content: center;

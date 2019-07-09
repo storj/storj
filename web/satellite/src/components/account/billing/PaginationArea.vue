@@ -37,10 +37,12 @@
 		justify-content: space-between;
 		padding-left: 25px;
 		margin-top: 25px;
+
 		&__pages {
 			display: flex;
 			align-items: center;
 		}
+
 		&__counter {
 
 			p {
@@ -49,6 +51,7 @@
 				color: #AFB7C1;
 			}
 		}
+
 		&__button {
 			display: flex;
 			align-items: center;
@@ -58,20 +61,26 @@
 			border-radius: 6px;
 			width: 30px;
 			height: 30px;
+
 			&:hover {
+
 				svg {
+
 					path {
 						fill: #fff !important;
 					}
 				}
 			}
 		}
+
 		&__items {
 			margin: 0 20px;
 			display: flex;
+
 			.selected {
 				color: #2379EC;
 				font-family: 'font_bold';
+
 				&:after {
 					content: '';
 					display: block;
@@ -83,6 +92,7 @@
 					background-color: #2379EC;
 				}
 			}
+
 			span {
 				font-family: 'font_medium';
 				font-size: 16px;
@@ -91,8 +101,10 @@
 				display: block;
 				position: relative;
 				transition: all .2s ease;
+
 				&:hover {
 					color: #2379EC;
+
 					&:after {
 						content: '';
 						display: block;
@@ -104,6 +116,7 @@
 						background-color: #2379EC;
 					}
 				}
+
 				&:last-child {
 					margin-right: 0;
 				}

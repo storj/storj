@@ -202,9 +202,11 @@
 		justify-content: center;
 		align-items: center;
 	}
+
 	.input-container.full-input {
 		width: 100%;
 	}
+
 	.change-password-row-container {
 		width: 100%;
 		display: flex;
@@ -291,7 +293,6 @@
 
 			&__info-panel-container {
 				display: none;
-
 			}
 
 			&__form-container {

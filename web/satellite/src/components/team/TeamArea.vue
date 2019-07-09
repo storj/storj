@@ -105,6 +105,7 @@
         z-index: 999;
         top: auto;
     }
+
     .team-container {
        padding: 0px 30px 55px 64px;
        overflow-y: scroll;

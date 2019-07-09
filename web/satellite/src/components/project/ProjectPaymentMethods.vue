@@ -59,6 +59,7 @@
 
 <style scoped lang="scss">
 	.payment-methods-container {
+
 		&__title {
 			font-family: 'font_bold';
 			font-size: 24px;

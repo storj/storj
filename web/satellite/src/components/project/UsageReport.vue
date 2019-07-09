@@ -389,6 +389,7 @@
 					}
 
 					svg:hover {
+
 						.background {
 							fill: #2683FF;
 						}
@@ -404,6 +405,7 @@
 
 	@media screen and (max-width: 1600px) {
 		.usage-report-container {
+
 			&__navigation {
 				p {
 					font-size: 16px;
@@ -412,13 +414,17 @@
 			}
 
 			&__header {
+
 				p {
 					font-size: 24px;
 					line-height: 29px;
 				}
+
 				&__options-area {
+
 					&__option {
 						width: 236px;
+
 						p {
 							font-size: 16px;
 							line-height: 23px;
@@ -428,8 +434,11 @@
 			}
 
 			&__main-area {
+
 				&__info-area {
+
 					&__item {
+
 						h1 {
 							font-size: 14px;
 							line-height: 19px;
@@ -442,10 +451,12 @@
 				}
 
 				&__footer {
+
 					p {
 						font-size: 16px;
 						line-height: 21px;
 					}
+
 					&__report-area {
 
 						p {
@@ -460,19 +471,26 @@
 
 	@media screen and (max-width: 1350px) {
 		.usage-report-container {
+
 			&__header {
+
 				&__options-area {
+
 					&__option {
 						width: 200px;
+
 						p {
 							font-size: 14px;
 							line-height: 19px;
 						}
+
 						&:last-child {
 							width: 60px;
+
 							p {
 								display: none;
 							}
+
 							svg {
 								margin: 0;
 							}

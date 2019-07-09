@@ -105,6 +105,7 @@
 		justify-content: center;
 		align-items: center;
 	}
+
 	.project-creation-success-popup {
 		width: 100%;
 		max-width: 845px;
