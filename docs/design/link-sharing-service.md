@@ -18,9 +18,17 @@ the link sharing service is adequately protected. See
 
 ### Requests
 
-The file hosting service handles requests of the following form:
+#### Get Link
 
-`GET /<scope-blob>/<bucket>/<bucket path>`
+`HEAD /<scope-blob>/<bucket>/<bucket path>`
+
+This request is sent by clients who want to share a link to some bucket
+data. It responds with a 302 with a `Location` header containing the URL
+that clients can share with others.
+
+For now, the `Location` header is set to the [Download Data](#download-data) URL
+but provides a future proof mechanism for the link sharing service to provide
+extra security features that don't expose the scope blob in the URL, for example.
 
 The `scope-blob` is base58 encoding of a `Scope` protobuf, which
 is defined as follows:
@@ -36,6 +44,17 @@ message Scope {
     encryption_access.EncryptionAccess encryption_access = 3;
 }
 ```
+
+The `bucket` is the name of the bucket and the `bucket path` is the path
+within the bucket to the file being shared.
+
+#### Download Data
+
+`GET /<scope-blob>/<bucket>/<bucket path>`
+
+This request is sent by clients to download shared data.
+
+See [Get Link](#get-link) for details about the path components.
 
 Between the scope, the bucket, and the path, the link sharing service has all
 the information it needs to stream data via uplink.
@@ -55,9 +74,21 @@ harmful in that:
 - It decreases payout potential for storage node operators, reducing incentive.
 - Section 6.1 of the [whitepaper](https://storj.io/storjv3.pdf) already describes a mechanism to deal with hot objects.
 
+## Sharing Flow
+
+To share a link, clients:
+
+1. Issue a [Get Link](#get-link) request, providing the scope blob, the bucket, and the bucket path.
+2. Parse the `Location` header of the 302 response and share that with other parties.
+
+To retrieve shared data, other parties:
+
+1. Make a GET request to the location provided by the client. Currently, that
+   location will be to the [Download Data](#download-data) URL.
+
 ## Implementation
 
-The following steps are taken to handle requests:
+The following steps are taken to download data:
 
 1. The scope blob, bucket, and bucket path are parsed from the request URL
 2. The scope is decoded
@@ -86,3 +117,4 @@ service is unprotected.
 
 1. LetsEncrypt support for obtaining TLS certificates for the HTTPS server.
 2. Provide CLI support to `uplink` for generating a share URL.
+3. Obfuscate the share URL so that scope data isn't leaked.
