@@ -31,6 +31,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 	defer mon.Task()(&ctx)(&err)
 
 	// sanity checks
+	now := time.Now()
 	switch {
 	case limit.Limit < 0:
 		return ErrProtocol.New("order limit is negative")
@@ -40,7 +41,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
-	case time.Now().Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
+	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
 		return ErrProtocol.New("order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
 		return ErrProtocol.New("missing satellite id")
@@ -74,8 +75,14 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
-	// TODO: use min of piece and order expiration instead
-	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, limit.OrderExpiration); err != nil {
+	serialExpiration := limit.OrderExpiration
+
+	// Expire the serial earlier if the grace period is smaller than the serial expiration.
+	if graceExpiration := now.Add(endpoint.config.OrderLimitGracePeriod); graceExpiration.Before(serialExpiration) {
+		serialExpiration = graceExpiration
+	}
+
+	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
 		return ErrVerifyDuplicateRequest.Wrap(err)
 	}
 
