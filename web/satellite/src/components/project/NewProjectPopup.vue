@@ -121,10 +121,9 @@
                 return true;
             },
             createProject: async function(): Promise<boolean> {
-                const project: any = {
+                const project: CreateProjectModel = {
                     name: this.$data.projectName,
                     description: this.$data.description,
-                    isTermsAccepted: this.$data.isTermsAccepted
                 };
 
                 let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);

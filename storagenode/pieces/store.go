@@ -62,8 +62,10 @@ type DB interface {
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// DeleteFailed marks piece deletion from disk failed
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
-	// SpaceUsed calculates disk space used by all pieces
+	// SpaceUsed returns the in memory value for disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
+	// CalculatedSpaceUsed calculates disk space used by all pieces
+	CalculatedSpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsedBySatellite calculates disk space used by all pieces by satellite
 	SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error)
 	// GetExpired gets orders that are expired and were created before some time
