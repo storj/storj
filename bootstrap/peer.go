@@ -201,7 +201,7 @@ func (peer *Peer) Run(ctx context.Context) error {
 		return errs2.IgnoreCanceled(peer.Version.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx, peer.Transport))
+		return errs2.IgnoreCanceled(peer.Kademlia.Service.Bootstrap(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Kademlia.Service.Run(ctx))

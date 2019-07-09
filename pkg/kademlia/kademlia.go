@@ -142,7 +142,7 @@ func (k *Kademlia) DumpNodes(ctx context.Context) (_ []*pb.Node, err error) {
 
 // Bootstrap contacts one of a set of pre defined trusted nodes on the network and
 // begins populating the local Kademlia node
-func (k *Kademlia) Bootstrap(ctx context.Context, transport transport.Client) (err error) {
+func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer k.bootstrapFinished.Release()
 
@@ -184,7 +184,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context, transport transport.Client) (e
 			// The way FetchPeerIdentityUnverified does is is to do a basic ping request, which
 			// we have now done. Let's tell all the transport observers now.
 			// TODO: remove the explicit transport observer notification
-			transport.AlertSuccess(ctx, &pb.Node{
+			k.dialer.transport.AlertSuccess(ctx, &pb.Node{
 				Id:      ident.ID,
 				Address: node.Address,
 			})
