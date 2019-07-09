@@ -6,13 +6,7 @@ package kvmetainfo
 import (
 	"context"
 	"errors"
-	"time"
-
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"go.uber.org/zap"
-
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/paths"
@@ -377,18 +371,6 @@ func objectStreamFromMeta(bucket storj.Bucket, path storj.Path, lastSegment segm
 			},
 		},
 	}, nil
-}
-
-// convertTime converts gRPC timestamp to Go time
-func convertTime(ts *timestamp.Timestamp) time.Time {
-	if ts == nil {
-		return time.Time{}
-	}
-	t, err := ptypes.Timestamp(ts)
-	if err != nil {
-		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
-	}
-	return t
 }
 
 type mutableObject struct {
