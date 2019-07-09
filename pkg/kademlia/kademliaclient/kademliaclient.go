@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package dial
+package kademliaclient
 
 import (
 	"context"
@@ -34,8 +34,8 @@ type Conn struct {
 	client pb.NodesClient
 }
 
-// New creates a dialer.
-func New(log *zap.Logger, transport transport.Client) *Dialer {
+// NewDialer creates a new kademlia dialer.
+func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
 	dialer := &Dialer{
 		log:       log,
 		transport: transport,

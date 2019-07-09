@@ -16,7 +16,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/kademlia/dial"
+	"storj.io/storj/pkg/kademlia/kademliaclient"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -42,7 +42,7 @@ type Kademlia struct {
 	alpha          int // alpha is a system wide concurrency parameter
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
-	dialer         *dial.Dialer
+	dialer         *kademliaclient.Dialer
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished    sync2.Fence
@@ -66,7 +66,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
-		dialer:               dial.New(log.Named("dialer"), transport),
+		dialer:               kademliaclient.NewDialer(log.Named("dialer"), transport),
 		refreshThreshold:     int64(time.Minute),
 	}
 
