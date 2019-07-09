@@ -60,8 +60,8 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 	return ErrInfo.Wrap(err)
 }
 
-// BandwidthUsed returns summary of bandwidth usages
-func (db *bandwidthdb) BandwidthUsed(ctx context.Context) (_ int64, err error) {
+// MonthSummary returns summary of the current months bandwidth usages
+func (db *bandwidthdb) MonthSummary(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	db.bandwidth.mu.RLock()
 	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
