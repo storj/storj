@@ -95,6 +95,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 		pointer := &pb.Pointer{
+			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
 					MinReq:           int32(3),
@@ -144,6 +145,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// make the  pointer repairable
 		pointer = &pb.Pointer{
+			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
 					MinReq:           int32(2),
@@ -199,6 +201,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
 	}
 	pointer := &pb.Pointer{
+		CreationDate: time.Now(),
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				MinReq:           int32(minReq),
@@ -223,7 +226,12 @@ func TestCheckerResume(t *testing.T) {
 		repairQueue := &mockRepairQueue{}
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
 		gcService := gc.NewService(zaptest.NewLogger(t), gc.Config{}, planet.Satellites[0].Transport)
-		c := checker.NewChecker(nil, 30*time.Second, 15*time.Second, irrepairQueue, repairQueue, planet.Satellites[0].Metainfo.Service, planet.Satellites[0].Overlay.Service, gcService)
+		config := checker.Config{
+			Interval:                  30 * time.Second,
+			IrreparableInterval:       15 * time.Second,
+			ReliabilityCacheStaleness: 5 * time.Minute,
+		}
+		c := checker.NewChecker(nil, config, irrepairQueue, repairQueue, planet.Satellites[0].Metainfo.Service, planet.Satellites[0].Overlay.Service, gcService)
 
 		// create pointer that needs repair
 		makePointer(t, planet, "a", true)

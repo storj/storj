@@ -98,7 +98,7 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 	}
 	// if we already encountered an error, keep returning it
 	if client.sendError != nil {
-		return 0, ErrProtocol.Wrap(client.sendError)
+		return 0, client.sendError
 	}
 
 	fullData := data
@@ -126,25 +126,18 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 			return written, ErrInternal.Wrap(err)
 		}
 
-		// send signed order so that storagenode will accept data
+		// send signed order + data
 		err = client.stream.Send(&pb.PieceUploadRequest{
 			Order: order,
-		})
-		if err != nil {
-			client.sendError = err
-			return written, ErrProtocol.Wrap(client.sendError)
-		}
-
-		// send data as the next message
-		err = client.stream.Send(&pb.PieceUploadRequest{
 			Chunk: &pb.PieceUploadRequest_Chunk{
 				Offset: client.offset,
 				Data:   sendData,
 			},
 		})
 		if err != nil {
+			err = ErrProtocol.Wrap(err)
 			client.sendError = err
-			return written, ErrProtocol.Wrap(client.sendError)
+			return written, err
 		}
 
 		// update our offset

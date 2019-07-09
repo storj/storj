@@ -35,6 +35,8 @@ var (
 type Config struct {
 	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
+
+	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
 }
 
 // durabilityStats remote segment information
@@ -54,6 +56,7 @@ type Checker struct {
 	IrreparableLoop sync2.Cycle
 	irrdb           irreparable.DB
 	repairQueue     queue.RepairQueue
+	nodestate       *ReliabilityCache
 	metainfo        *metainfo.Service
 	overlay         *overlay.Cache
 	garbageService  *gc.Service
@@ -63,16 +66,16 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Duration, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, garbageService *gc.Service) *Checker {
+func NewChecker(logger *zap.Logger, config Config, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, garbageService *gc.Service) *Checker {
 	checker := &Checker{
 		logger:          logger,
 		monStats:        durabilityStats{},
-		Loop:            *sync2.NewCycle(repairInterval),
-		IrreparableLoop: *sync2.NewCycle(irreparableInterval),
+		Loop:            *sync2.NewCycle(config.Interval),
+		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
 		irrdb:           irrdb,
 		repairQueue:     repairQueue,
+		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		metainfo:        metainfo,
-		overlay:         overlay,
 		garbageService:  garbageService,
 		pieceTracker:    garbageService.NewPieceTracker(),
 		gcWaitGroup:     sync.WaitGroup{},
@@ -85,7 +88,6 @@ func NewChecker(logger *zap.Logger, repairInterval, irreparableInterval time.Dur
 // Run the checker loop
 func (checker *Checker) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	group, ctx := errgroup.WithContext(ctx)
 
 	group.Go(func() error {
@@ -97,6 +99,11 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	})
 
 	return group.Wait()
+}
+
+// RefreshReliabilityCache forces refreshing node online status cache.
+func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
+	return checker.nodestate.Refresh(ctx)
 }
 
 // Close halts the Checker loop
@@ -155,6 +162,10 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 				if err != nil {
 					return Error.New("error unmarshalling pointer %s", err)
 				}
+				remote := pointer.GetRemote()
+				if remote == nil {
+					continue
+				}
 
 				err = checker.updateSegmentStatus(ctx, pointer, item.Key.String(), &checker.monStats)
 				if err != nil {
@@ -201,7 +212,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		}
 	}
 
-	missingPieces, err := checker.overlay.GetMissingPieces(ctx, pieces)
+	missingPieces, err := checker.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
 	if err != nil {
 		return Error.New("error getting missing pieces %s", err)
 	}
