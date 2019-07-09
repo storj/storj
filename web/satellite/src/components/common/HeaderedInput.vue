@@ -3,17 +3,17 @@
 
 <template>
     <div class="input-container">
-		<div v-if="!isOptional" class="label-container">
-			<img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
-			<h3 v-if="!error">{{label}}</h3>
-			<h3  v-if="!error" class="label-container__add-label">{{additionalLabel}}</h3>
-			<h3 class="label-container__error" v-if="error">{{error}}</h3>
-		</div>
-		<div v-if="isOptional" class="optional-label-container">
-			<h3>{{label}}</h3>
-			<h4>Optional</h4>
-		</div>
-		<textarea
+        <div v-if="!isOptional" class="label-container">
+            <img v-if="error" src="../../../static/images/register/ErrorInfo.svg"/>
+            <h3 v-if="!error">{{label}}</h3>
+            <h3  v-if="!error" class="label-container__add-label">{{additionalLabel}}</h3>
+            <h3 class="label-container__error" v-if="error">{{error}}</h3>
+        </div>
+        <div v-if="isOptional" class="optional-label-container">
+            <h3>{{label}}</h3>
+            <h4>Optional</h4>
+        </div>
+        <textarea
             v-if="isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
@@ -21,11 +21,11 @@
             :rows="5"
             :cols="40"
             wrap="hard"
-			v-model.lazy="value"
-			@change="onInput"
+            v-model.lazy="value"
+            @change="onInput"
             @input="onInput">
-		</textarea>
-		<input
+        </textarea>
+        <input
             v-if="!isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
@@ -34,15 +34,14 @@
             @change="onInput"
             @input="onInput"
             :style="style"/>
-	</div>
+    </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom input component with labeled header
-@Component(
-    {
+	// Custom input component with labeled header
+    @Component({
         data: function () {
             return {
                 value: this.$props.initValue ? this.$props.initValue : '',
@@ -102,10 +101,9 @@ import { Component, Vue } from 'vue-property-decorator';
                 return {width: this.$props.width, height: this.$props.height};
             },
         },
-    },
-)
+    })
 
-export default class HeaderedInput extends Vue {}
+    export default class HeaderedInput extends Vue {}
 
 </script>
 

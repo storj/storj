@@ -30,15 +30,15 @@ var (
 
 // Info contains full information about an order.
 type Info struct {
-	Limit  *pb.OrderLimit2
-	Order  *pb.Order2
+	Limit  *pb.OrderLimit
+	Order  *pb.Order
 	Uplink *identity.PeerIdentity
 }
 
 // ArchivedInfo contains full information about an archived order.
 type ArchivedInfo struct {
-	Limit  *pb.OrderLimit2
-	Order  *pb.Order2
+	Limit  *pb.OrderLimit
+	Order  *pb.Order
 	Uplink *identity.PeerIdentity
 
 	Status     Status
@@ -165,7 +165,7 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 	}
 	defer func() {
 		if cerr := conn.Close(); cerr != nil {
-			err = errs.Combine(err, OrderError.New("failed to close connection: %v", err))
+			err = errs.Combine(err, OrderError.New("failed to close connection: %v", cerr))
 		}
 	}()
 

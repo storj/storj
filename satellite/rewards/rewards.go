@@ -5,20 +5,10 @@ package rewards
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	"storj.io/storj/internal/currency"
 )
-
-// ToCents converts USD credit amounts to cents.
-func ToCents(dollars int) int {
-	return dollars * 100
-}
-
-// ToDollars converts credit amounts in cents to USD.
-func ToDollars(cents int) string {
-	formattedAmount := fmt.Sprintf("%d.%d0", (cents / 100), (cents % 100))
-	return formattedAmount
-}
 
 // DB holds information about offer
 type DB interface {
@@ -34,8 +24,8 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	RedeemableCap int
 
@@ -59,10 +49,12 @@ type UpdateOffer struct {
 type OfferType int
 
 const (
+	// Invalid is a default value for offers that don't have correct type associated with it
+	Invalid = OfferType(0)
 	// FreeCredit is a type of offers used for Free Credit Program
-	FreeCredit = OfferType(iota)
+	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
-	Referral
+	Referral = OfferType(2)
 )
 
 // OfferStatus indicates the status of an offer
@@ -83,8 +75,8 @@ type Offer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int

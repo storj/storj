@@ -51,8 +51,6 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 		return ErrInfo.Wrap(err)
 	}
 
-	defer db.locked()()
-
 	_, err = db.db.Exec(`
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,
@@ -67,7 +65,6 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 // ListUnsent returns orders that haven't been sent yet.
 func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	rows, err := db.db.Query(`
 		SELECT order_limit_serialized, order_serialized, certificate.peer_identity
@@ -95,8 +92,8 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 		}
 
 		var info orders.Info
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
@@ -123,7 +120,6 @@ func (db *ordersdb) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 // Does not return uplink identity.
 func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.NodeID][]*orders.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 	// TODO: add some limiting
 
 	rows, err := db.db.Query(`
@@ -149,8 +145,8 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 		}
 
 		var info orders.Info
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		err = proto.Unmarshal(limitSerialized, info.Limit)
 		if err != nil {
@@ -171,7 +167,6 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 // Archive marks order as being handled.
 func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	result, err := db.db.Exec(`
 		INSERT INTO order_archive (
@@ -208,7 +203,6 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 // ListArchived returns orders that have been sent.
 func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.ArchivedInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	rows, err := db.db.Query(`
 		SELECT order_limit_serialized, order_serialized, certificate.peer_identity,
@@ -240,8 +234,8 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 		}
 
 		var info orders.ArchivedInfo
-		info.Limit = &pb.OrderLimit2{}
-		info.Order = &pb.Order2{}
+		info.Limit = &pb.OrderLimit{}
+		info.Order = &pb.Order{}
 
 		info.Status = orders.Status(status)
 		info.ArchivedAt = archivedAt

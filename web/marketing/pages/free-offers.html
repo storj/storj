@@ -18,7 +18,7 @@ See LICENSE for copying information. -->
     {{$defaultOffer := .FreeCredits.GetDefaultFromSet}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
-        <div class="col">${{ToDollars $defaultOffer.AwardCreditInCents}}</div>
+        <div class="col">${{$defaultOffer.AwardCredit}}</div>
         <div class="col">{{$defaultOffer.NumRedeemed}}</div> 
         <div class="col">{{$defaultOffer.RedeemableCap}}</div>
         <div class="col">{{printf "%.10s" $defaultOffer.CreatedAt}}</div>
@@ -32,7 +32,7 @@ See LICENSE for copying information. -->
     {{$currentOffer := .FreeCredits.GetCurrentFromSet}}
         <div class="row data-row">
             <div class="col ml-3">{{$currentOffer.Name}}</div>
-            <div class="col">${{ToDollars $currentOffer.AwardCreditInCents}}</div>
+            <div class="col">${{$currentOffer.AwardCredit}}</div>
             <div class="col">{{$currentOffer.NumRedeemed}}</div>
             <div class="col">{{$currentOffer.RedeemableCap}}</div>
             <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
@@ -53,7 +53,7 @@ See LICENSE for copying information. -->
             {{if $offer.IsDone}}
                 <div class="row data-row">
                     <div class="col ml-3">{{$offer.Name}}</div>
-                    <div class="col">${{ToDollars $offer.AwardCreditInCents}}</div>
+                    <div class="col">${{$offer.AwardCredit}}</div>
                     <div class="col">{{$offer.NumRedeemed}}</div>
                     <div class="col">{{$offer.RedeemableCap}}</div>
                     <div class="col">{{printf "%.10s" $offer.CreatedAt}}</div>

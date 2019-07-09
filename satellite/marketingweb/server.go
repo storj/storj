@@ -9,11 +9,8 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"reflect"
-	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,11 +18,8 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-var (
-	// Error is satellite marketing error type
-	Error   = errs.Class("satellite marketing error")
-	decoder = schema.NewDecoder()
-)
+// Error is satellite marketing error type
+var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketingweb server
 type Config struct {
@@ -53,11 +47,6 @@ type Server struct {
 type offerSet struct {
 	ReferralOffers rewards.Offers
 	FreeCredits    rewards.Offers
-}
-
-// init safely registers convertStringToTime for the decoder.
-func init() {
-	decoder.RegisterConverter(time.Time{}, convertStringToTime)
 }
 
 // organizeOffers organizes offers by type.
@@ -158,9 +147,7 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "err.html"),
 	)
 
-	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"ToDollars": rewards.ToDollars,
-	}).ParseFiles(homeFiles...)
+	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -181,33 +168,6 @@ func (s *Server) parseTemplates() (err error) {
 	}
 
 	return nil
-}
-
-// convertStringToTime formats form time input as time.Time.
-func convertStringToTime(value string) reflect.Value {
-	v, err := time.Parse("2006-01-02", value)
-	if err != nil {
-		// invalid decoder value
-		return reflect.Value{}
-	}
-	return reflect.ValueOf(v)
-}
-
-// parseOfferForm decodes POST form data into a new offer.
-func parseOfferForm(w http.ResponseWriter, req *http.Request) (o rewards.NewOffer, e error) {
-	err := req.ParseForm()
-	if err != nil {
-		return o, err
-	}
-
-	if err := decoder.Decode(&o, req.PostForm); err != nil {
-		return o, err
-	}
-
-	o.InviteeCreditInCents = rewards.ToCents(o.InviteeCreditInCents)
-	o.AwardCreditInCents = rewards.ToCents(o.AwardCreditInCents)
-
-	return o, nil
 }
 
 // CreateOffer handles requests to create new offers.

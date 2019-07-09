@@ -93,6 +93,13 @@ func SerialNumber() storj.SerialNumber {
 	return serial
 }
 
+// StreamID creates a random stream ID
+func StreamID() storj.StreamID {
+	var streamID storj.StreamID
+	Read(streamID[:])
+	return streamID
+}
+
 // UUID creates a random uuid.
 func UUID() uuid.UUID {
 	var uuid uuid.UUID

@@ -8,79 +8,77 @@
             <div class="referral-stats__card"
                 v-for="(stat, key) in stats"
                 :key="key"
-                :style="stat.background"
-            >
-                <span class="referral-stats__card-text">
-                    <span class="referral-stats__card-title">{{ stat.title }}</span>
-                    <span class="referral-stats__card-description">{{ stat.description }}</span>
-                </span>
-                <br>
-                <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
+                :style="stat.background">
+                    <span class="referral-stats__card-text">
+                        <span class="referral-stats__card-title">{{ stat.title }}</span>
+                        <span class="referral-stats__card-description">{{ stat.description }}</span>
+                    </span>
+                    <br>
+                    <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
             </div>
         </div>
     </div>
-    
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { CREDIT_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import { CREDIT_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    data() {
-      return {
-          stats: {
-             referred: {
-                 title: "referrals made",
-                 description: "People you referred who signed up",
-                 symbol: "",
-                 background: {
-                     backgroundColor: "#FFFFFF",
-                 }
-             },
-              availableCredits: {
-                 title: "earned credits",
-                 description: "Free credits that will apply to your upcoming bill",
-                 symbol: "$",
-               background: {
-                     backgroundColor: "rgba(217, 225, 236, 0.5)",
-                 }
-              },
-              usedCredits: {
-                 title: "applied credits",
-                 description: "Free credits that have already been applied to your bill",
-                 symbol: "$",
-               background: {
-                     backgroundColor: "#D1D7E0",
-                 }
-              },
-          }
-      }
-    },
-    methods: {
-        fetch: async function() {
-            const creditUsageResponse = await this.$store.dispatch(CREDIT_USAGE_ACTIONS.FETCH);
-            if (!creditUsageResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch credit usage: ' + creditUsageResponse.errorMessage);
+    @Component({
+        data() {
+            return {
+                stats: {
+                    referred: {
+                        title: "referrals made",
+                        description: "People you referred who signed up",
+                        symbol: "",
+                        background: {
+                            backgroundColor: "#FFFFFF",
+                        }
+                    },
+                    availableCredits: {
+                        title: "earned credits",
+                        description: "Free credits that will apply to your upcoming bill",
+                        symbol: "$",
+                        background: {
+                            backgroundColor: "rgba(217, 225, 236, 0.5)",
+                        }
+                    },
+                    usedCredits: {
+                        title: "applied credits",
+                        description: "Free credits that have already been applied to your bill",
+                        symbol: "$",
+                        background: {
+                            backgroundColor: "#D1D7E0",
+                        }
+                    },
+                }
+            }
+        },
+        methods: {
+            fetch: async function() {
+                const creditUsageResponse = await this.$store.dispatch(CREDIT_USAGE_ACTIONS.FETCH);
+                if (!creditUsageResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch credit usage: ' + creditUsageResponse.errorMessage);
+                }
+            }
+        },
+        mounted() {
+            (this as any).fetch();
+        },
+        computed: {
+            title() {
+                let name = this.$store.state.usersModule.fullName || "" ;
+                let text = "Here Are Your Referrals So Far";
+                return name.length > 0 ? `${name}, ${text}` : text;
+            },
+            usage() {
+                return this.$store.state.creditUsageModule.creditUsage;
             }
         }
-    },
-    mounted() {
-        (this as any).fetch();
-    },
-    computed: {
-        title() {
-            let name = this.$store.state.usersModule.fullName || "" ;
-            let text = "Here Are Your Referrals So Far";
-            return name.length > 0 ? `${name}, ${text}` : text; 
-        },
-        usage() {
-            return this.$store.state.creditUsageModule.creditUsage;
-        }
-    }
-})
+    })
 
-export default class ReferralStats extends Vue {}
+    export default class ReferralStats extends Vue {}
 </script>
 
 <style scoped lang="scss">

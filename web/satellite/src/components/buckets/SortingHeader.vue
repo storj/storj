@@ -2,28 +2,28 @@
 // See LICENSE for copying information.
 
 <template>
-	<tr class="sort-header-container">
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Bucket Name</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Storage Used</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Egress Used</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Objects Stored</p>
-			</div>
-		</th>
-	</tr>
+    <tr class="sort-header-container">
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Bucket Name</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Storage Used</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Egress Used</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Objects Stored</p>
+            </div>
+        </th>
+    </tr>
 </template>
 
 <script lang="ts">
@@ -31,8 +31,7 @@
 
     @Component({})
 
-    export default class SortBucketsHeader extends Vue {
-    }
+    export default class SortBucketsHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
