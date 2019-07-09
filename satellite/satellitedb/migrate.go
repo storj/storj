@@ -931,7 +931,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     40,
 				Action: migrate.SQL{
 					`INSERT INTO offers (
-						id,
 						name,
 						description,
 						award_credit_in_cents,
@@ -945,7 +944,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						status,
 						type )
 					VALUES (
-						1,
 						'Default referral offer',
 						'Is active when no other active referral offer',
 						300,
@@ -959,7 +957,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						2,
 						1);`,
 					`INSERT INTO offers (
-							id,
 							name,
 							description,
 							award_credit_in_cents,
@@ -973,7 +970,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 							status,
 							type )
 						VALUES (
-							2,
 							'Default free credit offer',
 							'Is active when no active free credit offer',
 							300,
