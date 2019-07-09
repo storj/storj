@@ -159,7 +159,7 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	if !insertedTime.IsZero() {
 		timeSinceQueued := workerStartTime.Sub(insertedTime)
 		repairedTime := time.Now().UTC()
-		timeForRepair := repairedTime.Sub(repairedTime)
+		timeForRepair := repairedTime.Sub(workerStartTime)
 		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds())
 		mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds())
 	}
