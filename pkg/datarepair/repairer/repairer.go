@@ -142,8 +142,8 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	defer mon.Task()(&ctx)(&err)
 
 	insertedTime := seg.GetInsertedTime()
-	dequeueTime := time.Now().UTC()
-	timeSinceQueued := dequeueTime.Sub(insertedTime)
+	workerStartTime := time.Now().UTC()
+	timeSinceQueued := workerStartTime.Sub(insertedTime)
 	mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds())
 
 	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
