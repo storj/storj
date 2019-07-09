@@ -36,7 +36,7 @@ func TestAuditSegment(t *testing.T) {
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
 		//populate metainfo with 10 non-expired pointers of test data
-		tests, cursor, metainfo := populateTestData(t, planet, time.Now().Add(time.Second*3))
+		tests, cursor, metainfo := populateTestData(t, planet, time.Now().Add(3*time.Second))
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
