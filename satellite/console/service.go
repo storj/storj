@@ -271,17 +271,12 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 			return nil, err
 		}
 
-		user, err := s.store.Users().Get(ctx, payment.PayerID)
-		if err != nil {
-			return nil, err
-		}
-
 		projectPayment := ProjectPayment{
 			ID:              payment.ID,
 			CreatedAt:       pm.CreatedAt,
 			PaymentMethodID: pm.ID,
 			IsDefault:       payment.IsDefault,
-			PayerID:         user.ID,
+			PayerID:         payment.PayerID,
 			ProjectID:       projectID,
 			Card: Card{
 				LastFour:        pm.Card.LastFour,
