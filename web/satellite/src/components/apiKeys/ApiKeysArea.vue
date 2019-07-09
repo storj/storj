@@ -93,13 +93,13 @@
     }
 
     .api-keys-container {
-       padding: 0px 30px 55px 64px;
-       overflow-y: scroll;
-       max-height: 84vh;
-       height: 84vh;
-       position: relative;
-
-       &__content {
+        padding: 0px 30px 55px 64px;
+        overflow-y: scroll;
+        max-height: 84vh;
+        height: 84vh;
+        position: relative;
+ 
+        &__content {
             display: grid;
             grid-template-columns: 190px 190px 190px 190px 190px 190px 190px;
             width: 100%;

@@ -40,7 +40,7 @@
 </script>
 
 <style scoped lang="scss">
-   .apikey-item-container {
+    .apikey-item-container {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -50,15 +50,15 @@
         background-color: #fff;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
-
+        
         &:hover {
             box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
         }
-
+        
         &:last-child {
             margin-left: 0;
         }
-
+        
         &__date {
             font-family: 'font_regular';
             font-size: 12px;
@@ -66,7 +66,7 @@
             color: #AFB7C1;
             margin: 0;
         }
-
+        
         &__name {
             font-family: 'font_medium';
             font-size: 16px;
@@ -74,7 +74,7 @@
             color: #354049;
             margin-top: 20px;
         }
-
+        
         &__avatar {
             min-width: 40px;
             max-width: 40px;
@@ -85,34 +85,34 @@
             justify-content: center;
         }
     }
-
+    
     .apikey-item-container.selected {
         box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
         background-color: #2683FF;
-
+        
         p {
-
+            
             &:nth-child(2) {
                 color: #fff;
             }
-
+            
             &:nth-child(3) {
                 color: #fff;
             }
-
+            
             &:nth-child(4) {
                 color: #fff;
             }
-
+            
             &:nth-child(5) {
                 color: #fff;
             }
         }
-
+        
         svg path {
             fill: white;
         }
-
+        
         .white {
             fill: #2683FF;
         }

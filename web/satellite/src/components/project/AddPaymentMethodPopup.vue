@@ -72,89 +72,89 @@
 </script>
 
 <style scoped lang="scss">
-	.add-payment-popup-overflow {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background-color: rgba(134, 134, 148, 0.4);
-		z-index: 1121;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-	}
-
-	.add-payment-popup-container {
-		position: relative;
-		width: 810px;
-		height: 416px;
-		background-color: white;
-		border-radius: 6px;
-		padding: 90px 102px 57px 88px;
-
-		&__title {
-			font-family: 'font_bold';
-			font-size: 32px;
-			line-height: 39px;
-			color: #384B65;
-			margin: 0;
-		}
-
-		&__chosen-card-container {
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			width: 100%;
-			margin-top: 60px;
-		}
-
-		&__border {
-			margin-top: 20px;
-			width: 100%;
-			height: 1px;
-			background-color: rgba(169, 181, 193, 0.5);
-		}
-
-		&__expanded-area {
-			width: 100%;
-			height: 200px;
-			overflow-y: auto;
-		}
-
-		&__footer {
-			width: 100%;
-			display: flex;
-			margin-top: 10px;
-			align-items: flex-start;
-			justify-content: space-between;
-
-			&__new-card-button {
-				height: 48px;
-				display: flex;
-				align-items: center;
-				cursor: pointer;
-
-				&__label {
-					margin-left: 20px;
-					font-family: 'font_bold';
-					font-size: 16px;
-					line-height: 23px;
-					color: #354049;
-				}
-			}
-		}
-	}
-
-	.cross {
-		position: absolute;
-		top: 50px;
-		right: 50px;
-		width: 25px;
-		height: 25px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-	}
+    .add-payment-popup-overflow {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(134, 134, 148, 0.4);
+        z-index: 1121;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .add-payment-popup-container {
+        position: relative;
+        width: 810px;
+        height: 416px;
+        background-color: white;
+        border-radius: 6px;
+        padding: 90px 102px 57px 88px;
+        
+        &__title {
+            font-family: 'font_bold';
+            font-size: 32px;
+            line-height: 39px;
+            color: #384B65;
+            margin: 0;
+        }
+        
+        &__chosen-card-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-top: 60px;
+        }
+        
+        &__border {
+            margin-top: 20px;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(169, 181, 193, 0.5);
+        }
+        
+        &__expanded-area {
+            width: 100%;
+            height: 200px;
+            overflow-y: auto;
+        }
+        
+        &__footer {
+            width: 100%;
+            display: flex;
+            margin-top: 10px;
+            align-items: flex-start;
+            justify-content: space-between;
+            
+            &__new-card-button {
+                height: 48px;
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                
+                &__label {
+                    margin-left: 20px;
+                    font-family: 'font_bold';
+                    font-size: 16px;
+                    line-height: 23px;
+                    color: #354049;
+                }
+            }
+        }
+    }
+    
+    .cross {
+        position: absolute;
+        top: 50px;
+        right: 50px;
+        width: 25px;
+        height: 25px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
 </style>

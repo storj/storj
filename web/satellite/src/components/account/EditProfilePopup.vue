@@ -122,142 +122,142 @@
 </script>
 
 <style scoped lang="scss">
-	p {
-		font-family: 'font_medium';
-		font-size: 16px;
-		line-height: 21px;
-		color: #354049;
-		display: flex;
-	}
+    p {
+        font-family: 'font_medium';
+        font-size: 16px;
+        line-height: 21px;
+        color: #354049;
+        display: flex;
+    }
 
-	.edit-profile-row-container {
-		width: 100%;
-		display: flex;
-		flex-direction: row;
-		align-content: center;
-		justify-content: flex-start;
-	}
+    .edit-profile-row-container {
+	    width: 100%;
+	    display: flex;
+	    flex-direction: row;
+	    align-content: center;
+	    justify-content: flex-start;
+    }
+    
+    .edit-profile-popup-container {
+	    position: fixed;
+	    top: 0;
+	    left: 0;
+	    right: 0;
+	    bottom: 0;
+	    background-color: rgba(134, 134, 148, 0.4);
+	    z-index: 1000;
+	    display: flex;
+	    justify-content: center;
+	    align-items: center;
+    }
+    
+    .input-container.full-input {
+	    width: 100%;
+    }
 
-	.edit-profile-popup-container {
-		position: fixed;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		background-color: rgba(134, 134, 148, 0.4);
-		z-index: 1000;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-	}
+    .edit-profile-popup {
+        width: 100%;
+        max-width: 440px;
+        background-color: #FFFFFF;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        position: relative;
+        justify-content: center;
+        padding: 80px;
+        
+        &__info-panel-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            margin-right: 100px;
+            margin-top: 20px;
+        }
+        
+        &__form-container {
+            width: 100%;
+            max-width: 440px;
+            margin-top: 10px;
+            
+            &__avatar {
+                width: 60px;
+                height: 60px;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #E8EAF2;
+                margin-right: 20px;
+                
+                h1 {
+                    font-family: 'font_medium';
+                    font-size: 16px;
+                    line-height: 23px;
+                    color: #354049;
+                }
+            }
+            
+            p {
+                font-family: 'font_regular';
+                font-size: 16px;
+                margin-top: 20px;
+                
+                &:first-child {
+                    margin-top: 0;
+                }
+            }
+            
+            &__main-label-text {
+                font-family: 'font_bold';
+                font-size: 32px;
+                line-height: 60px;
+                color: #384B65;
+                margin-top: 0;
+            }
+            
+            &__button-container {
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 40px;
+            }
+        }
+        
+        &__close-cross-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            right: 30px;
+            top: 40px;
+            height: 24px;
+            width: 24px;
+            cursor: pointer;
+            
+            &:hover svg path {
+                fill: #2683FF;
+            }
+        }
+    }
 
-	.input-container.full-input {
-		width: 100%;
-	}
-
-	.edit-profile-popup {
-		width: 100%;
-		max-width: 440px;
-		background-color: #FFFFFF;
-		border-radius: 6px;
-		display: flex;
-		flex-direction: row;
-		align-items: flex-start;
-		position: relative;
-		justify-content: center;
-		padding: 80px;
-
-		&__info-panel-container {
-			display: flex;
-			flex-direction: column;
-			justify-content: flex-start;
-			align-items: center;
-			margin-right: 100px;
-			margin-top: 20px;
-		}
-
-		&__form-container {
-			width: 100%;
-			max-width: 440px;
-			margin-top: 10px;
-
-			&__avatar {
-				width: 60px;
-				height: 60px;
-				border-radius: 6px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				background: #E8EAF2;
-				margin-right: 20px;
-
-				h1 {
-					font-family: 'font_medium';
-					font-size: 16px;
-					line-height: 23px;
-					color: #354049;
-				}
-			}
-
-			p {
-				font-family: 'font_regular';
-				font-size: 16px;
-				margin-top: 20px;
-
-				&:first-child {
-					margin-top: 0;
-				}
-			}
-
-			&__main-label-text {
-				font-family: 'font_bold';
-				font-size: 32px;
-				line-height: 60px;
-				color: #384B65;
-				margin-top: 0;
-			}
-
-			&__button-container {
-				width: 100%;
-				display: flex;
-				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
-				margin-top: 40px;
-			}
-		}
-
-		&__close-cross-container {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			position: absolute;
-			right: 30px;
-			top: 40px;
-			height: 24px;
-			width: 24px;
-			cursor: pointer;
-
-			&:hover svg path {
-				fill: #2683FF;
-			}
-		}
-	}
-
-	@media screen and (max-width: 720px) {
-		.edit-profile-popup {
-
-			&__info-panel-container {
-				display: none;
-
-			}
-
-			&__form-container {
-
-				&__button-container {
-					width: 100%;
-				}
-			}
-		}
-	}
+    @media screen and (max-width: 720px) {
+        .edit-profile-popup {
+            
+            &__info-panel-container {
+                display: none;
+                
+            }
+            
+            &__form-container {
+                
+                &__button-container {
+                    width: 100%;
+                }
+            }
+        }
+    }
 </style>

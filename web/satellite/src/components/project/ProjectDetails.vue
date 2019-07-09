@@ -124,164 +124,166 @@
 </script>
 
 <style scoped lang="scss">
-	.project-details {
-		position: relative;
-		overflow: hidden;
-		height: 85vh;
-
-		h1 {
-			font-family: 'font_bold';
-			font-size: 24px;
-			line-height: 29px;
-			color: #354049;
-			margin-block-start: 0.5em;
-			margin-block-end: 0.5em;
-		}
-
-		h2 {
-			@extend h1;
-			font-family: 'font_regular';
-			font-size: 16px;
-			line-height: 21px;
-			color: rgba(56, 75, 101, 0.4);
-		}
-
-		h3 {
-			@extend h2;
-			color: #354049;
-		}
-
-		h4 {
-			@extend h1;
-			font-size: 18px;
-			line-height: 27px;
-		}
-
-		&__terms-area {
-			display: flex;
-			flex-direction: row;
-			justify-content: flex-start;
-			align-items: center;
-			margin-top: 20px;
-
-			img {
-				margin-top: 20px;
-			}
-
-			&__checkbox {
-				align-self: center;
-			}
-
-			h2 {
-				font-family: 'font_regular';
-				font-size: 14px;
-				line-height: 20px;
-				margin-top: 30px;
-				margin-left: 10px;
-			}
-		}
-
-		&__button-area {
-			margin-top: 3vh;
-			margin-bottom: 100px;
-		}
-	}
-
-	.project-details-info-container {
-		height: auto;
-		margin-top: 37px;
-		display: flex;
-		flex-direction: row;
-		justify-content: space-between;
-		align-items: flex-start;
-
-		&__name-container {
-			min-height: 67px;
-			width: 100%;
-			border-radius: 6px;
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-			align-items: flex-start;
-			padding: 28px;
-			background-color: #fff;
-		}
-
-		&__description-container {
-			@extend .project-details-info-container__name-container;
-			min-height: 67px;
-			height: auto;
-			flex-direction: row;
-			justify-content: space-between;
-			align-items: center;
-
-			&__text {
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				align-items: flex-start;
-				width: 65vw;
-
-				h3 {
-					width: 100%;
-					word-wrap: break-word;
-				}
-			}
-
-			&--editing {
-				@extend .project-details-info-container__description-container;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				align-items: flex-start;
-			}
-
-			&__buttons-area {
-				margin-top: 2vh;
-				display: flex;
-				flex-direction: row;
-				align-items: center;
-				width: 380px;
-				justify-content: space-between;
-			}
-
-			svg {
-				cursor: pointer;
-
-				&:hover {
-					rect {
-						fill: #2683FF !important;
-					}
-					path {
-						fill: white !important;
-					}
-				}
-			}
-		}
-
-		&__portability-container {
-			@extend .project-details-info-container__description-container;
-
-			&__info {
-				display: flex;
-				flex-direction: row;
-				align-items: center;
-
-				&__text {
-					margin-left: 2vw;
-				}
-			}
-
-			&__buttons-area {
-				@extend .project-details-info-container__portability-container__info;
-				width: 380px;
-				justify-content: space-between;
-			}
-
-			img {
-				width: 6vw;
-				height: 10vh;
-			}
-		}
-	}
+    .project-details {
+        position: relative;
+        overflow: hidden;
+        height: 85vh;
+        
+        h1 {
+            font-family: 'font_bold';
+            font-size: 24px;
+            line-height: 29px;
+            color: #354049;
+            margin-block-start: 0.5em;
+            margin-block-end: 0.5em;
+        }
+        
+        h2 {
+            @extend h1;
+            font-family: 'font_regular';
+            font-size: 16px;
+            line-height: 21px;
+            color: rgba(56, 75, 101, 0.4);
+        }
+        
+        h3 {
+            @extend h2;
+            color: #354049;
+        }
+        
+        h4 {
+            @extend h1;
+            font-size: 18px;
+            line-height: 27px;
+        }
+        
+        &__terms-area {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-start;
+            align-items: center;
+            margin-top: 20px;
+            
+            img {
+                margin-top: 20px;
+            }
+            
+            &__checkbox {
+                align-self: center;
+            }
+            
+            h2 {
+                font-family: 'font_regular';
+                font-size: 14px;
+                line-height: 20px;
+                margin-top: 30px;
+                margin-left: 10px;
+            }
+        }
+        
+        &__button-area {
+            margin-top: 3vh;
+            margin-bottom: 100px;
+        }
+    }
+    
+    .project-details-info-container {
+        height: auto;
+        margin-top: 37px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        
+        &__name-container {
+            min-height: 67px;
+            width: 100%;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 28px;
+            background-color: #fff;
+        }
+        
+        &__description-container {
+            @extend .project-details-info-container__name-container;
+            min-height: 67px;
+            height: auto;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            
+            &__text {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+                width: 65vw;
+                
+                h3 {
+                    width: 100%;
+                    word-wrap: break-word;
+                }
+            }
+            
+            &--editing {
+                @extend .project-details-info-container__description-container;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: flex-start;
+            }
+            
+            &__buttons-area {
+                margin-top: 2vh;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                width: 380px;
+                justify-content: space-between;
+            }
+            
+            svg {
+                cursor: pointer;
+                
+                &:hover {
+	                
+                    rect {
+                        fill: #2683FF !important;
+                    }
+	                
+                    path {
+                        fill: white !important;
+                    }
+                }
+            }
+        }
+        
+        &__portability-container {
+            @extend .project-details-info-container__description-container;
+            
+            &__info {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+            
+                &__text {
+                    margin-left: 2vw;
+                }
+            }
+            
+            &__buttons-area {
+                @extend .project-details-info-container__portability-container__info;
+                width: 380px;
+                justify-content: space-between;
+            }
+            
+            img {
+                width: 6vw;
+                height: 10vh;
+            }
+        }
+    }
 </style>
