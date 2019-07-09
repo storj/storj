@@ -72,9 +72,8 @@ func TestOrders(t *testing.T) {
 		require.NoError(t, err)
 
 		info := &orders.Info{
-			Limit:  limit,
-			Order:  order,
-			Uplink: uplink.PeerIdentity(),
+			Limit: limit,
+			Order: order,
 		}
 
 		// basic add
@@ -120,9 +119,8 @@ func TestOrders(t *testing.T) {
 
 		require.Empty(t, cmp.Diff([]*orders.ArchivedInfo{
 			{
-				Limit:  limit,
-				Order:  order,
-				Uplink: uplink.PeerIdentity(),
+				Limit: limit,
+				Order: order,
 
 				Status:     orders.StatusAccepted,
 				ArchivedAt: archived[0].ArchivedAt,

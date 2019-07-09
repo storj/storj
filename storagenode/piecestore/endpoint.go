@@ -538,9 +538,8 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 		return
 	}
 	err = endpoint.orders.Enqueue(ctx, &orders.Info{
-		Limit:  limit,
-		Order:  order,
-		Uplink: uplink,
+		Limit: limit,
+		Order: order,
 	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
