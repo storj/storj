@@ -245,27 +245,10 @@ func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoR
 	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
 }
 
+// CreateBucket creates a new bucket
 func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rs := bucket.DefaultRedundancyScheme
-	req := pb.BucketCreateRequest{
-		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
-		AttributionId:      []byte(bucket.Attribution),
-		DefaultSegmentSize: bucket.DefaultSegmentsSize,
-		DefaultRedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_RS,
-			MinReq:           int32(rs.RequiredShares),
-			Total:            int32(rs.TotalShares),
-			RepairThreshold:  int32(rs.RepairShares),
-			SuccessThreshold: int32(rs.OptimalShares),
-			ErasureShareSize: rs.ShareSize,
-		},
-		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
-			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
-		},
-	}
+	req := convertBucketToProtoRequest(bucket)
 	resp, err := client.client.CreateBucket(ctx, &req)
 	if err != nil {
 		return storj.Bucket{}, err
@@ -275,6 +258,7 @@ func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ 
 	return bucket, err
 }
 
+// GetBucket returns a bucket
 func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj.Bucket, err error) {
 	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
 	if err != nil {
@@ -306,7 +290,10 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 	resultBucketList := storj.BucketList{}
 	resultBucketList.Items = make([]storj.Bucket, len(resp.GetItems()))
 	for i, item := range resp.GetItems() {
-		resultBucketList.Items[i] = convertItemToBucket(*item)
+		resultBucketList.Items[i] = storj.Bucket{
+			Name:    string(item.GetName()),
+			Created: item.GetCreatedAt(),
+		}
 	}
 	bucketList := storj.BucketList{
 		Items: resultBucketList.Items,
@@ -315,17 +302,12 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 	return bucketList, nil
 }
 
-func convertItemToBucket(pb.BucketListItem) storj.Bucket {
-	return storj.Bucket{}
-}
-
-func convertBucketToProto(bucket storj.Bucket) pb.Bucket {
+func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {
 	rs := bucket.DefaultRedundancyScheme
-	return pb.Bucket{
+	return pb.BucketCreateRequest{
 		Name:               []byte(bucket.Name),
 		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
 		AttributionId:      []byte(bucket.Attribution),
-		CreatedAt:          bucket.Created,
 		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_RS,
@@ -346,8 +328,7 @@ func convertProtoToBucket(pbBucket *pb.Bucket) storj.Bucket {
 	defaultRS := pbBucket.GetDefaultRedundancyScheme()
 	defaultEP := pbBucket.GetDefaultEncryptionParameters()
 	return storj.Bucket{
-		Name: string(pbBucket.GetName()),
-		//ProjectID:           projectID,
+		Name:                string(pbBucket.GetName()),
 		Attribution:         string(pbBucket.GetAttributionId()),
 		PathCipher:          storj.CipherSuite(pbBucket.GetPathCipher()),
 		DefaultSegmentsSize: pbBucket.GetDefaultSegmentSize(),

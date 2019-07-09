@@ -136,6 +136,13 @@ func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowedB
 	defer mon.Task()(&ctx)(&err)
 
 	caveats := a.mac.Caveats()
+	allowedBuckets = map[string]struct{}{}
+	// if there aren't any caveats, then all buckets are allowed
+	if len(caveats) == 0 {
+		allowedBuckets["all"] = struct{}{}
+		return allowedBuckets, err
+	}
+
 	for _, cavbuf := range caveats {
 		var cav Caveat
 		err := proto.Unmarshal(cavbuf, &cav)

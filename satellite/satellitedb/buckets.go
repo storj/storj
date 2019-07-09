@@ -117,9 +117,11 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			bucketList.Items = make([]storj.Bucket, 0, len(dbxBuckets))
 		}
 
+		_, allowAll := allowedBuckets["all"]
 		for _, dbxBucket := range dbxBuckets {
 			// Check that the bucket is allowed to be viewed
-			if _, ok := allowedBuckets[string(dbxBucket.Name)]; ok {
+			_, bucketAllowed := allowedBuckets[string(dbxBucket.Name)]
+			if bucketAllowed || allowAll {
 				item, err := convertDBXtoBucket(dbxBucket)
 				if err != nil {
 					return bucketList, err

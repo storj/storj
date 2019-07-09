@@ -122,7 +122,7 @@ func (p *Project) DeleteBucket(ctx context.Context, bucket string) (err error) {
 type BucketListOptions = storj.BucketListOptions
 
 // ListBuckets will list authorized buckets.
-func (p *Project) ListBuckets(ctx context.Context, opts *BucketListOptions) (bl storj.BucketList, err error) {
+func (p *Project) ListBuckets(ctx context.Context, opts *BucketListOptions) (_ storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if opts == nil {
 		opts = &BucketListOptions{Direction: storj.Forward}
