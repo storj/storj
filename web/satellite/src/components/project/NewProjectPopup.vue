@@ -121,7 +121,7 @@
                 return true;
             },
             createProject: async function(): Promise<boolean> {
-                const project: Project = {
+                const project: any = {
                     name: this.$data.projectName,
                     description: this.$data.description,
                     isTermsAccepted: this.$data.isTermsAccepted
