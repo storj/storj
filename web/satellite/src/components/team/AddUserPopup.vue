@@ -63,22 +63,23 @@
 </template>
 
 <script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { EmailInput } from '@/types/EmailInput';
-import { validateEmail } from '@/utils/validation';
-import ROUTES from '@/utils/constants/routerConstants';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { EmailInput } from '@/types/EmailInput';
+    import { validateEmail } from '@/utils/validation';
+    import ROUTES from '@/utils/constants/routerConstants';
 
-@Component(
-    {
+    @Component({
         data: function() {
             return {
                 inputs: [new EmailInput(), new EmailInput(), new EmailInput()],
                 formError: '',
+
                 imageSource: EMPTY_STATE_IMAGES.ADD_USER,
                 imageDeleteUser: EMPTY_STATE_IMAGES.DELETE_USER,
+
                 isLoading: false,
             };
         },
@@ -88,7 +89,7 @@ import ROUTES from '@/utils/constants/routerConstants';
                     return;
                 }
 
-                this.$data.isLoading = true;
+            this.$data.isLoading = true;
 
                 let length = this.$data.inputs.length;
                 let newInputsArray: any[] = [];
@@ -166,7 +167,6 @@ import ROUTES from '@/utils/constants/routerConstants';
             },
             addInput: function(): void {
                 let inputsLength = this.$data.inputs.length;
-
                 if (inputsLength < 10) {
                     this.$data.inputs.push(new EmailInput());
                 }
@@ -181,7 +181,9 @@ import ROUTES from '@/utils/constants/routerConstants';
             resetFormErrors: function(index): void {
                 this.$data.inputs[index].setError(false);
                 if (!(this as any).hasInputError()) {
+
                     this.$data.formError = '';
+
                 }
             },
             onClose: function(): void {
@@ -192,7 +194,7 @@ import ROUTES from '@/utils/constants/routerConstants';
                     return element.error;
                 });
             },
-         },
+        },
         computed: {
             isMaxInputsCount: function(): boolean {
                 return this.$data.inputs.length > 9;
@@ -215,10 +217,9 @@ import ROUTES from '@/utils/constants/routerConstants';
         components: {
             Button
         }
-    }
-)
+    })
 
-export default class AddUserPopup extends Vue {}
+    export default class AddUserPopup extends Vue {}
 </script>
 
 <style scoped lang='scss'>

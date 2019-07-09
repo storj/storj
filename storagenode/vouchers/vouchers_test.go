@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -36,13 +35,10 @@ func TestVouchersDB(t *testing.T) {
 		satellite := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		storagenode := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		expiration, err := ptypes.TimestampProto(time.Now().UTC().Add(24 * time.Hour))
-		require.NoError(t, err)
-
 		voucher := &pb.Voucher{
 			SatelliteId:   satellite.ID,
 			StorageNodeId: storagenode.ID,
-			Expiration:    expiration,
+			Expiration:    time.Now().Add(24 * time.Hour),
 		}
 
 		// Test GetValid returns nil result and nil error when result is not found
@@ -59,13 +55,7 @@ func TestVouchersDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, voucher.SatelliteId, result.SatelliteId)
 		require.Equal(t, voucher.StorageNodeId, result.StorageNodeId)
-
-		expectedTime, err := ptypes.Timestamp(voucher.GetExpiration())
-		require.NoError(t, err)
-		actualTime, err := ptypes.Timestamp(result.GetExpiration())
-		require.NoError(t, err)
-
-		require.Equal(t, expectedTime, actualTime)
+		require.True(t, voucher.Expiration.Equal(result.Expiration))
 
 		// test NeedVoucher returns true if voucher expiration falls within expirationBuffer period
 		// voucher expiration is 24 hours from now
@@ -87,8 +77,7 @@ func TestVouchersDB(t *testing.T) {
 		require.False(t, need)
 
 		// Test Put with duplicate satellite id updates voucher info
-		voucher.Expiration, err = ptypes.TimestampProto(time.Now().UTC().Add(48 * time.Hour))
-		require.NoError(t, err)
+		voucher.Expiration = time.Now().Add(48 * time.Hour)
 
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
@@ -96,12 +85,7 @@ func TestVouchersDB(t *testing.T) {
 		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
 		require.NoError(t, err)
 
-		expectedTime, err = ptypes.Timestamp(voucher.GetExpiration())
-		require.NoError(t, err)
-		actualTime, err = ptypes.Timestamp(result.GetExpiration())
-		require.NoError(t, err)
-
-		require.Equal(t, expectedTime, actualTime)
+		require.True(t, voucher.Expiration.Equal(result.Expiration))
 	})
 }
 
@@ -173,12 +157,7 @@ func TestVouchersService(t *testing.T) {
 		require.NoError(t, err)
 
 		// assert old expiration is before new expiration
-		oldExpiration, err := ptypes.Timestamp(oldVoucher.GetExpiration())
-		require.NoError(t, err)
-		newExpiration, err := ptypes.Timestamp(newVoucher.GetExpiration())
-		require.NoError(t, err)
-
-		assert.True(t, oldExpiration.Before(newExpiration))
+		assert.True(t, oldVoucher.Expiration.Before(newVoucher.Expiration))
 	})
 }
 
@@ -203,44 +182,41 @@ func TestVerifyVoucher(t *testing.T) {
 			{ // passing
 				satelliteID:      satellite0.ID(),
 				storagenodeID:    storagenode.ID(),
-				expiration:       time.Now().UTC().Add(24 * time.Hour),
+				expiration:       time.Now().Add(24 * time.Hour),
 				invalidSignature: false,
 				err:              "",
 			},
 			{ // incorrect satellite ID
 				satelliteID:      teststorj.NodeIDFromString("satellite"),
 				storagenodeID:    storagenode.ID(),
-				expiration:       time.Now().UTC().Add(24 * time.Hour),
+				expiration:       time.Now().Add(24 * time.Hour),
 				invalidSignature: false,
 				err:              fmt.Sprintf("verification: Satellite ID does not match expected: (%v) (%v)", teststorj.NodeIDFromString("satellite"), satellite0.ID()),
 			},
 			{ // incorrect storagenode ID
 				satelliteID:      satellite0.ID(),
 				storagenodeID:    teststorj.NodeIDFromString("storagenode"),
-				expiration:       time.Now().UTC().Add(24 * time.Hour),
+				expiration:       time.Now().Add(24 * time.Hour),
 				invalidSignature: false,
 				err:              fmt.Sprintf("verification: Storage node ID does not match expected: (%v) (%v)", teststorj.NodeIDFromString("storagenode"), storagenode.ID()),
 			},
 			{ // expired voucher
 				satelliteID:      satellite0.ID(),
 				storagenodeID:    storagenode.ID(),
-				expiration:       time.Now().UTC().Add(-24 * time.Hour),
+				expiration:       time.Now().Add(-24 * time.Hour),
 				invalidSignature: false,
 				err:              "verification: Voucher is already expired",
 			},
 			{ // invalid signature
 				satelliteID:      satellite0.ID(),
 				storagenodeID:    storagenode.ID(),
-				expiration:       time.Now().UTC().Add(24 * time.Hour),
+				expiration:       time.Now().Add(24 * time.Hour),
 				invalidSignature: true,
 				err:              fmt.Sprintf("verification: invalid voucher signature: signature verification error: signature is not valid"),
 			},
 		}
 
 		for _, tt := range tests {
-			expiration, err := ptypes.TimestampProto(tt.expiration)
-			require.NoError(t, err)
-
 			var signer signing.Signer
 			if tt.invalidSignature {
 				signer = signing.SignerFromFullIdentity(satellite1.Identity)
@@ -251,7 +227,7 @@ func TestVerifyVoucher(t *testing.T) {
 			voucher, err := signing.SignVoucher(ctx, signer, &pb.Voucher{
 				SatelliteId:   tt.satelliteID,
 				StorageNodeId: tt.storagenodeID,
-				Expiration:    expiration,
+				Expiration:    tt.expiration,
 			})
 			require.NoError(t, err)
 

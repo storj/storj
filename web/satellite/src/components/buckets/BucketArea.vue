@@ -2,27 +2,27 @@
 // See LICENSE for copying information.
 
 <template>
-	<div>
-		<div class="buckets-overflow" v-if="pages !== 0">
-			<div class="buckets-header">
-				<p>Buckets</p>
-				<SearchArea/>
-			</div>
-			<div v-if="buckets.length > 0" class="buckets-container">
-				<table style="width:98.5%; margin-top:20px;">
-					<SortingHeader />
+    <div>
+        <div class="buckets-overflow" v-if="pages !== 0">
+            <div class="buckets-header">
+                <p>Buckets</p>
+                <SearchArea/>
+            </div>
+            <div v-if="buckets.length > 0" class="buckets-container">
+                <table>
+                    <SortingHeader />
                     <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
-				</table>
-				<PaginationArea />
-			</div>
-			<EmptyState
-                class="empty-container"
-                v-if="pages === 0 && search && search.length > 0"
-                mainTitle="Nothing found :("
-                :imageSource="emptyImage" />
-		</div>
-		<NoBucketArea v-if="pages === 0 && !search" />
-	</div>
+                </table>
+                <PaginationArea />
+            </div>
+            <EmptyState
+            class="empty-container"
+            v-if="pages === 0 && search && search.length > 0"
+            mainTitle="Nothing found :("
+            :imageSource="emptyImage" />
+        </div>
+        <NoBucketArea v-if="pages === 0 && !search" />
+    </div>
 </template>
 
 <script lang="ts">
@@ -65,6 +65,7 @@
 			}
 		}
 	})
+
 	export default class BucketArea extends Vue {}
 </script>
 
@@ -97,6 +98,11 @@
 	}
 	.buckets-container {
 		padding: 0px 40px 0 60px;
+
+		table {
+			width:98.5%;
+			margin-top:20px;
+		}
 	}
 
 	@media screen and (max-height: 880px) {
