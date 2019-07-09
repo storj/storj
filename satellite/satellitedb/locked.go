@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments/stripepayments"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -255,37 +256,6 @@ func (m *lockedBucketUsage) GetPaged(ctx context.Context, cursor *accounting.Buc
 	return m.db.GetPaged(ctx, cursor)
 }
 
-// ProjectInvoiceStamps is a getter for ProjectInvoiceStamps repository
-func (m *lockedConsole) ProjectInvoiceStamps() console.ProjectInvoiceStamps {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
-}
-
-// lockedProjectInvoiceStamps implements locking wrapper for console.ProjectInvoiceStamps
-type lockedProjectInvoiceStamps struct {
-	sync.Locker
-	db console.ProjectInvoiceStamps
-}
-
-func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, stamp)
-}
-
-func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetAll(ctx, projectID)
-}
-
-func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
-}
-
 // ProjectMembers is a getter for ProjectMembers repository
 func (m *lockedConsole) ProjectMembers() console.ProjectMembers {
 	m.Lock()
@@ -325,37 +295,6 @@ func (m *lockedProjectMembers) Insert(ctx context.Context, memberID uuid.UUID, p
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Insert(ctx, memberID, projectID)
-}
-
-// ProjectPayments is a getter for ProjectPayments repository
-func (m *lockedConsole) ProjectPayments() console.ProjectPayments {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
-}
-
-// lockedProjectPayments implements locking wrapper for console.ProjectPayments
-type lockedProjectPayments struct {
-	sync.Locker
-	db console.ProjectPayments
-}
-
-func (m *lockedProjectPayments) Create(ctx context.Context, info console.ProjectPayment) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByPayerID(ctx, payerID)
-}
-
-func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.GetByProjectID(ctx, projectID)
 }
 
 // Projects is a getter for Projects repository
@@ -562,31 +501,6 @@ func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsT
 	m.Lock()
 	defer m.Unlock()
 	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
-}
-
-// UserPayments is a getter for UserPayments repository
-func (m *lockedConsole) UserPayments() console.UserPayments {
-	m.Lock()
-	defer m.Unlock()
-	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
-}
-
-// lockedUserPayments implements locking wrapper for console.UserPayments
-type lockedUserPayments struct {
-	sync.Locker
-	db console.UserPayments
-}
-
-func (m *lockedUserPayments) Create(ctx context.Context, info console.UserPayment) (*console.UserPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Create(ctx, info)
-}
-
-func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Get(ctx, userID)
 }
 
 // Users is a getter for Users repository
@@ -1116,4 +1030,104 @@ func (m *lockedStoragenodeAccounting) SaveTallies(ctx context.Context, latestTal
 	m.Lock()
 	defer m.Unlock()
 	return m.db.SaveTallies(ctx, latestTally, nodeData)
+}
+
+// StripePayments returns helper database for stripe payments
+func (m *locked) StripePayments() stripepayments.DB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedStripePayments{m.Locker, m.db.StripePayments()}
+}
+
+// lockedStripePayments implements locking wrapper for stripepayments.DB
+type lockedStripePayments struct {
+	sync.Locker
+	db stripepayments.DB
+}
+
+// ProjectInvoiceStamps stores stamps for created invoice on the stripe network
+func (m *lockedStripePayments) ProjectInvoiceStamps() stripepayments.ProjectInvoiceStamps {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectInvoiceStamps{m.Locker, m.db.ProjectInvoiceStamps()}
+}
+
+// lockedProjectInvoiceStamps implements locking wrapper for stripepayments.ProjectInvoiceStamps
+type lockedProjectInvoiceStamps struct {
+	sync.Locker
+	db stripepayments.ProjectInvoiceStamps
+}
+
+func (m *lockedProjectInvoiceStamps) Create(ctx context.Context, stamp stripepayments.ProjectInvoiceStamp) (*stripepayments.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, stamp)
+}
+
+func (m *lockedProjectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]stripepayments.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAll(ctx, projectID)
+}
+
+func (m *lockedProjectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*stripepayments.ProjectInvoiceStamp, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectIDStartDate(ctx, projectID, startDate)
+}
+
+// ProjectPayments store project to payment method relationship
+func (m *lockedStripePayments) ProjectPayments() stripepayments.ProjectPayments {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedProjectPayments{m.Locker, m.db.ProjectPayments()}
+}
+
+// lockedProjectPayments implements locking wrapper for stripepayments.ProjectPayments
+type lockedProjectPayments struct {
+	sync.Locker
+	db stripepayments.ProjectPayments
+}
+
+func (m *lockedProjectPayments) Create(ctx context.Context, info stripepayments.ProjectPayment) (*stripepayments.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*stripepayments.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByPayerID(ctx, payerID)
+}
+
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*stripepayments.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByProjectID(ctx, projectID)
+}
+
+// UserPayments stores user to customer relationships
+func (m *lockedStripePayments) UserPayments() stripepayments.UserPayments {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedUserPayments{m.Locker, m.db.UserPayments()}
+}
+
+// lockedUserPayments implements locking wrapper for stripepayments.UserPayments
+type lockedUserPayments struct {
+	sync.Locker
+	db stripepayments.UserPayments
+}
+
+func (m *lockedUserPayments) Create(ctx context.Context, info stripepayments.UserPayment) (*stripepayments.UserPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Create(ctx, info)
+}
+
+func (m *lockedUserPayments) Get(ctx context.Context, userID uuid.UUID) (*stripepayments.UserPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Get(ctx, userID)
 }

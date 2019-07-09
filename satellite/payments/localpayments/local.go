@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -49,19 +50,12 @@ var defaultPaymentMethod = payments.PaymentMethod{
 // internalPaymentsErr is a wrapper for local payments service errors
 var internalPaymentsErr = errs.Class("internal payments error")
 
-// DB is internal payment methods storage
-type DB interface {
-	// TODO: add method to retrieve invoice information from project invoice stamp
-}
-
 // service is internal payments.Service implementation
-type service struct {
-	db DB
-}
+type service struct{}
 
 // NewService create new instance of local payments service
-func NewService(db DB) payments.Service {
-	return &service{db: db}
+func NewService() payments.Service {
+	return &service{}
 }
 
 // CreateCustomer creates new payments.Customer with random id to satisfy unique db constraint
@@ -81,7 +75,7 @@ func (*service) CreateCustomer(ctx context.Context, params payments.CreateCustom
 }
 
 // GetCustomer always returns default storjCustomer
-func (*service) GetCustomer(ctx context.Context, id []byte) (_ *payments.Customer, err error) {
+func (*service) GetCustomer(ctx context.Context, userID uuid.UUID) (_ *payments.Customer, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return &storjCustomer, nil
 }
@@ -107,14 +101,24 @@ func (*service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.Pa
 // CreateProjectInvoice creates invoice from provided params
 func (*service) CreateProjectInvoice(ctx context.Context, params payments.CreateProjectInvoiceParams) (_ *payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: fill data
-	return &payments.Invoice{}, nil
+	return nil, internalPaymentsErr.New("invoice creation is not allowed with local payments")
 }
 
 // GetInvoice retrieves invoice information from project invoice stamp by invoice id
 // and returns invoice
 func (*service) GetInvoice(ctx context.Context, id []byte) (_ *payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: get project invoice stamp by invoice id from the db and fill data
-	return &payments.Invoice{}, nil
+	return nil, internalPaymentsErr.New("invoice creation is not allowed with local payments")
+}
+
+// GetProjectInvoices returns nil invoices slice and nil err
+func (*service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) (_ []payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil, nil
+}
+
+// GetProjectInvoiceByStartDate returns an error as no invoice creation is allowed with local payments
+func (*service) GetProjectInvoiceByStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (_ *payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil, internalPaymentsErr.New("invoice creation is not allowed with local payments")
 }

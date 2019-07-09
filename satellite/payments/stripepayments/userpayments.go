@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package console
+package stripepayments
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
-// UserPayments is user payment infos store
+// UserPayments is user payment store interface
 type UserPayments interface {
 	Create(ctx context.Context, info UserPayment) (*UserPayment, error)
 	Get(ctx context.Context, userID uuid.UUID) (*UserPayment, error)

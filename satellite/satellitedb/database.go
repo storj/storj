@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/payments/stripepayments"
 	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -149,4 +150,9 @@ func (db *DB) Orders() orders.DB {
 // Containment returns database for storing pending audit info
 func (db *DB) Containment() audit.Containment {
 	return &containment{db: db.db}
+}
+
+// StripePayments returns helper database for stripe payments
+func (db *DB) StripePayments() stripepayments.DB {
+	return &stripePaymentsDB{db: db.db}
 }

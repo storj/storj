@@ -145,18 +145,14 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
-		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
-			Email: email,
-			Name:  user.FullName,
+		_, err = s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+			UserID: u.ID,
+			Email:  email,
+			Name:   user.FullName,
 		})
 		if err != nil {
 			return err
 		}
-
-		_, err = tx.UserPayments().Create(ctx, UserPayment{
-			UserID:     u.ID,
-			CustomerID: cus.ID,
-		})
 
 		return err
 	})
@@ -925,21 +921,9 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 		// range, if so skip project as invoice has already been created
 		// this way we can run this function for the second time to generate
 		// invoices only for project that failed before
-		_, err := s.store.ProjectInvoiceStamps().GetByProjectIDStartDate(ctx, proj.ID, startDate)
+		_, err := s.pm.GetProjectInvoiceByStartDate(ctx, proj.ID, startDate)
 		if err == nil {
 			s.log.Info(fmt.Sprintf("skipping project %s during invoice generation, invoice stamp already exists", proj.ID))
-			continue
-		}
-
-		paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
-		if err != nil {
-			invoiceError.Add(err)
-			continue
-		}
-
-		payerInfo, err := s.store.UserPayments().Get(ctx, paymentInfo.PayerID)
-		if err != nil {
-			invoiceError.Add(err)
 			continue
 		}
 
@@ -949,33 +933,21 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		inv, err := s.pm.CreateProjectInvoice(ctx,
+		_, err = s.pm.CreateProjectInvoice(ctx,
 			payments.CreateProjectInvoiceParams{
-				ProjectName:     proj.Name,
-				CustomerID:      payerInfo.CustomerID,
-				PaymentMethodID: paymentInfo.PaymentMethodID,
-				Storage:         totals.Storage,
-				Egress:          totals.Egress,
-				ObjectCount:     totals.ObjectCount,
-				StartDate:       startDate,
-				EndDate:         endDate,
+				ProjectID:   proj.ID,
+				ProjectName: proj.Name,
+				Storage:     totals.Storage,
+				Egress:      totals.Egress,
+				ObjectCount: totals.ObjectCount,
+				StartDate:   startDate,
+				EndDate:     endDate,
 			},
 		)
 		if err != nil {
 			invoiceError.Add(err)
 			continue
 		}
-
-		_, err = s.store.ProjectInvoiceStamps().Create(ctx,
-			ProjectInvoiceStamp{
-				ProjectID: proj.ID,
-				InvoiceID: inv.ID,
-				StartDate: startDate,
-				EndDate:   endDate,
-				CreatedAt: inv.CreatedAt,
-			},
-		)
-		invoiceError.Add(err)
 	}
 
 	return invoiceError.Err()

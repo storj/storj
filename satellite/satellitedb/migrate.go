@@ -757,7 +757,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Add userpaymentinfos, projectpaymentinfos, projectinvoicestamps",
+				Description: "Add userpaymentinfos, projectpaymentinfos, projectInvoiceStamps",
 				Version:     29,
 				Action: migrate.SQL{
 					`CREATE TABLE user_payments (

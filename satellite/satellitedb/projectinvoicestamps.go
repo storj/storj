@@ -9,15 +9,18 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
-	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments/stripepayments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
-type projectinvoicestamps struct {
+// projectInvoiceStamps is the an implementation of stripepayments.ProjectInvoiceStamps.
+// Allows to work with project invoice stamps storage
+type projectInvoiceStamps struct {
 	db dbx.Methods
 }
 
-func (db *projectinvoicestamps) Create(ctx context.Context, stamp console.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
+// Create stores new project invoice stamp into db
+func (db *projectInvoiceStamps) Create(ctx context.Context, stamp stripepayments.ProjectInvoiceStamp) (*stripepayments.ProjectInvoiceStamp, error) {
 	dbxStamp, err := db.db.Create_ProjectInvoiceStamp(ctx,
 		dbx.ProjectInvoiceStamp_ProjectId(stamp.ProjectID[:]),
 		dbx.ProjectInvoiceStamp_InvoiceId(stamp.InvoiceID),
@@ -32,7 +35,8 @@ func (db *projectinvoicestamps) Create(ctx context.Context, stamp console.Projec
 	return fromDBXProjectInvoiceStamp(dbxStamp)
 }
 
-func (db *projectinvoicestamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
+// GetByProjectIDStartDate retrieves project invoice id by projectID and start date
+func (db *projectInvoiceStamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*stripepayments.ProjectInvoiceStamp, error) {
 	dbxStamp, err := db.db.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx,
 		dbx.ProjectInvoiceStamp_ProjectId(projectID[:]),
 		dbx.ProjectInvoiceStamp_StartDate(startDate))
@@ -44,13 +48,14 @@ func (db *projectinvoicestamps) GetByProjectIDStartDate(ctx context.Context, pro
 	return fromDBXProjectInvoiceStamp(dbxStamp)
 }
 
-func (db *projectinvoicestamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]console.ProjectInvoiceStamp, error) {
+// GetAll retrieves all project invoice stamps for particular project
+func (db *projectInvoiceStamps) GetAll(ctx context.Context, projectID uuid.UUID) ([]stripepayments.ProjectInvoiceStamp, error) {
 	dbxStamps, err := db.db.All_ProjectInvoiceStamp_By_ProjectId_OrderBy_Desc_StartDate(ctx, dbx.ProjectInvoiceStamp_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}
 
-	var stamps []console.ProjectInvoiceStamp
+	var stamps []stripepayments.ProjectInvoiceStamp
 	for _, dbxStamp := range dbxStamps {
 		stamp, err := fromDBXProjectInvoiceStamp(dbxStamp)
 		if err != nil {
@@ -64,14 +69,14 @@ func (db *projectinvoicestamps) GetAll(ctx context.Context, projectID uuid.UUID)
 }
 
 // fromDBXProjectInvoiceStamp helper function to conert *dbx.ProjectInvoiceStamp to
-// *console.ProjectInvoiceStamp
-func fromDBXProjectInvoiceStamp(dbxStamp *dbx.ProjectInvoiceStamp) (*console.ProjectInvoiceStamp, error) {
+// *stripepayments.ProjectInvoiceStamp
+func fromDBXProjectInvoiceStamp(dbxStamp *dbx.ProjectInvoiceStamp) (*stripepayments.ProjectInvoiceStamp, error) {
 	projectID, err := bytesToUUID(dbxStamp.ProjectId)
 	if err != nil {
 		return nil, err
 	}
 
-	return &console.ProjectInvoiceStamp{
+	return &stripepayments.ProjectInvoiceStamp{
 		ProjectID: projectID,
 		InvoiceID: dbxStamp.InvoiceId,
 		StartDate: dbxStamp.StartDate,

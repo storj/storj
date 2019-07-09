@@ -100,6 +100,8 @@ type DB interface {
 	Containment() audit.Containment
 	// Buckets returns the database to interact with buckets
 	Buckets() metainfo.BucketsDB
+	// StripePayments returns helper database for stripe payments
+	StripePayments() stripepayments.DB
 }
 
 // Config is the global config satellite
@@ -568,9 +570,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		// TODO: change mock implementation to using mock stripe backend
 		var pmService payments.Service
 		if consoleConfig.StripeKey != "" {
-			pmService = stripepayments.NewService(peer.Log.Named("stripe:service"), consoleConfig.StripeKey)
+			pmService = stripepayments.NewService(
+				peer.Log.Named("stripe:service"),
+				peer.DB.StripePayments(),
+				consoleConfig.StripeKey,
+			)
 		} else {
-			pmService = localpayments.NewService(nil)
+			pmService = localpayments.NewService()
 		}
 
 		peer.Console.Service, err = console.NewService(

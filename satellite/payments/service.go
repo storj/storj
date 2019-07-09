@@ -6,23 +6,28 @@ package payments
 import (
 	"context"
 	"time"
+
+	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
 // Service is interfaces that defines behavior for working with payments
 type Service interface {
 	CreateCustomer(ctx context.Context, params CreateCustomerParams) (*Customer, error)
-	GetCustomer(ctx context.Context, id []byte) (*Customer, error)
+	GetCustomer(ctx context.Context, userID uuid.UUID) (*Customer, error)
 	GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (*PaymentMethod, error)
 	GetCustomerPaymentsMethods(ctx context.Context, customerID []byte) ([]PaymentMethod, error)
 	GetPaymentMethod(ctx context.Context, id []byte) (*PaymentMethod, error)
 	CreateProjectInvoice(ctx context.Context, params CreateProjectInvoiceParams) (*Invoice, error)
 	GetInvoice(ctx context.Context, id []byte) (*Invoice, error)
+	GetProjectInvoices(ctx context.Context, projectID uuid.UUID) ([]Invoice, error)
+	GetProjectInvoiceByStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*Invoice, error)
 }
 
 // CreateCustomerParams contains info needed to create new customer
 type CreateCustomerParams struct {
-	Email string
-	Name  string
+	UserID uuid.UUID
+	Email  string
+	Name   string
 }
 
 // Customer contains customer info
@@ -57,9 +62,8 @@ type PaymentMethod struct {
 
 // CreateProjectInvoiceParams contains info needed to create project invoice
 type CreateProjectInvoiceParams struct {
-	ProjectName     string
-	CustomerID      []byte
-	PaymentMethodID []byte
+	ProjectID   uuid.UUID
+	ProjectName string
 
 	Storage     float64
 	Egress      float64
