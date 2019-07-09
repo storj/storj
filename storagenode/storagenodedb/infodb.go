@@ -9,6 +9,8 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -23,7 +25,9 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db *sql.DB
+	db          *sql.DB
+	bandwidthdb bandwidthdb
+	pieceinfo   pieceinfo
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -39,7 +43,11 @@ func newInfo(path string) (*InfoDB, error) {
 
 	dbutil.Configure(db, mon)
 
-	return &InfoDB{db: db}, nil
+	infoDb := &InfoDB{db: db}
+	infoDb.pieceinfo = pieceinfo{infoDb, spaceUsed{sync.Once{}, 0}}
+	infoDb.bandwidthdb = bandwidthdb{infoDb, bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}
+
+	return infoDb, nil
 }
 
 // NewInfoInMemory creates a new inmemory InfoDB.
@@ -61,7 +69,11 @@ func NewInfoInMemory() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	return &InfoDB{db: db}, nil
+	infoDb := &InfoDB{db: db}
+	infoDb.pieceinfo = pieceinfo{infoDb, spaceUsed{sync.Once{}, 0}}
+	infoDb.bandwidthdb = bandwidthdb{infoDb, bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}
+
+	return infoDb, nil
 }
 
 // Close closes any resources.
