@@ -53,6 +53,7 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
+			PieceCreation:   &now,
 			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash0,
@@ -72,6 +73,7 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
+			PieceCreation:   &now,
 			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash1,
@@ -91,6 +93,7 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
+			PieceCreation:   &now,
 			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash2,

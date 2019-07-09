@@ -39,8 +39,8 @@ func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.Stor
 	}
 }
 
-// UptimeCheck returns uptime checks information for client node
-func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) (_ *pb.UptimeCheckResponse, err error) {
+// GetStats sends node stats for client node
+func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
@@ -53,16 +53,29 @@ func (e *Endpoint) UptimeCheck(ctx context.Context, req *pb.UptimeCheckRequest) 
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	reputationScore := calculateUptimeReputationScore(
+	uptimeScore := calculateReputationScore(
 		node.Reputation.UptimeReputationAlpha,
 		node.Reputation.UptimeReputationBeta)
 
-	return &pb.UptimeCheckResponse{
-		TotalCount:      node.Reputation.UptimeCount,
-		SuccessCount:    node.Reputation.UptimeSuccessCount,
-		ReputationAlpha: node.Reputation.UptimeReputationAlpha,
-		ReputationBeta:  node.Reputation.UptimeReputationBeta,
-		ReputationScore: reputationScore,
+	auditScore := calculateReputationScore(
+		node.Reputation.AuditReputationAlpha,
+		node.Reputation.AuditReputationBeta)
+
+	return &pb.GetStatsResponse{
+		UptimeCheck: &pb.ReputationStats{
+			TotalCount:      node.Reputation.UptimeCount,
+			SuccessCount:    node.Reputation.UptimeSuccessCount,
+			ReputationAlpha: node.Reputation.UptimeReputationAlpha,
+			ReputationBeta:  node.Reputation.UptimeReputationBeta,
+			ReputationScore: uptimeScore,
+		},
+		AuditCheck: &pb.ReputationStats{
+			TotalCount:      node.Reputation.AuditCount,
+			SuccessCount:    node.Reputation.AuditSuccessCount,
+			ReputationAlpha: node.Reputation.AuditReputationAlpha,
+			ReputationBeta:  node.Reputation.AuditReputationBeta,
+			ReputationScore: auditScore,
+		},
 	}, nil
 }
 
@@ -105,7 +118,7 @@ func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorag
 	return pbUsages
 }
 
-// calculateUptimeReputationScore is helper method to calculate reputation value for uptime checks
-func calculateUptimeReputationScore(alpha, beta float64) float64 {
+// calculateReputationScore is helper method to calculate reputation score value
+func calculateReputationScore(alpha, beta float64) float64 {
 	return alpha / (alpha + beta)
 }

@@ -322,10 +322,12 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
 		diff := (space - availableSpace) * -1
+		now := time.Now()
 		err = storageNode.DB.PieceInfo().Add(ctx, &pieces.Info{
 			SatelliteID:     planet.Satellites[0].ID(),
 			PieceID:         storj.PieceID{99},
 			PieceSize:       diff,
+			PieceCreation:   &now,
 			Uplink:          planet.Uplinks[0].Identity.PeerIdentity(),
 			UplinkPieceHash: &pb.PieceHash{},
 		})

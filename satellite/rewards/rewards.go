@@ -49,24 +49,26 @@ type UpdateOffer struct {
 type OfferType int
 
 const (
+	// Invalid is a default value for offers that don't have correct type associated with it
+	Invalid = OfferType(0)
 	// FreeCredit is a type of offers used for Free Credit Program
-	FreeCredit = OfferType(iota)
+	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
-	Referral
+	Referral = OfferType(2)
 )
 
-// OfferStatus indicates the status of an offer
+// OfferStatus represents the different stage an offer can have in its life-cycle.
 type OfferStatus int
 
 const (
 
-	// Done is a default offer status when an offer is not being used currently
+	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
 
-	// Active is a offer status when an offer is currently being used
+	// Active is the status of an offer that is currently in use.
 	Active
 
-	// Default is a offer status when an offer is used as a default offer
+	// Default is the status of an offer when there is no active offer.
 	Default
 )
 
@@ -94,8 +96,7 @@ type Offer struct {
 
 // IsEmpty evaluates whether or not an on offer is empty
 func (o Offer) IsEmpty() bool {
-	var emptyOffer Offer
-	return o == emptyOffer
+	return o.Name == ""
 }
 
 // Offers contains a slice of offers.
@@ -115,7 +116,9 @@ type OfferSet struct {
 }
 
 // OrganizeOffersByStatus organizes offers by OfferStatus.
-func (offers Offers) OrganizeOffersByStatus() (oo OrganizedOffers) {
+func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
+	var oo OrganizedOffers
+
 	for _, offer := range offers {
 		switch offer.Status {
 		case Active:
@@ -130,8 +133,11 @@ func (offers Offers) OrganizeOffersByStatus() (oo OrganizedOffers) {
 }
 
 // OrganizeOffersByType organizes offers by OfferType.
-func (offers Offers) OrganizeOffersByType() (os OfferSet) {
-	var fc, ro Offers
+func (offers Offers) OrganizeOffersByType() OfferSet {
+	var (
+		fc, ro   Offers
+		offerSet OfferSet
+	)
 
 	for _, offer := range offers {
 		switch offer.Type {
@@ -143,7 +149,8 @@ func (offers Offers) OrganizeOffersByType() (os OfferSet) {
 			continue
 		}
 	}
-	os.FreeCredits = fc.OrganizeOffersByStatus()
-	os.ReferralOffers = ro.OrganizeOffersByStatus()
-	return os
+
+	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
+	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
+	return offerSet
 }

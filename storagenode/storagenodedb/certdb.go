@@ -36,8 +36,6 @@ func (db *certdb) Include(ctx context.Context, pi *identity.PeerIdentity) (certi
 
 	chain := encodePeerIdentity(pi)
 
-	defer db.locked()()
-
 	result, err := db.db.Exec(`INSERT INTO certificate(node_id, peer_identity) VALUES(?, ?)`, pi.ID, chain)
 	if err != nil && sqliteutil.IsConstraintError(err) {
 		err = db.db.QueryRow(`SELECT cert_id FROM certificate WHERE peer_identity = ?`, chain).Scan(&certid)
@@ -56,9 +54,7 @@ func (db *certdb) LookupByCertID(ctx context.Context, id int64) (_ *identity.Pee
 
 	var pem *[]byte
 
-	db.mu.Lock()
 	err = db.db.QueryRow(`SELECT peer_identity FROM certificate WHERE cert_id = ?`, id).Scan(&pem)
-	db.mu.Unlock()
 
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)

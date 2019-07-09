@@ -255,7 +255,7 @@ func NodeIDFromPEM(pemBytes []byte) (storj.NodeID, error) {
 func NodeIDFromCert(cert *x509.Certificate) (id storj.NodeID, err error) {
 	version, err := storj.IDVersionFromCert(cert)
 	if err != nil {
-		return id, err
+		return id, Error.Wrap(err)
 	}
 	return NodeIDFromKey(cert.PublicKey, version)
 }

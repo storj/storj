@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -30,17 +29,12 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	id := voucher.SatelliteId
-	expiration, err := ptypes.Timestamp(voucher.GetExpiration())
-	if err != nil {
-		return ErrInfo.Wrap(err)
-	}
+	expiration := voucher.Expiration.UTC()
 
 	voucherSerialized, err := proto.Marshal(voucher)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
-
-	defer db.locked()()
 
 	_, err = db.db.Exec(`
 		INSERT INTO vouchers(
@@ -59,7 +53,6 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 // NeedVoucher returns true if a voucher from a particular satellite is expired, about to expire, or does not exist
 func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID, expirationBuffer time.Duration) (need bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	expiresBefore := time.Now().UTC().Add(expirationBuffer)
 
@@ -85,7 +78,6 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (*pb.Voucher, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	var args []interface{}
 
@@ -95,7 +87,7 @@ func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (
 		args = append(args, id)
 	}
 
-	args = append(args, time.Now().UTC())
+	args = append(args, time.Now())
 
 	row := db.db.QueryRow(db.InfoDB.Rebind(`
 		SELECT voucher_serialized
