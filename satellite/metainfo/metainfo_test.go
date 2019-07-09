@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -57,7 +56,7 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now())
+		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, false)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
@@ -171,7 +170,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now())
+		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
@@ -311,7 +310,7 @@ func TestCommitSegment(t *testing.T) {
 				Total:            4,
 				ErasureShareSize: 256,
 			}
-			expirationDate := time.Now()
+			expirationDate := time.Now().Add(time.Hour)
 			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
 			require.NoError(t, err)
 
@@ -334,8 +333,9 @@ func TestCommitSegment(t *testing.T) {
 			require.NoError(t, err)
 
 			pointer := &pb.Pointer{
-				Type:        pb.Pointer_REMOTE,
-				SegmentSize: 10,
+				CreationDate: time.Now(),
+				Type:         pb.Pointer_REMOTE,
+				SegmentSize:  10,
 				Remote: &pb.RemoteSegment{
 					RootPieceId:  rootPieceID,
 					Redundancy:   redundancy,
@@ -445,11 +445,54 @@ func TestCreateSegment(t *testing.T) {
 				fail: false,
 			},
 		} {
-			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now())
+			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
 			if r.fail {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
+			}
+		}
+	})
+}
+
+func TestExpirationTimeSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+		pointer := createTestPointer(t)
+
+		for _, r := range []struct {
+			expirationDate time.Time
+			errFlag        bool
+		}{
+			{ // expiration time not set
+				time.Time{},
+				false,
+			},
+			{ // 10 days into future
+				time.Now().AddDate(0, 0, 10),
+				false,
+			},
+			{ // current time
+				time.Now(),
+				true,
+			},
+			{ // 10 days into past
+				time.Now().AddDate(0, 0, -10),
+				true,
+			},
+		} {
+
+			_, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
+			if err != nil {
+				assert.True(t, r.errFlag)
+			} else {
+				assert.False(t, r.errFlag)
 			}
 		}
 	})
@@ -599,7 +642,7 @@ func TestSetAttribution(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(cleanup)
 
-		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionScheme().Cipher})
+		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionParameters().CipherSuite})
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -627,11 +670,11 @@ func TestSetAttribution(t *testing.T) {
 		}
 		{
 			//non attributed bucket, and adding files
-			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alphaNew", "path", []byte{1, 2, 3})
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "alpha-new", "path", []byte{1, 2, 3})
 			assert.NoError(t, err)
 
 			// bucket with items
-			err = metainfoClient.SetAttribution(ctx, "alphaNew", partnerID)
+			err = metainfoClient.SetAttribution(ctx, "alpha-new", partnerID)
 			require.Error(t, err)
 		}
 	})
@@ -700,10 +743,13 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 	require.NoError(t, err)
 	segmentSize := 4 * memory.KiB.Int64()
 	pieceSize := eestream.CalcPieceSize(segmentSize, redundancy)
-	timestamp := time.Now()
+	timestamp := time.Now().Add(time.Hour)
+	expiration, err := ptypes.TimestampProto(timestamp)
+	require.NoError(t, err)
 	pointer := &pb.Pointer{
-		Type:        pb.Pointer_REMOTE,
-		SegmentSize: segmentSize,
+		CreationDate: time.Now(),
+		Type:         pb.Pointer_REMOTE,
+		SegmentSize:  segmentSize,
 		Remote: &pb.RemoteSegment{
 			Redundancy: rs,
 			RemotePieces: []*pb.RemotePiece{
@@ -723,16 +769,12 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 				},
 			},
 		},
-		ExpirationDate: ptypes.TimestampNow(),
+		ExpirationDate: expiration,
 	}
 	return pointer
 }
 
 func TestBucketNameValidation(t *testing.T) {
-	if !satMetainfo.BucketNameRestricted {
-		t.Skip("Skip until bucket name validation is not enabled")
-	}
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -760,7 +802,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-63-0123456789012345678901234567890123456789012345abc",
 		}
 		for _, name := range validNames {
-			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.NoError(t, err, "bucket name: %v", name)
 		}
 
@@ -774,7 +816,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
-			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now())
+			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.Error(t, err, "bucket name: %v", name)
 		}
 	})

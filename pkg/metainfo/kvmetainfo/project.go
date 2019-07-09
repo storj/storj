@@ -22,7 +22,7 @@ type Project struct {
 // NewProject constructs a *Project
 func NewProject(streams streams.Store, encryptedBlockSize int32, redundancy eestream.RedundancyStrategy, segmentsSize int64) *Project {
 	return &Project{
-		buckets:            objects.NewStore(streams, storj.Unencrypted),
+		buckets:            objects.NewStore(streams, storj.EncNull),
 		streams:            streams,
 		encryptedBlockSize: encryptedBlockSize,
 		redundancy:         redundancy,

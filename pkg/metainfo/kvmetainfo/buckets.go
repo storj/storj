@@ -27,41 +27,41 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 		return storj.Bucket{}, storj.ErrNoBucket.New("")
 	}
 	if info == nil {
-		info = &storj.Bucket{PathCipher: storj.AESGCM}
+		info = &storj.Bucket{PathCipher: storj.EncAESGCM}
 	}
-	if info.EncryptionParameters.CipherSuite == storj.EncUnspecified {
-		info.EncryptionParameters.CipherSuite = storj.EncAESGCM
+	if info.DefaultEncryptionParameters.CipherSuite == storj.EncUnspecified {
+		info.DefaultEncryptionParameters.CipherSuite = storj.EncAESGCM
 	}
-	if info.EncryptionParameters.BlockSize == 0 {
-		info.EncryptionParameters.BlockSize = db.encryptedBlockSize
+	if info.DefaultEncryptionParameters.BlockSize == 0 {
+		info.DefaultEncryptionParameters.BlockSize = db.encryptedBlockSize
 	}
-	if info.RedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
-		info.RedundancyScheme.Algorithm = storj.ReedSolomon
+	if info.DefaultRedundancyScheme.Algorithm == storj.InvalidRedundancyAlgorithm {
+		info.DefaultRedundancyScheme.Algorithm = storj.ReedSolomon
 	}
-	if info.RedundancyScheme.RequiredShares == 0 {
-		info.RedundancyScheme.RequiredShares = int16(db.redundancy.RequiredCount())
+	if info.DefaultRedundancyScheme.RequiredShares == 0 {
+		info.DefaultRedundancyScheme.RequiredShares = int16(db.redundancy.RequiredCount())
 	}
-	if info.RedundancyScheme.RepairShares == 0 {
-		info.RedundancyScheme.RepairShares = int16(db.redundancy.RepairThreshold())
+	if info.DefaultRedundancyScheme.RepairShares == 0 {
+		info.DefaultRedundancyScheme.RepairShares = int16(db.redundancy.RepairThreshold())
 	}
-	if info.RedundancyScheme.OptimalShares == 0 {
-		info.RedundancyScheme.OptimalShares = int16(db.redundancy.OptimalThreshold())
+	if info.DefaultRedundancyScheme.OptimalShares == 0 {
+		info.DefaultRedundancyScheme.OptimalShares = int16(db.redundancy.OptimalThreshold())
 	}
-	if info.RedundancyScheme.TotalShares == 0 {
-		info.RedundancyScheme.TotalShares = int16(db.redundancy.TotalCount())
+	if info.DefaultRedundancyScheme.TotalShares == 0 {
+		info.DefaultRedundancyScheme.TotalShares = int16(db.redundancy.TotalCount())
 	}
-	if info.RedundancyScheme.ShareSize == 0 {
-		info.RedundancyScheme.ShareSize = int32(db.redundancy.ErasureShareSize())
+	if info.DefaultRedundancyScheme.ShareSize == 0 {
+		info.DefaultRedundancyScheme.ShareSize = int32(db.redundancy.ErasureShareSize())
 	}
-	if info.SegmentsSize == 0 {
-		info.SegmentsSize = db.segmentsSize
+	if info.DefaultSegmentsSize == 0 {
+		info.DefaultSegmentsSize = db.segmentsSize
 	}
 
-	if err := validateBlockSize(info.RedundancyScheme, info.EncryptionParameters.BlockSize); err != nil {
+	if err := validateBlockSize(info.DefaultRedundancyScheme, info.DefaultEncryptionParameters.BlockSize); err != nil {
 		return bucketInfo, err
 	}
 
-	if info.PathCipher < storj.Unencrypted || info.PathCipher > storj.SecretBox {
+	if info.PathCipher < storj.EncNull || info.PathCipher > storj.EncSecretBox {
 		return storj.Bucket{}, encryption.ErrInvalidConfig.New("encryption type %d is not supported", info.PathCipher)
 	}
 
@@ -69,15 +69,15 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	userMeta := map[string]string{
 		"attribution-to":    info.Attribution,
 		"path-enc-type":     strconv.Itoa(int(info.PathCipher)),
-		"default-seg-size":  strconv.FormatInt(info.SegmentsSize, 10),
-		"default-enc-type":  strconv.Itoa(int(info.EncryptionParameters.CipherSuite.ToCipher())),
-		"default-enc-blksz": strconv.FormatInt(int64(info.EncryptionParameters.BlockSize), 10),
-		"default-rs-algo":   strconv.Itoa(int(info.RedundancyScheme.Algorithm)),
-		"default-rs-sharsz": strconv.FormatInt(int64(info.RedundancyScheme.ShareSize), 10),
-		"default-rs-reqd":   strconv.Itoa(int(info.RedundancyScheme.RequiredShares)),
-		"default-rs-repair": strconv.Itoa(int(info.RedundancyScheme.RepairShares)),
-		"default-rs-optim":  strconv.Itoa(int(info.RedundancyScheme.OptimalShares)),
-		"default-rs-total":  strconv.Itoa(int(info.RedundancyScheme.TotalShares)),
+		"default-seg-size":  strconv.FormatInt(info.DefaultSegmentsSize, 10),
+		"default-enc-type":  strconv.Itoa(int(info.DefaultEncryptionParameters.CipherSuite)),
+		"default-enc-blksz": strconv.FormatInt(int64(info.DefaultEncryptionParameters.BlockSize), 10),
+		"default-rs-algo":   strconv.Itoa(int(info.DefaultRedundancyScheme.Algorithm)),
+		"default-rs-sharsz": strconv.FormatInt(int64(info.DefaultRedundancyScheme.ShareSize), 10),
+		"default-rs-reqd":   strconv.Itoa(int(info.DefaultRedundancyScheme.RequiredShares)),
+		"default-rs-repair": strconv.Itoa(int(info.DefaultRedundancyScheme.RepairShares)),
+		"default-rs-optim":  strconv.Itoa(int(info.DefaultRedundancyScheme.OptimalShares)),
+		"default-rs-total":  strconv.Itoa(int(info.DefaultRedundancyScheme.TotalShares)),
 	}
 	var exp time.Time
 	m, err := db.buckets.Put(ctx, bucketName, r, pb.SerializableMeta{UserDefined: userMeta}, exp)
@@ -199,9 +199,6 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 
 	out.Name = bucketName
 	out.Created = m.Modified
-	// backwards compatibility for old buckets
-	out.PathCipher = storj.AESGCM
-	out.EncryptionParameters.CipherSuite = storj.EncUnspecified
 
 	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
 		if err != nil {
@@ -218,13 +215,13 @@ func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out
 		}
 	}
 
-	es := &out.EncryptionParameters
-	rs := &out.RedundancyScheme
+	es := &out.DefaultEncryptionParameters
+	rs := &out.DefaultRedundancyScheme
 
 	out.Attribution = m.UserDefined["attribution-to"]
-	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.Cipher(v) })
-	applySetting("default-seg-size", 64, func(v int64) { out.SegmentsSize = v })
-	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.Cipher(v).ToCipherSuite() })
+	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.CipherSuite(v) })
+	applySetting("default-seg-size", 64, func(v int64) { out.DefaultSegmentsSize = v })
+	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.CipherSuite(v) })
 	applySetting("default-enc-blksz", 32, func(v int64) { es.BlockSize = int32(v) })
 	applySetting("default-rs-algo", 32, func(v int64) { rs.Algorithm = storj.RedundancyAlgorithm(v) })
 	applySetting("default-rs-sharsz", 32, func(v int64) { rs.ShareSize = int32(v) })

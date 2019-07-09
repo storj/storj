@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testrand"
@@ -84,7 +83,7 @@ func BenchmarkOverlay(b *testing.B) {
 		})
 
 		b.Run("UpdateNodeInfo", func(b *testing.B) {
-			now := ptypes.TimestampNow()
+			now := time.Now()
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
 				_, err := overlaydb.UpdateNodeInfo(ctx, id, &pb.InfoResponse{

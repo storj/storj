@@ -68,6 +68,6 @@ message NodeRestrictions {
 message NodeVersion {
     string version = 1; // must be semver formatted
     string commit_hash = 2;
-    google.protobuf.Timestamp timestamp = 3;
+    google.protobuf.Timestamp timestamp = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     bool release = 4;
 }

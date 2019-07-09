@@ -113,10 +113,6 @@ message GetBucketResponse {
   repeated node.Node nodes = 2;
 }
 
-message Bucket {
-  repeated node.Node nodes = 2;
-}
-
 message BucketList {
   repeated node.Node nodes = 1;
 }
@@ -188,10 +184,11 @@ message DashboardResponse {
   string bootstrap_address = 3;
   string internal_address = 4;
   string external_address = 5;
-  StatSummaryResponse stats = 6;
-  google.protobuf.Duration uptime = 7;
-  google.protobuf.Timestamp last_pinged = 8;
-  google.protobuf.Timestamp last_queried = 9;
+  string dashboard_address = 6;
+  StatSummaryResponse stats = 7;
+  google.protobuf.Duration uptime = 8;
+  google.protobuf.Timestamp last_pinged = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp last_queried = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message SegmentHealthRequest {

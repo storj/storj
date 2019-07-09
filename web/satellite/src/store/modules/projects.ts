@@ -23,6 +23,21 @@ export const projectsModule = {
         },
         [PROJECTS_MUTATIONS.FETCH](state: any, projects: Project[]): void {
             state.projects = projects;
+
+            if (state.selectedProject.id) {
+                let projectsCount = state.projects.length;
+
+                for (let i = 0; i < projectsCount; i++) {
+                    let project = state.projects[i];
+
+                    if (project.id === state.selectedProject.id) {
+                        state.selectedProject = project;
+                        return;
+                    }
+                }
+
+                state.selectedProject = defaultSelectedProject
+            }
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
             const selected = state.projects.find((project: any) => project.id === projectID);

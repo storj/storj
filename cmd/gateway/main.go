@@ -20,6 +20,7 @@ import (
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/miniogw"
@@ -37,6 +38,8 @@ type GatewayFlags struct {
 	Minio  miniogw.MinioConfig
 
 	uplink.Config
+
+	Version version.Config
 }
 
 var (
@@ -144,21 +147,26 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		address = net.JoinHostPort("127.0.0.1", port)
 	}
 
-	fmt.Printf("Starting Storj S3-compatible gateway!\n\n")
-	fmt.Printf("Endpoint: %s\n", address)
-	fmt.Printf("Access key: %s\n", runCfg.Minio.AccessKey)
-	fmt.Printf("Secret key: %s\n", runCfg.Minio.SecretKey)
-
 	ctx := process.Ctx(cmd)
 
 	if err := process.InitMetrics(ctx, nil, ""); err != nil {
 		zap.S().Error("Failed to initialize telemetry batcher: ", err)
 	}
 
+	err = version.CheckProcessVersion(ctx, runCfg.Version, version.Build, "Gateway")
+	if err != nil {
+		return err
+	}
+
+	zap.S().Infof("Starting Storj S3-compatible gateway!\n\n")
+	zap.S().Infof("Endpoint: %s\n", address)
+	zap.S().Infof("Access key: %s\n", runCfg.Minio.AccessKey)
+	zap.S().Infof("Secret key: %s\n", runCfg.Minio.SecretKey)
+
 	err = checkCfg(ctx)
 	if err != nil {
-		return fmt.Errorf("Failed to contact Satellite.\n"+
-			"Perhaps your configuration is invalid?\n%s", err)
+		zap.S().Warn("Failed to contact Satellite. Perhaps your configuration is invalid?")
+		return err
 	}
 
 	return runCfg.Run(ctx)
@@ -238,8 +246,8 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 	return miniogw.NewStorjGateway(
 		project,
 		access,
-		storj.Cipher(flags.Enc.PathType).ToCipherSuite(),
-		flags.GetEncryptionScheme().ToEncryptionParameters(),
+		storj.CipherSuite(flags.Enc.PathType),
+		flags.GetEncryptionParameters(),
 		flags.GetRedundancyScheme(),
 		flags.Client.SegmentSize,
 	), nil

@@ -102,10 +102,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg.setDefaults()
 
 	bucket = storj.Bucket{
-		PathCipher:           cfg.PathCipher.ToCipher(),
-		EncryptionParameters: cfg.EncryptionParameters,
-		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
-		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
+		PathCipher:                  cfg.PathCipher,
+		DefaultEncryptionParameters: cfg.EncryptionParameters,
+		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
+		DefaultSegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
 	return p.project.CreateBucket(ctx, name, &bucket)
 }
@@ -137,11 +137,11 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 		return b, nil, err
 	}
 	cfg := &BucketConfig{
-		PathCipher:           b.PathCipher.ToCipherSuite(),
-		EncryptionParameters: b.EncryptionParameters,
+		PathCipher:           b.PathCipher,
+		EncryptionParameters: b.DefaultEncryptionParameters,
 	}
-	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
-	cfg.Volatile.SegmentsSize = memory.Size(b.SegmentsSize)
+	cfg.Volatile.RedundancyScheme = b.DefaultRedundancyScheme
+	cfg.Volatile.SegmentsSize = memory.Size(b.DefaultSegmentsSize)
 	return b, cfg, nil
 }
 
@@ -170,8 +170,7 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 			return nil, err
 		}
 	}
-
-	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
+	encryptionParameters := cfg.EncryptionParameters
 
 	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
@@ -187,13 +186,13 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentsSize.Int64(),
-		cfg.EncryptionParameters.ToEncryptionScheme())
+		cfg.EncryptionParameters)
 	if err != nil {
 		return nil, err
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -253,11 +252,11 @@ func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bu
 	defer mon.Task()(&ctx)(&err)
 
 	bucket = storj.Bucket{
-		Attribution:          p.uplinkCfg.Volatile.PartnerID,
-		PathCipher:           bucketInfo.PathCipher,
-		EncryptionParameters: bucketInfo.EncryptionParameters,
-		RedundancyScheme:     bucketInfo.RedundancyScheme,
-		SegmentsSize:         bucketInfo.SegmentsSize,
+		Attribution:                 p.uplinkCfg.Volatile.PartnerID,
+		PathCipher:                  bucketInfo.PathCipher,
+		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
+		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
+		DefaultSegmentsSize:         bucketInfo.DefaultSegmentsSize,
 	}
 	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }
