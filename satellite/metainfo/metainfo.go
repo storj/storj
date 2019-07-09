@@ -271,6 +271,11 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
+	// clear hashes so we don't store them
+	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
+		piece.Hash = nil
+	}
+
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
 
 	// ToDo: Replace with hash & signature validation
@@ -503,8 +508,6 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 			// err := auth.VerifyMsg(piece.Hash, piece.NodeId)
 			// if err == nil {
-			// 	// set to nil after verification to avoid storing in DB
-			// 	piece.Hash = nil
 			// 	remotePieces = append(remotePieces, piece)
 			// } else {
 			// 	// TODO satellite should send Delete request for piece that failed
