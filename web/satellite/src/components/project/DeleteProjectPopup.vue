@@ -22,7 +22,6 @@
                         v-model="projectName"
                         v-on:keyup="resetError" >
                 </div>
-                
                 <div class="delete-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button 

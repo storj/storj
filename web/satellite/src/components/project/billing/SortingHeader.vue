@@ -2,45 +2,45 @@
 // See LICENSE for copying information.
 
 <template>
-	<tr class="sort-header-container">
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Invoice</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span class="selected" v-html="arrowDown"></span>
-				</div>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Billing Period</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Payment method</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Status</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Amount</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
-			</div>
-		</th>
-	</tr>
+    <tr class="sort-header-container">
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Invoice</p>
+                <div class="sort-header-container__item__arrows">
+                    <span v-html="arrowUp"></span>
+                    <span class="selected" v-html="arrowDown"></span>
+                </div>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Billing Period</p>
+                <div class="sort-header-container__item__arrows">
+                    <span v-html="arrowUp"></span>
+                    <span v-html="arrowDown"></span>
+                </div>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Payment method</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Status</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Amount</p>
+                <div class="sort-header-container__item__arrows">
+                    <span v-html="arrowUp"></span>
+                    <span v-html="arrowDown"></span>
+                </div>
+            </div>
+        </th>
+    </tr>
 </template>
 
 <script lang="ts">
