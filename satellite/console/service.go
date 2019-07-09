@@ -271,12 +271,7 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 			return nil, err
 		}
 
-		cus, err := s.pm.GetCustomer(ctx, pm.CustomerID)
-		if err != nil {
-			return nil, err
-		}
-
-		user, err := s.store.Users().GetByEmail(ctx, cus.Email)
+		user, err := s.store.Users().Get(ctx, payment.PayerID)
 		if err != nil {
 			return nil, err
 		}
