@@ -28,3 +28,8 @@ declare type TeamMemberModel = {
     }
     joinedAt: string,
 };
+
+declare type CreateProjectModel = {
+    name: string,
+    description: string,
+}

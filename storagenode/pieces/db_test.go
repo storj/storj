@@ -57,7 +57,6 @@ func TestPieceInfo(t *testing.T) {
 			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash0,
-			Uplink:          uplink0.PeerIdentity(),
 		}
 
 		piecehash1, err := signing.SignPieceHash(ctx,
@@ -77,7 +76,6 @@ func TestPieceInfo(t *testing.T) {
 			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash1,
-			Uplink:          uplink1.PeerIdentity(),
 		}
 
 		piecehash2, err := signing.SignPieceHash(ctx,
@@ -97,7 +95,6 @@ func TestPieceInfo(t *testing.T) {
 			PieceExpiration: &now,
 
 			UplinkPieceHash: piecehash2,
-			Uplink:          uplink2.PeerIdentity(),
 		}
 
 		_, err = pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)
