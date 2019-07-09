@@ -37,7 +37,7 @@ func (db *offersDB) ListAll(ctx context.Context) ([]rewards.Offer, error) {
 // GetCurrent returns an offer that has not expired based on offer type
 func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
 	var statement string
-	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type"
+	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type"
 	statement = `
 		WITH o AS (
 			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>? AND num_redeemed < redeemable_cap
@@ -54,7 +54,7 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 
 	var awardCreditInCents, inviteeCreditInCents int
 	o := rewards.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
 		return nil, offerErr.New("no current offer")
 	}
@@ -164,7 +164,6 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
 		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
 		RedeemableCap:             offerDbx.RedeemableCap,
-		NumRedeemed:               offerDbx.NumRedeemed,
 		ExpiresAt:                 offerDbx.ExpiresAt,
 		AwardCreditDurationDays:   offerDbx.AwardCreditDurationDays,
 		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
