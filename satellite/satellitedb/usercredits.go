@@ -15,6 +15,7 @@ import (
 
 	"storj.io/storj/internal/currency"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/rewards"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -86,7 +87,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit,
 	}
 
 	if rows != 1 {
-		return errs.New("Create user credit failed")
+		return errs.New(rewards.MaxRedemptionErr)
 	}
 
 	return nil
