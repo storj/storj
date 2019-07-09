@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -33,12 +34,6 @@ import (
 const (
 	defaultAlpha = 5
 )
-
-type testNode struct {
-	kad       *Kademlia
-	transport transport.Client
-	server    *grpc.Server
-}
 
 func TestNewKademlia(t *testing.T) {
 	ctx := testcontext.New(t)
@@ -70,16 +65,8 @@ func TestNewKademlia(t *testing.T) {
 		},
 	}
 
-	for _, v := range cases {
-		logger := zaptest.NewLogger(t)
-
-		rt, err := newRoutingTable(ctx, logger, v.id, v.addr, pb.NodeOperator{})
-		require.NoError(t, err)
-
-		tc, err := newTransport(ctx, v.id, rt)
-		require.NoError(t, err)
-
-		kad, err := newKademlia(ctx, logger, v.bn, rt, tc, defaultAlpha)
+	for i, v := range cases {
+		kad, err := newKademlia(ctx, zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, pb.NodeOperator{}, v.id, ctx.Dir(strconv.Itoa(i)), defaultAlpha)
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
 		assert.Equal(t, kad.bootstrapNodes, v.bn)
@@ -106,18 +93,9 @@ func TestPeerDiscovery(t *testing.T) {
 	operator := pb.NodeOperator{
 		Wallet: "OperatorWallet",
 	}
-
-	logger := zaptest.NewLogger(t)
-
-	rt, err := newRoutingTable(ctx, logger, testID, testAddress, operator)
+	k, err := newKademlia(ctx, zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrapNodes, testAddress, operator, testID, ctx.Dir("test"), defaultAlpha)
 	require.NoError(t, err)
-
-	tc, err := newTransport(ctx, testID, rt)
-	require.NoError(t, err)
-
-	k, err := newKademlia(ctx, logger, bootstrapNodes, rt, tc, defaultAlpha)
-	require.NoError(t, err)
-
+	rt := k.routingTable
 	assert.Equal(t, rt.Local().Operator.Wallet, "OperatorWallet")
 
 	defer ctx.Check(k.Close)
@@ -149,30 +127,30 @@ func TestBootstrap(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	bn, clean := newTestNode(ctx, "1", t, []pb.Node{})
+	bn, s, clean := testNode(ctx, "1", t, []pb.Node{})
 	defer clean()
-	defer bn.server.GracefulStop()
+	defer s.GracefulStop()
 
-	n1, clean1 := newTestNode(ctx, "2", t, []pb.Node{bn.kad.routingTable.self.Node})
+	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean1()
-	defer n1.server.GracefulStop()
+	defer s1.GracefulStop()
 
-	err := n1.kad.Bootstrap(ctx, n1.transport)
+	err := n1.Bootstrap(ctx)
 	require.NoError(t, err)
 
-	n2, clean2 := newTestNode(ctx, "3", t, []pb.Node{bn.kad.routingTable.self.Node})
+	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean2()
-	defer n2.server.GracefulStop()
+	defer s2.GracefulStop()
 
-	err = n2.kad.Bootstrap(ctx, n2.transport)
+	err = n2.Bootstrap(ctx)
 	require.NoError(t, err)
 
-	nodeIDs, err := n2.kad.routingTable.nodeBucketDB.List(ctx, nil, 0)
+	nodeIDs, err := n2.routingTable.nodeBucketDB.List(ctx, nil, 0)
 	require.NoError(t, err)
 	assert.Len(t, nodeIDs, 3)
 }
 
-func newTestNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (testNode, func()) {
+func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -183,14 +161,7 @@ func newTestNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.No
 	// new kademlia
 
 	logger := zaptest.NewLogger(t)
-
-	rt, err := newRoutingTable(ctx, logger, fid, lis.Addr().String(), pb.NodeOperator{})
-	require.NoError(t, err)
-
-	tc, err := newTransport(ctx, fid, rt)
-	require.NoError(t, err)
-
-	k, err := newKademlia(ctx, logger, bn, rt, tc, defaultAlpha)
+	k, err := newKademlia(ctx, logger, pb.NodeType_STORAGE, bn, lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir(name), defaultAlpha)
 	require.NoError(t, err)
 
 	s := NewEndpoint(logger, k, k.routingTable)
@@ -213,14 +184,8 @@ func newTestNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.No
 		return err
 	})
 
-	node := testNode{
-		kad:       k,
-		transport: tc,
-		server:    grpcServer,
-	}
-
-	return node, func() {
-		assert.NoError(t, node.kad.Close())
+	return k, grpcServer, func() {
+		assert.NoError(t, k.Close())
 	}
 }
 
@@ -228,28 +193,28 @@ func TestRefresh(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	node, clean := newTestNode(ctx, "refresh", t, []pb.Node{})
+	k, s, clean := testNode(ctx, "refresh", t, []pb.Node{})
 	defer clean()
-	defer node.server.GracefulStop()
+	defer s.GracefulStop()
 	//turn back time for only bucket
-	rt := node.kad.routingTable
+	rt := k.routingTable
 	now := time.Now().UTC()
 	bID := firstBucketID //always exists
 	err := rt.SetBucketTimestamp(ctx, bID[:], now.Add(-2*time.Hour))
 	require.NoError(t, err)
 	//refresh should  call FindNode, updating the time
-	err = node.kad.refresh(ctx, time.Minute)
+	err = k.refresh(ctx, time.Minute)
 	require.NoError(t, err)
 	ts1, err := rt.GetBucketTimestamp(ctx, bID[:])
 	require.NoError(t, err)
 	assert.True(t, now.Add(-5*time.Minute).Before(ts1))
 	//refresh should not call FindNode, leaving the previous time
-	err = node.kad.refresh(ctx, time.Minute)
+	err = k.refresh(ctx, time.Minute)
 	require.NoError(t, err)
 	ts2, err := rt.GetBucketTimestamp(ctx, bID[:])
 	require.NoError(t, err)
 	assert.True(t, ts1.Equal(ts2))
-	node.server.GracefulStop()
+	s.GracefulStop()
 }
 
 func TestFindNear(t *testing.T) {
@@ -278,16 +243,8 @@ func TestFindNear(t *testing.T) {
 	})
 
 	bootstrap := []pb.Node{{Id: fid2.ID, Address: &pb.NodeAddress{Address: lis.Addr().String()}}}
-
-	logger := zaptest.NewLogger(t)
-
-	rt, err := newRoutingTable(ctx, logger, fid, lis.Addr().String(), pb.NodeOperator{})
-	require.NoError(t, err)
-
-	tc, err := newTransport(ctx, fid, rt)
-	require.NoError(t, err)
-
-	k, err := newKademlia(ctx, logger, bootstrap, rt, tc, defaultAlpha)
+	k, err := newKademlia(ctx, zaptest.NewLogger(t), pb.NodeType_STORAGE, bootstrap,
+		lis.Addr().String(), pb.NodeOperator{}, fid, ctx.Dir("kademlia"), defaultAlpha)
 	require.NoError(t, err)
 	defer ctx.Check(k.Close)
 
@@ -450,20 +407,22 @@ func (mn *mockNodesServer) RequestInfo(ctx context.Context, req *pb.InfoRequest)
 	return &pb.InfoResponse{}, nil
 }
 
-func newRoutingTable(ctx context.Context, log *zap.Logger, identity *identity.FullIdentity, address string, operator pb.NodeOperator) (*RoutingTable, error) {
+// newKademlia returns a newly configured Kademlia instance
+func newKademlia(ctx context.Context, log *zap.Logger, nodeType pb.NodeType, bootstrapNodes []pb.Node, address string, operator pb.NodeOperator, identity *identity.FullIdentity, path string, alpha int) (*Kademlia, error) {
 	self := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:      identity.ID,
 			Address: &pb.NodeAddress{Address: address},
 		},
-		Type:     pb.NodeType_STORAGE,
+		Type:     nodeType,
 		Operator: operator,
 	}
 
-	return NewRoutingTable(log, self, teststore.New(), teststore.New(), teststore.New(), nil)
-}
+	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), teststore.New(), nil)
+	if err != nil {
+		return nil, err
+	}
 
-func newTransport(ctx context.Context, identity *identity.FullIdentity, rt *RoutingTable) (transport.Client, error) {
 	tlsOptions, err := tlsopts.NewOptions(identity, tlsopts.Config{
 		PeerIDVersions: "*",
 	})
@@ -471,18 +430,15 @@ func newTransport(ctx context.Context, identity *identity.FullIdentity, rt *Rout
 		return nil, err
 	}
 
-	return transport.NewClient(tlsOptions, rt), err
-}
+	transportClient := transport.NewClient(tlsOptions, rt)
 
-// newKademlia returns a newly configured Kademlia instance
-func newKademlia(ctx context.Context, log *zap.Logger, bootstrapNodes []pb.Node, rt *RoutingTable, transport transport.Client, alpha int) (*Kademlia, error) {
 	kadConfig := Config{
 		BootstrapBackoffMax:  10 * time.Second,
 		BootstrapBackoffBase: 1 * time.Second,
 		Alpha:                alpha,
 	}
 
-	kad, err := NewService(log, transport, rt, kadConfig)
+	kad, err := NewService(log, transportClient, rt, kadConfig)
 	if err != nil {
 		return nil, err
 	}
