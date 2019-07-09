@@ -7,6 +7,7 @@ import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updat
 import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
 import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
+import { Project } from '@/types/projects';
 
 const mutations = projectsModule.mutations;
 

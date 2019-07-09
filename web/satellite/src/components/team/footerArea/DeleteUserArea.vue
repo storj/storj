@@ -31,6 +31,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import { PM_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { TeamMemberModel } from '@/types/projects';
 
     @Component({
         methods: {
@@ -48,9 +49,9 @@
                 }
 
                 this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH, this.$store.state.projectMembersModule.page.currentPage);
+                const fetchResponse = await this.$store.dispatch(PM_ACTIONS.FETCH, this.$store.state.projectMembersModule.page.currentPage);
 
-                if (!response.isSuccess) {
+                if (!fetchResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
                 }
             },

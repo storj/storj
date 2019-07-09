@@ -3,7 +3,7 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
-import { Project } from '@/types/projects';
+import { CreateProjectModel, Project } from '@/types/projects';
 
 // Performs graqhQL request for project creation.
 export async function createProjectRequest(createProjectModel: CreateProjectModel): Promise<RequestResponse<Project>> {

@@ -49,7 +49,7 @@
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { Project, TeamMemberModel } from "@/types/projects";
+    import { CreateProjectModel, Project, TeamMemberModel } from "@/types/projects";
 
     @Component({
         beforeMount() {
