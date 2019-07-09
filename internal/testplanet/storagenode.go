@@ -115,7 +115,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			Storage2: piecestore.Config{
 				ExpirationGracePeriod: 0,
 				MaxConcurrentRequests: 100,
-				OrderLimitGracePeriod: time.Hour * 24,
+				OrderLimitGracePeriod: time.Hour,
 				Sender: orders.SenderConfig{
 					Interval: time.Hour,
 					Timeout:  time.Hour,
