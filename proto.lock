@@ -212,7 +212,7 @@
       "def": {
         "enums": [
           {
-            "name": "CipherSuite.Type",
+            "name": "CipherSuite",
             "enum_fields": [
               {
                 "name": "ENC_UNSPECIFIED"
@@ -245,16 +245,6 @@
                 "id": 2,
                 "name": "block_size",
                 "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "CipherSuite",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "Type"
               }
             ]
           }
@@ -3520,7 +3510,17 @@
               {
                 "id": 6,
                 "name": "creation_date",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 7,

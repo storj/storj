@@ -10,7 +10,7 @@
                         <SortingHeader />
                         <BillingItem />
                     </table>
-				</div>
+                </div>
                 <PaginationArea />
             </div>
         </div>

@@ -3,11 +3,11 @@
 
 <template>
     <div class="account-area-container">
-	    <h1>Account</h1>
-	    <TabNavigation
-		    class="account-area-container__navigation"
-		    :navigation="navigation"/>
-	    <router-view />
+        <h1>Account</h1>
+        <TabNavigation
+            class="account-area-container__navigation"
+            :navigation="navigation"/>
+        <router-view />
     </div>
 </template>
 
