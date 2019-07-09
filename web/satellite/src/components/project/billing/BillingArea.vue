@@ -2,22 +2,22 @@
 // See LICENSE for copying information.
 
 <template>
-	<div>
-		<div v-if="billing > 0" class="billing-overflow">
-			<div class="billing-header">
-				<p>Billing</p>
-			</div>
-			<div class="billing-container">
-				<div class="billing-container__table-holder">
-					<table class="billing-container__table">
-						<SortingHeader />
-						<BillingItem />
-					</table>
-				</div>
-				<PaginationArea />
-			</div>
-		</div>
-	</div>
+    <div>
+        <div v-if="billing > 0" class="billing-overflow">
+            <div class="billing-header">
+                <p>Billing</p>
+            </div>
+            <div class="billing-container">
+                <div class="billing-container__table-holder">
+                    <table class="billing-container__table">
+                        <SortingHeader />
+                        <BillingItem />
+                    </table>
+                </div>
+                <PaginationArea />
+            </div>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
