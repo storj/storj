@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+	<testsuite name="storj.io/storj/internal/testplanet" time="42.78" tests="12" failures="4" skips="1">
+		<testcase classname="storj.io/storj/internal/testplanet" name="TestRun" time="0.00">
+			<system-out>--- FAIL: TestRun (0.00s)
+    run.go:25: schema-suffix  9566c74d10654916
+</system-out>
+			<failure>--- FAIL: TestRun (0.00s)
+    run.go:25: schema-suffix  9566c74d10654916
+</failure>
+		</testcase>
+        <testcase classname="storj.io/storj/internal/testplanet" name="Tabs" time="0.00">
+			<system-out></system-out>
+			<failure>--- Tabs
+    A&#x9;B
+    AA&#x9;B
+    AAA&#x9;B
+    AAAA&#x9;B
+    AAAAA&#x9;B
+</failure>
+		</testcase>
+		<testcase classname="storj.io/storj/internal/testplanet" name="TestRun/Sqlite" time="0.54">
+			<system-out>    --- FAIL: TestRun/Sqlite (0.54s)
+        logger.go:130: 2019-07-09T22:59:49.237Z&#x9;DEBUG&#x9;versioncontrol&#x9;setting version info to: {&#34;Bootstrap&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Satellite&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Storagenode&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Uplink&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Gateway&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Identity&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1}}
+        logger.go:130: 2019-07-09T22:59:49.237Z&#x9;DEBUG&#x9;versioncontrol&#x9; addr= 127.0.0.1:35005
+        logger.go:130: 2019-07-09T22:59:49.238Z&#x9;DEBUG&#x9;bootstrap&#x9;Binary Version: v0.0.1 with CommitHash testplanet, built at 2019-07-09 22:59:49.238690733 +0000 UTC m=+2.489409711 as Release false
+        logger.go:130: 2019-07-09T22:59:49.240Z&#x9;DEBUG&#x9;bootstrap&#x9;id=12kRve3AVBdJZfh1SV3VzmYctdnedpNqdaMDoac97DgCxBpEi57 addr=127.0.0.1:36701
+        logger.go:130: 2019-07-09T22:59:49.242Z&#x9;DEBUG&#x9;satellite0.db&#x9;Connected to:&#x9;{&#34;db source&#34;: &#34;file::memory:?mode=memory&amp;search_path=testrun%2Fsqlite-satellite%2F0-9566c74d10654916&#34;}
+        logger.go:130: 2019-07-09T22:59:49.254Z&#x9;DEBUG&#x9;satellite0&#x9;Binary Version: v0.0.1 with CommitHash testplanet, built at 2019-07-09 22:59:49.254120426 +0000 UTC m=+2.504839083 as Release false
+        logger.go:130: 2019-07-09T22:59:49.254Z&#x9;DEBUG&#x9;satellite0&#x9;Starting listener and server
+        logger.go:130: 2019-07-09T22:59:49.255Z&#x9;DEBUG&#x9;satellite0&#x9;Starting overlay
+        logger.go:130: 2019-07-09T22:59:49.255Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up Kademlia
+        logger.go:130: 2019-07-09T22:59:49.255Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up routing table
+        logger.go:130: 2019-07-09T22:59:49.298Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up discovery
+        logger.go:130: 2019-07-09T22:59:49.298Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up vouchers
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up live accounting
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;INFO&#x9;satellite0.live-accounting&#x9;Resetting real-time accounting data
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up accounting project usage
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up orders
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up metainfo
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0.metainfo:store&#x9;Connected to:&#x9;{&#34;db source&#34;: &#34;/tmp/planet410646565/satellite0/pointers.db&#34;}
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up datarepair
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up audits
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up accounting
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up inspector
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up mail service
+        logger.go:130: 2019-07-09T22:59:49.312Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up console
+        logger.go:130: 2019-07-09T22:59:49.312Z&#x9;DEBUG&#x9;satellite0.console:endpoint&#x9;Starting Satellite UI on 127.0.0.1:35807...
+        logger.go:130: 2019-07-09T22:59:49.313Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up marketing server
+        logger.go:130: 2019-07-09T22:59:49.313Z&#x9;DEBUG&#x9;satellite0.marketing:endpoint&#x9;Starting Marketing Admin UI on 127.0.0.1:42801...
+        logger.go:130: 2019-07-09T22:59:49.336Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up node stats endpoint
+        logger.go:130: 2019-07-09T22:59:49.336Z&#x9;DEBUG&#x9;satellite0&#x9;id=1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr addr=127.0.0.1:39657
+        logger.go:130: 2019-07-09T22:59:49.338Z&#x9;INFO&#x9;storage0.db.migration&#x9;No Version
+        logger.go:130: 2019-07-09T22:59:49.339Z&#x9;INFO&#x9;storage0.db.migration.0&#x9;Initial setup
+        logger.go:130: 2019-07-09T22:59:49.341Z&#x9;INFO&#x9;storage0.db.migration.1&#x9;Network Wipe #2
+        logger.go:130: 2019-07-09T22:59:49.341Z&#x9;INFO&#x9;storage0.db.migration.2&#x9;Add tracking of deletion failures.
+        logger.go:130: 2019-07-09T22:59:49.342Z&#x9;INFO&#x9;storage0.db.migration.3&#x9;Add vouchersDB for storing and retrieving vouchers.
+        logger.go:130: 2019-07-09T22:59:49.343Z&#x9;INFO&#x9;storage0.db.migration.4&#x9;Add index on pieceinfo expireation
+        logger.go:130: 2019-07-09T22:59:49.344Z&#x9;INFO&#x9;storage0.db.migration.5&#x9;Partial Network Wipe - Tardigrade Satellites
+        logger.go:130: 2019-07-09T22:59:49.344Z&#x9;INFO&#x9;storage0.db.migration.6&#x9;Add creation date.
+        logger.go:130: 2019-07-09T22:59:49.345Z&#x9;DEBUG&#x9;storage0&#x9;Binary Version: v0.0.1 with CommitHash testplanet, built at 2019-07-09 22:59:49.345818106 +0000 UTC m=+2.596536750 as Release false
+        logger.go:130: 2019-07-09T22:59:49.347Z&#x9;DEBUG&#x9;storage0&#x9;id=17bdnrByZffojsE8oLeaX4FDpmuyy67aCkcanemuSJPSEVRdFT addr=127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.348Z&#x9;DEBUG&#x9;uplink0&#x9;id=1q1FsgzTc7mxNdLBFoCWdkZFmrJs5XGE8keKBP7hadfKG2grWC
+        logger.go:130: 2019-07-09T22:59:49.350Z&#x9;INFO&#x9;versioncontrol&#x9;Versioning server started on 127.0.0.1:35005
+        logger.go:130: 2019-07-09T22:59:49.350Z&#x9;WARN&#x9;bootstrap.kademlia&#x9;No bootstrap address specified.
+        logger.go:130: 2019-07-09T22:59:49.351Z&#x9;INFO&#x9;bootstrap&#x9;Node 12kRve3AVBdJZfh1SV3VzmYctdnedpNqdaMDoac97DgCxBpEi57 started
+        logger.go:130: 2019-07-09T22:59:49.351Z&#x9;INFO&#x9;bootstrap&#x9;Public server started on 127.0.0.1:36701
+        logger.go:130: 2019-07-09T22:59:49.351Z&#x9;INFO&#x9;bootstrap&#x9;Private server started on 127.0.0.1:33227
+        logger.go:130: 2019-07-09T22:59:49.353Z&#x9;DEBUG&#x9;storage0.piecestore:orderssender&#x9;sending
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0.vouchers&#x9;Checking vouchers
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0&#x9;Node 17bdnrByZffojsE8oLeaX4FDpmuyy67aCkcanemuSJPSEVRdFT started
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0&#x9;Public server started on 127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0&#x9;Private server started on 127.0.0.1:37381
+        logger.go:130: 2019-07-09T22:59:49.355Z&#x9;DEBUG&#x9;storage0.piecestore:orderssender&#x9;no orders to send
+        logger.go:130: 2019-07-09T22:59:49.358Z&#x9;INFO&#x9;storage0.vouchers&#x9;Requesting voucher&#x9;{&#34;satellite&#34;: &#34;1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr&#34;}
+        logger.go:130: 2019-07-09T22:59:49.358Z&#x9;INFO&#x9;storage0.piecestore:monitor&#x9;Remaining Bandwidth&#x9;{&#34;bytes&#34;: 1000000000000}
+        logger.go:130: 2019-07-09T22:59:49.359Z&#x9;ERROR&#x9;storage0.vouchers&#x9;Error requesting voucher&#x9;{&#34;satellite&#34;: &#34;1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr&#34;, &#34;error&#34;: &#34;voucher: unable to connect to the satellite: transport error: no address&#34;, &#34;errorVerbose&#34;: &#34;voucher: unable to connect to the satellite: transport error: no address\n\tstorj.io/storj/storagenode/vouchers.(*Service).request:132\n\tstorj.io/storj/storagenode/vouchers.(*Service).Request:116\n\tstorj.io/storj/storagenode/vouchers.(*Service).RunOnce.func1:103\n\tgolang.org/x/sync/errgroup.(*Group).Go.func1:57&#34;}
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.tally&#x9;Tally service starting up
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.rollup&#x9;Rollup service starting up
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.audit&#x9;Audit cron is starting up
+        logger.go:130: 2019-07-09T22:59:49.363Z&#x9;INFO&#x9;satellite0&#x9;Node 1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr started
+        logger.go:130: 2019-07-09T22:59:49.363Z&#x9;INFO&#x9;satellite0&#x9;Public server started on 127.0.0.1:39657
+        logger.go:130: 2019-07-09T22:59:49.363Z&#x9;INFO&#x9;satellite0&#x9;Private server started on 127.0.0.1:44151
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.live-accounting&#x9;Resetting real-time accounting data
+        logger.go:130: 2019-07-09T22:59:49.368Z&#x9;INFO&#x9;satellite0.rollup&#x9;Rollup found no new tallies
+        logger.go:130: 2019-07-09T22:59:49.369Z&#x9;INFO&#x9;satellite0.rollup&#x9;Rollup found no new bw rollups
+        logger.go:130: 2019-07-09T22:59:49.369Z&#x9;INFO&#x9;satellite0.rollup&#x9;RollupStats is empty
+        logger.go:130: 2019-07-09T22:59:49.424Z&#x9;DEBUG&#x9;bootstrap.kademlia:endpoint&#x9;Successfully connected with 127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.485Z&#x9;DEBUG&#x9;storage0.kademlia:endpoint&#x9;Successfully connected with 127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.593Z&#x9;DEBUG&#x9;satellite0.kademlia:endpoint&#x9;Successfully connected with 127.0.0.1:39657
+        run_test.go:17: failure
+</system-out>
+			<failure>    --- FAIL: TestRun/Sqlite (0.54s)
+        logger.go:130: 2019-07-09T22:59:49.237Z&#x9;DEBUG&#x9;versioncontrol&#x9;setting version info to: {&#34;Bootstrap&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Satellite&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Storagenode&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Uplink&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Gateway&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1},&#34;Identity&#34;:{&#34;major&#34;:0,&#34;minor&#34;:0,&#34;patch&#34;:1}}
+        logger.go:130: 2019-07-09T22:59:49.237Z&#x9;DEBUG&#x9;versioncontrol&#x9; addr= 127.0.0.1:35005
+        logger.go:130: 2019-07-09T22:59:49.238Z&#x9;DEBUG&#x9;bootstrap&#x9;Binary Version: v0.0.1 with CommitHash testplanet, built at 2019-07-09 22:59:49.238690733 +0000 UTC m=+2.489409711 as Release false
+        logger.go:130: 2019-07-09T22:59:49.240Z&#x9;DEBUG&#x9;bootstrap&#x9;id=12kRve3AVBdJZfh1SV3VzmYctdnedpNqdaMDoac97DgCxBpEi57 addr=127.0.0.1:36701
+        logger.go:130: 2019-07-09T22:59:49.242Z&#x9;DEBUG&#x9;satellite0.db&#x9;Connected to:&#x9;{&#34;db source&#34;: &#34;file::memory:?mode=memory&amp;search_path=testrun%2Fsqlite-satellite%2F0-9566c74d10654916&#34;}
+        logger.go:130: 2019-07-09T22:59:49.254Z&#x9;DEBUG&#x9;satellite0&#x9;Binary Version: v0.0.1 with CommitHash testplanet, built at 2019-07-09 22:59:49.254120426 +0000 UTC m=+2.504839083 as Release false
+        logger.go:130: 2019-07-09T22:59:49.254Z&#x9;DEBUG&#x9;satellite0&#x9;Starting listener and server
+        logger.go:130: 2019-07-09T22:59:49.255Z&#x9;DEBUG&#x9;satellite0&#x9;Starting overlay
+        logger.go:130: 2019-07-09T22:59:49.255Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up Kademlia
+        logger.go:130: 2019-07-09T22:59:49.255Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up routing table
+        logger.go:130: 2019-07-09T22:59:49.298Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up discovery
+        logger.go:130: 2019-07-09T22:59:49.298Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up vouchers
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up live accounting
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;INFO&#x9;satellite0.live-accounting&#x9;Resetting real-time accounting data
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up accounting project usage
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up orders
+        logger.go:130: 2019-07-09T22:59:49.299Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up metainfo
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0.metainfo:store&#x9;Connected to:&#x9;{&#34;db source&#34;: &#34;/tmp/planet410646565/satellite0/pointers.db&#34;}
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up datarepair
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up audits
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up accounting
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up inspector
+        logger.go:130: 2019-07-09T22:59:49.307Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up mail service
+        logger.go:130: 2019-07-09T22:59:49.312Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up console
+        logger.go:130: 2019-07-09T22:59:49.312Z&#x9;DEBUG&#x9;satellite0.console:endpoint&#x9;Starting Satellite UI on 127.0.0.1:35807...
+        logger.go:130: 2019-07-09T22:59:49.313Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up marketing server
+        logger.go:130: 2019-07-09T22:59:49.313Z&#x9;DEBUG&#x9;satellite0.marketing:endpoint&#x9;Starting Marketing Admin UI on 127.0.0.1:42801...
+        logger.go:130: 2019-07-09T22:59:49.336Z&#x9;DEBUG&#x9;satellite0&#x9;Setting up node stats endpoint
+        logger.go:130: 2019-07-09T22:59:49.336Z&#x9;DEBUG&#x9;satellite0&#x9;id=1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr addr=127.0.0.1:39657
+        logger.go:130: 2019-07-09T22:59:49.338Z&#x9;INFO&#x9;storage0.db.migration&#x9;No Version
+        logger.go:130: 2019-07-09T22:59:49.339Z&#x9;INFO&#x9;storage0.db.migration.0&#x9;Initial setup
+        logger.go:130: 2019-07-09T22:59:49.341Z&#x9;INFO&#x9;storage0.db.migration.1&#x9;Network Wipe #2
+        logger.go:130: 2019-07-09T22:59:49.341Z&#x9;INFO&#x9;storage0.db.migration.2&#x9;Add tracking of deletion failures.
+        logger.go:130: 2019-07-09T22:59:49.342Z&#x9;INFO&#x9;storage0.db.migration.3&#x9;Add vouchersDB for storing and retrieving vouchers.
+        logger.go:130: 2019-07-09T22:59:49.343Z&#x9;INFO&#x9;storage0.db.migration.4&#x9;Add index on pieceinfo expireation
+        logger.go:130: 2019-07-09T22:59:49.344Z&#x9;INFO&#x9;storage0.db.migration.5&#x9;Partial Network Wipe - Tardigrade Satellites
+        logger.go:130: 2019-07-09T22:59:49.344Z&#x9;INFO&#x9;storage0.db.migration.6&#x9;Add creation date.
+        logger.go:130: 2019-07-09T22:59:49.345Z&#x9;DEBUG&#x9;storage0&#x9;Binary Version: v0.0.1 with CommitHash testplanet, built at 2019-07-09 22:59:49.345818106 +0000 UTC m=+2.596536750 as Release false
+        logger.go:130: 2019-07-09T22:59:49.347Z&#x9;DEBUG&#x9;storage0&#x9;id=17bdnrByZffojsE8oLeaX4FDpmuyy67aCkcanemuSJPSEVRdFT addr=127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.348Z&#x9;DEBUG&#x9;uplink0&#x9;id=1q1FsgzTc7mxNdLBFoCWdkZFmrJs5XGE8keKBP7hadfKG2grWC
+        logger.go:130: 2019-07-09T22:59:49.350Z&#x9;INFO&#x9;versioncontrol&#x9;Versioning server started on 127.0.0.1:35005
+        logger.go:130: 2019-07-09T22:59:49.350Z&#x9;WARN&#x9;bootstrap.kademlia&#x9;No bootstrap address specified.
+        logger.go:130: 2019-07-09T22:59:49.351Z&#x9;INFO&#x9;bootstrap&#x9;Node 12kRve3AVBdJZfh1SV3VzmYctdnedpNqdaMDoac97DgCxBpEi57 started
+        logger.go:130: 2019-07-09T22:59:49.351Z&#x9;INFO&#x9;bootstrap&#x9;Public server started on 127.0.0.1:36701
+        logger.go:130: 2019-07-09T22:59:49.351Z&#x9;INFO&#x9;bootstrap&#x9;Private server started on 127.0.0.1:33227
+        logger.go:130: 2019-07-09T22:59:49.353Z&#x9;DEBUG&#x9;storage0.piecestore:orderssender&#x9;sending
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0.vouchers&#x9;Checking vouchers
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0&#x9;Node 17bdnrByZffojsE8oLeaX4FDpmuyy67aCkcanemuSJPSEVRdFT started
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0&#x9;Public server started on 127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.354Z&#x9;INFO&#x9;storage0&#x9;Private server started on 127.0.0.1:37381
+        logger.go:130: 2019-07-09T22:59:49.355Z&#x9;DEBUG&#x9;storage0.piecestore:orderssender&#x9;no orders to send
+        logger.go:130: 2019-07-09T22:59:49.358Z&#x9;INFO&#x9;storage0.vouchers&#x9;Requesting voucher&#x9;{&#34;satellite&#34;: &#34;1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr&#34;}
+        logger.go:130: 2019-07-09T22:59:49.358Z&#x9;INFO&#x9;storage0.piecestore:monitor&#x9;Remaining Bandwidth&#x9;{&#34;bytes&#34;: 1000000000000}
+        logger.go:130: 2019-07-09T22:59:49.359Z&#x9;ERROR&#x9;storage0.vouchers&#x9;Error requesting voucher&#x9;{&#34;satellite&#34;: &#34;1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr&#34;, &#34;error&#34;: &#34;voucher: unable to connect to the satellite: transport error: no address&#34;, &#34;errorVerbose&#34;: &#34;voucher: unable to connect to the satellite: transport error: no address\n\tstorj.io/storj/storagenode/vouchers.(*Service).request:132\n\tstorj.io/storj/storagenode/vouchers.(*Service).Request:116\n\tstorj.io/storj/storagenode/vouchers.(*Service).RunOnce.func1:103\n\tgolang.org/x/sync/errgroup.(*Group).Go.func1:57&#34;}
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.tally&#x9;Tally service starting up
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.rollup&#x9;Rollup service starting up
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.audit&#x9;Audit cron is starting up
+        logger.go:130: 2019-07-09T22:59:49.363Z&#x9;INFO&#x9;satellite0&#x9;Node 1ZgnjCicAfiGjJfKh7rnGG5if1Ps7i39THiEjMe1SgZs9xHYGr started
+        logger.go:130: 2019-07-09T22:59:49.363Z&#x9;INFO&#x9;satellite0&#x9;Public server started on 127.0.0.1:39657
+        logger.go:130: 2019-07-09T22:59:49.363Z&#x9;INFO&#x9;satellite0&#x9;Private server started on 127.0.0.1:44151
+        logger.go:130: 2019-07-09T22:59:49.362Z&#x9;INFO&#x9;satellite0.live-accounting&#x9;Resetting real-time accounting data
+        logger.go:130: 2019-07-09T22:59:49.368Z&#x9;INFO&#x9;satellite0.rollup&#x9;Rollup found no new tallies
+        logger.go:130: 2019-07-09T22:59:49.369Z&#x9;INFO&#x9;satellite0.rollup&#x9;Rollup found no new bw rollups
+        logger.go:130: 2019-07-09T22:59:49.369Z&#x9;INFO&#x9;satellite0.rollup&#x9;RollupStats is empty
+        logger.go:130: 2019-07-09T22:59:49.424Z&#x9;DEBUG&#x9;bootstrap.kademlia:endpoint&#x9;Successfully connected with 127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.485Z&#x9;DEBUG&#x9;storage0.kademlia:endpoint&#x9;Successfully connected with 127.0.0.1:44199
+        logger.go:130: 2019-07-09T22:59:49.593Z&#x9;DEBUG&#x9;satellite0.kademlia:endpoint&#x9;Successfully connected with 127.0.0.1:39657
+        run_test.go:17: failure
+</failure>
+		</testcase>
+	</testsuite>
+</testsuites>
