@@ -43,7 +43,7 @@ func TestUserPaymentInfos(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)
-			assert.Equal(t, customerID, info.CustomerID)
+			assert.DeepEqual(t, customerID, info.CustomerID)
 		})
 
 		t.Run("get user payment info", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestUserPaymentInfos(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)
-			assert.Equal(t, customerID, info.CustomerID)
+			assert.DeepEqual(t, customerID, info.CustomerID)
 		})
 	})
 }

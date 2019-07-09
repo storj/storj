@@ -59,7 +59,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
 			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
+			assert.DeepEqual(t, paymentMethodID, info.PaymentMethodID)
 		})
 
 		t.Run("get by project id", func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
 			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
+			assert.DeepEqual(t, paymentMethodID, info.PaymentMethodID)
 		})
 
 		t.Run("get by payer id", func(t *testing.T) {
@@ -77,7 +77,7 @@ func TestProjectPaymentInfos(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, info.ProjectID)
 			assert.Equal(t, userPmInfo.UserID, info.PayerID)
-			assert.Equal(t, paymentMethodID, info.PaymentMethodID)
+			assert.DeepEqual(t, paymentMethodID, info.PaymentMethodID)
 		})
 	})
 }

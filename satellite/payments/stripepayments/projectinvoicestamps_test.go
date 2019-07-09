@@ -45,7 +45,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
-			assert.Equal(t, invoiceID, stamp.InvoiceID)
+			assert.DeepEqual(t, invoiceID, stamp.InvoiceID)
 			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
 			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
 		})
@@ -55,7 +55,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
-			assert.Equal(t, invoiceID, stamp.InvoiceID)
+			assert.DeepEqual(t, invoiceID, stamp.InvoiceID)
 			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
 			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
 		})
