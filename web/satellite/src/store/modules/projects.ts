@@ -78,8 +78,8 @@ export const projectsModule = {
 
             return response;
         },
-        createProject: async function ({commit}: any, project: Project): Promise<RequestResponse<Project>> {
-            let response = await createProjectRequest(project);
+        createProject: async function ({commit}: any, createProjectModel: CreateProjectModel): Promise<RequestResponse<Project>> {
+            let response = await createProjectRequest(createProjectModel);
 
             if (response.isSuccess) {
                 commit(PROJECTS_MUTATIONS.CREATE, response.data);
