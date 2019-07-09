@@ -207,6 +207,10 @@ type Peer struct {
 		Endpoint *vouchers.Endpoint
 	}
 
+	Payments struct {
+		Service payments.Service
+	}
+
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -554,6 +558,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 	}
 
+	{ // setup payments
+		if config.Console.StripeKey != "" {
+			peer.Payments.Service = stripepayments.NewService(
+				peer.Log.Named("stripe:service"),
+				peer.DB.StripePayments(),
+				config.Console.StripeKey,
+			)
+		} else {
+			peer.Payments.Service = localpayments.NewService()
+		}
+	}
+
 	{ // setup console
 		log.Debug("Setting up console")
 		consoleConfig := config.Console
@@ -567,24 +583,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			return nil, errs.New("Auth token secret required")
 		}
 
-		// TODO: change mock implementation to using mock stripe backend
-		var pmService payments.Service
-		if consoleConfig.StripeKey != "" {
-			pmService = stripepayments.NewService(
-				peer.Log.Named("stripe:service"),
-				peer.DB.StripePayments(),
-				consoleConfig.StripeKey,
-			)
-		} else {
-			pmService = localpayments.NewService()
-		}
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
 			peer.DB.Console(),
 			peer.DB.Rewards(),
-			pmService,
+			peer.Payments.Service,
 			consoleConfig.PasswordCost,
 		)
 
