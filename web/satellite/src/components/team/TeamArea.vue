@@ -11,8 +11,7 @@
                 <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
                         :projectMember = "member"
-                        v-bind:class = "[member.isSelected ? 'selected' : '']"
-                    />
+                        v-bind:class = "[member.isSelected ? 'selected' : '']" />
                 </div>
             </div>
             <!-- only when selecting team members -->
