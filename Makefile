@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.5
+GO_VERSION ?= 1.12.7
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
