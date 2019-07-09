@@ -164,6 +164,11 @@ func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.Info
 	return resp, errs.Combine(err, conn.disconnect())
 }
 
+// AlertSuccess alerts the transport observers of a successful connection
+func (dialer *Dialer) AlertSuccess(ctx context.Context, node *pb.Node) {
+	dialer.transport.AlertSuccess(ctx, node)
+}
+
 // dialNode dials the specified node.
 func (dialer *Dialer) dialNode(ctx context.Context, target pb.Node) (_ *Conn, err error) {
 	defer mon.Task()(&ctx)(&err)
