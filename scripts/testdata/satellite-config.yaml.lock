@@ -286,8 +286,8 @@ kademlia.operator.wallet: ""
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # repairer.max-buffer-mem: 4.0 MB
 
-# % applied to the optima threshold to calculate the maximum number of repaired pieces to upload
-# repairer.max-excess-optimal-threshold: 5
+# ratio applied to the optimal threshold to calculate the excess of maximum number of repaired pieces to upload
+# repairer.max-excess-rate-optimal-threshold: 0.05
 
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5
