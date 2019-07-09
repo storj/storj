@@ -579,6 +579,9 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 			if !filter.Contains(pieceID) {
 				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
+					// continue because if we fail to delete from file system,
+					// we need to keep the pieceinfo so we can delete next time
+					continue
 				}
 				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
