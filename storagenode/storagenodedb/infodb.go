@@ -222,9 +222,9 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
-					`UPDATE pieceinfo SET piece_expiration = '2019-06-25 00:00:00.000000+00:00' WHERE satellite_id 
-						IN (x'84A74C2CD43C5BA76535E1F42F5DF7C287ED68D33522782F4AFABFDB40000000', 
-							x'A28B4F04E10BAE85D67F4C6CB82BF8D4C0F0F47A8EA72627524DEB6EC0000000', 
+					`UPDATE pieceinfo SET piece_expiration = '2019-06-25 00:00:00.000000+00:00' WHERE satellite_id
+						IN (x'84A74C2CD43C5BA76535E1F42F5DF7C287ED68D33522782F4AFABFDB40000000',
+							x'A28B4F04E10BAE85D67F4C6CB82BF8D4C0F0F47A8EA72627524DEB6EC0000000',
 							x'AF2C42003EFC826AB4361F73F9D890942146FE0EBE806786F8E7190800000000'
 					)`,
 				},
@@ -242,6 +242,14 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Action: migrate.SQL{
 					`DROP TABLE certificate`,
 					`CREATE TABLE certificate (cert_id INTEGER)`,
+				},
+			},
+			{
+				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
+				Version:     8,
+				Action: migrate.SQL{
+					`DELETE FROM used_serial`,
+					`DROP INDEX idx_pieceinfo_deletion_failed`,
 				},
 			},
 		},
