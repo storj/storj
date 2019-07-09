@@ -11,10 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
+	"storj.io/storj/internal/testblobs"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
@@ -22,7 +24,7 @@ import (
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/uplink"
+	"storj.io/storj/storagenode"
 )
 
 // TestDownloadSharesHappyPath checks that the Share.Error field of all shares
@@ -210,8 +212,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 		require.NotNil(t, slowClient)
 
 		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
+		// data from storage nodes. This will cause context to cancel with timeout.
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(
@@ -249,23 +250,22 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 // change that affects the audit service.
 func TestDownloadSharesDownloadTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			NewStorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		storageNodeDB := planet.StorageNodes[0].DB.(*testblobs.SlowDB)
 		audits := planet.Satellites[0].Audit.Service
 		err := audits.Close()
 		require.NoError(t, err)
 
 		upl := planet.Uplinks[0]
-		testData := testrand.Bytes(32 * memory.KiB)
+		testData := testrand.Bytes(8 * memory.KiB)
 
-		// Upload with larger erasure share size to simulate longer download over slow transport client
-		err = upl.UploadWithConfig(ctx, planet.Satellites[0], &uplink.RSConfig{
-			MinThreshold:     1,
-			RepairThreshold:  2,
-			SuccessThreshold: 3,
-			MaxThreshold:     4,
-			ErasureShareSize: 32 * memory.KiB,
-		}, "testbucket", "test/path", testData)
+		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
@@ -276,44 +276,36 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		stripe, _, err := audits.Cursor.NextStripe(ctx)
 		require.NoError(t, err)
 
-		// set stripe index to 0 to ensure we are auditing large enough stripe
-		// instead of the last stripe, which could be smaller
-		stripe.Index = 0
-
-		network := &transport.SimulatedNetwork{
-			BytesPerSecond: 128 * memory.KiB,
-		}
-
-		slowClient := network.NewClient(planet.Satellites[0].Transport)
-		require.NotNil(t, slowClient)
-
 		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
-		minBytesPerSecond := 1 * memory.MiB
+		// data from storage nodes. This will cause context to cancel with timeout.
+		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(
 			planet.Satellites[0].Log.Named("verifier"),
 			planet.Satellites[0].Metainfo.Service,
-			slowClient,
+			planet.Satellites[0].Transport,
 			planet.Satellites[0].Overlay.Service,
 			planet.Satellites[0].DB.Containment(),
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
 			minBytesPerSecond,
-			100*time.Millisecond)
+			50*time.Millisecond)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
+		// make downloads slow
+		delay := 100 * time.Millisecond
+		storageNodeDB.SetLatency(delay)
+
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
 		require.NoError(t, err)
 
-		for _, share := range shares {
-			assert.True(t, errs2.IsRPC(share.Error, codes.DeadlineExceeded), "unexpected error: %+v", share.Error)
-			assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
-		}
+		require.Len(t, shares, 1)
+		share := shares[0]
+		assert.True(t, errs2.IsRPC(share.Error, codes.DeadlineExceeded), "unexpected error: %+v", share.Error)
+		assert.False(t, transport.Error.Has(share.Error), "unexpected error: %+v", share.Error)
 	})
 }
 
@@ -396,9 +388,9 @@ func TestVerifierMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the piece from the first node
-		nodeID := stripe.Segment.GetRemote().GetRemotePieces()[0].NodeId
-		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(nodeID)
-		node := getStorageNode(planet, nodeID)
+		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
+		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
 		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
 		require.NoError(t, err)
 
@@ -445,8 +437,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 		require.NotNil(t, slowClient)
 
 		// This config value will create a very short timeframe allowed for receiving
-		// data from storage nodes. This will cause context to cancel and start
-		// downloading from new nodes.
+		// data from storage nodes. This will cause context to cancel with timeout.
 		minBytesPerSecond := 100 * memory.KiB
 
 		verifier := audit.NewVerifier(

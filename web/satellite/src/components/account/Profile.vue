@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="profile-container">
+    <div class="profile-container">
 		<div class="profile-container__edit-profile no-margin" >
 			<div class="profile-container__edit-profile__row">
 				<div class="profile-container__edit-profile__avatar">
@@ -70,57 +70,56 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { APP_STATE_ACTIONS, USER_ACTIONS } from '@/utils/constants/actionNames';
     import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
     import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 
-    @Component(
-        {
-            methods: {
-                toggleDeleteAccountPopup: function(): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
-                },
-                toggleChangePasswordPopup: function(): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-                },
-                toggleEditProfilePopup: function(): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-                },
+    @Component({
+        mounted: function () {
+            this.$store.dispatch(USER_ACTIONS.GET);
+        },
+        methods: {
+            toggleDeleteAccountPopup: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
             },
-            computed: {
-                user: function() {
-                    return {
-                        fullName: this.$store.getters.user.fullName,
-                        shortName: this.$store.getters.user.shortName,
-                        email: this.$store.getters.user.email,
-                    };
-                },
-                isEditProfilePopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
-                },
-                isChangePasswordPopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
-                },
-                isDeleteAccountPopupShown: function () {
-                    return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
-                },
-                avatarLetter: function (): string {
-                    return this.$store.getters.userName.slice(0, 1).toUpperCase();
-                },
+            toggleChangePasswordPopup: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
             },
-            components: {
-                Button,
-                DeleteAccountPopup,
-                ChangePasswordPopup,
-                EditProfilePopup,
+            toggleEditProfilePopup: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
             },
-        }
-    )
+        },
+        computed: {
+            user: function () {
+                return {
+                    fullName: this.$store.getters.user.fullName,
+                    shortName: this.$store.getters.user.shortName,
+                    email: this.$store.getters.user.email,
+                };
+            },
+            isEditProfilePopupShown: function () {
+                return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
+            },
+            isChangePasswordPopupShown: function () {
+                return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
+            },
+            isDeleteAccountPopupShown: function () {
+                return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
+            },
+            avatarLetter: function (): string {
+                return this.$store.getters.userName.slice(0, 1).toUpperCase();
+            },
+        },
+        components: {
+            Button,
+            DeleteAccountPopup,
+            ChangePasswordPopup,
+            EditProfilePopup,
+        },
+    })
 
-    export default class Profile extends Vue {
-    }
-
+    export default class Profile extends Vue {}
 </script>
 
 <style scoped lang="scss">

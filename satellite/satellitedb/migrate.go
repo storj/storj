@@ -870,6 +870,28 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
 				Version:     37,
 				Action: migrate.SQL{
+					`
+					update bucket_bandwidth_rollups as a
+					set allocated = a.allocated + b.allocated,
+						settled = a.settled + b.settled
+					from bucket_bandwidth_rollups as b
+					where a.interval_start = b.interval_start
+					  and a.bucket_name = b.bucket_name
+					  and a.action = b.action
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and length(b.project_id) = 36
+					  and length(a.project_id) = 16
+					;`,
+					`
+					delete from bucket_bandwidth_rollups as b
+					using bucket_bandwidth_rollups as a
+					where a.interval_start = b.interval_start
+					  and a.bucket_name = b.bucket_name
+					  and a.action = b.action
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and length(b.project_id) = 36
+					  and length(a.project_id) = 16
+					;`,
 					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
 				},
@@ -878,12 +900,12 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "Add bucket metadata table",
 				Version:     38,
 				Action: migrate.SQL{
-					`CREATE TABLE buckets (
+					`CREATE TABLE bucket_metainfos (
 						id bytea NOT NULL,
 						project_id bytea NOT NULL REFERENCES projects( id ),
 						name bytea NOT NULL,
 						path_cipher integer NOT NULL,
-						created_at timestamp NOT NULL,
+						created_at timestamp with time zone NOT NULL,
 						default_segment_size integer NOT NULL,
 						default_encryption_cipher_suite integer NOT NULL,
 						default_encryption_block_size integer NOT NULL,

@@ -43,6 +43,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
     @Component({
         data: function() {
             return {
@@ -51,8 +52,8 @@
             };
         }
     })
-    export default class SortAccountBillingHeader extends Vue {
-    }
+
+    export default class SortAccountBillingHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
