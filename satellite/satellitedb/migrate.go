@@ -857,6 +857,76 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE nodes SET uptime_reputation_beta = total_uptime_count - uptime_success_count;`,
 				},
 			},
+			{
+				Description: "Update Last_IP column to be masked",
+				Version:     36,
+				Action: migrate.SQL{
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 24))) WHERE last_ip <> '' AND family(last_ip::INET) = 4;`,
+					`UPDATE nodes SET last_ip = host(network(set_masklen(last_ip::INET, 64))) WHERE last_ip <> '' AND family(last_ip::INET) = 16;`,
+					`ALTER TABLE nodes RENAME last_ip TO last_net;`,
+				},
+			},
+			{
+				Description: "Update project_id column from 36 byte string based UUID to 16 byte UUID",
+				Version:     37,
+				Action: migrate.SQL{
+					`
+					update bucket_bandwidth_rollups as a
+					set allocated = a.allocated + b.allocated,
+						settled = a.settled + b.settled
+					from bucket_bandwidth_rollups as b
+					where a.interval_start = b.interval_start
+					  and a.bucket_name = b.bucket_name
+					  and a.action = b.action
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and length(b.project_id) = 36
+					  and length(a.project_id) = 16
+					;`,
+					`
+					delete from bucket_bandwidth_rollups as b
+					using bucket_bandwidth_rollups as a
+					where a.interval_start = b.interval_start
+					  and a.bucket_name = b.bucket_name
+					  and a.action = b.action
+					  and a.project_id = decode(replace(encode(b.project_id, 'escape'), '-', ''), 'hex')  
+					  and length(b.project_id) = 36
+					  and length(a.project_id) = 16
+					;`,
+					`UPDATE bucket_storage_tallies SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+					`UPDATE bucket_bandwidth_rollups SET project_id = decode(replace(encode(project_id, 'escape'), '-', ''), 'hex') WHERE length(project_id) = 36;`,
+				},
+			},
+			{
+				Description: "Add bucket metadata table",
+				Version:     38,
+				Action: migrate.SQL{
+					`CREATE TABLE bucket_metainfos (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ),
+						name bytea NOT NULL,
+						path_cipher integer NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						default_segment_size integer NOT NULL,
+						default_encryption_cipher_suite integer NOT NULL,
+						default_encryption_block_size integer NOT NULL,
+						default_redundancy_algorithm integer NOT NULL,
+						default_redundancy_share_size integer NOT NULL,
+						default_redundancy_required_shares integer NOT NULL,
+						default_redundancy_repair_shares integer NOT NULL,
+						default_redundancy_optimal_shares integer NOT NULL,
+						default_redundancy_total_shares integer NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( name, project_id )
+					);`,
+				},
+			},
+			{
+				Description: "Remove disqualification flag for failing uptime checks",
+				Version:     39,
+				Action: migrate.SQL{
+					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
+				},
+			},
 		},
 	}
 }

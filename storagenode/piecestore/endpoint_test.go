@@ -5,22 +5,30 @@ package piecestore_test
 
 import (
 	"io"
-	"math/rand"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
+	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/uplink/piecestore"
 )
@@ -29,11 +37,9 @@ func TestUploadAndPartialDownload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		expectedData := make([]byte, 100*memory.KiB)
-		_, err := rand.Read(expectedData)
-		require.NoError(t, err)
+		expectedData := testrand.Bytes(100 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		assert.NoError(t, err)
 
 		var totalDownload int64
@@ -49,7 +55,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 			}
 			totalDownload += piecestore.DefaultConfig.InitialStep
 
-			download, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path")
+			download, cleanup, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path")
 			require.NoError(t, err)
 
 			pos, err := download.Seek(tt.offset, io.SeekStart)
@@ -64,6 +70,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 			assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
 
 			require.NoError(t, download.Close())
+			require.NoError(t, cleanup())
 		}
 
 		var totalBandwidthUsage bandwidth.Usage
@@ -99,6 +106,7 @@ func TestUpload(t *testing.T) {
 
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
 	for _, tt := range []struct {
 		pieceID       storj.PieceID
@@ -125,13 +133,9 @@ func TestUpload(t *testing.T) {
 			err:           "expected put or put repair action got GET",
 		},
 	} {
-		data := make([]byte, tt.contentLength.Int64())
-		_, _ = rand.Read(data)
-
+		data := testrand.Bytes(tt.contentLength)
 		expectedHash := pkcrypto.SHA256Hash(data)
-
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		orderLimit := GenerateOrderLimit(
 			t,
@@ -183,12 +187,10 @@ func TestDownload(t *testing.T) {
 	// upload test piece
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
-	var serialNumber storj.SerialNumber
-	_, _ = rand.Read(serialNumber[:])
-
-	expectedData := make([]byte, 10*memory.KiB)
-	_, _ = rand.Read(expectedData)
+	expectedData := testrand.Bytes(10 * memory.KiB)
+	serialNumber := testrand.SerialNumber()
 
 	orderLimit := GenerateOrderLimit(
 		t,
@@ -235,8 +237,7 @@ func TestDownload(t *testing.T) {
 			errs:    []string{"expected get or get repair or audit action got PUT"},
 		},
 	} {
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		orderLimit := GenerateOrderLimit(
 			t,
@@ -289,12 +290,10 @@ func TestDelete(t *testing.T) {
 	// upload test piece
 	client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 	require.NoError(t, err)
+	defer ctx.Check(client.Close)
 
-	var serialNumber storj.SerialNumber
-	_, _ = rand.Read(serialNumber[:])
-
-	expectedData := make([]byte, 10*memory.KiB)
-	_, _ = rand.Read(expectedData)
+	expectedData := testrand.Bytes(10 * memory.KiB)
+	serialNumber := testrand.SerialNumber()
 
 	orderLimit := GenerateOrderLimit(
 		t,
@@ -342,8 +341,7 @@ func TestDelete(t *testing.T) {
 			err:     "expected delete action got GET",
 		},
 	} {
-		var serialNumber storj.SerialNumber
-		_, _ = rand.Read(serialNumber[:])
+		serialNumber := testrand.SerialNumber()
 
 		orderLimit := GenerateOrderLimit(
 			t,
@@ -371,23 +369,138 @@ func TestDelete(t *testing.T) {
 	}
 }
 
+func TestTooManyRequests(t *testing.T) {
+	t.Skip("flaky, because of EOF issues")
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const uplinkCount = 6
+	const maxConcurrent = 3
+	const expectedFailures = uplinkCount - maxConcurrent
+
+	log := zaptest.NewLogger(t)
+
+	planet, err := testplanet.NewCustom(log, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: uplinkCount,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Storage2.MaxConcurrentRequests = maxConcurrent
+			},
+		},
+	})
+	require.NoError(t, err)
+	defer ctx.Check(planet.Shutdown)
+
+	planet.Start(ctx)
+
+	doneWaiting := make(chan struct{})
+	failedCount := int64(expectedFailures)
+
+	uploads, _ := errgroup.WithContext(ctx)
+	defer ctx.Check(uploads.Wait)
+
+	for i, uplink := range planet.Uplinks {
+		i, uplink := i, uplink
+		uploads.Go(func() (err error) {
+			storageNode := planet.StorageNodes[0].Local()
+			signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
+			config := piecestore.DefaultConfig
+			config.UploadBufferSize = 0 // disable buffering so we can detect write error early
+
+			client, err := piecestore.Dial(ctx, uplink.Transport, &storageNode.Node, uplink.Log, signer, config)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if cerr := client.Close(); cerr != nil {
+					uplink.Log.Error("close failed", zap.Error(cerr))
+					err = errs.Combine(err, cerr)
+				}
+			}()
+
+			pieceID := storj.PieceID{byte(i + 1)}
+			serialNumber := testrand.SerialNumber()
+
+			orderLimit := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				uplink.ID(),
+				planet.StorageNodes[0].ID(),
+				pieceID,
+				pb.PieceAction_PUT,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(10000),
+			)
+
+			satelliteSigner := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, satelliteSigner, orderLimit)
+			if err != nil {
+				return err
+			}
+
+			upload, err := client.Upload(ctx, orderLimit)
+			if err != nil {
+				if errs2.IsRPC(err, codes.Unavailable) {
+					if atomic.AddInt64(&failedCount, -1) == 0 {
+						close(doneWaiting)
+					}
+					return nil
+				}
+				uplink.Log.Error("upload failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				return err
+			}
+
+			_, err = upload.Write(make([]byte, orderLimit.Limit))
+			if err != nil {
+				if errs2.IsRPC(err, codes.Unavailable) {
+					if atomic.AddInt64(&failedCount, -1) == 0 {
+						close(doneWaiting)
+					}
+					return nil
+				}
+				uplink.Log.Error("write failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				return err
+			}
+
+			_, err = upload.Commit(ctx)
+			if err != nil {
+				if errs2.IsRPC(err, codes.Unavailable) {
+					if atomic.AddInt64(&failedCount, -1) == 0 {
+						close(doneWaiting)
+					}
+					return nil
+				}
+				uplink.Log.Error("commit failed", zap.Stringer("Piece ID", pieceID), zap.Error(err))
+				return err
+			}
+
+			return nil
+		})
+	}
+}
+
 func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeID, storageNode storj.NodeID, pieceID storj.PieceID,
-	action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) *pb.OrderLimit2 {
+	action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) *pb.OrderLimit {
 
 	pe, err := ptypes.TimestampProto(time.Now().Add(pieceExpiration))
 	require.NoError(t, err)
+
 	oe, err := ptypes.TimestampProto(time.Now().Add(orderExpiration))
 	require.NoError(t, err)
-	orderLimit := &pb.OrderLimit2{
+
+	return &pb.OrderLimit{
 		SatelliteId:     satellite,
 		UplinkId:        uplink,
 		StorageNodeId:   storageNode,
 		PieceId:         pieceID,
 		Action:          action,
 		SerialNumber:    serialNumber,
+		OrderCreation:   time.Now(),
 		OrderExpiration: oe,
 		PieceExpiration: pe,
 		Limit:           limit,
 	}
-	return orderLimit
 }

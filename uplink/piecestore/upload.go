@@ -32,7 +32,7 @@ type Uploader interface {
 // Upload implements uploading to the storage node.
 type Upload struct {
 	client *Client
-	limit  *pb.OrderLimit2
+	limit  *pb.OrderLimit
 	peer   *identity.PeerIdentity
 	stream pb.Piecestore_UploadClient
 	ctx    context.Context
@@ -47,7 +47,7 @@ type Upload struct {
 }
 
 // Upload initiates an upload to the storage node.
-func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit2) (_ Uploader, err error) {
+func (client *Client) Upload(ctx context.Context, limit *pb.OrderLimit) (_ Uploader, err error) {
 	defer mon.Task()(&ctx, "node: "+limit.StorageNodeId.String()[0:8])(&err)
 
 	stream, err := client.client.Upload(ctx)
@@ -98,7 +98,7 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 	}
 	// if we already encountered an error, keep returning it
 	if client.sendError != nil {
-		return 0, ErrProtocol.Wrap(client.sendError)
+		return 0, client.sendError
 	}
 
 	fullData := data
@@ -118,7 +118,7 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 		}
 
 		// create a signed order for the next chunk
-		order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order2{
+		order, err := signing.SignOrder(ctx, client.client.signer, &pb.Order{
 			SerialNumber: client.limit.SerialNumber,
 			Amount:       client.offset + int64(len(sendData)),
 		})
@@ -126,25 +126,18 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 			return written, ErrInternal.Wrap(err)
 		}
 
-		// send signed order so that storagenode will accept data
+		// send signed order + data
 		err = client.stream.Send(&pb.PieceUploadRequest{
 			Order: order,
-		})
-		if err != nil {
-			client.sendError = err
-			return written, ErrProtocol.Wrap(client.sendError)
-		}
-
-		// send data as the next message
-		err = client.stream.Send(&pb.PieceUploadRequest{
 			Chunk: &pb.PieceUploadRequest_Chunk{
 				Offset: client.offset,
 				Data:   sendData,
 			},
 		})
 		if err != nil {
+			err = ErrProtocol.Wrap(err)
 			client.sendError = err
-			return written, ErrProtocol.Wrap(client.sendError)
+			return written, err
 		}
 
 		// update our offset

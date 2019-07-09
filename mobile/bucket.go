@@ -42,12 +42,6 @@ type Bucket struct {
 	lib *libuplink.Bucket
 }
 
-// BucketAccess defines access to bucket
-type BucketAccess struct {
-	PathEncryptionKey   []byte
-	EncryptedPathPrefix storj.Path
-}
-
 // BucketInfo bucket meta struct
 type BucketInfo struct {
 	Name                 string
@@ -63,18 +57,18 @@ func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 		Name:         bucket.Name,
 		Created:      bucket.Created.UTC().UnixNano() / int64(time.Millisecond),
 		PathCipher:   byte(bucket.PathCipher),
-		SegmentsSize: bucket.SegmentsSize,
+		SegmentsSize: bucket.DefaultSegmentsSize,
 		RedundancyScheme: &RedundancyScheme{
-			Algorithm:      byte(bucket.RedundancyScheme.Algorithm),
-			ShareSize:      bucket.RedundancyScheme.ShareSize,
-			RequiredShares: bucket.RedundancyScheme.RequiredShares,
-			RepairShares:   bucket.RedundancyScheme.RepairShares,
-			OptimalShares:  bucket.RedundancyScheme.OptimalShares,
-			TotalShares:    bucket.RedundancyScheme.TotalShares,
+			Algorithm:      byte(bucket.DefaultRedundancyScheme.Algorithm),
+			ShareSize:      bucket.DefaultRedundancyScheme.ShareSize,
+			RequiredShares: bucket.DefaultRedundancyScheme.RequiredShares,
+			RepairShares:   bucket.DefaultRedundancyScheme.RepairShares,
+			OptimalShares:  bucket.DefaultRedundancyScheme.OptimalShares,
+			TotalShares:    bucket.DefaultRedundancyScheme.TotalShares,
 		},
 		EncryptionParameters: &EncryptionParameters{
-			CipherSuite: byte(bucket.EncryptionParameters.CipherSuite),
-			BlockSize:   bucket.EncryptionParameters.BlockSize,
+			CipherSuite: byte(bucket.DefaultEncryptionParameters.CipherSuite),
+			BlockSize:   bucket.DefaultEncryptionParameters.BlockSize,
 		},
 	}
 }
@@ -159,8 +153,6 @@ func newStorjRedundancyScheme(scheme *RedundancyScheme) storj.RedundancyScheme {
 }
 
 // EncryptionParameters is the cipher suite and parameters used for encryption
-// It is like EncryptionScheme, but uses the CipherSuite type instead of Cipher.
-// EncryptionParameters is preferred for new uses.
 type EncryptionParameters struct {
 	// CipherSuite specifies the cipher suite to be used for encryption.
 	CipherSuite byte

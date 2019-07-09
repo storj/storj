@@ -19,6 +19,9 @@
 # how frequently irrepairable checker should check for lost pieces
 # checker.irreparable-interval: 30m0s
 
+# how stale reliable node cache can be
+# checker.reliability-cache-staleness: 5m0s
+
 # server address of the graphql api gateway and frontend app
 # console.address: ":10100"
 
@@ -181,8 +184,11 @@ kademlia.operator.wallet: ""
 # the size of each new erasure share in bytes
 # metainfo.rs.erasure-share-size: 256 B
 
-# maximum buffer memory (in bytes) to be allocated for read buffers
+# maximum buffer memory to be allocated for read buffers
 # metainfo.rs.max-buffer-mem: 4.0 MiB
+
+# maximum segment size
+# metainfo.rs.max-segment-size: 64.0 MiB
 
 # the largest amount of pieces to encode to. n.
 # metainfo.rs.max-threshold: 130
@@ -208,6 +214,9 @@ kademlia.operator.wallet: ""
 # application suffix
 # metrics.app-suffix: "-release"
 
+# instance id prefix
+# metrics.instance-prefix: ""
+
 # how frequently to send up telemetry
 # metrics.interval: 1m0s
 
@@ -218,7 +227,7 @@ kademlia.operator.wallet: ""
 # orders.expiration: 1080h0m0s
 
 # the number of times a node has been audited to not be considered a New Node
-# overlay.node.audit-count: 500
+# overlay.node.audit-count: 100
 
 # the initial shape 'alpha' used to calculate audit SNs reputation
 # overlay.node.audit-reputation-alpha0: 1
@@ -254,7 +263,7 @@ kademlia.operator.wallet: ""
 # overlay.node.online-window: 1h0m0s
 
 # the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 500
+# overlay.node.uptime-count: 100
 
 # the initial shape 'alpha' used to calculate uptime SNs reputation
 # overlay.node.uptime-reputation-alpha0: 2
@@ -263,7 +272,7 @@ kademlia.operator.wallet: ""
 # overlay.node.uptime-reputation-beta0: 0
 
 # the reputation cut-off for disqualifying SNs based on uptime history
-# overlay.node.uptime-reputation-dq: 0.6
+# overlay.node.uptime-reputation-dq: 0
 
 # the forgetting factor used to calculate the uptime SNs reputation
 # overlay.node.uptime-reputation-lambda: 0.99

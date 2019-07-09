@@ -12,6 +12,7 @@
                 <HeaderedInput
                     @setData="onChangeName"
                     label="Name"
+                    :error="errorMessage"
                     additionalLabel="Up To 20 Characters"
                     placeholder="Enter API Key Name"
                     class="full-input"
@@ -32,18 +33,17 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import VueClipboards from 'vue-clipboards';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import VueClipboards from 'vue-clipboards';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
-Vue.use(VueClipboards);
+    Vue.use(VueClipboards);
 
-@Component(
-    {
+    @Component({
         props: {
             onClose: {
                 type: Function
@@ -53,6 +53,7 @@ Vue.use(VueClipboards);
             return {
                 imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
                 name: '',
+                errorMessage: '',
                 key: '',
                 isLoading: false,
             };
@@ -66,14 +67,17 @@ Vue.use(VueClipboards);
                     return;
                 }
 
+                if(!this.$data.name) {
+                    this.$data.errorMessage = 'API Key name can`t be empty';
+                    return;
+                }
+
                 this.$data.isLoading = true;
 
                 let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
-
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
                     this.$data.isLoading = false;
-
                     return;
                 }
 
@@ -83,7 +87,8 @@ Vue.use(VueClipboards);
                 this.$data.isLoading = false;
             },
             onChangeName: function (value: string): void {
-                this.$data.name = value;
+                this.$data.name = value.trim();
+                this.$data.errorMessage = '';
             },
         },
         components: {
@@ -91,11 +96,9 @@ Vue.use(VueClipboards);
             Button,
             CopyApiKeyPopup
         }
-    }
-)
+    })
 
-export default class AddApiKeyPopup extends Vue {
-}
+    export default class AddApiKeyPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -6,7 +6,6 @@ package piecestore_test
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -129,6 +129,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
@@ -161,7 +162,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		var writeErr error
 		buffer := make([]byte, memory.KiB)
 		for i := 0; i < 10; i++ {
-			_, _ = rand.Read(buffer)
+			testrand.Read(buffer)
 			_, writeErr = uploader.Write(buffer)
 			if writeErr != nil {
 				break
@@ -199,6 +200,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	{ // upload test piece
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
@@ -222,8 +224,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		uploader, err := client.Upload(ctx, orderLimit)
 		require.NoError(t, err)
 
-		data := make([]byte, defaultPieceSize)
-		_, _ = rand.Read(data)
+		data := testrand.Bytes(defaultPieceSize)
 
 		_, err = uploader.Write(data)
 		require.NoError(t, err)
@@ -253,6 +254,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 	} {
 		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 		require.NoError(t, err)
+		defer ctx.Check(client.Close)
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
@@ -320,10 +322,12 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
 		diff := (space - availableSpace) * -1
+		now := time.Now()
 		err = storageNode.DB.PieceInfo().Add(ctx, &pieces.Info{
 			SatelliteID:     planet.Satellites[0].ID(),
 			PieceID:         storj.PieceID{99},
 			PieceSize:       diff,
+			PieceCreation:   &now,
 			Uplink:          planet.Uplinks[0].Identity.PeerIdentity(),
 			UplinkPieceHash: &pb.PieceHash{},
 		})

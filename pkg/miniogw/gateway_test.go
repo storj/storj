@@ -58,7 +58,7 @@ func TestMakeBucketWithLocation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, TestBucket, bucket.Name)
 		assert.True(t, time.Since(bucket.Created) < 1*time.Minute)
-		assert.Equal(t, storj.AESGCM, bucket.PathCipher)
+		assert.Equal(t, storj.EncAESGCM, bucket.PathCipher)
 
 		// Check the error when trying to create an existing bucket
 		err = layer.MakeBucketWithLocation(ctx, TestBucket, "")
@@ -469,7 +469,7 @@ func testListObjects(t *testing.T, listObjects func(context.Context, minio.Objec
 		assert.Equal(t, minio.BucketNotFound{Bucket: TestBucket}, err)
 
 		// Create the bucket and files using the Metainfo API
-		_, err = m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.Unencrypted})
+		_, err = m.CreateBucket(ctx, TestBucket, &storj.Bucket{PathCipher: storj.EncNull})
 		assert.NoError(t, err)
 
 		filePaths := []string{
@@ -687,8 +687,9 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// TODO(leak): close m metainfo.Client somehow
 
-	ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+	ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 	fc, err := infectious.NewFEC(2, 4)
 	if err != nil {
 		return nil, nil, nil, err
@@ -701,12 +702,14 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	segments := segments.NewSegmentStore(m, ec, rs, 4*memory.KiB.Int(), 8*memory.MiB.Int64())
 
-	encKey := new(storj.Key)
+	var encKey storj.Key
 	copy(encKey[:], TestEncKey)
+	access := libuplink.NewEncryptionAccessWithDefaultKey(encKey)
+	encStore := access.Store()
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encKey, blockSize, storj.AESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -715,7 +718,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	kvm := kvmetainfo.New(p, m, strms, segments, encKey)
+	kvm := kvmetainfo.New(p, m, strms, segments, encStore)
 
 	cfg := libuplink.Config{}
 	cfg.Volatile.TLS = struct {
@@ -744,7 +747,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	gateway := NewStorjGateway(
 		proj,
-		encKey,
+		access,
 		storj.EncAESGCM,
 		storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,

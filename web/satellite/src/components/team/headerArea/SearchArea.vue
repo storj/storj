@@ -42,8 +42,7 @@
         }
     })
 
-    export default class SearchArea extends Vue {
-    }
+    export default class SearchArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -133,8 +133,8 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
-                BucketAccess access = new BucketAccess();
-                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+                EncryptionAccess access = new EncryptionAccess();
+                access.setDefaultKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
                 scheme.setRequiredShares((short) 2);
@@ -197,8 +197,8 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
-                BucketAccess access = new BucketAccess();
-                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+                EncryptionAccess access = new EncryptionAccess();
+                access.setDefaultKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
                 scheme.setRequiredShares((short) 2);
@@ -267,8 +267,8 @@ public class LibuplinkInstrumentedTest {
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
             try {
-                BucketAccess access = new BucketAccess();
-                access.setPathEncryptionKey("TestEncryptionKey".getBytes());
+                EncryptionAccess access = new EncryptionAccess();
+                access.setDefaultKey("TestEncryptionKey".getBytes());
 
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(new RedundancyScheme());

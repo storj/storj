@@ -25,9 +25,9 @@ service Piecestore {
 //
 message PieceUploadRequest {
     // first message to show that we are allowed to upload
-    orders.OrderLimit2 limit = 1;
+    orders.OrderLimit limit = 1;
     // order for uploading
-    orders.Order2      order = 2;
+    orders.Order      order = 2;
 
     // data message
     message Chunk {
@@ -51,9 +51,9 @@ message PieceUploadResponse {
 //      <- PieceDownloadResponse.Chunk
 message PieceDownloadRequest {
     // first message to show that we are allowed to upload
-    orders.OrderLimit2 limit = 1;
+    orders.OrderLimit limit = 1;
     // order for downloading
-    orders.Order2      order = 2;
+    orders.Order      order = 2;
 
     // Chunk that we wish to download
     message Chunk {
@@ -75,7 +75,7 @@ message PieceDownloadResponse {
 }
 
 message PieceDeleteRequest {
-    orders.OrderLimit2 limit = 1;
+    orders.OrderLimit limit = 1;
 }
 
 message PieceDeleteResponse {

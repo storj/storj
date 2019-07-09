@@ -5,39 +5,31 @@ package encryption
 
 import (
 	"bytes"
-	"crypto/rand"
 	"io/ioutil"
 	"testing"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/storj/internal/testrand"
 )
 
-func randData(amount int) []byte {
-	buf := make([]byte, amount)
-	_, err := rand.Read(buf)
-	if err != nil {
-		panic(err)
-	}
-	return buf
-}
-
 func TestSecretbox(t *testing.T) {
-	var key storj.Key
-	copy(key[:], randData(storj.KeySize))
-	var firstNonce storj.Nonce
-	copy(firstNonce[:], randData(storj.NonceSize))
+	key := testrand.Key()
+	firstNonce := testrand.Nonce()
+
 	encrypter, err := NewSecretboxEncrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
-	data := randData(encrypter.InBlockSize() * 10)
-	encrypted := TransformReader(
-		ioutil.NopCloser(bytes.NewReader(data)), encrypter, 0)
+
+	data := testrand.BytesInt(encrypter.InBlockSize() * 10)
+
+	encrypted := TransformReader(ioutil.NopCloser(bytes.NewReader(data)), encrypter, 0)
+
 	decrypter, err := NewSecretboxDecrypter(&key, &firstNonce, 4*1024)
 	if err != nil {
 		t.Fatal(err)
 	}
 	decrypted := TransformReader(encrypted, decrypter, 0)
+
 	data2, err := ioutil.ReadAll(decrypted)
 	if err != nil {
 		t.Fatal(err)

@@ -6,7 +6,6 @@ package pieces_test
 import (
 	"bytes"
 	"io"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +14,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
@@ -36,8 +36,7 @@ func TestPieces(t *testing.T) {
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
 
-	source := make([]byte, 8000)
-	_, _ = rand.Read(source)
+	source := testrand.Bytes(8000)
 
 	{ // write data
 		writer, err := store.Writer(ctx, satelliteID, pieceID)

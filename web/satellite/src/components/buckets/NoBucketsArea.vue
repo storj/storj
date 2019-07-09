@@ -47,6 +47,7 @@
             Button,
         },
     })
+
     export default class NoBucketArea extends Vue {}
 </script>
 
@@ -162,6 +163,10 @@
             line-height: 23px;
             color: #fff;
 
+        }
+
+        &:hover {
+            box-shadow: 0px 4px 20px rgba(35, 121, 236, 0.4);
         }
     }
 

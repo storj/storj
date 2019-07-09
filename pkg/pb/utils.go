@@ -8,7 +8,6 @@ import (
 	"reflect"
 
 	"github.com/gogo/protobuf/proto"
-	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -61,15 +60,6 @@ func CopyNode(src *Node) (dst *Node) {
 	}
 
 	return &node
-}
-
-// DPanicOnInvalid panics if NodeType is invalid if zap is in development mode,
-// otherwise it logs.
-func (nt NodeType) DPanicOnInvalid(from string) {
-	// TODO: Remove all references
-	if nt == NodeType_INVALID {
-		zap.L().DPanic("INVALID NODE TYPE: " + from)
-	}
 }
 
 // AddressEqual compares two node addresses

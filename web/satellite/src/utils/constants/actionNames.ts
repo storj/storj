@@ -79,3 +79,7 @@ export const BUCKET_USAGE_ACTIONS = {
     SET_SEARCH: 'setSearchBucketUsage',
     CLEAR: 'clearBucketUsages'
 };
+
+export const CREDIT_USAGE_ACTIONS = {
+    FETCH: 'fetchCreditUsage',
+}

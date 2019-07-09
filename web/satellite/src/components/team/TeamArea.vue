@@ -11,8 +11,7 @@
                 <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
                         :projectMember = "member"
-                        v-bind:class = "[member.isSelected ? 'selected' : '']"
-                    />
+                        v-bind:class = "[member.isSelected ? 'selected' : '']" />
                 </div>
             </div>
             <!-- only when selecting team members -->
@@ -29,47 +28,47 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
-import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-import Footer from '@/components/team/footerArea/Footer.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import TeamMemberPaginationArea from '@/components/team/footerArea/TeamMemberPaginationArea.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
+    import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
+    import Footer from '@/components/team/footerArea/Footer.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PM_ACTIONS } from '@/utils/constants/actionNames';
+    import TeamMemberPaginationArea from '@/components/team/footerArea/TeamMemberPaginationArea.vue';
 
-@Component({
-    data: function () {
-        return {
-            emptyImage: EMPTY_STATE_IMAGES.TEAM,
-            isFetchInProgress: false,
-        };
-    },
-    methods: {
-        onMemberClick: function (member: any) {
-            this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+    @Component({
+        data: function () {
+            return {
+                emptyImage: EMPTY_STATE_IMAGES.TEAM,
+                isFetchInProgress: false,
+            };
         },
-    },
-    computed: {
-        projectMembers: function () {
-            return this.$store.state.projectMembersModule.page.projectMembers;
+        methods: {
+            onMemberClick: function (member: any) {
+                this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+            },
         },
-        projectMembersCount: function () {
-            return this.$store.state.projectMembersModule.page.totalCount;
+        computed: {
+            projectMembers: function () {
+                return this.$store.state.projectMembersModule.page.projectMembers;
+            },
+            projectMembersCount: function () {
+                return this.$store.state.projectMembersModule.page.totalCount;
+            },
+            selectedProjectMembers: function () {
+                return this.$store.getters.selectedProjectMembers;
+            },
         },
-        selectedProjectMembers: function () {
-            return this.$store.getters.selectedProjectMembers;
-        },
-    },
-    components: {
-        TeamMemberPaginationArea,
-        TeamMemberItem,
-        HeaderArea,
-        Footer,
+        components: {
+            TeamMemberPaginationArea,
+            TeamMemberItem,
+            HeaderArea,
+            Footer,
+        }
+    })
+
+    export default class TeamArea extends Vue {
     }
-})
-
-export default class TeamArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">

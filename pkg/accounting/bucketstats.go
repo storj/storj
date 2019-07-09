@@ -14,7 +14,9 @@ var mon = monkit.Package()
 // BucketTally contains information about aggregate data stored in a bucket
 type BucketTally struct {
 	BucketName []byte
-	ProjectID  []byte
+
+	// TODO(jg): fix this so that it is uuid.UUID
+	ProjectID []byte
 
 	Segments        int64
 	InlineSegments  int64

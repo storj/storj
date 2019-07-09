@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
@@ -28,10 +29,11 @@ var (
 
 // VerifyOrderLimit verifies that the order limit is properly signed and has sane values.
 // It also verifies that the serial number has not been used.
-func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit2) (err error) {
+func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// sanity checks
+	now := time.Now()
 	switch {
 	case limit.Limit < 0:
 		return ErrProtocol.New("order limit is negative")
@@ -41,7 +43,8 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
-
+	case now.Sub(limit.OrderCreation) > endpoint.config.OrderLimitGracePeriod:
+		return ErrProtocol.New("order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
 		return ErrProtocol.New("missing satellite id")
 	case limit.UplinkId.IsZero():
@@ -74,11 +77,16 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
-	// TODO: use min of piece and order expiration instead
 	serialExpiration, err := ptypes.Timestamp(limit.OrderExpiration)
 	if err != nil {
 		return ErrInternal.Wrap(err)
 	}
+
+	// Expire the serial earlier if the grace period is smaller than the serial expiration.
+	if graceExpiration := now.Add(endpoint.config.OrderLimitGracePeriod); graceExpiration.Before(serialExpiration) {
+		serialExpiration = graceExpiration
+	}
+
 	if err := endpoint.usedSerials.Add(ctx, limit.SatelliteId, limit.SerialNumber, serialExpiration); err != nil {
 		return ErrVerifyDuplicateRequest.Wrap(err)
 	}
@@ -87,7 +95,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 }
 
 // VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
-func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, order *pb.Order2, largestOrderAmount int64) (err error) {
+func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit, order *pb.Order, largestOrderAmount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
@@ -109,7 +117,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 }
 
 // VerifyPieceHash verifies whether the piece hash is properly signed and matches the locally computed hash.
-func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit2, hash *pb.PieceHash, expectedHash []byte) (err error) {
+func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
@@ -130,12 +138,12 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 }
 
 // VerifyOrderLimitSignature verifies that the order limit signature is valid.
-func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit2) (err error) {
+func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	signee, err := endpoint.trust.GetSignee(ctx, limit.SatelliteId)
 	if err != nil {
-		if err == context.Canceled {
+		if errs2.IsCanceled(err) {
 			return err
 		}
 		return ErrVerifyUntrusted.New("unable to get signee: %v", err) // TODO: report grpc status bad message

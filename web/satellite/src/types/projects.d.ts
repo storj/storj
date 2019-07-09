@@ -48,3 +48,8 @@ declare type ProjectMembersPage = {
     currentPage: number,
     totalCount: number,
 }
+
+declare type CreateProjectModel = {
+    name: string,
+    description: string,
+}

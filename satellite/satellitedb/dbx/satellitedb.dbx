@@ -120,12 +120,12 @@ model node (
 
 	index (
 		name node_last_ip
-		fields last_ip
+		fields last_net
 	)
 
 	field id             blob
 	field address        text  ( updatable ) // TODO: use compressed format
-	field last_ip        text  ( updatable )
+	field last_net       text  ( updatable )
 	field protocol       int   ( updatable )
 	field type           int   ( updatable )
 	field email          text  ( updatable )
@@ -676,9 +676,9 @@ model offer (
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	// status corresponds to the values of rewards.OfferStatus
 	field status int ( updatable )
-	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	// type corresponds to the values of rewards.OfferType
 	field type int ( updatable )
 )
 
@@ -730,3 +730,50 @@ read count (
 )
 
 create user_credit ()
+
+//--- metainfo buckets ---//
+
+model bucket_metainfo (
+	key    id
+	unique name project_id
+
+	field id             blob
+	field project_id     project.id restrict
+	field name           blob
+
+	field path_cipher    int
+
+	field created_at     timestamp ( autoinsert )
+
+	field default_segment_size int (updatable)
+
+	field default_encryption_cipher_suite int (updatable)
+	field default_encryption_block_size   int (updatable)
+
+	field default_redundancy_algorithm       int (updatable)
+	field default_redundancy_share_size      int (updatable)
+	field default_redundancy_required_shares int (updatable)
+	field default_redundancy_repair_shares   int (updatable)
+	field default_redundancy_optimal_shares  int (updatable)
+	field default_redundancy_total_shares    int (updatable)
+)
+
+create bucket_metainfo ()
+
+read one (
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+delete bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read limitoffset ( // Forward
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name >= ?
+	orderby asc bucket_metainfo.name
+)
