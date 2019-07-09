@@ -237,8 +237,8 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 	return s.store.ProjectPayments().Update(ctx, *projectPayment)
 }
 
-// DeletePaymentMethod deletes selected payment method
-func (s *Service) DeletePaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
+// DeleteProjectPaymentMethod deletes selected payment method
+func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = GetAuth(ctx)
