@@ -87,6 +87,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 		pointer := &pb.Pointer{
+			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
 					MinReq:           int32(3),
@@ -136,6 +137,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 
 		// make the  pointer repairable
 		pointer = &pb.Pointer{
+			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
 				Redundancy: &pb.RedundancyScheme{
 					MinReq:           int32(2),
@@ -185,6 +187,7 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
 	}
 	pointer := &pb.Pointer{
+		CreationDate: time.Now(),
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				MinReq:           int32(minReq),
