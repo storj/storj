@@ -3,36 +3,34 @@
 
 <template>
     <div class="account-area-container">
-	    <h1>Account</h1>
-	    <TabNavigation
-		    class="account-area-container__navigation"
-		    :navigation="navigation"/>
-	    <router-view />
+        <h1>Account</h1>
+        <TabNavigation
+            class="account-area-container__navigation"
+            :navigation="navigation"/>
+        <router-view />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import TabNavigation from '@/components/navigation/TabNavigation.vue';
-import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
+    import { Component, Vue } from 'vue-property-decorator';
+    import TabNavigation from '@/components/navigation/TabNavigation.vue';
+    import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
 
-@Component(
-    {
-        mounted() {
-            this.$router.push(ACCOUNT_ROUTES.PROFILE.path);
-        },
-        data: function () {
-            return {
-	            navigation: ACCOUNT_ROUTES,
-            };
-        },
-        components: {
-            TabNavigation,
-        },
-    }
-)
+    @Component({
+    	mounted() {
+    		this.$router.push(ACCOUNT_ROUTES.PROFILE.path);
+    	},
+    	data: function () {
+    		return {
+    			navigation: ACCOUNT_ROUTES,
+    		};
+    	},
+    	components: {
+    		TabNavigation,
+    	},
+    })
 
-export default class AccountArea extends Vue {}
+    export default class AccountArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

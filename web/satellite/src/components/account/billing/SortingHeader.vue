@@ -2,47 +2,48 @@
 // See LICENSE for copying information.
 
 <template>
-	<tr class="sort-header-container">
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>ID</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Date</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Project Name</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Payment method</p>
-			</div>
-		</th>
-		<th class="sort-header-container__item">
-			<div class="row">
-				<p>Amount</p>
-				<div class="sort-header-container__item__arrows">
-					<span v-html="arrowUp"></span>
-					<span v-html="arrowDown"></span>
-				</div>
-			</div>
-		</th>
-		<th class="sort-header-container__item no-padding">
-			<div class="row center">
-				<p>Receipt</p>
-			</div>
-		</th>
-	</tr>
+    <tr class="sort-header-container">
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>ID</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Date</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Project Name</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Payment method</p>
+            </div>
+        </th>
+        <th class="sort-header-container__item">
+            <div class="row">
+                <p>Amount</p>
+                <div class="sort-header-container__item__arrows">
+                    <span v-html="arrowUp"></span>
+                    <span v-html="arrowDown"></span>
+                </div>
+            </div>
+        </th>
+        <th class="sort-header-container__item no-padding">
+            <div class="row center">
+                <p>Receipt</p>
+            </div>
+        </th>
+    </tr>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+
     @Component({
         data: function() {
             return {
@@ -51,8 +52,8 @@
             };
         }
     })
-    export default class SortAccountBillingHeader extends Vue {
-    }
+
+    export default class SortAccountBillingHeader extends Vue {}
 </script>
 
 <style scoped lang="scss">
