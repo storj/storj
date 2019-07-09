@@ -70,7 +70,7 @@ type Server struct {
 	service  *console.Service
 	listener net.Listener
 
-	server   http.Server
+	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server
