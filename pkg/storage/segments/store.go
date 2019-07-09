@@ -126,6 +126,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		path = p
 
 		pointer = &pb.Pointer{
+			CreationDate:   time.Now(),
 			Type:           pb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
 			SegmentSize:    int64(len(peekReader.thresholdBuf)),
@@ -256,7 +257,8 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 	}
 
 	pointer = &pb.Pointer{
-		Type: pb.Pointer_REMOTE,
+		CreationDate: time.Now(),
+		Type:         pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{
 			Redundancy: &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_RS,
@@ -356,7 +358,7 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 // convertMeta converts pointer to segment metadata
 func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
-		Modified:   convertTime(pr.GetCreationDate()),
+		Modified:   pr.GetCreationDate(),
 		Expiration: convertTime(pr.GetExpirationDate()),
 		Size:       pr.GetSegmentSize(),
 		Data:       pr.GetMetadata(),

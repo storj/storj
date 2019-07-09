@@ -15,10 +15,10 @@ func newBucketInfo(bucket *storj.Bucket) C.BucketInfo {
 		name:         C.CString(bucket.Name),
 		created:      C.int64_t(bucket.Created.Unix()),
 		path_cipher:  toCCipherSuite(bucket.PathCipher),
-		segment_size: C.uint64_t(bucket.SegmentsSize),
+		segment_size: C.uint64_t(bucket.DefaultSegmentsSize),
 
-		encryption_parameters: convertEncryptionParameters(&bucket.EncryptionParameters),
-		redundancy_scheme:     convertRedundancyScheme(&bucket.RedundancyScheme),
+		encryption_parameters: convertEncryptionParameters(&bucket.DefaultEncryptionParameters),
+		redundancy_scheme:     convertRedundancyScheme(&bucket.DefaultRedundancyScheme),
 	}
 }
 

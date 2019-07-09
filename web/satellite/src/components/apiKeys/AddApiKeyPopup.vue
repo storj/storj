@@ -33,18 +33,17 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import VueClipboards from 'vue-clipboards';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import VueClipboards from 'vue-clipboards';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
-Vue.use(VueClipboards);
+    Vue.use(VueClipboards);
 
-@Component(
-    {
+    @Component({
         props: {
             onClose: {
                 type: Function
@@ -76,11 +75,9 @@ Vue.use(VueClipboards);
                 this.$data.isLoading = true;
 
                 let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
-
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
                     this.$data.isLoading = false;
-
                     return;
                 }
 
@@ -99,11 +96,9 @@ Vue.use(VueClipboards);
             Button,
             CopyApiKeyPopup
         }
-    }
-)
+    })
 
-export default class AddApiKeyPopup extends Vue {
-}
+    export default class AddApiKeyPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">

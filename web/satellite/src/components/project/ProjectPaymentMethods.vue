@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Storj Labs, Inc.
+// Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -53,6 +53,7 @@
             Button,
         }
     })
+
     export default class ProjectPaymentMethods extends Vue {}
 </script>
 
