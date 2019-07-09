@@ -18,11 +18,10 @@ These requirements allow users to be in full control of their encryption, and do
 This design accomodates more requirements that allow for additional features:
 
 3. A root key can be created for any encrypted path in a bucket, not just the bucket.
-4. Root keys should not depend on the name of the bucket.
-5. A table of root keys for low entropy passwords should not be possible. In other words, an attacker with knowledge of the algorithm should not be able to use a dictionary of common passwords and pre-compute what keys to check in the event of a data breach.
-6. Users do not have to enter a password for every bucket they create: they can have a default password that is used for every bucket unless otherwise specified.
+4. A table of root keys for low entropy passwords should not be possible. In other words, an attacker with knowledge of the algorithm should not be able to use a dictionary of common passwords and pre-compute what keys to check in the event of a data breach.
+5. Users do not have to enter a password for every bucket they create: they can have a default password that is used for every bucket unless otherwise specified.
 
-The third requirement allows having multiple encrypted domains to exist within a single bucket, allowing delegation of encryption. The fourth requirement allows renaming buckets without having to re-encrypt all of the paths inside of a bucket. The fifth requirement enhances security if a satellite breach happens. This is usually accomplished with [salting](https://en.wikipedia.org/wiki/Salt_(cryptography)). The sixth requirement allows providing a finite amount of information to a third party that allows them access to the keys for any bucket created with the default password in the future.
+The third requirement allows having multiple encrypted domains to exist within a single bucket, allowing delegation of encryption. The fourth requirement enhances security if a satellite breach happens. This is usually accomplished with [salting](https://en.wikipedia.org/wiki/Salt_(cryptography)). The fifth requirement allows providing a finite amount of information to a third party that allows them access to the keys for any bucket created with the default password in the future.
 
 ## Design
 
@@ -30,29 +29,20 @@ First, a **root key** is defined to be, in the terminology of section 4.11 in th
 
 In other words, `rootKey(bucket, encryptedPath) != deriveKey(rootKey(bucket, ""), encryptedPath)`.
 
-Satellites will allow clients to query for a salt for a project or a bucket within a project. The result of this query must be stable.
+Satellites will allow clients to query for a salt for a project. The result of this query must be stable.
 
-A default password can be chosen for an api key. The following algorithm is used to create the default password:
-
-```
-saltEntropy     = getProjectSalt(apiKey)
-mixedSalt       = hmac(hash=sha256, secret=userPassword, data=saltEntropy)
-defaultPassword = argon2id(salt=mixedSalt, password=userPassword)
-```
-
-The following algorithm is used to create a root key from an api key, password, bucket name and optional encrypted path:
+The following algorithm is used to create a root key from an api key, password, and optional encrypted path:
 
 ```
-password    = userPassword or defaultPassword
-saltEntropy = getBucketSalt(apiKey, bucketName)
-mixedSalt   = hmac(hash=sha256, secret=password, data=saltEntropy)
+projectSalt = getProjectSalt(apiKey)
+mixedSalt   = hmac(hash=sha256, secret=userPassword, data=projectSalt)
 pathSalt    = hmac(hash=sha256, secret=mixedSalt, data=encryptedPath or "")
 rootKey     = argon2id(salt=pathSalt, password=password)
 ```
 
-The first assignment in the algorithm is showing that if the user does not specify a password for the bucket, the default password is used.
-
 Uplink always stores and operates on outputs of the previous algorithms (the root keys), never the input material (passwords, salts, etc).
+
+During the folding of path components into the root key as defined by the whitepaper, if the root key was created with an empty encrypted path, the bucket name is used as the first path component in the fold. This ensures that different keys are output for the same input paths in two different buckets. A default root key is created by using an empty encrypted path.
 
 ## Rationale
 
@@ -61,9 +51,8 @@ This design accomplishes all of the requirements listed above.
 - Each root key requires some secret that necessarily comes from the user in some way.
 - The algorithm is deterministic, so the user gets the same keys on any machine where she inputs the same passwords.
 - Root keys for a sub-path in a bucket are accomplished by providing a non-empty encrypted path when creating the root key.
-- Root keys do not depend on the name of the bucket they are in: just the salt associated with that bucket, allowing renames.
 - Because entropy is added as the salt in the `argon2id` step, dictionary attacks on low-entropy passwords cannot be precomputed.
-- The default password can be used for any bucket and will return a distinct key as long as the salt for each bucket differs.
+- One can create a default root key by using an empty encrypted path and using that if no other root key applies.
 
 Some other points of consideration include
 
@@ -74,6 +63,6 @@ Some other points of consideration include
 
 ## Implementation
 
-First, satellites must a field to buckets to store the salt. It can either run a migration and fill them all at once, or fill it on demand. It should be filled with at least 32 bytes of good quality entropy (`crypto/rand` or otherwise). The salt field will be returned as part of the path encryption information with a bucket. The satellite must also ensure that salt information can be queried for projects, and it may use the project UUID to back it.
+First, the satellite must allow salt information to be queried for projects, and it may use the project UUID to back it.
 
 Next, the clients must be changed to run the above algorithms to create root keys.
