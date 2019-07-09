@@ -116,7 +116,7 @@ type OfferSet struct {
 }
 
 // OrganizeOffersByStatus organizes offers by OfferStatus.
-func (offers Offers) OrganizeOffersByStatus() (OrganizedOffers) {
+func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
 	var oo OrganizedOffers
 
 	for _, offer := range offers {
@@ -133,9 +133,9 @@ func (offers Offers) OrganizeOffersByStatus() (OrganizedOffers) {
 }
 
 // OrganizeOffersByType organizes offers by OfferType.
-func (offers Offers) OrganizeOffersByType() (OfferSet) {
+func (offers Offers) OrganizeOffersByType() OfferSet {
 	var (
-		fc, ro Offers
+		fc, ro   Offers
 		offerSet OfferSet
 	)
 
