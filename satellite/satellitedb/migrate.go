@@ -926,9 +926,9 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
-			},{
+			}, {
 				Description: "Set default offer for each offer type in offers table",
-				Version: 40,
+				Version:     40,
 				Action: migrate.SQL{
 					`INSERT INTO offers (
 						id,
@@ -958,7 +958,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						'2019-07-14 08:28:24.636949+00',
 						2,
 						1);`,
-						`INSERT INTO offers (
+					`INSERT INTO offers (
 							id,
 							name,
 							description,
