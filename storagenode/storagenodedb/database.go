@@ -4,8 +4,10 @@
 package storagenodedb
 
 import (
+	_ "github.com/mattn/go-sqlite3" // used indirectly
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/storage"
@@ -13,6 +15,10 @@ import (
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storage/teststore"
 	"storj.io/storj/storagenode"
+)
+
+var (
+	mon = monkit.Package()
 )
 
 var _ storagenode.DB = (*DB)(nil)
