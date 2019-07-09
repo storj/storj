@@ -135,13 +135,13 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 		}
 
 		// TODO: combine these into the same db call
-		_, err = discovery.cache.UpdateUptime(ctx, ping.Id, true)
+		_, err = discovery.cache.UpdateUptime(ctx, node.Id, true)
 		if err != nil {
-			discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", ping.Id), zap.Error(err))
+			discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
 		}
-		_, err = discovery.cache.UpdateNodeInfo(ctx, ping.Id, info)
+		_, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info)
 		if err != nil {
-			discovery.log.Warn("could not update node info", zap.Stringer("ID", ping.GetAddress()))
+			discovery.log.Warn("could not update node info", zap.Stringer("ID", node.GetAddress()))
 		}
 	}
 
