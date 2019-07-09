@@ -189,6 +189,10 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("invalid no order limit for piece")
 		}
 
+		if req.Pointer.SegmentSize > endpoint.rsConfig.MaxSegmentSize.Int64() || req.Pointer.SegmentSize < 0 {
+			return Error.New("segment size %v is out of range, maximum is %v", req.Pointer.SegmentSize, endpoint.rsConfig.MaxSegmentSize)
+		}
+
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
@@ -198,7 +202,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			}
 
 			if limit == nil {
-				return Error.New("invalid no order limit for piece")
+				return Error.New("empty order limit for piece")
 			}
 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
