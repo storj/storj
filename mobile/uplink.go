@@ -184,16 +184,3 @@ func (project *Project) SaltedKeyFromPassphrase(passphrase string) (keyData []by
 	}
 	return key[:], nil
 }
-
-// EncryptionAccessFromPassphrase converts human readable passphrase into encryption access
-func (project *Project) EncryptionAccessFromPassphrase(passphrase string) (_ *EncryptionAccess, err error) {
-	scope := project.scope.child()
-
-	key, err := project.lib.SaltedKeyFromPassphrase(scope.ctx, passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	ea := libuplink.NewEncryptionAccessWithDefaultKey(*key)
-	return &EncryptionAccess{lib: ea}, nil
-}
