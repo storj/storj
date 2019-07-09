@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="tab-navigation-container">
-		<router-link :to="navLink.path" class="tab-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
-			<p>{{navLink.name}}</p>
-		</router-link>
-	</div>
+    <div class="tab-navigation-container">
+        <router-link :to="navLink.path" class="tab-navigation-container__item" v-for="navLink in navigation" :key="navLink.name">
+            <p>{{navLink.name}}</p>
+        </router-link>
+    </div>
 </template>
 
 <script lang="ts">

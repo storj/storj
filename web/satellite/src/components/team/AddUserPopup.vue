@@ -19,12 +19,12 @@
                         <div v-for="(input, index) in inputs"
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
-                            <input
-                                placeholder="test@mail.test"
-                                v-model="input.value"
-                                :class="[input.error ? 'error' : 'no-error']"
-                                @keyup="resetFormErrors(index)" />
-                            <span v-html="imageDeleteUser" @click="deleteInput(index)"></span>
+                                <input
+                                    placeholder="test@mail.test"
+                                    v-model="input.value"
+                                    :class="[input.error ? 'error' : 'no-error']"
+                                    @keyup="resetFormErrors(index)" />
+                                <span v-html="imageDeleteUser" @click="deleteInput(index)"></span>
                         </div>
                     </div>
                     <div class="add-user-row">
