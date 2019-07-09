@@ -189,7 +189,7 @@
       "def": {
         "enums": [
           {
-            "name": "CipherSuite.Type",
+            "name": "CipherSuite",
             "enum_fields": [
               {
                 "name": "ENC_UNSPECIFIED"
@@ -222,16 +222,6 @@
                 "id": 2,
                 "name": "block_size",
                 "type": "int64"
-              }
-            ]
-          },
-          {
-            "name": "CipherSuite",
-            "fields": [
-              {
-                "id": 1,
-                "name": "type",
-                "type": "Type"
               }
             ]
           }
@@ -1289,12 +1279,32 @@
               {
                 "id": 9,
                 "name": "last_pinged",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 10,
                 "name": "last_queried",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1637,16 +1647,11 @@
               },
               {
                 "id": 2,
-                "name": "path_cipher",
-                "type": "encryption.CipherSuite"
+                "name": "attribution",
+                "type": "string"
               },
               {
                 "id": 3,
-                "name": "attribution_id",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
                 "name": "created_at",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -1661,17 +1666,17 @@
                 ]
               },
               {
-                "id": 5,
+                "id": 4,
                 "name": "default_segment_size",
                 "type": "int64"
               },
               {
-                "id": 6,
+                "id": 5,
                 "name": "default_redundancy_scheme",
                 "type": "pointerdb.RedundancyScheme"
               },
               {
-                "id": 7,
+                "id": 6,
                 "name": "default_encryption_parameters",
                 "type": "encryption.EncryptionParameters"
               }
@@ -1712,28 +1717,8 @@
               },
               {
                 "id": 2,
-                "name": "path_cipher",
-                "type": "encryption.CipherSuite"
-              },
-              {
-                "id": 3,
-                "name": "attribution_id",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
-                "name": "default_segment_size",
-                "type": "int64"
-              },
-              {
-                "id": 5,
-                "name": "default_redundancy_scheme",
-                "type": "pointerdb.RedundancyScheme"
-              },
-              {
-                "id": 6,
-                "name": "default_encryption_parameters",
-                "type": "encryption.EncryptionParameters"
+                "name": "attribution",
+                "type": "string"
               }
             ]
           },
@@ -1821,8 +1806,8 @@
               },
               {
                 "id": 2,
-                "name": "attribution_id",
-                "type": "bytes"
+                "name": "attribution",
+                "type": "string"
               }
             ]
           },
@@ -2163,7 +2148,17 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "EncryptedPath"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2238,7 +2233,17 @@
               {
                 "id": 9,
                 "name": "encrypted_metadata_nonce",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 10,
@@ -2288,7 +2293,17 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "EncryptedPath"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2313,7 +2328,17 @@
               {
                 "id": 5,
                 "name": "encrypted_metadata_nonce",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 6,
@@ -2343,7 +2368,17 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "EncryptedPath"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2381,7 +2416,7 @@
             "name": "ObjectCommitRequest",
             "fields": [
               {
-                "id": 4,
+                "id": 1,
                 "name": "stream_id",
                 "type": "bytes",
                 "options": [
@@ -2398,14 +2433,7 @@
             ]
           },
           {
-            "name": "ObjectCommitResponse",
-            "fields": [
-              {
-                "id": 1,
-                "name": "object",
-                "type": "Object"
-              }
-            ]
+            "name": "ObjectCommitResponse"
           },
           {
             "name": "ObjectListRequest",
@@ -2432,13 +2460,8 @@
               },
               {
                 "id": 5,
-                "name": "recursive",
-                "type": "bool"
-              },
-              {
-                "id": 6,
-                "name": "object_flags",
-                "type": "ObjectListItemFlags"
+                "name": "object_includes",
+                "type": "ObjectListItemIncludes"
               }
             ]
           },
@@ -2524,7 +2547,17 @@
               {
                 "id": 7,
                 "name": "encrypted_metadata_nonce",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 8,
@@ -2534,7 +2567,7 @@
             ]
           },
           {
-            "name": "ObjectListItemFlags",
+            "name": "ObjectListItemIncludes",
             "fields": [
               {
                 "id": 1,
@@ -2554,7 +2587,17 @@
               {
                 "id": 2,
                 "name": "encrypted_path",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "EncryptedPath"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2588,18 +2631,18 @@
             "fields": [
               {
                 "id": 1,
-                "name": "bucket",
-                "type": "bytes"
-              },
-              {
-                "id": 2,
-                "name": "encrypted_path",
-                "type": "bytes"
-              },
-              {
-                "id": 3,
-                "name": "version",
-                "type": "int32"
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -2626,41 +2669,41 @@
               },
               {
                 "id": 2,
-                "name": "part_number",
-                "type": "int32"
+                "name": "position",
+                "type": "SegmentPosition"
               },
               {
                 "id": 3,
-                "name": "index",
-                "type": "int32"
+                "name": "encrypted_key_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
-                "name": "encrypted_key_nonce",
-                "type": "bytes"
-              },
-              {
-                "id": 5,
                 "name": "encrypted_key",
                 "type": "bytes"
               },
               {
-                "id": 6,
-                "name": "checksum_encrypted_data",
-                "type": "bytes"
-              },
-              {
-                "id": 7,
+                "id": 5,
                 "name": "size_encrypted_data",
                 "type": "int64"
               },
               {
-                "id": 8,
+                "id": 6,
                 "name": "encrypted_inline_data",
                 "type": "bytes"
               },
               {
-                "id": 9,
+                "id": 7,
                 "name": "nodes",
                 "type": "bytes",
                 "is_repeated": true,
@@ -2674,6 +2717,21 @@
                     "value": "false"
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "name": "SegmentPosition",
+            "fields": [
+              {
+                "id": 1,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "index",
+                "type": "int32"
               }
             ]
           },
@@ -2697,16 +2755,11 @@
               },
               {
                 "id": 2,
-                "name": "part_number",
-                "type": "int32"
+                "name": "position",
+                "type": "SegmentPosition"
               },
               {
                 "id": 3,
-                "name": "index",
-                "type": "int32"
-              },
-              {
-                "id": 4,
                 "name": "max_order_limit",
                 "type": "int64"
               }
@@ -2718,7 +2771,17 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -2734,12 +2797,32 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "encrypted_key_nonce",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 3,
@@ -2747,12 +2830,12 @@
                 "type": "bytes"
               },
               {
-                "id": 4,
-                "name": "checksum_encrypted_data",
-                "type": "bytes"
+                "id": 5,
+                "name": "size_encrypted_data",
+                "type": "int64"
               },
               {
-                "id": 5,
+                "id": 6,
                 "name": "upload_result",
                 "type": "SegmentPieceUploadResult",
                 "is_repeated": true
@@ -2816,7 +2899,7 @@
                 "type": "pointerdb.RedundancyScheme"
               },
               {
-                "id": 6,
+                "id": 5,
                 "name": "creation_date",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -2831,7 +2914,7 @@
                 ]
               },
               {
-                "id": 7,
+                "id": 6,
                 "name": "expiration_date",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -2846,7 +2929,7 @@
                 ]
               },
               {
-                "id": 8,
+                "id": 7,
                 "name": "satellite_signature",
                 "type": "bytes"
               }
@@ -2928,31 +3011,31 @@
               },
               {
                 "id": 2,
-                "name": "part_number",
-                "type": "int32"
+                "name": "position",
+                "type": "SegmentPosition"
               },
               {
                 "id": 3,
-                "name": "index",
-                "type": "int32"
+                "name": "encrypted_key_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
-                "name": "encrypted_key_nonce",
-                "type": "bytes"
-              },
-              {
-                "id": 5,
                 "name": "encrypted_key",
                 "type": "bytes"
               },
               {
-                "id": 6,
-                "name": "checksum_encrypted_data",
-                "type": "bytes"
-              },
-              {
-                "id": 7,
+                "id": 5,
                 "name": "encrypted_inline_data",
                 "type": "bytes"
               }
@@ -2981,13 +3064,8 @@
               },
               {
                 "id": 2,
-                "name": "part_number",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "index",
-                "type": "int32"
+                "name": "position",
+                "type": "SegmentPosition"
               }
             ]
           },
@@ -2997,7 +3075,17 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
@@ -3013,7 +3101,53 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "results",
+                "type": "SegmentPieceDeleteResult",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentPieceDeleteResult",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_num",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "orders.PieceHash"
               }
             ]
           },
@@ -3040,16 +3174,11 @@
               },
               {
                 "id": 2,
-                "name": "cursor_part_number",
-                "type": "int32"
+                "name": "cursor_position",
+                "type": "SegmentPosition"
               },
               {
                 "id": 3,
-                "name": "cursor_index",
-                "type": "int32"
-              },
-              {
-                "id": 4,
                 "name": "limit",
                 "type": "int32"
               }
@@ -3076,13 +3205,8 @@
             "fields": [
               {
                 "id": 1,
-                "name": "part_number",
-                "type": "int32"
-              },
-              {
-                "id": 2,
-                "name": "index",
-                "type": "int32"
+                "name": "position",
+                "type": "SegmentPosition"
               }
             ]
           },
@@ -3106,18 +3230,8 @@
               },
               {
                 "id": 2,
-                "name": "part_number",
-                "type": "int32"
-              },
-              {
-                "id": 3,
-                "name": "index",
-                "type": "int32"
-              },
-              {
-                "id": 4,
-                "name": "next",
-                "type": "SegmentListItem"
+                "name": "cursor_position",
+                "type": "SegmentPosition"
               }
             ]
           },
@@ -3127,13 +3241,28 @@
               {
                 "id": 1,
                 "name": "segment_id",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 2,
                 "name": "addressed_limits",
                 "type": "AddressedOrderLimit",
                 "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "next",
+                "type": "SegmentPosition"
               }
             ]
           },
@@ -3246,6 +3375,11 @@
                 "name": "responses",
                 "type": "BatchRequestItem",
                 "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "error",
+                "type": "string"
               }
             ]
           },
@@ -3498,7 +3632,7 @@
           }
         ],
         "package": {
-          "name": "metainfo"
+          "name": "satellite"
         },
         "options": [
           {
@@ -3693,7 +3827,17 @@
               {
                 "id": 3,
                 "name": "timestamp",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
@@ -3727,10 +3871,7 @@
       "def": {
         "messages": [
           {
-            "name": "AuditCheckRequest"
-          },
-          {
-            "name": "AuditCheckResponse",
+            "name": "ReputationStats",
             "fields": [
               {
                 "id": 1,
@@ -3760,35 +3901,20 @@
             ]
           },
           {
-            "name": "UptimeCheckRequest"
+            "name": "GetStatsRequest"
           },
           {
-            "name": "UptimeCheckResponse",
+            "name": "GetStatsResponse",
             "fields": [
               {
                 "id": 1,
-                "name": "total_count",
-                "type": "int64"
+                "name": "uptime_check",
+                "type": "ReputationStats"
               },
               {
                 "id": 2,
-                "name": "success_count",
-                "type": "int64"
-              },
-              {
-                "id": 3,
-                "name": "reputation_alpha",
-                "type": "double"
-              },
-              {
-                "id": 4,
-                "name": "reputation_beta",
-                "type": "double"
-              },
-              {
-                "id": 5,
-                "name": "reputation_score",
-                "type": "double"
+                "name": "audit_check",
+                "type": "ReputationStats"
               }
             ]
           },
@@ -3886,14 +4012,9 @@
             "name": "NodeStats",
             "rpcs": [
               {
-                "name": "AuditCheck",
-                "in_type": "AuditCheckRequest",
-                "out_type": "AuditCheckResponse"
-              },
-              {
-                "name": "UptimeCheck",
-                "in_type": "UptimeCheckRequest",
-                "out_type": "UptimeCheckResponse"
+                "name": "GetStats",
+                "in_type": "GetStatsRequest",
+                "out_type": "GetStatsResponse"
               },
               {
                 "name": "DailyStorageUsage",
@@ -4768,7 +4889,17 @@
               {
                 "id": 6,
                 "name": "creation_date",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 7,
@@ -5029,7 +5160,17 @@
               {
                 "id": 3,
                 "name": "expiration",
-                "type": "google.protobuf.Timestamp"
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
