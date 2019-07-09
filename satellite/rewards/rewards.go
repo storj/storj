@@ -49,10 +49,12 @@ type UpdateOffer struct {
 type OfferType int
 
 const (
+	// Invalid is a default value for offers that don't have correct type associated with it
+	Invalid = OfferType(0)
 	// FreeCredit is a type of offers used for Free Credit Program
-	FreeCredit = OfferType(iota)
+	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
-	Referral
+	Referral = OfferType(2)
 )
 
 // OfferStatus represents the different stage an offer can have in its life-cycle.

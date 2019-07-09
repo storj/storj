@@ -188,16 +188,16 @@ func (s *Service) GetUptime(ctx context.Context) time.Duration {
 	return time.Now().Sub(s.startedAt)
 }
 
-// GetUptimeCheckForSatellite returns uptime check for the satellite
-func (s *Service) GetUptimeCheckForSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *nodestats.UptimeCheck, err error) {
+// GetStatsFromSatellite returns storagenode stats from the satellite
+func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *nodestats.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	uptime, err := s.nodestats.GetUptimeCheckForSatellite(ctx, satelliteID)
+	stats, err := s.nodestats.GetStatsFromSatellite(ctx, satelliteID)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	return uptime, nil
+	return stats, nil
 }
 
 // GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps for a particular satellite

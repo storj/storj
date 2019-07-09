@@ -98,6 +98,8 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
+	// Buckets returns the database to interact with buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Config is the global config satellite
@@ -200,7 +202,7 @@ type Peer struct {
 	}
 
 	Vouchers struct {
-		Service *vouchers.Service
+		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -341,13 +343,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Service = vouchers.NewService(
+		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			config.Vouchers.Expiration,
 		)
-		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
@@ -401,7 +403,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
+		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
+			peer.Metainfo.Database,
+			peer.DB.Buckets(),
+		)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -426,8 +431,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval,
-			config.Checker.IrreparableInterval)
+			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),
@@ -748,6 +752,9 @@ func (peer *Peer) Local() overlay.NodeDossier { return peer.Kademlia.RoutingTabl
 
 // Addr returns the public address.
 func (peer *Peer) Addr() string { return peer.Server.Addr().String() }
+
+// URL returns the storj.NodeURL.
+func (peer *Peer) URL() storj.NodeURL { return storj.NodeURL{ID: peer.ID(), Address: peer.Addr()} }
 
 // PrivateAddr returns the private address.
 func (peer *Peer) PrivateAddr() string { return peer.Server.PrivateAddr().String() }

@@ -14,23 +14,16 @@
     import EmptyState from '@/components/common/EmptyStateArea.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-    @Component(
-        {
-            data: function () {
-                return {
-                    emptyImage: EMPTY_STATE_IMAGES.PROJECT,
-                };
-            },
-            components: {
-                EmptyState,
-            }
+    @Component({
+        data: function () {
+            return {
+                emptyImage: EMPTY_STATE_IMAGES.PROJECT,
+            };
+        },
+        components: {
+            EmptyState,
         }
-    )
+    })
 
-    export default class DashboardArea extends Vue {
-    }
+    export default class DashboardArea extends Vue {}
 </script>
-
-<style scoped lang="scss">
-
-</style>
