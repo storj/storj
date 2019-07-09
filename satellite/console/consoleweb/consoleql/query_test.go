@@ -36,7 +36,7 @@ func TestGraphqlQuery(t *testing.T) {
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
 			db.Rewards(),
-			localpayments.NewService(nil),
+			localpayments.NewService(),
 			console.TestPasswordCost,
 		)
 		require.NoError(t, err)
