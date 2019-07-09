@@ -676,9 +676,9 @@ model offer (
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 
-	// status has three possible value: NoStatus=0, Default=1, Active=2.
+	// status corresponds to the values of rewards.OfferStatus
 	field status int ( updatable )
-	// type has two possible value: FREE_CREDIT=0, REFERRAL=1
+	// type corresponds to the values of rewards.OfferType
 	field type int ( updatable )
 )
 
@@ -769,4 +769,11 @@ read one (
 delete bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
+)
+
+read limitoffset ( // Forward
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name >= ?
+	orderby asc bucket_metainfo.name
 )

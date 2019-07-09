@@ -44,14 +44,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function () {
             return {
                 projectName: '',
@@ -80,8 +79,7 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
                 let response = await this.$store.dispatch(
                     PROJETS_ACTIONS.DELETE,
-                    this.$store.getters.selectedProject.id,
-                );
+                    this.$store.getters.selectedProject.id);
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
@@ -99,8 +97,7 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
                 if (this.$store.state.projectsModule.projects.length > 0) {
                     this.$store.dispatch(
                         PROJETS_ACTIONS.SELECT,
-                        this.$store.state.projectsModule.projects[0].id,
-                    );
+                        this.$store.state.projectsModule.projects[0].id);
 
                     this.$store.dispatch(PM_ACTIONS.FETCH);
                     this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
@@ -120,11 +117,9 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
         components: {
             Button
         }
-    }
-)
+    })
 
-export default class DeleteProjectPopup extends Vue {
-}
+    export default class DeleteProjectPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">

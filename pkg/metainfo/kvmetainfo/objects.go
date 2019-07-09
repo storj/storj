@@ -271,7 +271,7 @@ func (db *DB) getInfo(ctx context.Context, bucket string, path storj.Path) (obj 
 	}
 
 	lastSegmentMeta := segments.Meta{
-		Modified:   convertTime(pointer.GetCreationDate()),
+		Modified:   pointer.CreationDate,
 		Expiration: convertTime(pointer.GetExpirationDate()),
 		Size:       pointer.GetSegmentSize(),
 		Data:       pointer.GetMetadata(),
