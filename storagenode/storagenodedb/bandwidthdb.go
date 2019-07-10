@@ -22,6 +22,7 @@ type bandwidthdb struct {
 }
 
 type bandwidthUsed struct {
+	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	used      int64
 	mu        sync.RWMutex
 	usedSince time.Time
