@@ -7,20 +7,21 @@ import (
 	"context"
 	"io"
 	"os"
+	"runtime"
 	"sync/atomic"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -292,23 +293,14 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 			// TODO: do this in a goroutine
 			{
-				var expiration *time.Time
-				if limit.PieceExpiration != nil {
-					exp, err := ptypes.Timestamp(limit.PieceExpiration)
-					if err != nil {
-						return ErrInternal.Wrap(err)
-					}
-					expiration = &exp
-				}
-
 				// TODO: maybe this should be as a pieceWriter.Commit(ctx, info)
 				info := &pieces.Info{
 					SatelliteID: limit.SatelliteId,
 
 					PieceID:         limit.PieceId,
 					PieceSize:       pieceWriter.Size(),
-					PieceCreation:   &limit.OrderCreation,
-					PieceExpiration: expiration,
+					PieceCreation:   limit.OrderCreation,
+					PieceExpiration: limit.PieceExpiration,
 
 					UplinkPieceHash: message.Done,
 					Uplink:          peer,
@@ -538,9 +530,8 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 		return
 	}
 	err = endpoint.orders.Enqueue(ctx, &orders.Info{
-		Limit:  limit,
-		Order:  order,
-		Uplink: uplink,
+		Limit: limit,
+		Order: order,
 	})
 	if err != nil {
 		endpoint.log.Error("failed to add order", zap.Error(err))
@@ -550,6 +541,52 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 			endpoint.log.Error("failed to add bandwidth usage", zap.Error(err))
 		}
 	}
+}
+
+// Retain keeps only piece ids specified in the request
+func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (*pb.RetainResponse, error) {
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	const limit = 1000
+	offset := 0
+	hasMorePieces := true
+
+	for hasMorePieces {
+		// subtract one hour to leave room for clock difference between the satellite and storage node
+		createdBefore := retainReq.GetCreationDate().Add(-1 * time.Hour)
+
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		for _, pieceID := range pieceIDs {
+			if !filter.Contains(pieceID) {
+				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
+					endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
+					// continue because if we fail to delete from file system,
+					// we need to keep the pieceinfo so we can delete next time
+					continue
+				}
+				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
+					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
+				}
+			}
+		}
+		hasMorePieces = (len(pieceIDs) == limit)
+		offset += len(pieceIDs)
+		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
+		// so other goroutines can continue serving requests.
+		runtime.Gosched()
+	}
+	return &pb.RetainResponse{}, nil
 }
 
 // min finds the min of two values

@@ -14,7 +14,8 @@ import (
 // DB contains information about bandwidth usage.
 type DB interface {
 	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
-	BandwidthUsed(ctx context.Context) (int64, error)
+	// MonthSummary returns summary of the current months bandwidth usages
+	MonthSummary(ctx context.Context) (int64, error)
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
 }

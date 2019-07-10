@@ -38,8 +38,8 @@ type Info struct {
 
 	PieceID         storj.PieceID
 	PieceSize       int64
-	PieceCreation   *time.Time
-	PieceExpiration *time.Time
+	PieceCreation   time.Time
+	PieceExpiration time.Time
 
 	UplinkPieceHash *pb.PieceHash
 	Uplink          *identity.PeerIdentity
@@ -58,6 +58,8 @@ type DB interface {
 	Add(context.Context, *Info) error
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
+	// GetPieceIDs gets pieceIDs using the satelliteID
+	GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// DeleteFailed marks piece deletion from disk failed
