@@ -58,7 +58,6 @@ type Checker struct {
 	repairQueue     queue.RepairQueue
 	nodestate       *ReliabilityCache
 	metainfo        *metainfo.Service
-	overlay         *overlay.Cache
 	garbageService  *gc.Service
 	pieceTracker    gc.PieceTracker
 	gcWaitGroup     sync.WaitGroup
