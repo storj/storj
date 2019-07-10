@@ -297,8 +297,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 					PieceCreation:   limit.OrderCreation,
 					PieceExpiration: limit.PieceExpiration,
 
-					UplinkPieceHash: message.Done,
 					OrderLimit:      limit,
+					UplinkPieceHash: message.Done,
 				}
 
 				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
