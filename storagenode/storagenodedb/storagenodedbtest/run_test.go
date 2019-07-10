@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -139,7 +139,7 @@ func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
 	piece := storj.NewPieceID()
 
 	serialNumber := testrand.SerialNumber()
-	exp := ptypes.TimestampNow()
+	expiration := time.Now()
 
 	limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satelliteIdentity), &pb.OrderLimit{
 		SerialNumber:    serialNumber,
@@ -149,8 +149,8 @@ func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
 		PieceId:         piece,
 		Limit:           100,
 		Action:          pb.PieceAction_GET,
-		PieceExpiration: exp,
-		OrderExpiration: exp,
+		PieceExpiration: expiration,
+		OrderExpiration: expiration,
 	})
 	require.NoError(t, err)
 
@@ -161,8 +161,7 @@ func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
 	require.NoError(t, err)
 
 	return &orders.Info{
-		Limit:  limit,
-		Order:  order,
-		Uplink: uplink.PeerIdentity(),
+		Limit: limit,
+		Order: order,
 	}
 }

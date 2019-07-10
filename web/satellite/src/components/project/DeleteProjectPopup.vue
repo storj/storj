@@ -134,12 +134,15 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .red {
         background-color: #EB5757;
     }
+
     .delete-project-popup {
         width: 100%;
         max-width: 800px;
@@ -246,7 +249,6 @@
 
             &__info-panel-container {
                 display: none;
-
             }
 
             &__form-container {

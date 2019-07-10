@@ -54,7 +54,6 @@ type DB interface {
 
 	Orders() orders.DB
 	PieceInfo() pieces.DB
-	CertDB() trust.CertDB
 	Bandwidth() bandwidth.DB
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
