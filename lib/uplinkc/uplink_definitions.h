@@ -18,13 +18,14 @@ typedef enum RedundancyAlgorithm {
     STORJ_REED_SOLOMON                 = 1
 } RedundancyAlgorithm;
 
-typedef struct APIKey     { long _handle; } APIKeyRef;
-typedef struct Uplink     { long _handle; } UplinkRef;
-typedef struct Project    { long _handle; } ProjectRef;
-typedef struct Bucket     { long _handle; } BucketRef;
-typedef struct Object     { long _handle; } ObjectRef;
-typedef struct Downloader { long _handle; } DownloaderRef;
-typedef struct Uploader   { long _handle; } UploaderRef;
+typedef struct APIKey           { long _handle; } APIKeyRef;
+typedef struct Uplink           { long _handle; } UplinkRef;
+typedef struct Project          { long _handle; } ProjectRef;
+typedef struct Bucket           { long _handle; } BucketRef;
+typedef struct Object           { long _handle; } ObjectRef;
+typedef struct Downloader       { long _handle; } DownloaderRef;
+typedef struct Uploader         { long _handle; } UploaderRef;
+typedef struct EncryptionAccess { long _handle; } EncryptionAccessRef;
 
 typedef struct UplinkConfig {
     struct {

@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	_libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
 )
 
 func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplanet.Planet)) {
@@ -170,26 +168,12 @@ func TestLibstorj(t *testing.T) {
 		cfg := _libuplink.Config{}
 		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-		// TODO: temporary ------------------------------------------------- //
-		var defaultKey storj.Key
-		copy(defaultKey[:], "123a123")
-		encryptionAccess := _libuplink.NewEncryptionAccessWithDefaultKey(defaultKey)
-		require.NotEmpty(t, encryptionAccess)
-
-		encryptionAccessStr, err := encryptionAccess.Serialize()
-		require.NoError(t, err)
-		require.NotEmpty(t, encryptionAccessStr)
-		fmt.Printf("encryption access: %s\n", encryptionAccessStr)
-		// ----------------------------------------------------------------- //
-
 		cmd := exec.Command(testexe)
 		cmd.Dir = filepath.Dir(testexe)
 		cmd.Env = append(os.Environ(),
 			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
 			"TMPDIR="+filepath.Dir(libuplink.Library),
-			//-- TEMP
-			"ENC_ACCESS="+encryptionAccessStr,
 		)
 
 		out, err := cmd.CombinedOutput()
