@@ -120,103 +120,103 @@
              align-items: center;
              justify-content: space-between;
 
-        &__card-logo {
-             height: 70px;
-             width: 85px;
-         }
+            &__card-logo {
+                 height: 70px;
+                 width: 85px;
+             }
 
-        &__info-container {
+            &__info-container {
 
-            h1 {
-                font-family: 'font_bold';
-                font-size: 16px;
-                line-height: 21px;
-                color: #61666B;
+                h1 {
+                    font-family: 'font_bold';
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #61666B;
+                }
+
+                h2 {
+                    font-family: 'font_regular';
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #61666B;
+                    margin-block-start: 0.5em;
+                    margin-block-end: 0.5em;
+                }
             }
 
-            h2 {
-                font-family: 'font_regular';
-                font-size: 16px;
-                line-height: 21px;
-                color: #61666B;
-                margin-block-start: 0.5em;
-                margin-block-end: 0.5em;
+            &__expire-container {
+
+                h1 {
+                    font-family: 'font_bold';
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #61666B;
+                    margin-block-start: 0.5em;
+                    margin-block-end: 0.5em;
+                }
+
+                h2 {
+                    font-family: 'font_regular';
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #61666B;
+                }
             }
+
+            &__added-text {
+                 font-family: 'font_regular';
+                 font-size: 16px;
+                 line-height: 21px;
+                 color: #61666B;
+             }
         }
 
-    &__expire-container {
+        &__default-button {
+             width: 100px;
+             height: 34px;
+             border-radius: 6px;
+             background-color: #F5F6FA;
+             display: flex;
+             justify-content: center;
+             align-items: center;
 
-    h1 {
-        font-family: 'font_bold';
-        font-size: 16px;
-        line-height: 21px;
-        color: #61666B;
-        margin-block-start: 0.5em;
-        margin-block-end: 0.5em;
-    }
+            &__label {
+                 font-family: 'font_medium';
+                 font-size: 16px;
+                 line-height: 23px;
+                 color: #AFB7C1;
+             }
+        }
 
-    h2 {
-        font-family: 'font_regular';
-        font-size: 16px;
-        line-height: 21px;
-        color: #61666B;
-    }
-    }
+        &__button-area {
+             width: 20%;
+             display: flex;
+             justify-content: space-between;
+             align-items: center;
+             position: relative;
 
-    &__added-text {
-         font-family: 'font_regular';
-         font-size: 16px;
-         line-height: 21px;
-         color: #61666B;
-     }
-    }
+            &__make-button {
+             width: 134px;
+             height: 34px;
+             border-radius: 6px;
+             background-color: #DFEDFF;
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             cursor: pointer;
 
-    &__default-button {
-         width: 100px;
-         height: 34px;
-         border-radius: 6px;
-         background-color: #F5F6FA;
-         display: flex;
-         justify-content: center;
-         align-items: center;
+                &__label {
+                     font-family: 'font_medium';
+                     font-size: 16px;
+                     line-height: 23px;
+                     color: #2683FF;
+                 }
+            }
 
-    &__label {
-         font-family: 'font_medium';
-         font-size: 16px;
-         line-height: 23px;
-         color: #AFB7C1;
-     }
-    }
-
-    &__button-area {
-         width: 20%;
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         position: relative;
-
-    &__make-button {
-         width: 134px;
-         height: 34px;
-         border-radius: 6px;
-         background-color: #DFEDFF;
-         display: flex;
-         justify-content: center;
-         align-items: center;
-         cursor: pointer;
-
-    &__label {
-         font-family: 'font_medium';
-         font-size: 16px;
-         line-height: 23px;
-         color: #2683FF;
-     }
-    }
-
-    svg {
-        cursor: pointer;
-    }
-    }
+            svg {
+                cursor: pointer;
+            }
+        }
     }
 
     .make-default-container {
