@@ -84,7 +84,7 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 	if !expiration.IsZero() {
 		exp, err = ptypes.TimestampProto(expiration)
 		if err != nil {
-			return nil, rootPieceID, err
+			return nil, rootPieceID, Error.Wrap(err)
 		}
 	}
 
@@ -235,7 +235,7 @@ func (client *Client) SetAttribution(ctx context.Context, bucket string, partner
 		BucketName: []byte(bucket),
 	})
 
-	return err
+	return Error.Wrap(err)
 }
 
 // GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
@@ -254,11 +254,11 @@ func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ 
 		if status.Code(err) == codes.NotFound {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
-		return storj.Bucket{}, err
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 
 	bucket = convertProtoToBucket(resp.Bucket)
-	return bucket, err
+	return bucket, nil
 }
 
 // GetBucket returns a bucket
@@ -269,10 +269,10 @@ func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj
 		if status.Code(err) == codes.NotFound {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
-		return storj.Bucket{}, err
+		return storj.Bucket{}, Error.Wrap(err)
 	}
 	bucket := convertProtoToBucket(resp.Bucket)
-	return bucket, err
+	return bucket, nil
 }
 
 // DeleteBucket deletes a bucket
@@ -283,7 +283,7 @@ func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err 
 		if status.Code(err) == codes.NotFound {
 			return storj.ErrBucketNotFound.Wrap(err)
 		}
-		return err
+		return Error.Wrap(err)
 	}
 	return nil
 }
@@ -297,7 +297,7 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 	}
 	resp, err := client.client.ListBuckets(ctx, req)
 	if err != nil {
-		return storj.BucketList{}, err
+		return storj.BucketList{}, Error.Wrap(err)
 	}
 	resultBucketList := storj.BucketList{}
 	resultBucketList.Items = make([]storj.Bucket, len(resp.GetItems()))
