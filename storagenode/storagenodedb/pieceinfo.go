@@ -57,6 +57,32 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	return ErrInfo.Wrap(err)
 }
 
+// GetPieceIDs gets pieceIDs using the satelliteID
+func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+		SELECT piece_id
+		FROM pieceinfo
+		WHERE satellite_id = ? AND piece_creation < ?
+		ORDER BY piece_id
+		LIMIT ? OFFSET ?
+	`), satelliteID, createdBefore, limit, offset)
+	if err != nil {
+		return nil, ErrInfo.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var pieceID storj.PieceID
+		err = rows.Scan(&pieceID)
+		if err != nil {
+			return pieceIDs, ErrInfo.Wrap(err)
+		}
+		pieceIDs = append(pieceIDs, pieceID)
+	}
+	return pieceIDs, nil
+}
+
 // Get gets piece information by satellite id and piece id.
 func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (_ *pieces.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
