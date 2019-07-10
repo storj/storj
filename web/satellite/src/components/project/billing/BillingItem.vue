@@ -57,8 +57,8 @@
         outline: none;
         
         &:hover {
-	        background: #fff;
-	        box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
+            background: #fff;
+            box-shadow: 0px 4px 4px rgba(231, 232, 238, 0.6);
         }
         
         &__item {

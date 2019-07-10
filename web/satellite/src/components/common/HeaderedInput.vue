@@ -122,16 +122,16 @@
     	flex-direction: row;
     
     	&__add-label {
-    		margin-left: 5px;
-    		font-family: 'font_regular';
-    		font-size: 16px;
-    		line-height: 21px;
-    		color: rgba(56, 75, 101, 0.4);
+            margin-left: 5px;
+            font-family: 'font_regular';
+            font-size: 16px;
+            line-height: 21px;
+            color: rgba(56, 75, 101, 0.4);
     	}
     
     	&__error {
-    		color: #FF5560;
-    		margin-left: 10px;
+            color: #FF5560;
+            margin-left: 10px;
     	}
     }
     
@@ -143,10 +143,10 @@
     	width: 100%;
     
     	h4 {
-    		font-family: 'font_regular';
-    		font-size: 16px;
-    		line-height: 21px;
-    		color: #AFB7C1;
+            font-family: 'font_regular';
+            font-size: 16px;
+            line-height: 21px;
+            color: #AFB7C1;
     	}
     }
     

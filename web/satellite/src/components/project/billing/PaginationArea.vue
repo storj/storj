@@ -67,7 +67,7 @@
                 svg {
                 
                     path {
-                    fill: #fff !important;
+                        fill: #fff !important;
                     }
                 }
             }

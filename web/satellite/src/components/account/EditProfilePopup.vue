@@ -131,28 +131,28 @@
     }
 
     .edit-profile-row-container {
-	    width: 100%;
-	    display: flex;
-	    flex-direction: row;
-	    align-content: center;
-	    justify-content: flex-start;
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        align-content: center;
+        justify-content: flex-start;
     }
     
     .edit-profile-popup-container {
-	    position: fixed;
-	    top: 0;
-	    left: 0;
-	    right: 0;
-	    bottom: 0;
-	    background-color: rgba(134, 134, 148, 0.4);
-	    z-index: 1000;
-	    display: flex;
-	    justify-content: center;
-	    align-items: center;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(134, 134, 148, 0.4);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     
     .input-container.full-input {
-	    width: 100%;
+        width: 100%;
     }
 
     .edit-profile-popup {

@@ -282,7 +282,7 @@
                     svg {
 	                    
                         path {
-	                        fill: #ffffff !important;
+                            fill: #ffffff !important;
                         }
                     }
                 }
