@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -43,30 +44,6 @@ type Server struct {
 	}
 }
 
-// offerSet provides a separation of marketing offers by type.
-type offerSet struct {
-	ReferralOffers rewards.Offers
-	FreeCredits    rewards.Offers
-}
-
-// organizeOffers organizes offers by type.
-func organizeOffers(offers []rewards.Offer) offerSet {
-	var os offerSet
-	for _, offer := range offers {
-
-		switch offer.Type {
-		case rewards.FreeCredit:
-			os.FreeCredits.Set = append(os.FreeCredits.Set, offer)
-		case rewards.Referral:
-			os.ReferralOffers.Set = append(os.ReferralOffers.Set, offer)
-		default:
-			continue
-		}
-
-	}
-	return os
-}
-
 // commonPages returns templates that are required for all routes.
 func (s *Server) commonPages() []string {
 	return []string{
@@ -93,6 +70,7 @@ func NewServer(logger *zap.Logger, config Config, db rewards.DB, listener net.Li
 		mux.HandleFunc("/", s.GetOffers)
 		mux.PathPrefix("/static/").Handler(fs)
 		mux.HandleFunc("/create/{offer_type}", s.CreateOffer)
+		mux.HandleFunc("/stop/{offer_id}", s.StopOffer)
 	}
 	s.server.Handler = mux
 
@@ -119,7 +97,7 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := s.templates.home.ExecuteTemplate(w, "base", organizeOffers(offers)); err != nil {
+	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 		s.serveInternalError(w, req, err)
 	}
@@ -133,6 +111,8 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "referral-offers-modal.html"),
 		filepath.Join(s.templateDir, "free-offers.html"),
 		filepath.Join(s.templateDir, "free-offers-modal.html"),
+		filepath.Join(s.templateDir, "stop-free-credit.html"),
+		filepath.Join(s.templateDir, "stop-referral-offer.html"),
 	)
 
 	pageNotFoundFiles := append(s.commonPages(),
@@ -147,7 +127,9 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "err.html"),
 	)
 
-	s.templates.home, err = template.New("landingPage").ParseFiles(homeFiles...)
+	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
+		"isEmpty": rewards.Offer.IsEmpty,
+	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -196,6 +178,24 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	if _, err := s.db.Create(req.Context(), &offer); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
 		s.serveBadRequest(w, req, err)
+		return
+	}
+
+	http.Redirect(w, req, "/", http.StatusSeeOther)
+}
+
+// StopOffer expires the current offer and replaces it with the default offer.
+func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
+	offerID, err := strconv.Atoi(mux.Vars(req)["offer_id"])
+	if err != nil {
+		s.log.Error("failed to parse offer id", zap.Error(err))
+		s.serveBadRequest(w, req, err)
+		return
+	}
+
+	if err := s.db.Finish(req.Context(), offerID); err != nil {
+		s.log.Error("failed to stop offer", zap.Error(err))
+		s.serveInternalError(w, req, err)
 		return
 	}
 

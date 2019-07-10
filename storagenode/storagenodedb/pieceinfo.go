@@ -24,8 +24,9 @@ type pieceinfo struct {
 }
 
 type spaceUsed struct {
-	once sync.Once
+	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	used int64
+	once sync.Once
 }
 
 // PieceInfo returns database for storing piece information
@@ -160,7 +161,7 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT satellite_id, piece_id, piece_size
 		FROM pieceinfo
-		WHERE piece_expiration < ? AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
+		WHERE datetime(piece_expiration) < datetime(?) AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
 		ORDER BY satellite_id
 		LIMIT ?
 	`), expiredAt, expiredAt, limit)
