@@ -63,7 +63,7 @@ public class LibuplinkInstrumentedTest {
             try {
                 project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
 
-                String expectedBucket = "testBucket";
+                String expectedBucket = "test-bucket";
                 project.createBucket(expectedBucket, new BucketConfig());
                 BucketInfo bucketInfo = project.getBucketInfo(expectedBucket);
                 Assert.assertEquals(expectedBucket, bucketInfo.getName());
@@ -96,7 +96,7 @@ public class LibuplinkInstrumentedTest {
                 BucketConfig bucketConfig = new BucketConfig();
                 Set<String> expectedBuckets = new HashSet<>();
                 for (int i = 0; i < 10; i++) {
-                    String expectedBucket = "testBucket" + i;
+                    String expectedBucket = "test-bucket" + i;
                     project.createBucket(expectedBucket, bucketConfig);
                     expectedBuckets.add(expectedBucket);
                 }
@@ -137,10 +137,10 @@ public class LibuplinkInstrumentedTest {
                 access.setDefaultKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
-                scheme.setRequiredShares((short) 2);
-                scheme.setRepairShares((short) 4);
-                scheme.setOptimalShares((short) 6);
-                scheme.setTotalShares((short) 8);
+                scheme.setRequiredShares((short) 4);
+                scheme.setRepairShares((short) 6);
+                scheme.setOptimalShares((short) 8);
+                scheme.setTotalShares((short) 10);
 
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(scheme);
@@ -156,7 +156,7 @@ public class LibuplinkInstrumentedTest {
                 {
                     Writer writer = bucket.newWriter("object/path", new WriterOptions());
                     try {
-                        writer.write(expectedData,0, expectedData.length);
+                        writer.write(expectedData, 0, expectedData.length);
                     } finally {
                         writer.close();
                     }
@@ -201,10 +201,10 @@ public class LibuplinkInstrumentedTest {
                 access.setDefaultKey("TestEncryptionKey".getBytes());
 
                 RedundancyScheme scheme = new RedundancyScheme();
-                scheme.setRequiredShares((short) 2);
-                scheme.setRepairShares((short) 4);
-                scheme.setOptimalShares((short) 6);
-                scheme.setTotalShares((short) 8);
+                scheme.setRequiredShares((short) 4);
+                scheme.setRepairShares((short) 6);
+                scheme.setOptimalShares((short) 8);
+                scheme.setTotalShares((short) 10);
 
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(scheme);
@@ -266,6 +266,7 @@ public class LibuplinkInstrumentedTest {
         Uplink uplink = new Uplink(config, filesDir);
         try {
             Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+
             try {
                 EncryptionAccess access = new EncryptionAccess();
                 access.setDefaultKey("TestEncryptionKey".getBytes());
@@ -273,10 +274,10 @@ public class LibuplinkInstrumentedTest {
                 BucketConfig bucketConfig = new BucketConfig();
                 bucketConfig.setRedundancyScheme(new RedundancyScheme());
 
-                BucketInfo bucketInfo = project.createBucket("testBucket", bucketConfig);
-                assertEquals("testBucket", bucketInfo.getName());
+                BucketInfo bucketInfo = project.createBucket("test-bucket", bucketConfig);
+                assertEquals("test-bucket", bucketInfo.getName());
 
-                Bucket bucket = project.openBucket("testBucket", access);
+                Bucket bucket = project.openBucket("test-bucket", access);
 
                 long before = System.currentTimeMillis();
 
@@ -300,7 +301,7 @@ public class LibuplinkInstrumentedTest {
 
                 for (int i = 0; i < list.length(); i++) {
                     ObjectInfo info = list.item(i);
-                    assertEquals("testBucket", info.getBucket());
+                    assertEquals("test-bucket", info.getBucket());
                     assertTrue(info.getCreated() >= before);
 
                     // cleanup
@@ -309,7 +310,7 @@ public class LibuplinkInstrumentedTest {
 
                 bucket.close();
 
-                project.deleteBucket("testBucket");
+                project.deleteBucket("test-bucket");
             } finally {
                 project.close();
             }
@@ -317,4 +318,71 @@ public class LibuplinkInstrumentedTest {
             uplink.close();
         }
     }
+
+    @Test
+    public void testEncryptionAccessFromPassphrase() throws Exception {
+        Config config = new Config();
+
+        Uplink uplink = new Uplink(config, filesDir);
+        try {
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            try {
+                byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
+                EncryptionAccess ea = new EncryptionAccess(saltedKey);
+                String serialized = ea.serialize();
+                assertNotEquals("", serialized);
+            } finally {
+                project.close();
+            }
+        } finally {
+            uplink.close();
+        }
+    }
+
+    @Test
+    public void testEncryptionAccessWithRoot() throws Exception {
+        Config config = new Config();
+
+        Uplink uplink = new Uplink(config, filesDir);
+        try {
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            try {
+                byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
+                EncryptionAccess ea = Mobile.newEncryptionAccessWithRoot("bucket", "unencryptedPath", "encryptedPath", saltedKey);
+                String serialized = ea.serialize();
+                assertNotEquals("", serialized);
+            } finally {
+                project.close();
+            }
+        } finally {
+            uplink.close();
+        }
+    }
+
+    @Test
+    public void testApiKey() throws Exception {
+        String apiKeyData = "13YqeKQiA3ANSuDu4rqX6eGs3YWox9GRi9rEUKy1HidXiNNm6a5SiE49Hk9gomHZVcQhq4eFQh8yhDgfGKg268j6vqWKEhnJjFPLqAP";
+        APIKey apiKey = Mobile.parseAPIKey(apiKeyData);
+
+        String serialized = apiKey.serialize();
+        assertEquals(serialized, apiKeyData);
+
+        Caveat caveat = new Caveat();
+        caveat.setDisallowDeletes(true);
+        caveat.setDisallowWrites(true);
+        caveat.setDisallowReads(true);
+        caveat.setDisallowLists(true);
+        caveat.setNotAfter(100);
+        caveat.setNotBefore(50);
+
+        CaveatPath path = new CaveatPath();
+        path.setBucket("bucket".getBytes());
+        path.setEncryptedPathPrefix("123456".getBytes());
+        caveat.addCaveatPath(path);
+
+        APIKey newAPIKey = apiKey.restrict(caveat);
+        assertNotEquals("", newAPIKey.serialize());
+    }
+
+
 }

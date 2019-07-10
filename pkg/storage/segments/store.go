@@ -128,13 +128,13 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
-		bucket, _, _, err := splitPathFragments(p)
+		bucket, objectPath, _, err := splitPathFragments(p)
 		if err != nil {
 			return Meta{}, err
 		}
 
 		// path and segment index are not known at this point
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, "", -1, redundancy, s.maxEncryptedSegmentSize, expiration)
+		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, objectPath, -1, redundancy, s.maxEncryptedSegmentSize, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
