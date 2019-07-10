@@ -133,7 +133,7 @@ func TestDataRepair(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.Limiter.Wait()
 
-		// repaired segment should not contain any pice in the killed and DQ nodes
+		// repaired segment should not contain any piece in the killed and DQ nodes
 		metainfo := satellite.Metainfo.Service
 		pointer, err = metainfo.Get(ctx, path)
 		require.NoError(t, err)
