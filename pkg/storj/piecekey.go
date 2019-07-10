@@ -6,9 +6,8 @@ package storj
 import (
 	"database/sql/driver"
 
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/zeebo/errs"
+	"golang.org/x/crypto/ed25519"
 )
 
 // ErrPieceKey is used when something goes wrong with a piece key
