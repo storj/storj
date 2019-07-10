@@ -45,26 +45,15 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("order created too long ago: %v", limit.OrderCreation)
 	case limit.SatelliteId.IsZero():
 		return ErrProtocol.New("missing satellite id")
-	case limit.UplinkId.IsZero():
-		return ErrProtocol.New("missing uplink id")
+	case limit.UplinkPublicKey.IsZero():
+		return ErrProtocol.New("missing uplink public key")
 	case len(limit.SatelliteSignature) == 0:
 		return ErrProtocol.New("missing satellite signature")
 	case limit.PieceId.IsZero():
 		return ErrProtocol.New("missing piece id")
 	}
 
-	// either uplink or satellite can only make the request
-	// TODO: should this check be based on the action?
-	//       with macaroons we might not have either of them doing the action
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil || limit.UplinkId != peer.ID && limit.SatelliteId != peer.ID {
-		return ErrVerifyNotAuthorized.New("uplink:%s satellite:%s sender %s", limit.UplinkId, limit.SatelliteId, peer.ID)
-	}
-
 	if err := endpoint.trust.VerifySatelliteID(ctx, limit.SatelliteId); err != nil {
-		return ErrVerifyUntrusted.Wrap(err)
-	}
-	if err := endpoint.trust.VerifyUplinkID(ctx, limit.UplinkId); err != nil {
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
@@ -125,8 +114,13 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.Pe
 		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyPieceHashSignature(ctx, signing.SigneeFromPeerIdentity(peer), hash); err != nil {
-		return ErrVerifyUntrusted.New("invalid hash signature: %v", err) // TODO: report grpc status bad message
+	bytes, err := signing.EncodePieceHash(ctx, hash)
+	if err != nil {
+		return ErrProtocol.Wrap(err)
+	}
+
+	if !limit.UplinkPublicKey.Verify(bytes, expectedHash) {
+		return ErrVerifyUntrusted.New("invalid piece hash signature") // TODO: report grpc status bad message
 	}
 
 	return nil

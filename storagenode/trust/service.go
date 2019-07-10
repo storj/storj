@@ -83,13 +83,6 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err e
 	return nil
 }
 
-// VerifyUplinkID verifides whether id corresponds to a trusted uplink.
-func (pool *Pool) VerifyUplinkID(ctx context.Context, id storj.NodeID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	// trusting all the uplinks for now
-	return nil
-}
-
 // GetSignee gets the corresponding signee for verifying signatures.
 // It ignores passed in ctx cancellation to avoid miscaching between concurrent requests.
 func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Signee, err error) {

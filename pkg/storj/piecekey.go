@@ -62,15 +62,17 @@ func (key PiecePublicKey) Bytes() []byte { return key.pub[:] }
 // Bytes returns bytes of the piece private key
 func (key PiecePrivateKey) Bytes() []byte { return key.priv[:] }
 
+// IsZero returns whether the key is empty.
+func (key PiecePublicKey) IsZero() bool { return len(key.pub) == 0 }
+
+// IsZero returns whether the key is empty.
+func (key PiecePrivateKey) IsZero() bool { return len(key.priv) == 0 }
+
 // Marshal serializes a piece public key
-func (key PiecePublicKey) Marshal() ([]byte, error) {
-	return key.Bytes(), nil
-}
+func (key PiecePublicKey) Marshal() ([]byte, error) { return key.Bytes(), nil }
 
 // Marshal serializes a piece private key
-func (key PiecePrivateKey) Marshal() ([]byte, error) {
-	return key.Bytes(), nil
-}
+func (key PiecePrivateKey) Marshal() ([]byte, error) { return key.Bytes(), nil }
 
 // MarshalTo serializes a piece public key into the passed byte slice
 func (key *PiecePublicKey) MarshalTo(data []byte) (n int, err error) {
