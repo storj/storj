@@ -40,6 +40,7 @@ const (
 const (
 	internalErrMsg                       = "It looks like we had a problem on our end. Please try again"
 	unauthorizedErrMsg                   = "You are not authorized to perform this action"
+	verifyEmailErrMsg                    = "Please validate your email"
 	vanguardRegTokenErrMsg               = "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	emailUsedErrMsg                      = "This email is already in use, try another"
 	activationTokenIsExpiredErrMsg       = "Your account activation link has expired, please sign up again"
@@ -475,6 +476,17 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
+		users, err := s.store.Users().GetAllByEmail(ctx, email)
+		if err != nil {
+			return "", errs.New(internalErrMsg)
+		}
+
+		for _, userToCheck := range users {
+			if err = bcrypt.CompareHashAndPassword(userToCheck.PasswordHash, []byte(password)); err == nil {
+				return "", errs.New(verifyEmailErrMsg)
+			}
+		}
+
 		return "", errs.New(credentialsErrMsg)
 	}
 

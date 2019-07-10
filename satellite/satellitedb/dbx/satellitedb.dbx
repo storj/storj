@@ -228,6 +228,10 @@ read one (
     where user.email = ?
     where user.status != 0
 )
+read all (
+    select user
+    where user.email = ?
+)
 read one (
     select user
     where user.id = ?

@@ -648,7 +648,14 @@ func (m *lockedUsers) Get(ctx context.Context, id uuid.UUID) (*console.User, err
 	return m.db.Get(ctx, id)
 }
 
-// GetByEmail is a method for querying user by email from the database.
+// GetAllByEmail is a method for querying all users by email from the database.
+func (m *lockedUsers) GetAllByEmail(ctx context.Context, email string) ([]*console.User, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetAllByEmail(ctx, email)
+}
+
+// GetByEmail is a method for querying user with confirmed email by email from the database.
 func (m *lockedUsers) GetByEmail(ctx context.Context, email string) (*console.User, error) {
 	m.Lock()
 	defer m.Unlock()

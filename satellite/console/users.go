@@ -15,8 +15,10 @@ import (
 type Users interface {
 	// Get is a method for querying user from the database by id.
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
-	// GetByEmail is a method for querying user by email from the database.
+	// GetByEmail is a method for querying user with confirmed email by email from the database.
 	GetByEmail(ctx context.Context, email string) (*User, error)
+	// GetAllByEmail is a method for querying all users by email from the database.
+	GetAllByEmail(ctx context.Context, email string) ([]*User, error)
 	// Insert is a method for inserting user into the database.
 	Insert(ctx context.Context, user *User) (*User, error)
 	// Delete is a method for deleting user by Id from the database.
