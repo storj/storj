@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pkcrypto"
 )
 
@@ -81,27 +82,21 @@ func TestServer(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.Name, func(t *testing.T) {
+			ctx := testcontext.NewWithTimeout(t, time.Minute)
+			defer ctx.Cleanup()
+
 			s, ok := testCase.NewServer(t)
 			if !ok {
 				return
 			}
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			errCh := make(chan error, 1)
-			go func() {
-				errCh <- s.Run(ctx)
-			}()
+			runCtx, cancel := context.WithCancel(ctx)
+			ctx.Go(func() error {
+				return s.Run(runCtx)
+			})
 
 			testCase.DoGet(t, s)
-
 			cancel()
-			select {
-			case err := <-errCh:
-				assert.NoError(t, err, "Run() should not have failed")
-			case <-time.After(time.Minute):
-				assert.Fail(t, "timed out waiting for Run() to return")
-			}
 		})
 	}
 }
@@ -114,25 +109,25 @@ type serverTestCase struct {
 	NewErr    string
 }
 
-func (c *serverTestCase) NewServer(tb testing.TB) (*Server, bool) {
+func (testCase *serverTestCase) NewServer(tb testing.TB) (*Server, bool) {
 	s, err := New(zaptest.NewLogger(tb), Config{
 		Name:      "test",
-		Address:   c.Address,
-		Handler:   c.Handler,
-		TLSConfig: c.TLSConfig,
+		Address:   testCase.Address,
+		Handler:   testCase.Handler,
+		TLSConfig: testCase.TLSConfig,
 	})
-	if c.NewErr != "" {
-		require.EqualError(tb, err, c.NewErr)
+	if testCase.NewErr != "" {
+		require.EqualError(tb, err, testCase.NewErr)
 		return nil, false
 	}
 	require.NoError(tb, err)
 	return s, true
 }
 
-func (c *serverTestCase) DoGet(tb testing.TB, s *Server) {
+func (testCase *serverTestCase) DoGet(tb testing.TB, s *Server) {
 	scheme := "http"
 	client := &http.Client{}
-	if c.TLSConfig != nil {
+	if testCase.TLSConfig != nil {
 		scheme = "https"
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{

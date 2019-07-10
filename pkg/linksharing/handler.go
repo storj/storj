@@ -68,13 +68,13 @@ func NewHandler(config HandlerConfig) (*Handler, error) {
 }
 
 // ServeHTTP handles link sharing requests
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// serveHTTP handles the request in full. the error that is returned can
 	// be ignored since it was only added to facilitate monitoring.
-	_ = h.serveHTTP(w, r)
+	_ = handler.serveHTTP(w, r)
 }
 
-func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err error) {
+func (handler *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err error) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(&err)
 
@@ -97,41 +97,41 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err error) 
 		return err
 	}
 
-	p, err := h.uplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	p, err := handler.uplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
 	if err != nil {
-		h.handleUplinkErr(w, "open project", err)
+		handler.handleUplinkErr(w, "open project", err)
 		return err
 	}
 	defer func() {
 		if err := p.Close(); err != nil {
-			h.log.With(zap.Error(err)).Warn("unable to close project")
+			handler.log.With(zap.Error(err)).Warn("unable to close project")
 		}
 	}()
 
 	b, err := p.OpenBucket(ctx, bucket, scope.EncryptionAccess)
 	if err != nil {
-		h.handleUplinkErr(w, "open bucket", err)
+		handler.handleUplinkErr(w, "open bucket", err)
 		return err
 	}
 	defer func() {
 		if err := b.Close(); err != nil {
-			h.log.With(zap.Error(err)).Warn("unable to close bucket")
+			handler.log.With(zap.Error(err)).Warn("unable to close bucket")
 		}
 	}()
 
 	o, err := b.OpenObject(ctx, unencPath)
 	if err != nil {
-		h.handleUplinkErr(w, "open object", err)
+		handler.handleUplinkErr(w, "open object", err)
 		return err
 	}
 	defer func() {
 		if err := o.Close(); err != nil {
-			h.log.With(zap.Error(err)).Warn("unable to close object")
+			handler.log.With(zap.Error(err)).Warn("unable to close object")
 		}
 	}()
 
 	if locationOnly {
-		location := makeLocation(h.urlBase, r.URL.Path)
+		location := makeLocation(handler.urlBase, r.URL.Path)
 		http.Redirect(w, r, location, http.StatusFound)
 		return nil
 	}
@@ -140,14 +140,14 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err error) 
 	return nil
 }
 
-func (h *Handler) handleUplinkErr(w http.ResponseWriter, action string, err error) {
+func (handler *Handler) handleUplinkErr(w http.ResponseWriter, action string, err error) {
 	switch {
 	case storj.ErrBucketNotFound.Has(err):
 		http.Error(w, "bucket not found", http.StatusNotFound)
 	case storj.ErrObjectNotFound.Has(err):
 		http.Error(w, "object not found", http.StatusNotFound)
 	default:
-		h.log.Error("unable to handle request", zap.String("action", action), zap.Error(err))
+		handler.log.Error("unable to handle request", zap.String("action", action), zap.Error(err))
 		http.Error(w, "unable to handle request", http.StatusInternalServerError)
 	}
 }
@@ -188,13 +188,13 @@ func newObjectRanger(o *uplink.Object) ranger.Ranger {
 	}
 }
 
-func (r *objectRanger) Size() int64 {
-	return r.o.Meta.Size
+func (ranger *objectRanger) Size() int64 {
+	return ranger.o.Meta.Size
 }
 
-func (r *objectRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
+func (ranger *objectRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return r.o.DownloadRange(ctx, offset, length)
+	return ranger.o.DownloadRange(ctx, offset, length)
 }
 
 func parseURLBase(s string) (*url.URL, error) {

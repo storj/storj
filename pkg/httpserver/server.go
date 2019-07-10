@@ -91,35 +91,35 @@ func New(log *zap.Logger, config Config) (*Server, error) {
 }
 
 // Run runs the server until it's either closed or it errors.
-func (s *Server) Run(ctx context.Context) (err error) {
+func (server *Server) Run(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 
 	group.Go(func() error {
 		<-ctx.Done()
-		s.log.Info("Server shutting down")
-		return shutdownWithTimeout(s.server, s.shutdownTimeout)
+		server.log.Info("Server shutting down")
+		return shutdownWithTimeout(server.server, server.shutdownTimeout)
 	})
 	group.Go(func() (err error) {
 		defer cancel()
-		s.log.With(zap.String("addr", s.Addr())).Sugar().Info("Server started")
-		if s.server.TLSConfig == nil {
-			err = s.server.Serve(s.listener)
+		server.log.With(zap.String("addr", server.Addr())).Sugar().Info("Server started")
+		if server.server.TLSConfig == nil {
+			err = server.server.Serve(server.listener)
 		} else {
-			err = s.server.ServeTLS(s.listener, "", "")
+			err = server.server.ServeTLS(server.listener, "", "")
 		}
 		if err == http.ErrServerClosed {
 			return nil
 		}
-		s.log.With(zap.Error(err)).Error("Server closed unexpectedly")
+		server.log.With(zap.Error(err)).Error("Server closed unexpectedly")
 		return err
 	})
 	return group.Wait()
 }
 
 // Addr returns the public address.
-func (s *Server) Addr() string {
-	return s.listener.Addr().String()
+func (server *Server) Addr() string {
+	return server.listener.Addr().String()
 }
 
 func shutdownWithTimeout(server *http.Server, timeout time.Duration) error {
