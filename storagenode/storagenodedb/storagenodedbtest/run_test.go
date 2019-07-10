@@ -161,7 +161,8 @@ func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
 	require.NoError(t, err)
 
 	return &orders.Info{
-		Limit: limit,
-		Order: order,
+		Limit:  limit,
+		Order:  order,
+		Uplink: uplink.PeerIdentity(),
 	}
 }

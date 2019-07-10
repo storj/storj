@@ -17,10 +17,10 @@ type usedSerials struct {
 	*InfoDB
 }
 
-// UsedSerials returns used serials database.
+// UsedSerials returns certificate database.
 func (db *DB) UsedSerials() piecestore.UsedSerials { return db.info.UsedSerials() }
 
-// UsedSerials returns used serials database.
+// UsedSerials returns certificate database.
 func (db *InfoDB) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
 
 // Add adds a serial to the database.
