@@ -795,18 +795,18 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}, nil
 }
 
-func getAllowedBuckets(ctx context.Context, action macaroon.Action) (allowedBuckets map[string]struct{}, err error) {
+func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
 	}
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
 	}
-	allowedBuckets, err = key.GetAllowedBuckets(ctx, action)
+	allowedBuckets, err := key.GetAllowedBuckets(ctx, action)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
 	}
 	return allowedBuckets, err
 }

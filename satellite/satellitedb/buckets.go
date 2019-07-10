@@ -10,6 +10,7 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -88,7 +89,7 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 }
 
 // ListBuckets returns a list of buckets for a project
-func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets map[string]struct{}) (bucketList storj.BucketList, err error) {
+func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	const defaultListLimit = 10000
@@ -129,11 +130,10 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			bucketList.Items = make([]storj.Bucket, 0, len(dbxBuckets))
 		}
 
-		_, allowAll := allowedBuckets["all"]
 		for _, dbxBucket := range dbxBuckets {
 			// Check that the bucket is allowed to be viewed
-			_, bucketAllowed := allowedBuckets[string(dbxBucket.Name)]
-			if bucketAllowed || allowAll {
+			_, bucketAllowed := allowedBuckets.Buckets[string(dbxBucket.Name)]
+			if bucketAllowed || allowedBuckets.All {
 				item, err := convertDBXtoBucket(dbxBucket)
 				if err != nil {
 					return bucketList, storj.ErrBucket.Wrap(err)

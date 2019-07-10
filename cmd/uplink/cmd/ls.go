@@ -102,7 +102,10 @@ func list(cmd *cobra.Command, args []string) error {
 		if !list.More {
 			break
 		}
-		startAfter = list.Items[len(list.Items)-1].Name + "0"
+		// if there are more buckets to list, then continue listing after
+		// the last item we retrieved. Since we list alphabetically, appending
+		// a zero byte to the last listed bucket name we will get the next item.
+		startAfter = list.Items[len(list.Items)-1].Name + "\x00"
 	}
 
 	if noBuckets {
