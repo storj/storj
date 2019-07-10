@@ -138,28 +138,16 @@ func TestDataRepair(t *testing.T) {
 		pointer, err = metainfo.Get(ctx, path)
 		require.NoError(t, err)
 
+		nodesToKillForMinThreshold := len(remotePieces) - minThreshold
 		remotePieces = pointer.GetRemote().GetRemotePieces()
-		afterRepairNodes := make(map[storj.NodeID]struct{})
 		for _, piece := range remotePieces {
 			require.NotContains(t, nodesToKill, piece.NodeId, "there shouldn't be pieces in killed nodes")
 			require.NotContains(t, nodesToDisqualify, piece.NodeId, "there shouldn't be pieces in DQ nodes")
 
-			afterRepairNodes[piece.NodeId] = struct{}{}
-		}
-
-		nodesToKillForMinThreshold := len(remotePieces) - minThreshold
-		for _, node := range planet.StorageNodes {
-			if nodesToKillForMinThreshold == 0 {
-				break
-			}
-
-			if _, ok := afterRepairNodes[node.ID()]; ok {
-				err = planet.StopPeer(node)
-				require.NoError(t, err)
-
-				_, err = satellite.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
-				require.NoError(t, err)
-
+			// Kill the original nodes which were kept alive to ensure that we can
+			// download from the new nodes that the repaired pieces have been uploaded
+			if _, ok := nodesToKeepAlive[piece.NodeId]; ok && nodesToKillForMinThreshold > 0 {
+				stopNodeByID(t, ctx, planet, piece.NodeId)
 				nodesToKillForMinThreshold--
 			}
 		}
@@ -458,4 +446,23 @@ func getRemoteSegment(
 
 	t.Fatal("satellite doesn't have any remote segment")
 	return nil, ""
+}
+
+// nolint:golint
+func stopNodeByID(t *testing.T, ctx context.Context, planet *testplanet.Planet, nodeID storj.NodeID) {
+	t.Helper()
+
+	for _, node := range planet.StorageNodes {
+		if node.ID() == nodeID {
+			err := planet.StopPeer(node)
+			require.NoError(t, err)
+
+			for _, sat := range planet.Satellites {
+				_, err = sat.Overlay.Service.UpdateUptime(ctx, node.ID(), false)
+				require.NoError(t, err)
+			}
+
+			break
+		}
+	}
 }
