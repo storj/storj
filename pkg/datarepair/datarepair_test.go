@@ -325,7 +325,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 		require.NoError(t, err)
 
 		pointer, path := getRemoteSegment(t, ctx, satellite)
-		originalPieces := pointer.GetRemote().RemotePieces
+		originalPieces := pointer.GetRemote().GetRemotePieces()
 		require.True(t, len(originalPieces) <= maxThreshold)
 
 		{ // Check that there is enough nodes in the network which don't contain
@@ -380,7 +380,7 @@ func TestDataRepairUploadLimit(t *testing.T) {
 
 		// Check that repair has uploaded missed pieces to an expected number of
 		// nodes
-		afterRepairPieces := pointer.GetRemote().RemotePieces
+		afterRepairPieces := pointer.GetRemote().GetRemotePieces()
 		require.Falsef(t,
 			len(afterRepairPieces) > maxRepairUploadThreshold,
 			"Repaired pieces cannot be over max repair upload threshold. maxRepairUploadThreshold= %d, have= %d",
