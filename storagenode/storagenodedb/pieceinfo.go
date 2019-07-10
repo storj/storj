@@ -24,8 +24,9 @@ type pieceinfo struct {
 }
 
 type spaceUsed struct {
-	once sync.Once
+	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	used int64
+	once sync.Once
 }
 
 // PieceInfo returns database for storing piece information
