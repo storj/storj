@@ -17,7 +17,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/encryption"
@@ -160,8 +159,7 @@ func (uplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (uplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
-	signer := signing.SignerFromFullIdentity(uplink.Transport.Identity())
-	return piecestore.Dial(ctx, uplink.Transport, &node.Node, uplink.Log.Named("uplink>piecestore"), signer, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, uplink.Transport, &node.Node, uplink.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
 // Upload data to specific satellite
