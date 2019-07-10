@@ -142,11 +142,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.Wrap(err)
 	}
 
-	requestCount := int(
-		math.Ceil(float64(redundancy.OptimalThreshold())*
+	var requestCount int
+	{
+		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) *
 			repairer.multiplierOptimalThreshold,
-		),
-	) - len(healthyPieces)
+		)
+		requestCount = int(totalNeeded) - len(healthyPieces)
+	}
 
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
