@@ -59,7 +59,7 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
-	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks default:"1h0m0s"`
+	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
