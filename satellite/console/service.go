@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -177,14 +178,14 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 		return nil, err
 	}
 
-	info, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
+	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	params := payments.AddPaymentMethodParams{
 		Token:      paymentMethodToken,
-		CustomerID: string(info.CustomerID),
+		CustomerID: string(userPayments.CustomerID),
 	}
 
 	method, err := s.pm.AddPaymentMethod(ctx, params)
@@ -192,20 +193,43 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 		return nil, err
 	}
 
-	projectPaymentInfo := ProjectPayment{
-		ProjectID:       projectID,
-		PayerID:         authorization.User.ID,
-		PaymentMethodID: method.ID,
-		CreatedAt:       time.Now(),
-		IsDefault:       isDefault,
-	}
-
-	create, err := s.store.ProjectPayments().Create(ctx, projectPaymentInfo)
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return create, nil
+	var pp *ProjectPayment
+	err = withTx(tx, func(tx DBTx) error {
+		if isDefault {
+			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return err
+				}
+			}
+			if projectPayment != nil {
+				projectPayment.IsDefault = false
+
+				err = tx.ProjectPayments().Update(ctx, *projectPayment)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		projectPaymentInfo := ProjectPayment{
+			ProjectID:       projectID,
+			PayerID:         authorization.User.ID,
+			PaymentMethodID: method.ID,
+			CreatedAt:       time.Now(),
+			IsDefault:       isDefault,
+		}
+
+		pp, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
+		return err
+	})
+
+	return pp, nil
 }
 
 // SetDefaultPaymentMethod set default payment method for given project
@@ -217,24 +241,33 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 		return err
 	}
 
-	projectPayment, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-	if err != nil {
-		return err
-	}
-	projectPayment.IsDefault = false
-
-	err = s.store.ProjectPayments().Update(ctx, *projectPayment)
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
 		return err
 	}
 
-	projectPayment, err = s.store.ProjectPayments().GetByID(ctx, projectPaymentID)
-	if err != nil {
-		return err
-	}
-	projectPayment.IsDefault = true
+	err = withTx(tx, func(tx DBTx) error {
+		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+		if err != nil {
+			return err
+		}
+		projectPayment.IsDefault = false
 
-	return s.store.ProjectPayments().Update(ctx, *projectPayment)
+		err = tx.ProjectPayments().Update(ctx, *projectPayment)
+		if err != nil {
+			return err
+		}
+
+		projectPayment, err = tx.ProjectPayments().GetByID(ctx, projectPaymentID)
+		if err != nil {
+			return err
+		}
+		projectPayment.IsDefault = true
+
+		return tx.ProjectPayments().Update(ctx, *projectPayment)
+	})
+
+	return err
 }
 
 // DeleteProjectPaymentMethod deletes selected payment method

@@ -16,16 +16,17 @@ import (
 // projectPayments is the an implementation of console.ProjectPayments.
 // Allows to work with project payment info storage
 type projectPayments struct {
-	db dbx.Methods
+	db      *dbx.DB
+	methods dbx.Methods
 }
 
 func (pp *projectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
-	_, err := pp.db.Delete_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
+	_, err := pp.methods.Delete_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
 	return err
 }
 
 func (pp *projectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
-	dbxInfo, err := pp.db.Get_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
+	dbxInfo, err := pp.methods.Get_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -38,12 +39,12 @@ func (pp *projectPayments) Update(ctx context.Context, info console.ProjectPayme
 		IsDefault: dbx.ProjectPayment_IsDefault(info.IsDefault),
 	}
 
-	_, err := pp.db.Update_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(info.ID[:]), updateFields)
+	_, err := pp.methods.Update_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(info.ID[:]), updateFields)
 	return err
 }
 
 func (pp *projectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
-	dbxInfo, err := pp.db.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
+	dbxInfo, err := pp.methods.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (pp *projectPayments) Create(ctx context.Context, info console.ProjectPayme
 		return nil, err
 	}
 
-	dbxInfo, err := pp.db.Create_ProjectPayment(ctx,
+	dbxInfo, err := pp.methods.Create_ProjectPayment(ctx,
 		dbx.ProjectPayment_Id(id[:]),
 		dbx.ProjectPayment_ProjectId(info.ProjectID[:]),
 		dbx.ProjectPayment_PayerId(info.PayerID[:]),
@@ -74,7 +75,7 @@ func (pp *projectPayments) Create(ctx context.Context, info console.ProjectPayme
 
 // GetByProjectID retrieves project payment info from db by projectID
 func (pp *projectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*console.ProjectPayment, error) {
-	dbxInfos, err := pp.db.All_ProjectPayment_By_ProjectId(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
+	dbxInfos, err := pp.methods.All_ProjectPayment_By_ProjectId(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func (pp *projectPayments) GetByProjectID(ctx context.Context, projectID uuid.UU
 
 // GetByPayerID retrieves project payment info from db by payerID(userID)
 func (pp *projectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) ([]*console.ProjectPayment, error) {
-	dbxInfos, err := pp.db.All_ProjectPayment_By_PayerId(ctx, dbx.ProjectPayment_PayerId(payerID[:]))
+	dbxInfos, err := pp.methods.All_ProjectPayment_By_PayerId(ctx, dbx.ProjectPayment_PayerId(payerID[:]))
 	if err != nil {
 		return nil, err
 	}

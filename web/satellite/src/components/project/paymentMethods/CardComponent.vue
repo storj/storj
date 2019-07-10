@@ -4,7 +4,7 @@
 <template>
         <div class="payment-methods-container__card-container">
             <div class="payment-methods-container__card-container__info-area">
-                <img class="payment-methods-container__card-container__info-area__card-logo" src="../../../../static/images/Logo.svg">
+                <img class="payment-methods-container__card-container__info-area__card-logo" src="@/../static/images/Logo.svg">
                 <div class="payment-methods-container__card-container__info-area__info-container">
                     <h1>xxxx {{paymentMethod.lastFour}}</h1>
                     <h2>{{paymentMethod.holderName}}</h2>
@@ -114,35 +114,35 @@
         background-color: white;
         border-radius: 6px;
 
-    &__info-area {
-         width: 75%;
-         display: flex;
-         align-items: center;
-         justify-content: space-between;
+        &__info-area {
+             width: 75%;
+             display: flex;
+             align-items: center;
+             justify-content: space-between;
 
-    &__card-logo {
-         height: 70px;
-         width: 85px;
-     }
+        &__card-logo {
+             height: 70px;
+             width: 85px;
+         }
 
-    &__info-container {
+        &__info-container {
 
-    h1 {
-        font-family: 'font_bold';
-        font-size: 16px;
-        line-height: 21px;
-        color: #61666B;
-    }
+            h1 {
+                font-family: 'font_bold';
+                font-size: 16px;
+                line-height: 21px;
+                color: #61666B;
+            }
 
-    h2 {
-        font-family: 'font_regular';
-        font-size: 16px;
-        line-height: 21px;
-        color: #61666B;
-        margin-block-start: 0.5em;
-        margin-block-end: 0.5em;
-    }
-    }
+            h2 {
+                font-family: 'font_regular';
+                font-size: 16px;
+                line-height: 21px;
+                color: #61666B;
+                margin-block-start: 0.5em;
+                margin-block-end: 0.5em;
+            }
+        }
 
     &__expire-container {
 
