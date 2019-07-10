@@ -56,6 +56,7 @@
         text-decoration: none;
         outline: none;
     }
+
     .account-button-container {
         position: relative;
         padding-left: 10px;
@@ -116,8 +117,8 @@
     }
 
     @media screen and (max-width: 720px) {
-
         .account-button-toggle-container {
+
             &__user-name {
                 display: none;
             }

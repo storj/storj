@@ -11,10 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
@@ -101,14 +98,6 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		ErasureShareSize: int32(s.rs.ErasureShareSize()),
 	}
 
-	var exp *timestamp.Timestamp
-	if !expiration.IsZero() {
-		exp, err = ptypes.TimestampProto(expiration)
-		if err != nil {
-			return Meta{}, Error.Wrap(err)
-		}
-	}
-
 	peekReader := NewPeekThresholdReader(data)
 	remoteSized, err := peekReader.IsLargerThan(s.thresholdSize)
 	if err != nil {
@@ -130,7 +119,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			Type:           pb.Pointer_INLINE,
 			InlineSegment:  peekReader.thresholdBuf,
 			SegmentSize:    int64(len(peekReader.thresholdBuf)),
-			ExpirationDate: exp,
+			ExpirationDate: expiration,
 			Metadata:       metadata,
 		}
 	} else {
@@ -163,7 +152,7 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 		path = p
 
-		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), exp, metadata)
+		pointer, err = makeRemotePointer(successfulNodes, successfulHashes, s.rs, rootPieceID, sizedReader.Size(), expiration, metadata)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -239,7 +228,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 }
 
 // makeRemotePointer creates a pointer of type remote
-func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.RedundancyStrategy, pieceID storj.PieceID, readerSize int64, exp *timestamp.Timestamp, metadata []byte) (pointer *pb.Pointer, err error) {
+func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.RedundancyStrategy, pieceID storj.PieceID, readerSize int64, expiration time.Time, metadata []byte) (pointer *pb.Pointer, err error) {
 	if len(nodes) != len(hashes) {
 		return nil, Error.New("unable to make pointer: size of nodes != size of hashes")
 	}
@@ -272,7 +261,7 @@ func makeRemotePointer(nodes []*pb.Node, hashes []*pb.PieceHash, rs eestream.Red
 			RemotePieces: remotePieces,
 		},
 		SegmentSize:    readerSize,
-		ExpirationDate: exp,
+		ExpirationDate: expiration,
 		Metadata:       metadata,
 	}
 	return pointer, nil
@@ -359,22 +348,10 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 func convertMeta(pr *pb.Pointer) Meta {
 	return Meta{
 		Modified:   pr.GetCreationDate(),
-		Expiration: convertTime(pr.GetExpirationDate()),
+		Expiration: pr.GetExpirationDate(),
 		Size:       pr.GetSegmentSize(),
 		Data:       pr.GetMetadata(),
 	}
-}
-
-// convertTime converts gRPC timestamp to Go time
-func convertTime(ts *timestamp.Timestamp) time.Time {
-	if ts == nil {
-		return time.Time{}
-	}
-	t, err := ptypes.Timestamp(ts)
-	if err != nil {
-		zap.S().Warnf("Failed converting timestamp %v: %v", ts, err)
-	}
-	return t
 }
 
 func splitPathFragments(path storj.Path) (bucket string, objectPath storj.Path, segmentIndex int64, err error) {

@@ -115,6 +115,7 @@
             color: #fff;
         }
     }
+
     .container.white,
     .container.red {
         background-color: transparent;
@@ -124,6 +125,7 @@
             color: #354049;
         }
     }
+
     .container.disabled {
         background-color: #DADDE5;
         border-color: #DADDE5;

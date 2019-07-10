@@ -95,6 +95,7 @@
 
         &:hover {
             background-color: #F2F2F6;
+
             path {
                 fill: #2683FF !important;
             }

@@ -327,7 +327,8 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 			SatelliteID:     planet.Satellites[0].ID(),
 			PieceID:         storj.PieceID{99},
 			PieceSize:       diff,
-			PieceCreation:   &now,
+			PieceCreation:   now,
+			PieceExpiration: time.Time{},
 			Uplink:          planet.Uplinks[0].Identity.PeerIdentity(),
 			UplinkPieceHash: &pb.PieceHash{},
 		})

@@ -122,9 +122,11 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .add-api-key-popup {
         width: 100%;
         max-width: 845px;
@@ -138,12 +140,12 @@
         padding: 80px 100px 80px 50px;
 
         &__info-panel-container {
-             display: flex;
-             flex-direction: column;
-             justify-content: flex-start;
-             align-items: center;
-             margin-right: 100px;
-             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            margin-right: 100px;
+            margin-top: 20px;
         }
 
         &__form-container {
@@ -171,12 +173,12 @@
             }
 
             &__button-container {
-                 width: 100%;
-                 display: flex;
-                 flex-direction: row;
-                 justify-content: space-between;
-                 align-items: center;
-                 margin-top: 40px;
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 40px;
             }
         }
 

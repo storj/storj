@@ -7,14 +7,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
@@ -80,21 +78,13 @@ func (client *Client) Close() error {
 func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var exp *timestamp.Timestamp
-	if !expiration.IsZero() {
-		exp, err = ptypes.TimestampProto(expiration)
-		if err != nil {
-			return nil, rootPieceID, err
-		}
-	}
-
 	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
 		Bucket:                  []byte(bucket),
 		Path:                    []byte(path),
 		Segment:                 segmentIndex,
 		Redundancy:              redundancy,
 		MaxEncryptedSegmentSize: maxEncryptedSegmentSize,
-		Expiration:              exp,
+		Expiration:              expiration,
 	})
 	if err != nil {
 		return nil, rootPieceID, Error.Wrap(err)
