@@ -177,7 +177,7 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow ||
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 

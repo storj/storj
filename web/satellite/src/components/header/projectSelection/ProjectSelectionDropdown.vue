@@ -80,6 +80,7 @@
         background-color: #FFFFFF;
         z-index: 1120;
     }
+
     .project-selection-overflow-container {
         position: relative;
         width: 226px;

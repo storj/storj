@@ -126,6 +126,7 @@
             }
         }
     }
+    
     @media screen and (max-width: 1600px) {
         .delete-api-key-container {
             max-width: 74%;

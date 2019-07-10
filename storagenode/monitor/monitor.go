@@ -171,7 +171,7 @@ func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
 
 func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.BandwidthUsed(ctx)
+	usage, err := service.usageDB.MonthSummary(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -192,7 +192,7 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 // AvailableBandwidth returns available bandwidth for upload/download
 func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.BandwidthUsed(ctx)
+	usage, err := service.usageDB.MonthSummary(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
