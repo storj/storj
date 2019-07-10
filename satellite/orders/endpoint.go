@@ -16,7 +16,6 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -63,16 +62,14 @@ type Endpoint struct {
 	log             *zap.Logger
 	satelliteSignee signing.Signee
 	DB              DB
-	certdb          certdb.DB //TODO: is this needed?
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, certdb certdb.DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB) *Endpoint {
 	return &Endpoint{
 		log:             log,
 		satelliteSignee: satelliteSignee,
 		DB:              db,
-		certdb:          certdb,
 	}
 }
 
