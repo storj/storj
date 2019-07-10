@@ -40,12 +40,13 @@ See LICENSE for copying information. -->
             <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
             <div class="col">{{printf "%.10s" $currentOffer.ExpiresAt}}</div>
             <div class="col stop-offer">
-                <span data-toggle="modal" data-target=".stop-referral-offer-modal">
+                <span data-toggle="modal" data-target=".stop-free-credit-modal">
                     <strong>Live &#183;</strong>
                 </span>
             </div>    
         </div><hr>
     {{end}}
+    {{template "stopFreeCredit" .}}
     <div class="row offer-heading ">
         <p class="offer-type">Other&nbsp;Offers</p>
     </div>
