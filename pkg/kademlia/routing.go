@@ -220,6 +220,10 @@ func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit
 // a successful connection is made to the node on the network
 func (rt *RoutingTable) ConnectionSuccess(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// TODO: check voucher validity
+	// if invalid, call rt.removeNode
+
 	// valid to connect to node without ID but don't store connection
 	if node.Id == (storj.NodeID{}) {
 		return nil

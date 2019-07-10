@@ -24,8 +24,6 @@ func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (
 	defer mon.Task()(&ctx)(&err)
 	rt.acMutex.Lock()
 	defer rt.acMutex.Unlock()
-
-	//check size of antechamber and furthest node
 	v, err := proto.Marshal(node)
 	if err != nil {
 		return AntechamberErr.New("could not marshall node: %s", err)
@@ -33,6 +31,10 @@ func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (
 	err = rt.antechamber.Put(ctx, xorNodeID(node.Id, rt.self.Id).Bytes(), v)
 	if err != nil {
 		return AntechamberErr.New("could not add key value pair to antechamber: %s", err)
+	}
+	err = rt.trimAntechamber(ctx)
+	if err != nil {
+		return AntechamberErr.New("could not trim antechamber: %s", err)
 	}
 	return nil
 }
@@ -50,7 +52,7 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, nodeID storj.
 	return nil
 }
 
-// trimAntechamber removes nodes outside the closest 20
+// trimAntechamber removes nodes outside the closest k
 func (rt *RoutingTable) trimAntechamber(ctx context.Context) (err error) {
 	keys, err := rt.antechamber.List(ctx, nil, 0)
 	if err != nil {
@@ -58,7 +60,7 @@ func (rt *RoutingTable) trimAntechamber(ctx context.Context) (err error) {
 	}
 	size := len(keys)
 	for diff := size - rt.bucketSize; diff > 0; diff-- {
-		xor, err := storj.NodeIDFromBytes(keys[size-diff-1])
+		xor, err := storj.NodeIDFromBytes(keys[size-diff])
 		if err != nil {
 			return AntechamberErr.New("could not get xor from key %s", err)
 		}
