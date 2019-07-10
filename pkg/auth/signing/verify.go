@@ -27,15 +27,18 @@ func VerifyOrderLimitSignature(ctx context.Context, satellite Signee, signed *pb
 	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
 }
 
-// VerifyOrderSignature verifies that the signature inside order belongs to the uplink.
-func VerifyOrderSignature(ctx context.Context, uplink Signee, signed *pb.Order) (err error) {
+// VerifyUplinkOrderSignature verifies that the signature inside order belongs to the uplink.
+func VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.Order) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeOrder(ctx, signed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return uplink.HashAndVerifySignature(ctx, bytes, signed.UplinkSignature)
+	if !publicKey.Verify(bytes, signed.UplinkSignature) {
+		return Error.New("invalid signature")
+	}
+	return nil
 }
 
 // VerifyPieceHashSignature verifies that the signature inside piece hash belongs to the signer, which is either uplink or storage node.
@@ -47,6 +50,21 @@ func VerifyPieceHashSignature(ctx context.Context, signee Signee, signed *pb.Pie
 	}
 
 	return signee.HashAndVerifySignature(ctx, bytes, signed.Signature)
+}
+
+// VerifyUplinkPieceHashSignature verifies that the signature inside piece hash belongs to the signer, which is either uplink or storage node.
+func VerifyUplinkPieceHashSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.PieceHash) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	bytes, err := EncodePieceHash(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if !publicKey.Verify(bytes, signed.Signature) {
+		return Error.New("invalid signature")
+	}
+	return nil
 }
 
 // VerifyVoucher verifies that the signature inside voucher belongs to the satellite
