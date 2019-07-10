@@ -5,6 +5,7 @@ package gc_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -18,6 +19,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/storagenode"
 )
 
 // TestGarbageCollection does the following:
@@ -33,6 +35,11 @@ func TestGarbageCollection(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.GarbageCollection.FalsePositiveRate = 0.0001
+				config.GarbageCollection.Interval = 0
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				// TODO fix this
+				config.Storage2.RetainTimeBuffer = -3 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -65,7 +72,7 @@ func TestGarbageCollection(t *testing.T) {
 		var keptPieceID storj.PieceID
 		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
 			if p.NodeId == targetNode.ID() {
-				keptPieceID = pointerToDelete.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+				keptPieceID = pointerToKeep.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
 				break
 			}
 		}

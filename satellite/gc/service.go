@@ -75,7 +75,9 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker, cb 
 
 	go func() {
 		err := service.sendRetainRequests(ctx, pieceTracker, cb)
-		service.log.Error("err sending retain infos", zap.Error(err))
+		if err != nil {
+			service.log.Error("error sending retain infos", zap.Error(err))
+		}
 	}()
 
 	return nil
@@ -88,16 +90,19 @@ func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker Pie
 		log := service.log.Named(id.String())
 
 		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
-		target := &pb.Node{Id: id}
+		target := &pb.Node{
+			Id:      id,
+			Address: retainInfo.address,
+		}
 		signer := signing.SignerFromFullIdentity(service.transport.Identity())
 
-		piecestore, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
+		ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
 		if err != nil {
 			service.log.Error(Error.Wrap(err).Error())
 			continue
 		}
 		defer func() {
-			err := piecestore.Close()
+			err := ps.Close()
 			if err != nil {
 				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
 			}
@@ -113,7 +118,7 @@ func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker Pie
 			CreationDate: retainInfo.CreationDate,
 			Filter:       filterBytes,
 		}
-		err = piecestore.Retain(ctx, retainReq)
+		err = ps.Retain(ctx, retainReq)
 		if err != nil {
 			service.log.Error(Error.Wrap(err).Error())
 		}
