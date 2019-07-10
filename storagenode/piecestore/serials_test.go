@@ -51,6 +51,7 @@ func TestUsedSerials(t *testing.T) {
 
 		// use different timezones
 		location := time.FixedZone("XYZ", int((8 * time.Hour).Seconds()))
+
 		serialNumbers := []Serial{
 			{node0.ID, serial1, now.Add(time.Minute)},
 			{node0.ID, serial2, now.Add(4 * time.Minute)},
