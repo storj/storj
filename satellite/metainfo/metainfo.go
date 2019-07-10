@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -130,15 +129,8 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if req.Expiration != nil {
-		exp, err := ptypes.Timestamp(req.Expiration)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, err.Error())
-		}
-
-		if !exp.After(time.Now()) {
-			return nil, errs.New("Invalid expiration time")
-		}
+	if !req.Expiration.IsZero() && !req.Expiration.After(time.Now()) {
+		return nil, errs.New("Invalid expiration time")
 	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
@@ -269,6 +261,11 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 			limit, keyInfo.ProjectID,
 		)
 		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	// clear hashes so we don't store them
+	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
+		piece.Hash = nil
 	}
 
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
@@ -503,8 +500,6 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 			// err := auth.VerifyMsg(piece.Hash, piece.NodeId)
 			// if err == nil {
-			// 	// set to nil after verification to avoid storing in DB
-			// 	piece.Hash = nil
 			// 	remotePieces = append(remotePieces, piece)
 			// } else {
 			// 	// TODO satellite should send Delete request for piece that failed

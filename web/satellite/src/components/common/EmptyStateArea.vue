@@ -69,9 +69,9 @@
                 }
             }
 
-             &__img {
+            &__img {
                 margin-top: 50px;
-             }
+            }
 
             h1 {
                 font-family: 'font_bold';

@@ -92,7 +92,7 @@ func TestDB(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, expectedUsage, usage)
 
-		cachedBandwidthUsage, err := bandwidthdb.BandwidthUsed(ctx)
+		cachedBandwidthUsage, err := bandwidthdb.MonthSummary(ctx)
 		require.NoError(t, err)
 		require.Equal(t, expectedUsageTotal.Total(), cachedBandwidthUsage)
 
@@ -125,7 +125,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		cached, err := bandwidthdb.BandwidthUsed(ctx)
+		cached, err := bandwidthdb.MonthSummary(ctx)
 		require.NoError(t, err)
 		// Cached bandwidth for this month should still be 0 since CachedBandwidthUsed only looks up by the current month
 		require.Equal(t, int64(0), cached)
@@ -138,7 +138,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 			err := bandwidthdb.Add(ctx, satellite0, action, int64(action), thisMonth)
 			require.NoError(t, err)
 		}
-		cached, err = bandwidthdb.BandwidthUsed(ctx)
+		cached, err = bandwidthdb.MonthSummary(ctx)
 		require.NoError(t, err)
 		require.Equal(t, totalAmount, cached)
 	})

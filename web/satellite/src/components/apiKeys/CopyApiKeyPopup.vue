@@ -167,9 +167,11 @@
             cursor: pointer;
         }
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;
