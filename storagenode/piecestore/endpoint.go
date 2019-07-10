@@ -548,7 +548,7 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (*pb.RetainResponse, error) {
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	trustedSatellites := endpoint.trust.GetSatellites(ctx)
@@ -559,14 +559,14 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 	}
 	if !trusted {
-		return nil, Error.New("retain called with untrusted ID")
+		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
 	// todo verify peer id is a trusted satellite id so normal uplinks cannot use this method
 
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
 
 	const limit = 1000
@@ -580,7 +580,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 		}
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
