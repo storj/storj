@@ -955,7 +955,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',
 						1,
-						1),
+						2),
 						 (
 							'Default free credit offer',
 							'Is active when no active free credit offer',
@@ -968,10 +968,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 							'2119-03-14 08:28:24.636949+00',
 							'2019-07-14 08:28:24.636949+00',
 							1,
-							0
-                         )
-						ON CONFLICT
-						DO NOTHING;`,
+							1
+						 )`,
 				},
 			},
 		},
