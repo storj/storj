@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/eestream"
@@ -124,19 +123,12 @@ func (cursor *Cursor) getRandomValidPointer(ctx context.Context, pointerItems []
 		}
 
 		//delete expired items rather than auditing them
-		if expiration := pointer.GetExpirationDate(); expiration != nil {
-			t, err := ptypes.Timestamp(expiration)
+		if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now()) {
+			err := cursor.metainfo.Delete(ctx, path)
 			if err != nil {
 				errGroup.Add(err)
-				continue
 			}
-			if t.Before(time.Now()) {
-				err := cursor.metainfo.Delete(ctx, path)
-				if err != nil {
-					errGroup.Add(err)
-				}
-				continue
-			}
+			continue
 		}
 
 		if pointer.GetType() != pb.Pointer_REMOTE || pointer.GetSegmentSize() == 0 {

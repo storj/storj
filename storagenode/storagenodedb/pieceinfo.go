@@ -38,22 +38,17 @@ func (db *InfoDB) PieceInfo() pieces.DB { return &db.pieceinfo }
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	certdb := db.CertDB()
-	certid, err := certdb.Include(ctx, info.Uplink)
-	if err != nil {
-		return ErrInfo.Wrap(err)
-	}
-
 	uplinkPieceHash, err := proto.Marshal(info.UplinkPieceHash)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
 
+	// TODO remove `uplink_cert_id` from DB
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
 			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, uplinkPieceHash, certid)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, uplinkPieceHash, 0)
 
 	if err == nil {
 		db.loadSpaceUsed(ctx)
@@ -70,25 +65,18 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 	info.PieceID = pieceID
 
 	var uplinkPieceHash []byte
-	var uplinkIdentity []byte
 
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
-		SELECT piece_size, piece_creation, piece_expiration, uplink_piece_hash, certificate.peer_identity
+		SELECT piece_size, piece_creation, piece_expiration, uplink_piece_hash
 		FROM pieceinfo
-		INNER JOIN certificate ON pieceinfo.uplink_cert_id = certificate.cert_id
 		WHERE satellite_id = ? AND piece_id = ?
-	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &uplinkPieceHash, &uplinkIdentity)
+	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &uplinkPieceHash)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
 	info.UplinkPieceHash = &pb.PieceHash{}
 	err = proto.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
-	if err != nil {
-		return nil, ErrInfo.Wrap(err)
-	}
-
-	info.Uplink, err = decodePeerIdentity(ctx, uplinkIdentity)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}

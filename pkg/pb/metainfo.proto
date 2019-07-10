@@ -108,7 +108,7 @@ message SegmentWriteRequestOld {
     int64 segment = 3;
     pointerdb.RedundancyScheme redundancy = 4;
     int64 max_encrypted_segment_size = 5;
-    google.protobuf.Timestamp expiration = 6;
+    google.protobuf.Timestamp expiration = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message SegmentWriteResponseOld {
