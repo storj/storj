@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -30,16 +31,18 @@ type Service struct {
 	log             *zap.Logger
 	config          Config
 	transport       transport.Client
+	overlay         overlay.DB
 	lastSendTime    time.Time
 	lastPieceCounts map[storj.NodeID]int
 }
 
 // NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, config Config, transport transport.Client) *Service {
+func NewService(log *zap.Logger, config Config, transport transport.Client, overlay overlay.DB) *Service {
 	return &Service{
 		log:             log,
-		transport:       transport,
 		config:          config,
+		transport:       transport,
+		overlay:         overlay,
 		lastPieceCounts: make(map[storj.NodeID]int),
 	}
 }
@@ -60,6 +63,7 @@ func (service *Service) NewPieceTracker() PieceTracker {
 		falsePositiveRate:  service.config.FalsePositiveRate,
 		retainInfos:        make(map[storj.NodeID]*RetainInfo),
 		pieceCounts:        service.lastPieceCounts,
+		overlay:            service.overlay,
 	}
 }
 
