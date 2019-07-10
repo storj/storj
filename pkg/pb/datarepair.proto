@@ -3,6 +3,8 @@
 
 syntax = "proto3";
 option go_package = "pb";
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 package repair;
 
@@ -10,4 +12,5 @@ package repair;
 message InjuredSegment {
     string path = 1;
     repeated int32 lost_pieces = 2;
+    google.protobuf.Timestamp inserted_time = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
