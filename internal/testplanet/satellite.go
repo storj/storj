@@ -133,7 +133,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
-				//BwExpiration:         "7d",
 				RS: metainfo.RSConfig{
 					MaxSegmentSize:   64 * memory.MiB,
 					MaxBufferMem:     memory.Size(256),
