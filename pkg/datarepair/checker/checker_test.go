@@ -76,9 +76,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			pieces = append(pieces, &pb.RemotePiece{
 				PieceNum: int32(i),
 				NodeId:   storagenode.ID(),
-				Hash: &pb.PieceHash{
-					PieceId: storj.PieceID{byte(i)},
-				},
 			})
 		}
 
@@ -88,9 +85,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			pieces = append(pieces, &pb.RemotePiece{
 				PieceNum: int32(i),
 				NodeId:   storj.NodeID{byte(i)},
-				Hash: &pb.PieceHash{
-					PieceId: storj.PieceID{byte(i)},
-				},
 			})
 			expectedLostPieces[int32(i)] = true
 		}
@@ -179,9 +173,6 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 		pieces = append(pieces, &pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   planet.StorageNodes[i].Identity.ID,
-			Hash: &pb.PieceHash{
-				PieceId: storj.PieceID{byte(i)},
-			},
 		})
 	}
 	// simulate offline nodes equal to the number of online nodes
@@ -190,9 +181,6 @@ func makePointer(t *testing.T, planet *testplanet.Planet, pieceID string, create
 			pieces = append(pieces, &pb.RemotePiece{
 				PieceNum: int32(numOfStorageNodes + i),
 				NodeId:   storj.NodeID{byte(i)},
-				Hash: &pb.PieceHash{
-					PieceId: storj.PieceID{byte(i)},
-				},
 			})
 		}
 	}
