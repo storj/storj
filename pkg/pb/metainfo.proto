@@ -114,6 +114,7 @@ message SegmentWriteRequestOld {
 message SegmentWriteResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
     bytes root_piece_id = 2 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    bytes private_key = 3; // TODO: use proper types
 }
 
 message SegmentCommitRequestOld {

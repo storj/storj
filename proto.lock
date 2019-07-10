@@ -143,13 +143,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -175,13 +169,7 @@
         ],
         "package": {
           "name": "repair"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -228,13 +216,7 @@
         ],
         "package": {
           "name": "encryption"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -292,13 +274,7 @@
         ],
         "package": {
           "name": "encryption_access"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -356,13 +332,7 @@
         ],
         "package": {
           "name": "gc"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -782,21 +752,7 @@
         ],
         "package": {
           "name": "gogoproto"
-        },
-        "options": [
-          {
-            "name": "java_package",
-            "value": "com.google.protobuf"
-          },
-          {
-            "name": "java_outer_classname",
-            "value": "GoGoProtos"
-          },
-          {
-            "name": "go_package",
-            "value": "github.com/gogo/protobuf/gogoproto"
-          }
-        ]
+        }
       }
     },
     {
@@ -1562,13 +1518,7 @@
         ],
         "package": {
           "name": "inspector"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1598,13 +1548,7 @@
         ],
         "package": {
           "name": "objects"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -1896,6 +1840,11 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "private_key",
+                "type": "bytes"
               }
             ]
           },
@@ -2241,13 +2190,7 @@
         ],
         "package": {
           "name": "metainfo"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2465,13 +2408,7 @@
         ],
         "package": {
           "name": "node"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2642,13 +2579,7 @@
         ],
         "package": {
           "name": "nodestats"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -2740,18 +2671,8 @@
               },
               {
                 "id": 3,
-                "name": "uplink_id",
-                "type": "bytes",
-                "options": [
-                  {
-                    "name": "(gogoproto.customtype)",
-                    "value": "NodeID"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
+                "name": "uplink_public_key",
+                "type": "bytes"
               },
               {
                 "id": 4,
@@ -2824,7 +2745,7 @@
                 ]
               },
               {
-                "id": 12,
+                "id": 10,
                 "name": "order_creation",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -2839,12 +2760,12 @@
                 ]
               },
               {
-                "id": 10,
+                "id": 11,
                 "name": "satellite_signature",
                 "type": "bytes"
               },
               {
-                "id": 11,
+                "id": 12,
                 "name": "satellite_address",
                 "type": "node.NodeAddress"
               }
@@ -2905,16 +2826,11 @@
               },
               {
                 "id": 3,
-                "name": "signature",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
                 "name": "piece_size",
                 "type": "int64"
               },
               {
-                "id": 5,
+                "id": 4,
                 "name": "timestamp",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -2927,6 +2843,11 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 5,
+                "name": "signature",
+                "type": "bytes"
               }
             ]
           },
@@ -2998,13 +2919,7 @@
         ],
         "package": {
           "name": "orders"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3177,13 +3092,7 @@
         ],
         "package": {
           "name": "overlay"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3355,13 +3264,7 @@
         ],
         "package": {
           "name": "piecestore"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3606,13 +3509,7 @@
         ],
         "package": {
           "name": "pointerdb"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3650,13 +3547,7 @@
         ],
         "package": {
           "name": "scope"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3731,13 +3622,7 @@
         ],
         "package": {
           "name": "streams"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     },
     {
@@ -3858,13 +3743,7 @@
         ],
         "package": {
           "name": "vouchers"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
+        }
       }
     }
   ]
