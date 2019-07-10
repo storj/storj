@@ -521,15 +521,15 @@ func TestRetain(t *testing.T) {
 		pieceInfos := db.PieceInfo()
 		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces())
 
-		const nbPieces = 1000
-		const nbPiecesToKeep = 990
-		// pieces from nbPiecesToKeep + nbOldPieces to nbPieces will
+		const numPieces = 1000
+		const numPiecesToKeep = 990
+		// pieces from numPiecesToKeep + numOldPieces to numPieces will
 		// have a recent timestamp and thus should not be deleted
-		const nbOldPieces = 5
+		const numOldPieces = 5
 
-		filter := bloomfilter.NewOptimal(nbPiecesToKeep, 0.1)
+		filter := bloomfilter.NewOptimal(numPiecesToKeep, 0.1)
 
-		pieceIDs := generateTestIDs(nbPieces)
+		pieceIDs := generateTestIDs(numPieces)
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
@@ -544,11 +544,11 @@ func TestRetain(t *testing.T) {
 		var pieceCreation time.Time
 		// add all pieces to the node pieces info DB - but only count piece ids in filter
 		for index, id := range pieceIDs {
-			if index < nbPiecesToKeep {
+			if index < numPiecesToKeep {
 				filter.Add(id)
 			}
 
-			if index < nbPiecesToKeep+nbOldPieces {
+			if index < numPiecesToKeep+numOldPieces {
 				pieceCreation = oldTime
 			} else {
 				pieceCreation = recentTime
@@ -611,19 +611,19 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
+		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
 		require.NoError(t, err)
-		require.Equal(t, nbPieces, len(satellite1Pieces))
+		require.Equal(t, numPieces, len(satellite1Pieces))
 
 		// check we did not delete recent pieces
-		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
+		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
 		require.NoError(t, err)
 
-		for _, id := range pieceIDs[:nbPiecesToKeep] {
+		for _, id := range pieceIDs[:numPiecesToKeep] {
 			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (not in bloom filter)")
 		}
 
-		for _, id := range pieceIDs[nbPiecesToKeep+nbOldPieces:] {
+		for _, id := range pieceIDs[numPiecesToKeep+numOldPieces:] {
 			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
 		}
 	})
