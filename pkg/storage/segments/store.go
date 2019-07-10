@@ -134,14 +134,14 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 		}
 
 		// path and segment index are not known at this point
-		limits, rootPieceID, err := s.metainfo.CreateSegment(ctx, bucket, objectPath, -1, redundancy, s.maxEncryptedSegmentSize, expiration)
+		limits, rootPieceID, piecePrivateKey, err := s.metainfo.CreateSegment(ctx, bucket, objectPath, -1, redundancy, s.maxEncryptedSegmentSize, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
 
 		sizedReader := SizeReader(peekReader)
 
-		successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, s.rs, sizedReader, expiration)
+		successfulNodes, successfulHashes, err := s.ec.Put(ctx, limits, piecePrivateKey, s.rs, sizedReader, expiration)
 		if err != nil {
 			return Meta{}, Error.Wrap(err)
 		}
@@ -185,7 +185,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 		return nil, Meta{}, err
 	}
 
-	pointer, limits, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
+	pointer, limits, piecePrivateKey, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
 	if err != nil {
 		return nil, Meta{}, Error.Wrap(err)
 	}
@@ -216,7 +216,7 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			return nil, Meta{}, err
 		}
 
-		rr, err = s.ec.Get(ctx, selected, redundancy, pointer.GetSegmentSize())
+		rr, err = s.ec.Get(ctx, selected, piecePrivateKey, redundancy, pointer.GetSegmentSize())
 		if err != nil {
 			return nil, Meta{}, Error.Wrap(err)
 		}
@@ -277,7 +277,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 		return err
 	}
 
-	limits, err := s.metainfo.DeleteSegment(ctx, bucket, objectPath, segmentIndex)
+	limits, privateKey, err := s.metainfo.DeleteSegment(ctx, bucket, objectPath, segmentIndex)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -288,7 +288,7 @@ func (s *segmentStore) Delete(ctx context.Context, path storj.Path) (err error) 
 	}
 
 	// remote segment - delete the pieces from storage nodes
-	err = s.ec.Delete(ctx, limits)
+	err = s.ec.Delete(ctx, limits, privateKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}

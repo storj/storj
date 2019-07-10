@@ -31,7 +31,7 @@ type Client interface {
 	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
 	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
-	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
+	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) error
 	WithForceErrorDetection(force bool) Client
 }
 
@@ -349,7 +349,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, p
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(limits))
@@ -370,7 +370,7 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, limit)
+			err = ps.Delete(ctx, limit, privateKey)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				ec.log.Sugar().Errorf("Failed deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)

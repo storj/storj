@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -61,7 +62,7 @@ func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log 
 }
 
 // Delete uses delete order limit to delete a piece on piece store.
-func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit) (err error) {
+func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.Delete(ctx, &pb.PieceDeleteRequest{
 		Limit: limit,
