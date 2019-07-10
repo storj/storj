@@ -346,8 +346,8 @@ func TestDataRepairUploadLimit(t *testing.T) {
 
 		killedNodes := make(map[storj.NodeID]struct{})
 		{ // Register nodes of the network which don't have pieces for the segment
-			// to be injured and kill nodes which have pieces of such segment for
-			// injuring it
+			// to be injured and ill nodes which have pieces of the segment in order
+			// to injure it
 			numNodesToKill := len(originalPieces) - repairThreshold
 			for _, node := range planet.StorageNodes {
 				if _, ok := originalStorageNodes[node.ID()]; !ok {
