@@ -26,7 +26,7 @@ func TestSortByXOR(t *testing.T) {
 }
 
 func BenchmarkSortByXOR(b *testing.B) {
-	var nodes []storj.NodeID
+	nodes := make([]storj.NodeID, 1000)
 	for k := 0; k < 1000; k++ {
 		nodes = append(nodes, testrand.NodeID())
 	}
