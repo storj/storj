@@ -51,9 +51,6 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// subtract one hour to leave room for clock difference between the satellite and storage node
-	createdBefore = createdBefore.Add(-1 * time.Hour)
-
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT piece_id
 		FROM pieceinfo

@@ -566,12 +566,15 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, Error.Wrap(err)
 	}
 
-	limit := 1000
+	const limit = 1000
 	offset := 0
-	piecesRemaining := true
+	hasMorePieces := true
 
-	for piecesRemaining {
-		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, retainReq.GetCreationDate(), limit, offset)
+	for hasMorePieces {
+		// subtract one hour to leave room for clock difference between the satellite and storage node
+		createdBefore := retainReq.GetCreationDate().Add(-1 * time.Hour)
+
+		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -588,7 +591,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 				}
 			}
 		}
-		piecesRemaining = (len(pieceIDs) == limit)
+		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.

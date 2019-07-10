@@ -523,8 +523,9 @@ func TestRetain(t *testing.T) {
 
 		const nbPieces = 1000
 		const nbPiecesToKeep = 990
-		const nbOldPieces = 5 // pieces from nbPiecesToKeep + nbOldPieces to nbPieces will
+		// pieces from nbPiecesToKeep + nbOldPieces to nbPieces will
 		// have a recent timestamp and thus should not be deleted
+		const nbOldPieces = 5
 
 		filter := bloomfilter.NewOptimal(nbPiecesToKeep, 0.1)
 
@@ -537,9 +538,8 @@ func TestRetain(t *testing.T) {
 		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, nil, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
 		require.NoError(t, err)
 
-		now := time.Now()
-		oldTime := now.Add(-time.Duration(48) * time.Hour)
-		recentTime := now.Add(time.Duration(48) * time.Hour)
+		recentTime := time.Now()
+		oldTime := recentTime.Add(-time.Duration(48) * time.Hour)
 
 		var pieceCreation time.Time
 		// add all pieces to the node pieces info DB - but only count piece ids in filter
@@ -605,7 +605,7 @@ func TestRetain(t *testing.T) {
 
 		retainReq := pb.RetainRequest{}
 		retainReq.Filter = filter.Bytes()
-		retainReq.CreationDate = now
+		retainReq.CreationDate = recentTime
 
 		_, err = endpoint.Retain(ctxSatellite0, &retainReq)
 		require.NoError(t, err)
@@ -613,7 +613,7 @@ func TestRetain(t *testing.T) {
 		// check we have deleted nothing for satellite1
 		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
 		require.NoError(t, err)
-		require.Equal(t, len(satellite1Pieces), nbPieces)
+		require.Equal(t, nbPieces, len(satellite1Pieces))
 
 		// check we did not delete recent pieces
 		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), nbPieces, 0)
