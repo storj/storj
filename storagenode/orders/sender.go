@@ -52,6 +52,13 @@ const (
 	StatusRejected
 )
 
+// ArchiveRequest defines arguments for archiving a single order.
+type ArchiveRequest struct {
+	Satellite storj.NodeID
+	Serial    storj.SerialNumber
+	Status    Status
+}
+
 // DB implements storing orders for sending to the satellite.
 type DB interface {
 	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
@@ -62,25 +69,10 @@ type DB interface {
 	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
 
 	// Archive marks order as being handled.
-	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status Status) error
-
-	// BeginArchive returns a transaction object that can be used to batch archives.
-	BeginArchive(ctx context.Context) (ArchiveTransaction, error)
+	Archive(ctx context.Context, requests ...ArchiveRequest) error
 
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
-}
-
-// ArchiveTransaction allows one to batch up a set of archive operations into a single unit.
-type ArchiveTransaction interface {
-	// Archive marks order as being handled.
-	Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status Status) error
-
-	// Commit persists the transaction, invalidating it.
-	Commit() error
-
-	// Rollback cancels any changes in the transaction, invalidating it.
-	Rollback() error
 }
 
 // SenderConfig defines configuration for sending orders.
@@ -177,14 +169,14 @@ func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orde
 	}
 }
 
-func (sender *Sender) handleBatches(ctx context.Context, ch chan archiveRequest) {
+func (sender *Sender) handleBatches(ctx context.Context, ch chan ArchiveRequest) {
 	err := sender.doHandleBatches(ctx, ch)
 	if err != nil {
 		sender.log.Error("failed to handle batches", zap.Error(err))
 	}
 }
 
-func (sender *Sender) doHandleBatches(ctx context.Context, ch chan archiveRequest) (err error) {
+func (sender *Sender) doHandleBatches(ctx context.Context, ch chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// In case anything goes wrong, discard everything from the channel.
@@ -193,25 +185,7 @@ func (sender *Sender) doHandleBatches(ctx context.Context, ch chan archiveReques
 		}
 	}()
 
-	buffer := make([]archiveRequest, 0, cap(ch))
-
-	// Flush performs an archive on all of the requests in the buffer.
-	flush := func() (err error) {
-		txn, err := sender.orders.BeginArchive(ctx)
-		if err != nil {
-			return err
-		}
-		for _, request := range buffer {
-			if err := txn.Archive(ctx, request.satellite, request.serial, request.status); err != nil {
-				return errs.Combine(err, txn.Rollback())
-			}
-		}
-
-		if err := txn.Commit(); err != nil {
-			return errs.Combine(err, txn.Rollback())
-		}
-		return nil
-	}
+	buffer := make([]ArchiveRequest, 0, cap(ch))
 
 	for request := range ch {
 		buffer = append(buffer, request)
@@ -219,14 +193,14 @@ func (sender *Sender) doHandleBatches(ctx context.Context, ch chan archiveReques
 			continue
 		}
 
-		if err := flush(); err != nil {
+		if err := sender.orders.Archive(ctx, buffer...); err != nil {
 			return err
 		}
 		buffer = buffer[:0]
 	}
 
 	if len(buffer) > 0 {
-		return flush()
+		return sender.orders.Archive(ctx, buffer...)
 	}
 	return nil
 }
