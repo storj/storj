@@ -113,7 +113,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 		for _, arsByDate := range stats {
 			for _, ar := range arsByDate {
 				nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
-				start := dbx.AccountingRollup_StartTime(ar.StartTime)
+				start := dbx.AccountingRollup_StartTime(ar.StartTime.UTC())
 				put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
 				get := dbx.AccountingRollup_GetTotal(ar.GetTotal)
 				audit := dbx.AccountingRollup_GetAuditTotal(ar.GetAuditTotal)

@@ -21,8 +21,8 @@ func (db *projectinvoicestamps) Create(ctx context.Context, stamp console.Projec
 	dbxStamp, err := db.db.Create_ProjectInvoiceStamp(ctx,
 		dbx.ProjectInvoiceStamp_ProjectId(stamp.ProjectID[:]),
 		dbx.ProjectInvoiceStamp_InvoiceId(stamp.InvoiceID),
-		dbx.ProjectInvoiceStamp_StartDate(stamp.StartDate),
-		dbx.ProjectInvoiceStamp_EndDate(stamp.EndDate),
+		dbx.ProjectInvoiceStamp_StartDate(stamp.StartDate.UTC()),
+		dbx.ProjectInvoiceStamp_EndDate(stamp.EndDate.UTC()),
 		dbx.ProjectInvoiceStamp_CreatedAt(stamp.CreatedAt))
 
 	if err != nil {
@@ -35,7 +35,7 @@ func (db *projectinvoicestamps) Create(ctx context.Context, stamp console.Projec
 func (db *projectinvoicestamps) GetByProjectIDStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*console.ProjectInvoiceStamp, error) {
 	dbxStamp, err := db.db.Get_ProjectInvoiceStamp_By_ProjectId_And_StartDate(ctx,
 		dbx.ProjectInvoiceStamp_ProjectId(projectID[:]),
-		dbx.ProjectInvoiceStamp_StartDate(startDate))
+		dbx.ProjectInvoiceStamp_StartDate(startDate.UTC()))
 
 	if err != nil {
 		return nil, err
