@@ -1844,7 +1844,17 @@
               {
                 "id": 3,
                 "name": "private_key",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1922,6 +1932,21 @@
                 "id": 2,
                 "name": "pointer",
                 "type": "pointerdb.Pointer"
+              },
+              {
+                "id": 3,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1983,6 +2008,21 @@
                 "name": "addressed_limits",
                 "type": "AddressedOrderLimit",
                 "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -2672,7 +2712,17 @@
               {
                 "id": 3,
                 "name": "uplink_public_key",
-                "type": "bytes"
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePublicKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               },
               {
                 "id": 4,
