@@ -111,6 +111,8 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "referral-offers-modal.html"),
 		filepath.Join(s.templateDir, "free-offers.html"),
 		filepath.Join(s.templateDir, "free-offers-modal.html"),
+		filepath.Join(s.templateDir, "partner-offers.html"),
+		filepath.Join(s.templateDir, "partner-offers-modal.html"),
 		filepath.Join(s.templateDir, "stop-free-credit.html"),
 		filepath.Join(s.templateDir, "stop-referral-offer.html"),
 	)
