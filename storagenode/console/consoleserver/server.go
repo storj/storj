@@ -162,6 +162,8 @@ func (server *Server) dashboardHandler(writer http.ResponseWriter, request *http
 	if err != nil {
 		server.log.Error("can not get dashboard data", zap.Error(err))
 		response.Error = err.Error()
+        writer.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	response.Data = data
@@ -208,23 +210,25 @@ func (server *Server) getDashboardData(ctx context.Context, satelliteID *storj.N
 		return response, err
 	}
 
-	diskSpaceChartData, err := server.getDiskSpaceChartData(ctx, satelliteID, satellites)
-	if err != nil {
-		return response, err
-	}
+    // TODO: uncomment in future, when caching will be implemented
+	// diskSpaceChartData, err := server.getDiskSpaceChartData(ctx, satelliteID, satellites)
+	// if err != nil {
+	// 	return response, err
+	// }
 
 	uptime := server.service.GetUptime(ctx)
 	nodeID := server.service.GetNodeID(ctx)
 
-	if satelliteID != nil {
-		satelliteStats, err := server.service.GetStatsFromSatellite(ctx, *satelliteID)
-		if err != nil {
-			return response, err
-		}
-
-		response.UptimeCheck = satelliteStats.UptimeCheck
-		response.AuditCheck = satelliteStats.AuditCheck
-	}
+    // TODO: uncomment in future, when caching will be implemented
+	// if satelliteID != nil {
+	// 	satelliteStats, err := server.service.GetStatsFromSatellite(ctx, *satelliteID)
+	// 	if err != nil {
+	// 		return response, err
+	// 	}
+    //
+	// 	response.UptimeCheck = satelliteStats.UptimeCheck
+	// 	response.AuditCheck = satelliteStats.AuditCheck
+	// }
 
 	response.DiskSpace = *space
 	response.Bandwidth = *usage
@@ -235,7 +239,7 @@ func (server *Server) getDashboardData(ctx context.Context, satelliteID *storj.N
 	response.NodeID = nodeID.String()
 	response.Satellites = satellites
 	response.BandwidthChartData = bandwidthChartData
-	response.DiskSpaceChartData = diskSpaceChartData
+	//response.DiskSpaceChartData = diskSpaceChartData
 
 	return response, nil
 }
