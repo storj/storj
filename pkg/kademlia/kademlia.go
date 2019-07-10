@@ -27,8 +27,6 @@ import (
 var (
 	// NodeErr is the class for all errors pertaining to node operations
 	NodeErr = errs.Class("node error")
-	// BootstrapErr is the class for all errors pertaining to bootstrapping a node
-	BootstrapErr = errs.Class("bootstrap node error")
 	// NodeNotFound is returned when a lookup can not produce the requested node
 	NodeNotFound = errs.Class("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
