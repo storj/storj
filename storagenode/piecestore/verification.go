@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/pkg/auth/signing"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 )
 
@@ -79,7 +78,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 }
 
 // VerifyOrder verifies that the order corresponds to the order limit and has all the necessary fields.
-func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit, order *pb.Order, largestOrderAmount int64) (err error) {
+func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, largestOrderAmount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if order.SerialNumber != limit.SerialNumber {
@@ -93,7 +92,11 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 		return ErrProtocol.New("order exceeded allowed amount=%v, limit=%v", order.Amount, limit.Limit) // TODO: report grpc status bad message
 	}
 
-	if err := signing.VerifyOrderSignature(ctx, signing.SigneeFromPeerIdentity(peer), order); err != nil {
+	bytes, err := signing.EncodeOrder(ctx, order)
+	if err != nil {
+		return ErrProtocol.Wrap(err)
+	}
+	if !limit.UplinkPublicKey.Verify(bytes, order.UplinkSignature) {
 		return ErrVerifyUntrusted.New("invalid order signature") // TODO: report grpc status bad message
 	}
 
@@ -101,10 +104,10 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, peer *identity.PeerId
 }
 
 // VerifyPieceHash verifies whether the piece hash is properly signed and matches the locally computed hash.
-func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, peer *identity.PeerIdentity, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
+func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHash, expectedHash []byte) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if peer == nil || limit == nil || hash == nil || len(expectedHash) == 0 {
+	if limit == nil || hash == nil || len(expectedHash) == 0 {
 		return ErrProtocol.New("invalid arguments")
 	}
 	if limit.PieceId != hash.PieceId {
