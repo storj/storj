@@ -4,13 +4,7 @@
 package storj
 
 import (
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha512"
 	"database/sql/driver"
-	"encoding/base32"
-	"encoding/binary"
-	"encoding/json"
 
 	"golang.org/x/crypto/ed25519"
 
@@ -32,11 +26,8 @@ type PiecePrivateKey struct {
 
 // NewPieceKey creates a piece key pair
 func NewPieceKey() (PiecePublicKey, PiecePrivateKey, error) {
-	pub, priv, err := ed25519.GenerateKey(rand.Source)
-	if err != nil {
-		return nil, nil, ErrPieceKey.Wrap(err)
-	}
-	return PiecePublicKey{pub}, PiecePrivateKey{priv}, nil
+	pub, priv, err := ed25519.GenerateKey(nil)
+	return PiecePublicKey{pub}, PiecePrivateKey{priv}, ErrPieceKey.Wrap(err)
 }
 
 // PiecePublicKeyFromBytes converts bytes to a piece public key.
@@ -101,21 +92,17 @@ func (key *PiecePublicKey) Unmarshal(data []byte) error {
 }
 
 // Unmarshal deserializes a piece private key
-func (key *PiecePublicKey) Unmarshal(data []byte) error {
+func (key *PiecePrivateKey) Unmarshal(data []byte) error {
 	var err error
 	*key, err = PiecePrivateKeyFromBytes(data)
 	return err
 }
 
 // Size returns the length of a piece public key (implements gogo's custom type interface)
-func (key *PiecePublicKey) Size() int {
-	return len(key)
-}
+func (key *PiecePublicKey) Size() int { return len(key.pub) }
 
 // Size returns the length of a piece private key (implements gogo's custom type interface)
-func (key *PiecePrivateKey) Size() int {
-	return len(key)
-}
+func (key *PiecePrivateKey) Size() int { return len(key.priv) }
 
 // Value set a PiecePublicKey to a database field
 func (key PiecePublicKey) Value() (driver.Value, error) {
@@ -123,9 +110,7 @@ func (key PiecePublicKey) Value() (driver.Value, error) {
 }
 
 // Value set a PiecePrivateKey to a database field
-func (key PiecePrivateKey) Value() (driver.Value, error) {
-	return key.Bytes(), nil
-}
+func (key PiecePrivateKey) Value() (driver.Value, error) { return key.Bytes(), nil }
 
 // Scan extracts a PiecePublicKey from a database field
 func (key *PiecePublicKey) Scan(src interface{}) (err error) {
