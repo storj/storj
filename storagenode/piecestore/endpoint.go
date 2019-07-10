@@ -550,6 +550,19 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, Error.Wrap(err)
 	}
 
+	trustedSatellites := endpoint.trust.GetSatellites(ctx)
+	trusted := false
+	for _, id := range trustedSatellites {
+		if peer.ID == id {
+			trusted = true
+		}
+	}
+	if !trusted {
+		return nil, Error.New("retain called with untrusted ID")
+	}
+
+	// todo verify peer id is a trusted satellite id so normal uplinks cannot use this method
+
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
 		return nil, Error.Wrap(err)
