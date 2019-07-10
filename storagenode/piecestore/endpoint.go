@@ -562,8 +562,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
-	// todo verify peer id is a trusted satellite id so normal uplinks cannot use this method
-
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
 		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
