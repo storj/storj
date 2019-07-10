@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
@@ -25,16 +26,16 @@ func TestPublicPrivatePieceKey(t *testing.T) {
 	require.Equal(t, expectedPrivateKey, privateKey)
 
 	{
-		data := []byte("data to sign")
+		data := testrand.Bytes(10 * memory.KiB)
 		signature := privateKey.Sign(data)
 
 		verified := publicKey.Verify(data, signature)
 		require.True(t, verified)
 
-		verified = publicKey.Verify(data, []byte("invalid signature"))
+		verified = publicKey.Verify(data, testrand.BytesInt(32))
 		require.False(t, verified)
 
-		verified = publicKey.Verify([]byte("invalid data"), signature)
+		verified = publicKey.Verify(testrand.Bytes(10*memory.KiB), signature)
 		require.False(t, verified)
 	}
 
