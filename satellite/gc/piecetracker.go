@@ -60,8 +60,10 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 	}
 	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
 		filter = bloomfilter.NewOptimal(numPieces, pieceTracker.falsePositiveRate)
-		pieceTracker.retainInfos[nodeID].Filter = filter
-		pieceTracker.retainInfos[nodeID].CreationDate = pieceTracker.filterCreationDate
+		pieceTracker.retainInfos[nodeID] = &RetainInfo{
+			Filter:       filter,
+			CreationDate: pieceTracker.filterCreationDate,
+		}
 	}
 
 	pieceTracker.retainInfos[nodeID].Filter.Add(pieceID)
