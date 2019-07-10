@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode"
 )
 
 // TestGarbageCollection does the following:
@@ -36,10 +35,6 @@ func TestGarbageCollection(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.GarbageCollection.FalsePositiveRate = 0.0001
 				config.GarbageCollection.Interval = 0
-			},
-			StorageNode: func(index int, config *storagenode.Config) {
-				// TODO fix this
-				config.Storage2.RetainTimeBuffer = -3 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -87,10 +82,17 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pieceInfo)
 
+		// Sleep is here because we need at least one full second between the next piece tracker
+		// creation datetime and the piece upload datetimes
+		time.Sleep(1 * time.Second)
+
 		// Trigger bloom filter generation by running checker
-		err = checker.IdentifyInjuredSegments(ctx)
-		require.NoError(t, err)
-		checker.WaitForGCSend()
+		// We trigger it twice because the first piece tracker was created before the upload
+		for i := 0; i < 2; i++ {
+			err = checker.IdentifyInjuredSegments(ctx)
+			require.NoError(t, err)
+			checker.WaitForGCSend()
+		}
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
