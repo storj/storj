@@ -44,3 +44,14 @@ func ParseEncryptionAccess(b58data string) (*EncryptionAccess, error) {
 	}
 	return &EncryptionAccess{lib: access}, nil
 }
+
+// NewEncryptionAccessWithDefaultKey creates an encryption access context with
+// a default key set.
+// Use Project.SaltedKeyFromPassphrase to generate a default key
+func NewEncryptionAccessWithDefaultKey(defaultKey []byte) (_ *EncryptionAccess, err error) {
+	key, err := storj.NewKey(defaultKey)
+	if err != nil {
+		return nil, err
+	}
+	return &EncryptionAccess{lib: libuplink.NewEncryptionAccessWithDefaultKey(*key)}, nil
+}

@@ -9,16 +9,15 @@
                 v-for="(stat, key) in stats"
                 :key="key"
                 :style="stat.background">
-                <span class="referral-stats__card-text">
-                    <span class="referral-stats__card-title">{{ stat.title }}</span>
-                    <span class="referral-stats__card-description">{{ stat.description }}</span>
-                </span>
-                <br>
-                <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
+                    <span class="referral-stats__card-text">
+                        <span class="referral-stats__card-title">{{ stat.title }}</span>
+                        <span class="referral-stats__card-description">{{ stat.description }}</span>
+                    </span>
+                    <br>
+                    <span class="referral-stats__card-number">{{ stat.symbol + usage[key] }}</span>
             </div>
         </div>
     </div>
-    
 </template>
 
 <script lang="ts">
@@ -83,60 +82,61 @@
 </script>
 
 <style scoped lang="scss">
-.referral-stats {
-    &__title {
-        text-align: center;
-        font-family: 'font_bold';
-    }
+    .referral-stats {
 
-    &__wrapper {
-        display: flex;
-        flex-direction: row;
-        justify-content: space-around;
-        left: 15%;
-        right: 15%;
-        font-family: 'font_regular';
-    }
-
-    &__card {
-        color: #354049;
-        min-height: 176px;
-        max-width: 276px;
-        flex-basis: 25%;
-        border-radius: 24px;
-        padding-top: 25px;
-        padding-left: 26px;
-        padding-right: 29px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-evenly;
-
-        &-text {
-            display: block;
-        }
-
-        &-title {
-            display: block;
-            text-transform: uppercase;
+        &__title {
+            text-align: center;
             font-family: 'font_bold';
-            font-size: 14px;
-            line-height: 18px;
         }
 
-        &-description {
-            display: block;
-            font-size: 14px;
-            line-height: 21px;
-            margin-top: 7px;
+        &__wrapper {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-around;
+            left: 15%;
+            right: 15%;
+            font-family: 'font_regular';
         }
 
-        &-number {
-            display: block;
-            font-family: 'font_bold';
-            font-size: 46px;
-            line-height: 60px;
-            margin-bottom: 27px;
+        &__card {
+            color: #354049;
+            min-height: 176px;
+            max-width: 276px;
+            flex-basis: 25%;
+            border-radius: 24px;
+            padding-top: 25px;
+            padding-left: 26px;
+            padding-right: 29px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+
+            &-text {
+                display: block;
+            }
+
+            &-title {
+                display: block;
+                text-transform: uppercase;
+                font-family: 'font_bold';
+                font-size: 14px;
+                line-height: 18px;
+            }
+
+            &-description {
+                display: block;
+                font-size: 14px;
+                line-height: 21px;
+                margin-top: 7px;
+            }
+
+            &-number {
+                display: block;
+                font-family: 'font_bold';
+                font-size: 46px;
+                line-height: 60px;
+                margin-bottom: 27px;
+            }
         }
     }
-}
 </style>

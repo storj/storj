@@ -121,10 +121,9 @@
                 return true;
             },
             createProject: async function(): Promise<boolean> {
-                const project: Project = {
+                const project: CreateProjectModel = {
                     name: this.$data.projectName,
                     description: this.$data.description,
-                    isTermsAccepted: this.$data.isTermsAccepted
                 };
 
                 let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);
@@ -188,9 +187,11 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .new-project-popup {
         width: 100%;
         max-width: 845px;

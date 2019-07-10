@@ -87,6 +87,7 @@
             }
         }
     }
+    
     .blur-wrap {
         position: fixed;
         height: 100vh;
