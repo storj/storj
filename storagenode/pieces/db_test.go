@@ -86,13 +86,17 @@ func TestPieceInfo(t *testing.T) {
 			})
 		require.NoError(t, err)
 
+		// use different timezones
+		location := time.FixedZone("XYZ", int((8 * time.Hour).Seconds()))
+		now2 := now.In(location)
+
 		info2 := &pieces.Info{
 			SatelliteID: satellite2.ID,
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   now,
-			PieceExpiration: now,
+			PieceCreation:   now2,
+			PieceExpiration: now2,
 
 			UplinkPieceHash: piecehash2,
 		}

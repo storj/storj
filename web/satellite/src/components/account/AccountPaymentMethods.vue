@@ -57,125 +57,125 @@
 </script>
 
 <style scoped lang="scss">
-	.payment-methods-container {
-		margin-top: 83px;
-
-		&__card-container {
-			width: calc(100% - 80px);
-			margin-top: 37px;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 50px 40px 50px 40px;
-			background-color: white;
-			border-radius: 6px;
-
-			&__info-area {
-				width: 75%;
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-
-				&__card-logo {
-					height: 50px;
-					width: 50px;
-				}
-
-				&__info-container {
-
-					h1 {
-						font-family: 'font_bold';
-						font-size: 16px;
-						line-height: 21px;
-						color: #61666B;
-					}
-
-					h2 {
-						font-family: 'font_regular';
-						font-size: 16px;
-						line-height: 21px;
-						color: #61666B;
-						margin-block-start: 0.5em;
-						margin-block-end: 0.5em;
-					}
-				}
-
-				&__expire-container {
-
-					h1 {
-						font-family: 'font_bold';
-						font-size: 16px;
-						line-height: 21px;
-						color: #61666B;
-						margin-block-start: 0.5em;
-						margin-block-end: 0.5em;
-					}
-
-					h2 {
-						font-family: 'font_regular';
-						font-size: 16px;
-						line-height: 21px;
-						color: #61666B;
-					}
-				}
-
-				&__added-text {
-					font-family: 'font_regular';
-					font-size: 16px;
-					line-height: 21px;
-					color: #61666B;
-				}
-			}
-
-			&__default-button {
-				width: 100px;
-				height: 34px;
-				border-radius: 6px;
-				background-color: #F5F6FA;
-				display: flex;
-				justify-content: center;
-				align-items: center;
-
-				&__label {
-					font-family: 'font_medium';
-					font-size: 16px;
-					line-height: 23px;
-					color: #AFB7C1;
-				}
-			}
-
-			&__button-area {
-				width: 20%;
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-
-				&__make-button {
-					width: 134px;
-					height: 34px;
-					border-radius: 6px;
-					background-color: #DFEDFF;
-					display: flex;
-					justify-content: center;
-					align-items: center;
-					cursor: pointer;
-
-					&__label {
-						font-family: 'font_medium';
-						font-size: 16px;
-						line-height: 23px;
-						color: #2683FF;
-					}
-				}
-
-				svg {
-					cursor: pointer;
-				}
-			}
-		}
-
-		&__add-button {
-			margin-top: 35px;
-		}
-	}
+    .payment-methods-container {
+        margin-top: 83px;
+        
+        &__card-container {
+            width: calc(100% - 80px);
+            margin-top: 37px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 50px 40px 50px 40px;
+            background-color: white;
+            border-radius: 6px;
+    
+            &__info-area {
+                width: 75%;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                
+                &__card-logo {
+                    height: 50px;
+                    width: 50px;
+                }
+                
+                &__info-container {
+                
+                    h1 {
+                        font-family: 'font_bold';
+                        font-size: 16px;
+                        line-height: 21px;
+                        color: #61666B;
+                    }
+                    
+                    h2 {
+                        font-family: 'font_regular';
+                        font-size: 16px;
+                        line-height: 21px;
+                        color: #61666B;
+                        margin-block-start: 0.5em;
+                        margin-block-end: 0.5em;
+                    }
+                }
+                
+                &__expire-container {
+                    
+                    h1 {
+                        font-family: 'font_bold';
+                        font-size: 16px;
+                        line-height: 21px;
+                        color: #61666B;
+                        margin-block-start: 0.5em;
+                        margin-block-end: 0.5em;
+                    }
+                    
+                    h2 {
+                        font-family: 'font_regular';
+                        font-size: 16px;
+                        line-height: 21px;
+                        color: #61666B;
+                    }
+                }
+                
+                &__added-text {
+                    font-family: 'font_regular';
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #61666B;
+                }
+            }
+            
+            &__default-button {
+                width: 100px;
+                height: 34px;
+                border-radius: 6px;
+                background-color: #F5F6FA;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            
+                &__label {
+                    font-family: 'font_medium';
+                    font-size: 16px;
+                    line-height: 23px;
+                    color: #AFB7C1;
+                }
+            }
+            
+            &__button-area {
+                width: 20%;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                
+                &__make-button {
+                    width: 134px;
+                    height: 34px;
+                    border-radius: 6px;
+                    background-color: #DFEDFF;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    cursor: pointer;
+                    
+                    &__label {
+                        font-family: 'font_medium';
+                        font-size: 16px;
+                        line-height: 23px;
+                        color: #2683FF;
+                    }
+                }
+                
+                svg {
+                    cursor: pointer;
+                }
+            }
+        }
+    
+        &__add-button {
+            margin-top: 35px;
+        }
+    }
 </style>

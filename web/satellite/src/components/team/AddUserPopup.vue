@@ -271,6 +271,7 @@
             }
         }
     }
+
     .inactive-label {
         color: #DADDE5;
     }
@@ -280,10 +281,13 @@
     }
 
     .inactive-image {
+
         svg {
+
             rect {
                 fill: #DADDE5;
             }
+
             path {
                 fill: #ACB0BC;
             }
@@ -454,7 +458,6 @@
                 align-items: center;
                 margin-top: 30px;
                 padding: 0 80px 0 50px;
-
             }
         }
 

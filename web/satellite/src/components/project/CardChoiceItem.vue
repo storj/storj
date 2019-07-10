@@ -68,67 +68,67 @@
 </script>
 
 <style scoped lang="scss">
-	.chosen-card-container {
-		height: 40px;
-		display: flex;
-		flex-direction: row;
-		justify-content: flex-start;
-		align-items: center;
-		max-width: calc(100% - 95px);
-
-		&__logo {
-			margin-left: 15px;
-		}
-
-		&__credentials {
-			margin-left: 26px;
-			display: flex;
-			align-items: center;
-
-			&__number {
-				font-family: 'font_bold';
-				font-size: 16px;
-				line-height: 21px;
-				color: #61666B;
-				margin: 0;
-			}
-
-			&__name {
-				font-family: 'font_regular';
-				font-size: 16px;
-				line-height: 21px;
-				color: #61666B;
-				margin-left: 20px;
-			}
-		}
-
-		&__border {
-			margin-left: 20px;
-			margin-right: 20px;
-			height: 23px;
-			width: 1px;
-			background-color: #61666b;
-		}
-
-		&__expire-container {
-			display: flex;
-			align-items: center;
-
-			&__label {
-				font-family: 'font_regular';
-				font-size: 16px;
-				line-height: 21px;
-				color: #61666B;
-				margin: 0;
-			}
-
-			&__date {
-				font-family: 'font_bold';
-				font-size: 16px;
-				line-height: 21px;
-				color: #61666B;
-				margin-left: 20px;
-			}
-		}
-	}
+    .chosen-card-container {
+        height: 40px;
+        display: flex;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        max-width: calc(100% - 95px);
+        
+        &__logo {
+            margin-left: 15px;
+        }
+        
+        &__credentials {
+            margin-left: 26px;
+            display: flex;
+            align-items: center;
+            
+            &__number {
+                font-family: 'font_bold';
+                font-size: 16px;
+                line-height: 21px;
+                color: #61666B;
+                margin: 0;
+            }
+            
+            &__name {
+                font-family: 'font_regular';
+                font-size: 16px;
+                line-height: 21px;
+                color: #61666B;
+                margin-left: 20px;
+            }
+        }
+        
+        &__border {
+            margin-left: 20px;
+            margin-right: 20px;
+            height: 23px;
+            width: 1px;
+            background-color: #61666b;
+        }
+        
+        &__expire-container {
+            display: flex;
+            align-items: center;
+            
+            &__label {
+                font-family: 'font_regular';
+                font-size: 16px;
+                line-height: 21px;
+                color: #61666B;
+                margin: 0;
+            }
+            
+            &__date {
+                font-family: 'font_bold';
+                font-size: 16px;
+                line-height: 21px;
+                color: #61666B;
+                margin-left: 20px;
+            }
+        }
+    }
 </style>
