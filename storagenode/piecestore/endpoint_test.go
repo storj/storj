@@ -4,6 +4,8 @@
 package piecestore_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"io"
 	"strings"
 	"sync/atomic"
@@ -17,18 +19,25 @@ import (
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
+	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/pieces"
+	ps "storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -498,4 +507,128 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeI
 		PieceExpiration: now.Add(pieceExpiration),
 		Limit:           limit,
 	}
+}
+
+func TestRetain(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+		pieceInfos := db.PieceInfo()
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces())
+
+		const numPieces = 1000
+		const numPiecesToKeep = 990
+		// pieces from numPiecesToKeep + numOldPieces to numPieces will
+		// have a recent timestamp and thus should not be deleted
+		const numOldPieces = 5
+
+		filter := bloomfilter.NewOptimal(numPiecesToKeep, 0.1)
+
+		pieceIDs := generateTestIDs(numPieces)
+
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
+
+		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
+		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, nil, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
+		require.NoError(t, err)
+
+		recentTime := time.Now()
+		oldTime := recentTime.Add(-time.Duration(48) * time.Hour)
+
+		var pieceCreation time.Time
+		// add all pieces to the node pieces info DB - but only count piece ids in filter
+		for index, id := range pieceIDs {
+			if index < numPiecesToKeep {
+				filter.Add(id)
+			}
+
+			if index < numPiecesToKeep+numOldPieces {
+				pieceCreation = oldTime
+			} else {
+				pieceCreation = recentTime
+			}
+
+			piecehash0, err := signing.SignPieceHash(ctx,
+				signing.SignerFromFullIdentity(uplink),
+				&pb.PieceHash{
+					PieceId: id,
+					Hash:    []byte{0, 2, 3, 4, 5},
+				})
+			require.NoError(t, err)
+
+			piecehash1, err := signing.SignPieceHash(ctx,
+				signing.SignerFromFullIdentity(uplink),
+				&pb.PieceHash{
+					PieceId: id,
+					Hash:    []byte{0, 2, 3, 4, 5},
+				})
+			require.NoError(t, err)
+
+			pieceinfo0 := pieces.Info{
+				SatelliteID:     satellite0.ID,
+				PieceSize:       4,
+				PieceID:         id,
+				PieceCreation:   pieceCreation,
+				UplinkPieceHash: piecehash0,
+				Uplink:          uplink.PeerIdentity(),
+			}
+			pieceinfo1 := pieces.Info{
+				SatelliteID:     satellite1.ID,
+				PieceSize:       4,
+				PieceID:         id,
+				PieceCreation:   pieceCreation,
+				UplinkPieceHash: piecehash1,
+				Uplink:          uplink.PeerIdentity(),
+			}
+
+			err = pieceInfos.Add(ctx, &pieceinfo0)
+			require.NoError(t, err)
+
+			err = pieceInfos.Add(ctx, &pieceinfo1)
+			require.NoError(t, err)
+
+		}
+
+		ctxSatellite0 := peer.NewContext(ctx, &peer.Peer{
+			AuthInfo: credentials.TLSInfo{
+				State: tls.ConnectionState{
+					PeerCertificates: []*x509.Certificate{satellite0.PeerIdentity().Leaf, satellite0.PeerIdentity().CA},
+				},
+			},
+		})
+
+		retainReq := pb.RetainRequest{}
+		retainReq.Filter = filter.Bytes()
+		retainReq.CreationDate = recentTime
+
+		_, err = endpoint.Retain(ctxSatellite0, &retainReq)
+		require.NoError(t, err)
+
+		// check we have deleted nothing for satellite1
+		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		require.NoError(t, err)
+		require.Equal(t, numPieces, len(satellite1Pieces))
+
+		// check we did not delete recent pieces
+		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		require.NoError(t, err)
+
+		for _, id := range pieceIDs[:numPiecesToKeep] {
+			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (not in bloom filter)")
+		}
+
+		for _, id := range pieceIDs[numPiecesToKeep+numOldPieces:] {
+			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
+		}
+	})
+}
+
+// generateTestIDs generates n piece ids
+func generateTestIDs(n int) []storj.PieceID {
+	ids := make([]storj.PieceID, n)
+	for i := range ids {
+		ids[i] = testrand.PieceID()
+	}
+	return ids
 }
