@@ -8,8 +8,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/errs2"
@@ -39,7 +37,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrProtocol.New("order limit is negative")
 	case endpoint.signer.ID() != limit.StorageNodeId:
 		return ErrProtocol.New("order intended for other storagenode: %v", limit.StorageNodeId)
-	case limit.PieceExpiration != nil && endpoint.IsExpired(limit.PieceExpiration):
+	case endpoint.IsExpired(limit.PieceExpiration):
 		return ErrProtocol.New("piece expired: %v", limit.PieceExpiration)
 	case endpoint.IsExpired(limit.OrderExpiration):
 		return ErrProtocol.New("order expired: %v", limit.OrderExpiration)
@@ -77,10 +75,7 @@ func (endpoint *Endpoint) VerifyOrderLimit(ctx context.Context, limit *pb.OrderL
 		return ErrVerifyUntrusted.Wrap(err)
 	}
 
-	serialExpiration, err := ptypes.Timestamp(limit.OrderExpiration)
-	if err != nil {
-		return ErrInternal.Wrap(err)
-	}
+	serialExpiration := limit.OrderExpiration
 
 	// Expire the serial earlier if the grace period is smaller than the serial expiration.
 	if graceExpiration := now.Add(endpoint.config.OrderLimitGracePeriod); graceExpiration.Before(serialExpiration) {
@@ -157,17 +152,11 @@ func (endpoint *Endpoint) VerifyOrderLimitSignature(ctx context.Context, limit *
 }
 
 // IsExpired checks whether the date has already expired (with a threshold) at the time of calling this function.
-func (endpoint *Endpoint) IsExpired(expiration *timestamp.Timestamp) bool {
-	if expiration == nil {
-		return true
-	}
-
-	expirationTime, err := ptypes.Timestamp(expiration)
-	if err != nil {
-		// TODO: return error
-		return true
+func (endpoint *Endpoint) IsExpired(expiration time.Time) bool {
+	if expiration.IsZero() {
+		return false
 	}
 
 	// TODO: return specific error about either exceeding the expiration completely or just the grace period
-	return expirationTime.Before(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
+	return expiration.Before(time.Now().Add(-endpoint.config.ExpirationGracePeriod))
 }

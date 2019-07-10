@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -39,7 +38,7 @@ type TTLItem struct {
 }
 
 type createRequest struct {
-	Expiration *timestamp.Timestamp
+	Expiration time.Time
 	Redundancy *pb.RedundancyScheme
 
 	ttl time.Time
@@ -220,7 +219,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 		switch {
 		case !found:
 			return Error.New("missing create request or request expired")
-		case !proto.Equal(createRequest.Expiration, req.Pointer.ExpirationDate):
+		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
 			return Error.New("pointer expiration date does not match requested one")
 		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
 			return Error.New("pointer redundancy scheme date does not match requested one")
