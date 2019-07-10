@@ -199,7 +199,11 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
 	redundancy := pointer.Remote.Redundancy
-	// we repair when the number of healthy files is less than or equal to the repair threshold
+
+	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))
+	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy))
+
+	// we repair when the number of healthy pieces is less than or equal to the repair threshold
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy > redundancy.MinReq && numHealthy <= redundancy.RepairThreshold && numHealthy < redundancy.SuccessThreshold {
 		if len(missingPieces) == 0 {
@@ -208,8 +212,9 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		}
 		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:       path,
-			LostPieces: missingPieces,
+			Path:         path,
+			LostPieces:   missingPieces,
+			InsertedTime: time.Now().UTC(),
 		})
 		if err != nil {
 			return Error.New("error adding injured segment to queue %s", err)
