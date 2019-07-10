@@ -234,7 +234,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKEy storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -247,7 +247,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 		}
 
 		go func(i int, limit *pb.AddressedOrderLimit) {
-			share, err := verifier.GetShare(ctx, limit, piecePrivateKEy, stripeIndex, shareSize, i)
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, stripeIndex, shareSize, i)
 			if err != nil {
 				share = Share{
 					Error:    err,
