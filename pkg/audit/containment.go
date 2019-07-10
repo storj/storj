@@ -19,9 +19,6 @@ var (
 	// ErrContainedNotFound is the errs class for when a pending audit isn't found
 	ErrContainedNotFound = errs.Class("pending audit not found")
 
-	// ErrContainDelete is the errs class for when a pending audit can't be deleted
-	ErrContainDelete = errs.Class("unable to delete pending audit")
-
 	// ErrAlreadyExists is the errs class for when a pending audit with the same nodeID but different share data already exists
 	ErrAlreadyExists = errs.Class("pending audit already exists for nodeID")
 )
