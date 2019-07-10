@@ -569,7 +569,7 @@ func TestRetain(t *testing.T) {
 				SatelliteID:     satellite0.ID,
 				PieceSize:       4,
 				PieceID:         id,
-				PieceCreation:   &pieceCreation,
+				PieceCreation:   pieceCreation,
 				UplinkPieceHash: piecehash0,
 				Uplink:          uplink.PeerIdentity(),
 			}
@@ -577,7 +577,7 @@ func TestRetain(t *testing.T) {
 				SatelliteID:     satellite1.ID,
 				PieceSize:       4,
 				PieceID:         id,
-				PieceCreation:   &pieceCreation,
+				PieceCreation:   pieceCreation,
 				UplinkPieceHash: piecehash1,
 				Uplink:          uplink.PeerIdentity(),
 			}
