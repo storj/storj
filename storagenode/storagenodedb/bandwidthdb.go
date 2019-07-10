@@ -22,9 +22,9 @@ type bandwidthdb struct {
 }
 
 type bandwidthUsed struct {
+	used      int64
 	mu        sync.RWMutex
 	usedSince time.Time
-	used      int64
 }
 
 // Bandwidth returns table for storing bandwidth usage.

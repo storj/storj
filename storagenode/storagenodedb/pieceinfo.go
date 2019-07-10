@@ -24,8 +24,8 @@ type pieceinfo struct {
 }
 
 type spaceUsed struct {
-	once sync.Once
 	used int64
+	once sync.Once
 }
 
 // PieceInfo returns database for storing piece information
