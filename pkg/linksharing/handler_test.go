@@ -10,9 +10,9 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
-	"gotest.tools/assert"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -47,14 +47,9 @@ func testHandler(t *testing.T, ctx *testcontext.Context, planet *testplanet.Plan
 		method string
 		path   string
 		status int
+		header http.Header
 		body   string
 	}{
-		{
-			name:   "success",
-			path:   path.Join(scope, "testbucket", "test/foo"),
-			status: http.StatusOK,
-			body:   "FOO",
-		},
 		{
 			name:   "invalid method",
 			method: "PUT",
@@ -62,46 +57,114 @@ func testHandler(t *testing.T, ctx *testcontext.Context, planet *testplanet.Plan
 			body:   "method not allowed\n",
 		},
 		{
-			name:   "missing scope",
+			name:   "GET missing scope",
+			method: "GET",
 			status: http.StatusBadRequest,
 			body:   "invalid request: missing scope\n",
 		},
 		{
-			name:   "malformed scope",
+			name:   "GET malformed scope",
+			method: "GET",
 			path:   path.Join("BADSCOPE", "testbucket", "test/foo"),
 			status: http.StatusBadRequest,
 			body:   "invalid request: invalid scope format\n",
 		},
 		{
-			name:   "missing bucket",
+			name:   "GET missing bucket",
+			method: "GET",
 			path:   scope,
 			status: http.StatusBadRequest,
 			body:   "invalid request: missing bucket\n",
 		},
 		{
-			name:   "bucket not found",
+			name:   "GET bucket not found",
+			method: "GET",
 			path:   path.Join(scope, "someotherbucket", "test/foo"),
 			status: http.StatusNotFound,
 			body:   "bucket not found\n",
 		},
 		{
-			name:   "missing bucket path",
+			name:   "GET missing bucket path",
+			method: "GET",
 			path:   path.Join(scope, "testbucket"),
 			status: http.StatusBadRequest,
 			body:   "invalid request: missing bucket path\n",
 		},
 		{
-			name:   "object not found",
+			name:   "GET object not found",
+			method: "GET",
 			path:   path.Join(scope, "testbucket", "test/bar"),
 			status: http.StatusNotFound,
 			body:   "object not found\n",
+		},
+		{
+			name:   "GET success",
+			method: "GET",
+			path:   path.Join(scope, "testbucket", "test/foo"),
+			status: http.StatusOK,
+			body:   "FOO",
+		},
+		{
+			name:   "HEAD missing scope",
+			method: "HEAD",
+			status: http.StatusBadRequest,
+			body:   "invalid request: missing scope\n",
+		},
+		{
+			name:   "HEAD malformed scope",
+			method: "HEAD",
+			path:   path.Join("BADSCOPE", "testbucket", "test/foo"),
+			status: http.StatusBadRequest,
+			body:   "invalid request: invalid scope format\n",
+		},
+		{
+			name:   "HEAD missing bucket",
+			method: "HEAD",
+			path:   scope,
+			status: http.StatusBadRequest,
+			body:   "invalid request: missing bucket\n",
+		},
+		{
+			name:   "HEAD bucket not found",
+			method: "HEAD",
+			path:   path.Join(scope, "someotherbucket", "test/foo"),
+			status: http.StatusNotFound,
+			body:   "bucket not found\n",
+		},
+		{
+			name:   "HEAD missing bucket path",
+			method: "HEAD",
+			path:   path.Join(scope, "testbucket"),
+			status: http.StatusBadRequest,
+			body:   "invalid request: missing bucket path\n",
+		},
+		{
+			name:   "HEAD object not found",
+			method: "HEAD",
+			path:   path.Join(scope, "testbucket", "test/bar"),
+			status: http.StatusNotFound,
+			body:   "object not found\n",
+		},
+		{
+			name:   "HEAD success",
+			method: "HEAD",
+			path:   path.Join(scope, "testbucket", "test/foo"),
+			status: http.StatusFound,
+			header: http.Header{
+				"Location": []string{"http://localhost/" + path.Join(scope, "testbucket", "test/foo")},
+			},
+			body: "",
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			handler := NewHandler(zaptest.NewLogger(t), newUplink(ctx, t))
+			handler, err := NewHandler(HandlerConfig{
+				Log:     zaptest.NewLogger(t),
+				Uplink:  newUplink(ctx, t),
+				URLBase: "http://localhost",
+			})
 			url := "http://localhost/" + testCase.path
 			w := httptest.NewRecorder()
 			r, err := http.NewRequest(testCase.method, url, nil)
@@ -109,6 +172,9 @@ func testHandler(t *testing.T, ctx *testcontext.Context, planet *testplanet.Plan
 			handler.ServeHTTP(w, r)
 
 			assert.Equal(t, testCase.status, w.Code, "status code does not match")
+			for h, v := range testCase.header {
+				assert.Equal(t, v, w.Header()[h], "%q header does not match", h)
+			}
 			assert.Equal(t, testCase.body, w.Body.String(), "body does not match")
 		})
 	}

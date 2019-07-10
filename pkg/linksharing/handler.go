@@ -9,8 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"path"
 	"strings"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
@@ -23,18 +26,45 @@ var (
 	mon = monkit.Package()
 )
 
+type HandlerConfig struct {
+	// Log is a logger used for logging
+	Log *zap.Logger
+
+	// Uplink is the uplink used to talk to the storage network
+	Uplink *uplink.Uplink
+
+	// URLBase is the base URL of the link sharing handler. It is used
+	// to construct URLs returned to clients. It should be a fully formed URL.
+	URLBase string
+}
+
 // Handler implements the link sharing HTTP handler
 type Handler struct {
-	log    *zap.Logger
-	uplink *uplink.Uplink
+	log     *zap.Logger
+	uplink  *uplink.Uplink
+	urlBase *url.URL
 }
 
 // NewHandler creates a new link sharing HTTP handler
-func NewHandler(log *zap.Logger, uplink *uplink.Uplink) *Handler {
-	return &Handler{
-		log:    log,
-		uplink: uplink,
+func NewHandler(config HandlerConfig) (*Handler, error) {
+	if config.Log == nil {
+		config.Log = zap.L()
 	}
+
+	if config.Uplink == nil {
+		return nil, errors.New("uplink is required")
+	}
+
+	urlBase, err := parseURLBase(config.URLBase)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Handler{
+		log:     config.Log,
+		uplink:  config.Uplink,
+		urlBase: urlBase,
+	}, nil
 }
 
 // ServeHTTP handles link sharing requests
@@ -48,7 +78,13 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err error) 
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	if r.Method != http.MethodGet {
+	locationOnly := false
+
+	switch r.Method {
+	case http.MethodHead:
+		locationOnly = true
+	case http.MethodGet:
+	default:
 		err = errors.New("method not allowed")
 		http.Error(w, err.Error(), http.StatusMethodNotAllowed)
 		return err
@@ -93,6 +129,12 @@ func (h *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err error) 
 			h.log.With(zap.Error(err)).Warn("unable to close object")
 		}
 	}()
+
+	if locationOnly {
+		location := makeLocation(h.urlBase, r.URL.Path)
+		http.Redirect(w, r, location, http.StatusFound)
+		return nil
+	}
 
 	ranger.ServeContent(ctx, w, r, unencPath, o.Meta.Modified, newObjectRanger(o))
 	return nil
@@ -153,4 +195,31 @@ func (r *objectRanger) Size() int64 {
 func (r *objectRanger) Range(ctx context.Context, offset, length int64) (_ io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return r.o.DownloadRange(ctx, offset, length)
+}
+
+func parseURLBase(s string) (*url.URL, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	switch {
+	case u.Scheme != "http" && u.Scheme != "https":
+		return nil, errs.New("URL base must be http:// or https://")
+	case u.Host == "":
+		return nil, errs.New("URL base must contain host")
+	case u.User != nil:
+		return nil, errs.New("URL base must not contain user info")
+	case u.RawQuery != "":
+		return nil, errs.New("URL base must not contain query values")
+	case u.Fragment != "":
+		return nil, errs.New("URL base must not contain a fragment")
+	}
+	return u, nil
+}
+
+func makeLocation(base *url.URL, reqPath string) string {
+	location := *base
+	location.Path = path.Join(location.Path, reqPath)
+	return location.String()
 }

@@ -23,9 +23,10 @@ import (
 
 // LinkSharing defines link sharing configuration
 type LinkSharing struct {
-	Address  string `user:"true" help:"public address to listen on" devDefault:"localhost:8080" releaseDefault:":8443"`
-	CertFile string `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
-	KeyFile  string `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
+	Address   string `user:"true" help:"public address to listen on" devDefault:"localhost:8080" releaseDefault:":8443"`
+	CertFile  string `user:"true" help:"server certificate file" devDefault:"" releaseDefault:"server.crt.pem"`
+	KeyFile   string `user:"true" help:"server key file" devDefault:"" releaseDefault:"server.key.pem"`
+	PublicURL string `user:"true" help:"public url for the server" devDefault:"http://localhost:8080" releaseDefault:""`
 }
 
 var (
@@ -75,10 +76,19 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	handler, err := linksharing.NewHandler(linksharing.HandlerConfig{
+		Log:     log,
+		Uplink:  uplink,
+		URLBase: runCfg.PublicURL,
+	})
+	if err != nil {
+		return err
+	}
+
 	server, err := httpserver.New(log, httpserver.Config{
 		Name:            "Link Sharing",
 		Address:         runCfg.Address,
-		Handler:         linksharing.NewHandler(log, uplink),
+		Handler:         handler,
 		TLSConfig:       tlsConfig,
 		ShutdownTimeout: -1,
 	})
