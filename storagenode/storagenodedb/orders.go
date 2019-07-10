@@ -145,7 +145,7 @@ func (db *ordersdb) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 }
 
 // Archive marks order as being handled.
-func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
+func (db *ordersdb) Archive(ctx context.Context, requests ...orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	txn, err := db.Begin()
@@ -160,11 +160,18 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 		}
 	}()
 
-	return db.archiveTransaction(ctx, txn, satellite, serial, status)
+	for _, req := range requests {
+		err := db.archiveOne(ctx, txn, req)
+		if err != nil {
+			return ErrInfo.Wrap(err)
+		}
+	}
+
+	return nil
 }
 
-// archiveTransaction marks order as being handled.
-func (db *ordersdb) archiveTransaction(ctx context.Context, txn *sql.Tx, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) (err error) {
+// archiveOne marks order as being handled.
+func (db *ordersdb) archiveOne(ctx context.Context, txn *sql.Tx, req orders.ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := txn.Exec(`
@@ -183,7 +190,7 @@ func (db *ordersdb) archiveTransaction(ctx context.Context, txn *sql.Tx, satelli
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(status), time.Now(), satellite, serial, satellite, serial)
+	`, int(req.Status), time.Now(), req.Satellite, req.Serial, req.Satellite, req.Serial)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
@@ -250,49 +257,4 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 	}
 
 	return infos, ErrInfo.Wrap(rows.Err())
-}
-
-// Archive marks order as being handled.
-func (db *ordersdb) BeginArchive(ctx context.Context) (_ orders.ArchiveTransaction, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	txn, err := db.Begin()
-	if err != nil {
-		return nil, ErrInfo.Wrap(err)
-	}
-	return &archiveTransaction{db: db, txn: txn}, nil
-}
-
-// archiveTransaction holds on to a database transaction for Archive calls.
-type archiveTransaction struct {
-	db  *ordersdb
-	txn *sql.Tx
-}
-
-// Archive marks order as being handled.
-func (arTxn *archiveTransaction) Archive(ctx context.Context, satellite storj.NodeID, serial storj.SerialNumber, status orders.Status) error {
-	if arTxn.txn == nil {
-		return ErrInfo.New("transaction closed")
-	}
-	return arTxn.db.archiveTransaction(ctx, arTxn.txn, satellite, serial, status)
-}
-
-// Commit persists the transaction, invalidating it.
-func (arTxn *archiveTransaction) Commit() error {
-	if arTxn.txn == nil {
-		return ErrInfo.New("transaction closed")
-	}
-	err := arTxn.txn.Commit()
-	arTxn.txn = nil
-	return err
-}
-
-// Rollback cancels any changes in the transaction, invalidating it.
-func (arTxn *archiveTransaction) Rollback() error {
-	if arTxn.txn == nil {
-		return ErrInfo.New("transaction closed")
-	}
-	err := arTxn.txn.Rollback()
-	arTxn.txn = nil
-	return err
 }

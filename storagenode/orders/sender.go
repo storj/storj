@@ -70,7 +70,6 @@ type DB interface {
 
 	// Archive marks order as being handled.
 	Archive(ctx context.Context, requests ...ArchiveRequest) error
-
 	// ListArchived returns orders that have been sent.
 	ListArchived(ctx context.Context, limit int) ([]*ArchivedInfo, error)
 }
@@ -112,12 +111,6 @@ func (sender *Sender) Run(ctx context.Context) (err error) {
 	return sender.Loop.Run(ctx, sender.runOnce)
 }
 
-type archiveRequest struct {
-	satellite storj.NodeID
-	serial    storj.SerialNumber
-	status    Status
-}
-
 func (sender *Sender) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	sender.log.Debug("sending")
@@ -135,7 +128,7 @@ func (sender *Sender) runOnce(ctx context.Context) (err error) {
 		ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
 		defer cancel()
 
-		ch := make(chan archiveRequest, batchSize)
+		ch := make(chan ArchiveRequest, batchSize)
 		done := make(chan struct{})
 		go func() {
 			sender.handleBatches(ctx, ch)
@@ -161,7 +154,7 @@ func (sender *Sender) runOnce(ctx context.Context) (err error) {
 }
 
 // Settle uploads orders to the satellite.
-func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, ch chan archiveRequest) {
+func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, ch chan ArchiveRequest) {
 	log := sender.log.Named(satelliteID.String())
 	err := sender.settle(ctx, log, satelliteID, orders, ch)
 	if err != nil {
@@ -205,7 +198,7 @@ func (sender *Sender) doHandleBatches(ctx context.Context, ch chan ArchiveReques
 	return nil
 }
 
-func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, ch chan archiveRequest) (err error) {
+func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, ch chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))
@@ -271,10 +264,10 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 			errHandle(OrderError, "unexpected response: %v", response.Status)
 		}
 
-		ch <- archiveRequest{
-			satellite: satelliteID,
-			serial:    response.SerialNumber,
-			status:    status,
+		ch <- ArchiveRequest{
+			Satellite: satelliteID,
+			Serial:    response.SerialNumber,
+			Status:    status,
 		}
 	}
 
