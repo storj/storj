@@ -224,7 +224,7 @@ kademlia.operator.wallet: ""
 # monkit.hw.oomlog: "/var/log/kern.log"
 
 # how long until an order expires
-# orders.expiration: 1080h0m0s
+# orders.expiration: 168h0m0s
 
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
