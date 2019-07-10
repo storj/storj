@@ -37,7 +37,6 @@ type Config struct {
 	MinRemoteSegmentSize memory.Size `default:"1240" help:"minimum remote segment size"`
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
-	BwExpiration         int         `default:"45"   help:"lifespan of bandwidth agreements in days"`
 	RS                   RSConfig    `help:"redundancy scheme configuration"`
 }
 

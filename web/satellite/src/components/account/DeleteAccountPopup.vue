@@ -102,12 +102,15 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .red {
         background-color: #EB5757;
     }
+
     .text {
         margin: 0;
         margin-bottom: 0 !important;
@@ -115,6 +118,7 @@
         font-size: 16px;
         line-height: 25px;
     }
+
     .delete-account {
         width: 100%;
         max-width: 845px;

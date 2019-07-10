@@ -76,6 +76,7 @@
             }
         }
     }
+    
     .new-project-button-container.active {
         background-color: #2683FF;
         border: 1px solid #2683FF;

@@ -46,6 +46,7 @@
             user-drag: none;
         }
     }
+
     .logo {
         display: flex;
         align-items: center;
@@ -53,8 +54,8 @@
         top: 87px;
         left: 100px;
     }
+
     .text {
         margin-left: 15px;
     }
-
 </style>

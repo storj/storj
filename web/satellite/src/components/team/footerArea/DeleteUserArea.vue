@@ -130,6 +130,7 @@
             }
         }
     }
+    
     @media screen and (max-width: 1600px) {
         .delete-user-container {
             max-width: 74%;
