@@ -12,6 +12,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/bloomfilter"
+	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -40,6 +41,7 @@ type PieceTracker interface {
 // pieceTracker contains info about the good pieces that storage nodes need to retain
 type pieceTracker struct {
 	log                *zap.Logger
+	overlay            overlay.DB
 	filterCreationDate time.Time
 	initialPieces      int64
 	falsePositiveRate  float64
