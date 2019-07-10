@@ -384,7 +384,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 			config.Orders.Expiration,
 			&pb.NodeAddress{

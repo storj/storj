@@ -63,7 +63,7 @@ type Endpoint struct {
 	log             *zap.Logger
 	satelliteSignee signing.Signee
 	DB              DB
-	certdb          certdb.DB
+	certdb          certdb.DB //TODO: is this needed?
 }
 
 // NewEndpoint new orders receiving endpoint
