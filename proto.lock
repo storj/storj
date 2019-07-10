@@ -3342,7 +3342,11 @@
             "name": "RedundancyScheme.SchemeType",
             "enum_fields": [
               {
-                "name": "RS"
+                "name": "INVALID"
+              },
+              {
+                "name": "RS",
+                "integer": 1
               }
             ]
           },

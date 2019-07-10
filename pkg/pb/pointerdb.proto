@@ -13,7 +13,8 @@ import "orders.proto";
 
 message RedundancyScheme {
   enum SchemeType {
-    RS = 0;
+    INVALID = 0;
+    RS = 1;
   }
   SchemeType type = 1;
 

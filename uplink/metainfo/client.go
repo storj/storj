@@ -251,6 +251,9 @@ func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ 
 	req := convertBucketToProtoRequest(bucket)
 	resp, err := client.client.CreateBucket(ctx, &req)
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
 		return storj.Bucket{}, err
 	}
 
@@ -260,8 +263,12 @@ func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ 
 
 // GetBucket returns a bucket
 func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
 	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
 		return storj.Bucket{}, err
 	}
 	bucket := convertProtoToBucket(resp.Bucket)
@@ -270,8 +277,12 @@ func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj
 
 // DeleteBucket deletes a bucket
 func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.DeleteBucket(ctx, &pb.BucketDeleteRequest{Name: []byte(bucketName)})
 	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.ErrBucketNotFound.Wrap(err)
+		}
 		return err
 	}
 	return nil
@@ -279,6 +290,7 @@ func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err 
 
 // ListBuckets lists buckets
 func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
 	req := &pb.BucketListRequest{
 		Cursor: []byte(listOpts.Cursor),
 		Limit:  int32(listOpts.Limit),
@@ -307,7 +319,6 @@ func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {
 	return pb.BucketCreateRequest{
 		Name:               []byte(bucket.Name),
 		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
-		AttributionId:      []byte(bucket.Attribution),
 		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{
 			Type:             pb.RedundancyScheme_RS,
@@ -329,8 +340,8 @@ func convertProtoToBucket(pbBucket *pb.Bucket) storj.Bucket {
 	defaultEP := pbBucket.GetDefaultEncryptionParameters()
 	return storj.Bucket{
 		Name:                string(pbBucket.GetName()),
-		Attribution:         string(pbBucket.GetAttributionId()),
 		PathCipher:          storj.CipherSuite(pbBucket.GetPathCipher()),
+		Created:             pbBucket.GetCreatedAt(),
 		DefaultSegmentsSize: pbBucket.GetDefaultSegmentSize(),
 		DefaultRedundancyScheme: storj.RedundancyScheme{
 			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),

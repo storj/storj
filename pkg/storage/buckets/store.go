@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"gopkg.in/spacemonkeygo/monkit.v2"
-	"storj.io/storj/pkg/storj"
 
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink/metainfo"
 )
 
@@ -22,7 +22,7 @@ type Store interface {
 	List(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error)
 }
 
-// BucketStore is an object to interact with buckets 
+// BucketStore is an object to interact with buckets
 // via the metainfo client
 type BucketStore struct {
 	metainfoClient metainfo.Client

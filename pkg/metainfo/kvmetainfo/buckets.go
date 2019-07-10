@@ -5,12 +5,10 @@ package kvmetainfo
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/storage/objects"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
 )
@@ -64,7 +62,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	info.Name = bucketName
 	newBucket, err := db.buckets.Create(ctx, *info)
 	if err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, storj.ErrBucket.New("bucket create")
 	}
 
 	return newBucket, nil
@@ -130,43 +128,4 @@ func (db *Project) ListBuckets(ctx context.Context, listOpts storj.BucketListOpt
 	}
 
 	return bucketList, nil
-}
-
-func bucketFromMeta(ctx context.Context, bucketName string, m objects.Meta) (out storj.Bucket, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	out.Name = bucketName
-	out.Created = m.Modified
-
-	applySetting := func(nameInMap string, bits int, storeFunc func(val int64)) {
-		if err != nil {
-			return
-		}
-		if stringVal := m.UserDefined[nameInMap]; stringVal != "" {
-			var intVal int64
-			intVal, err = strconv.ParseInt(stringVal, 10, bits)
-			if err != nil {
-				err = errs.New("invalid metadata field for %s: %v", nameInMap, err)
-				return
-			}
-			storeFunc(intVal)
-		}
-	}
-
-	es := &out.DefaultEncryptionParameters
-	rs := &out.DefaultRedundancyScheme
-
-	out.Attribution = m.UserDefined["attribution-to"]
-	applySetting("path-enc-type", 16, func(v int64) { out.PathCipher = storj.CipherSuite(v) })
-	applySetting("default-seg-size", 64, func(v int64) { out.DefaultSegmentsSize = v })
-	applySetting("default-enc-type", 32, func(v int64) { es.CipherSuite = storj.CipherSuite(v) })
-	applySetting("default-enc-blksz", 32, func(v int64) { es.BlockSize = int32(v) })
-	applySetting("default-rs-algo", 32, func(v int64) { rs.Algorithm = storj.RedundancyAlgorithm(v) })
-	applySetting("default-rs-sharsz", 32, func(v int64) { rs.ShareSize = int32(v) })
-	applySetting("default-rs-reqd", 16, func(v int64) { rs.RequiredShares = int16(v) })
-	applySetting("default-rs-repair", 16, func(v int64) { rs.RepairShares = int16(v) })
-	applySetting("default-rs-optim", 16, func(v int64) { rs.OptimalShares = int16(v) })
-	applySetting("default-rs-total", 16, func(v int64) { rs.TotalShares = int16(v) })
-
-	return out, err
 }

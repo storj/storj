@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -42,6 +43,9 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
 	)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 
@@ -60,7 +64,10 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
-		return bucket, err
+		if err == sql.ErrNoRows {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
+		return bucket, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
 }
@@ -72,7 +79,12 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
 		dbx.BucketMetainfo_Name(bucketName),
 	)
-	return err
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return storj.ErrBucketNotFound.Wrap(err)
+		}
+	}
+	return storj.ErrBucket.Wrap(err)
 }
 
 // ListBuckets returns a list of buckets for a project
@@ -100,7 +112,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			return bucketList, errors.New("unknown list direction")
 		}
 		if err != nil {
-			return bucketList, err
+			return bucketList, storj.ErrBucket.Wrap(err)
 		}
 
 		bucketList.More = len(dbxBuckets) > listOpts.Limit
@@ -124,7 +136,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			if bucketAllowed || allowAll {
 				item, err := convertDBXtoBucket(dbxBucket)
 				if err != nil {
-					return bucketList, err
+					return bucketList, storj.ErrBucket.Wrap(err)
 				}
 				bucketList.Items = append(bucketList.Items, item)
 			}

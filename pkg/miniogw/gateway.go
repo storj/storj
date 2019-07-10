@@ -199,7 +199,7 @@ func (layer *gatewayLayer) ListBuckets(ctx context.Context) (bucketItems []minio
 	startAfter := ""
 
 	for {
-		list, err := layer.gateway.project.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After, Cursor: startAfter})
+		list, err := layer.gateway.project.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.Forward, Cursor: startAfter})
 		if err != nil {
 			return nil, err
 		}
