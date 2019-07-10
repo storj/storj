@@ -32,9 +32,27 @@ func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (
 	if err != nil {
 		return AntechamberErr.New("could not add key value pair to antechamber: %s", err)
 	}
-	err = rt.trimAntechamber(ctx)
-	if err != nil {
-		return AntechamberErr.New("could not trim antechamber: %s", err)
+
+	{ // remove nodes outside the closest k
+		keys, err := rt.antechamber.List(ctx, nil, 0)
+		if err != nil {
+			return AntechamberErr.New("could not list nodes %s", err)
+		}
+		size := len(keys)
+		for diff := size - rt.bucketSize; diff > 0; diff-- {
+			xor, err := storj.NodeIDFromBytes(keys[size-diff])
+			if err != nil {
+				return AntechamberErr.New("could not get xor from key %s", err)
+			}
+			nodeID := xorNodeID(xor, rt.self.Id)
+			err = rt.antechamber.Delete(ctx, xorNodeID(nodeID, rt.self.Id).Bytes())
+			if err != nil && !storage.ErrKeyNotFound.Has(err) {
+				return AntechamberErr.New("could not delete node %s", err)
+			}
+			if err != nil {
+				return AntechamberErr.New("could not remove node %s", err)
+			}
+		}
 	}
 	return nil
 }
@@ -48,27 +66,6 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, nodeID storj.
 	err = rt.antechamber.Delete(ctx, xorNodeID(nodeID, rt.self.Id).Bytes())
 	if err != nil && !storage.ErrKeyNotFound.Has(err) {
 		return AntechamberErr.New("could not delete node %s", err)
-	}
-	return nil
-}
-
-// trimAntechamber removes nodes outside the closest k
-func (rt *RoutingTable) trimAntechamber(ctx context.Context) (err error) {
-	keys, err := rt.antechamber.List(ctx, nil, 0)
-	if err != nil {
-		return AntechamberErr.New("could not list nodes %s", err)
-	}
-	size := len(keys)
-	for diff := size - rt.bucketSize; diff > 0; diff-- {
-		xor, err := storj.NodeIDFromBytes(keys[size-diff])
-		if err != nil {
-			return AntechamberErr.New("could not get xor from key %s", err)
-		}
-		nodeID := xorNodeID(xor, rt.self.Id)
-		err = rt.antechamberRemoveNode(ctx, nodeID)
-		if err != nil {
-			return AntechamberErr.New("could not remove node %s", err)
-		}
 	}
 	return nil
 }

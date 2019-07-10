@@ -234,3 +234,60 @@ func addNode(ctx context.Context, rt *RoutingTable, node *pb.Node) error {
 	}
 	return nil
 }
+
+func TestX(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	rt := createRoutingTableWith(ctx, storj.NodeID{127, 255}, routingTableOpts{bucketSize: 3})
+	defer ctx.Check(rt.Close)
+
+	node1 := &pb.Node{Id: storj.NodeID{191, 255}} // XOR 192
+	node2 := &pb.Node{Id: storj.NodeID{255, 255}} // XOR 128
+	node3 := &pb.Node{Id: storj.NodeID{143, 255}} // XOR 240
+	node4 := &pb.Node{Id: storj.NodeID{133, 255}} // XOR 250
+	node5 := &pb.Node{Id: storj.NodeID{63, 255}}  // XOR [127, 255] = 64
+
+	cases := []struct {
+		testName      string
+		node          *pb.Node
+		expectedNodes []*pb.Node
+	}{
+		{
+			testName:      "A: 1 total node",
+			node:          node1,
+			expectedNodes: []*pb.Node{node1}, // XOR 192
+		},
+		{
+			testName:      "B: node2 added to beginning. 2 total nodes",
+			node:          node2,
+			expectedNodes: []*pb.Node{node2, node1}, // XOR 128, 19
+		},
+		{
+			testName:      "C: node3 added to end. 3 total nodes",
+			node:          node3,
+			expectedNodes: []*pb.Node{node2, node1, node3}, // XOR 128, 192, 240
+		},
+		{
+			testName:      "D: node4 is too far away and the antechamber is full. node4 not added",
+			node:          node4,
+			expectedNodes: []*pb.Node{node2, node1, node3},
+		},
+		{
+			testName:      "E: node5 is closer (smaller XOR) than node3. node5 is added. node3 is removed.",
+			node:          node5,
+			expectedNodes: []*pb.Node{node5, node2, node1}, // XOR 64, 128, 192
+		},
+	}
+	for _, c := range cases {
+		testCase := c
+		t.Run(testCase.testName, func(t *testing.T) {
+			err := addNode(ctx, rt, testCase.node)
+			assert.NoError(t, err)
+			nodes, err := rt.getAllAntechamberNodes(ctx)
+			assert.NoError(t, err)
+			for i, v := range testCase.expectedNodes {
+				assert.True(t, bytes.Equal(v.Id.Bytes(), nodes[i].Id.Bytes()))
+			}
+		})
+	}
+}
