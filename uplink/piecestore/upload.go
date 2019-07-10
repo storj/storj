@@ -121,15 +121,13 @@ func (client *Upload) Write(data []byte) (written int, err error) {
 		}
 
 		// create a signed order for the next chunk
-		order := &pb.Order{
+		order, err := signing.SignUplinkOrder(ctx, client.privateKey, &pb.Order{
 			SerialNumber: client.limit.SerialNumber,
 			Amount:       client.offset + int64(len(sendData)),
-		}
-		bytes, err := signing.EncodeOrder(ctx, order)
+		})
 		if err != nil {
 			return written, ErrInternal.Wrap(err)
 		}
-		order.UplinkSignature = client.privateKey.Sign(bytes)
 
 		// send signed order + data
 		err = client.stream.Send(&pb.PieceUploadRequest{
@@ -182,18 +180,16 @@ func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
 	}
 
 	// sign the hash for storage node
-	uplinkHash := &pb.PieceHash{
+	uplinkHash, err := signing.SignUplinkPieceHash(ctx, client.privateKey, &pb.PieceHash{
 		PieceId: client.limit.PieceId,
 		Hash:    client.hash.Sum(nil),
-	}
-	bytes, err := signing.EncodePieceHash(ctx, uplinkHash)
+	})
 	if err != nil {
 		// failed to sign, let's close the sending side, no need to wait for a response
 		closeErr := client.stream.CloseSend()
 		// closeErr being io.EOF doesn't inform us about anything
 		return nil, Error.Wrap(errs.Combine(err, ignoreEOF(closeErr)))
 	}
-	uplinkHash.Signature = client.privateKey.Sign(bytes)
 
 	// exchange signed piece hashes
 	// 1. send our piece hash

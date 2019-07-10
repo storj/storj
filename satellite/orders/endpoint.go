@@ -138,12 +138,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
-
-			bytes, err := signing.EncodeOrder(ctx, order)
-			if err != nil {
-				return Error.New("unable to verify order")
-			}
-			if !orderLimit.UplinkPublicKey.Verify(bytes, order.UplinkSignature) {
+			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
 				return Error.New("unable to verify order")
 			}
 

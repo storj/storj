@@ -128,16 +128,14 @@ func (client *Download) Read(data []byte) (read int, err error) {
 
 			// send an order
 			if newAllocation > 0 {
-				order := &pb.Order{
+				order, err := signing.SignUplinkOrder(ctx, client.privateKey, &pb.Order{
 					SerialNumber: client.limit.SerialNumber,
 					Amount:       newAllocation,
-				}
-				bytes, err := signing.EncodeOrder(ctx, order)
+				})
 				if err != nil {
 					client.unread.IncludeError(err)
 					return read, nil
 				}
-				order.UplinkSignature = client.privateKey.Sign(bytes)
 
 				err = client.stream.Send(&pb.PieceDownloadRequest{
 					Order: order,

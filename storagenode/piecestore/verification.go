@@ -92,12 +92,8 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit,
 		return ErrProtocol.New("order exceeded allowed amount=%v, limit=%v", order.Amount, limit.Limit) // TODO: report grpc status bad message
 	}
 
-	bytes, err := signing.EncodeOrder(ctx, order)
-	if err != nil {
+	if err := signing.VerifyUplinkOrderSignature(ctx, limit.UplinkPublicKey, order); err != nil {
 		return ErrProtocol.Wrap(err)
-	}
-	if !limit.UplinkPublicKey.Verify(bytes, order.UplinkSignature) {
-		return ErrVerifyUntrusted.New("invalid order signature") // TODO: report grpc status bad message
 	}
 
 	return nil
@@ -117,12 +113,7 @@ func (endpoint *Endpoint) VerifyPieceHash(ctx context.Context, limit *pb.OrderLi
 		return ErrProtocol.New("hashes don't match") // TODO: report grpc status bad message
 	}
 
-	bytes, err := signing.EncodePieceHash(ctx, hash)
-	if err != nil {
-		return ErrProtocol.Wrap(err)
-	}
-
-	if !limit.UplinkPublicKey.Verify(bytes, expectedHash) {
+	if err := signing.VerifyUplinkPieceHashSignature(ctx, limit.UplinkPublicKey, hash); err != nil {
 		return ErrVerifyUntrusted.New("invalid piece hash signature") // TODO: report grpc status bad message
 	}
 
