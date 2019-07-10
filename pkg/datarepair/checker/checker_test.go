@@ -213,7 +213,7 @@ func TestCheckerResume(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := &mockRepairQueue{}
 		irrepairQueue := planet.Satellites[0].DB.Irreparable()
-		gcService := gc.NewService(zaptest.NewLogger(t), gc.Config{}, planet.Satellites[0].Transport)
+		gcService := gc.NewService(zaptest.NewLogger(t), gc.Config{}, planet.Satellites[0].Transport, planet.Satellites[0].DB.OverlayCache())
 		config := checker.Config{
 			Interval:                  30 * time.Second,
 			IrreparableInterval:       15 * time.Second,
