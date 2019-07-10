@@ -25,7 +25,7 @@ type offersDB struct {
 }
 
 // ListAll returns all offersDB from the db
-func (db *offersDB) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
 	offersDbx, err := db.db.All_Offer(ctx)
 	if err != nil {
 		return nil, offerErr.Wrap(err)
@@ -153,7 +153,7 @@ func (db *offersDB) Finish(ctx context.Context, oID int) error {
 	return nil
 }
 
-func offersFromDBX(offersDbx []*dbx.Offer) ([]rewards.Offer, error) {
+func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {
 	var offers []rewards.Offer
 	errList := new(errs.Group)
 
