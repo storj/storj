@@ -65,7 +65,7 @@ func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT piece_id
 		FROM pieceinfo
-		WHERE satellite_id = ? AND piece_creation < ?
+		WHERE satellite_id = ? AND datetime(piece_creation) < datetime(?)
 		ORDER BY piece_id
 		LIMIT ? OFFSET ?
 	`), satelliteID, createdBefore, limit, offset)
