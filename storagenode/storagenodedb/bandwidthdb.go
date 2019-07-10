@@ -88,7 +88,7 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 	rows, err := db.db.Query(`
 		SELECT action, sum(amount)
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?
+		WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
 		GROUP BY action`, from, to)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -120,7 +120,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	rows, err := db.db.Query(`
 		SELECT satellite_id, action, sum(amount)
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?
+		WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
 		GROUP BY satellite_id, action`, from, to)
 	if err != nil {
 		if err == sql.ErrNoRows {

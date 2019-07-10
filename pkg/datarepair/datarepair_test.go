@@ -40,6 +40,7 @@ func TestDataRepair(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.OnlineWindow = 0
 				repairMaxExcessRateOptimalThreshold = config.Repairer.MaxExcessRateOptimalThreshold
 			},
 		},

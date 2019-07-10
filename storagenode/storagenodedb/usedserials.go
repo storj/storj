@@ -39,7 +39,7 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.Exec(`DELETE FROM used_serial WHERE expiration < ?`, now)
+	_, err = db.db.Exec(`DELETE FROM used_serial WHERE datetime(expiration) < datetime(?)`, now)
 	return ErrInfo.Wrap(err)
 }
 
