@@ -81,8 +81,10 @@ func TestSegmentEncoding(t *testing.T) {
 		{0, '/', 'a', '0', 'a', 'a', 0, '1', 'b', 'g', 'a', 'b', 0},
 	}
 
-	// additional random segment
-	segments = append(segments, testrand.BytesInt(255))
+	// additional random segments
+	for i := 0; i < 20; i++ {
+		segments = append(segments, testrand.BytesInt(testrand.Intn(256)))
+	}
 
 	for i, segment := range segments {
 		encoded := encodeSegment(segment)
@@ -112,15 +114,51 @@ func TestValidateEncodedSegment(t *testing.T) {
 		{2, 0},
 		{2, '\xff'},
 		{2, '\x2f'},
-		{2, escape1, '3'},
-		{2, escape2, '3'},
-		{2, escape3, '3'},
+		{2, escapeSlash, '3'},
+		{2, escapeFF, '3'},
+		{2, escape01, '3'},
 		{3, 4, 4, 4},
 	}
 
 	for i, segment := range encodedSegments {
 		_, err := decodeSegment(segment)
 		require.Error(t, err, "#%d", i)
+	}
+}
+
+func TestEncodingDecodingStress(t *testing.T) {
+	segments := make([][]byte, 0)
+
+	allCombinations := func(emit func([]byte)) {
+		length := 3
+		s := make([]byte, length)
+		last := length - 1
+		var combination func(int, byte)
+		combination = func(i int, next byte) {
+			for j := next; j < 255; j++ {
+				s[i] = j
+				if i == last {
+					emit(s)
+				} else {
+					combination(i+1, j+1)
+				}
+			}
+			return
+		}
+		combination(0, 0)
+	}
+
+	allCombinations(func(b []byte) {
+		segments = append(segments, b)
+	})
+
+	for i := 0; i < 20; i++ {
+		segments = append(segments, testrand.BytesInt(testrand.Intn(256)))
+	}
+
+	for _, segment := range segments {
+		_ = encodeSegment(segment)
+		_, _ = decodeSegment(segment)
 	}
 }
 

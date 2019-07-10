@@ -19,9 +19,9 @@ var (
 	notEmptyComponentPrefix = byte('\x02')
 	emptyComponent          = []byte{emptyComponentPrefix}
 
-	escape1 = byte('\x2e')
-	escape2 = byte('\xfe')
-	escape3 = byte('\x01')
+	escapeSlash = byte('\x2e')
+	escapeFF    = byte('\xfe')
+	escape01    = byte('\x01')
 )
 
 // EncryptPath encrypts the path using the provided cipher and looking up
@@ -324,18 +324,18 @@ func encodeSegment(segment []byte) []byte {
 	result = append(result, notEmptyComponentPrefix)
 	for i := 0; i < len(segment); i++ {
 		switch segment[i] {
-		case escape1:
-			result = append(result, []byte{escape1, 1}...)
-		case escape1 + 1:
-			result = append(result, []byte{escape1, 2}...)
-		case escape2:
-			result = append(result, []byte{escape2, 1}...)
-		case escape2 + 1:
-			result = append(result, []byte{escape2, 2}...)
-		case escape3 - 1:
-			result = append(result, []byte{escape3, 1}...)
-		case escape3:
-			result = append(result, []byte{escape3, 2}...)
+		case escapeSlash:
+			result = append(result, []byte{escapeSlash, 1}...)
+		case escapeSlash + 1:
+			result = append(result, []byte{escapeSlash, 2}...)
+		case escapeFF:
+			result = append(result, []byte{escapeFF, 1}...)
+		case escapeFF + 1:
+			result = append(result, []byte{escapeFF, 2}...)
+		case escape01 - 1:
+			result = append(result, []byte{escape01, 1}...)
+		case escape01:
+			result = append(result, []byte{escape01, 2}...)
 		default:
 			result = append(result, segment[i])
 		}
@@ -357,10 +357,10 @@ func decodeSegment(segment []byte) ([]byte, error) {
 		switch {
 		case i == len(segment)-1:
 			segment[currentIndex] = segment[i]
-		case segment[i] == escape1 || segment[i] == escape2:
+		case segment[i] == escapeSlash || segment[i] == escapeFF:
 			segment[currentIndex] = segment[i] + segment[i+1] - 1
 			i++
-		case segment[i] == escape3:
+		case segment[i] == escape01:
 			segment[currentIndex] = segment[i+1] - 1
 			i++
 		default:
@@ -419,7 +419,7 @@ func validateEncodedSegment(segment []byte) error {
 }
 
 func isEscapeByte(b byte) bool {
-	return b == escape1 || b == escape2 || b == escape3
+	return b == escapeSlash || b == escapeFF || b == escape01
 }
 
 func isDisallowedByte(b byte) bool {
