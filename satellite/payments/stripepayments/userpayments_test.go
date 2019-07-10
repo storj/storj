@@ -6,8 +6,8 @@ package stripepayments_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/assert"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -43,7 +43,7 @@ func TestUserPaymentInfos(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)
-			assert.DeepEqual(t, customerID, info.CustomerID)
+			assert.Equal(t, customerID, info.CustomerID)
 		})
 
 		t.Run("get user payment info", func(t *testing.T) {
@@ -51,7 +51,7 @@ func TestUserPaymentInfos(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, user.ID, info.UserID)
-			assert.DeepEqual(t, customerID, info.CustomerID)
+			assert.Equal(t, customerID, info.CustomerID)
 		})
 	})
 }

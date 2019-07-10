@@ -147,12 +147,12 @@ func (s *service) GetCustomerDefaultPaymentMethod(ctx context.Context, customerI
 		ID:         []byte(pm.ID),
 		CustomerID: []byte(cus.ID),
 		Card: payments.Card{
-			Country:  pm.Card.Country,
-			Brand:    string(pm.Card.Brand),
-			Name:     pm.BillingDetails.Name,
-			ExpMonth: int64(pm.Card.ExpMonth),
-			ExpYear:  int64(pm.Card.ExpYear),
-			LastFour: pm.Card.Last4,
+			Country:         pm.Card.Country,
+			Brand:           string(pm.Card.Brand),
+			Name:            pm.BillingDetails.Name,
+			ExpirationMonth: int64(pm.Card.ExpMonth),
+			ExpirationYear:  int64(pm.Card.ExpYear),
+			LastFour:        pm.Card.Last4,
 		},
 		CreatedAt: time.Unix(pm.Created, 0),
 	}, nil
@@ -182,12 +182,12 @@ func (s *service) GetCustomerPaymentsMethods(ctx context.Context, customerID []b
 			ID:         []byte(pm.ID),
 			CustomerID: customerID,
 			Card: payments.Card{
-				Country:  pm.Card.Country,
-				Brand:    string(pm.Card.Brand),
-				Name:     pm.BillingDetails.Name,
-				ExpMonth: int64(pm.Card.ExpMonth),
-				ExpYear:  int64(pm.Card.ExpYear),
-				LastFour: pm.Card.Last4,
+				Country:         pm.Card.Country,
+				Brand:           string(pm.Card.Brand),
+				Name:            pm.BillingDetails.Name,
+				ExpirationMonth: int64(pm.Card.ExpMonth),
+				ExpirationYear:  int64(pm.Card.ExpYear),
+				LastFour:        pm.Card.Last4,
 			},
 			CreatedAt: time.Unix(pm.Created, 0),
 		})
@@ -218,12 +218,12 @@ func (s *service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.
 		ID:         []byte(pm.ID),
 		CustomerID: customerID,
 		Card: payments.Card{
-			Country:  pm.Card.Country,
-			Brand:    string(pm.Card.Brand),
-			Name:     pm.BillingDetails.Name,
-			ExpMonth: int64(pm.Card.ExpMonth),
-			ExpYear:  int64(pm.Card.ExpYear),
-			LastFour: pm.Card.Last4,
+			Country:         pm.Card.Country,
+			Brand:           string(pm.Card.Brand),
+			Name:            pm.BillingDetails.Name,
+			ExpirationMonth: int64(pm.Card.ExpMonth),
+			ExpirationYear:  int64(pm.Card.ExpYear),
+			LastFour:        pm.Card.Last4,
 		},
 		CreatedAt: time.Unix(pm.Created, 0),
 	}, nil
@@ -414,7 +414,7 @@ func (s *service) GetProjectInvoices(ctx context.Context, projectID uuid.UUID) (
 
 // GetProjectInvoiceByStartDate returns invoice invoice for project with specific billing period start date
 func (s *service) GetProjectInvoiceByStartDate(ctx context.Context, projectID uuid.UUID, startDate time.Time) (*payments.Invoice, error) {
-	panic("implement me")
+	return nil, stripeErr.New("not implemented")
 }
 
 // timeRangeString helper function to create string representation of time range

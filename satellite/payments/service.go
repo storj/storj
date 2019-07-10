@@ -41,12 +41,12 @@ type Customer struct {
 
 // Card contains credit card info
 type Card struct {
-	Country  string
-	Brand    string
-	Name     string
-	ExpMonth int64
-	ExpYear  int64
-	LastFour string
+	Country         string
+	Brand           string
+	Name            string
+	ExpirationMonth int64
+	ExpirationYear  int64
+	LastFour        string
 }
 
 // PaymentMethod contains payment method description.

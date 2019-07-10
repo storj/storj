@@ -37,12 +37,12 @@ var defaultPaymentMethod = payments.PaymentMethod{
 	ID:         []byte("0"),
 	CustomerID: []byte("0"),
 	Card: payments.Card{
-		Country:  "us",
-		Brand:    "visa",
-		Name:     "Storj Labs",
-		ExpMonth: 12,
-		ExpYear:  2024,
-		LastFour: "3567",
+		Country:         "us",
+		Brand:           "visa",
+		Name:            "Storj Labs",
+		ExpirationMonth: 12,
+		ExpirationYear:  2024,
+		LastFour:        "3567",
 	},
 	CreatedAt: creationDate,
 }

@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/assert"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -45,7 +45,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
-			assert.DeepEqual(t, invoiceID, stamp.InvoiceID)
+			assert.Equal(t, invoiceID, stamp.InvoiceID)
 			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
 			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
 		})
@@ -55,7 +55,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
-			assert.DeepEqual(t, invoiceID, stamp.InvoiceID)
+			assert.Equal(t, invoiceID, stamp.InvoiceID)
 			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
 			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
 		})
