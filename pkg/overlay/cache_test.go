@@ -267,7 +267,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		belowThreshold := 0
 
-		table := []int{}
+		var table []int
 
 		// expect that each node has been selected at least minSelectCount times
 		for _, id := range allIDs {
@@ -301,12 +301,12 @@ func TestIsVetted(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var err error
-		satellite := planet.Satellites[0]
-		satellite.Audit.Service.Loop.Pause()
-		satellite.Repair.Checker.Loop.Pause()
-		service := satellite.Overlay.Service
+		peer := planet.Satellites[0]
+		peer.Audit.Service.Loop.Pause()
+		peer.Repair.Checker.Loop.Pause()
+		service := peer.Overlay.Service
 
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = peer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -319,7 +319,7 @@ func TestIsVetted(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = peer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -345,7 +345,7 @@ func TestIsVetted(t *testing.T) {
 		require.False(t, reputable)
 
 		// test dqing for bad uptime
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = peer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         false,
 			AuditSuccess: true,
@@ -359,7 +359,7 @@ func TestIsVetted(t *testing.T) {
 		require.NoError(t, err)
 
 		// test dqing for bad audit
-		_, err = satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = peer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: false,

@@ -64,7 +64,7 @@ func TestNewKademlia(t *testing.T) {
 		},
 	}
 
-	for i, v := range cases {
+	for _, v := range cases {
 		kad, err := newKademlia(zaptest.NewLogger(t), pb.NodeType_STORAGE, v.bn, v.addr, pb.NodeOperator{}, v.id, defaultAlpha)
 		require.NoError(t, err)
 		assert.Equal(t, v.expectedErr, err)
@@ -126,18 +126,18 @@ func TestBootstrap(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	bn, s, clean := testNode(ctx, "1", t, []pb.Node{})
+	bn, s, clean := testNode(ctx, t, []pb.Node{})
 	defer clean()
 	defer s.GracefulStop()
 
-	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self.Node})
+	n1, s1, clean1 := testNode(ctx, t, []pb.Node{bn.routingTable.self.Node})
 	defer clean1()
 	defer s1.GracefulStop()
 
 	err := n1.Bootstrap(ctx)
 	require.NoError(t, err)
 
-	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self.Node})
+	n2, s2, clean2 := testNode(ctx, t, []pb.Node{bn.routingTable.self.Node})
 	defer clean2()
 	defer s2.GracefulStop()
 
@@ -149,7 +149,7 @@ func TestBootstrap(t *testing.T) {
 	assert.Len(t, nodeIDs, 3)
 }
 
-func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
+func testNode(ctx *testcontext.Context, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestRefresh(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	k, s, clean := testNode(ctx, "refresh", t, []pb.Node{})
+	k, s, clean := testNode(ctx, t, []pb.Node{})
 	defer clean()
 	defer s.GracefulStop()
 	//turn back time for only bucket
