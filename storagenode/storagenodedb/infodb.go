@@ -244,6 +244,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE TABLE certificate (cert_id INTEGER)`,
 				},
 			},
+			// TODO: add migration for order_limit
 		},
 	}
 }
