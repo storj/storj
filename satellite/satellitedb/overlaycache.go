@@ -100,7 +100,7 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND free_disk >= ?
 		AND (total_audit_count < ? OR total_uptime_count < ?)
 		AND (last_contact_success > ?
-			OR last_contact_success > last_contact_failure)`
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 10),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
