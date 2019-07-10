@@ -478,7 +478,7 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 		return nil, errs.Wrap(err)
 	}
 
-	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now().UTC())
+	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now())
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

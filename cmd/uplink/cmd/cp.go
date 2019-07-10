@@ -107,7 +107,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	opts := &libuplink.UploadOptions{}
 
 	if *expires != "" {
-		opts.Expires = expiration.UTC()
+		opts.Expires = expiration
 	}
 
 	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()

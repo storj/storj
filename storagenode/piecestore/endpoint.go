@@ -146,7 +146,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		return status.Error(codes.Unavailable, "storage node overloaded")
 	}
 
-	startTime := time.Now().UTC()
+	startTime := time.Now()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -177,7 +177,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 	var pieceWriter *pieces.Writer
 	defer func() {
-		endTime := time.Now().UTC()
+		endTime := time.Now()
 		dt := endTime.Sub(startTime)
 		uploadSize := int64(0)
 		if pieceWriter != nil {
@@ -337,7 +337,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 	atomic.AddInt32(&endpoint.liveRequests, 1)
 	defer atomic.AddInt32(&endpoint.liveRequests, -1)
 
-	startTime := time.Now().UTC()
+	startTime := time.Now()
 
 	// TODO: set connection timeouts
 	// TODO: set maximum message size
@@ -370,7 +370,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	var pieceReader *pieces.Reader
 	defer func() {
-		endTime := time.Now().UTC()
+		endTime := time.Now()
 		dt := endTime.Sub(startTime)
 		downloadSize := int64(0)
 		if pieceReader != nil {

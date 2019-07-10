@@ -39,7 +39,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 		expiration time.Time
 		err        string
 	}{
-		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().UTC().Add(time.Hour * 12), ""},
+		{"l/path/1/2/3", []byte("content"), []byte("metadata"), time.Now().Add(time.Hour * 12), ""},
 		{"l/not-exists-path/1/2/3", []byte{}, []byte{}, time.Now(), "key not found"},
 		{"", []byte{}, []byte{}, time.Now(), "invalid segment component"},
 	} {

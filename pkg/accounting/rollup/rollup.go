@@ -115,7 +115,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
 		// tallyEndTime is the time the at rest tally was saved
-		tallyEndTime := tallyRow.IntervalEndTime.UTC()
+		tallyEndTime := tallyRow.IntervalEndTime
 		if tallyEndTime.After(latestTally) {
 			latestTally = tallyEndTime
 		}
@@ -138,7 +138,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var latestTally time.Time
-	bws, err := r.sdb.GetBandwidthSince(ctx, lastRollup.UTC())
+	bws, err := r.sdb.GetBandwidthSince(ctx, lastRollup)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -149,7 +149,7 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	for _, row := range bws {
 		nodeID := row.NodeID
 		// interval is the time the bw order was saved
-		interval := row.IntervalStart.UTC()
+		interval := row.IntervalStart
 		if interval.After(latestTally) {
 			latestTally = interval
 		}

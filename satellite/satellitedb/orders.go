@@ -77,7 +77,7 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 		DO UPDATE SET allocated = bucket_bandwidth_rollups.allocated + ?`,
 	)
 	_, err = db.db.ExecContext(ctx, statement,
-		bucketName, projectID[:], intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
+		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount),
 	)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 		DO UPDATE SET settled = bucket_bandwidth_rollups.settled + ?`,
 	)
 	_, err = db.db.ExecContext(ctx, statement,
-		bucketName, projectID[:], intervalStart, defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount),
+		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, 0, uint64(amount), uint64(amount),
 	)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 		DO UPDATE SET inline = bucket_bandwidth_rollups.inline + ?`,
 	)
 	_, err = db.db.ExecContext(ctx, statement,
-		bucketName, projectID[:], intervalStart, defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
+		bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0, 0, uint64(amount),
 	)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 		)
 		for _, storageNode := range storageNodes {
 			_, err = db.db.ExecContext(ctx, statement,
-				storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0,
+				storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0,
 			)
 			if err != nil {
 				return Error.Wrap(err)
@@ -153,7 +153,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthAllocation(ctx context.Context, st
 			SELECT unnest($1::bytea[]), $2, $3, $4, $5, $6
 			ON CONFLICT(storagenode_id, interval_start, action)
 			DO UPDATE SET allocated = storagenode_bandwidth_rollups.allocated + excluded.allocated
-		`, postgresNodeIDList(storageNodes), intervalStart, defaultIntervalSeconds, action, uint64(amount), 0)
+		`, postgresNodeIDList(storageNodes), intervalStart.UTC(), defaultIntervalSeconds, action, uint64(amount), 0)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -174,7 +174,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 		DO UPDATE SET settled = storagenode_bandwidth_rollups.settled + ?`,
 	)
 	_, err = db.db.ExecContext(ctx, statement,
-		storageNode.Bytes(), intervalStart, defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
+		storageNode.Bytes(), intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), uint64(amount),
 	)
 	if err != nil {
 		return err
@@ -187,7 +187,7 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE bucket_name = ? AND project_id = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(db.db.Rebind(query), bucketName, projectID[:], from, to).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), bucketName, projectID[:], from.UTC(), to.UTC()).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}
@@ -199,7 +199,7 @@ func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.No
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
 	query := `SELECT SUM(settled) FROM storagenode_bandwidth_rollups WHERE storagenode_id = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(db.db.Rebind(query), nodeID.Bytes(), from, to).Scan(&sum)
+	err = db.db.QueryRow(db.db.Rebind(query), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum)
 	if err == sql.ErrNoRows || sum == nil {
 		return 0, nil
 	}

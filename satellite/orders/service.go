@@ -100,7 +100,7 @@ func (service *Service) updateBandwidth(ctx context.Context, projectID uuid.UUID
 		}
 	}
 
-	now := time.Now().UTC()
+	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	// TODO: all of this below should be a single db transaction. in fact, this whole function should probably be part of an existing transaction
@@ -647,7 +647,7 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, repairer
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket
 func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	now := time.Now().UTC()
+	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_GET, amount, intervalStart)
@@ -656,7 +656,7 @@ func (service *Service) UpdateGetInlineOrder(ctx context.Context, projectID uuid
 // UpdatePutInlineOrder updates amount of inline PUT bandwidth for given bucket
 func (service *Service) UpdatePutInlineOrder(ctx context.Context, projectID uuid.UUID, bucketName []byte, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	now := time.Now().UTC()
+	now := time.Now()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	return service.orders.UpdateBucketBandwidthInline(ctx, projectID, bucketName, pb.PieceAction_PUT, amount, intervalStart)

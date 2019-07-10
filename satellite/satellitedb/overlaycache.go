@@ -692,14 +692,14 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
-		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now())
 	}
 
 	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
 	if uptimeRep <= updateReq.UptimeDQ {
 		// n.b. that this will overwrite the audit DQ timestamp
 		// if it has already been set.
-		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now())
 	}
 
 	if updateReq.IsUp {
@@ -811,7 +811,7 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 
 	uptimeRep := uptimeAlpha / (uptimeAlpha + uptimeBeta)
 	if uptimeRep <= uptimeDQ {
-		updateFields.Disqualified = dbx.Node_Disqualified(time.Now().UTC())
+		updateFields.Disqualified = dbx.Node_Disqualified(time.Now())
 	}
 
 	lastContactSuccess := dbNode.LastContactSuccess

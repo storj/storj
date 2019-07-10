@@ -40,16 +40,16 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 	_, err = db.db.Exec(`
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
-		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created)
+		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
 	if err == nil {
 		db.bandwidth.mu.Lock()
 		defer db.bandwidth.mu.Unlock()
 
-		beginningOfMonth := getBeginningOfMonth(created.UTC())
+		beginningOfMonth := getBeginningOfMonth(created)
 		if beginningOfMonth.Equal(db.bandwidth.usedSince) {
 			db.bandwidth.used += amount
 		} else if beginningOfMonth.After(db.bandwidth.usedSince) {
-			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
+			usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
 			if err != nil {
 				return err
 			}
@@ -64,7 +64,7 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 func (db *bandwidthdb) MonthSummary(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	db.bandwidth.mu.RLock()
-	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
+	beginningOfMonth := getBeginningOfMonth(time.Now())
 	if beginningOfMonth.Equal(db.bandwidth.usedSince) {
 		defer db.bandwidth.mu.RUnlock()
 		return db.bandwidth.used, nil
@@ -89,7 +89,7 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 		SELECT action, sum(amount)
 		FROM bandwidth_usage
 		WHERE ? <= created_at AND created_at <= ?
-		GROUP BY action`, from, to)
+		GROUP BY action`, from.UTC(), to.UTC())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return usage, nil
@@ -121,7 +121,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 		SELECT satellite_id, action, sum(amount)
 		FROM bandwidth_usage
 		WHERE ? <= created_at AND created_at <= ?
-		GROUP BY satellite_id, action`, from, to)
+		GROUP BY satellite_id, action`, from.UTC(), to.UTC())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return entries, nil
@@ -154,5 +154,5 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 func getBeginningOfMonth(now time.Time) time.Time {
 	y, m, _ := now.Date()
-	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().UTC().Location())
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().Location())
 }

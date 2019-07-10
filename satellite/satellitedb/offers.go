@@ -75,7 +75,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	}
 
 	if o.Status == rewards.Default {
-		o.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
+		o.ExpiresAt = time.Now().AddDate(100, 0, 0)
 		o.RedeemableCap = 1
 	}
 
@@ -89,7 +89,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 		UPDATE offers SET status=?, expires_at=?
 		WHERE status=? AND type=? AND expires_at>?;
 	`)
-	_, err = tx.Tx.ExecContext(ctx, statement, rewards.Done, currentTime, o.Status, o.Type, currentTime)
+	_, err = tx.Tx.ExecContext(ctx, statement, rewards.Done, currentTime.UTC(), o.Status, o.Type, currentTime.UTC())
 	if err != nil {
 		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
 	}
@@ -102,7 +102,7 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 		dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
 		dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
 		dbx.Offer_RedeemableCap(o.RedeemableCap),
-		dbx.Offer_ExpiresAt(o.ExpiresAt),
+		dbx.Offer_ExpiresAt(o.ExpiresAt.UTC()),
 		dbx.Offer_Status(int(o.Status)),
 		dbx.Offer_Type(int(o.Type)),
 	)

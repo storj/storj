@@ -22,7 +22,7 @@ func TestProjectInvoiceStamps(t *testing.T) {
 		ctx := testcontext.New(t)
 		consoleDB := db.Console()
 
-		startDate := time.Now().UTC()
+		startDate := time.Now()
 		endDate := startDate.Add(time.Hour * 24)
 
 		invoiceID := testrand.Bytes(8)
@@ -44,8 +44,8 @@ func TestProjectInvoiceStamps(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
 			assert.Equal(t, invoiceID, stamp.InvoiceID)
-			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
-			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
+			assert.True(t, startDate.Equal(stamp.StartDate))
+			assert.True(t, endDate.Equal(stamp.EndDate))
 		})
 
 		t.Run("get by project id and start date", func(t *testing.T) {
@@ -54,8 +54,8 @@ func TestProjectInvoiceStamps(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, proj.ID, stamp.ProjectID)
 			assert.Equal(t, invoiceID, stamp.InvoiceID)
-			assert.Equal(t, startDate.Unix(), stamp.StartDate.Unix())
-			assert.Equal(t, endDate.Unix(), stamp.EndDate.Unix())
+			assert.True(t, startDate.Equal(stamp.StartDate))
+			assert.True(t, endDate.Equal(stamp.EndDate))
 		})
 	})
 }

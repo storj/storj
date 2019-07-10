@@ -99,7 +99,7 @@ func TestQueryAttribution(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		now := time.Now().UTC()
+		now := time.Now()
 
 		projectID := testrand.UUID()
 		partnerID := testrand.UUID()

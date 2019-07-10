@@ -29,14 +29,14 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for k, v := range nodeData {
 			nID := dbx.StoragenodeStorageTally_NodeId(k.Bytes())
-			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally)
+			end := dbx.StoragenodeStorageTally_IntervalEndTime(latestTally.UTC())
 			total := dbx.StoragenodeStorageTally_DataTotal(v)
 			_, err := tx.Create_StoragenodeStorageTally(ctx, nID, end, total)
 			if err != nil {
 				return err
 			}
 		}
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally)}
+		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestTally.UTC())}
 		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastAtRestTally), update)
 		return err
 	})
@@ -66,7 +66,7 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accountin
 // GetTalliesSince retrieves all raw tallies since latestRollup
 func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
-	raws, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
+	raws, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup.UTC()))
 	out := make([]*accounting.StoragenodeStorageTally, len(raws))
 	for i, r := range raws {
 		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
@@ -86,7 +86,7 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 // GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup
 func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeBandwidthRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
+	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup.UTC()))
 	out := make([]*accounting.StoragenodeBandwidthRollup, len(rollups))
 	for i, r := range rollups {
 		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
@@ -126,7 +126,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				}
 			}
 		}
-		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup)}
+		update := dbx.AccountingTimestamps_Update_Fields{Value: dbx.AccountingTimestamps_Value(latestRollup.UTC())}
 		_, err := tx.Update_AccountingTimestamps_By_Name(ctx, dbx.AccountingTimestamps_Name(accounting.LastRollup), update)
 		return err
 	})
@@ -208,7 +208,7 @@ func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, n
 		GROUP BY start_time
 		ORDER BY start_time ASC`
 
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -241,6 +241,6 @@ func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, n
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var deleteRawSQL = `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup.UTC())
 	return err
 }

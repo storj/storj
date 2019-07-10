@@ -117,7 +117,7 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 
 		y, m, _ := time.Now().Date()
 		// Last second of the previous month
-		previousMonth := time.Date(y, m, 0, 23, 59, 59, 0, time.Now().UTC().Location())
+		previousMonth := time.Date(y, m, 0, 23, 59, 59, 0, time.Now().Location())
 
 		// Add data for the previous month.
 		for _, action := range actions {

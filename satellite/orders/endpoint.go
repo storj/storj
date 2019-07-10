@@ -200,7 +200,8 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			}
 			return err
 		}
-		now := time.Now().UTC()
+
+		now := time.Now()
 		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 		projectID, bucketName, err := SplitBucketID(bucketID)

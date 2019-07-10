@@ -277,7 +277,7 @@ func (rt *RoutingTable) GetBucketTimestamp(ctx context.Context, bIDBytes []byte)
 		return time.Now(), RoutingErr.New("could not get bucket timestamp %s", err)
 	}
 	timestamp, _ := binary.Varint(t)
-	return time.Unix(0, timestamp).UTC(), nil
+	return time.Unix(0, timestamp), nil
 }
 
 func (rt *RoutingTable) iterateNodes(ctx context.Context, start storj.NodeID, f func(context.Context, storj.NodeID, []byte) error, skipSelf bool) (err error) {

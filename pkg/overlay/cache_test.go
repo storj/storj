@@ -138,7 +138,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
 		require.EqualValues(t, stats.UptimeReputationBeta, newUptimeBeta)
 		require.NotNil(t, stats.Disqualified)
-		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
+		require.True(t, time.Now().Sub(*stats.Disqualified) < time.Minute)
 
 		stats, err = cache.UpdateUptime(ctx, valid2ID, false)
 		require.NoError(t, err)
@@ -149,7 +149,7 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.EqualValues(t, stats.UptimeReputationAlpha, newUptimeAlpha)
 		require.EqualValues(t, stats.UptimeReputationBeta, newUptimeBeta)
 		require.NotNil(t, stats.Disqualified)
-		require.True(t, time.Now().UTC().Sub(*stats.Disqualified) < time.Minute)
+		require.True(t, time.Now().Sub(*stats.Disqualified) < time.Minute)
 		dqTime := *stats.Disqualified
 
 		// should not update once already disqualified

@@ -76,8 +76,8 @@ func Test_isZeroTime(t *testing.T) {
 		t        time.Time
 		expected bool
 	}{
-		{"Valid", time.Now().UTC(), false},
-		{"Zero time", time.Unix(0, 0).UTC(), true},
+		{"Valid", time.Now(), false},
+		{"Zero time", time.Time{}, true},
 	} {
 		got := isZeroTime(tt.t)
 
@@ -91,7 +91,7 @@ func Test_setLastModified(t *testing.T) {
 		modtime  time.Time
 		expected string
 	}{
-		{"Zero time", time.Unix(0, 0).UTC(), ""},
+		{"Zero time", time.Time{}, ""},
 		{"Valid time", time.Unix(1531836358, 0).UTC(), "Tue, 17 Jul 2018 14:05:58 GMT"},
 	} {
 		req := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func Test_setLastModified(t *testing.T) {
 func Test_setLastModifiedNilWriter(t *testing.T) {
 	req := httptest.NewRecorder()
 
-	setLastModified(nil, time.Now().UTC())
+	setLastModified(nil, time.Now())
 
 	assert.Equal(t, "", req.Result().Header.Get("Last-Modified"))
 }
@@ -128,7 +128,7 @@ func Test_checkPreconditions(t *testing.T) {
 			name:                "No If-Match header",
 			requestHeaderMap:    map[string]string{"If-Unmodified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
 			expectedDone:        true,
-			modtime:             time.Unix(1531999477, 0).UTC(),
+			modtime:             time.Unix(1531999477, 0),
 			expectedRangeHeader: "",
 		}, {
 			name:                "Any If-Match header with GET request",
@@ -156,7 +156,7 @@ func Test_checkPreconditions(t *testing.T) {
 		}, {
 			name:                "Empty modified request",
 			requestHeaderMap:    map[string]string{"If-Modified-Since": "Thursday, 20-Jul-18 12:20:25 EEST"},
-			modtime:             time.Unix(1531999477, 0).UTC(),
+			modtime:             time.Unix(1531999477, 0),
 			expectedDone:        true,
 			expectedRangeHeader: "",
 		}, {
@@ -248,27 +248,27 @@ func Test_checkIfUnmodifiedSince(t *testing.T) {
 		{
 			name:           "No modified flag",
 			headerMap:      map[string]string{},
-			modtime:        time.Now().UTC(),
+			modtime:        time.Now(),
 			expectedResult: condNone,
 		}, {
 			name:           "Zero time",
 			headerMap:      map[string]string{"If-Unmodified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
-			modtime:        time.Unix(0, 0).UTC(),
+			modtime:        time.Time{},
 			expectedResult: condNone,
 		}, {
 			name:           "Is modified",
 			headerMap:      map[string]string{"If-Unmodified-Since": "Thursday, 20-Jul-18 12:20:25 EEST"},
-			modtime:        time.Unix(1531999477, 0).UTC(),
+			modtime:        time.Unix(1531999477, 0),
 			expectedResult: condTrue,
 		}, {
 			name:           "Is not modified",
 			headerMap:      map[string]string{"If-Unmodified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
-			modtime:        time.Unix(1531999477, 0).UTC(),
+			modtime:        time.Unix(1531999477, 0),
 			expectedResult: condFalse,
 		}, {
 			name:           "Malformed RFC time",
 			headerMap:      map[string]string{"If-Unmodified-Since": "abcdefg"},
-			modtime:        time.Unix(1531999477, 0).UTC(),
+			modtime:        time.Unix(1531999477, 0),
 			expectedResult: condNone,
 		},
 	} {
@@ -359,19 +359,19 @@ func Test_checkIfModifiedSince(t *testing.T) {
 			name:           "Malformed If-Modified-Since header",
 			requestMethod:  "GET",
 			headerMap:      map[string]string{"If-Modified-Since": "aaaa"},
-			modtime:        time.Unix(1531999477, 0).UTC(),
+			modtime:        time.Unix(1531999477, 0),
 			expectedResult: condNone,
 		}, {
 			name:           "Is not modified before",
 			requestMethod:  "GET",
 			headerMap:      map[string]string{"If-Modified-Since": "Thursday, 20-Jul-18 12:20:25 EEST"},
-			modtime:        time.Unix(1531999477, 0).UTC(),
+			modtime:        time.Unix(1531999477, 0),
 			expectedResult: condFalse,
 		}, {
 			name:           "Modified before",
 			requestMethod:  "GET",
 			headerMap:      map[string]string{"If-Modified-Since": "Thursday, 18-Jul-18 12:20:25 EEST"},
-			modtime:        time.Unix(1531999477, 0).UTC(),
+			modtime:        time.Unix(1531999477, 0),
 			expectedResult: condTrue,
 		},
 	} {
@@ -418,25 +418,25 @@ func Test_checkIfRange(t *testing.T) {
 			name:             "Zero modtime",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "a"},
-			modtime:          time.Unix(0, 0).UTC(),
+			modtime:          time.Time{},
 			expectedResult:   condFalse,
 		}, {
 			name:             "Malformed header time",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "aaa"},
-			modtime:          time.Unix(1531999477, 0).UTC(),
+			modtime:          time.Unix(1531999477, 0),
 			expectedResult:   condFalse,
 		}, {
 			name:             "Equal time",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "Thu, 19 Jul 2018 14:12:03 GMT"},
-			modtime:          time.Unix(1532009523, 0).UTC(),
+			modtime:          time.Unix(1532009523, 0),
 			expectedResult:   condTrue,
 		}, {
 			name:             "Equal time",
 			requestMethod:    "GET",
 			requestHeaderMap: map[string]string{"If-Range": "Thu, 18 Jul 2018 14:12:03 GMT"},
-			modtime:          time.Unix(1532009523, 0).UTC(),
+			modtime:          time.Unix(1532009523, 0),
 			expectedResult:   condFalse,
 		},
 	} {

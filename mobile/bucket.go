@@ -55,7 +55,7 @@ type BucketInfo struct {
 func newBucketInfo(bucket storj.Bucket) *BucketInfo {
 	return &BucketInfo{
 		Name:         bucket.Name,
-		Created:      bucket.Created.UTC().UnixNano() / int64(time.Millisecond),
+		Created:      bucket.Created.UnixNano() / int64(time.Millisecond),
 		PathCipher:   byte(bucket.PathCipher),
 		SegmentsSize: bucket.DefaultSegmentsSize,
 		RedundancyScheme: &RedundancyScheme{
