@@ -926,6 +926,53 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
+			}, {
+				Description: "Set default offer for each offer type in offers table",
+				Version:     40,
+				Action: migrate.SQL{
+					`INSERT INTO offers (
+						name,
+						description,
+						award_credit_in_cents,
+						invitee_credit_in_cents,
+						award_credit_duration_days,
+						invitee_credit_duration_days,
+						redeemable_cap,
+						num_redeemed,
+						expires_at,
+						created_at,
+						status,
+						type )
+					VALUES (
+						'Default referral offer',
+						'Is active when no other active referral offer',
+						300,
+						600,
+						99999,
+						99999,
+						99999,
+						0,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						1),
+						 (
+							'Default free credit offer',
+							'Is active when no active free credit offer',
+							300,
+							0,
+							99999,
+							99999,
+							99999,
+							0,
+							'2119-03-14 08:28:24.636949+00',
+							'2019-07-14 08:28:24.636949+00',
+							1,
+							0
+                         )
+						ON CONFLICT
+						DO NOTHING;`,
+				},
 			},
 		},
 	}

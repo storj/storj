@@ -59,27 +59,30 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
-			update := &rewards.UpdateOffer{
-				ID:        new.ID,
-				Status:    rewards.Done,
-				ExpiresAt: time.Now(),
-			}
-
-			isDefault := update.Status == rewards.Default
-			err = planet.Satellites[0].DB.Rewards().Redeem(ctx, update.ID, isDefault)
-			require.NoError(t, err)
-
-			err = planet.Satellites[0].DB.Rewards().Finish(ctx, update.ID)
+			isDefault := new.Status == rewards.Default
+			err = planet.Satellites[0].DB.Rewards().Redeem(ctx, new.ID, isDefault)
 			require.NoError(t, err)
 
 			current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
-			if new.Status == rewards.Default {
+			if current[i].Status == rewards.Default {
 				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
 			} else {
 				require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
 			}
-			require.Equal(t, rewards.Done, current[i].Status)
+
+			currentID := current[i].ID
+			err = planet.Satellites[0].DB.Rewards().Finish(ctx, currentID)
+			require.NoError(t, err)
+
+			current, err = planet.Satellites[0].DB.Rewards().ListAll(ctx)
+			require.NoError(t, err)
+			for _, o := range current {
+				if o.ID == currentID {
+					require.Equal(t, rewards.Done, o.Status)
+					break
+				}
+			}
 		}
 
 		// create with expired offer
