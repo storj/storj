@@ -87,13 +87,13 @@ func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker Pie
 		target := &pb.Node{Id: id}
 		signer := signing.SignerFromFullIdentity(service.transport.Identity())
 
-		ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
+		piecestore, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
 		if err != nil {
 			service.log.Error(Error.Wrap(err).Error())
 			continue
 		}
 		defer func() {
-			err := ps.Close()
+			err := piecestore.Close()
 			if err != nil {
 				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
 			}
@@ -105,15 +105,14 @@ func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker Pie
 		filterBytes := retainInfo.Filter.Bytes()
 		mon.IntVal("retain_filter_size_bytes").Observe(int64(len(filterBytes)))
 
-		// TODO: send the retain request to the storage node (PR #2424)
-		// retainReq := &pb.RetainRequest{
-		// 	CreationDate: retainInfo.CreationDate,
-		// 	Filter:       filterBytes,
-		// }
-		// _, err := ps.gcendpoint.Retain(ctx, retainReq)
-		// if err != nil {
-		// 	return Error.Wrap(err)
-		// }
+		retainReq := &pb.RetainRequest{
+			CreationDate: retainInfo.CreationDate,
+			Filter:       filterBytes,
+		}
+		err = piecestore.Retain(ctx, retainReq)
+		if err != nil {
+			service.log.Error(Error.Wrap(err).Error())
+		}
 	}
 	cb()
 	return nil
