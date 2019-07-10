@@ -132,6 +132,7 @@ export default class Dashboard extends Vue {
             height: 100%;
         }
     }
+
     @media screen and (max-width: 720px) {
         .dashboard-container {
             &__main-area{
@@ -139,6 +140,7 @@ export default class Dashboard extends Vue {
             }
         }
     }
+
     .loading-overlay {
         display: flex;
         justify-content: center;

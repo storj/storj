@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package kademlia
+package kademliaclient
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
@@ -18,20 +19,22 @@ import (
 	"storj.io/storj/pkg/transport"
 )
 
-// Dialer is a kademlia dialer
+var mon = monkit.Package()
+
+// Dialer sends requests to kademlia endpoints on storage nodes
 type Dialer struct {
 	log       *zap.Logger
 	transport transport.Client
 	limit     sync2.Semaphore
 }
 
-// Conn represents a kademlia connection
+// Conn represents a connection
 type Conn struct {
 	conn   *grpc.ClientConn
 	client pb.NodesClient
 }
 
-// NewDialer creates a dialer for kademlia.
+// NewDialer creates a new kademlia dialer.
 func NewDialer(log *zap.Logger, transport transport.Client) *Dialer {
 	dialer := &Dialer{
 		log:       log,
@@ -159,6 +162,11 @@ func (dialer *Dialer) FetchInfo(ctx context.Context, target pb.Node) (_ *pb.Info
 	resp, err := conn.client.RequestInfo(ctx, &pb.InfoRequest{})
 
 	return resp, errs.Combine(err, conn.disconnect())
+}
+
+// AlertSuccess alerts the transport observers of a successful connection
+func (dialer *Dialer) AlertSuccess(ctx context.Context, node *pb.Node) {
+	dialer.transport.AlertSuccess(ctx, node)
 }
 
 // dialNode dials the specified node.

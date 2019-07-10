@@ -24,7 +24,3 @@
 
     export default class APIFooter extends Vue {}
 </script>
-
-<style scoped lang="scss">
-
-</style>

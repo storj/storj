@@ -56,7 +56,6 @@
 </script>
 
 <style lang="scss">
-
     @font-face {
         font-family: "font_regular";
         src: url("../static/fonts/font_regular.ttf");
