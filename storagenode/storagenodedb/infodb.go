@@ -244,7 +244,13 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE TABLE certificate (cert_id INTEGER)`,
 				},
 			},
-			// TODO: add migration for order_limit
+			{
+				Description: "Add order limit table.",
+				Version:     8,
+				Action: migrate.SQL{
+					`ALTER TABLE pieceinfo ADD COLUMN order_limit BLOB NOT NULL DEFAULT ''`,
+				},
+			},
 		},
 	}
 }
