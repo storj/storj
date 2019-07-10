@@ -571,6 +571,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 
 	const limit = 1000
 	offset := 0
+	numDeleted := 0
 	hasMorePieces := true
 
 	for hasMorePieces {
@@ -592,10 +593,12 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
 				}
+				numDeleted++
 			}
 		}
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
+		offset -= numDeleted
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
