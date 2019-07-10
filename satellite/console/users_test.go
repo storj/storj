@@ -54,7 +54,7 @@ func TestUserRepository(t *testing.T) {
 			ID:           testrand.UUID(),
 			FullName:     name,
 			ShortName:    lastName,
-			Email:        email,
+			Email:        "new" + email,
 			PasswordHash: []byte(passValid),
 			CreatedAt:    time.Now(),
 		}
@@ -76,7 +76,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 	})
 
 	t.Run("Get user success", func(t *testing.T) {
-		userByEmail, err := repository.GetByEmail(ctx, email)
+		userByEmail, err := repository.GetByEmail(ctx, user.Email)
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
@@ -97,8 +97,26 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.CreatedAt, userByEmail.CreatedAt)
 	})
 
+	t.Run("Get all users by email", func(t *testing.T) {
+		user := &console.User{
+			ID:           testrand.UUID(),
+			FullName:     name,
+			ShortName:    lastName,
+			Email:        user.Email,
+			PasswordHash: []byte(passValid),
+			CreatedAt:    time.Now(),
+		}
+
+		_, err := repository.Insert(ctx, user)
+		assert.NoError(t, err)
+
+		users, err := repository.GetAllByEmail(ctx, user.Email)
+		assert.NoError(t, err)
+		assert.Equal(t, 2, len(users))
+	})
+
 	t.Run("Update user success", func(t *testing.T) {
-		oldUser, err := repository.GetByEmail(ctx, email)
+		oldUser, err := repository.GetByEmail(ctx, user.Email)
 		assert.NoError(t, err)
 
 		newUser := &console.User{
