@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
@@ -494,11 +493,7 @@ func TestTooManyRequests(t *testing.T) {
 func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeID, storageNode storj.NodeID, pieceID storj.PieceID,
 	action pb.PieceAction, serialNumber storj.SerialNumber, pieceExpiration, orderExpiration time.Duration, limit int64) *pb.OrderLimit {
 
-	pe, err := ptypes.TimestampProto(time.Now().Add(pieceExpiration))
-	require.NoError(t, err)
-
-	oe, err := ptypes.TimestampProto(time.Now().Add(orderExpiration))
-	require.NoError(t, err)
+	now := time.Now()
 
 	return &pb.OrderLimit{
 		SatelliteId:     satellite,
@@ -508,8 +503,8 @@ func GenerateOrderLimit(t *testing.T, satellite storj.NodeID, uplink storj.NodeI
 		Action:          action,
 		SerialNumber:    serialNumber,
 		OrderCreation:   time.Now(),
-		OrderExpiration: oe,
-		PieceExpiration: pe,
+		OrderExpiration: now.Add(orderExpiration),
+		PieceExpiration: now.Add(pieceExpiration),
 		Limit:           limit,
 	}
 }

@@ -16,10 +16,10 @@
                 <PaginationArea />
             </div>
             <EmptyState
-            class="empty-container"
-            v-if="pages === 0 && search && search.length > 0"
-            mainTitle="Nothing found :("
-            :imageSource="emptyImage" />
+                class="empty-container"
+                v-if="pages === 0 && search && search.length > 0"
+                mainTitle="Nothing found :("
+                :imageSource="emptyImage" />
         </div>
         <NoBucketArea v-if="pages === 0 && !search" />
     </div>
