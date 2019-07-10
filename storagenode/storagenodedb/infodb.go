@@ -44,8 +44,8 @@ func newInfo(path string) (*InfoDB, error) {
 	dbutil.Configure(db, mon)
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{infoDb, spaceUsed{sync.Once{}, 0}}
-	infoDb.bandwidthdb = bandwidthdb{infoDb, bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
 
 	return infoDb, nil
 }
@@ -70,8 +70,8 @@ func NewInfoInMemory() (*InfoDB, error) {
 		}))
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{infoDb, spaceUsed{sync.Once{}, 0}}
-	infoDb.bandwidthdb = bandwidthdb{infoDb, bandwidthUsed{sync.RWMutex{}, time.Time{}, 0}}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
 
 	return infoDb, nil
 }
