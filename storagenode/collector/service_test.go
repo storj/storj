@@ -49,7 +49,7 @@ func TestCollector(t *testing.T) {
 		collections := 0
 		serialsPresent := 0
 
-		// imagine we are 16 days in the future
+		// imagine we are 30 minutes in the future
 		for _, storageNode := range planet.StorageNodes {
 			pieceinfos := storageNode.DB.PieceInfo()
 			usedSerials := storageNode.DB.UsedSerials()
@@ -63,13 +63,8 @@ func TestCollector(t *testing.T) {
 			}
 
 			// collect all the data
-			err = storageNode.Collector.Collect(ctx, time.Now().Add(16*24*time.Hour))
+			err = storageNode.Collector.Collect(ctx, time.Now().Add(30*time.Minute))
 			require.NoError(t, err)
-
-			// verify that we deleted everything
-			used, err = pieceinfos.SpaceUsed(ctx)
-			require.NoError(t, err)
-			require.Equal(t, int64(0), used)
 
 			// ensure we haven't deleted used serials
 			err = usedSerials.IterateAll(ctx, func(_ storj.NodeID, _ storj.SerialNumber, _ time.Time) {
@@ -85,13 +80,38 @@ func TestCollector(t *testing.T) {
 
 		serialsPresent = 0
 
-		// imagine we are 48 days in the future
+		// imagine we are 2 hours in the future
 		for _, storageNode := range planet.StorageNodes {
 			usedSerials := storageNode.DB.UsedSerials()
 
 			// collect all the data
-			err = storageNode.Collector.Collect(ctx, time.Now().Add(48*24*time.Hour))
+			err = storageNode.Collector.Collect(ctx, time.Now().Add(2*time.Hour))
 			require.NoError(t, err)
+
+			// ensure we have deleted used serials
+			err = usedSerials.IterateAll(ctx, func(id storj.NodeID, serial storj.SerialNumber, expiration time.Time) {
+				serialsPresent++
+			})
+			require.NoError(t, err)
+
+			collections++
+		}
+
+		require.Equal(t, 0, serialsPresent)
+
+		// imagine we are 10 days in the future
+		for _, storageNode := range planet.StorageNodes {
+			pieceinfos := storageNode.DB.PieceInfo()
+			usedSerials := storageNode.DB.UsedSerials()
+
+			// collect all the data
+			err = storageNode.Collector.Collect(ctx, time.Now().Add(10*24*time.Hour))
+			require.NoError(t, err)
+
+			// verify that we deleted everything
+			used, err := pieceinfos.SpaceUsed(ctx)
+			require.NoError(t, err)
+			require.Equal(t, int64(0), used)
 
 			// ensure we have deleted used serials
 			err = usedSerials.IterateAll(ctx, func(id storj.NodeID, serial storj.SerialNumber, expiration time.Time) {

@@ -16,10 +16,10 @@
                 <PaginationArea />
             </div>
             <EmptyState
-            class="empty-container"
-            v-if="pages === 0 && search && search.length > 0"
-            mainTitle="Nothing found :("
-            :imageSource="emptyImage" />
+                class="empty-container"
+                v-if="pages === 0 && search && search.length > 0"
+                mainTitle="Nothing found :("
+                :imageSource="emptyImage" />
         </div>
         <NoBucketArea v-if="pages === 0 && !search" />
     </div>
@@ -70,57 +70,60 @@
 </script>
 
 <style scoped lang="scss">
-	.buckets-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 44px 40px 0 92px;
-
-		p {
-			font-family: 'font_bold';
-			font-size: 24px;
-			line-height: 29px;
-			color: #384B65;
-			margin-right: 50px;
-			margin-block-start: 0em;
-			margin-block-end: 0em;
-		}
-	}
-	.table-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 20px 90px 0 40px;
-
-		&:last-child {
-			padding-left: 20px;
-		}
-	}
-	.buckets-container {
-		padding: 0px 40px 0 60px;
-
-		table {
-			width:98.5%;
-			margin-top:20px;
-		}
-	}
-
-	@media screen and (max-height: 880px) {
-		.buckets-overflow {
-			overflow-y: scroll;
-			height: 600px;
-		}
-		.empty-container {
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-		}
-	}
-
-	@media screen and (max-height: 700px) {
-		.buckets-overflow {
-			height: 570px;
-		}
-	}
+    .buckets-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 44px 40px 0 92px;
+        
+        p {
+            font-family: 'font_bold';
+            font-size: 24px;
+            line-height: 29px;
+            color: #384B65;
+            margin-right: 50px;
+            margin-block-start: 0em;
+            margin-block-end: 0em;
+        }
+    }
+    
+    .table-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 90px 0 40px;
+    
+        &:last-child {
+            padding-left: 20px;
+        }
+    }
+    
+    .buckets-container {
+        padding: 0px 40px 0 60px;
+        
+        table {
+            width:98.5%;
+            margin-top:20px;
+        }
+    }
+    
+    @media screen and (max-height: 880px) {
+        .buckets-overflow {
+            overflow-y: scroll;
+            height: 600px;
+        }
+        
+        .empty-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+    }
+    
+    @media screen and (max-height: 700px) {
+        .buckets-overflow {
+            height: 570px;
+        }
+    }
 </style>

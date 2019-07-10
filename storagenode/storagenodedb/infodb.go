@@ -236,6 +236,14 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`ALTER TABLE pieceinfo ADD COLUMN piece_creation TIMESTAMP NOT NULL DEFAULT 'epoch'`,
 				},
 			},
+			{
+				Description: "Drop certificate table.",
+				Version:     7,
+				Action: migrate.SQL{
+					`DROP TABLE certificate`,
+					`CREATE TABLE certificate (cert_id INTEGER)`,
+				},
+			},
 		},
 	}
 }
