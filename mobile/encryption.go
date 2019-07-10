@@ -5,6 +5,7 @@ package mobile
 
 import (
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -16,6 +17,20 @@ type EncryptionAccess struct {
 // NewEncryptionAccess constructs an empty encryption context.
 func NewEncryptionAccess() *EncryptionAccess {
 	return &EncryptionAccess{lib: libuplink.NewEncryptionAccess()}
+}
+
+// NewEncryptionAccessWithRoot constructs an encryption access with a key rooted at the provided path inside of a bucket.
+func NewEncryptionAccessWithRoot(bucket, unencryptedPath, encryptedPath string, keyData []byte) (*EncryptionAccess, error) {
+	key, err := storj.NewKey(keyData)
+	if err != nil {
+		return nil, safeError(err)
+	}
+	encAccess := libuplink.NewEncryptionAccess()
+	err = encAccess.Store().Add(bucket, paths.NewUnencrypted(unencryptedPath), paths.NewEncrypted(encryptedPath), *key)
+	if err != nil {
+		return nil, safeError(err)
+	}
+	return &EncryptionAccess{lib: encAccess}, nil
 }
 
 // SetDefaultKey sets the default key to use when no matching keys are found
