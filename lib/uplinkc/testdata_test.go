@@ -4,7 +4,7 @@
 package main
 
 import (
-	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -171,38 +171,15 @@ func TestLibstorj(t *testing.T) {
 		cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
 		// TODO: temporary ------------------------------------------------- //
-		uplink, err := _libuplink.NewUplink(ctx, &cfg)
-		require.NoError(t, err)
-		require.NotNil(t, uplink)
-
-		apikey, err := _libuplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
-		require.NoError(t, err)
-		require.NotNil(t, apikey)
-
-		project, err := uplink.OpenProject(ctx, planet.Satellites[0].Addr(), apikey)
-		require.NoError(t, err)
-		require.NotNil(t, project)
-
-		_, err = project.CreateBucket(ctx, "test-bucket", nil)
-		require.NoError(t, err)
-
 		var defaultKey storj.Key
 		copy(defaultKey[:], "123a123")
 		encryptionAccess := _libuplink.NewEncryptionAccessWithDefaultKey(defaultKey)
-		//encryptionAccess := _libuplink.NewEncryptionAccess()
 		require.NotEmpty(t, encryptionAccess)
 
 		encryptionAccessStr, err := encryptionAccess.Serialize()
 		require.NoError(t, err)
 		require.NotEmpty(t, encryptionAccessStr)
-
-		bucket, err := project.OpenBucket(ctx, "test-bucket", encryptionAccess)
-		require.NoError(t, err)
-		require.NotNil(t, bucket)
-
-		buf := bytes.NewBuffer([]byte("testing 123"))
-		err = bucket.UploadObject(ctx, "test-file", buf, nil)
-		require.NoError(t, err)
+		fmt.Printf("encryption access: %s\n", encryptionAccessStr)
 		// ----------------------------------------------------------------- //
 
 		cmd := exec.Command(testexe)
