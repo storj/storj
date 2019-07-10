@@ -182,16 +182,18 @@ func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
 	}
 
 	// sign the hash for storage node
-	uplinkHash, err := signing.SignPieceHash(ctx, client.client.signer, &pb.PieceHash{
+	uplinkHash := &pb.PieceHash{
 		PieceId: client.limit.PieceId,
 		Hash:    client.hash.Sum(nil),
-	})
+	}
+	bytes, err := signing.EncodePieceHash(ctx, uplinkHash)
 	if err != nil {
 		// failed to sign, let's close the sending side, no need to wait for a response
 		closeErr := client.stream.CloseSend()
 		// closeErr being io.EOF doesn't inform us about anything
 		return nil, Error.Wrap(errs.Combine(err, ignoreEOF(closeErr)))
 	}
+	uplinkHash.Signature = client.privateKey.Sign(bytes)
 
 	// exchange signed piece hashes
 	// 1. send our piece hash
