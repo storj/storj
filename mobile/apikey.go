@@ -63,7 +63,7 @@ func (a *APIKey) IsZero() bool {
 func ParseAPIKey(val string) (*APIKey, error) {
 	k, err := libuplink.ParseAPIKey(val)
 	if err != nil {
-		return &APIKey{}, safeError(err)
+		return nil, safeError(err)
 	}
 	return &APIKey{lib: &k}, nil
 }
@@ -97,7 +97,7 @@ func (a APIKey) Restrict(caveat *Caveat) (*APIKey, error) {
 
 	k, err := a.lib.Restrict(libCaveat)
 	if err != nil {
-		return &APIKey{}, safeError(err)
+		return nil, safeError(err)
 	}
 	return &APIKey{lib: &k}, nil
 }
