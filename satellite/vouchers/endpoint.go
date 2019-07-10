@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -68,16 +67,10 @@ func (endpoint *Endpoint) Request(ctx context.Context, req *pb.VoucherRequest) (
 		return &pb.VoucherResponse{Status: pb.VoucherResponse_REJECTED}, nil
 	}
 
-	expirationTime := time.Now().UTC().Add(endpoint.expiration)
-	expiration, err := ptypes.TimestampProto(expirationTime)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	unsigned := &pb.Voucher{
 		SatelliteId:   endpoint.satellite.ID(),
 		StorageNodeId: peer.ID,
-		Expiration:    expiration,
+		Expiration:    time.Now().Add(endpoint.expiration),
 	}
 
 	voucher, err := signing.SignVoucher(ctx, endpoint.satellite, unsigned)

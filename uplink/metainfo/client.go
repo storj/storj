@@ -7,14 +7,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
@@ -80,21 +78,13 @@ func (client *Client) Close() error {
 func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var exp *timestamp.Timestamp
-	if !expiration.IsZero() {
-		exp, err = ptypes.TimestampProto(expiration)
-		if err != nil {
-			return nil, rootPieceID, err
-		}
-	}
-
-	response, err := client.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
+	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
 		Bucket:                  []byte(bucket),
 		Path:                    []byte(path),
 		Segment:                 segmentIndex,
 		Redundancy:              redundancy,
 		MaxEncryptedSegmentSize: maxEncryptedSegmentSize,
-		Expiration:              exp,
+		Expiration:              expiration,
 	})
 	if err != nil {
 		return nil, rootPieceID, Error.Wrap(err)
@@ -107,7 +97,7 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
+	response, err := client.client.CommitSegmentOld(ctx, &pb.SegmentCommitRequestOld{
 		Bucket:         []byte(bucket),
 		Path:           []byte(path),
 		Segment:        segmentIndex,
@@ -125,7 +115,7 @@ func (client *Client) CommitSegment(ctx context.Context, bucket string, path sto
 func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.SegmentInfo(ctx, &pb.SegmentInfoRequest{
+	response, err := client.client.SegmentInfoOld(ctx, &pb.SegmentInfoRequestOld{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
@@ -144,7 +134,7 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+	response, err := client.client.DownloadSegmentOld(ctx, &pb.SegmentDownloadRequestOld{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
@@ -181,7 +171,7 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.DeleteSegment(ctx, &pb.SegmentDeleteRequest{
+	response, err := client.client.DeleteSegmentOld(ctx, &pb.SegmentDeleteRequestOld{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
@@ -200,7 +190,7 @@ func (client *Client) DeleteSegment(ctx context.Context, bucket string, path sto
 func (client *Client) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.ListSegments(ctx, &pb.ListSegmentsRequest{
+	response, err := client.client.ListSegmentsOld(ctx, &pb.ListSegmentsRequestOld{
 		Bucket:     []byte(bucket),
 		Prefix:     []byte(prefix),
 		StartAfter: []byte(startAfter),
@@ -230,7 +220,7 @@ func (client *Client) ListSegments(ctx context.Context, bucket string, prefix, s
 func (client *Client) SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.SetAttribution(ctx, &pb.SetAttributionRequest{
+	_, err = client.client.SetAttributionOld(ctx, &pb.SetAttributionRequestOld{
 		PartnerId:  partnerID[:], // TODO: implement storj.UUID that can be sent using pb
 		BucketName: []byte(bucket),
 	})

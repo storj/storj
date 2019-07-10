@@ -28,44 +28,43 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    methods: {
-        onDelete: async function () {
-            let selectedKeys: any[] = this.$store.getters.selectedAPIKeys.map((key) => {return key.id; });
+    @Component({
+        methods: {
+            onDelete: async function () {
+                let selectedKeys: any[] = this.$store.getters.selectedAPIKeys.map((key) => { return key.id; });
 
-            const dispatchResult: RequestResponse<null> = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
+                const dispatchResult: RequestResponse<null> = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
 
-            let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
+                let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
 
-            if (dispatchResult.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
-            } else {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, dispatchResult.errorMessage);
+                if (dispatchResult.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+                } else {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, dispatchResult.errorMessage);
+                }
+            },
+            onClearSelection: function (): void {
+                this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+            },
+        },
+        computed: {
+            selectedAPIKeysCount: function (): number {
+                return this.$store.getters.selectedAPIKeys.length;
+            },
+            allAPIKeysCount: function (): number {
+                return this.$store.state.apiKeysModule.apiKeys.length;
             }
         },
-        onClearSelection: function (): void {
-            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
-        },
-    },
-    computed: {
-        selectedAPIKeysCount: function (): number {
-            return this.$store.getters.selectedAPIKeys.length;
-        },
-        allAPIKeysCount: function (): number {
-            return this.$store.state.apiKeysModule.apiKeys.length;
+        components: {
+            Button
         }
-    },
-    components: {
-        Button
-    }
-})
+    })
 
-export default class DeleteApiKeysArea extends Vue {
-}
+    export default class DeleteApiKeysArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -127,6 +126,7 @@ export default class DeleteApiKeysArea extends Vue {
             }
         }
     }
+    
     @media screen and (max-width: 1600px) {
         .delete-api-key-container {
             max-width: 74%;

@@ -34,15 +34,14 @@
 </template>
 
 <script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Button from '@/components/common/Button.vue';
-import { removeToken } from '@/utils/tokenManager';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import Button from '@/components/common/Button.vue';
+    import { removeToken } from '@/utils/tokenManager';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function() {
             return {
                 password: '',
@@ -85,10 +84,9 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
             HeaderedInput,
             Button
         }
-    }
-)
+    })
 
-export default class DeleteAccountPopup extends Vue {}
+    export default class DeleteAccountPopup extends Vue {}
 </script>
 
 <style scoped lang='scss'>
@@ -104,12 +102,15 @@ export default class DeleteAccountPopup extends Vue {}
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .red {
         background-color: #EB5757;
     }
+
     .text {
         margin: 0;
         margin-bottom: 0 !important;
@@ -117,6 +118,7 @@ export default class DeleteAccountPopup extends Vue {}
         font-size: 16px;
         line-height: 25px;
     }
+
     .delete-account {
         width: 100%;
         max-width: 845px;

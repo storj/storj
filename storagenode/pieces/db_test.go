@@ -53,11 +53,10 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   &now,
-			PieceExpiration: &now,
+			PieceCreation:   now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash0,
-			Uplink:          uplink0.PeerIdentity(),
 		}
 
 		piecehash1, err := signing.SignPieceHash(ctx,
@@ -73,11 +72,10 @@ func TestPieceInfo(t *testing.T) {
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   &now,
-			PieceExpiration: &now,
+			PieceCreation:   now,
+			PieceExpiration: now,
 
 			UplinkPieceHash: piecehash1,
-			Uplink:          uplink1.PeerIdentity(),
 		}
 
 		piecehash2, err := signing.SignPieceHash(ctx,
@@ -88,16 +86,19 @@ func TestPieceInfo(t *testing.T) {
 			})
 		require.NoError(t, err)
 
+		// use different timezones
+		location := time.FixedZone("XYZ", int((8 * time.Hour).Seconds()))
+		now2 := now.In(location)
+
 		info2 := &pieces.Info{
 			SatelliteID: satellite2.ID,
 
 			PieceID:         pieceid0,
 			PieceSize:       123,
-			PieceCreation:   &now,
-			PieceExpiration: &now,
+			PieceCreation:   now2,
+			PieceExpiration: now2,
 
 			UplinkPieceHash: piecehash2,
-			Uplink:          uplink2.PeerIdentity(),
 		}
 
 		_, err = pieceinfos.Get(ctx, info0.SatelliteID, info0.PieceID)

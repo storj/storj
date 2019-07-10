@@ -501,8 +501,7 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, stripe *Str
 		return err
 	}
 
-	if pointer.GetCreationDate().GetSeconds() != stripe.Segment.GetCreationDate().GetSeconds() ||
-		pointer.GetCreationDate().GetNanos() != stripe.Segment.GetCreationDate().GetNanos() {
+	if !pointer.CreationDate.Equal(stripe.Segment.CreationDate) {
 		return ErrSegmentDeleted.New(stripe.SegmentPath)
 	}
 

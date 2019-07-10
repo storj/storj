@@ -41,51 +41,48 @@
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component(
-        {
-            props: {
-                onClose: {
-                    type: Function
-                },
-                apiKey: String
+    @Component({
+        props: {
+            onClose: {
+                type: Function
             },
-            data: function () {
-                return {
-                    imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
-                };
+            apiKey: String
+        },
+        data: function () {
+            return {
+                imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
+            };
+        },
+        methods: {
+            onCloseClick: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
             },
-            methods: {
-                onCloseClick: function (): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-                },
-                onCopyClick: function (): void {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
-                },
+            onCopyClick: function (): void {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
             },
-            computed: {
-                apiKeyContainerClass: function (): string {
-                    let apiKeyClassName = '';
+        },
+        computed: {
+            apiKeyContainerClass: function (): string {
+                let apiKeyClassName = '';
 
-                    if (this.$props.apiKey.length > 100) {
-                        apiKeyClassName = 'large';
-                    }
-
-                    if (this.$props.apiKey.length > 300) {
-                        apiKeyClassName = 'extra-large';
-                    }
-
-                    return apiKeyClassName;
+                if (this.$props.apiKey.length > 100) {
+                    apiKeyClassName = 'large';
                 }
-            },
-            components: {
-                Button,
-                HeaderedInput
-            }
-        }
-    )
 
-    export default class AddApiKeyPopup extends Vue {
-    }
+                if (this.$props.apiKey.length > 300) {
+                    apiKeyClassName = 'extra-large';
+                }
+
+                return apiKeyClassName;
+            }
+        },
+        components: {
+            Button,
+            HeaderedInput
+        }
+    })
+
+    export default class AddApiKeyPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -170,9 +167,11 @@
             cursor: pointer;
         }
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .notification-wrap {
         background-color: rgba(194, 214, 241, 1);
         height: 98px;

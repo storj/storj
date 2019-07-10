@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -30,10 +29,7 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 	defer mon.Task()(&ctx)(&err)
 
 	id := voucher.SatelliteId
-	expiration, err := ptypes.Timestamp(voucher.GetExpiration())
-	if err != nil {
-		return ErrInfo.Wrap(err)
-	}
+	expiration := voucher.Expiration.UTC()
 
 	voucherSerialized, err := proto.Marshal(voucher)
 	if err != nil {
@@ -91,7 +87,7 @@ func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (
 		args = append(args, id)
 	}
 
-	args = append(args, time.Now().UTC())
+	args = append(args, time.Now())
 
 	row := db.db.QueryRow(db.InfoDB.Rebind(`
 		SELECT voucher_serialized

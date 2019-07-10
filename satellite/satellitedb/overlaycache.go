@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/lib/pq"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
@@ -45,8 +44,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		AND free_disk >= ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
-		AND last_contact_success > ?
-		AND last_contact_success > last_contact_failure`
+		AND (last_contact_success > ?
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
@@ -100,8 +99,8 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND (total_audit_count < ? OR total_uptime_count < ?)
-		AND last_contact_success > ?
-		AND last_contact_success > last_contact_failure`
+		AND (last_contact_success > ?
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 10),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
@@ -161,8 +160,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	args = append(args, count)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net, 
-	free_bandwidth, free_disk, total_audit_count, audit_success_count, 
+	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	free_bandwidth, free_disk, total_audit_count, audit_success_count,
 	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM nodes
@@ -236,8 +235,8 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net, 
-	free_bandwidth, free_disk, total_audit_count, audit_success_count, 
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	free_bandwidth, free_disk, total_audit_count, audit_success_count,
 	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM (SELECT *, Row_number() OVER(PARTITION BY last_net ORDER BY RANDOM()) rn
@@ -413,7 +412,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
 			AND (
-				last_contact_success < last_contact_failure OR last_contact_success < ?
+				last_contact_success < last_contact_failure AND last_contact_success < ?
 			)
 		`), args...)
 
@@ -422,7 +421,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
 				AND (
-					last_contact_success < last_contact_failure OR last_contact_success < $2
+					last_contact_success < last_contact_failure AND last_contact_success < $2
 				)
 			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
@@ -470,7 +469,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
 			AND disqualified IS NULL
-			AND last_contact_success > ? AND last_contact_success > last_contact_failure
+			AND (last_contact_success > ? OR last_contact_success > last_contact_failure)
 		`), args...)
 
 	case *pq.Driver:
@@ -478,7 +477,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
 				AND disqualified IS NULL
-				AND last_contact_success > $2 AND last_contact_success > last_contact_failure
+				AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
 			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
 	default:
@@ -507,6 +506,32 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		}
 	}
 	return badNodes, nil
+}
+
+// Reliable returns all reliable nodes.
+func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	// get reliable and online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE disqualified IS NULL
+		  AND (last_contact_success > ? OR last_contact_success > last_contact_failure)`),
+		time.Now().Add(-criteria.OnlineWindow))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, id)
+	}
+	return nodes, nil
 }
 
 // Paginate will run through
@@ -734,15 +759,11 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			if err != nil {
 				return nil, errs.New("unable to convert version to semVer")
 			}
-			pbts, err := ptypes.Timestamp(nodeInfo.GetVersion().GetTimestamp())
-			if err != nil {
-				return nil, errs.New("unable to convert version timestamp")
-			}
 			updateFields.Major = dbx.Node_Major(semVer.Major)
 			updateFields.Minor = dbx.Node_Minor(semVer.Minor)
 			updateFields.Patch = dbx.Node_Patch(semVer.Patch)
 			updateFields.Hash = dbx.Node_Hash(nodeInfo.GetVersion().GetCommitHash())
-			updateFields.Timestamp = dbx.Node_Timestamp(pbts)
+			updateFields.Timestamp = dbx.Node_Timestamp(nodeInfo.GetVersion().Timestamp)
 			updateFields.Release = dbx.Node_Release(nodeInfo.GetVersion().GetRelease())
 		}
 	}
@@ -853,11 +874,6 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Patch: info.Patch,
 	}
 
-	pbts, err := ptypes.TimestampProto(info.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-
 	node := &overlay.NodeDossier{
 		Node: pb.Node{
 			Id:     id,
@@ -880,7 +896,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		Version: pb.NodeVersion{
 			Version:    ver.String(),
 			CommitHash: info.Hash,
-			Timestamp:  pbts,
+			Timestamp:  info.Timestamp,
 			Release:    info.Release,
 		},
 		Contained:    info.Contained,

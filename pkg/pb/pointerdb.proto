@@ -51,8 +51,8 @@ message Pointer {
   RemoteSegment remote = 4;
   int64 segment_size = 5;
 
-  google.protobuf.Timestamp creation_date = 6;
-  google.protobuf.Timestamp expiration_date = 7;
+  google.protobuf.Timestamp creation_date = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp expiration_date = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
   bytes metadata = 8;
 }

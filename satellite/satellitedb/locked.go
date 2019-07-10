@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/rewards"
 )
@@ -72,6 +73,47 @@ func (m *lockedAttribution) QueryAttribution(ctx context.Context, partnerID uuid
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryAttribution(ctx, partnerID, start, end)
+}
+
+// Buckets returns the database to interact with buckets
+func (m *locked) Buckets() metainfo.BucketsDB {
+	m.Lock()
+	defer m.Unlock()
+	return &lockedBuckets{m.Locker, m.db.Buckets()}
+}
+
+// lockedBuckets implements locking wrapper for metainfo.BucketsDB
+type lockedBuckets struct {
+	sync.Locker
+	db metainfo.BucketsDB
+}
+
+// Create creates a new bucket
+func (m *lockedBuckets) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.CreateBucket(ctx, bucket)
+}
+
+// Delete deletes a bucket
+func (m *lockedBuckets) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.DeleteBucket(ctx, bucketName, projectID)
+}
+
+// Get returns an existing bucket
+func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetBucket(ctx, bucketName, projectID)
+}
+
+// List returns all buckets for a project
+func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets map[string]struct{}) (bucketList storj.BucketList, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
 }
 
 // CertDB returns database for storing uplink's public key & ID
@@ -819,6 +861,13 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// Reliable returns all nodes that are reliable
+func (m *lockedOverlayCache) Reliable(ctx context.Context, a1 *overlay.NodeCriteria) (storj.NodeIDList, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Reliable(ctx, a1)
+}
+
 // SelectNewStorageNodes looks up nodes based on new node criteria
 func (m *lockedOverlayCache) SelectNewStorageNodes(ctx context.Context, count int, criteria *overlay.NodeCriteria) ([]*pb.Node, error) {
 	m.Lock()
@@ -981,7 +1030,7 @@ func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.
 	return m.db.GetCurrentByType(ctx, offerType)
 }
 
-func (m *lockedRewards) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListAll(ctx)

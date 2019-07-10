@@ -33,18 +33,17 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import VueClipboards from 'vue-clipboards';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import VueClipboards from 'vue-clipboards';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
-Vue.use(VueClipboards);
+    Vue.use(VueClipboards);
 
-@Component(
-    {
+    @Component({
         props: {
             onClose: {
                 type: Function
@@ -76,11 +75,9 @@ Vue.use(VueClipboards);
                 this.$data.isLoading = true;
 
                 let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
-
                 if (!result.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
                     this.$data.isLoading = false;
-
                     return;
                 }
 
@@ -99,11 +96,9 @@ Vue.use(VueClipboards);
             Button,
             CopyApiKeyPopup
         }
-    }
-)
+    })
 
-export default class AddApiKeyPopup extends Vue {
-}
+    export default class AddApiKeyPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -127,9 +122,11 @@ export default class AddApiKeyPopup extends Vue {
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .add-api-key-popup {
         width: 100%;
         max-width: 845px;
@@ -143,12 +140,12 @@ export default class AddApiKeyPopup extends Vue {
         padding: 80px 100px 80px 50px;
 
         &__info-panel-container {
-             display: flex;
-             flex-direction: column;
-             justify-content: flex-start;
-             align-items: center;
-             margin-right: 100px;
-             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            margin-right: 100px;
+            margin-top: 20px;
         }
 
         &__form-container {
@@ -176,12 +173,12 @@ export default class AddApiKeyPopup extends Vue {
             }
 
             &__button-container {
-                 width: 100%;
-                 display: flex;
-                 flex-direction: row;
-                 justify-content: space-between;
-                 align-items: center;
-                 margin-top: 40px;
+                width: 100%;
+                display: flex;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 40px;
             }
         }
 

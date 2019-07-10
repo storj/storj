@@ -19,28 +19,27 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
 
-@Component({
-    props: {
-        mainTitle: String,
-        additionalText: String,
-        imageSource: String,
-        isButtonShown: {
-            type: Boolean,
-            default: false
+    @Component({
+        props: {
+            mainTitle: String,
+            additionalText: String,
+            imageSource: String,
+            isButtonShown: {
+                type: Boolean,
+                default: false
+            },
+            onButtonClick: Function,
+            buttonLabel: String
         },
-        onButtonClick: Function,
-        buttonLabel: String
-    },
-    components: {
-        Button
-    }
-})
+        components: {
+            Button
+        }
+    })
 
-export default class EmptyStateProjectArea extends Vue {
-}
+    export default class EmptyStateProjectArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -70,9 +69,9 @@ export default class EmptyStateProjectArea extends Vue {
                 }
             }
 
-             &__img {
+            &__img {
                 margin-top: 50px;
-             }
+            }
 
             h1 {
                 font-family: 'font_bold';

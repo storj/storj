@@ -51,6 +51,8 @@ type DB interface {
 	KnownOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
 	// KnownUnreliableOrOffline filters a set of nodes to unhealth or offlines node, independent of new
 	KnownUnreliableOrOffline(context.Context, *NodeCriteria, storj.NodeIDList) (storj.NodeIDList, error)
+	// Reliable returns all nodes that are reliable
+	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
 	// Paginate will page through the database nodes
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// IsVetted returns whether or not the node reaches reputable thresholds
@@ -175,7 +177,7 @@ func (cache *Cache) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossie
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (cache *Cache) IsOnline(node *NodeDossier) bool {
-	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow &&
+	return time.Now().Sub(node.Reputation.LastContactSuccess) < cache.preferences.OnlineWindow ||
 		node.Reputation.LastContactSuccess.After(node.Reputation.LastContactFailure)
 }
 
@@ -270,6 +272,15 @@ func (cache *Cache) KnownUnreliableOrOffline(ctx context.Context, nodeIds storj.
 		OnlineWindow: cache.preferences.OnlineWindow,
 	}
 	return cache.db.KnownUnreliableOrOffline(ctx, criteria, nodeIds)
+}
+
+// Reliable filters a set of nodes that are reliable, independent of new.
+func (cache *Cache) Reliable(ctx context.Context) (nodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	criteria := &NodeCriteria{
+		OnlineWindow: cache.preferences.OnlineWindow,
+	}
+	return cache.db.Reliable(ctx, criteria)
 }
 
 // Put adds a node id and proto definition into the overlay cache

@@ -38,8 +38,8 @@ message OrderLimit {
     int64  limit = 6;
     PieceAction action = 7;
 
-    google.protobuf.Timestamp piece_expiration = 8;
-    google.protobuf.Timestamp order_expiration = 9;
+    google.protobuf.Timestamp piece_expiration = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp order_expiration = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes satellite_signature = 10;
