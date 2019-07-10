@@ -89,7 +89,6 @@ func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker Pie
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
 		log := service.log.Named(id.String())
 
-		// TODO: access storage node address to populate target (can probably save in retain info when checker is iterating)
 		target := &pb.Node{
 			Id:      id,
 			Address: retainInfo.address,
