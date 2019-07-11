@@ -54,7 +54,6 @@ service Metainfo {
 
 message Bucket {
     bytes   name = 1;
-    string  attribution = 2;
 
     google.protobuf.Timestamp created_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
@@ -71,7 +70,6 @@ message BucketListItem {
 
 message BucketCreateRequest {
     bytes   name = 1;
-    string  attribution = 2; 
 }
 
 message BucketCreateResponse {
