@@ -30,7 +30,7 @@
 					</div>
 				</template>
 			</InfoComponent>
-			<SatelliteSelectionContainer/>
+			<SatelliteSelectionContainer />
 		</div>
 	</div>
 </template>

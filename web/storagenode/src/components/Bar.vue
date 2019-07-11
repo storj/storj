@@ -10,8 +10,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component(
-        {
+    @Component({
             props: {
                 current: String,
                 max: String,
@@ -37,11 +36,9 @@
 	                }
                 }
 	        }
-        }
-    )
-    export default class Bar extends Vue {
+    })
 
-    }
+    export default class Bar extends Vue {}
 </script>
 
 <style scoped lang="scss">

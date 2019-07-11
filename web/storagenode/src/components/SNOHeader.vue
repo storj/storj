@@ -60,7 +60,7 @@
 			align-items: center;
 
 			&__refresh-button {
-				margin-right: 128px;
+				margin-right: 100px;
 
 				svg:hover {
 					cursor: pointer;
@@ -80,7 +80,7 @@
 				display: flex;
 				align-items: center;
 				border: 1px solid #E8E8E8;
-				border-radius: 4px;
+				border-radius: 12px;
 
 				p {
 					color: #535F77;

@@ -14,7 +14,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
-    import { APPSTATE_ACTIONS } from '@/utils/constants'
+    import { APPSTATE_ACTIONS } from '@/utils/constants';
 
     @Component ({
         props: {

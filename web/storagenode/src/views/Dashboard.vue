@@ -15,7 +15,7 @@
     import SNOContentTitle from '@/components/SNOContentTitle.vue';
     import SNOContentFilling from '@/components/SNOContentFilling.vue';
     import SNOFooter from '@/components/SNOFooter.vue';
-	import { NODE_ACTIONS } from '@/utils/constants'
+    import { NODE_ACTIONS } from '@/utils/constants';
 
     @Component ({
         components: {
@@ -29,7 +29,7 @@
 		}
     })
 
-    export default class DashboardTest extends Vue {
+    export default class Dashboard extends Vue {
     }
 </script>
 
