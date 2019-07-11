@@ -101,9 +101,18 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 	for {
 		var dbxBuckets []*dbx.BucketMetainfo
 		switch listOpts.Direction {
-		// for listing buckets we are only supporting the forward direction for simplicity
+		// For simplictiy we are only supporting the forward direction for listing buckets
 		case storj.Forward:
 			dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx,
+				dbx.BucketMetainfo_ProjectId(projectID[:]),
+				dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
+				limit,
+				0,
+			)
+
+		// After is only called by BucketListOptions.NextPage and is the paginated Forward direction
+		case storj.After:
+			dbxBuckets, err = db.db.Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx,
 				dbx.BucketMetainfo_ProjectId(projectID[:]),
 				dbx.BucketMetainfo_Name([]byte(listOpts.Cursor)),
 				limit,
@@ -117,9 +126,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 		}
 
 		bucketList.More = len(dbxBuckets) > listOpts.Limit
-		var nextCursor string
 		if bucketList.More {
-			nextCursor = string(dbxBuckets[listOpts.Limit].Name)
 			// If there are more buckets than listOpts.limit returned,
 			// then remove the extra buckets so that we do not return
 			// more then the limit
@@ -146,9 +153,9 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			// If we filtered out disallowed buckets, then get more buckets
 			// out of database so that we return `limit` number of buckets
 			listOpts = storj.BucketListOptions{
-				Cursor:    nextCursor,
+				Cursor:    string(dbxBuckets[listOpts.Limit].Name),
 				Limit:     listOpts.Limit,
-				Direction: storj.Forward,
+				Direction: storj.After,
 			}
 			continue
 		}

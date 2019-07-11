@@ -766,10 +766,9 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}
 
 	listOpts := storj.BucketListOptions{
-		Cursor: string(req.Cursor),
-		Limit:  int(req.Limit),
-		// We are only supporting the forward direction for listing buckets
-		Direction: storj.Forward,
+		Cursor:    string(req.Cursor),
+		Limit:     int(req.Limit),
+		Direction: storj.ListDirection(req.Direction),
 	}
 	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
 	if err != nil {

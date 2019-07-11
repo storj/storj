@@ -94,6 +94,9 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 
 	err = db.buckets.Delete(ctx, bucketName)
 	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			err = storj.ErrBucketNotFound.Wrap(err)
+		}
 		return err
 	}
 
@@ -110,9 +113,6 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (_ storj.Bu
 
 	bucket, err := db.buckets.Get(ctx, bucketName)
 	if err != nil {
-		if storage.ErrKeyNotFound.Has(err) {
-			err = storj.ErrBucketNotFound.Wrap(err)
-		}
 		return storj.Bucket{}, err
 	}
 

@@ -75,16 +75,15 @@ func list(cmd *cobra.Command, args []string) error {
 		return convertError(err, src)
 	}
 
-	startAfter := ""
 	noBuckets := true
 
 	// list buckets
+	listOpts := storj.BucketListOptions{
+		Direction: storj.Forward,
+		Cursor:    "",
+	}
 	for {
-		listOpts := &storj.BucketListOptions{
-			Direction: storj.Forward,
-			Cursor:    startAfter,
-		}
-		list, err := project.ListBuckets(ctx, listOpts)
+		list, err := project.ListBuckets(ctx, &listOpts)
 		if err != nil {
 			return err
 		}
@@ -102,10 +101,8 @@ func list(cmd *cobra.Command, args []string) error {
 		if !list.More {
 			break
 		}
-		// If there are more buckets to list, then continue listing after
-		// the last item we retrieved. Since we list alphabetically, appending
-		// a zero byte to the last listed bucket name will get the next item.
-		startAfter = list.Items[len(list.Items)-1].Name + "\x00"
+
+		listOpts = listOpts.NextPage(list)
 	}
 
 	if noBuckets {

@@ -1626,11 +1626,6 @@
               },
               {
                 "id": 3,
-                "name": "attribution_id",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
                 "name": "created_at",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -1645,17 +1640,17 @@
                 ]
               },
               {
-                "id": 5,
+                "id": 4,
                 "name": "default_segment_size",
                 "type": "int64"
               },
               {
-                "id": 6,
+                "id": 5,
                 "name": "default_redundancy_scheme",
                 "type": "pointerdb.RedundancyScheme"
               },
               {
-                "id": 7,
+                "id": 6,
                 "name": "default_encryption_parameters",
                 "type": "encryption.EncryptionParameters"
               }
@@ -1701,21 +1696,16 @@
               },
               {
                 "id": 3,
-                "name": "attribution_id",
-                "type": "bytes"
-              },
-              {
-                "id": 4,
                 "name": "default_segment_size",
                 "type": "int64"
               },
               {
-                "id": 5,
+                "id": 4,
                 "name": "default_redundancy_scheme",
                 "type": "pointerdb.RedundancyScheme"
               },
               {
-                "id": 6,
+                "id": 5,
                 "name": "default_encryption_parameters",
                 "type": "encryption.EncryptionParameters"
               }
@@ -1775,6 +1765,11 @@
               {
                 "id": 2,
                 "name": "limit",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "direction",
                 "type": "int32"
               }
             ]

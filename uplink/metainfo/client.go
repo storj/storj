@@ -282,8 +282,9 @@ func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err 
 func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	req := &pb.BucketListRequest{
-		Cursor: []byte(listOpts.Cursor),
-		Limit:  int32(listOpts.Limit),
+		Cursor:    []byte(listOpts.Cursor),
+		Limit:     int32(listOpts.Limit),
+		Direction: int32(listOpts.Direction),
 	}
 	resp, err := client.client.ListBuckets(ctx, req)
 	if err != nil {

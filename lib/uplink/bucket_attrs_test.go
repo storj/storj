@@ -103,6 +103,7 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
+			assert.Equal(t, inBucketConfig, got.BucketConfig)
 
 			err = proj.DeleteBucket(ctx, bucketName)
 			require.NoError(t, err)
