@@ -150,6 +150,7 @@ func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowed 
 		return allowed, err
 	}
 
+	allowed.Buckets = map[string]struct{}{}
 	for _, cavbuf := range caveats {
 		var cav Caveat
 		err := proto.Unmarshal(cavbuf, &cav)
