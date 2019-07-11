@@ -955,6 +955,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
 				},
 			},
+			{
+				Description: "Add index on InjuredSegments attempted column",
+				Version:     42,
+				Action: migrate.SQL{
+					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
+				},
+			},
 		},
 	}
 }
