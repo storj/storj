@@ -170,7 +170,7 @@ func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []
 	return cache.db.Paginate(ctx, offset, limit)
 }
 
-// Paginate returns a list of `limit` qualified nodes starting from `start` offset.
+// PaginateQualified returns a list of `limit` qualified nodes starting from `start` offset.
 func (cache *Cache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.PaginateQualified(ctx, offset, limit)
