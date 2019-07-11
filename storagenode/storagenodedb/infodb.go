@@ -256,7 +256,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
-					`ALTER TABLE pieceinfo ADD COLUMN order_limit BLOB NOT NULL DEFAULT ''`,
+					`ALTER TABLE pieceinfo ADD COLUMN order_limit BLOB NOT NULL DEFAULT X''`,
 				},
 			},
 		},
