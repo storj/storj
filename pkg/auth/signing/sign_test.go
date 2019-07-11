@@ -19,19 +19,19 @@ func TestVerify(t *testing.T) {
 	orderBytes, err := hex.DecodeString(`0A1027C6C39653A24B94BA560A7951698FF31080081A473045022100BB7A53C2835BF5CAC59479C7A3A17447AC9D3DAE894B20849FDDF9E3533F173202207910685EB70107BFF73A2F94AF345369E51B35208941EB5CE903E48EFFB41642`)
 	require.NoError(t, err)
 
-	order := pb.Order{}
-	err = proto.Unmarshal(orderBytes, &order)
-	require.NoError(t, err)
-
-	orderBytesMarshaled, err := proto.Marshal(&order)
-	require.NoError(t, err)
-	require.Equal(t, orderBytes, orderBytesMarshaled)
-
 	orderLimit := pb.OrderLimit{}
 	err = proto.Unmarshal(orderLimitBytes, &orderLimit)
 	require.NoError(t, err)
 
 	orderLimitMarshaled, err := proto.Marshal(&orderLimit)
 	require.NoError(t, err)
-	require.Equal(t, orderLimitBytes, orderLimitMarshaled)
+	require.Equal(t, orderLimitBytes, orderLimitMarshaled, "order limit marshaling changed")
+
+	order := pb.Order{}
+	err = proto.Unmarshal(orderBytes, &order)
+	require.NoError(t, err)
+
+	orderBytesMarshaled, err := proto.Marshal(&order)
+	require.NoError(t, err)
+	require.Equal(t, orderBytes, orderBytesMarshaled, "order marshaling changed")
 }
