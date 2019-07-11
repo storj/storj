@@ -71,6 +71,8 @@ func (service *Service) NewPieceTracker() PieceTracker {
 func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker, cb func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	service.lastSendTime = time.Now().UTC()
+
 	go func() {
 		err := service.sendRetainRequests(ctx, pieceTracker, cb)
 		if err != nil {
@@ -83,8 +85,6 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker, cb 
 
 func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker PieceTracker, cb func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	service.lastSendTime = time.Now().UTC()
 
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
 		log := service.log.Named(id.String())
