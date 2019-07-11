@@ -162,15 +162,38 @@
               {
                 "id": 1,
                 "name": "path",
-                "type": "string"
+                "type": "bytes"
               },
               {
                 "id": 2,
                 "name": "lost_pieces",
                 "type": "int32",
                 "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "inserted_time",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           }
         ],
         "package": {
@@ -292,70 +315,6 @@
         ],
         "package": {
           "name": "encryption_access"
-        },
-        "options": [
-          {
-            "name": "go_package",
-            "value": "pb"
-          }
-        ]
-      }
-    },
-    {
-      "protopath": "pkg:/:pb:/:gc.proto",
-      "def": {
-        "messages": [
-          {
-            "name": "RetainRequest",
-            "fields": [
-              {
-                "id": 1,
-                "name": "creation_date",
-                "type": "google.protobuf.Timestamp",
-                "options": [
-                  {
-                    "name": "(gogoproto.stdtime)",
-                    "value": "true"
-                  },
-                  {
-                    "name": "(gogoproto.nullable)",
-                    "value": "false"
-                  }
-                ]
-              },
-              {
-                "id": 2,
-                "name": "filter",
-                "type": "bytes"
-              }
-            ]
-          },
-          {
-            "name": "RetainResponse"
-          }
-        ],
-        "services": [
-          {
-            "name": "GarbageCollection",
-            "rpcs": [
-              {
-                "name": "Retain",
-                "in_type": "RetainRequest",
-                "out_type": "RetainResponse"
-              }
-            ]
-          }
-        ],
-        "imports": [
-          {
-            "path": "gogo.proto"
-          },
-          {
-            "path": "google/protobuf/timestamp.proto"
-          }
-        ],
-        "package": {
-          "name": "gc"
         },
         "options": [
           {
@@ -1896,6 +1855,21 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -1973,6 +1947,21 @@
                 "id": 2,
                 "name": "pointer",
                 "type": "pointerdb.Pointer"
+              },
+              {
+                "id": 3,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -2034,6 +2023,21 @@
                 "name": "addressed_limits",
                 "type": "AddressedOrderLimit",
                 "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
               }
             ]
           },
@@ -2740,12 +2744,23 @@
               },
               {
                 "id": 3,
-                "name": "uplink_id",
+                "name": "deprecated_uplink_id",
                 "type": "bytes",
                 "options": [
                   {
                     "name": "(gogoproto.customtype)",
                     "value": "NodeID"
+                  }
+                ]
+              },
+              {
+                "id": 13,
+                "name": "uplink_public_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePublicKey"
                   },
                   {
                     "name": "(gogoproto.nullable)",
@@ -2904,11 +2919,6 @@
                 "type": "bytes"
               },
               {
-                "id": 3,
-                "name": "signature",
-                "type": "bytes"
-              },
-              {
                 "id": 4,
                 "name": "piece_size",
                 "type": "int64"
@@ -2927,6 +2937,11 @@
                     "value": "false"
                   }
                 ]
+              },
+              {
+                "id": 3,
+                "name": "signature",
+                "type": "bytes"
               }
             ]
           },
@@ -3318,6 +3333,34 @@
           },
           {
             "name": "PieceDeleteResponse"
+          },
+          {
+            "name": "RetainRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "creation_date",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "filter",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "RetainResponse"
           }
         ],
         "services": [
@@ -3341,6 +3384,11 @@
                 "name": "Delete",
                 "in_type": "PieceDeleteRequest",
                 "out_type": "PieceDeleteResponse"
+              },
+              {
+                "name": "Retain",
+                "in_type": "RetainRequest",
+                "out_type": "RetainResponse"
               }
             ]
           }
@@ -3348,6 +3396,9 @@
         "imports": [
           {
             "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
           },
           {
             "path": "orders.proto"

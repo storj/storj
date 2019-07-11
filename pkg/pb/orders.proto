@@ -28,8 +28,10 @@ message OrderLimit {
     // satellite who issued this order limit allowing orderer to do the specified action
     bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     // uplink who requested or whom behalf the order limit to do an action
-    bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-    // storage node who can reclaim the order limit specified by serial
+    bytes deprecated_uplink_id = 3 [(gogoproto.customtype) = "NodeID"];
+    // public key that will be used to sign orders and piece hash
+    bytes uplink_public_key = 13 [(gogoproto.customtype) = "PiecePublicKey", (gogoproto.nullable) = false];
+    // storage node who can re claimthe order limit specified by serial
     bytes storage_node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 
     // piece which is allowed to be touched
@@ -43,7 +45,6 @@ message OrderLimit {
     google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes satellite_signature = 10;
-
     // satellites aren't necessarily discoverable in kademlia. this allows
     // a storage node to find a satellite and handshake with it to get its key.
     node.NodeAddress satellite_address = 11;
@@ -64,14 +65,13 @@ message PieceHash {
     bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
     // hash of the piece that was/is uploaded
     bytes hash = 2;
-    // signature either satellite or storage node
-    bytes signature = 3;
     // size of uploaded piece
     int64 piece_size = 4;
-    // timestamp when upload occur
+    // timestamp when upload occurred
     google.protobuf.Timestamp timestamp = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    // signature either satellite or storage node
+    bytes signature = 3;
 }
-
 
 service Orders {
     rpc Settlement(stream SettlementRequest) returns (stream SettlementResponse) {}

@@ -17,6 +17,12 @@ type NodeIDList = storj.NodeIDList
 // PieceID is an alias to storj.PieceID for use in generated protobuf code
 type PieceID = storj.PieceID
 
+// PiecePublicKey is an alias to storj.PiecePublicKey for use in generated protobuf code
+type PiecePublicKey = storj.PiecePublicKey
+
+// PiecePrivateKey is an alias to storj.PiecePrivateKey for use in generated protobuf code
+type PiecePrivateKey = storj.PiecePrivateKey
+
 // SerialNumber is an alias to storj.SerialNumber for use in generated protobuf code
 type SerialNumber = storj.SerialNumber
 
