@@ -5,6 +5,7 @@ package gc
 
 import (
 	"context"
+	"github.com/zeebo/errs"
 	"time"
 
 	"go.uber.org/zap"
@@ -15,6 +16,11 @@ import (
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/uplink/piecestore"
+)
+
+var (
+	// Error defines the gc service errors class
+	Error = errs.Class("gc service error")
 )
 
 // Config contains configurable values for garbage collection

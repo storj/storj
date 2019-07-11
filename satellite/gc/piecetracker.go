@@ -21,7 +21,7 @@ var (
 	mon = monkit.Package()
 
 	// Error defines the piece tracker errors class
-	Error = errs.Class("piece tracker error")
+	PieceTrackerError = errs.Class("piece tracker error")
 )
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -65,7 +65,7 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
 		node, err := pieceTracker.overlay.Get(ctx, nodeID)
 		if err != nil {
-			return Error.Wrap(err)
+			return PieceTrackerError.Wrap(err)
 		}
 		address := node.GetAddress()
 		filter = bloomfilter.NewOptimal(numPieces, pieceTracker.falsePositiveRate)
