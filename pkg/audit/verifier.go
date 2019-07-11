@@ -17,7 +17,6 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -88,7 +87,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer, skip)
+	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, bucketID, pointer, skip)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +98,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
-	shares, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
+	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, stripe.Index, shareSize)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
@@ -235,7 +234,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -248,7 +247,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 		}
 
 		go func(i int, limit *pb.AddressedOrderLimit) {
-			share, err := verifier.GetShare(ctx, limit, stripeIndex, shareSize, i)
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, stripeIndex, shareSize, i)
 			if err != nil {
 				share = Share{
 					Error:    err,
@@ -310,7 +309,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 		containedInSegment++
 
 		go func(pending *PendingAudit, piece *pb.RemotePiece) {
-			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, piece.PieceNum, pending.PieceID, pending.ShareSize)
+			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, createBucketID(stripe.SegmentPath), pending.NodeID, piece.PieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					_, errDelete := verifier.containment.Delete(ctx, piece.NodeId)
@@ -332,7 +331,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				return
 			}
 
-			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
 
 			// check if the pending audit was deleted while downloading the share
 			_, getErr := verifier.containment.Get(ctx, piece.NodeId)
@@ -434,7 +433,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 }
 
 // GetShare use piece store client to download shares from nodes
-func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
@@ -454,9 +453,8 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	storageNodeID := limit.GetLimit().StorageNodeId
 	log := verifier.log.Named(storageNodeID.String())
 	target := &pb.Node{Id: storageNodeID, Address: limit.GetStorageNodeAddress()}
-	signer := signing.SignerFromFullIdentity(verifier.transport.Identity())
 
-	ps, err := piecestore.Dial(timedCtx, verifier.transport, target, log, signer, piecestore.DefaultConfig)
+	ps, err := piecestore.Dial(timedCtx, verifier.transport, target, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Share{}, Error.Wrap(err)
 	}
@@ -469,7 +467,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 
 	offset := int64(shareSize) * stripeIndex
 
-	downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
+	downloader, err := ps.Download(timedCtx, limit.GetLimit(), piecePrivateKey, offset, int64(shareSize))
 	if err != nil {
 		return Share{}, err
 	}

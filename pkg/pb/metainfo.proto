@@ -114,6 +114,7 @@ message SegmentWriteRequestOld {
 message SegmentWriteResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
     bytes root_piece_id = 2 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    bytes private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 }
 
 message SegmentCommitRequestOld {
@@ -137,6 +138,7 @@ message SegmentDownloadRequestOld {
 message SegmentDownloadResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
     pointerdb.Pointer pointer = 2;
+    bytes private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 }
 
 message SegmentInfoRequestOld {
@@ -157,6 +159,7 @@ message SegmentDeleteRequestOld {
 
 message SegmentDeleteResponseOld {
     repeated AddressedOrderLimit addressed_limits = 1;
+    bytes private_key = 2 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
 }
 
 message ListSegmentsRequestOld {
