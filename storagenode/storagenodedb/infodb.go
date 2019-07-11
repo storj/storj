@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/internal/sync2"
 )
 
 // ErrInfo is the default error class for InfoDB
@@ -45,7 +46,7 @@ func newInfo(path string) (*InfoDB, error) {
 
 	infoDb := &InfoDB{db: db}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
 
 	return infoDb, nil
 }
@@ -71,7 +72,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 
 	infoDb := &InfoDB{db: db}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
 
 	return infoDb, nil
 }
@@ -258,6 +259,18 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE pieceinfo ADD COLUMN order_limit BLOB NOT NULL DEFAULT X''`,
 				},
+			},
+			{
+				Description: "Create bandwidth_usage_rollup table.",
+				Version:     10,
+				Action: migrate.SQL{
+					`CREATE TABLE bandwidth_usage_rollup (
+						interval_start	TIMESTAMP NOT NULL,
+						satellite_id  	BLOB    NOT NULL,
+						action        	INTEGER NOT NULL,
+						amount        	BIGINT  NOT NULL,
+						PRIMARY KEY ( interval_start, satellite_id, action )
+					)`},
 			},
 		},
 	}
