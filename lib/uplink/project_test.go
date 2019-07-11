@@ -36,36 +36,34 @@ func TestProjectListBuckets(t *testing.T) {
 			p, err := ul.OpenProject(ctx, satelliteAddr, key)
 			require.NoError(t, err)
 
-			bucketCount := make([]int, 6)
-			for i := range bucketCount {
+			// create 6 test buckets
+			for i := 0; i < 6; i++ {
 				_, err = p.CreateBucket(ctx, "test"+strconv.Itoa(i), nil)
 				require.NoError(t, err)
 			}
 
+			// setup list options so that we only list 3 buckets
+			// at a time in alphabetical order starting at ""
 			list := uplink.BucketListOptions{
 				Direction: storj.Forward,
 				Limit:     3,
 			}
 
-			var count int
-			for {
-				count++
-				result, err := p.ListBuckets(ctx, &list)
-				require.NoError(t, err)
-				require.Equal(t, 3, len(result.Items))
-				for _, bucket := range result.Items {
-					switch count {
-					case 1:
-						require.Contains(t, []string{"test0", "test1", "test2"}, bucket.Name)
-					case 2:
-						require.Contains(t, []string{"test3", "test4", "test5"}, bucket.Name)
-					}
-				}
-				if !result.More {
-					break
-				}
-				list = list.NextPage(result)
-			}
-			require.Equal(t, 2, count)
+			result, err := p.ListBuckets(ctx, &list)
+			require.NoError(t, err)
+			require.Equal(t, 3, len(result.Items))
+			require.Equal(t, "test0", result.Items[0].Name)
+			require.Equal(t, "test1", result.Items[1].Name)
+			require.Equal(t, "test2", result.Items[2].Name)
+			require.True(t, result.More)
+
+			list = list.NextPage(result)
+			result, err = p.ListBuckets(ctx, &list)
+			require.NoError(t, err)
+			require.Equal(t, 3, len(result.Items))
+			require.Equal(t, "test3", result.Items[0].Name)
+			require.Equal(t, "test4", result.Items[1].Name)
+			require.Equal(t, "test5", result.Items[2].Name)
+			require.False(t, result.More)
 		})
 }

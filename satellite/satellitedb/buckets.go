@@ -44,7 +44,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
 	)
 	if err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 
 	bucket, err = convertDBXtoBucket(row)
