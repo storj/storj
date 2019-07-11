@@ -173,7 +173,9 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT satellite_id, piece_id, piece_size
 		FROM pieceinfo
-		WHERE datetime(piece_expiration) < datetime(?) AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
+		WHERE piece_expiration IS NOT NULL
+		AND datetime(piece_expiration) < datetime(?)
+		AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
 		ORDER BY satellite_id
 		LIMIT ?
 	`), expiredAt, expiredAt, limit)

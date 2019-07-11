@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/dbutil/dbschema"
 	"storj.io/storj/internal/dbutil/sqliteutil"
@@ -33,24 +34,24 @@ func loadSnapshots() (*dbschema.Snapshots, error) {
 	// find all sql files
 	matches, err := filepath.Glob("testdata/sqlite.*")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	for _, match := range matches {
 		versionStr := match[17 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
 		version, err := strconv.Atoi(versionStr)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		scriptData, err := ioutil.ReadFile(match)
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 
 		snapshot, err := sqliteutil.LoadSnapshotFromSQL(string(scriptData))
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrap(err)
 		}
 		snapshot.Version = version
 

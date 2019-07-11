@@ -51,6 +51,7 @@ type Index struct {
 	Table   string
 	Columns []string
 	Unique  bool
+	Partial string // partial expression
 }
 
 // EnsureTable returns the table with the specified name and creates one if needed.
@@ -99,7 +100,7 @@ func (table *Table) ColumnNames() []string {
 	return columns
 }
 
-// Sort sorts tables
+// Sort sorts tables and indexes
 func (schema *Schema) Sort() {
 	sort.Slice(schema.Tables, func(i, k int) bool {
 		return schema.Tables[i].Name < schema.Tables[k].Name
@@ -107,6 +108,9 @@ func (schema *Schema) Sort() {
 	for _, table := range schema.Tables {
 		table.Sort()
 	}
+	sort.Slice(schema.Indexes, func(i, k int) bool {
+		return schema.Indexes[i].Name < schema.Indexes[k].Name
+	})
 }
 
 // Sort sorts columns, primary keys and unique
