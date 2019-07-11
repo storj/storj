@@ -57,12 +57,12 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 
 	var filter *bloomfilter.Filter
 
-	// If we know how many pieces a node should be storing, use that number. Otherwise use default.
-	numPieces := int(pieceTracker.initialPieces)
-	if pieceTracker.pieceCounts[nodeID] > 0 {
-		numPieces = pieceTracker.pieceCounts[nodeID]
-	}
 	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
+		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
+		numPieces := int(pieceTracker.initialPieces)
+		if pieceTracker.pieceCounts[nodeID] > 0 {
+			numPieces = pieceTracker.pieceCounts[nodeID]
+		}
 		node, err := pieceTracker.overlay.Get(ctx, nodeID)
 		if err != nil {
 			return PieceTrackerError.Wrap(err)
