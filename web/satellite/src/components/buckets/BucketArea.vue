@@ -37,14 +37,6 @@
     import { BUCKET_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
 	@Component({
-        mounted: function() {
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
-        },
-		data: function () {
-			return {
-				emptyImage: EMPTY_STATE_IMAGES.API_KEY
-			};
-		},
 		components: {
 			EmptyState,
 			SearchArea,
@@ -52,21 +44,28 @@
 			BucketItem,
 			PaginationArea,
 			NoBucketArea,
-		},
-		computed: {
-			buckets: function (): BucketUsage[] {
-				return this.$store.state.bucketUsageModule.page.bucketUsages;
-			},
-			pages: function (): number {
-				return this.$store.state.bucketUsageModule.page.pageCount;
-			},
-			search: function (): string {
-				return this.$store.state.bucketUsageModule.cursor.search;
-			}
 		}
 	})
 
-	export default class BucketArea extends Vue {}
+	export default class BucketArea extends Vue {
+        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+        
+        public get buckets(): BucketUsage[] {
+            return this.$store.state.bucketUsageModule.page.bucketUsages;
+        };
+        
+        public get pages(): number {
+            return this.$store.state.bucketUsageModule.page.pageCount;
+        };
+        
+        public get search(): string {
+            return this.$store.state.bucketUsageModule.cursor.search;
+        };
+        
+        public mounted() {
+            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
+        };
+    }
 </script>
 
 <style scoped lang="scss">

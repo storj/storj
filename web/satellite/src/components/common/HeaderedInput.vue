@@ -38,7 +38,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
 
 	// Custom input component with labeled header
     @Component({
@@ -104,7 +104,6 @@
     })
 
     export default class HeaderedInput extends Vue {}
-
 </script>
 
 <style scoped lang="scss">

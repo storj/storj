@@ -9,7 +9,7 @@ import { getToken } from '@/utils/tokenManager';
 
 // Satellite url
 const satelliteUrl = new HttpLink({
-    uri: '/api/graphql/v0',
+    uri: 'http://localhost:10002/api/graphql/v0',
 });
 
 // Adding auth headers
