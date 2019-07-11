@@ -20,7 +20,7 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error defines the piece tracker errors class
+	// PieceTrackerError defines the piece tracker errors class
 	PieceTrackerError = errs.Class("piece tracker error")
 )
 
