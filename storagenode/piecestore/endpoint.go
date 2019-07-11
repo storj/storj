@@ -553,7 +553,7 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	if !endpoint.isTrustedSatellite(ctx, peer) {
+	if !endpoint.trust.IsTrustedSatellite(ctx, peer) {
 		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
@@ -597,17 +597,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		runtime.Gosched()
 	}
 	return &pb.RetainResponse{}, nil
-}
-
-func (endpoint *Endpoint) isTrustedSatellite(ctx context.Context, peer *identity.PeerIdentity) bool {
-	trustedSatellites := endpoint.trust.GetSatellites(ctx)
-	trusted := false
-	for _, id := range trustedSatellites {
-		if peer.ID == id {
-			trusted = true
-		}
-	}
-	return trusted
 }
 
 // min finds the min of two values
