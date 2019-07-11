@@ -5,9 +5,9 @@ package gc
 
 import (
 	"context"
-	"github.com/zeebo/errs"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/pkg/auth/signing"
