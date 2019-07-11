@@ -500,8 +500,8 @@ func (s *Service) RedeemRewards(ctx context.Context, offer rewards.Offer, referr
 		UserID:        auth.User.ID,
 		OfferID:       offer.ID,
 		ReferredBy:    referrerID,
-		CreditsEarned: offer.AwardCredit,
-		ExpiresAt:     time.Now().UTC().AddDate(0, 0, offer.AwardCreditDurationDays),
+		CreditsEarned: offer.InviteeCredit,
+		ExpiresAt:     time.Now().UTC().AddDate(0, 0, offer.InviteeCreditDurationDays),
 	}
 	err = s.store.UserCredits().Create(ctx, newCredit, offer.RedeemableCap)
 	if err != nil {
