@@ -16,6 +16,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
+	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -62,14 +63,16 @@ type Endpoint struct {
 	log             *zap.Logger
 	satelliteSignee signing.Signee
 	DB              DB
+	certdb          certdb.DB
 }
 
 // NewEndpoint new orders receiving endpoint
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, certdb certdb.DB, db DB) *Endpoint {
 	return &Endpoint{
 		log:             log,
 		satelliteSignee: satelliteSignee,
 		DB:              db,
+		certdb:          certdb,
 	}
 }
 
@@ -138,8 +141,31 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
 				return Error.New("unable to verify order limit")
 			}
-			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-				return Error.New("unable to verify order")
+
+			if orderLimit.UplinkId == nil { // new signature handling
+				if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
+					return Error.New("unable to verify order")
+				}
+			} else {
+				var uplinkSignee signing.Signee
+
+				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
+				if endpoint.satelliteSignee.ID() == *orderLimit.UplinkId {
+					uplinkSignee = endpoint.satelliteSignee
+				} else {
+					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.UplinkId)
+					if err != nil {
+						log.Warn("unable to find uplink public key", zap.Error(err))
+						return status.Errorf(codes.Internal, "unable to find uplink public key")
+					}
+					uplinkSignee = &signing.PublicKey{
+						Self: *orderLimit.UplinkId,
+						Key:  uplinkPubKey,
+					}
+				}
+				if err := signing.VerifyOrderSignature(ctx, uplinkSignee, order); err != nil {
+					return Error.New("unable to verify order")
+				}
 			}
 
 			// TODO should this reject or just error ??

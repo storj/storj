@@ -27,6 +27,17 @@ func VerifyOrderLimitSignature(ctx context.Context, satellite Signee, signed *pb
 	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
 }
 
+// VerifyOrderSignature verifies that the signature inside order belongs to the uplink.
+func VerifyOrderSignature(ctx context.Context, uplink Signee, signed *pb.Order) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeOrder(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return uplink.HashAndVerifySignature(ctx, bytes, signed.UplinkSignature)
+}
+
 // VerifyUplinkOrderSignature verifies that the signature inside order belongs to the uplink.
 func VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublicKey, signed *pb.Order) (err error) {
 	defer mon.Task()(&ctx)(&err)

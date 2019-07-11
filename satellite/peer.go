@@ -377,6 +377,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
+			peer.DB.CertDB(),
 			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
