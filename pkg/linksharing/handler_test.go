@@ -20,15 +20,105 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-func TestHandler(t *testing.T) {
+func TestNewHandler(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	uplink := newUplink(ctx, t)
+	defer uplink.Close()
+
+	testCases := []struct {
+		name   string
+		config HandlerConfig
+		err    string
+	}{
+		{
+			name: "missing uplink",
+			config: HandlerConfig{
+				URLBase: "http://localhost",
+			},
+			err: "uplink is required",
+		},
+		{
+			name: "URL base must be http or https",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "gopher://chunks",
+			},
+			err: "URL base must be http:// or https://",
+		},
+		{
+			name: "URL base must contain host",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "http://",
+			},
+			err: "URL base must contain host",
+		},
+		{
+			name: "URL base can have a port",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "http://host:99",
+			},
+		},
+		{
+			name: "URL base can have a path",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "http://host/gopher",
+			},
+		},
+		{
+			name: "URL base must not contain user info",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "http://joe@host",
+			},
+			err: "URL base must not contain user info",
+		},
+		{
+			name: "URL base must not contain query values",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "http://host/?gopher=chunks",
+			},
+			err: "URL base must not contain query values",
+		},
+		{
+			name: "URL base must not contain a fragment",
+			config: HandlerConfig{
+				Uplink:  uplink,
+				URLBase: "http://host/#gopher-chunks",
+			},
+			err: "URL base must not contain a fragment",
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+
+			handler, err := NewHandler(testCase.config)
+			if testCase.err != "" {
+				require.EqualError(t, err, testCase.err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, handler)
+		})
+	}
+}
+
+func TestHandlerRequests(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   2,
 		StorageNodeCount: 1,
 		UplinkCount:      1,
-	}, testHandler)
+	}, testHandlerRequests)
 }
 
-func testHandler(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOO"))
 	require.NoError(t, err)
 
@@ -160,11 +250,16 @@ func testHandler(t *testing.T, ctx *testcontext.Context, planet *testplanet.Plan
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
+			uplink := newUplink(ctx, t)
+			defer uplink.Close()
+
 			handler, err := NewHandler(HandlerConfig{
 				Log:     zaptest.NewLogger(t),
-				Uplink:  newUplink(ctx, t),
+				Uplink:  uplink,
 				URLBase: "http://localhost",
 			})
+			require.NoError(t, err)
+
 			url := "http://localhost/" + testCase.path
 			w := httptest.NewRecorder()
 			r, err := http.NewRequest(testCase.method, url, nil)

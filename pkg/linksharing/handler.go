@@ -26,6 +26,7 @@ var (
 	mon = monkit.Package()
 )
 
+// HandlerConfig specifies the handler configuration
 type HandlerConfig struct {
 	// Log is a logger used for logging
 	Log *zap.Logger
