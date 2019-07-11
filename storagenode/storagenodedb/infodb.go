@@ -252,6 +252,34 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`DROP INDEX idx_pieceinfo_deletion_failed`,
 				},
 			},
+			{
+				Description: "Add stats and space usage cache tables",
+				Version:     9,
+				Action: migrate.SQL{
+					`CREATE TABLE stats_satellite (
+						satellite_id BLOB NOT NULL,
+						uptime_success_count INTEGER NOT NULL,
+						uptime_total_count INTEGER NOT NULL,
+						uptime_reputation_alpha REAL NOT NULL,
+						uptime_reputation_beta REAL NOT NULL,
+						uptime_reputation_score REAL NOT NULL,
+						audit_success_count INTEGER NOT NULL,
+						audit_total_count INTEGER NOT NULL,
+						audit_reputation_alpha REAL NOT NULL,
+						audit_reputation_beta REAL NOT NULL,
+						audit_reputation_score REAL NOT NULL,
+						timestamp TIMESTAMP NOT NULL,
+						PRIMARY KEY (satellite_id)
+					)`,
+					`CREATE TABLE space_usage_satellite (
+						id BLOB NOT NULL,
+						satellite_id BLOB NOT NULL,
+						at_rest REAL NOT NUll,
+						timestamp TIMESTAMP NOT NULL,
+						PRIMARY KEY (id)
+					)`,
+				},
+			},
 		},
 	}
 }

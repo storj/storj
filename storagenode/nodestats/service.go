@@ -5,6 +5,7 @@ package nodestats
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -26,24 +27,6 @@ var (
 
 	mon = monkit.Package()
 )
-
-// Stats encapsulates storagenode stats retrieved from the satellite
-type Stats struct {
-	SatelliteID storj.NodeID
-
-	UptimeCheck ReputationStats
-	AuditCheck  ReputationStats
-}
-
-// ReputationStats encapsulates storagenode reputation metrics
-type ReputationStats struct {
-	TotalCount   int64
-	SuccessCount int64
-
-	ReputationAlpha float64
-	ReputationBeta  float64
-	ReputationScore float64
-}
 
 // SpaceUsageStamp is space usage for satellite at some point in time
 type SpaceUsageStamp struct {
@@ -108,26 +91,6 @@ func (s *Service) RunStatsLoop(ctx context.Context) (err error) {
 	}
 }
 
-// RunStatsLoop continuously queries satellite for disk space usage with some interval
-func (s *Service) RunSpaceLoop(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for {
-		err = s.CacheSpaceUsageFromSatellites(ctx)
-		if err != nil {
-			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
-		}
-
-		select {
-		// handle cancellation signal first
-		case <-ctx.Done():
-			return ctx.Err()
-		// wait for the next interval to happen
-		case <-s.statsTicker.C:
-		}
-	}
-}
-
 // CacheStatsFromSatellites queries node stats from all the satellites
 // known to the storagenode and stores this information into db
 func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
@@ -146,10 +109,48 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 			continue
 		}
 
+		// TODO: get from the satellite
+		stats.TimeStamp = time.Now()
+
+		// try to update stats from satellite
+		if err = s.consoleDB.UpdateStats(ctx, *stats); err != nil {
+			// if stats doesn't exists - create new one
+			if err == sql.ErrNoRows {
+				_, err = s.consoleDB.CreateStats(ctx, *stats)
+				if err != nil {
+					cacheStatsErr.Add(err)
+					continue
+				}
+			}
+
+			cacheStatsErr.Add(err)
+			continue
+		}
+
 		s.log.Info(fmt.Sprintf("CacheStats %s: %v", satellite, stats))
 	}
 
 	return cacheStatsErr.Err()
+}
+
+// RunStatsLoop continuously queries satellite for disk space usage with some interval
+func (s *Service) RunSpaceLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for {
+		err = s.CacheSpaceUsageFromSatellites(ctx)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+		}
+
+		select {
+		// handle cancellation signal first
+		case <-ctx.Done():
+			return ctx.Err()
+		// wait for the next interval to happen
+		case <-s.statsTicker.C:
+		}
+	}
 }
 
 // CacheSpaceUsageFromSatellites queries disk space usage from all the satellites
@@ -180,7 +181,7 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 }
 
 // GetStatsFromSatellite retrieves node stats from particular satellite
-func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *Stats, err error) {
+func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *console.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.DialNodeStats(ctx, satelliteID)
@@ -202,16 +203,16 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 	uptime := resp.GetUptimeCheck()
 	audit := resp.GetAuditCheck()
 
-	return &Stats{
+	return &console.Stats{
 		SatelliteID: satelliteID,
-		UptimeCheck: ReputationStats{
+		UptimeCheck: console.ReputationStats{
 			TotalCount:      uptime.GetTotalCount(),
 			SuccessCount:    uptime.GetSuccessCount(),
 			ReputationAlpha: uptime.GetReputationAlpha(),
 			ReputationBeta:  uptime.GetReputationBeta(),
 			ReputationScore: uptime.GetReputationScore(),
 		},
-		AuditCheck: ReputationStats{
+		AuditCheck: console.ReputationStats{
 			TotalCount:      audit.GetTotalCount(),
 			SuccessCount:    audit.GetSuccessCount(),
 			ReputationAlpha: audit.GetReputationAlpha(),
