@@ -185,7 +185,7 @@ read limitoffset (
 model injuredsegment (
 	key path
 
-	field path text
+	field path blob
 	field data blob
 	field attempted utimestamp (updatable, nullable)
 )
