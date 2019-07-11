@@ -120,7 +120,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 		}
 
 		if len(list) <= 0 {
-			return
+			break
 		}
 
 		offset += int64(len(list))
@@ -136,20 +136,19 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 				if err != nil {
 					discovery.log.Info("could not ping node", zap.Stringer("ID", node.Id), zap.Error(err))
-					_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
-					if err != nil {
+					if _, err := discovery.cache.UpdateUptime(ctx, node.Id, false); err != nil {
 						discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
 					}
 					return
 				}
 
 				// TODO: combine these into the same db call
-				_, err = discovery.cache.UpdateUptime(ctx, node.Id, true)
-				if err != nil {
+				if _, err = discovery.cache.UpdateUptime(ctx, node.Id, true); err != nil {
 					discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
 				}
-				_, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info)
-				if err != nil {
+
+
+				if _, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info); err != nil {
 					discovery.log.Warn("could not update node info", zap.Stringer("ID", node.GetAddress()))
 				}
 			})
