@@ -928,8 +928,24 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Move InjuredSegment path from string to bytes",
+				Description: "Add unique id for project payments. Add is_default property",
 				Version:     40,
+				Action: migrate.SQL{
+					`DROP TABLE project_payments CASCADE`,
+					`CREATE TABLE project_payments (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+						payment_method_id bytea NOT NULL,
+						is_default boolean NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Move InjuredSegment path from string to bytes",
+				Version:     41,
 				Action: migrate.SQL{
 					`ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
 					`ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
