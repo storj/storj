@@ -26,6 +26,10 @@
                     'sortTeamMemberByDropdownButton',
                     'notificationArea',
                     'successfulRegistrationPopup',
+                    'deletePaymentMethodButton',
+                    'deletePaymentMethodDialog',
+                    'makeDefaultPaymentMethodButton',
+                    'makeDefaultPaymentDialog'
                 ]
             };
         },
@@ -41,6 +45,7 @@
                     }
                     target = target.parentNode;
                 }
+
                 this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
             }
         }
