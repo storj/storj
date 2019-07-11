@@ -7214,10 +7214,10 @@ func (obj *postgresImpl) Get_Offer_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_Offer(ctx context.Context) (
+func (obj *postgresImpl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers")
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -10746,10 +10746,10 @@ func (obj *sqlite3Impl) Get_Offer_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
+func (obj *sqlite3Impl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers")
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.num_redeemed, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -12818,13 +12818,13 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
-func (rx *Rx) All_Offer(ctx context.Context) (
+func (rx *Rx) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_Offer(ctx)
+	return tx.All_Offer_OrderBy_Asc_Id(ctx)
 }
 
 func (rx *Rx) All_Project(ctx context.Context) (
@@ -13949,7 +13949,7 @@ type Methods interface {
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
-	All_Offer(ctx context.Context) (
+	All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 		rows []*Offer, err error)
 
 	All_Project(ctx context.Context) (

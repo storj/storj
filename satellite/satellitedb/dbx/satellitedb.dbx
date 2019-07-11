@@ -689,6 +689,7 @@ read one (
 
 read all (
 	select offer
+	orderby asc offer.id
 )
 
 update offer (

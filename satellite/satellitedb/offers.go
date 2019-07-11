@@ -26,7 +26,7 @@ type offersDB struct {
 
 // ListAll returns all offersDB from the db
 func (db *offersDB) ListAll(ctx context.Context) ([]rewards.Offer, error) {
-	offersDbx, err := db.db.All_Offer(ctx)
+	offersDbx, err := db.db.All_Offer_OrderBy_Asc_Id(ctx)
 	if err != nil {
 		return nil, offerErr.Wrap(err)
 	}
