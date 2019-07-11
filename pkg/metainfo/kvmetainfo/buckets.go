@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// CreateBucket creates a new bucket or updates and existing bucket with the specified information
+// CreateBucket creates a new bucket
 func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -52,7 +52,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	}
 
 	if err := validateBlockSize(info.DefaultRedundancyScheme, info.DefaultEncryptionParameters.BlockSize); err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 
 	if info.PathCipher < storj.EncNull || info.PathCipher > storj.EncSecretBox {
@@ -62,7 +62,7 @@ func (db *Project) CreateBucket(ctx context.Context, bucketName string, info *st
 	info.Name = bucketName
 	newBucket, err := db.buckets.Create(ctx, *info)
 	if err != nil {
-		return storj.Bucket{}, storj.ErrBucket.New("bucket create")
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 
 	return newBucket, nil
@@ -97,10 +97,10 @@ func (db *Project) DeleteBucket(ctx context.Context, bucketName string) (err err
 		if storage.ErrKeyNotFound.Has(err) {
 			err = storj.ErrBucketNotFound.Wrap(err)
 		}
-		return err
+		return storj.ErrBucket.Wrap(err)
 	}
 
-	return err
+	return nil
 }
 
 // GetBucket gets bucket information
@@ -113,10 +113,10 @@ func (db *Project) GetBucket(ctx context.Context, bucketName string) (_ storj.Bu
 
 	bucket, err := db.buckets.Get(ctx, bucketName)
 	if err != nil {
-		return storj.Bucket{}, err
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 
-	return bucket, err
+	return bucket, nil
 }
 
 // ListBuckets lists buckets
@@ -124,7 +124,7 @@ func (db *Project) ListBuckets(ctx context.Context, listOpts storj.BucketListOpt
 	defer mon.Task()(&ctx)(&err)
 	bucketList, err := db.buckets.List(ctx, listOpts)
 	if err != nil {
-		return storj.BucketList{}, err
+		return storj.BucketList{}, storj.ErrBucket.Wrap(err)
 	}
 
 	return bucketList, nil

@@ -241,14 +241,10 @@ func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ 
 	req := convertBucketToProtoRequest(bucket)
 	resp, err := client.client.CreateBucket(ctx, &req)
 	if err != nil {
-		if status.Code(err) == codes.NotFound {
-			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
-		}
 		return storj.Bucket{}, Error.Wrap(err)
 	}
 
-	bucket = convertProtoToBucket(resp.Bucket)
-	return bucket, nil
+	return convertProtoToBucket(resp.Bucket), nil
 }
 
 // GetBucket returns a bucket
@@ -261,8 +257,7 @@ func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj
 		}
 		return storj.Bucket{}, Error.Wrap(err)
 	}
-	bucket := convertProtoToBucket(resp.Bucket)
-	return bucket, nil
+	return convertProtoToBucket(resp.Bucket), nil
 }
 
 // DeleteBucket deletes a bucket
@@ -290,7 +285,9 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 	if err != nil {
 		return storj.BucketList{}, Error.Wrap(err)
 	}
-	resultBucketList := storj.BucketList{}
+	resultBucketList := storj.BucketList{
+		More: resp.GetMore(),
+	}
 	resultBucketList.Items = make([]storj.Bucket, len(resp.GetItems()))
 	for i, item := range resp.GetItems() {
 		resultBucketList.Items[i] = storj.Bucket{
@@ -298,11 +295,7 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 			Created: item.GetCreatedAt(),
 		}
 	}
-	bucketList := storj.BucketList{
-		Items: resultBucketList.Items,
-		More:  resp.GetMore(),
-	}
-	return bucketList, nil
+	return resultBucketList, nil
 }
 
 func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {

@@ -134,14 +134,14 @@ func TestListBucketsAllAllowed(t *testing.T) {
 
 func TestListBucketsNotAllowed(t *testing.T) {
 	testCases := []struct {
-		name          string
-		cursor        string
-		limit         int
-		expectedItems int
-		expectedMore  bool
-		allowAll      bool
-		allowedPaths  map[string]struct{}
-		expectedNames []string
+		name           string
+		cursor         string
+		limit          int
+		expectedItems  int
+		expectedMore   bool
+		allowAll       bool
+		allowedBuckets map[string]struct{}
+		expectedNames  []string
 	}{
 		{"empty string cursor, 2 allowed", "", 10, 1, false, false, map[string]struct{}{"aaa": {}, "ddd": {}}, []string{"aaa"}},
 		{"empty string cursor, more", "", 2, 2, true, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb"}},
@@ -181,10 +181,11 @@ func TestListBucketsNotAllowed(t *testing.T) {
 			}
 			t.Run(tt.name, func(t *testing.T) {
 				allowed := macaroon.AllowedBuckets{
-					Buckets: tt.allowedPaths,
+					Buckets: tt.allowedBuckets,
 					All:     tt.allowAll,
 				}
-				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID,
+				bucketList, err := bucketsDB.ListBuckets(ctx,
+					project.ID,
 					listOpts,
 					allowed,
 				)

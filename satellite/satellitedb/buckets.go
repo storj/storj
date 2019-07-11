@@ -44,10 +44,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
-		}
-		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+		return storj.Bucket{}, err
 	}
 
 	bucket, err = convertDBXtoBucket(row)
@@ -81,11 +78,9 @@ func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projec
 		dbx.BucketMetainfo_Name(bucketName),
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return storj.ErrBucketNotFound.Wrap(err)
-		}
+		return storj.ErrBucket.Wrap(err)
 	}
-	return storj.ErrBucket.Wrap(err)
+	return nil
 }
 
 // ListBuckets returns a list of buckets for a project
@@ -153,7 +148,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 			// If we filtered out disallowed buckets, then get more buckets
 			// out of database so that we return `limit` number of buckets
 			listOpts = storj.BucketListOptions{
-				Cursor:    string(dbxBuckets[listOpts.Limit].Name),
+				Cursor:    string(dbxBuckets[len(dbxBuckets)-1].Name),
 				Limit:     listOpts.Limit,
 				Direction: storj.After,
 			}
@@ -162,7 +157,7 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 		break
 	}
 
-	return bucketList, err
+	return bucketList, nil
 }
 
 func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
@@ -193,5 +188,5 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
-	}, err
+	}, nil
 }
