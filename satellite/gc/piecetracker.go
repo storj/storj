@@ -67,9 +67,10 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		address := node.GetAddress()
 		filter = bloomfilter.NewOptimal(numPieces, pieceTracker.falsePositiveRate)
 		pieceTracker.retainInfos[nodeID] = &RetainInfo{
-			address:      node.GetAddress(),
+			address:      address,
 			Filter:       filter,
 			CreationDate: pieceTracker.filterCreationDate,
 		}
