@@ -5,6 +5,7 @@ package nodestats
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -16,6 +17,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode/console"
 )
 
 var (
@@ -66,17 +68,115 @@ func (c *Client) Close() error {
 type Service struct {
 	log *zap.Logger
 
+	statsTicker *time.Ticker
+	spaceTicker *time.Ticker
+
 	transport transport.Client
+	consoleDB console.DB
 	kademlia  *kademlia.Kademlia
 }
 
 // NewService creates new instance of service
-func NewService(log *zap.Logger, transport transport.Client, kademlia *kademlia.Kademlia) *Service {
+func NewService(log *zap.Logger, transport transport.Client, consoleDB console.DB, kademlia *kademlia.Kademlia) *Service {
 	return &Service{
-		log:       log,
-		transport: transport,
-		kademlia:  kademlia,
+		log:         log,
+		statsTicker: time.NewTicker(time.Duration(time.Second * 30)),
+		spaceTicker: time.NewTicker(time.Duration(time.Second * 60)),
+		transport:   transport,
+		consoleDB:   consoleDB,
+		kademlia:    kademlia,
 	}
+}
+
+// RunStatsLoop continuously queries satellite for stats info with some interval
+func (s *Service) RunStatsLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for {
+		err = s.CacheStatsFromSatellites(ctx)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+		}
+
+		select {
+		// handle cancellation signal first
+		case <-ctx.Done():
+			return ctx.Err()
+		// wait for the next interval to happen
+		case <-s.statsTicker.C:
+		}
+	}
+}
+
+// RunStatsLoop continuously queries satellite for disk space usage with some interval
+func (s *Service) RunSpaceLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for {
+		err = s.CacheSpaceUsageFromSatellites(ctx)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+		}
+
+		select {
+		// handle cancellation signal first
+		case <-ctx.Done():
+			return ctx.Err()
+		// wait for the next interval to happen
+		case <-s.statsTicker.C:
+		}
+	}
+}
+
+// CacheStatsFromSatellites queries node stats from all the satellites
+// known to the storagenode and stores this information into db
+func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	satellites, err := s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
+	if err != nil {
+		return NodeStatsServiceErr.Wrap(err)
+	}
+
+	var cacheStatsErr errs.Group
+	for _, satellite := range satellites {
+		stats, err := s.GetStatsFromSatellite(ctx, satellite)
+		if err != nil {
+			cacheStatsErr.Add(err)
+			continue
+		}
+
+		s.log.Info(fmt.Sprintf("CacheStats %s: %v", satellite, stats))
+	}
+
+	return cacheStatsErr.Err()
+}
+
+// CacheSpaceUsageFromSatellites queries disk space usage from all the satellites
+// known to the storagenode and stores this information into db
+func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	satellites, err := s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
+	if err != nil {
+		return NodeStatsServiceErr.Wrap(err)
+	}
+
+	// get current month edges
+	startDate, endDate := getMonthEdges(time.Now().UTC())
+
+	var cacheSpaceErr errs.Group
+	for _, satellite := range satellites {
+		spaceUsage, err := s.GetDailyStorageUsedForSatellite(ctx, satellite, startDate, endDate)
+		if err != nil {
+			cacheSpaceErr.Add(err)
+			continue
+		}
+
+		s.log.Info(fmt.Sprintf("CacheSpace %s: %v", satellite, spaceUsage))
+	}
+
+	return cacheSpaceErr.Err()
 }
 
 // GetStatsFromSatellite retrieves node stats from particular satellite
@@ -145,7 +245,9 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 }
 
 // DialNodeStats dials GRPC NodeStats client for the satellite by id
-func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (*Client, error) {
+func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
@@ -175,4 +277,19 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 	}
 
 	return stamps
+}
+
+// Close clear time.Tickers
+func (s *Service) Close() error {
+	defer mon.Task()(nil)(nil)
+	s.statsTicker.Stop()
+	s.spaceTicker.Stop()
+	return nil
+}
+
+// getMonthEdges extract month from the provided date and returns its edges
+func getMonthEdges(t time.Time) (time.Time, time.Time) {
+	startDate := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+	endDate := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, -1, t.Location())
+	return startDate, endDate
 }

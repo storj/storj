@@ -267,6 +267,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.NodeStats = nodestats.NewService(
 			peer.Log.Named("nodestats"),
 			peer.Transport,
+			db.Console(),
 			peer.Kademlia.Service)
 	}
 
@@ -285,7 +286,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.DB.PieceInfo(),
 			peer.Kademlia.Service,
 			peer.Version,
-			peer.NodeStats,
 			config.Storage.AllocatedBandwidth,
 			config.Storage.AllocatedDiskSpace,
 			config.Kademlia.Operator.Wallet,
@@ -365,6 +365,13 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.NodeStats.RunStatsLoop(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.NodeStats.RunSpaceLoop(ctx))
+	})
+
+	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})
 
@@ -407,6 +414,10 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Console.Endpoint.Close())
 	} else if peer.Console.Listener != nil {
 		errlist.Add(peer.Console.Listener.Close())
+	}
+
+	if peer.NodeStats != nil {
+		errlist.Add(peer.NodeStats.Close())
 	}
 
 	return errlist.Err()
