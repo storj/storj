@@ -6,13 +6,22 @@ package encryption
 import (
 	"crypto/hmac"
 	"crypto/sha512"
-	"encoding/base64"
 	"strings"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/paths"
 	"storj.io/storj/pkg/storj"
+)
+
+var (
+	emptyComponentPrefix    = byte('\x01')
+	notEmptyComponentPrefix = byte('\x02')
+	emptyComponent          = []byte{emptyComponentPrefix}
+
+	escapeSlash = byte('\x2e')
+	escapeFF    = byte('\xfe')
+	escape01    = byte('\x01')
 )
 
 // EncryptPath encrypts the path using the provided cipher and looking up
@@ -261,7 +270,7 @@ func encryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 	}
 
 	// keep the nonce together with the cipher text
-	return base64.RawURLEncoding.EncodeToString(append(nonce[:nonceSize], cipherText...)), nil
+	return string(encodeSegment(append(nonce[:nonceSize], cipherText...))), nil
 }
 
 // decryptPathComponent decrypts a single path component with the provided cipher and key.
@@ -270,7 +279,7 @@ func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 		return "", nil
 	}
 
-	data, err := base64.RawURLEncoding.DecodeString(comp)
+	data, err := decodeSegment([]byte(comp))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -293,4 +302,126 @@ func decryptPathComponent(comp string, cipher storj.CipherSuite, key *storj.Key)
 	}
 
 	return string(decrypted), nil
+}
+
+// encodeSegment encodes segment according to specific rules
+// The empty path component is encoded as `\x01`
+// Any other path component is encoded as `\x02 + escape(component)`
+//
+// `\x2e` escapes to `\x2e\x01`
+// `\x2f` escapes to `\x2e\x02`
+// `\xfe` escapes to `\xfe\x01`
+// `\xff` escapes to `\xfe\x02`
+// `\x00` escapes to `\x01\x01`
+// `\x01` escapes to `\x01\x02
+// for more details see docs/design/path-component-encoding.md
+func encodeSegment(segment []byte) []byte {
+	if len(segment) == 0 {
+		return emptyComponent
+	}
+
+	result := make([]byte, 0, len(segment)*2+1)
+	result = append(result, notEmptyComponentPrefix)
+	for i := 0; i < len(segment); i++ {
+		switch segment[i] {
+		case escapeSlash:
+			result = append(result, []byte{escapeSlash, 1}...)
+		case escapeSlash + 1:
+			result = append(result, []byte{escapeSlash, 2}...)
+		case escapeFF:
+			result = append(result, []byte{escapeFF, 1}...)
+		case escapeFF + 1:
+			result = append(result, []byte{escapeFF, 2}...)
+		case escape01 - 1:
+			result = append(result, []byte{escape01, 1}...)
+		case escape01:
+			result = append(result, []byte{escape01, 2}...)
+		default:
+			result = append(result, segment[i])
+		}
+	}
+	return result
+}
+
+func decodeSegment(segment []byte) ([]byte, error) {
+	err := validateEncodedSegment(segment)
+	if err != nil {
+		return []byte{}, err
+	}
+	if segment[0] == emptyComponentPrefix {
+		return []byte{}, nil
+	}
+
+	currentIndex := 0
+	for i := 1; i < len(segment); i++ {
+		switch {
+		case i == len(segment)-1:
+			segment[currentIndex] = segment[i]
+		case segment[i] == escapeSlash || segment[i] == escapeFF:
+			segment[currentIndex] = segment[i] + segment[i+1] - 1
+			i++
+		case segment[i] == escape01:
+			segment[currentIndex] = segment[i+1] - 1
+			i++
+		default:
+			segment[currentIndex] = segment[i]
+		}
+		currentIndex++
+	}
+	return segment[:currentIndex], nil
+}
+
+// validateEncodedSegment checks if:
+// * The last byte/sequence is not in {escape1, escape2, escape3}
+// * Any byte after an escape character is \x01 or \x02
+// * It does not contain any characters in {\x00, \xff, \x2f}
+// * It is non-empty
+// * It begins with a character in {\x01, \x02}
+func validateEncodedSegment(segment []byte) error {
+	switch {
+	case len(segment) == 0:
+		return errs.New("encoded segment cannot be empty")
+	case segment[0] != emptyComponentPrefix && segment[0] != notEmptyComponentPrefix:
+		return errs.New("invalid segment prefix")
+	case segment[0] == emptyComponentPrefix && len(segment) > 1:
+		return errs.New("segment encoded as empty but contains data")
+	case segment[0] == notEmptyComponentPrefix && len(segment) == 1:
+		return errs.New("segment encoded as not empty but doesn't contain data")
+	}
+
+	if len(segment) == 1 {
+		return nil
+	}
+
+	index := 1
+	for ; index < len(segment)-1; index++ {
+		if isEscapeByte(segment[index]) {
+			if segment[index+1] == 1 || segment[index+1] == 2 {
+				index++
+				continue
+			}
+			return errs.New("invalid escape sequence")
+		}
+		if isDisallowedByte(segment[index]) {
+			return errs.New("invalid character in segment")
+		}
+	}
+	if index == len(segment)-1 {
+		if isEscapeByte(segment[index]) {
+			return errs.New("invalid escape sequence")
+		}
+		if isDisallowedByte(segment[index]) {
+			return errs.New("invalid character")
+		}
+	}
+
+	return nil
+}
+
+func isEscapeByte(b byte) bool {
+	return b == escapeSlash || b == escapeFF || b == escape01
+}
+
+func isDisallowedByte(b byte) bool {
+	return b == 0 || b == '\xff' || b == '/'
 }
