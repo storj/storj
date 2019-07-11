@@ -35,10 +35,7 @@ func VerifyUplinkOrderSignature(ctx context.Context, publicKey storj.PiecePublic
 		return Error.Wrap(err)
 	}
 
-	if !publicKey.Verify(bytes, signed.UplinkSignature) {
-		return Error.New("invalid signature")
-	}
-	return nil
+	return Error.Wrap(publicKey.Verify(bytes, signed.UplinkSignature))
 }
 
 // VerifyPieceHashSignature verifies that the signature inside piece hash belongs to the signer, which is either uplink or storage node.
@@ -61,10 +58,7 @@ func VerifyUplinkPieceHashSignature(ctx context.Context, publicKey storj.PiecePu
 		return Error.Wrap(err)
 	}
 
-	if !publicKey.Verify(bytes, signed.Signature) {
-		return Error.New("invalid signature")
-	}
-	return nil
+	return Error.Wrap(publicKey.Verify(bytes, signed.Signature))
 }
 
 // VerifyVoucher verifies that the signature inside voucher belongs to the satellite

@@ -50,7 +50,10 @@ func SignUplinkOrder(ctx context.Context, privateKey storj.PiecePrivateKey, unsi
 	}
 
 	signed := *unsigned
-	signed.UplinkSignature = privateKey.Sign(bytes)
+	signed.UplinkSignature, err = privateKey.Sign(bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return &signed, nil
 }
 
@@ -74,7 +77,7 @@ func SignPieceHash(ctx context.Context, signer Signer, unsigned *pb.PieceHash) (
 
 // SignUplinkPieceHash signs the piece hash using the specified signer.
 // Signer is either uplink or storage node.
-func SignUplinkPieceHash(ctx context.Context, signer storj.PiecePrivateKey, unsigned *pb.PieceHash) (_ *pb.PieceHash, err error) {
+func SignUplinkPieceHash(ctx context.Context, privateKey storj.PiecePrivateKey, unsigned *pb.PieceHash) (_ *pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodePieceHash(ctx, unsigned)
 	if err != nil {
@@ -82,7 +85,10 @@ func SignUplinkPieceHash(ctx context.Context, signer storj.PiecePrivateKey, unsi
 	}
 
 	signed := *unsigned
-	signed.Signature = signer.Sign(bytes)
+	signed.Signature, err = privateKey.Sign(bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return &signed, nil
 }
 
