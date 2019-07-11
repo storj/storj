@@ -61,17 +61,17 @@
 # determines which set of configuration defaults to use. can either be 'dev' or 'release'
 defaults: "release"
 
-# the interval at which the cache refreshes itself in seconds
-# discovery.refresh-interval: 1s
-
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
 
-# the amount of nodes read from the overlay cache in a single pagination call
-# discovery.refresh-limit: 2000
-
 # the amount of nodes refreshed in parallel
 # discovery.refresh-count: 8
+
+# the interval at which the cache refreshes itself in seconds
+# discovery.refresh-interval: 1s
+
+# the amount of nodes read from the overlay cache in a single pagination call
+# discovery.refresh-limit: 2000
 
 # help for setup
 # help: false
