@@ -59,23 +59,25 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
-			isDefault := new.Status == rewards.Default
-			err = planet.Satellites[0].DB.Rewards().Redeem(ctx, new.ID, isDefault)
-			require.NoError(t, err)
+			//TODO: delete this test after removing Redeem method
 
-			current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
-			require.NoError(t, err)
-			if current[i].Status == rewards.Default {
-				require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
-			} else {
-				require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
-			}
+			//isDefault := new.Status == rewards.Default
+			//err = planet.Satellites[0].DB.Rewards().Redeem(ctx, new.ID, isDefault)
+			//require.NoError(t, err)
+			//
+			//current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
+			//require.NoError(t, err)
+			//if current[i].Status == rewards.Default {
+			//	require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
+			//} else {
+			//	require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
+			//}
 
-			currentID := current[i].ID
+			currentID := all[i].ID
 			err = planet.Satellites[0].DB.Rewards().Finish(ctx, currentID)
 			require.NoError(t, err)
 
-			current, err = planet.Satellites[0].DB.Rewards().ListAll(ctx)
+			current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
 			for _, o := range current {
 				if o.ID == currentID {
