@@ -51,7 +51,7 @@ func (r *repairQueue) postgresSelect(ctx context.Context) (seg *pb.InjuredSegmen
 func (r *repairQueue) sqliteSelect(ctx context.Context) (seg *pb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		var path string
+		var path []byte
 		err = tx.Tx.QueryRowContext(ctx, r.db.Rebind(`
 			SELECT path, data FROM injuredsegments
 			WHERE attempted IS NULL

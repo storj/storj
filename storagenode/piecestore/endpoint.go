@@ -545,26 +545,22 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 }
 
 // Retain keeps only piece ids specified in the request
-func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (*pb.RetainResponse, error) {
+func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	trustedSatellites := endpoint.trust.GetSatellites(ctx)
-	trusted := false
-	for _, id := range trustedSatellites {
-		if peer.ID == id {
-			trusted = true
-		}
-	}
-	if !trusted {
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
-		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
+		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
 	}
 
 	const limit = 1000
