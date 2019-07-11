@@ -26,6 +26,7 @@ type PiecePrivateKey struct {
 // NewPieceKey creates a piece key pair
 func NewPieceKey() (PiecePublicKey, PiecePrivateKey, error) {
 	pub, priv, err := ed25519.GenerateKey(nil)
+
 	return PiecePublicKey{pub}, PiecePrivateKey{priv}, ErrPieceKey.Wrap(err)
 }
 
@@ -47,16 +48,16 @@ func PiecePrivateKeyFromBytes(data []byte) (PiecePrivateKey, error) {
 
 // Sign signs the message with privateKey and returns a signature.
 func (key PiecePrivateKey) Sign(data []byte) ([]byte, error) {
-	if len(data) != ed25519.PrivateKeySize {
-		return nil, ErrPieceKey.New("invalid private key length %v", len(data))
+	if len(key.priv) != ed25519.PrivateKeySize {
+		return nil, ErrPieceKey.New("invalid private key length %v", len(key.priv))
 	}
 	return ed25519.Sign(key.priv, data), nil
 }
 
 // Verify reports whether signature is a valid signature of message by publicKey.
 func (key PiecePublicKey) Verify(data, signature []byte) error {
-	if len(data) != ed25519.PublicKeySize {
-		return ErrPieceKey.New("invalid public key length %v", len(data))
+	if len(key.pub) != ed25519.PublicKeySize {
+		return ErrPieceKey.New("invalid public key length %v", len(key.pub))
 	}
 	if !ed25519.Verify(key.pub, data, signature) {
 		return ErrPieceKey.New("invalid signature")
@@ -98,6 +99,7 @@ func (key *PiecePrivateKey) MarshalTo(data []byte) (n int, err error) {
 func (key *PiecePublicKey) Unmarshal(data []byte) error {
 	// allow empty keys
 	if len(data) == 0 {
+		key.pub = nil
 		return nil
 	}
 	var err error
@@ -109,6 +111,7 @@ func (key *PiecePublicKey) Unmarshal(data []byte) error {
 func (key *PiecePrivateKey) Unmarshal(data []byte) error {
 	// allow empty keys
 	if len(data) == 0 {
+		key.priv = nil
 		return nil
 	}
 	if len(data) == 0 {
