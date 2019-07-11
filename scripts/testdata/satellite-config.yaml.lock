@@ -166,9 +166,6 @@ kademlia.operator.wallet: ""
 # path to static resources
 # marketing.static-dir: ""
 
-# lifespan of bandwidth agreements in days
-# metainfo.bw-expiration: 45
-
 # the database connection string to use
 # metainfo.database-url: "postgres://"
 
@@ -224,7 +221,7 @@ kademlia.operator.wallet: ""
 # monkit.hw.oomlog: "/var/log/kern.log"
 
 # how long until an order expires
-# orders.expiration: 1080h0m0s
+# orders.expiration: 168h0m0s
 
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100

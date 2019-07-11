@@ -346,16 +346,40 @@ func (m *lockedProjectPayments) Create(ctx context.Context, info console.Project
 	return m.db.Create(ctx, info)
 }
 
-func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
+func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, projectPaymentID)
+}
+
+func (m *lockedProjectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByID(ctx, projectPaymentID)
+}
+
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) ([]*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByPayerID(ctx, payerID)
 }
 
-func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByProjectID(ctx, projectID)
+}
+
+func (m *lockedProjectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetDefaultByProjectID(ctx, projectID)
+}
+
+func (m *lockedProjectPayments) Update(ctx context.Context, info console.ProjectPayment) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, info)
 }
 
 // Projects is a getter for Projects repository
@@ -1030,7 +1054,7 @@ func (m *lockedRewards) GetCurrentByType(ctx context.Context, offerType rewards.
 	return m.db.GetCurrentByType(ctx, offerType)
 }
 
-func (m *lockedRewards) ListAll(ctx context.Context) ([]rewards.Offer, error) {
+func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListAll(ctx)

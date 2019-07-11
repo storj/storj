@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
@@ -150,10 +149,7 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	// TODO refactor to avoid OrderLimit duplication
 	serialNumber := testrand.SerialNumber()
 
-	orderExpiration, err := ptypes.TimestampProto(time.Now().Add(24 * time.Hour))
-	if err != nil {
-		return nil, err
-	}
+	now := time.Now()
 
 	limit := &pb.OrderLimit{
 		SerialNumber:    serialNumber,
@@ -163,12 +159,12 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 		PieceId:         pieceID,
 		Action:          action,
 		Limit:           dataSize.Int64(),
-		PieceExpiration: nil,
-		OrderCreation:   time.Now(),
-		OrderExpiration: orderExpiration,
+		PieceExpiration: time.Time{},
+		OrderCreation:   now,
+		OrderExpiration: now.Add(24 * time.Hour),
 	}
 
-	limit, err = signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
+	limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
 	if err != nil {
 		return nil, err
 	}

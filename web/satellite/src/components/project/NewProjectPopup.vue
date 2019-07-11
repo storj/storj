@@ -187,9 +187,11 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .new-project-popup {
         width: 100%;
         max-width: 845px;

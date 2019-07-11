@@ -95,7 +95,7 @@
     .team-area {
         position: relative;
     }
-
+    
     .team-header {
         position: fixed;
         padding: 55px 30px 0px 64px;
@@ -105,14 +105,15 @@
         z-index: 999;
         top: auto;
     }
+    
     .team-container {
-       padding: 0px 30px 55px 64px;
-       overflow-y: scroll;
-       max-height: 84vh;
+        padding: 0px 30px 55px 64px;
+        overflow-y: scroll;
+        max-height: 84vh;
         height: 84vh;
-       position: relative;
-
-       &__content {
+        position: relative;
+        
+        &__content {
             display: grid;
             grid-template-columns: 230px 230px 230px 230px 230px 230px;
             width: 100%;
@@ -121,85 +122,86 @@
             justify-content: space-between;
             margin-top: 150px;
             margin-bottom: 100px;
-       }
-   }
-
+        }
+    }
+    
     .user-container {
         height: 160px;
     }
-
+    
     .empty-search-result-area {
         height: 80vh;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
-
+        
         &__text {
             font-family: 'font_bold';
             font-size: 32px;
             line-height: 39px;
             margin-top: 100px;
         }
-
+        
         &__image {
             margin-top: 40px;
         }
     }
-
+    
     @media screen and (max-width: 1600px) {
         .team-header {
             max-width: 76%;
         }
     }
-
-   @media screen and (max-width: 1600px) {
-       .team-container {
-
+    
+    @media screen and (max-width: 1600px) {
+        .team-container {
+        
             &__content {
                 grid-template-columns: 220px 220px 220px 220px 220px;
             }
-       }
-
+        }
+        
         .team-header {
             max-width: 75%;
         }
-
-       .user-container {
-           height: 160px;
-       }
-   }
-
+        
+        .user-container {
+            height: 160px;
+        }
+    }
+    
     @media screen and (max-width: 1366px) {
-       .team-container {
-
+        .team-container {
+        
             &__content {
                 grid-template-columns: 210px 210px 210px 210px;
             }
         }
-
+        
         .team-header {
             max-width: 70.2%;
         }
-
-         .user-container {
-             height: 160px;
-         }
-   }
-
-   @media screen and (max-width: 1120px) {
-       .team-container {
-
-           &__content {
+        
+        .user-container {
+            height: 160px;
+        }
+    }
+    
+    @media screen and (max-width: 1120px) {
+        .team-container {
+    
+            &__content {
                 grid-template-columns: 200px 200px 200px 200px;
             }
         }
+        
         .team-header {
             max-width: 82.7%;
         }
-
-       .user-container {
-           height: 150px;
-       }
-   }
+        
+        .user-container {
+            height: 150px;
+        }
+    }
 </style>

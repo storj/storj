@@ -8,13 +8,12 @@ import (
 	"io"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/certdb"
@@ -138,11 +137,6 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 			return status.Error(codes.Unauthenticated, "only specified storage node can settle order")
 		}
 
-		orderExpiration, err := ptypes.Timestamp(orderLimit.OrderExpiration)
-		if err != nil {
-			return status.Errorf(codes.InvalidArgument, err.Error())
-		}
-
 		rejectErr := func() error {
 			var uplinkSignee signing.Signee
 
@@ -174,7 +168,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				return Error.New("invalid serial number")
 			}
 
-			if orderExpiration.Before(time.Now()) {
+			if orderLimit.OrderExpiration.Before(time.Now()) {
 				return Error.New("order limit expired")
 			}
 			return nil

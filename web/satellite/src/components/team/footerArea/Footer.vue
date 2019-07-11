@@ -25,7 +25,3 @@
     export default class TeamFooter extends Vue {
     }
 </script>
-
-<style scoped lang="scss">
-
-</style>

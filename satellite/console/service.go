@@ -6,6 +6,7 @@ package console
 import (
 	"context"
 	"crypto/subtle"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -166,6 +167,164 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	return u, nil
+}
+
+// AddNewPaymentMethod adds new payment method for project
+func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	authorization, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	params := payments.AddPaymentMethodParams{
+		Token:      paymentMethodToken,
+		CustomerID: string(userPayments.CustomerID),
+	}
+
+	method, err := s.pm.AddPaymentMethod(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var pp *ProjectPayment
+	err = withTx(tx, func(tx DBTx) error {
+		if isDefault {
+			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+			if err != nil {
+				if err != sql.ErrNoRows {
+					return err
+				}
+			}
+			if projectPayment != nil {
+				projectPayment.IsDefault = false
+
+				err = tx.ProjectPayments().Update(ctx, *projectPayment)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		projectPaymentInfo := ProjectPayment{
+			ProjectID:       projectID,
+			PayerID:         authorization.User.ID,
+			PaymentMethodID: method.ID,
+			CreatedAt:       time.Now(),
+			IsDefault:       isDefault,
+		}
+
+		pp, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
+		return err
+	})
+
+	return pp, nil
+}
+
+// SetDefaultPaymentMethod set default payment method for given project
+func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = withTx(tx, func(tx DBTx) error {
+		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+		if err != nil {
+			return err
+		}
+		projectPayment.IsDefault = false
+
+		err = tx.ProjectPayments().Update(ctx, *projectPayment)
+		if err != nil {
+			return err
+		}
+
+		projectPayment, err = tx.ProjectPayments().GetByID(ctx, projectPaymentID)
+		if err != nil {
+			return err
+		}
+		projectPayment.IsDefault = true
+
+		return tx.ProjectPayments().Update(ctx, *projectPayment)
+	})
+
+	return err
+}
+
+// DeleteProjectPaymentMethod deletes selected payment method
+func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	return s.store.ProjectPayments().Delete(ctx, projectPayment)
+}
+
+// GetProjectPaymentMethods retrieves project payment methods
+func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]ProjectPayment, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	projectPaymentInfos, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var projectPayments []ProjectPayment
+	for _, payment := range projectPaymentInfos {
+		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
+		if err != nil {
+			return nil, err
+		}
+
+		projectPayment := ProjectPayment{
+			ID:              payment.ID,
+			CreatedAt:       pm.CreatedAt,
+			PaymentMethodID: pm.ID,
+			IsDefault:       payment.IsDefault,
+			PayerID:         payment.PayerID,
+			ProjectID:       projectID,
+			Card: Card{
+				LastFour:        pm.Card.LastFour,
+				Name:            pm.Card.Name,
+				Brand:           pm.Card.Brand,
+				Country:         pm.Card.Country,
+				ExpirationMonth: pm.Card.ExpMonth,
+				ExpirationYear:  pm.Card.ExpYear,
+			},
+		}
+
+		projectPayments = append(projectPayments, projectPayment)
+	}
+
+	return projectPayments, nil
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -931,7 +1090,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		paymentInfo, err := s.store.ProjectPayments().GetByProjectID(ctx, proj.ID)
+		paymentInfo, err := s.store.ProjectPayments().GetDefaultByProjectID(ctx, proj.ID)
 		if err != nil {
 			invoiceError.Add(err)
 			continue
