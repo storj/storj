@@ -486,7 +486,7 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	return usage, nil
 }
 
-// RedeemRewards creates a new record in database when user earns new credits
+// RedeemRewards creates a new record in database when new user earns new credits
 func (s *Service) RedeemRewards(ctx context.Context, offer rewards.Offer, referrerID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
