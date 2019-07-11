@@ -56,6 +56,7 @@ func TestPieceInfo(t *testing.T) {
 			PieceCreation:   now,
 			PieceExpiration: now,
 
+			OrderLimit:      &pb.OrderLimit{},
 			UplinkPieceHash: piecehash0,
 		}
 
@@ -75,6 +76,7 @@ func TestPieceInfo(t *testing.T) {
 			PieceCreation:   now,
 			PieceExpiration: now,
 
+			OrderLimit:      &pb.OrderLimit{},
 			UplinkPieceHash: piecehash1,
 		}
 
@@ -98,6 +100,7 @@ func TestPieceInfo(t *testing.T) {
 			PieceCreation:   now2,
 			PieceExpiration: now2,
 
+			OrderLimit:      &pb.OrderLimit{},
 			UplinkPieceHash: piecehash2,
 		}
 
