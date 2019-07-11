@@ -32,15 +32,15 @@ type RetainInfo struct {
 	count        int
 }
 
-// PieceTracker allows access to info about the good pieces that storage nodes need to retain
+// PieceTracker allows access to info about the existing pieces that storage nodes need to retain
 type PieceTracker interface {
-	// Add adds a RetainInfo to the PieceTracker
+	// Add adds the nodeID and pieceID to the tracker
 	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
 	// GetRetainInfos gets all of the RetainInfos
 	GetRetainInfos() map[storj.NodeID]*RetainInfo
 }
 
-// pieceTracker contains info about the good pieces that storage nodes need to retain
+// pieceTracker contains info about the existing pieces that storage nodes need to retain
 type pieceTracker struct {
 	log                *zap.Logger
 	overlay            overlay.DB
