@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/satellite"
