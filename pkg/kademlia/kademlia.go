@@ -16,6 +16,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/identity"
+	"storj.io/storj/pkg/kademlia/kademliaclient"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -41,7 +42,7 @@ type Kademlia struct {
 	alpha          int // alpha is a system wide concurrency parameter
 	routingTable   *RoutingTable
 	bootstrapNodes []pb.Node
-	dialer         *Dialer
+	dialer         *kademliaclient.Dialer
 	lookups        sync2.WorkGroup
 
 	bootstrapFinished    sync2.Fence
@@ -65,7 +66,7 @@ func NewService(log *zap.Logger, transport transport.Client, rt *RoutingTable, c
 		bootstrapNodes:       config.BootstrapNodes(),
 		bootstrapBackoffMax:  config.BootstrapBackoffMax,
 		bootstrapBackoffBase: config.BootstrapBackoffBase,
-		dialer:               NewDialer(log.Named("dialer"), transport),
+		dialer:               kademliaclient.NewDialer(log.Named("dialer"), transport),
 		refreshThreshold:     int64(time.Minute),
 	}
 
@@ -183,7 +184,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 			// The way FetchPeerIdentityUnverified does is is to do a basic ping request, which
 			// we have now done. Let's tell all the transport observers now.
 			// TODO: remove the explicit transport observer notification
-			k.dialer.transport.AlertSuccess(ctx, &pb.Node{
+			k.dialer.AlertSuccess(ctx, &pb.Node{
 				Id:      ident.ID,
 				Address: node.Address,
 			})

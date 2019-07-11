@@ -99,8 +99,6 @@ func TestCollector(t *testing.T) {
 
 		require.Equal(t, 0, serialsPresent)
 
-		serialsPresent = 0
-
 		// imagine we are 10 days in the future
 		for _, storageNode := range planet.StorageNodes {
 			pieceinfos := storageNode.DB.PieceInfo()
@@ -123,5 +121,7 @@ func TestCollector(t *testing.T) {
 
 			collections++
 		}
+
+		require.Equal(t, 0, serialsPresent)
 	})
 }

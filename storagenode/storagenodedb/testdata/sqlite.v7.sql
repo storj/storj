@@ -61,15 +61,15 @@ CREATE UNIQUE INDEX idx_orders ON unsent_order(satellite_id, serial_number);
 CREATE TABLE order_archive (
     satellite_id  BLOB NOT NULL,
     serial_number BLOB NOT NULL,
-    
+
     order_limit_serialized BLOB NOT NULL,
     order_serialized       BLOB NOT NULL,
-    
+
     uplink_cert_id INTEGER NOT NULL,
-    
+
     status      INTEGER   NOT NULL,
     archived_at TIMESTAMP NOT NULL,
-    
+
     FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
 );
 
