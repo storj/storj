@@ -93,7 +93,7 @@ func (endpoint *Endpoint) VerifyOrder(ctx context.Context, limit *pb.OrderLimit,
 	}
 
 	if err := signing.VerifyUplinkOrderSignature(ctx, limit.UplinkPublicKey, order); err != nil {
-		return ErrProtocol.Wrap(err)
+		return ErrVerifyUntrusted.Wrap(err)
 	}
 
 	return nil

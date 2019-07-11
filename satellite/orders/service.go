@@ -489,7 +489,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucketID []by
 
 	projectID, bucketName, err := SplitBucketID(bucketID)
 	if err != nil {
-		return limit, piecePrivateKey, Error.Wrap(err)
+		return limit, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 	if err := service.updateBandwidth(ctx, *projectID, bucketName, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
