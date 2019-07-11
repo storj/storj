@@ -24,8 +24,9 @@ type pieceinfo struct {
 }
 
 type spaceUsed struct {
-	once sync.Once
+	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	used int64
+	once sync.Once
 }
 
 // PieceInfo returns database for storing piece information
@@ -55,6 +56,32 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 		atomic.AddInt64(&db.space.used, info.PieceSize)
 	}
 	return ErrInfo.Wrap(err)
+}
+
+// GetPieceIDs gets pieceIDs using the satelliteID
+func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := db.db.QueryContext(ctx, db.Rebind(`
+		SELECT piece_id
+		FROM pieceinfo
+		WHERE satellite_id = ? AND datetime(piece_creation) < datetime(?)
+		ORDER BY piece_id
+		LIMIT ? OFFSET ?
+	`), satelliteID, createdBefore, limit, offset)
+	if err != nil {
+		return nil, ErrInfo.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var pieceID storj.PieceID
+		err = rows.Scan(&pieceID)
+		if err != nil {
+			return pieceIDs, ErrInfo.Wrap(err)
+		}
+		pieceIDs = append(pieceIDs, pieceID)
+	}
+	return pieceIDs, nil
 }
 
 // Get gets piece information by satellite id and piece id.
@@ -134,7 +161,7 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT satellite_id, piece_id, piece_size
 		FROM pieceinfo
-		WHERE piece_expiration < ? AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
+		WHERE datetime(piece_expiration) < datetime(?) AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
 		ORDER BY satellite_id
 		LIMIT ?
 	`), expiredAt, expiredAt, limit)
