@@ -129,15 +129,15 @@ func createOrders(t *testing.T, ctx *testcontext.Context, orders map[string]orde
 	}
 	return nil
 }
+
 func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
-
 	storageNodeIdentity := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-
 	satelliteIdentity := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
 	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 	require.NoError(t, err)
 
+	piece := testrand.PieceID()
 	serialNumber := testrand.SerialNumber()
 	expiration := time.Now()
 
