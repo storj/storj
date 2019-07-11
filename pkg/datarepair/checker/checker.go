@@ -205,7 +205,7 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		}
 		monStats.remoteSegmentsNeedingRepair++
 		err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
-			Path:         path,
+			Path:         []byte(path),
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
 		})

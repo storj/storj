@@ -162,7 +162,7 @@
               {
                 "id": 1,
                 "name": "path",
-                "type": "string"
+                "type": "bytes"
               },
               {
                 "id": 2,
