@@ -75,7 +75,7 @@ func (client *Client) Close() error {
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
+func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
@@ -87,10 +87,10 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 		Expiration:              expiration,
 	})
 	if err != nil {
-		return nil, rootPieceID, Error.Wrap(err)
+		return nil, rootPieceID, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetAddressedLimits(), response.RootPieceId, nil
+	return response.GetAddressedLimits(), response.RootPieceId, response.PrivateKey, nil
 }
 
 // CommitSegment requests to store the pointer for the segment
@@ -131,7 +131,7 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 }
 
 // ReadSegment requests the order limits for reading a segment
-func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.DownloadSegmentOld(ctx, &pb.SegmentDownloadRequestOld{
@@ -141,12 +141,12 @@ func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, nil, Error.Wrap(err)
+		return nil, nil, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), nil
+	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), response.PrivateKey, nil
 }
 
 // sortLimits sorts order limits and fill missing ones with nil values
@@ -168,7 +168,7 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 }
 
 // DeleteSegment requests the order limits for deleting a segment
-func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.DeleteSegmentOld(ctx, &pb.SegmentDeleteRequestOld{
@@ -178,12 +178,12 @@ func (client *Client) DeleteSegment(ctx context.Context, bucket string, path sto
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, Error.Wrap(err)
+		return nil, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetAddressedLimits(), nil
+	return response.GetAddressedLimits(), response.PrivateKey, nil
 }
 
 // ListSegments lists the available segments
