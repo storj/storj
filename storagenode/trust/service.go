@@ -154,14 +154,3 @@ func (pool *Pool) GetAddress(ctx context.Context, id storj.NodeID) (_ string, er
 	}
 	return info.nodeURL.Address, nil
 }
-
-// IsTrustedSatellite tells if a satellite is trusted or not
-func (pool *Pool) IsTrustedSatellite(ctx context.Context, peer *identity.PeerIdentity) bool {
-	trusted := false
-	for id := range pool.trustedSatellites {
-		if peer.ID == id {
-			trusted = true
-		}
-	}
-	return trusted
-}

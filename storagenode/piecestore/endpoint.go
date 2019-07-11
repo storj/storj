@@ -553,7 +553,8 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
 	}
 
-	if !endpoint.trust.IsTrustedSatellite(ctx, peer) {
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
 		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
