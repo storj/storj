@@ -6,6 +6,7 @@ package discovery
 import (
 	"context"
 	"crypto/rand"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -30,7 +31,7 @@ var (
 type Config struct {
 	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
 	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
-	RefreshLimit      int           `help:"the amount of nodes refreshed at each interval" default:"100"`
+	RefreshLimit      int           `help:"the amount of nodes read from the overlay cache in a single pagination call" default:"2000"`
 }
 
 // Discovery struct loads on cache, kad
@@ -39,8 +40,6 @@ type Discovery struct {
 	cache *overlay.Cache
 	kad   *kademlia.Kademlia
 
-	// refreshOffset tracks the offset of the current refresh cycle
-	refreshOffset int64
 	refreshLimit  int
 
 	Refresh   sync2.Cycle
@@ -54,7 +53,6 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 		cache: ol,
 		kad:   kad,
 
-		refreshOffset: 0,
 		refreshLimit:  config.RefreshLimit,
 	}
 
@@ -97,51 +95,52 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	list, more, err := discovery.cache.Paginate(ctx, discovery.refreshOffset, discovery.refreshLimit)
+	q, err := discovery.cache.CountQualified(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	// more means there are more rows to page through in the cache
-	if more == false {
-		discovery.refreshOffset = 0
-	} else {
-		discovery.refreshOffset += int64(len(list))
-	}
+	var offset int64 = 0
 
-	for _, node := range list {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		if node.Disqualified != nil {
-			discovery.log.Debug("skip disqualified node", zap.Stringer("ID", node.Id))
-			continue
-		}
-
-		info, err := discovery.kad.FetchInfo(ctx, node.Node)
-
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
+	for {
+		list, more, err := discovery.cache.PaginateQualified(ctx, offset, discovery.refreshLimit);
 		if err != nil {
-			discovery.log.Info("could not ping node", zap.Stringer("ID", node.Id), zap.Error(err))
-			_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
+			return Error.Wrap(err)
+		}
+
+		for _, node := range list {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			info, err := discovery.kad.FetchInfo(ctx, *node)
+
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			if err != nil {
+				discovery.log.Info("could not ping node", zap.Stringer("ID", node.Id), zap.Error(err))
+				_, err := discovery.cache.UpdateUptime(ctx, node.Id, false)
+				if err != nil {
+					discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
+				}
+				continue
+			}
+
+			// TODO: combine these into the same db call
+			_, err = discovery.cache.UpdateUptime(ctx, node.Id, true)
 			if err != nil {
 				discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
 			}
-			continue
+			_, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info)
+			if err != nil {
+				discovery.log.Warn("could not update node info", zap.Stringer("ID", node.GetAddress()))
+			}
 		}
 
-		// TODO: combine these into the same db call
-		_, err = discovery.cache.UpdateUptime(ctx, node.Id, true)
-		if err != nil {
-			discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
-		}
-		_, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info)
-		if err != nil {
-			discovery.log.Warn("could not update node info", zap.Stringer("ID", node.GetAddress()))
+		if !more {
+			break
 		}
 	}
 

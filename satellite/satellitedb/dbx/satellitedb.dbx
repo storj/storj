@@ -174,9 +174,21 @@ read all (
 	select node.id
 )
 
+read count (
+    select node
+    where node.disqualified = null
+)
+
 read limitoffset (
 	select node
 	where  node.id >= ?
+	orderby asc node.id
+)
+
+read limitoffset (
+	select node.id node.last_net node.address node.protocol
+	where  node.id >= ?
+	where  node.disqualified = null
 	orderby asc node.id
 )
 
