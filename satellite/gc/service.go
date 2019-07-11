@@ -25,7 +25,7 @@ var (
 
 // Config contains configurable values for garbage collection
 type Config struct {
-	Interval time.Duration `help:"how frequently garbage collection filters should be sent to storage nodes" releaseDefault:"168h" devDefault:"10m"`
+	Interval time.Duration `help:"how frequently garbage collection filters should be sent to storage nodes" releaseDefault:"7d" devDefault:"10m"`
 	Active   bool          `help:"set if garbage collection is actively running or not" releaseDefault:"true" devDefault:"true"`
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
