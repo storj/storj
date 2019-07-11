@@ -289,14 +289,14 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			planet.Satellites[0].Orders.Service,
 			planet.Satellites[0].Identity,
 			minBytesPerSecond,
-			50*time.Millisecond)
+			150*time.Millisecond)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
 		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		// make downloads slow
-		delay := 100 * time.Millisecond
+		// make downloads on storage node slower than the timeout on the satellite for downloading shares
+		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
 
 		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
