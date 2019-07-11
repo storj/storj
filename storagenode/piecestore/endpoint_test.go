@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	ps "storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
+	"storj.io/storj/storagenode/trust"
 	"storj.io/storj/uplink/piecestore"
 )
 
@@ -529,8 +530,16 @@ func TestRetain(t *testing.T) {
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
 
+		whitelisted := storj.NodeURLs{
+			storj.NodeURL{ID: satellite0.ID},
+			storj.NodeURL{ID: satellite1.ID},
+		}
+
+		trusted, err := trust.NewPool(nil, false, whitelisted)
+		require.NoError(t, err)
+
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, nil, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
+		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
 		require.NoError(t, err)
 
 		recentTime := time.Now()
