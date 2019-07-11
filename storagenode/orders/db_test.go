@@ -32,7 +32,6 @@ func TestOrders(t *testing.T) {
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
 		serialNumber := testrand.SerialNumber()
@@ -48,10 +47,13 @@ func TestOrders(t *testing.T) {
 
 		now := time.Now()
 
+		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+		require.NoError(t, err)
+
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
 			SatelliteId:     satellite0.ID,
-			UplinkId:        uplink.ID,
+			UplinkPublicKey: piecePublicKey,
 			StorageNodeId:   storagenode.ID,
 			PieceId:         piece,
 			Limit:           100,
@@ -62,7 +64,7 @@ func TestOrders(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order{
+		order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
 			SerialNumber: serialNumber,
 			Amount:       50,
 		})
