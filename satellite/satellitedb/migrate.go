@@ -969,7 +969,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 							'2019-07-14 08:28:24.636949+00',
 							1,
 							1
-						 )`,
+						 ) ON CONFLICT DO NOTHING;`,
 				},
 			},
 		},
