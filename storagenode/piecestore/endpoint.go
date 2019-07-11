@@ -59,6 +59,7 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
@@ -544,28 +545,36 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 }
 
 // Retain keeps only piece ids specified in the request
-func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (*pb.RetainResponse, error) {
+func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
 	}
 
 	const limit = 1000
 	offset := 0
+	numDeleted := 0
 	hasMorePieces := true
 
 	for hasMorePieces {
-		// subtract one hour to leave room for clock difference between the satellite and storage node
-		createdBefore := retainReq.GetCreationDate().Add(-1 * time.Hour)
+		// subtract some time to leave room for clock difference between the satellite and storage node
+		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
 		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 		}
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
@@ -578,10 +587,12 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
 				}
+				numDeleted++
 			}
 		}
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
+		offset -= numDeleted
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()

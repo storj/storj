@@ -72,6 +72,13 @@ func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit) (err err
 	return Error.Wrap(err)
 }
 
+// Retain uses a bloom filter to tell the piece store which pieces to keep.
+func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.Retain(ctx, req)
+	return Error.Wrap(err)
+}
+
 // Close closes the underlying connection.
 func (client *Client) Close() error {
 	return client.conn.Close()
