@@ -99,12 +99,14 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 		dbx.Offer_Description(o.Description),
 		dbx.Offer_AwardCreditInCents(o.AwardCredit.Cents()),
 		dbx.Offer_InviteeCreditInCents(o.InviteeCredit.Cents()),
-		dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
-		dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
-		dbx.Offer_RedeemableCap(o.RedeemableCap),
 		dbx.Offer_ExpiresAt(o.ExpiresAt),
 		dbx.Offer_Status(int(o.Status)),
 		dbx.Offer_Type(int(o.Type)),
+		dbx.Offer_Create_Fields{
+			AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
+			InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
+			RedeemableCap:             dbx.Offer_RedeemableCap(o.RedeemableCap),
+		},
 	)
 	if err != nil {
 		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
@@ -175,17 +177,28 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		return nil, offerErr.New("offerDbx parameter is nil")
 	}
 
+	var redeemableCap, awardCreditDurationDays, inviteeCreditDurationDays int
+	if offerDbx.RedeemableCap != nil {
+		redeemableCap = *offerDbx.RedeemableCap
+	}
+	if offerDbx.AwardCreditDurationDays != nil {
+		awardCreditDurationDays = *offerDbx.AwardCreditDurationDays
+	}
+	if offerDbx.InviteeCreditDurationDays != nil {
+		inviteeCreditDurationDays = *offerDbx.InviteeCreditDurationDays
+	}
+
 	o := rewards.Offer{
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
 		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
 		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
-		RedeemableCap:             offerDbx.RedeemableCap,
+		RedeemableCap:             redeemableCap,
 		NumRedeemed:               offerDbx.NumRedeemed,
 		ExpiresAt:                 offerDbx.ExpiresAt,
-		AwardCreditDurationDays:   offerDbx.AwardCreditDurationDays,
-		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
+		AwardCreditDurationDays:   awardCreditDurationDays,
+		InviteeCreditDurationDays: inviteeCreditDurationDays,
 		CreatedAt:                 offerDbx.CreatedAt,
 		Status:                    rewards.OfferStatus(offerDbx.Status),
 		Type:                      rewards.OfferType(offerDbx.Type),
