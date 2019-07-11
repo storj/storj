@@ -127,16 +127,14 @@ func TestValidateEncodedSegment(t *testing.T) {
 }
 
 func TestEncodingDecodingStress(t *testing.T) {
-	segments := make([][]byte, 0)
-
 	allCombinations := func(emit func([]byte)) {
 		length := 3
 		s := make([]byte, length)
 		last := length - 1
-		var combination func(int, byte)
-		combination = func(i int, next byte) {
-			for j := next; j < 255; j++ {
-				s[i] = j
+		var combination func(int, int)
+		combination = func(i int, next int) {
+			for j := next; j < 256; j++ {
+				s[i] = byte(j)
 				if i == last {
 					emit(s)
 				} else {
@@ -148,15 +146,15 @@ func TestEncodingDecodingStress(t *testing.T) {
 		combination(0, 0)
 	}
 
-	allCombinations(func(b []byte) {
-		segments = append(segments, b)
+	// all combinations for length 3
+	allCombinations(func(segment []byte) {
+		_ = encodeSegment(segment)
+		_, _ = decodeSegment(segment)
 	})
 
+	// random segments
 	for i := 0; i < 20; i++ {
-		segments = append(segments, testrand.BytesInt(testrand.Intn(256)))
-	}
-
-	for _, segment := range segments {
+		segment := testrand.BytesInt(testrand.Intn(256))
 		_ = encodeSegment(segment)
 		_, _ = decodeSegment(segment)
 	}
