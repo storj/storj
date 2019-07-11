@@ -28,7 +28,7 @@ message OrderLimit {
     // satellite who issued this order limit allowing orderer to do the specified action
     bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
     // uplink who requested or whom behalf the order limit to do an action
-    bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID"]; // deprecated
+    bytes deprecated_uplink_id = 3 [(gogoproto.customtype) = "NodeID"];
     // public key that will be used to sign orders and piece hash
     bytes uplink_public_key = 13 [(gogoproto.customtype) = "PiecePublicKey", (gogoproto.nullable) = false];
     // storage node who can re claimthe order limit specified by serial

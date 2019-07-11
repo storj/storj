@@ -2808,7 +2808,7 @@
               },
               {
                 "id": 3,
-                "name": "uplink_id",
+                "name": "deprecated_uplink_id",
                 "type": "bytes",
                 "options": [
                   {

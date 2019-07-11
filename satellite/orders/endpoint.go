@@ -142,7 +142,7 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				return Error.New("unable to verify order limit")
 			}
 
-			if orderLimit.UplinkId == nil { // new signature handling
+			if orderLimit.DeprecatedUplinkId == nil { // new signature handling
 				if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
 					return Error.New("unable to verify order")
 				}
@@ -150,16 +150,16 @@ func (endpoint *Endpoint) Settlement(stream pb.Orders_SettlementServer) (err err
 				var uplinkSignee signing.Signee
 
 				// who asked for this order: uplink (get/put/del) or satellite (get_repair/put_repair/audit)
-				if endpoint.satelliteSignee.ID() == *orderLimit.UplinkId {
+				if endpoint.satelliteSignee.ID() == *orderLimit.DeprecatedUplinkId {
 					uplinkSignee = endpoint.satelliteSignee
 				} else {
-					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.UplinkId)
+					uplinkPubKey, err := endpoint.certdb.GetPublicKey(ctx, *orderLimit.DeprecatedUplinkId)
 					if err != nil {
 						log.Warn("unable to find uplink public key", zap.Error(err))
 						return status.Errorf(codes.Internal, "unable to find uplink public key")
 					}
 					uplinkSignee = &signing.PublicKey{
-						Self: *orderLimit.UplinkId,
+						Self: *orderLimit.DeprecatedUplinkId,
 						Key:  uplinkPubKey,
 					}
 				}
