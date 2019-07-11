@@ -335,7 +335,7 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	path text NOT NULL,
+	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp,
 	PRIMARY KEY ( path )
@@ -676,7 +676,7 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	path TEXT NOT NULL,
+	path BLOB NOT NULL,
 	data BLOB NOT NULL,
 	attempted TIMESTAMP,
 	PRIMARY KEY ( path )
@@ -1869,7 +1869,7 @@ func (f CertRecord_UpdateAt_Field) value() interface{} {
 func (CertRecord_UpdateAt_Field) _Column() string { return "update_at" }
 
 type Injuredsegment struct {
-	Path      string
+	Path      []byte
 	Data      []byte
 	Attempted *time.Time
 }
@@ -1887,10 +1887,10 @@ type Injuredsegment_Update_Fields struct {
 type Injuredsegment_Path_Field struct {
 	_set   bool
 	_null  bool
-	_value string
+	_value []byte
 }
 
-func Injuredsegment_Path(v string) Injuredsegment_Path_Field {
+func Injuredsegment_Path(v []byte) Injuredsegment_Path_Field {
 	return Injuredsegment_Path_Field{_set: true, _value: v}
 }
 
