@@ -55,7 +55,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 }
 
 // GetBucket returns a bucket
-func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error) {
+func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxBucket, err := db.db.Get_BucketMetainfo_By_ProjectId_And_Name(ctx,
 		dbx.BucketMetainfo_ProjectId(projectID[:]),
@@ -65,7 +65,7 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		if err == sql.ErrNoRows {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
-		return bucket, storj.ErrBucket.Wrap(err)
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
 }

@@ -302,10 +302,10 @@ func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {
 	rs := bucket.DefaultRedundancyScheme
 	return pb.BucketCreateRequest{
 		Name:               []byte(bucket.Name),
-		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
+		PathCipher:         pb.CipherSuite(bucket.PathCipher),
 		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_RS,
+			Type:             pb.RedundancyScheme_SchemeType(rs.Algorithm),
 			MinReq:           int32(rs.RequiredShares),
 			Total:            int32(rs.TotalShares),
 			RepairThreshold:  int32(rs.RepairShares),
@@ -313,7 +313,7 @@ func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {
 			ErasureShareSize: rs.ShareSize,
 		},
 		DefaultEncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
 			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
 		},
 	}
