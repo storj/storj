@@ -27,16 +27,17 @@ func TestPublicPrivatePieceKey(t *testing.T) {
 
 	{
 		data := testrand.Bytes(10 * memory.KiB)
-		signature := privateKey.Sign(data)
+		signature, err := privateKey.Sign(data)
+		require.NoError(t, err)
 
-		verified := publicKey.Verify(data, signature)
-		require.True(t, verified)
+		err = publicKey.Verify(data, signature)
+		require.NoError(t, err)
 
-		verified = publicKey.Verify(data, testrand.BytesInt(32))
-		require.False(t, verified)
+		err = publicKey.Verify(data, testrand.BytesInt(32))
+		require.Error(t, err)
 
-		verified = publicKey.Verify(testrand.Bytes(10*memory.KiB), signature)
-		require.False(t, verified)
+		err = publicKey.Verify(testrand.Bytes(10*memory.KiB), signature)
+		require.Error(t, err)
 	}
 
 	{

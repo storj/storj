@@ -106,9 +106,3 @@ func UUID() uuid.UUID {
 	Read(uuid[:])
 	return uuid
 }
-
-// PieceKey creates a random piece key pair
-func PieceKey() (storj.PiecePublicKey, storj.PiecePrivateKey) {
-	publicKey, privateKey, _ := storj.NewPieceKey()
-	return publicKey, privateKey
-}
