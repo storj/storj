@@ -66,11 +66,11 @@ message PieceHash {
     // hash of the piece that was/is uploaded
     bytes hash = 2;
     // size of uploaded piece
-    int64 piece_size = 3;
+    int64 piece_size = 4;
     // timestamp when upload occurred
-    google.protobuf.Timestamp timestamp = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp timestamp = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     // signature either satellite or storage node
-    bytes signature = 5;
+    bytes signature = 3;
 }
 
 service Orders {

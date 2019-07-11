@@ -2983,12 +2983,12 @@
                 "type": "bytes"
               },
               {
-                "id": 3,
+                "id": 4,
                 "name": "piece_size",
                 "type": "int64"
               },
               {
-                "id": 4,
+                "id": 5,
                 "name": "timestamp",
                 "type": "google.protobuf.Timestamp",
                 "options": [
@@ -3003,7 +3003,7 @@
                 ]
               },
               {
-                "id": 5,
+                "id": 3,
                 "name": "signature",
                 "type": "bytes"
               }
