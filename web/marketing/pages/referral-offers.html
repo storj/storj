@@ -53,6 +53,7 @@ See LICENSE for copying information. -->
     {{range .ReferralOffers.Done}}
     <div class="row data-row">
         <div class="col ml-3">{{.Name}}</div>
+        <div class="col">${{.InviteeCredit}}</div>
         <div class="col">${{.AwardCredit}}</div>
         <div class="col">{{.RedeemableCap}}</div>
         <div class="col">{{printf "%.10s" .CreatedAt}}</div>
