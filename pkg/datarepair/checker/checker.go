@@ -58,14 +58,14 @@ type Checker struct {
 	repairQueue     queue.RepairQueue
 	nodestate       *ReliabilityCache
 	metainfo        *metainfo.Service
-	garbageService  *gc.Service
+	gcService       *gc.Service
 	pieceTracker    gc.PieceTracker
 	gcWaitGroup     sync.WaitGroup
 	lastChecked     string
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(logger *zap.Logger, config Config, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, garbageService *gc.Service) *Checker {
+func NewChecker(logger *zap.Logger, config Config, irrdb irreparable.DB, repairQueue queue.RepairQueue, metainfo *metainfo.Service, overlay *overlay.Cache, gcService *gc.Service) *Checker {
 	checker := &Checker{
 		logger:          logger,
 		monStats:        durabilityStats{},
@@ -75,8 +75,8 @@ func NewChecker(logger *zap.Logger, config Config, irrdb irreparable.DB, repairQ
 		repairQueue:     repairQueue,
 		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		metainfo:        metainfo,
-		garbageService:  garbageService,
-		pieceTracker:    garbageService.NewPieceTracker(),
+		gcService:       gcService,
+		pieceTracker:    gcService.NewPieceTracker(),
 		gcWaitGroup:     sync.WaitGroup{},
 		lastChecked:     "",
 	}
@@ -142,13 +142,13 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					// reset durability stats for next iteration
 					checker.monStats = durabilityStats{}
 
-					err := checker.garbageService.Send(ctx, checker.pieceTracker, func() {
+					err := checker.gcService.Send(ctx, checker.pieceTracker, func() {
 						checker.gcWaitGroup.Done()
 					})
 					if err != nil {
 						checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
 					}
-					checker.pieceTracker = checker.garbageService.NewPieceTracker()
+					checker.pieceTracker = checker.gcService.NewPieceTracker()
 
 				}
 			}()
