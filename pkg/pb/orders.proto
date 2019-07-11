@@ -27,8 +27,10 @@ message OrderLimit {
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
     // satellite who issued this order limit allowing orderer to do the specified action
     bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    // uplink who requested or whom behalf the order limit to do an action
+    bytes uplink_id = 3 [(gogoproto.customtype) = "NodeID"]; // deprecated
     // public key that will be used to sign orders and piece hash
-    bytes uplink_public_key = 3 [(gogoproto.customtype) = "PiecePublicKey", (gogoproto.nullable) = false];
+    bytes uplink_public_key = 13 [(gogoproto.customtype) = "PiecePublicKey", (gogoproto.nullable) = false];
     // storage node who can reclaim the order limit specified by serial
     bytes storage_node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 
@@ -40,12 +42,12 @@ message OrderLimit {
 
     google.protobuf.Timestamp piece_expiration = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp order_expiration = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-    google.protobuf.Timestamp order_creation = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp order_creation = 12 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    bytes satellite_signature = 11;
+    bytes satellite_signature = 10;
     // satellites aren't necessarily discoverable in kademlia. this allows
     // a storage node to find a satellite and handshake with it to get its key.
-    node.NodeAddress satellite_address = 12;
+    node.NodeAddress satellite_address = 11;
 }
 
 // Order is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber
