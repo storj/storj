@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync"
 	"time"
 
@@ -194,8 +193,6 @@ func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
 	now := time.Now().UTC()
 	// Go back an hour to give us room for late persists
 	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
-
-	fmt.Printf("EEEE Running rollup for %v\n", hour)
 
 	result, err := db.db.Exec(`
 		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
