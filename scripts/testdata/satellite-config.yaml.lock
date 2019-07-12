@@ -64,10 +64,13 @@ defaults: "release"
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
 
+# the amount of nodes refreshed in parallel
+# discovery.refresh-concurrency: 8
+
 # the interval at which the cache refreshes itself in seconds
 # discovery.refresh-interval: 1s
 
-# the amount of nodes refreshed at each interval
+# the amount of nodes read from the overlay cache in a single pagination call
 # discovery.refresh-limit: 100
 
 # help for setup
