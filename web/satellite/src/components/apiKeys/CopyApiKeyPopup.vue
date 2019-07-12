@@ -35,54 +35,48 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import {Component, Prop, Vue} from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        props: {
-            onClose: {
-                type: Function
-            },
-            apiKey: String
-        },
-        data: function () {
-            return {
-                imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
-            };
-        },
-        methods: {
-            onCloseClick: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-            },
-            onCopyClick: function (): void {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
-            },
-        },
-        computed: {
-            apiKeyContainerClass: function (): string {
-                let apiKeyClassName = '';
-
-                if (this.$props.apiKey.length > 100) {
-                    apiKeyClassName = 'large';
-                }
-
-                if (this.$props.apiKey.length > 300) {
-                    apiKeyClassName = 'extra-large';
-                }
-
-                return apiKeyClassName;
-            }
-        },
         components: {
             Button,
             HeaderedInput
         }
     })
 
-    export default class AddApiKeyPopup extends Vue {}
+    export default class AddApiKeyPopup extends Vue {
+        @Prop()
+        private onClose() {};
+
+        @Prop()
+        private apiKey;
+
+        public onCloseClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        }
+
+        public onCopyClick(): void {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Key saved to clipboard');
+        }
+
+        public get apiKeyContainerClass(): string {
+            let apiKeyClassName = '';
+
+            if (this.apiKey.length > 100) {
+                apiKeyClassName = 'large';
+            }
+
+            if (this.apiKey.length > 300) {
+                apiKeyClassName = 'extra-large';
+            }
+
+            return apiKeyClassName;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

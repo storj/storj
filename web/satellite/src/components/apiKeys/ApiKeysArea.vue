@@ -39,36 +39,6 @@
     import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        mounted: function() {
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        },
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.API_KEY,
-            };
-        },
-        methods: {
-            toggleSelection: function(id: string): void {
-                this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
-            },
-            togglePopup: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-            },
-        },
-        computed: {
-            apiKeys: function (): any {
-                return this.$store.state.apiKeysModule.apiKeys;
-            },
-            isEmpty: function (): boolean {
-                return this.$store.state.apiKeysModule.apiKeys.length === 0;
-            },
-            isSelected: function (): boolean {
-                return this.$store.getters.selectedAPIKeys.length > 0;
-            },
-            isPopupShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
-            }
-        },
         components: {
             EmptyState,
             HeaderArea,
@@ -78,7 +48,37 @@
         },
     })
 
-    export default class ApiKeysArea extends Vue {}
+    export default class ApiKeysArea extends Vue {
+        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
+
+        public mounted() {
+            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        }
+
+        public toggleSelection(id: string): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+        }
+
+        public togglePopup(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        }
+
+        public get apiKeys(): Array<string> {
+            return this.$store.state.apiKeysModule.apiKeys;
+        }
+
+        public get isEmpty(): boolean {
+            return this.$store.state.apiKeysModule.apiKeys.length === 0;
+        }
+
+        public get isSelected(): boolean {
+            return this.$store.getters.selectedAPIKeys.length > 0;
+        }
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

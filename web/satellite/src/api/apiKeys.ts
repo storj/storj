@@ -3,9 +3,10 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { ApiKey } from '@/types/apiKeys';
 
-export async function fetchAPIKeys(projectID: string) {
-    let result: RequestResponse<any[]> = {
+export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<ApiKey[]>> {
+    let result: RequestResponse<ApiKey[]> = {
         errorMessage: '',
         isSuccess: false,
         data: []

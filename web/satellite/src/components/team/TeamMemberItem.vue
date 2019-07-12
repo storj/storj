@@ -13,51 +13,49 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import {Component, Prop, Vue} from 'vue-property-decorator';
     import { getColor } from '@/utils/avatarColorManager';
 
-    @Component({
-        props: {
-            projectMember: Object,
-        },
-        computed: {
-            userInfo: function (): object {
-                let fullName = getFullName(this.$props.projectMember.user);
-
-                let email: string = this.$props.projectMember.user.email;
-
-                if (fullName.length > 16) {
-                    fullName = fullName.slice(0, 13) + '...';
-                }
-
-                if (email.length > 16) {
-                    email = this.$props.projectMember.user.email.slice(0, 13) + '...';
-                }
-
-                return { fullName, email };
-            },
-            avatarData: function (): object {
-                let fullName = getFullName(this.$props.projectMember.user);
-
-                const letter = fullName.slice(0, 1).toLocaleUpperCase();
-
-                const style = {
-                    background: getColor(letter)
-                };
-
-                return {
-                    letter,
-                    style
-                };
-            }
-        }
-    })
+    @Component
 
     export default class TeamMemberItem extends Vue {
-    }
+        @Prop()
+        private projectMember: TeamMemberModel;
 
-    function getFullName(user: any): string {
-        return user.shortName === '' ? user.fullName : user.shortName;
+        private getFullName(user: any): string {
+            return user.shortName === '' ? user.fullName : user.shortName;
+        }
+
+        public get userInfo(): object {
+            let fullName = this.getFullName(this.projectMember.user);
+
+            let email: string = this.projectMember.user.email;
+
+            if (fullName.length > 16) {
+                fullName = fullName.slice(0, 13) + '...';
+            }
+
+            if (email.length > 16) {
+                email = this.projectMember.user.email.slice(0, 13) + '...';
+            }
+
+            return { fullName, email };
+        }
+
+        public get avatarData(): object {
+            let fullName = this.getFullName(this.projectMember.user);
+
+            const letter = fullName.slice(0, 1).toLocaleUpperCase();
+
+            const style = {
+                background: getColor(letter)
+            };
+
+            return {
+                letter,
+                style
+            };
+        }
     }
 </script>
 

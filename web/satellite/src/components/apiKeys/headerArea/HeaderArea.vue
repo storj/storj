@@ -27,15 +27,14 @@
             SearchArea,
             Button,
             SortApiKeysHeader,
-        },
-        methods: {
-            togglePopup: function () {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-            },
-        },
+        }
     })
 
-    export default class HeaderArea extends Vue {}
+    export default class HeaderArea extends Vue {
+        public togglePopup(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        }
+    }
 </script>
 
 <style scoped lang="scss">

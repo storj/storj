@@ -33,38 +33,38 @@
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        methods: {
-            onDelete: async function () {
-                let selectedKeys: any[] = this.$store.getters.selectedAPIKeys.map((key) => { return key.id; });
-
-                const dispatchResult: RequestResponse<null> = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
-
-                let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
-
-                if (dispatchResult.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
-                } else {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, dispatchResult.errorMessage);
-                }
-            },
-            onClearSelection: function (): void {
-                this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
-            },
-        },
-        computed: {
-            selectedAPIKeysCount: function (): number {
-                return this.$store.getters.selectedAPIKeys.length;
-            },
-            allAPIKeysCount: function (): number {
-                return this.$store.state.apiKeysModule.apiKeys.length;
-            }
-        },
         components: {
             Button
         }
     })
 
-    export default class DeleteApiKeysArea extends Vue {}
+    export default class DeleteApiKeysArea extends Vue {
+        public async onDelete(): Promise<void> {
+            let selectedKeys: string[] = this.$store.getters.selectedAPIKeys.map((key) => { return key.id; });
+
+            const dispatchResult: RequestResponse<null> = await this.$store.dispatch(API_KEYS_ACTIONS.DELETE, selectedKeys);
+
+            let keySuffix = selectedKeys.length > 1 ? '\'s' : '';
+
+            if (dispatchResult.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, `API key${keySuffix} deleted successfully`);
+            } else {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, dispatchResult.errorMessage);
+            }
+        }
+
+        public onClearSelection(): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.CLEAR_SELECTION);
+        }
+
+        public get selectedAPIKeysCount(): number {
+            return this.$store.getters.selectedAPIKeys.length;
+        }
+
+        public get allAPIKeysCount(): number {
+            return this.$store.state.apiKeysModule.apiKeys.length;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

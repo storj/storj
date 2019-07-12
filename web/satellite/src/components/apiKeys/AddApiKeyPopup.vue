@@ -33,7 +33,7 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import {Component, Prop, Vue} from 'vue-property-decorator';
     import VueClipboards from 'vue-clipboards';
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import CopyApiKeyPopup from './CopyApiKeyPopup.vue';
@@ -44,53 +44,6 @@
     Vue.use(VueClipboards);
 
     @Component({
-        props: {
-            onClose: {
-                type: Function
-            },
-        },
-        data: function () {
-            return {
-                imageSource: EMPTY_STATE_IMAGES.ADD_API_KEY,
-                name: '',
-                errorMessage: '',
-                key: '',
-                isLoading: false,
-            };
-        },
-        methods: {
-            onCloseClick: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-            },
-            onCreateClick: async function (): Promise<any> {
-                if (this.$data.isLoading) {
-                    return;
-                }
-
-                if(!this.$data.name) {
-                    this.$data.errorMessage = 'API Key name can`t be empty';
-                    return;
-                }
-
-                this.$data.isLoading = true;
-
-                let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.$data.name);
-                if (!result.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
-                    this.$data.isLoading = false;
-                    return;
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
-                this.$data.key = result.data.key;
-
-                this.$data.isLoading = false;
-            },
-            onChangeName: function (value: string): void {
-                this.$data.name = value.trim();
-                this.$data.errorMessage = '';
-            },
-        },
         components: {
             HeaderedInput,
             Button,
@@ -98,7 +51,49 @@
         }
     })
 
-    export default class AddApiKeyPopup extends Vue {}
+    export default class AddApiKeyPopup extends Vue {
+        public imageSource: string = EMPTY_STATE_IMAGES.ADD_API_KEY;
+        private name: string = '';
+        private errorMessage: string = '';
+        private key: string = '';
+        private isLoading: boolean = false;
+
+        public onCloseClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        }
+
+        public onChangeName(value: string): void {
+            this.name = value.trim();
+            this.errorMessage = '';
+        }
+
+        public async onCreateClick(): Promise<void> {
+            if (this.isLoading) {
+                return;
+            }
+
+            if(!this.name) {
+                this.errorMessage = 'API Key name can`t be empty';
+
+                return;
+            }
+
+            this.isLoading = true;
+
+            let result: any = await this.$store.dispatch(API_KEYS_ACTIONS.CREATE, this.name);
+            if (!result.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, result.errorMessage);
+                this.isLoading = false;
+
+                return;
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Successfully created new api key');
+            this.key = result.data.key;
+
+            this.isLoading = false;
+        }
+    }
 </script>
 
 <style scoped lang="scss">
