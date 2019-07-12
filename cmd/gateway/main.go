@@ -188,7 +188,7 @@ func checkCfg(ctx context.Context) (err error) {
 	}
 	defer func() { err = errs.Combine(err, proj.Close()) }()
 
-	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.After})
+	_, err = proj.ListBuckets(ctx, &storj.BucketListOptions{Direction: storj.Forward})
 	return err
 }
 

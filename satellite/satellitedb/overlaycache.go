@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/mattn/go-sqlite3"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/zeebo/errs"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/overlay"
@@ -44,8 +44,8 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, count int, cr
 		AND free_disk >= ?
 		AND total_audit_count >= ?
 		AND total_uptime_count >= ?
-		AND last_contact_success > ?
-		AND last_contact_success > last_contact_failure`
+		AND (last_contact_success > ?
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 13),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount,
 		criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
@@ -99,8 +99,8 @@ func (cache *overlaycache) SelectNewStorageNodes(ctx context.Context, count int,
 		AND free_bandwidth >= ?
 		AND free_disk >= ?
 		AND (total_audit_count < ? OR total_uptime_count < ?)
-		AND last_contact_success > ?
-		AND last_contact_success > last_contact_failure`
+		AND (last_contact_success > ?
+		     OR last_contact_success > last_contact_failure)`
 	args := append(make([]interface{}, 0, 10),
 		nodeType, criteria.FreeBandwidth, criteria.FreeDisk, criteria.AuditCount, criteria.UptimeCount, time.Now().Add(-criteria.OnlineWindow))
 
@@ -160,8 +160,8 @@ func (cache *overlaycache) queryNodes(ctx context.Context, excludedNodes []storj
 	args = append(args, count)
 
 	var rows *sql.Rows
-	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net, 
-	free_bandwidth, free_disk, total_audit_count, audit_success_count, 
+	rows, err = cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	free_bandwidth, free_disk, total_audit_count, audit_success_count,
 	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM nodes
@@ -235,8 +235,8 @@ func (cache *overlaycache) sqliteQueryNodesDistinct(ctx context.Context, exclude
 
 	args = append(args, count)
 
-	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net, 
-	free_bandwidth, free_disk, total_audit_count, audit_success_count, 
+	rows, err := cache.db.Query(cache.db.Rebind(`SELECT id, type, address, last_net,
+	free_bandwidth, free_disk, total_audit_count, audit_success_count,
 	total_uptime_count, uptime_success_count, disqualified, audit_reputation_alpha,
 	audit_reputation_beta, uptime_reputation_alpha, uptime_reputation_beta
 	FROM (SELECT *, Row_number() OVER(PARTITION BY last_net ORDER BY RANDOM()) rn
@@ -412,7 +412,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
 			AND (
-				last_contact_success < last_contact_failure OR last_contact_success < ?
+				last_contact_success < last_contact_failure AND last_contact_success < ?
 			)
 		`), args...)
 
@@ -421,7 +421,7 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
 				AND (
-					last_contact_success < last_contact_failure OR last_contact_success < $2
+					last_contact_success < last_contact_failure AND last_contact_success < $2
 				)
 			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
@@ -469,7 +469,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			SELECT id FROM nodes
 			WHERE id IN (?`+strings.Repeat(", ?", len(nodeIds)-1)+`)
 			AND disqualified IS NULL
-			AND last_contact_success > ? AND last_contact_success > last_contact_failure
+			AND (last_contact_success > ? OR last_contact_success > last_contact_failure)
 		`), args...)
 
 	case *pq.Driver:
@@ -477,7 +477,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 			SELECT id FROM nodes
 				WHERE id = any($1::bytea[])
 				AND disqualified IS NULL
-				AND last_contact_success > $2 AND last_contact_success > last_contact_failure
+				AND (last_contact_success > $2 OR last_contact_success > last_contact_failure)
 			`, postgresNodeIDList(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 		)
 	default:
@@ -508,6 +508,32 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 	return badNodes, nil
 }
 
+// Reliable returns all reliable nodes.
+func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	// get reliable and online nodes
+	rows, err := cache.db.Query(cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE disqualified IS NULL
+		  AND (last_contact_success > ? OR last_contact_success > last_contact_failure)`),
+		time.Now().Add(-criteria.OnlineWindow))
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, id)
+	}
+	return nodes, nil
+}
+
 // Paginate will run through
 func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int) (_ []*overlay.NodeDossier, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -533,6 +559,37 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 	infos := make([]*overlay.NodeDossier, len(dbxInfos))
 	for i, dbxInfo := range dbxInfos {
 		infos[i], err = convertDBNode(ctx, dbxInfo)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	return infos, more, nil
+}
+
+// PaginateQualified will retrieve all qualified nodes
+func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := storj.NodeID{}
+
+	// more represents end of table. If there are more rows in the database, more will be true.
+	more := true
+
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+
+	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(dbxInfos) < limit {
+		more = false
+	}
+
+	infos := make([]*pb.Node, len(dbxInfos))
+	for i, dbxInfo := range dbxInfos {
+		infos[i], err = convertDBNodeToPBNode(ctx, dbxInfo)
 		if err != nil {
 			return nil, false, err
 		}
@@ -878,6 +935,26 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	}
 
 	return node, nil
+}
+
+func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_Address_Protocol_Row) (_ *pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if info == nil {
+		return nil, Error.New("missing info")
+	}
+
+	id, err := storj.NodeIDFromBytes(info.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Node{
+		Id:     id,
+		LastIp: info.LastNet,
+		Address: &pb.NodeAddress{
+			Address:   info.Address,
+			Transport: pb.NodeTransport(info.Protocol),
+		},
+	}, nil
 }
 
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {

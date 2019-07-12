@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -15,13 +16,23 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 )
 
-type bandwidthdb struct{ *InfoDB }
+type bandwidthdb struct {
+	*InfoDB
+	bandwidth bandwidthUsed
+}
+
+type bandwidthUsed struct {
+	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
+	used      int64
+	mu        sync.RWMutex
+	usedSince time.Time
+}
 
 // Bandwidth returns table for storing bandwidth usage.
 func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 
 // Bandwidth returns table for storing bandwidth usage.
-func (db *InfoDB) Bandwidth() bandwidth.DB { return &bandwidthdb{db} }
+func (db *InfoDB) Bandwidth() bandwidth.DB { return &db.bandwidthdb }
 
 // Add adds bandwidth usage to the table
 func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
@@ -31,8 +42,42 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created)
+	if err == nil {
+		db.bandwidth.mu.Lock()
+		defer db.bandwidth.mu.Unlock()
 
+		beginningOfMonth := getBeginningOfMonth(created.UTC())
+		if beginningOfMonth.Equal(db.bandwidth.usedSince) {
+			db.bandwidth.used += amount
+		} else if beginningOfMonth.After(db.bandwidth.usedSince) {
+			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
+			if err != nil {
+				return err
+			}
+			db.bandwidth.usedSince = beginningOfMonth
+			db.bandwidth.used = usage.Total()
+		}
+	}
 	return ErrInfo.Wrap(err)
+}
+
+// MonthSummary returns summary of the current months bandwidth usages
+func (db *bandwidthdb) MonthSummary(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	db.bandwidth.mu.RLock()
+	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
+	if beginningOfMonth.Equal(db.bandwidth.usedSince) {
+		defer db.bandwidth.mu.RUnlock()
+		return db.bandwidth.used, nil
+	}
+	db.bandwidth.mu.RUnlock()
+
+	usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	// Just return the usage, don't update the cache. Let add handle updates
+	return usage.Total(), nil
 }
 
 // Summary returns summary of bandwidth usages
@@ -44,7 +89,7 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 	rows, err := db.db.Query(`
 		SELECT action, sum(amount)
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?
+		WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
 		GROUP BY action`, from, to)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -76,7 +121,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	rows, err := db.db.Query(`
 		SELECT satellite_id, action, sum(amount)
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?
+		WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
 		GROUP BY satellite_id, action`, from, to)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -106,4 +151,9 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	}
 
 	return entries, ErrInfo.Wrap(rows.Err())
+}
+
+func getBeginningOfMonth(now time.Time) time.Time {
+	y, m, _ := now.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, time.Now().UTC().Location())
 }
