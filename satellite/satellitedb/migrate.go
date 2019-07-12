@@ -955,6 +955,53 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
 				},
 			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     42,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP num_redeemed;`,
+				},
+			},
+			{
+				Description: "Set default offer for each offer type in offers table",
+				Version:     43,
+				Action: migrate.SQL{
+					`ALTER TABLE offers
+						ALTER COLUMN redeemable_cap DROP NOT NULL,
+						ALTER COLUMN invitee_credit_duration_days DROP NOT NULL,
+						ALTER COLUMN award_credit_duration_days DROP NOT NULL
+					`,
+					`INSERT INTO offers (
+						name,
+						description,
+						award_credit_in_cents,
+						invitee_credit_in_cents,
+						expires_at,
+						created_at,
+						status,
+						type )
+					VALUES (
+						'Default referral offer',
+						'Is active when no other active referral offer',
+						300,
+						600,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						2
+					),
+					(
+						'Default free credit offer',
+						'Is active when no active free credit offer',
+						300,
+						0,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						1
+					) ON CONFLICT DO NOTHING;`,
+				},
+			},
 		},
 	}
 }
