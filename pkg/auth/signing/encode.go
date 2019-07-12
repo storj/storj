@@ -14,31 +14,69 @@ import (
 // EncodeOrderLimit encodes order limit into bytes for signing. Removes signature from serialized limit.
 func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	signature := limit.SatelliteSignature
-	limit.SatelliteSignature = nil
-	out, err := proto.Marshal(limit)
-	limit.SatelliteSignature = signature
-	return out, err
+
+	// protobuf has problems with serializing types with nullable=false
+	// this uses a different message for signing, such that the rest of the code
+	// doesn't have to deal with pointers for those particular fields.
+
+	signing := pb.OrderLimitSigning{}
+	signing.SerialNumber = limit.SerialNumber
+	signing.SatelliteId = limit.SatelliteId
+	if limit.DeprecatedUplinkId != nil && !limit.DeprecatedUplinkId.IsZero() {
+		signing.DeprecatedUplinkId = limit.DeprecatedUplinkId
+	}
+	if !limit.UplinkPublicKey.IsZero() {
+		signing.UplinkPublicKey = &limit.UplinkPublicKey
+	}
+	signing.StorageNodeId = limit.StorageNodeId
+	signing.PieceId = limit.PieceId
+	signing.Limit = limit.Limit
+	signing.Action = limit.Action
+	if !limit.PieceExpiration.IsZero() {
+		signing.PieceExpiration = &limit.PieceExpiration
+	}
+	if !limit.OrderExpiration.IsZero() {
+		signing.OrderExpiration = &limit.OrderExpiration
+	}
+	if !limit.OrderCreation.IsZero() {
+		signing.OrderCreation = &limit.OrderCreation
+	}
+	signing.SatelliteAddress = limit.SatelliteAddress
+
+	return proto.Marshal(&signing)
 }
 
 // EncodeOrder encodes order into bytes for signing. Removes signature from serialized order.
 func EncodeOrder(ctx context.Context, order *pb.Order) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	signature := order.UplinkSignature
-	order.UplinkSignature = nil
-	out, err := proto.Marshal(order)
-	order.UplinkSignature = signature
-	return out, err
+
+	// protobuf has problems with serializing types with nullable=false
+	// this uses a different message for signing, such that the rest of the code
+	// doesn't have to deal with pointers for those particular fields.
+
+	signing := pb.OrderSigning{}
+	signing.SerialNumber = order.SerialNumber
+	signing.Amount = order.Amount
+
+	return proto.Marshal(&signing)
 }
 
 // EncodePieceHash encodes piece hash into bytes for signing. Removes signature from serialized hash.
 func EncodePieceHash(ctx context.Context, hash *pb.PieceHash) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	signature := hash.Signature
-	hash.Signature = nil
-	out, err := proto.Marshal(hash)
-	hash.Signature = signature
-	return out, err
+
+	// protobuf has problems with serializing types with nullable=false
+	// this uses a different message for signing, such that the rest of the code
+	// doesn't have to deal with pointers for those particular fields.
+
+	signing := pb.PieceHashSigning{}
+	signing.PieceId = hash.PieceId
+	signing.Hash = hash.Hash
+	signing.PieceSize = hash.PieceSize
+	if !hash.Timestamp.IsZero() {
+		signing.Timestamp = &hash.Timestamp
+	}
+	return proto.Marshal(&signing)
 }
 
 // EncodeVoucher encodes voucher into bytes for signing.
