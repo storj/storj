@@ -518,20 +518,28 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // RemoveFailedPieces removes lost pieces from a pointer
-func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedPieces storj.NodeIDList) (err error) {
+func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(path) == 0 {
 		return nil
 	}
+
 	remoteSegment := pointer.GetRemote()
-	for i, piece := range remoteSegment.GetRemotePieces() {
-		for _, failedPiece := range failedPieces {
-			if piece.NodeId == failedPiece {
-				remoteSegment.RemotePieces = append(remoteSegment.RemotePieces[:i], remoteSegment.RemotePieces[i+1:]...)
+	newRemotePieces := remoteSegment.RemotePieces[:0]
+	for _, piece := range remoteSegment.RemotePieces {
+		isFailed := false
+		for _, failedNode := range failedNodes {
+			if piece.NodeId == failedNode {
+				isFailed = true
+				break
 			}
 		}
+		if !isFailed {
+			newRemotePieces = append(newRemotePieces, piece)
+		}
 	}
+	remoteSegment.RemotePieces = newRemotePieces
 
 	// Update the segment pointer in the metainfo
 	//TODO:  update in a safe manner - https://storjlabs.atlassian.net/browse/V3-2088
