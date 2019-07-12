@@ -1011,7 +1011,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				Description: "Add partner id field to support OSPP",
-				Version:     44,
+				Version:     45,
 				Action: migrate.SQL{
 					`ALTER TABLE projects ADD COLUMN partner_id BYTEA`,
 					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,

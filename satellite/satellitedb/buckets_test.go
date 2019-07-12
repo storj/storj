@@ -13,40 +13,80 @@ import (
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-func TestBuckets(t *testing.T) {
+func TestUsers(t *testing.T) {
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		bucketsDB := db.Buckets()
+		consoleDB := db.Console()
 
-		var bucketInfo = []storj.Bucket{
-			{
-				ID:                  testrand.UUID(),
-				Name:                "testbucket",
-				ProjectID:           testrand.UUID(),
-				PartnerID:           testrand.UUID(),
-				Created:             time.Now(),
-				PathCipher:          storj.EncAESGCM,
-				DefaultSegmentsSize: int64(100),
-			},
-			{ // no partner ID
-				ID:                  testrand.UUID(),
-				Name:                "testbucket",
-				ProjectID:           testrand.UUID(),
-				Created:             time.Now(),
-				PathCipher:          storj.EncAESGCM,
-				DefaultSegmentsSize: int64(100),
-			},
-		}
+		// create user
+		userPassHash := testrand.Bytes(8)
 
-		for _, info := range bucketInfo {
-			_, err := bucketsDB.CreateBucket(ctx, info)
-			require.Error(t, err)
-		}
+		// create an user with partnerID
+		_, err := consoleDB.Users().Insert(ctx, &console.User{
+			FullName:     "John Doe",
+			Email:        "john@mail.test",
+			PasswordHash: userPassHash,
+			Status:       console.Active,
+			PartnerID:    testrand.UUID(),
+		})
+		require.NoError(t, err)
+
+		// create an user with no partnerID
+		_, err = consoleDB.Users().Insert(ctx, &console.User{
+			FullName:     "John Doe",
+			Email:        "john@mail.test",
+			PasswordHash: userPassHash,
+			Status:       console.Active,
+		})
+		require.NoError(t, err)
+
+		// create a project with partnerID
+		_, err = consoleDB.Projects().Insert(ctx, &console.Project{
+			ID:          testrand.UUID(),
+			Name:        "John Doe",
+			Description: "some description",
+			UsageLimit:  int64(1000),
+			PartnerID:   testrand.UUID(),
+			CreatedAt:   time.Now(),
+		})
+		require.NoError(t, err)
+
+		// create a project with no partnerID
+		proj, err := consoleDB.Projects().Insert(ctx, &console.Project{
+			ID:          testrand.UUID(),
+			Name:        "John Doe",
+			Description: "some description",
+			UsageLimit:  int64(1000),
+			PartnerID:   testrand.UUID(),
+			CreatedAt:   time.Now(),
+		})
+		require.NoError(t, err)
+
+		// create a APIKey with no partnerID
+		_, err = consoleDB.APIKeys().Create(ctx, testrand.Bytes(8), console.APIKeyInfo{
+			ID:        testrand.UUID(),
+			ProjectID: proj.ID,
+			Name:      "John Doe",
+			Secret:    []byte("xyz"),
+			CreatedAt: time.Now(),
+		})
+		require.NoError(t, err)
+
+		// create a bucket with no partnerID
+		_, err = db.Buckets().CreateBucket(ctx, storj.Bucket{
+			ID:                  testrand.UUID(),
+			Name:                "testbucket",
+			ProjectID:           proj.ID,
+			Created:             time.Now(),
+			PathCipher:          storj.EncAESGCM,
+			DefaultSegmentsSize: int64(100),
+		})
+		require.NoError(t, err)
 	})
-
 }
