@@ -56,7 +56,7 @@ func (r *repairQueue) sqliteSelect(ctx context.Context) (seg *pb.InjuredSegment,
 			SELECT path, data FROM injuredsegments
 			WHERE attempted IS NULL
 			OR attempted < datetime('now','-1 hours')
-			ORDER BY path LIMIT 1`)).Scan(&path, &seg)
+			ORDER BY attempted LIMIT 1`)).Scan(&path, &seg)
 		if err != nil {
 			return err
 		}
