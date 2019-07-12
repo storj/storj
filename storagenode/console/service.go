@@ -37,14 +37,20 @@ type DB interface {
 	UpdateStats(ctx context.Context, stats Stats) error
 	// GetStatsSatellite retrieves stats for specific satellite
 	GetStatsSatellite(ctx context.Context, satelliteID storj.NodeID) (*Stats, error)
+	// StoreSpaceUsageStamps stores disk space usage stamps to db
+	StoreSpaceUsageStamps(ctx context.Context, stamps []SpaceUsageStamp) error
 	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
 	// sorted in ascending order
 	GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) ([]BandwidthUsed, error)
 	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
 	// sorted in ascending order for particular satellite
 	GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]BandwidthUsed, error)
-	//GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to time.Time)
-	//GetDailyDiskSpaceUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time)
+	// GetDailyDiskSpaceUsageTotal returns daily disk usage summed across all known satellites
+	// for provided time range
+	GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to time.Time) ([]SpaceUsageStamp, error)
+	// GetDailyDiskSpaceUsageSatellite returns daily disk usage for particular satellite
+	// for provided time range
+	GetDailyDiskSpaceUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]SpaceUsageStamp, error)
 }
 
 // Service is handling storage node operator related logic

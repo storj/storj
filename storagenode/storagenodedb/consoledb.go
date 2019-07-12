@@ -61,7 +61,7 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *console.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := db.Rebind(`INSERT INTO stats_satellite(
+	stmt := db.Rebind(`INSERT INTO node_stats (
 				satellite_id, 
 				uptime_success_count,
 				uptime_total_count,
@@ -73,7 +73,7 @@ func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *c
 				audit_reputation_alpha,
 				audit_reputation_beta,
 				audit_reputation_score,
-				timestamp
+				updated_at
 			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
 
 	_, err = db.db.ExecContext(ctx, stmt,
@@ -88,7 +88,7 @@ func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *c
 		stats.AuditCheck.ReputationAlpha,
 		stats.AuditCheck.ReputationBeta,
 		stats.AuditCheck.ReputationScore,
-		stats.TimeStamp,
+		stats.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *c
 func (db *consoledb) UpdateStats(ctx context.Context, stats console.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := db.Rebind(`UPDATE stats_satellite
+	stmt := db.Rebind(`UPDATE node_stats
 			SET uptime_success_count = ?,
 				uptime_total_count = ?,
 				uptime_reputation_alpha = ?,
@@ -112,7 +112,7 @@ func (db *consoledb) UpdateStats(ctx context.Context, stats console.Stats) (err 
 				audit_reputation_alpha = ?,
 				audit_reputation_beta = ?,
 				audit_reputation_score = ?,
-				timestamp = ?
+				updated_at = ?
 			WHERE satellite_id = ?`)
 
 	res, err := db.db.ExecContext(ctx, stmt,
@@ -126,7 +126,7 @@ func (db *consoledb) UpdateStats(ctx context.Context, stats console.Stats) (err 
 		stats.AuditCheck.ReputationAlpha,
 		stats.AuditCheck.ReputationBeta,
 		stats.AuditCheck.ReputationScore,
-		stats.TimeStamp,
+		stats.UpdatedAt,
 		stats.SatelliteID,
 	)
 	if err != nil {
@@ -151,28 +151,59 @@ func (db *consoledb) GetStatsSatellite(ctx context.Context, satelliteID storj.No
 	stats := console.Stats{}
 
 	row := db.db.QueryRowContext(ctx,
-		db.Rebind(`SELECT * FROM stats_satellite WHERE satellite_id = ?`),
+		db.Rebind(`SELECT * FROM node_stats WHERE satellite_id = ?`),
 		satelliteID,
 	)
 
-	err = row.Scan(stats.SatelliteID,
-		stats.UptimeCheck.SuccessCount,
-		stats.UptimeCheck.TotalCount,
-		stats.UptimeCheck.ReputationAlpha,
-		stats.UptimeCheck.ReputationBeta,
-		stats.UptimeCheck.ReputationScore,
-		stats.AuditCheck.SuccessCount,
-		stats.AuditCheck.TotalCount,
-		stats.AuditCheck.ReputationAlpha,
-		stats.AuditCheck.ReputationBeta,
-		stats.AuditCheck.ReputationScore,
-		stats.TimeStamp,
+	err = row.Scan(&stats.SatelliteID,
+		&stats.UptimeCheck.SuccessCount,
+		&stats.UptimeCheck.TotalCount,
+		&stats.UptimeCheck.ReputationAlpha,
+		&stats.UptimeCheck.ReputationBeta,
+		&stats.UptimeCheck.ReputationScore,
+		&stats.AuditCheck.SuccessCount,
+		&stats.AuditCheck.TotalCount,
+		&stats.AuditCheck.ReputationAlpha,
+		&stats.AuditCheck.ReputationBeta,
+		&stats.AuditCheck.ReputationScore,
+		&stats.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	return &stats, nil
+}
+
+// StoreSpaceUsageStamps stores disk space usage stamps to db
+func (db *consoledb) StoreSpaceUsageStamps(ctx context.Context, stamps []console.SpaceUsageStamp) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(stamps) == 0 {
+		return nil
+	}
+
+	stmt := db.Rebind(`INSERT OR REPLACE INTO rollup_space_usages(rollup_id, satellite_id, at_rest_total, timestamp) 
+			VALUES(?,?,?,?)`)
+
+	cb := func(tx *sql.Tx) error {
+		txStmt, err := tx.PrepareContext(ctx, stmt)
+		if err != nil {
+			return err
+		}
+
+		for _, stamp := range stamps {
+			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.TimeStamp)
+
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	return db.withTx(ctx, cb)
 }
 
 // GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
@@ -269,6 +300,113 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 	}
 
 	return bandwidthUsedList, nil
+}
+
+// GetDailyDiskSpaceUsageTotal returns daily disk usage summed across all known satellites
+// for provided time range
+func (db *consoledb) GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := db.Rebind(`SELECT SUM(at_rest_total), timestamp 
+							FROM rollup_space_usages
+							WHERE rollup_id IN (
+								SELECT MAX(rollup_id)
+								FROM rollup_space_usages
+								WHERE ? <= timestamp AND timestamp <= ?
+								GROUP BY DATE(timestamp), satellite_id
+							) GROUP BY DATE(timestamp)`)
+
+	rows, err := db.db.QueryContext(ctx, query, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var stamps []console.SpaceUsageStamp
+	for rows.Next() {
+		var atRestTotal float64
+		var timeStamp time.Time
+
+		err = rows.Scan(&atRestTotal, &timeStamp)
+		if err != nil {
+			return nil, err
+		}
+
+		stamps = append(stamps, console.SpaceUsageStamp{
+			AtRestTotal: atRestTotal,
+			TimeStamp:   timeStamp,
+		})
+	}
+
+	return stamps, nil
+}
+
+// GetDailyDiskSpaceUsageSatellite returns daily disk usage for particular satellite
+// for provided time range
+func (db *consoledb) GetDailyDiskSpaceUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := db.Rebind(`SELECT *
+							FROM rollup_space_usages
+							WHERE rollup_id IN (
+								SELECT MAX(rollup_id) 
+								FROM rollup_space_usages
+								WHERE satellite_id = ?
+								AND ? <= timestamp AND timestamp <= ?
+								GROUP BY DATE(timestamp)
+							)`)
+
+	rows, err := db.db.QueryContext(ctx, query, satelliteID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err = errs.Combine(err, rows.Close())
+	}()
+
+	var stamps []console.SpaceUsageStamp
+	for rows.Next() {
+		var rollupID int64
+		var satellite storj.NodeID
+		var atRestTotal float64
+		var timeStamp time.Time
+
+		err = rows.Scan(&rollupID, &satellite, &atRestTotal, &timeStamp)
+		if err != nil {
+			return nil, err
+		}
+
+		stamps = append(stamps, console.SpaceUsageStamp{
+			RollupID:    rollupID,
+			SatelliteID: satellite,
+			AtRestTotal: atRestTotal,
+			TimeStamp:   timeStamp,
+		})
+	}
+
+	return stamps, nil
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *consoledb) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }
 
 // getDateEdges returns start and end of the provided day

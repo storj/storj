@@ -28,14 +28,6 @@ var (
 	mon = monkit.Package()
 )
 
-// SpaceUsageStamp is space usage for satellite at some point in time
-type SpaceUsageStamp struct {
-	SatelliteID storj.NodeID
-	AtRestTotal float64
-
-	TimeStamp time.Time
-}
-
 // Client encapsulates NodeStatsClient with underlying connection
 type Client struct {
 	conn *grpc.ClientConn
@@ -109,8 +101,7 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 			continue
 		}
 
-		// TODO: get from the satellite
-		stats.TimeStamp = time.Now()
+		stats.UpdatedAt = time.Now()
 
 		// try to update stats from satellite
 		if err = s.consoleDB.UpdateStats(ctx, *stats); err != nil {
@@ -118,16 +109,22 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 			if err == sql.ErrNoRows {
 				_, err = s.consoleDB.CreateStats(ctx, *stats)
 				if err != nil {
-					cacheStatsErr.Add(err)
+					cacheStatsErr.Add(NodeStatsServiceErr.Wrap(err))
 					continue
 				}
 			}
 
-			cacheStatsErr.Add(err)
+			cacheStatsErr.Add(NodeStatsServiceErr.Wrap(err))
 			continue
 		}
 
 		s.log.Info(fmt.Sprintf("CacheStats %s: %v", satellite, stats))
+
+		satStats, err := s.consoleDB.GetStatsSatellite(ctx, satellite)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("SAT %s err: %v", satellite, err))
+		}
+		s.log.Info(fmt.Sprintf("CacheStats QUERY SAT %s: %v", satellite, satStats))
 	}
 
 	return cacheStatsErr.Err()
@@ -140,7 +137,7 @@ func (s *Service) RunSpaceLoop(ctx context.Context) (err error) {
 	for {
 		err = s.CacheSpaceUsageFromSatellites(ctx)
 		if err != nil {
-			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+			s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
 		}
 
 		select {
@@ -168,14 +165,32 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 
 	var cacheSpaceErr errs.Group
 	for _, satellite := range satellites {
-		spaceUsage, err := s.GetDailyStorageUsedForSatellite(ctx, satellite, startDate, endDate)
+		spaceUsages, err := s.GetDailyStorageUsedForSatellite(ctx, satellite, startDate, endDate)
 		if err != nil {
 			cacheSpaceErr.Add(err)
 			continue
 		}
 
-		s.log.Info(fmt.Sprintf("CacheSpace %s: %v", satellite, spaceUsage))
+		err = s.consoleDB.StoreSpaceUsageStamps(ctx, spaceUsages)
+		if err != nil {
+			cacheSpaceErr.Add(NodeStatsServiceErr.Wrap(err))
+			continue
+		}
+
+		s.log.Info(fmt.Sprintf("CacheSpace %s: %v", satellite, spaceUsages))
+
+		perSat, err := s.consoleDB.GetDailyDiskSpaceUsageSatellite(ctx, satellite, startDate, endDate)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("SAT %s err: %v", satellite, err))
+		}
+		s.log.Info(fmt.Sprintf("CacheSpace QUERY SAT %s: %v", satellite, perSat))
 	}
+
+	totals, err := s.consoleDB.GetDailyDiskSpaceUsageTotal(ctx, startDate, endDate)
+	if err != nil {
+		s.log.Error(fmt.Sprintf("TOTAL err: %v", err))
+	}
+	s.log.Info(fmt.Sprintf("CacheSpace QUERY TOTAL %v", totals))
 
 	return cacheSpaceErr.Err()
 }
@@ -223,7 +238,7 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 }
 
 // GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps over a period of time for a particular satellite
-func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []SpaceUsageStamp, err error) {
+func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.DialNodeStats(ctx, satelliteID)
@@ -237,7 +252,7 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 		}
 	}()
 
-	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{})
+	resp, err := client.DailyStorageUsage(ctx, &pb.DailyStorageUsageRequest{From: from, To: to})
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -266,11 +281,12 @@ func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (
 }
 
 // fromSpaceUsageResponse get SpaceUsageStamp slice from pb.SpaceUsageResponse
-func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []SpaceUsageStamp {
-	var stamps []SpaceUsageStamp
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []console.SpaceUsageStamp {
+	var stamps []console.SpaceUsageStamp
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
-		stamps = append(stamps, SpaceUsageStamp{
+		stamps = append(stamps, console.SpaceUsageStamp{
+			RollupID:    pbUsage.RollupId,
 			SatelliteID: satelliteID,
 			AtRestTotal: pbUsage.AtRestTotal,
 			TimeStamp:   pbUsage.TimeStamp,

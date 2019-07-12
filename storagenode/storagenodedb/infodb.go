@@ -256,7 +256,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Add stats and space usage cache tables",
 				Version:     9,
 				Action: migrate.SQL{
-					`CREATE TABLE stats_satellite (
+					`CREATE TABLE node_stats (
 						satellite_id BLOB NOT NULL,
 						uptime_success_count INTEGER NOT NULL,
 						uptime_total_count INTEGER NOT NULL,
@@ -268,15 +268,15 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						audit_reputation_alpha REAL NOT NULL,
 						audit_reputation_beta REAL NOT NULL,
 						audit_reputation_score REAL NOT NULL,
-						timestamp TIMESTAMP NOT NULL,
+						updated_at TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id)
 					)`,
-					`CREATE TABLE space_usage_satellite (
-						id BLOB NOT NULL,
+					`CREATE TABLE rollup_space_usages (
+						rollup_id INTEGER NOT NULL,
 						satellite_id BLOB NOT NULL,
-						at_rest REAL NOT NUll,
+						at_rest_total REAL NOT NUll,
 						timestamp TIMESTAMP NOT NULL,
-						PRIMARY KEY (id)
+						PRIMARY KEY (rollup_id, satellite_id)
 					)`,
 				},
 			},

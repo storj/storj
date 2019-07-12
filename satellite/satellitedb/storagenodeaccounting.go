@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -195,18 +196,23 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	return csv, nil
 }
 
-// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
-func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
+// QueryNodeSpaceUsage returns slice of NodeSpaceUsage for given period
+func (db *StoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// as entries are stored on daily basis we don't need
-	// to extract DATE from start_time
-	query := `SELECT at_rest_total, start_time 
+	s, e := start.String(), end.String()
+	fmt.Println(s, e)
+
+	query := `SELECT id, at_rest_total, start_time 
 		FROM accounting_rollups
-		WHERE node_id = ?
-		AND ? <= start_time AND start_time <= ?
-		GROUP BY start_time
-		ORDER BY start_time ASC`
+		WHERE id IN (
+			SELECT MAX(id)
+			FROM accounting_rollups
+			WHERE node_id = ?
+			AND ? <= start_time AND start_time <= ?
+			GROUP BY start_time
+			ORDER BY start_time ASC
+		)`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
 	if err != nil {
@@ -219,15 +225,17 @@ func (db *StoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, n
 
 	var nodeSpaceUsages []accounting.NodeSpaceUsage
 	for rows.Next() {
+		var id int64
 		var atRestTotal float64
 		var startTime time.Time
 
-		err = rows.Scan(atRestTotal, startTime)
+		err = rows.Scan(&id, &atRestTotal, &startTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		nodeSpaceUsages = append(nodeSpaceUsages, accounting.NodeSpaceUsage{
+			RollupID:    id,
 			NodeID:      nodeID,
 			AtRestTotal: atRestTotal,
 			TimeStamp:   startTime,

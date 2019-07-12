@@ -93,7 +93,7 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	nodeSpaceUsages, err := e.accounting.QueryNodeDailySpaceUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
+	nodeSpaceUsages, err := e.accounting.QueryNodeSpaceUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
@@ -110,6 +110,7 @@ func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorag
 
 	for _, usage := range usages {
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
+			RollupId: usage.RollupID,
 			AtRestTotal: usage.AtRestTotal,
 			TimeStamp:   usage.TimeStamp,
 		})

@@ -1114,11 +1114,11 @@ func (m *lockedStoragenodeAccounting) LastTimestamp(ctx context.Context, timesta
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// QueryNodeDailySpaceUsage returns slice of NodeSpaceUsage for given period
-func (m *lockedStoragenodeAccounting) QueryNodeDailySpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeSpaceUsage, error) {
+// QueryNodeSpaceUsage returns slice of NodeSpaceUsage for given period
+func (m *lockedStoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeSpaceUsage, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.QueryNodeDailySpaceUsage(ctx, nodeID, start, end)
+	return m.db.QueryNodeSpaceUsage(ctx, nodeID, start, end)
 }
 
 // QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID

@@ -16,7 +16,7 @@ type Stats struct {
 	UptimeCheck ReputationStats
 	AuditCheck  ReputationStats
 
-	TimeStamp time.Time
+	UpdatedAt time.Time
 }
 
 // ReputationStats encapsulates storagenode reputation metrics
