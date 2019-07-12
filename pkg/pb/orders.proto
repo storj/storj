@@ -51,6 +51,11 @@ message OrderLimit {
 }
 
 // OrderLimitSigning provides OrderLimit signing serialization
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
 message OrderLimitSigning {
     // unique serial to avoid replay attacks
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
@@ -91,6 +96,11 @@ message Order {
 }
 
 // OrderSigning provides Order signing format
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
 message OrderSigning {
     // serial of the order limit that was signed
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
@@ -114,6 +124,11 @@ message PieceHash {
 }
 
 // PieceHashSigning provides piece hash signing format.
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
 message PieceHashSigning {
     // piece id
     bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];

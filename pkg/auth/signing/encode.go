@@ -15,6 +15,10 @@ import (
 func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// protobuf has problems with serializing types with nullable=false
+	// this uses a different message for signing, such that the rest of the code
+	// doesn't have to deal with pointers for those particular fields.
+
 	signing := pb.OrderLimitSigning{}
 	signing.SerialNumber = limit.SerialNumber
 	signing.SatelliteId = limit.SatelliteId
@@ -46,6 +50,10 @@ func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err 
 func EncodeOrder(ctx context.Context, order *pb.Order) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// protobuf has problems with serializing types with nullable=false
+	// this uses a different message for signing, such that the rest of the code
+	// doesn't have to deal with pointers for those particular fields.
+
 	signing := pb.OrderSigning{}
 	signing.SerialNumber = order.SerialNumber
 	signing.Amount = order.Amount
@@ -56,6 +64,10 @@ func EncodeOrder(ctx context.Context, order *pb.Order) (_ []byte, err error) {
 // EncodePieceHash encodes piece hash into bytes for signing. Removes signature from serialized hash.
 func EncodePieceHash(ctx context.Context, hash *pb.PieceHash) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// protobuf has problems with serializing types with nullable=false
+	// this uses a different message for signing, such that the rest of the code
+	// doesn't have to deal with pointers for those particular fields.
 
 	signing := pb.PieceHashSigning{}
 	signing.PieceId = hash.PieceId

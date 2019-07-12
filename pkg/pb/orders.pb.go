@@ -198,6 +198,11 @@ func (m *OrderLimit) GetSatelliteAddress() *NodeAddress {
 }
 
 // OrderLimitSigning provides OrderLimit signing serialization
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
 type OrderLimitSigning struct {
 	// unique serial to avoid replay attacks
 	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
@@ -351,6 +356,11 @@ func (m *Order) GetUplinkSignature() []byte {
 }
 
 // OrderSigning provides Order signing format
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
 type OrderSigning struct {
 	// serial of the order limit that was signed
 	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
@@ -470,6 +480,11 @@ func (m *PieceHash) GetSignature() []byte {
 }
 
 // PieceHashSigning provides piece hash signing format.
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
 type PieceHashSigning struct {
 	// piece id
 	PieceId PieceID `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
