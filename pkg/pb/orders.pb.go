@@ -197,7 +197,7 @@ func (m *OrderLimit) GetSatelliteAddress() *NodeAddress {
 	return nil
 }
 
-// OrderLimitSigning is provided by satellite to execute specific action on storage node within some limits
+// OrderLimitSigning provides OrderLimit signing serialization
 type OrderLimitSigning struct {
 	// unique serial to avoid replay attacks
 	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
@@ -342,7 +342,7 @@ func (m *Order) GetUplinkSignature() []byte {
 	return nil
 }
 
-// OrderSigning is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber
+// OrderSigning provides Order signing format
 type OrderSigning struct {
 	// serial of the order limit that was signed
 	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
@@ -452,6 +452,7 @@ func (m *PieceHash) GetSignature() []byte {
 	return nil
 }
 
+// PieceHashSigning provides piece hash signing format.
 type PieceHashSigning struct {
 	// piece id
 	PieceId PieceID `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`

@@ -18,7 +18,9 @@ func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err 
 	signing := pb.OrderLimitSigning{}
 	signing.SerialNumber = limit.SerialNumber
 	signing.SatelliteId = limit.SatelliteId
-	signing.DeprecatedUplinkId = limit.DeprecatedUplinkId
+	if limit.DeprecatedUplinkId != nil && !limit.DeprecatedUplinkId.IsZero() {
+		signing.DeprecatedUplinkId = limit.DeprecatedUplinkId
+	}
 	if !limit.UplinkPublicKey.IsZero() {
 		signing.UplinkPublicKey = &limit.UplinkPublicKey
 	}
@@ -43,21 +45,26 @@ func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err 
 // EncodeOrder encodes order into bytes for signing. Removes signature from serialized order.
 func EncodeOrder(ctx context.Context, order *pb.Order) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	signature := order.UplinkSignature
-	order.UplinkSignature = nil
-	out, err := proto.Marshal(order)
-	order.UplinkSignature = signature
-	return out, err
+
+	signing := pb.OrderSigning{}
+	signing.SerialNumber = order.SerialNumber
+	signing.Amount = order.Amount
+
+	return proto.Marshal(&signing)
 }
 
 // EncodePieceHash encodes piece hash into bytes for signing. Removes signature from serialized hash.
 func EncodePieceHash(ctx context.Context, hash *pb.PieceHash) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	signature := hash.Signature
-	hash.Signature = nil
-	out, err := proto.Marshal(hash)
-	hash.Signature = signature
-	return out, err
+
+	signing := pb.PieceHashSigning{}
+	signing.PieceId = hash.PieceId
+	signing.Hash = hash.Hash
+	signing.PieceSize = hash.PieceSize
+	if !hash.Timestamp.IsZero() {
+		signing.Timestamp = &hash.Timestamp
+	}
+	return proto.Marshal(&signing)
 }
 
 // EncodeVoucher encodes voucher into bytes for signing.
