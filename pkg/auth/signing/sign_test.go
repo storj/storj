@@ -5,10 +5,10 @@ package signing_test
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -29,67 +29,42 @@ func TestOrderLimitVerification(t *testing.T) {
 
 	signee := signing.SignerFromFullIdentity(signer)
 
-	hexes := []string{
-		// 385c0467
-		"0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c088bd2a2e90510b0f18a8f034a0c088bd2a2e90510b0f18a8f035247304502201f90141b29d7fda0592431ef5ac5a4a46dcec5f7e0ffeac4bccd4dda3a78d5a0022100c21eab116549c22e50e03d1d3829de6f1fcf933e4eec974ae3c3d94a9504a07c5a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
-		// 385c0467 without satellite address
-		"0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c088bd2a2e90510b0f18a8f034a0c088bd2a2e90510b0f18a8f03524830460221009ebb9e39f650dee0bf5b2eff3520198ead66952ae85f4fc240ebcdeb58c1384a022100df0d69c4fe00a555a041455524f00931ccf7a789513d7d2676dc8c01d46728b15a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
-		// 385c0467 without piece expiration
-		"0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c088bd2a2e90510b0f18a8f034a0c088bd2a2e90510b0f18a8f0352483046022100ab4882fd1f5232267e70c42f36c0572d6188019077530958d4596f3bc585221202210099835ad862cdccf02c94878498c14352c0b7909f79a58d82cc461aed6c39d54b5a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
+	type Hex struct {
+		Unsigned string
+		Signed   string
 	}
-	/*
-		now := ptypes.TimestampNow()
 
-		limit := pb.OrderLimit{
-			SerialNumber: testrand.SerialNumber(),
-			SatelliteId:  signee.ID(),
-			SatelliteAddress: &pb.NodeAddress{
-				Address: "https://satellite.example.com",
-			},
-			UplinkId:        testrand.NodeID(),
-			StorageNodeId:   testrand.NodeID(),
-			PieceId:         testrand.PieceID(),
-			Action:          pb.PieceAction_GET,
-			Limit:           10000,
-			PieceExpiration: now,
-			OrderExpiration: now,
-		}
-		limitSigned, err := signing.SignOrderLimit(ctx, signee, &limit)
-		require.NoError(t, err)
-		limitBytes, err := proto.Marshal(limitSigned)
-		require.NoError(t, err)
-		hexes = append(hexes, hex.EncodeToString(limitBytes))
+	hexes := []Hex{
+		{ // 385c0467
+			Unsigned: "0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c08a1dba2e90510e0a1b3c6014a0c08a1dba2e90510e0a1b3c6015a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
+			Signed:   "0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c08a1dba2e90510e0a1b3c6014a0c08a1dba2e90510e0a1b3c60152473045022100ada5fc332dfbd607216e961bede421e43e2e336acab8eab2244f5e3a696ede720220365e78e738c19fc9d3cb26b061dcf6439ea702cb0ef1408cf7aeb27cabee4cc45a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
+		},
+		{ // 385c0467 without satellite address
+			Unsigned: "0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c08a1dba2e90510e0a1b3c6014a0c08a1dba2e90510e0a1b3c601",
+			Signed:   "0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e3802420c08a1dba2e90510e0a1b3c6014a0c08a1dba2e90510e0a1b3c60152473045022100a2e7849a4cb93e6bbc591949f93a5e97d9b1392a5770667afc634389355e094102200bfa72531afc9359181f7fc5181e387a03dea8234f74a7d7c44ca3aa0c5ab21d",
+		},
+		{ // 385c0467 without piece expiration
+			Unsigned: "0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e38024a0c08a1dba2e90510e0a1b3c6015a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
+			Signed:   "0a1052fdfc072182654f163f5f0f9a621d7212200ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac30001a209566c74d10037c4d7bbb0407d1e2c64981855ad8681d0d86d1e91e001679390022206694d2c422acd208a0072939487f6999eb9d18a44784045d87f3c67cf22746002a2095af5a25367951baa2ff6cd471c483f15fb90badb37c5821b6d95526a41a950430904e38024a0c08a1dba2e90510e0a1b3c6015246304402206656347801dd620f00a86c848a06eb3369dd552b1ff905b0d4424adeb9fdb3c502201332be7725c07d84f87aefda94be83f7b3513eeeb3af7b0953e55276343a8a685a1f121d68747470733a2f2f736174656c6c6974652e6578616d706c652e636f6d",
+		},
+	}
 
-		limitx := limit
-		limitx.SatelliteAddress = nil
-
-		limitSigned, err = signing.SignOrderLimit(ctx, signee, &limit)
+	for _, test := range hexes {
+		unsignedBytes, err := hex.DecodeString(test.Unsigned)
 		require.NoError(t, err)
-		limitBytes, err = proto.Marshal(limitSigned)
-		require.NoError(t, err)
-		hexes = append(hexes, hex.EncodeToString(limitBytes))
-
-		limitx = limit
-		limitx.PieceExpiration = nil
-
-		limitSigned, err = signing.SignOrderLimit(ctx, signee, &limit)
-		require.NoError(t, err)
-		limitBytes, err = proto.Marshal(limitSigned)
-		require.NoError(t, err)
-		hexes = append(hexes, hex.EncodeToString(limitBytes))
-	*/
-	for _, orderLimitHex := range hexes {
-		fmt.Println(orderLimitHex)
-
-		orderLimitBytes, err := hex.DecodeString(orderLimitHex)
+		signedBytes, err := hex.DecodeString(test.Signed)
 		require.NoError(t, err)
 
 		orderLimit := pb.OrderLimit{}
-		err = proto.Unmarshal(orderLimitBytes, &orderLimit)
+		err = proto.Unmarshal(signedBytes, &orderLimit)
 		require.NoError(t, err)
 
 		err = signing.VerifyOrderLimitSignature(ctx, signee, &orderLimit)
+		assert.NoError(t, err)
+
+		encoded, err := signing.EncodeOrderLimit(ctx, &orderLimit)
 		require.NoError(t, err)
+		assert.Equal(t, unsignedBytes, encoded)
 	}
 }
 
@@ -105,32 +80,33 @@ func TestOrderVerification(t *testing.T) {
 
 	signee := signing.SignerFromFullIdentity(signer)
 
-	hexes := []string{
-		`0a1068d2d6c52f5054e2d0836bf84c7174cb10e8071a4730450220531f1caceb78e4bd887ef236cebaf37b3fcc5f7d584078f4d5e1314e7d58506e022100d1b6fe27a49abd373af04ab915178578baa4fcb9629755d7d02cc1d61b529d87`,
+	type Hex struct {
+		Unsigned string
+		Signed   string
 	}
-	/*
-		now := ptypes.TimestampNow()
-		_ = now
-		limit := pb.Order{
-			SerialNumber: testrand.SerialNumber(),
-			Amount:       1000,
-		}
-		limitSigned, err := signing.SignOrder(ctx, signee, &limit)
+
+	hexes := []Hex{
+		{ // commmit 385c0467
+			Unsigned: "0a1068d2d6c52f5054e2d0836bf84c7174cb10e807",
+			Signed:   "0a1068d2d6c52f5054e2d0836bf84c7174cb10e8071a473045022007800e9843f6ac56ae0a136406b8c685c552c7280e45761492ab521e1a27a984022100a535e3d9de1ba7778148186b319bd2857d8e2a7037a75db99b8c62eb18ed7646",
+		},
+	}
+
+	for _, test := range hexes {
+		unsignedBytes, err := hex.DecodeString(test.Unsigned)
 		require.NoError(t, err)
-		limitBytes, err := proto.Marshal(limitSigned)
-		require.NoError(t, err)
-		hexes = append(hexes, hex.EncodeToString(limitBytes))
-	*/
-	for _, orderHex := range hexes {
-		fmt.Println(orderHex)
-		orderBytes, err := hex.DecodeString(orderHex)
+		signedBytes, err := hex.DecodeString(test.Signed)
 		require.NoError(t, err)
 
 		order := pb.Order{}
-		err = proto.Unmarshal(orderBytes, &order)
+		err = proto.Unmarshal(signedBytes, &order)
 		require.NoError(t, err)
 
 		err = signing.VerifyOrderSignature(ctx, signee, &order)
+		assert.NoError(t, err)
+
+		encoded, err := signing.EncodeOrder(ctx, &order)
 		require.NoError(t, err)
+		assert.Equal(t, unsignedBytes, encoded)
 	}
 }
