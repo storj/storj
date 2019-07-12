@@ -32,16 +32,8 @@ type RetainInfo struct {
 	count        int
 }
 
-// PieceTracker allows access to info about the existing pieces that storage nodes need to retain
-type PieceTracker interface {
-	// Add adds the nodeID and pieceID to the tracker
-	Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) error
-	// GetRetainInfos gets all of the RetainInfos
-	GetRetainInfos() map[storj.NodeID]*RetainInfo
-}
-
-// pieceTracker contains info about the existing pieces that storage nodes need to retain
-type pieceTracker struct {
+// PieceTracker contains info about the existing pieces that storage nodes need to retain
+type PieceTracker struct {
 	log                *zap.Logger
 	overlay            overlay.DB
 	filterCreationDate time.Time
@@ -52,7 +44,7 @@ type pieceTracker struct {
 }
 
 // Add adds a pieceID to the relevant node's RetainInfo
-func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
+func (pieceTracker *PieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var filter *bloomfilter.Filter
@@ -82,20 +74,6 @@ func (pieceTracker *pieceTracker) Add(ctx context.Context, nodeID storj.NodeID, 
 }
 
 // GetRetainInfos returns the retain requests on the pieceTracker struct
-func (pieceTracker *pieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
+func (pieceTracker *PieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
 	return pieceTracker.retainInfos
-}
-
-// noOpPieceTracker does nothing when PieceTracker methods are called, because it's not time for the next iteration.
-type noOpPieceTracker struct {
-}
-
-// Add adds nothing when using the noOpPieceTracker
-func (pieceTracker *noOpPieceTracker) Add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
-	return nil
-}
-
-// GetRetainInfos returns nothing when using the noOpPieceTracker
-func (pieceTracker *noOpPieceTracker) GetRetainInfos() map[storj.NodeID]*RetainInfo {
-	return nil
 }

@@ -54,15 +54,15 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 }
 
 // NewPieceTracker instantiates a piece tracker
-func (service *Service) NewPieceTracker() PieceTracker {
+func (service *Service) NewPieceTracker() *PieceTracker {
 	// Creation date of the gc bloom filter - the storage nodes shouldn't delete any piece newer than this.
 	filterCreationDate := time.Now().UTC()
 
 	if !service.config.Active || filterCreationDate.Before(service.lastSendTime.Add(service.config.Interval)) {
-		return &noOpPieceTracker{}
+		return nil
 	}
 
-	return &pieceTracker{
+	return &PieceTracker{
 		log:                service.log.Named("piecetracker"),
 		filterCreationDate: filterCreationDate,
 		initialPieces:      service.config.InitialPieces,
@@ -74,7 +74,7 @@ func (service *Service) NewPieceTracker() PieceTracker {
 }
 
 // Send sends the piece retain requests to all storage nodes
-func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker, cb func()) (err error) {
+func (service *Service) Send(ctx context.Context, pieceTracker *PieceTracker, cb func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.lastSendTime = time.Now().UTC()
@@ -89,7 +89,7 @@ func (service *Service) Send(ctx context.Context, pieceTracker PieceTracker, cb 
 	return nil
 }
 
-func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker PieceTracker, cb func()) (err error) {
+func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker *PieceTracker, cb func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {

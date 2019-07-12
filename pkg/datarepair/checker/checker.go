@@ -59,7 +59,7 @@ type Checker struct {
 	nodestate       *ReliabilityCache
 	metainfo        *metainfo.Service
 	gcService       *gc.Service
-	pieceTracker    gc.PieceTracker
+	pieceTracker    *gc.PieceTracker
 	gcWaitGroup     sync.WaitGroup
 	lastChecked     string
 }
@@ -142,14 +142,15 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 					// reset durability stats for next iteration
 					checker.monStats = durabilityStats{}
 
-					err := checker.gcService.Send(ctx, checker.pieceTracker, func() {
-						checker.gcWaitGroup.Done()
-					})
-					if err != nil {
-						checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
+					if checker.pieceTracker != nil {
+						err := checker.gcService.Send(ctx, checker.pieceTracker, func() {
+							checker.gcWaitGroup.Done()
+						})
+						if err != nil {
+							checker.logger.Sugar().Errorf("error sending from garbage service: %v", err)
+						}
 					}
 					checker.pieceTracker = checker.gcService.NewPieceTracker()
-
 				}
 			}()
 			checker.gcWaitGroup.Add(1)
@@ -204,11 +205,13 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 		return nil
 	}
 
-	for _, piece := range pieces {
-		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		err = checker.pieceTracker.Add(ctx, piece.NodeId, pieceID)
-		if err != nil {
-			checker.logger.Sugar().Debug("error adding (nodeID, pieceID) to pieceTracker (%s, %s)", piece.NodeId, pieceID)
+	if checker.pieceTracker != nil {
+		for _, piece := range pieces {
+			pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+			err = checker.pieceTracker.Add(ctx, piece.NodeId, pieceID)
+			if err != nil {
+				checker.logger.Sugar().Debug("error adding (nodeID, pieceID) to pieceTracker (%s, %s)", piece.NodeId, pieceID)
+			}
 		}
 	}
 
