@@ -10,9 +10,9 @@
                     <p class="save-api-popup__content__name">This API key allow users or applications to interact with the project.</p>
                     <div class="save-api-popup__content__copy-area">
                         <div class="save-api-popup__content__copy-area__key" :class="apiKeyContainerClass">
-                            <p class="save-api-popup__content__copy-area__save-api">{{apiKey}}</p>
+                            <p class="save-api-popup__content__copy-area__save-api">{{secret}}</p>
                         </div>
-                        <Button class="save-api-popup__content__copy-area__save-btn" v-clipboard="apiKey" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
+                        <Button class="save-api-popup__content__copy-area__save-btn" v-clipboard="secret" label="Copy" width="140px" height="48px" :onPress="onCopyClick" />
                     </div>
                 </div>
                 <div class="save-api-popup__close-cross-container">
@@ -35,25 +35,22 @@
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Vue} from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import VueClipboards from 'vue-clipboards';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+
+    Vue.use(VueClipboards);
 
     @Component({
         components: {
             Button,
-            HeaderedInput
         }
     })
-
-    export default class AddApiKeyPopup extends Vue {
-        @Prop()
-        private onClose() {};
-
-        @Prop()
-        private apiKey;
+    export default class CopyApiKeyPopup extends Vue {
+        @Prop({default: ''})
+        private secret: string;
 
         public onCloseClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
@@ -66,11 +63,11 @@
         public get apiKeyContainerClass(): string {
             let apiKeyClassName = '';
 
-            if (this.apiKey.length > 100) {
+            if (this.secret.length > 100) {
                 apiKeyClassName = 'large';
             }
 
-            if (this.apiKey.length > 300) {
+            if (this.secret.length > 300) {
                 apiKeyClassName = 'extra-large';
             }
 

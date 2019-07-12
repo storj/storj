@@ -8,7 +8,7 @@
         </div>
         <div v-if="!isEmpty" class="api-keys-container">
             <div class="api-keys-container__content">
-                <div v-for="apiKey in apiKeys" v-on:click="toggleSelection(apiKey.id)">
+                <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
                     <ApiKeysItem
                         v-bind:class="[apiKey.isSelected ? 'selected': null]"
                         :apiKey="apiKey" />
@@ -23,7 +23,7 @@
             additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
             buttonLabel="Create an API Key"
-            isButtonShown />
+            isButtonShown="true" />
         <AddAPIKeyPopup v-if="isPopupShown"/>
     </div>
 </template>
@@ -37,6 +37,7 @@
     import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
     import Footer from '@/components/apiKeys/footerArea/Footer.vue';
     import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { ApiKey } from '../../types/apiKeys';
 
     @Component({
         components: {
@@ -44,10 +45,9 @@
             HeaderArea,
             ApiKeysItem,
             AddAPIKeyPopup,
-            Footer
+            Footer,
         },
     })
-
     export default class ApiKeysArea extends Vue {
         public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
@@ -63,7 +63,7 @@
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
         }
 
-        public get apiKeys(): Array<string> {
+        public get apiKeyList(): ApiKey[] {
             return this.$store.state.apiKeysModule.apiKeys;
         }
 
@@ -98,7 +98,7 @@
         max-height: 84vh;
         height: 84vh;
         position: relative;
- 
+
         &__content {
             display: grid;
             grid-template-columns: 190px 190px 190px 190px 190px 190px 190px;

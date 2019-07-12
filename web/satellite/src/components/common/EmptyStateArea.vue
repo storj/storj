@@ -27,7 +27,6 @@
             Button
         }
     })
-
     export default class EmptyStateProjectArea extends Vue {
         @Prop({default: ''})
         private readonly mainTitle: string;

@@ -1,16 +1,18 @@
 // APIKeyInfo describing api key model in the database
 export class ApiKey {
     public id: string;
-    public projectId: string;
+    public secret: string;
     public name: string;
     public createdAt: string;
+    public isSelected: boolean = false;
 
-    constructor()
-    constructor(id?: string, projectId?: string, name?: string, createdAt?: string) {
+    constructor(id: string, name: string, createdAt: string, secret: string) {
         this.id = id || '';
-        this.projectId = projectId || '';
         this.name = name || '';
         this.createdAt = createdAt || '';
+        this.secret = secret || '';
+
+        this.isSelected = false;
     }
 
     public formattedName(): string {

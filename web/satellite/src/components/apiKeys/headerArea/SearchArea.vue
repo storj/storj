@@ -20,7 +20,6 @@
     import { Component, Vue } from 'vue-property-decorator';
 
     @Component
-
     export default class SearchArea extends Vue {
         private searchQuery: string = '';
 

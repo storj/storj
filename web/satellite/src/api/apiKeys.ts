@@ -34,17 +34,17 @@ export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<A
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.project.apiKeys;
+        result.data = getApiKeysList(response.data.project.apiKeys);
     }
 
     return result;
 }
 
-export async function createAPIKey(projectID: string, name: string) {
-    let result: RequestResponse<any> = {
+export async function createAPIKey(projectID: string, name: string): Promise<RequestResponse<ApiKey>> {
+    let result: RequestResponse<ApiKey> = {
         errorMessage: '',
         isSuccess: false,
-        data: null
+        data: new ApiKey('', '', '', ''),
     };
 
     let response: any = await apollo.mutate({
@@ -71,16 +71,16 @@ export async function createAPIKey(projectID: string, name: string) {
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = {
-            key: response.data.createAPIKey.key,
-            keyInfo: response.data.createAPIKey.keyInfo
-        };
+        let key: any = response.data.createAPIKey.keyInfo;
+        let secret: string = response.data.createAPIKey.key;
+
+        result.data = new ApiKey(key.id, key.name, key.createdAt, secret);
     }
 
     return result;
 }
 
-export async function deleteAPIKeys(ids: string[]) {
+export async function deleteAPIKeys(ids: string[]): Promise<RequestResponse<null>> {
     let result: RequestResponse<any> = {
         errorMessage: '',
         isSuccess: false,
@@ -117,4 +117,12 @@ function prepareIdList(ids: string[]): string {
     });
 
     return idString;
+}
+
+function getApiKeysList(apiKeys: Array<any>): ApiKey[] {
+    if (!apiKeys) {
+        return [];
+    }
+
+    return apiKeys.map(key => new ApiKey(key.id, key.name, key.createdAt, ''));
 }

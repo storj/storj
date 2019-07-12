@@ -18,7 +18,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import SearchArea from './SearchArea.vue';
-    import Button from '@/components/common/Button.vue';
+    import Button from '../../common/Button.vue';
     import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -26,10 +26,8 @@
         components: {
             SearchArea,
             Button,
-            SortApiKeysHeader,
         }
     })
-
     export default class HeaderArea extends Vue {
         public togglePopup(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
