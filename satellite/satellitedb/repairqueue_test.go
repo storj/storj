@@ -28,7 +28,8 @@ func TestRepairQueue(t *testing.T) {
 		for i := 0; i < 100; i++ {
 			path := "/path/" + string(i)
 			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
-			repairQueue.Insert(ctx, injuredSeg)
+			err := repairQueue.Insert(ctx, injuredSeg)
+			require.NoError(t, err)
 			pathsMap[path] = 0
 		}
 
