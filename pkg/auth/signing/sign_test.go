@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 )
 
 func TestOrderLimitVerification(t *testing.T) {
@@ -111,6 +112,49 @@ func TestOrderVerification(t *testing.T) {
 		require.NoError(t, err)
 
 		err = signing.VerifyOrderSignature(ctx, signee, &order)
+		assert.NoError(t, err)
+
+		encoded, err := signing.EncodeOrder(ctx, &order)
+		require.NoError(t, err)
+		assert.Equal(t, unsignedBytes, encoded)
+	}
+}
+func TestUplinkOrderVerification(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	publicKeyBytes, _ := hex.DecodeString("01eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+	privateKeyBytes, _ := hex.DecodeString("afefcccadb3d17b1f241b7c83f88c088b54c01b5a25409c13cbeca6bfa22b06901eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+
+	publicKey, err := storj.PiecePublicKeyFromBytes(publicKeyBytes)
+	require.NoError(t, err)
+	privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
+	require.NoError(t, err)
+	_ = privateKey
+
+	type Hex struct {
+		Unsigned string
+		Signed   string
+	}
+
+	hexes := []Hex{
+		{ // commmit 385c0467
+			Unsigned: "0a1052fdfc072182654f163f5f0f9a621d7210e807",
+			Signed:   "0a1052fdfc072182654f163f5f0f9a621d7210e8071a4017871739c3d458737bf24bf214a7387552b18ad75afc3636974cb0d768901a85446954d59a291dde7fde0c648a242863891f543121d4633778c5b6057e62e607",
+		},
+	}
+
+	for _, test := range hexes {
+		unsignedBytes, err := hex.DecodeString(test.Unsigned)
+		require.NoError(t, err)
+		signedBytes, err := hex.DecodeString(test.Signed)
+		require.NoError(t, err)
+
+		order := pb.Order{}
+		err = proto.Unmarshal(signedBytes, &order)
+		require.NoError(t, err)
+
+		err = signing.VerifyUplinkOrderSignature(ctx, publicKey, &order)
 		assert.NoError(t, err)
 
 		encoded, err := signing.EncodeOrder(ctx, &order)
