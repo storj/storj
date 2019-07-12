@@ -262,39 +262,6 @@ func (server *Server) getBandwidthChartData(ctx context.Context, satelliteID *st
 	return server.service.GetDailyTotalBandwidthUsed(ctx, from, to)
 }
 
-func (server *Server) getDiskSpaceChartData(ctx context.Context, satelliteID *storj.NodeID, satellitesID storj.NodeIDList) (result []nodestats.SpaceUsageStamp, err error) {
-	from, to := getMonthRange()
-
-	if satelliteID != nil {
-		return server.service.GetDailyStorageUsedForSatellite(ctx, *satelliteID, from, to)
-	}
-
-	if satellitesID == nil || satellitesID.Len() == 0 {
-		return nil, nil
-	}
-
-	for _, id := range satellitesID {
-		usage, err := server.service.GetDailyStorageUsedForSatellite(ctx, id, from, to)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(result) == 0 {
-			result = usage
-		} else {
-			for i := 0; i < len(result); i++ {
-				for j := 0; j < len(usage); j++ {
-					if result[i].TimeStamp == usage[j].TimeStamp {
-						result[i].AtRestTotal += usage[j].AtRestTotal
-					}
-				}
-			}
-		}
-	}
-
-	return result, nil
-}
-
 func (server *Server) getStorage(ctx context.Context, satelliteID *storj.NodeID) (_ *console.DiskSpaceInfo, err error) {
 	if satelliteID != nil {
 		return server.service.GetUsedStorageBySatellite(ctx, *satelliteID)
