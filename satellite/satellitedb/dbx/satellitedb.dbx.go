@@ -386,9 +386,9 @@ CREATE TABLE offers (
 	description text NOT NULL,
 	award_credit_in_cents integer NOT NULL,
 	invitee_credit_in_cents integer NOT NULL,
-	award_credit_duration_days integer NOT NULL,
-	invitee_credit_duration_days integer NOT NULL,
-	redeemable_cap integer NOT NULL,
+	award_credit_duration_days integer,
+	invitee_credit_duration_days integer,
+	redeemable_cap integer,
 	expires_at timestamp with time zone NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	status integer NOT NULL,
@@ -726,9 +726,9 @@ CREATE TABLE offers (
 	description TEXT NOT NULL,
 	award_credit_in_cents INTEGER NOT NULL,
 	invitee_credit_in_cents INTEGER NOT NULL,
-	award_credit_duration_days INTEGER NOT NULL,
-	invitee_credit_duration_days INTEGER NOT NULL,
-	redeemable_cap INTEGER NOT NULL,
+	award_credit_duration_days INTEGER,
+	invitee_credit_duration_days INTEGER,
+	redeemable_cap INTEGER,
 	expires_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,
@@ -2722,9 +2722,9 @@ type Offer struct {
 	Description               string
 	AwardCreditInCents        int
 	InviteeCreditInCents      int
-	AwardCreditDurationDays   int
-	InviteeCreditDurationDays int
-	RedeemableCap             int
+	AwardCreditDurationDays   *int
+	InviteeCreditDurationDays *int
+	RedeemableCap             *int
 	ExpiresAt                 time.Time
 	CreatedAt                 time.Time
 	Status                    int
@@ -2732,6 +2732,12 @@ type Offer struct {
 }
 
 func (Offer) _Table() string { return "offers" }
+
+type Offer_Create_Fields struct {
+	AwardCreditDurationDays   Offer_AwardCreditDurationDays_Field
+	InviteeCreditDurationDays Offer_InviteeCreditDurationDays_Field
+	RedeemableCap             Offer_RedeemableCap_Field
+}
 
 type Offer_Update_Fields struct {
 	Name                      Offer_Name_Field
@@ -2844,11 +2850,26 @@ func (Offer_InviteeCreditInCents_Field) _Column() string { return "invitee_credi
 type Offer_AwardCreditDurationDays_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value *int
 }
 
 func Offer_AwardCreditDurationDays(v int) Offer_AwardCreditDurationDays_Field {
-	return Offer_AwardCreditDurationDays_Field{_set: true, _value: v}
+	return Offer_AwardCreditDurationDays_Field{_set: true, _value: &v}
+}
+
+func Offer_AwardCreditDurationDays_Raw(v *int) Offer_AwardCreditDurationDays_Field {
+	if v == nil {
+		return Offer_AwardCreditDurationDays_Null()
+	}
+	return Offer_AwardCreditDurationDays(*v)
+}
+
+func Offer_AwardCreditDurationDays_Null() Offer_AwardCreditDurationDays_Field {
+	return Offer_AwardCreditDurationDays_Field{_set: true, _null: true}
+}
+
+func (f Offer_AwardCreditDurationDays_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
 }
 
 func (f Offer_AwardCreditDurationDays_Field) value() interface{} {
@@ -2863,11 +2884,26 @@ func (Offer_AwardCreditDurationDays_Field) _Column() string { return "award_cred
 type Offer_InviteeCreditDurationDays_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value *int
 }
 
 func Offer_InviteeCreditDurationDays(v int) Offer_InviteeCreditDurationDays_Field {
-	return Offer_InviteeCreditDurationDays_Field{_set: true, _value: v}
+	return Offer_InviteeCreditDurationDays_Field{_set: true, _value: &v}
+}
+
+func Offer_InviteeCreditDurationDays_Raw(v *int) Offer_InviteeCreditDurationDays_Field {
+	if v == nil {
+		return Offer_InviteeCreditDurationDays_Null()
+	}
+	return Offer_InviteeCreditDurationDays(*v)
+}
+
+func Offer_InviteeCreditDurationDays_Null() Offer_InviteeCreditDurationDays_Field {
+	return Offer_InviteeCreditDurationDays_Field{_set: true, _null: true}
+}
+
+func (f Offer_InviteeCreditDurationDays_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
 }
 
 func (f Offer_InviteeCreditDurationDays_Field) value() interface{} {
@@ -2882,12 +2918,25 @@ func (Offer_InviteeCreditDurationDays_Field) _Column() string { return "invitee_
 type Offer_RedeemableCap_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value *int
 }
 
 func Offer_RedeemableCap(v int) Offer_RedeemableCap_Field {
-	return Offer_RedeemableCap_Field{_set: true, _value: v}
+	return Offer_RedeemableCap_Field{_set: true, _value: &v}
 }
+
+func Offer_RedeemableCap_Raw(v *int) Offer_RedeemableCap_Field {
+	if v == nil {
+		return Offer_RedeemableCap_Null()
+	}
+	return Offer_RedeemableCap(*v)
+}
+
+func Offer_RedeemableCap_Null() Offer_RedeemableCap_Field {
+	return Offer_RedeemableCap_Field{_set: true, _null: true}
+}
+
+func (f Offer_RedeemableCap_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Offer_RedeemableCap_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5856,12 +5905,10 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	offer_description Offer_Description_Field,
 	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
 	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
-	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
-	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
-	offer_redeemable_cap Offer_RedeemableCap_Field,
 	offer_expires_at Offer_ExpiresAt_Field,
 	offer_status Offer_Status_Field,
-	offer_type Offer_Type_Field) (
+	offer_type Offer_Type_Field,
+	optional Offer_Create_Fields) (
 	offer *Offer, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -5869,9 +5916,9 @@ func (obj *postgresImpl) Create_Offer(ctx context.Context,
 	__description_val := offer_description.value()
 	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
 	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
-	__award_credit_duration_days_val := offer_award_credit_duration_days.value()
-	__invitee_credit_duration_days_val := offer_invitee_credit_duration_days.value()
-	__redeemable_cap_val := offer_redeemable_cap.value()
+	__award_credit_duration_days_val := optional.AwardCreditDurationDays.value()
+	__invitee_credit_duration_days_val := optional.InviteeCreditDurationDays.value()
+	__redeemable_cap_val := optional.RedeemableCap.value()
 	__expires_at_val := offer_expires_at.value()
 	__created_at_val := __now
 	__status_val := offer_status.value()
@@ -7305,10 +7352,10 @@ func (obj *postgresImpl) Get_Offer_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) All_Offer(ctx context.Context) (
+func (obj *postgresImpl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers")
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -9546,12 +9593,10 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 	offer_description Offer_Description_Field,
 	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
 	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
-	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
-	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
-	offer_redeemable_cap Offer_RedeemableCap_Field,
 	offer_expires_at Offer_ExpiresAt_Field,
 	offer_status Offer_Status_Field,
-	offer_type Offer_Type_Field) (
+	offer_type Offer_Type_Field,
+	optional Offer_Create_Fields) (
 	offer *Offer, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
@@ -9559,9 +9604,9 @@ func (obj *sqlite3Impl) Create_Offer(ctx context.Context,
 	__description_val := offer_description.value()
 	__award_credit_in_cents_val := offer_award_credit_in_cents.value()
 	__invitee_credit_in_cents_val := offer_invitee_credit_in_cents.value()
-	__award_credit_duration_days_val := offer_award_credit_duration_days.value()
-	__invitee_credit_duration_days_val := offer_invitee_credit_duration_days.value()
-	__redeemable_cap_val := offer_redeemable_cap.value()
+	__award_credit_duration_days_val := optional.AwardCreditDurationDays.value()
+	__invitee_credit_duration_days_val := optional.InviteeCreditDurationDays.value()
+	__redeemable_cap_val := optional.RedeemableCap.value()
 	__expires_at_val := offer_expires_at.value()
 	__created_at_val := __now
 	__status_val := offer_status.value()
@@ -11004,10 +11049,10 @@ func (obj *sqlite3Impl) Get_Offer_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) All_Offer(ctx context.Context) (
+func (obj *sqlite3Impl) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers")
+	var __embed_stmt = __sqlbundle_Literal("SELECT offers.id, offers.name, offers.description, offers.award_credit_in_cents, offers.invitee_credit_in_cents, offers.award_credit_duration_days, offers.invitee_credit_duration_days, offers.redeemable_cap, offers.expires_at, offers.created_at, offers.status, offers.type FROM offers ORDER BY offers.id")
 
 	var __values []interface{}
 	__values = append(__values)
@@ -13184,13 +13229,13 @@ func (rx *Rx) All_Node_Id(ctx context.Context) (
 	return tx.All_Node_Id(ctx)
 }
 
-func (rx *Rx) All_Offer(ctx context.Context) (
+func (rx *Rx) All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 	rows []*Offer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.All_Offer(ctx)
+	return tx.All_Offer_OrderBy_Asc_Id(ctx)
 }
 
 func (rx *Rx) All_Project(ctx context.Context) (
@@ -13491,18 +13536,16 @@ func (rx *Rx) Create_Offer(ctx context.Context,
 	offer_description Offer_Description_Field,
 	offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
 	offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
-	offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
-	offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
-	offer_redeemable_cap Offer_RedeemableCap_Field,
 	offer_expires_at Offer_ExpiresAt_Field,
 	offer_status Offer_Status_Field,
-	offer_type Offer_Type_Field) (
+	offer_type Offer_Type_Field,
+	optional Offer_Create_Fields) (
 	offer *Offer, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Offer(ctx, offer_name, offer_description, offer_award_credit_in_cents, offer_invitee_credit_in_cents, offer_award_credit_duration_days, offer_invitee_credit_duration_days, offer_redeemable_cap, offer_expires_at, offer_status, offer_type)
+	return tx.Create_Offer(ctx, offer_name, offer_description, offer_award_credit_in_cents, offer_invitee_credit_in_cents, offer_expires_at, offer_status, offer_type, optional)
 
 }
 
@@ -14370,7 +14413,7 @@ type Methods interface {
 	All_Node_Id(ctx context.Context) (
 		rows []*Id_Row, err error)
 
-	All_Offer(ctx context.Context) (
+	All_Offer_OrderBy_Asc_Id(ctx context.Context) (
 		rows []*Offer, err error)
 
 	All_Project(ctx context.Context) (
@@ -14536,12 +14579,10 @@ type Methods interface {
 		offer_description Offer_Description_Field,
 		offer_award_credit_in_cents Offer_AwardCreditInCents_Field,
 		offer_invitee_credit_in_cents Offer_InviteeCreditInCents_Field,
-		offer_award_credit_duration_days Offer_AwardCreditDurationDays_Field,
-		offer_invitee_credit_duration_days Offer_InviteeCreditDurationDays_Field,
-		offer_redeemable_cap Offer_RedeemableCap_Field,
 		offer_expires_at Offer_ExpiresAt_Field,
 		offer_status Offer_Status_Field,
-		offer_type Offer_Type_Field) (
+		offer_type Offer_Type_Field,
+		optional Offer_Create_Fields) (
 		offer *Offer, err error)
 
 	Create_PendingAudits(ctx context.Context,
