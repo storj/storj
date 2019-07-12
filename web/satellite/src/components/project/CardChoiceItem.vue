@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template>
+<template functional>
     <div class="chosen-card-container">
         <div v-if="isChosen">
             <svg class="chosen-card-container__mark" width="14" height="13" viewBox="0 0 14 13" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -34,37 +34,28 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component({
-        props: {
-            isChosen: {
-                type: Boolean,
-                default: false
-            },
-            lastDigits: {
-                type: String,
-                default: '0000'
-            },
-            fullName: {
-                type: String,
-                default: 'Shawn Wilkinson'
-            },
-            expireLabel: {
-                type: String,
-                default: 'Expires:'
-            },
-            expireDate: {
-                type: String,
-                default: '12/2020'
-            },
-            logoPath: {
-                type: String,
-            }
-        },
-    })
+    @Component
+    export default class CardChoiceItem extends Vue {
+        @Prop({default: false})
+        private isChosen: boolean;
 
-    export default class CardChoiceItem extends Vue {}
+        @Prop({default: '0000'})
+        private lastDigits: string;
+
+        @Prop({default: 'Shawn Wilkinson'})
+        private fullName: string;
+
+        @Prop({default: 'Expires'})
+        private expireLabel: string;
+
+        @Prop({default: '12/2020'})
+        private expireDate: string;
+
+        @Prop()
+        private logoPath: string;
+    }
 </script>
 
 <style scoped lang="scss">
