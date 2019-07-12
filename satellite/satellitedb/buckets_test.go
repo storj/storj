@@ -63,7 +63,6 @@ func TestUsers(t *testing.T) {
 			Name:        "John Doe",
 			Description: "some description",
 			UsageLimit:  int64(1000),
-			PartnerID:   testrand.UUID(),
 			CreatedAt:   time.Now(),
 		})
 		require.NoError(t, err)
