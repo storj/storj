@@ -138,7 +138,7 @@ func TestUplinkOrderVerification(t *testing.T) {
 	}
 
 	hexes := []Hex{
-		{ // commmit 385c0467
+		{
 			Unsigned: "0a1052fdfc072182654f163f5f0f9a621d7210e807",
 			Signed:   "0a1052fdfc072182654f163f5f0f9a621d7210e8071a4017871739c3d458737bf24bf214a7387552b18ad75afc3636974cb0d768901a85446954d59a291dde7fde0c648a242863891f543121d4633778c5b6057e62e607",
 		},
@@ -158,6 +158,50 @@ func TestUplinkOrderVerification(t *testing.T) {
 		assert.NoError(t, err)
 
 		encoded, err := signing.EncodeOrder(ctx, &order)
+		require.NoError(t, err)
+		assert.Equal(t, unsignedBytes, encoded)
+	}
+}
+
+func TestPieceHashVerification(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	publicKeyBytes, _ := hex.DecodeString("01eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+	privateKeyBytes, _ := hex.DecodeString("afefcccadb3d17b1f241b7c83f88c088b54c01b5a25409c13cbeca6bfa22b06901eaebcb418cd629d4c01f365f33006c9de3ce70cf04da76c39cdc993f48fe53")
+
+	publicKey, err := storj.PiecePublicKeyFromBytes(publicKeyBytes)
+	require.NoError(t, err)
+	privateKey, err := storj.PiecePrivateKeyFromBytes(privateKeyBytes)
+	require.NoError(t, err)
+	_ = privateKey
+
+	type Hex struct {
+		Unsigned string
+		Signed   string
+	}
+
+	hexes := []Hex{
+		{
+			Unsigned: "0a2052fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649122081855ad8681d0d86d1e91e00167939cb6694d2c422acd208a0072939487f699920e8072a0b08c4f3a2e905108097f139",
+			Signed:   "0a2052fdfc072182654f163f5f0f9a621d729566c74d10037c4d7bbb0407d1e2c649122081855ad8681d0d86d1e91e00167939cb6694d2c422acd208a0072939487f69991a403e6fb56fe6ecb253c2358dde3d4e6975e760a75401d809292e4a1d8d1e8bb4677e3e4b5f97443416c346206d6664113c34c7f39697c0c4c6c6a7df70ce334b0e20e8072a0b08c4f3a2e905108097f139",
+		},
+	}
+
+	for _, test := range hexes {
+		unsignedBytes, err := hex.DecodeString(test.Unsigned)
+		require.NoError(t, err)
+		signedBytes, err := hex.DecodeString(test.Signed)
+		require.NoError(t, err)
+
+		hash := pb.PieceHash{}
+		err = proto.Unmarshal(signedBytes, &hash)
+		require.NoError(t, err)
+
+		err = signing.VerifyUplinkPieceHashSignature(ctx, publicKey, &hash)
+		assert.NoError(t, err)
+
+		encoded, err := signing.EncodePieceHash(ctx, &hash)
 		require.NoError(t, err)
 		assert.Equal(t, unsignedBytes, encoded)
 	}
