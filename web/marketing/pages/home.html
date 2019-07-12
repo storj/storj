@@ -3,17 +3,23 @@ See LICENSE for copying information. -->
 
 {{define "main"}}
 <div class="container">
-    <div class="row mt-4 mb-4 d-flex justify-content-between">
+    <div class="row mt-4 mb-4 d-flex justify-content-between pr-4 modal-btn">
         <h3 class="mt-4">Referral Credit Offers</h3>
         <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#referral-offers-modal">+ Create Referral Credit</button>
     </div>
     {{template "referralOffers" .}}
     {{template "referralOffersModal" .}}
-    <div class="row mt-4 mb-4 d-flex justify-content-between">
+    <div class="row mt-4 mb-4 d-flex justify-content-between pr-4 modal-btn">
         <h3 class="mt-4">Free Credit Offers</h3>
         <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#free-offers-modal">+ Create Free Credit</button>
     </div>
     {{template "freeOffers" .}}
     {{template "freeOffersModal" .}}
+    <div class="row mt-4 mb-4 d-flex justify-content-between pr-4 modal-btn">
+        <h3 class="mt-4">Partner Offers</h3>
+        <button type="button" class="btn btn-primary mt-4" data-toggle="modal" data-target="#partner-offers-modal">+ Create Partner Offer</button>
+    </div>
+    {{template "partnerOffers" .}}
+    {{template "partnerOffersModal" .}}
 </div>
 {{end}}
