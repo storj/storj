@@ -42,7 +42,7 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-				Status:                    rewards.Default,
+				Status:                    rewards.Active,
 				Type:                      rewards.FreeCredit,
 			},
 		}
@@ -59,18 +59,12 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
-			update := &rewards.UpdateOffer{
-				ID:        new.ID,
-				Status:    rewards.Done,
-				ExpiresAt: time.Now(),
-			}
-
-			err = planet.Satellites[0].DB.Rewards().Finish(ctx, update.ID)
+			err = planet.Satellites[0].DB.Rewards().Finish(ctx, all[i].ID)
 			require.NoError(t, err)
 
-			current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
+			updated, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
 			require.NoError(t, err)
-			require.Equal(t, rewards.Done, current[i].Status)
+			require.Equal(t, rewards.Done, updated[i].Status)
 		}
 
 		// create with expired offer
