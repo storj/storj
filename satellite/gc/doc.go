@@ -4,12 +4,21 @@
 /*
 Package gc contains the functions needed to run garbage collection.
 
-The Service implementation in satellite/gc/service.go allows the satellite to send
-retain requests to storage nodes. Piece retain requests contain bloom filter, that
-contain possibly existing pieces. The storage node will check if it has any pieces
-that are not in the retain request, and delete those "garbage" pieces.
+The data repair checker uses the gc.Service to periodically account for all
+existing pieces on storage nodes and create "retain requests" which contain
+a bloom filter of all pieces that possibly exist on a storage node.
+The storage node will receive that request, and delete the "garbage" pieces
+that are not in the bloom filter.
 
-The piece tracker implementation in satellite/gc/piecetracker.go accumulates
-bloom filters.
+At the end of a loop, the checker will use gc.Service.Send to send out
+retain requests to all storage nodes.
+
+The piece tracker accumulates all of the bloom filters for the storage nodes
+by saving them in a map of RetainInfos which are used to make RetainRequests.
+
+When it's not time for a garbage collection run, piece tracker will be set to nil
+and no RetainInfos will be saved.
+
+See storj/docs/design/garbage-collection.md for more info.
 */
 package gc
