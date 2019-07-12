@@ -174,11 +174,6 @@ read all (
 	select node.id
 )
 
-read count (
-    select node
-    where node.disqualified = null
-)
-
 read limitoffset (
 	select node
 	where  node.id >= ?

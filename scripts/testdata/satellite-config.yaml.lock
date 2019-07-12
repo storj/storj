@@ -65,13 +65,13 @@ defaults: "release"
 # discovery.discovery-interval: 1s
 
 # the amount of nodes refreshed in parallel
-# discovery.refresh-count: 8
+# discovery.refresh-concurrency: 8
 
 # the interval at which the cache refreshes itself in seconds
 # discovery.refresh-interval: 1s
 
 # the amount of nodes read from the overlay cache in a single pagination call
-# discovery.refresh-limit: 2000
+# discovery.refresh-limit: 100
 
 # help for setup
 # help: false

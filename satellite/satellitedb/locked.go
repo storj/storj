@@ -879,14 +879,6 @@ func (m *lockedOverlayCache) KnownUnreliableOrOffline(ctx context.Context, a1 *o
 }
 
 // Paginate will page through the database nodes
-func (m *lockedOverlayCache) CountQualified(ctx context.Context) (int64, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.CountQualified(ctx)
-}
-
-
-// Paginate will page through the database nodes
 func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit int) ([]*overlay.NodeDossier, bool, error) {
 	m.Lock()
 	defer m.Unlock()

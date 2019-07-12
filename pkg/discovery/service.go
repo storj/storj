@@ -28,10 +28,10 @@ var (
 
 // Config loads on the configuration values for the cache
 type Config struct {
-	RefreshInterval   time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
-	DiscoveryInterval time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
-	RefreshLimit      int           `help:"the amount of nodes read from the overlay cache in a single pagination call" default:"2000"`
-	RefreshCount      int           `help:"the amount of nodes refreshed in parallel" default:"8"`
+	RefreshInterval    time.Duration `help:"the interval at which the cache refreshes itself in seconds" default:"1s"`
+	DiscoveryInterval  time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
+	RefreshLimit       int           `help:"the amount of nodes read from the overlay cache in a single pagination call" default:"100"`
+	RefreshConcurrency int           `help:"the amount of nodes refreshed in parallel" default:"8"`
 }
 
 // Discovery struct loads on cache, kad
@@ -40,8 +40,8 @@ type Discovery struct {
 	cache *overlay.Cache
 	kad   *kademlia.Kademlia
 
-	refreshLimit int
-	refreshCount int
+	refreshLimit       int
+	refreshConcurrency int
 
 	Refresh   sync2.Cycle
 	Discovery sync2.Cycle
@@ -54,8 +54,8 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 		cache: ol,
 		kad:   kad,
 
-		refreshLimit: config.RefreshLimit,
-		refreshCount: config.RefreshCount,
+		refreshLimit:       config.RefreshLimit,
+		refreshConcurrency: config.RefreshConcurrency,
 	}
 
 	discovery.Refresh.SetInterval(config.RefreshInterval)
@@ -97,23 +97,12 @@ func (discovery *Discovery) Run(ctx context.Context) (err error) {
 func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	q, err := discovery.cache.CountQualified(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	pageCount := int(q)
-
-	if pageCount > discovery.refreshLimit {
-		pageCount = discovery.refreshLimit
-	}
-
-	limiter := sync2.NewLimiter(discovery.refreshCount)
+	limiter := sync2.NewLimiter(discovery.refreshConcurrency)
 
 	var offset int64
 
 	for {
-		list, more, err := discovery.cache.PaginateQualified(ctx, offset, pageCount)
+		list, more, err := discovery.cache.PaginateQualified(ctx, offset, discovery.refreshLimit)
 		if err != nil {
 			return Error.Wrap(err)
 		}

@@ -57,8 +57,6 @@ type DB interface {
 	Paginate(ctx context.Context, offset int64, limit int) ([]*NodeDossier, bool, error)
 	// PaginateQualified will page through the qualified nodes
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
-	// CountQualified will return number of qualified nodes
-	CountQualified(ctx context.Context) (qualified int64, err error)
 	// IsVetted returns whether or not the node reaches reputable thresholds
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
@@ -174,12 +172,6 @@ func (cache *Cache) Paginate(ctx context.Context, offset int64, limit int) (_ []
 func (cache *Cache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return cache.db.PaginateQualified(ctx, offset, limit)
-}
-
-// CountQualified will return number of qualified nodes
-func (cache *Cache) CountQualified(ctx context.Context) (qualified int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return cache.db.CountQualified(ctx)
 }
 
 // Get looks up the provided nodeID from the overlay cache

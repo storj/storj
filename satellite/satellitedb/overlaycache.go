@@ -597,13 +597,6 @@ func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, 
 	return infos, more, nil
 }
 
-// CountQualified will return number of qualified nodes
-func (cache *overlaycache) CountQualified(ctx context.Context) (qualified int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return cache.db.Count_Node_By_Disqualified_Is_Null(ctx)
-}
-
 // Update updates node address
 func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, defaults overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)

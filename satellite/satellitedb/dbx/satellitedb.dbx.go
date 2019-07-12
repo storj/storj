@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -6230,26 +6229,6 @@ func (obj *postgresImpl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *postgresImpl) Count_Node_By_Disqualified_Is_Null(ctx context.Context) (
-	count int64, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM nodes WHERE nodes.disqualified is NULL")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *postgresImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
 	node_id_greater_or_equal Node_Id_Field,
 	limit int, offset int64) (
@@ -9954,26 +9933,6 @@ func (obj *sqlite3Impl) All_Node_Id(ctx context.Context) (
 
 }
 
-func (obj *sqlite3Impl) Count_Node_By_Disqualified_Is_Null(ctx context.Context) (
-	count int64, err error) {
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM nodes WHERE nodes.disqualified is NULL")
-
-	var __values []interface{}
-	__values = append(__values)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&count)
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	return count, nil
-
-}
-
 func (obj *sqlite3Impl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
 	node_id_greater_or_equal Node_Id_Field,
 	limit int, offset int64) (
@@ -13383,15 +13342,6 @@ func (rx *Rx) All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCe
 	return tx.All_UserCredit_By_UserId_And_ExpiresAt_Greater_And_CreditsUsedInCents_Less_CreditsEarnedInCents_OrderBy_Asc_ExpiresAt(ctx, user_credit_user_id, user_credit_expires_at_greater)
 }
 
-func (rx *Rx) Count_Node_By_Disqualified_Is_Null(ctx context.Context) (
-	count int64, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Count_Node_By_Disqualified_Is_Null(ctx)
-}
-
 func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	user_credit_referred_by UserCredit_ReferredBy_Field) (
 	count int64, err error) {
@@ -14504,9 +14454,6 @@ type Methods interface {
 		user_credit_user_id UserCredit_UserId_Field,
 		user_credit_expires_at_greater UserCredit_ExpiresAt_Field) (
 		rows []*UserCredit, err error)
-
-	Count_Node_By_Disqualified_Is_Null(ctx context.Context) (
-		count int64, err error)
 
 	Count_UserCredit_By_ReferredBy(ctx context.Context,
 		user_credit_referred_by UserCredit_ReferredBy_Field) (
