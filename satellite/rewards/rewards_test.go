@@ -59,20 +59,6 @@ func TestOffer_Database(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, new, c)
 
-			//TODO: delete this test after removing Redeem method
-
-			//isDefault := new.Status == rewards.Default
-			//err = planet.Satellites[0].DB.Rewards().Redeem(ctx, new.ID, isDefault)
-			//require.NoError(t, err)
-			//
-			//current, err := planet.Satellites[0].DB.Rewards().ListAll(ctx)
-			//require.NoError(t, err)
-			//if current[i].Status == rewards.Default {
-			//	require.Equal(t, new.NumRedeemed, current[i].NumRedeemed)
-			//} else {
-			//	require.Equal(t, new.NumRedeemed+1, current[i].NumRedeemed)
-			//}
-
 			err = planet.Satellites[0].DB.Rewards().Finish(ctx, all[i].ID)
 			require.NoError(t, err)
 
