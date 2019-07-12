@@ -65,8 +65,6 @@ func TestOrderLimitVerification(t *testing.T) {
 		encoded, err := signing.EncodeOrderLimit(ctx, &orderLimit)
 		require.NoError(t, err)
 		assert.Equal(t, unsignedBytes, encoded)
-
-		t.Log(hex.EncodeToString(encoded))
 	}
 }
 
