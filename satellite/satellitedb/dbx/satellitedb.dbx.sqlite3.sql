@@ -62,7 +62,7 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	path TEXT NOT NULL,
+	path BLOB NOT NULL,
 	data BLOB NOT NULL,
 	attempted TIMESTAMP,
 	PRIMARY KEY ( path )
@@ -117,7 +117,6 @@ CREATE TABLE offers (
 	award_credit_duration_days INTEGER NOT NULL,
 	invitee_credit_duration_days INTEGER NOT NULL,
 	redeemable_cap INTEGER NOT NULL,
-	num_redeemed INTEGER NOT NULL,
 	expires_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,

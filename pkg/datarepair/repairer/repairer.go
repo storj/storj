@@ -34,10 +34,11 @@ var (
 
 // Config contains configurable values for repairer
 type Config struct {
-	MaxRepair    int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
-	Interval     time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
-	Timeout      time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" devDefault:"10m0s" releaseDefault:"2h"`
-	MaxBufferMem memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+	MaxRepair                     int           `help:"maximum segments that can be repaired concurrently" releaseDefault:"5" devDefault:"1"`
+	Interval                      time.Duration `help:"how frequently repairer should try and repair more data" releaseDefault:"1h" devDefault:"0h5m0s"`
+	Timeout                       time.Duration `help:"time limit for uploading repaired pieces to new storage nodes" devDefault:"10m0s" releaseDefault:"2h"`
+	MaxBufferMem                  memory.Size   `help:"maximum buffer memory (in bytes) to be allocated for read buffers" default:"4M"`
+	MaxExcessRateOptimalThreshold float64       `help:"ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload" default:"0.05"`
 }
 
 // GetSegmentRepairer creates a new segment repairer from storeConfig values
@@ -46,7 +47,9 @@ func (c Config) GetSegmentRepairer(ctx context.Context, log *zap.Logger, tc tran
 
 	ec := ecclient.NewClient(log.Named("ecclient"), tc, c.MaxBufferMem.Int())
 
-	return segments.NewSegmentRepairer(log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout), nil
+	return segments.NewSegmentRepairer(
+		log.Named("repairer"), metainfo, orders, cache, ec, identity, c.Timeout, c.MaxExcessRateOptimalThreshold,
+	), nil
 }
 
 // SegmentRepairer is a repairer for segments
@@ -121,7 +124,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
 		seg, err := service.queue.Select(ctx)
-		zap.L().Info("Dequeued segment from repair queue", zap.String("segment", seg.GetPath()))
+		zap.L().Info("Dequeued segment from repair queue", zap.Binary("segment", seg.GetPath()))
 		if err != nil {
 			if storage.ErrEmptyQueue.Has(err) {
 				return nil
@@ -143,12 +146,12 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	workerStartTime := time.Now().UTC()
 
-	zap.L().Info("Limiter running repair on segment", zap.String("segment", seg.GetPath()))
-	err = service.repairer.Repair(ctx, seg.GetPath())
+	zap.L().Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
+	err = service.repairer.Repair(ctx, string(seg.GetPath()))
 	if err != nil {
 		return Error.New("repair failed: %v", err)
 	}
-	zap.L().Info("Deleting segment from repair queue", zap.String("segment", seg.GetPath()))
+	zap.L().Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
 	err = service.queue.Delete(ctx, seg)
 	if err != nil {
 		return Error.New("repair delete failed: %v", err)

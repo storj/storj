@@ -53,10 +53,10 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -97,7 +97,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
@@ -105,7 +105,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -153,10 +153,10 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		stripe.Segment.GetRemote().RootPieceId = storj.NewPieceID()
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -227,10 +227,10 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			5*time.Second)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -292,14 +292,14 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			150*time.Millisecond)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
 
-		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		require.Len(t, shares, 1)

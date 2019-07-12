@@ -153,10 +153,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				ReliabilityCacheStaleness: 5 * time.Minute,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:    10,
-				Interval:     time.Hour,
-				Timeout:      1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
-				MaxBufferMem: 4 * memory.MiB,
+				MaxRepair:                     10,
+				Interval:                      time.Hour,
+				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				MaxBufferMem:                  4 * memory.MiB,
+				MaxExcessRateOptimalThreshold: 0.05,
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,
