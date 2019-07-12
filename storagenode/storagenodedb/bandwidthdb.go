@@ -108,7 +108,7 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 				GROUP BY action
 				UNION ALL
 				SELECT action, sum(amount) a
-				FROM bandwidth_usage_rollup
+				FROM bandwidth_usage_rollups
 				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
 				GROUP BY action
 		) GROUP BY action;
@@ -148,7 +148,7 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 			GROUP BY satellite_id, action
 			UNION ALL
 			SELECT satellite_id, action, sum(amount) a
-			FROM bandwidth_usage_rollup
+			FROM bandwidth_usage_rollups
 			WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
 			GROUP BY satellite_id, action
 		) GROUP BY satellite_id, action;
@@ -194,7 +194,7 @@ func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
 	fmt.Printf("EEEE Running rollup for %v\n", hour)
 
 	result, err := db.db.Exec(`
-		INSERT INTO bandwidth_usage_rollup (interval_start, satellite_id,  action, amount)
+		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage
 		WHERE datetime(created_at) < datetime(?)

@@ -264,13 +264,50 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     10,
 				Action: migrate.SQL{
-					`CREATE TABLE bandwidth_usage_rollup (
+					`CREATE TABLE bandwidth_usage_rollups (
 						interval_start	TIMESTAMP NOT NULL,
 						satellite_id  	BLOB    NOT NULL,
 						action        	INTEGER NOT NULL,
 						amount        	BIGINT  NOT NULL,
 						PRIMARY KEY ( interval_start, satellite_id, action )
-					)`},
+					)`,
+				},
+			},
+			{
+				Description: "Convert bandwidth rollups created_at to UTC.",
+				Version:     11,
+				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
+					for offset := 0; ; offset++ {
+						rows, err := tx.Query(`
+							SELECT rowid, created_at
+							FROM bandwidth_usage
+							ORDER BY rowid
+							LIMIT ?
+							OFFSET ?
+						`, 10, offset*10)
+						if err != nil {
+							return ErrInfo.Wrap(err)
+						}
+
+						found := 0
+						for rows.Next() {
+							var createdAt time.Time
+							var rowID int64
+							err := rows.Scan(&rowID, &createdAt)
+							if err != nil {
+								return ErrInfo.Wrap(err)
+							}
+							found++
+							tx.Exec("update bandwidth_usage set created_at = ? where rowid = ?;",
+								createdAt.UTC(), rowID)
+						}
+
+						if found == 0 {
+							break
+						}
+					}
+					return nil
+				}),
 			},
 		},
 	}
