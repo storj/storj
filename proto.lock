@@ -2614,6 +2614,11 @@
                 "name": "StorageUsage",
                 "fields": [
                   {
+                    "id": 1,
+                    "name": "rollup_id",
+                    "type": "int64"
+                  },
+                  {
                     "id": 2,
                     "name": "at_rest_total",
                     "type": "double"
