@@ -1009,6 +1009,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
 				},
 			},
+			{
+				Description: "Add partner id field to support OSPP",
+				Version:     45,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
+				},
+			},
 		},
 	}
 }

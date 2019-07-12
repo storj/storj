@@ -213,7 +213,7 @@ model user (
     field password_hash    blob      ( updatable )
 
     field status           int       ( updatable, autoinsert )
-
+    field partner_id       blob      ( nullable )
     field created_at       timestamp ( autoinsert )
 )
 
@@ -257,6 +257,7 @@ model project (
     field name           text
     field description    text      ( updatable )
     field usage_limit    int64     ( updatable )
+    field partner_id     blob      ( nullable  )
 
     field created_at     timestamp ( autoinsert )
 )
@@ -379,6 +380,7 @@ model api_key (
     field  head        blob
     field  name        text       (updatable)
     field  secret      blob
+    field  partner_id  blob       (nullable)
     field  created_at  timestamp  (autoinsert)
 )
 
@@ -763,6 +765,7 @@ model bucket_metainfo (
 	field id             blob
 	field project_id     project.id restrict
 	field name           blob
+	field partner_id     blob   (nullable)
 
 	field path_cipher    int
 
