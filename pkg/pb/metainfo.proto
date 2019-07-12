@@ -35,13 +35,12 @@ service Metainfo {
 message Bucket {
     bytes                  name = 1;
     encryption.CipherSuite path_cipher = 2;
-    bytes                  attribution_id = 3;
 
-    google.protobuf.Timestamp created_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp created_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
-    int64                           default_segment_size = 5;
-    pointerdb.RedundancyScheme      default_redundancy_scheme = 6;
-    encryption.EncryptionParameters default_encryption_parameters = 7;
+    int64                           default_segment_size = 4;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
+    encryption.EncryptionParameters default_encryption_parameters = 6;
 }
 
 message BucketListItem {
@@ -53,11 +52,10 @@ message BucketListItem {
 message BucketCreateRequest {
     bytes                  name = 1;
     encryption.CipherSuite path_cipher = 2;
-    bytes                  attribution_id = 3;
 
-    int64                           default_segment_size = 4;
-    pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
-    encryption.EncryptionParameters default_encryption_parameters = 6;
+    int64                           default_segment_size = 3;
+    pointerdb.RedundancyScheme      default_redundancy_scheme = 4;
+    encryption.EncryptionParameters default_encryption_parameters = 5;
 }
 
 message BucketCreateResponse {
@@ -82,6 +80,7 @@ message BucketDeleteResponse {
 message BucketListRequest {
     bytes cursor = 1;
     int32 limit = 2;
+    int32 direction = 3;
 }
 
 message BucketListResponse {

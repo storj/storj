@@ -193,7 +193,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		}(i, addressedLimit)
 	}
 
-	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s to %d nodes to reach at least the success threshold (%d nodes)...",
+	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s up to %d nodes to try to have a number of pieces around the successful threshold (%d)",
 		timeout, path, nonNilCount(limits), rs.OptimalThreshold())
 
 	var successfulCount int32

@@ -24,14 +24,8 @@ const (
 	// by the NaCl cryptography library under the name "Secretbox".
 	CipherSuiteEncSecretBox = byte(storj.EncSecretBox)
 
-	// DirectionAfter lists forwards from cursor, without cursor
-	DirectionAfter = int(storj.After)
 	// DirectionForward lists forwards from cursor, including cursor
 	DirectionForward = int(storj.Forward)
-	// DirectionBackward lists backwards from cursor, including cursor
-	DirectionBackward = int(storj.Backward)
-	// DirectionBefore lists backwards from cursor, without cursor
-	DirectionBefore = int(storj.Before)
 )
 
 // Bucket represents operations you can perform on a bucket

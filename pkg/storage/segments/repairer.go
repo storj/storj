@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -29,18 +30,37 @@ type Repairer struct {
 	ec       ecclient.Client
 	identity *identity.FullIdentity
 	timeout  time.Duration
+
+	// multiplierOptimalThreshold is the value that multiplied by the optimal
+	// threshold results in the maximum limit of number of nodes to upload
+	// repaired pieces
+	multiplierOptimalThreshold float64
 }
 
-// NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+// NewSegmentRepairer creates a new instance of SegmentRepairer.
+//
+// excessPercentageOptimalThreshold is the percentage to apply over the optimal
+// threshould to determine the maximum limit of nodes to upload repaired pieces,
+// when negative, 0 is applied.
+func NewSegmentRepairer(
+	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
+	cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration,
+	excessOptimalThreshold float64,
+) *Repairer {
+
+	if excessOptimalThreshold < 0 {
+		excessOptimalThreshold = 0
+	}
+
 	return &Repairer{
-		log:      log,
-		metainfo: metainfo,
-		orders:   orders,
-		cache:    cache,
-		ec:       ec.WithForceErrorDetection(true),
-		identity: identity,
-		timeout:  timeout,
+		log:                        log,
+		metainfo:                   metainfo,
+		orders:                     orders,
+		cache:                      cache,
+		ec:                         ec.WithForceErrorDetection(true),
+		identity:                   identity,
+		timeout:                    timeout,
+		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
 }
 
@@ -122,9 +142,17 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.Wrap(err)
 	}
 
+	var requestCount int
+	{
+		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) *
+			repairer.multiplierOptimalThreshold,
+		)
+		requestCount = int(totalNeeded) - len(healthyPieces)
+	}
+
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
-		RequestedCount: redundancy.TotalCount() - len(healthyPieces),
+		RequestedCount: requestCount,
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
