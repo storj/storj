@@ -49,7 +49,7 @@ func TestIterate(t *testing.T) {
 		// and not the bucket metadata
 		var itemCount int
 		metainfoSvc := saPeer.Metainfo.Service
-		metainfoSvc.Iterate(ctx, "", "", true, false, func(ctx context.Context, it storage.Iterator) error {
+		err = metainfoSvc.Iterate(ctx, "", "", true, false, func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 			for it.Next(ctx, &item) {
 				itemCount++
@@ -60,6 +60,7 @@ func TestIterate(t *testing.T) {
 			}
 			return nil
 		})
+		require.NoError(t, err)
 		// There should only be 1 item in pointerDB, the one object
 		require.Equal(t, 1, itemCount)
 	})
