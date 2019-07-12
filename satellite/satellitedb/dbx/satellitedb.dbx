@@ -195,6 +195,10 @@ model injuredsegment (
 	field path blob
 	field data blob
 	field attempted utimestamp (updatable, nullable)
+
+	index (
+		fields attempted
+	)
 )
 
 //--- satellite console ---//
