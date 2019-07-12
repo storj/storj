@@ -54,6 +54,8 @@ const (
 	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
 	Referral = OfferType(2)
+	// Partner is an OfferType used be the Open Source Partner Program
+	Partner = OfferType(3)
 )
 
 // OfferStatus represents the different stage an offer can have in its life-cycle.
@@ -111,6 +113,7 @@ type OrganizedOffers struct {
 type OfferSet struct {
 	ReferralOffers OrganizedOffers
 	FreeCredits    OrganizedOffers
+	PartnerOffers  OrganizedOffers
 }
 
 // OrganizeOffersByStatus organizes offers by OfferStatus.
@@ -133,8 +136,8 @@ func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
 // OrganizeOffersByType organizes offers by OfferType.
 func (offers Offers) OrganizeOffersByType() OfferSet {
 	var (
-		fc, ro   Offers
-		offerSet OfferSet
+		fc, ro, p Offers
+		offerSet  OfferSet
 	)
 
 	for _, offer := range offers {
@@ -143,6 +146,8 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 			fc = append(fc, offer)
 		case Referral:
 			ro = append(ro, offer)
+		case Partner:
+			p = append(p, offer)
 		default:
 			continue
 		}
@@ -150,5 +155,6 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
+	offerSet.PartnerOffers = p.OrganizeOffersByStatus()
 	return offerSet
 }

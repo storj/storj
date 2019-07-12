@@ -7,7 +7,6 @@ See LICENSE for copying information. -->
     <div class="row header-row">
         <div class="col col-heading">Name</div>
         <div class="col col-heading">Give Credit</div> 
-        <div class="col col-heading">Referrals Used</div>
         <div class="col col-heading">Redeemable Capacity</div>
         <div class="col col-heading">Created</div>
         <div class="col col-heading">Expiration</div>
@@ -17,42 +16,52 @@ See LICENSE for copying information. -->
     <div class="row offer-heading">
         <p class="offer-type">Default&nbsp;Offer</p>
     </div>
+    {{$defaultOffer := .PartnerOffers.Default}}
+    {{if not $defaultOffer.IsEmpty}}
     <div class="row data-row">
-        <div class="col">Default partner offer</div>
-        <div class="col">$30</div> 
-        <div class="col">0</div>
+        <div class="col ml-3">{{$defaultOffer.Name}}</div>
+        <div class="col">${{$defaultOffer.InviteeCredit}}</div> 
         <div class="col">&#8734;</div>
-        <div class="col">2006-01-02</div>
+        <div class="col">{{printf "%.10s" $defaultOffer.CreatedAt}}</div>
         <div class="col">&#8734;</div>
         <div class="col">Default</div>
         <div class="col ml-5">https://mars.tardigrade.io/refs/001</div>
     </div><hr>
+    {{end}}
     <div class="row offer-heading ">
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
+    {{$currentOffer := .PartnerOffers.Active}}
+    {{if not $currentOffer.IsEmpty}}
         <div class="row data-row">
-            <div class="col">current partner offer</div>
-            <div class="col">$30</div> 
-            <div class="col">0</div>
-            <div class="col">150</div>
-            <div class="col">2006-01-02</div>
-            <div class="col">2019-11-02</div>
-            <div class="col">Live</div> 
-            <div class="col ml-5">https://mars.tardigrade.io/refs/002</div>
+            <div class="col ml-3">{{$currentOffer.Name}}</div>
+            <div class="col">${{$currentOffer.InviteeCredit}}</div> 
+            <div class="col">{{$currentOffer.RedeemableCap}}</div>
+            <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
+            <div class="col">{{printf "%.10s" $currentOffer.ExpiresAt}}</div>
+            <div class="col stop-offer">
+                <span data-toggle="modal" data-target=".stop-partner-offer-modal">
+                    <strong>Live &#183;</strong>
+                </span>
+            </div>
+            <div class="col ml-5">https://mars.tardigrade.io/refs/001</div>  
         </div><hr>
+    {{end}}
+    {{template "stopPartnerOffer" .}}
     <div class="row offer-heading ">
         <p class="offer-type">Other&nbsp;Offers</p>
     </div>
+    {{range .PartnerOffers.Done}}
     <div class="row data-row">
-        <div class="col">finished partner offer</div>
-        <div class="col">$30</div> 
-        <div class="col">0</div>
-        <div class="col">150</div>
-        <div class="col">2006-01-02</div>
-        <div class="col">2019-11-02</div>
-        <div class="col">Off</div>
+        <div class="col ml-3">{{.Name}}</div>
+        <div class="col">${{.InviteeCredit}}</div>
+        <div class="col">{{.RedeemableCap}}</div>
+        <div class="col">{{printf "%.10s" .CreatedAt}}</div>
+        <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
+        <div class="col">off</div>
         <div class="col ml-5">https://mars.tardigrade.io/refs/003</div>
     </div><hr>
+    {{end}}
+    {{end}}
 </div>
 </div>
-{{end}}
