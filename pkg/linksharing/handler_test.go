@@ -25,7 +25,7 @@ func TestNewHandler(t *testing.T) {
 	defer ctx.Cleanup()
 
 	uplink := newUplink(ctx, t)
-	defer uplink.Close()
+	defer ctx.Check(uplink.Close)
 
 	testCases := []struct {
 		name   string
@@ -251,7 +251,7 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			uplink := newUplink(ctx, t)
-			defer uplink.Close()
+			defer ctx.Check(uplink.Close)
 
 			handler, err := NewHandler(HandlerConfig{
 				Log:     zaptest.NewLogger(t),
