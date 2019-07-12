@@ -28,13 +28,13 @@ func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err 
 	signing.PieceId = limit.PieceId
 	signing.Limit = limit.Limit
 	signing.Action = limit.Action
-	if limit.PieceExpiration.IsZero() {
+	if !limit.PieceExpiration.IsZero() {
 		signing.PieceExpiration = &limit.PieceExpiration
 	}
-	if limit.OrderExpiration.IsZero() {
+	if !limit.OrderExpiration.IsZero() {
 		signing.OrderExpiration = &limit.OrderExpiration
 	}
-	if limit.OrderCreation.IsZero() {
+	if !limit.OrderCreation.IsZero() {
 		signing.OrderCreation = &limit.OrderCreation
 	}
 	signing.SatelliteAddress = limit.SatelliteAddress
