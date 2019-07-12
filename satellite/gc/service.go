@@ -80,54 +80,57 @@ func (service *Service) Send(ctx context.Context, pieceTracker *PieceTracker, cb
 	service.lastSendTime = time.Now().UTC()
 
 	go func() {
-		err := service.sendRetainRequests(ctx, pieceTracker, cb)
+		err := service.sendRetainRequests(ctx, pieceTracker)
 		if err != nil {
 			service.log.Error("error sending retain infos", zap.Error(err))
 		}
+		cb()
 	}()
 
 	return nil
 }
 
-func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker *PieceTracker, cb func()) (err error) {
+func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker *PieceTracker) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var errList errs.Group
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
-		log := service.log.Named(id.String())
-
-		target := &pb.Node{
-			Id:      id,
-			Address: retainInfo.address,
-		}
-		signer := signing.SignerFromFullIdentity(service.transport.Identity())
-
-		ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
+		err := service.sendOneRetainRequest(ctx, id, retainInfo)
 		if err != nil {
-			service.log.Error(Error.Wrap(err).Error())
-			continue
-		}
-		defer func() {
-			err := ps.Close()
-			if err != nil {
-				service.log.Error("piece tracker failed to close conn to node: %+v", zap.Error(err))
-			}
-		}()
-
-		service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
-		mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
-
-		filterBytes := retainInfo.Filter.Bytes()
-		mon.IntVal("retain_filter_size_bytes").Observe(int64(len(filterBytes)))
-
-		retainReq := &pb.RetainRequest{
-			CreationDate: retainInfo.CreationDate,
-			Filter:       filterBytes,
-		}
-		err = ps.Retain(ctx, retainReq)
-		if err != nil {
-			service.log.Error(Error.Wrap(err).Error())
+			errList.Add(err)
 		}
 	}
-	cb()
-	return nil
+	return errList.Err()
+}
+
+func (service *Service) sendOneRetainRequest(ctx context.Context, id storj.NodeID, retainInfo *RetainInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	log := service.log.Named(id.String())
+
+	target := &pb.Node{
+		Id:      id,
+		Address: retainInfo.address,
+	}
+	signer := signing.SignerFromFullIdentity(service.transport.Identity())
+
+	ps, err := piecestore.Dial(ctx, service.transport, target, log, signer, piecestore.DefaultConfig)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errs.Combine(err, ps.Close())
+	}()
+
+	service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
+	mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
+
+	filterBytes := retainInfo.Filter.Bytes()
+	mon.IntVal("retain_filter_size_bytes").Observe(int64(len(filterBytes)))
+
+	retainReq := &pb.RetainRequest{
+		CreationDate: retainInfo.CreationDate,
+		Filter:       filterBytes,
+	}
+	return ps.Retain(ctx, retainReq)
 }
