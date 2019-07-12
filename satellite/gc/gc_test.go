@@ -82,8 +82,11 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pieceInfo)
 
-		// Sleep is here because we need at least one full second between the next piece tracker
-		// creation datetime and the piece upload datetimes
+		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
+		// to datetime in sql. This chops off all precision beyond seconds.
+		// In this test, the amount of time that elapses between piece uploads and the gc loop is
+		// less than a second, meaning datetime(piece_creation) < datetime(filter_creation) is false unless we sleep
+		// for a second.
 		time.Sleep(1 * time.Second)
 
 		// Trigger bloom filter generation by running checker
