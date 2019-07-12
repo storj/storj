@@ -6,8 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -20,13 +18,6 @@ import (
 
 type pieceinfo struct {
 	*InfoDB
-	space spaceUsed
-}
-
-type spaceUsed struct {
-	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
-	used int64
-	once sync.Once
 }
 
 // PieceInfo returns database for storing piece information
@@ -55,11 +46,6 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?,?,?)
 	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, orderLimit, uplinkPieceHash, 0)
-
-	if err == nil {
-		db.loadSpaceUsed(ctx)
-		atomic.AddInt64(&db.space.used, info.PieceSize)
-	}
 	return ErrInfo.Wrap(err)
 }
 
@@ -137,18 +123,12 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	if err != nil && err != sql.ErrNoRows {
 		return ErrInfo.Wrap(err)
 	}
+
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		DELETE FROM pieceinfo
 		WHERE satellite_id = ?
 		  AND piece_id = ?
 	`), satelliteID, pieceID)
-
-	if pieceSize != 0 && err == nil {
-		db.loadSpaceUsed(ctx)
-
-		atomic.AddInt64(&db.space.used, -pieceSize)
-	}
-
 	return ErrInfo.Wrap(err)
 }
 
@@ -162,7 +142,6 @@ func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID,
 		WHERE satellite_id = ?
 		  AND piece_id = ?
 	`), now, satelliteID, pieceID)
-
 	return ErrInfo.Wrap(err)
 }
 
@@ -183,6 +162,7 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 		return nil, ErrInfo.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	for rows.Next() {
 		info := pieces.ExpiredInfo{}
 		err = rows.Scan(&info.SatelliteID, &info.PieceID, &info.PieceSize)
@@ -191,32 +171,18 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 		}
 		infos = append(infos, info)
 	}
+
 	return infos, nil
 }
 
 // SpaceUsed returns disk space used by all pieces from cache
 func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	db.loadSpaceUsed(ctx)
 
-	return atomic.LoadInt64(&db.space.used), nil
-}
-
-func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
-	defer mon.Task()(&ctx)
-	db.space.once.Do(func() {
-		usedSpace, _ := db.CalculatedSpaceUsed(ctx)
-		atomic.AddInt64(&db.space.used, usedSpace)
-	})
-}
-
-// CalculatedSpaceUsed calculates disk space used by all pieces
-func (db *pieceinfo) CalculatedSpaceUsed(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
 	var sum sql.NullInt64
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
-		SELECT SUM(piece_size)
-		FROM pieceinfo
+		SELECT SUM(total_size)
+		FROM pieceinfo_size
 	`)).Scan(&sum)
 
 	if err == sql.ErrNoRows || !sum.Valid {
@@ -231,8 +197,8 @@ func (db *pieceinfo) SpaceUsedBySatellite(ctx context.Context, satelliteID storj
 
 	var sum sql.NullInt64
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
-		SELECT SUM(piece_size)
-		FROM pieceinfo
+		SELECT total_size
+		FROM pieceinfo_size
 		WHERE satellite_id = ?
 	`), satelliteID).Scan(&sum)
 

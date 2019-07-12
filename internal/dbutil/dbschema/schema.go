@@ -17,8 +17,9 @@ type Queryer interface {
 
 // Schema is the database structure.
 type Schema struct {
-	Tables  []*Table
-	Indexes []*Index
+	Tables   []*Table
+	Indexes  []*Index
+	Triggers []*Trigger
 }
 
 // Table is a sql table.
@@ -52,6 +53,13 @@ type Index struct {
 	Columns []string
 	Unique  bool
 	Partial string // partial expression
+}
+
+// Trigger is a sql trigger
+type Trigger struct {
+	Name   string
+	Table  string
+	Action string
 }
 
 // EnsureTable returns the table with the specified name and creates one if needed.
@@ -110,6 +118,9 @@ func (schema *Schema) Sort() {
 	}
 	sort.Slice(schema.Indexes, func(i, k int) bool {
 		return schema.Indexes[i].Name < schema.Indexes[k].Name
+	})
+	sort.Slice(schema.Triggers, func(i, k int) bool {
+		return schema.Triggers[i].Name < schema.Triggers[k].Name
 	})
 }
 

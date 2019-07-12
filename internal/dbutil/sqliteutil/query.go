@@ -24,6 +24,7 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 
 	tableDefinitions := make([]*definition, 0)
 	indexDefinitions := make([]*definition, 0)
+	triggerDefinitions := make([]*definition, 0)
 
 	// find tables and indexes
 	err := func() error {
@@ -41,27 +42,35 @@ func QuerySchema(db dbschema.Queryer) (*dbschema.Schema, error) {
 			if err != nil {
 				return errs.Wrap(err)
 			}
-			if defType == "table" {
+			switch defType {
+			case "table":
 				tableDefinitions = append(tableDefinitions, &definition{name: defName, sql: defSQL})
-			} else if defType == "index" {
+			case "index":
 				indexDefinitions = append(indexDefinitions, &definition{name: defName, sql: defSQL})
+			case "trigger":
+				triggerDefinitions = append(triggerDefinitions, &definition{name: defName, sql: defSQL})
 			}
 		}
 
-		return rows.Err()
+		return errs.Wrap(rows.Err())
 	}()
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	err = discoverTables(db, schema, tableDefinitions)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	err = discoverIndexes(db, schema, indexDefinitions)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
+	}
+
+	err = discoverTriggers(db, schema, triggerDefinitions)
+	if err != nil {
+		return nil, errs.Wrap(err)
 	}
 
 	schema.Sort()
@@ -187,6 +196,17 @@ func discoverIndexes(db dbschema.Queryer, schema *dbschema.Schema, indexDefiniti
 	return errs.Wrap(err)
 }
 
+func discoverTriggers(db dbschema.Queryer, schema *dbschema.Schema, triggerDefinitions []*definition) (err error) {
+	for _, definition := range triggerDefinitions {
+		schema.Triggers = append(schema.Triggers, &dbschema.Trigger{
+			Name:   definition.name,
+			Table:  rxTriggerTable.FindStringSubmatch(definition.sql)[1],
+			Action: rxTriggerAction.FindStringSubmatch(definition.sql)[1],
+		})
+	}
+	return errs.Wrap(err)
+}
+
 var (
 	// matches UNIQUE (a,b)
 	rxUnique = regexp.MustCompile(`UNIQUE\s*\((.*?)\)`)
@@ -199,4 +219,10 @@ var (
 
 	// matches WHERE (partial expression)
 	rxIndexPartial = regexp.MustCompile(`WHERE (.*)$`)
+
+	// matches ON table BEGIN
+	rxTriggerTable = regexp.MustCompile(`ON ([^ ]*) BEGIN`)
+
+	// matches CREATE TRIGGER name action ON
+	rxTriggerAction = regexp.MustCompile(`CREATE TRIGGER [^ ]* ([^ ]*) ON`)
 )

@@ -9,8 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -44,8 +42,8 @@ func newInfo(path string) (*InfoDB, error) {
 	dbutil.Configure(db, mon)
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -70,8 +68,8 @@ func NewInfoInMemory() (*InfoDB, error) {
 		}))
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 
 	return infoDb, nil
 }
@@ -271,6 +269,42 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE INDEX idx_used_serial ON used_serial(datetime(expiration))`,
 					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(datetime(piece_expiration)) WHERE piece_expiration IS NOT NULL`,
 					`CREATE INDEX idx_bandwidth_usage_created ON bandwidth_usage(datetime(created_at))`,
+				},
+			},
+			{
+				Description: "Cache pieceinfo size.",
+				Version:     11,
+				Action: migrate.SQL{
+					`CREATE TABLE pieceinfo_size (
+						satellite_id  BLOB   NOT NULL,
+						total_size    BIGINT NOT NULL
+					)`,
+					`CREATE UNIQUE INDEX pk_pieceinfo_size ON pieceinfo_size(satellite_id)`,
+					`CREATE TRIGGER update_pieceinfo_size_on_insert INSERT ON pieceinfo BEGIN
+						INSERT INTO pieceinfo_size VALUES (NEW.satellite_id, NEW.piece_size)
+						ON CONFLICT(satellite_id) DO UPDATE
+						SET total_size = total_size + NEW.piece_size
+						WHERE satellite_id = NEW.satellite_id;
+					END`,
+					`CREATE TRIGGER update_pieceinfo_size_on_delete DELETE ON pieceinfo BEGIN
+						UPDATE pieceinfo_size
+						SET total_size = total_size - OLD.piece_size
+						WHERE satellite_id = OLD.satellite_id;
+					END`,
+					`CREATE TRIGGER update_pieceinfo_size_on_update UPDATE ON pieceinfo BEGIN
+						UPDATE pieceinfo_size
+						SET total_size = total_size - OLD.piece_size
+						WHERE satellite_id = OLD.satellite_id;
+
+						INSERT INTO pieceinfo_size VALUES (NEW.satellite_id, NEW.piece_size)
+						ON CONFLICT(satellite_id) DO UPDATE
+						SET total_size = total_size + NEW.piece_size
+						WHERE satellite_id = NEW.satellite_id;
+					END`,
+					`INSERT INTO pieceinfo_size(satellite_id, total_size)
+						SELECT satellite_id, SUM(piece_size) AS total_size
+						FROM pieceinfo
+						GROUP BY satellite_id`,
 				},
 			},
 		},
