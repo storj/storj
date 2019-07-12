@@ -298,8 +298,11 @@ func (db *InfoDB) Migration() *migrate.Migration {
 								return ErrInfo.Wrap(err)
 							}
 							found++
-							tx.Exec("update bandwidth_usage set created_at = ? where rowid = ?;",
+							_, err = tx.Exec("update bandwidth_usage set created_at = ? where rowid = ?;",
 								createdAt.UTC(), rowID)
+							if err != nil {
+								return ErrInfo.Wrap(err)
+							}
 						}
 
 						if found == 0 {
