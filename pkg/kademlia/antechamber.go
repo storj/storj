@@ -17,48 +17,33 @@ import (
 // AntechamberErr is the class for all errors pertaining to antechamber operations
 var AntechamberErr = errs.Class("antechamber error")
 
-// antechamberAddNode attempts to add a node the antechamber.
-// Only added if there are fewer than k nodes in the antechamber or the node is closer than the furthest node.
-// If the the node is closest than the furthest node, we remove the furthest node to maintain the limit of k
+// antechamberAddNode attempts to add a node the antechamber. Only allowed in if within rt neighborhood
 func (rt *RoutingTable) antechamberAddNode(ctx context.Context, node *pb.Node) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	rt.mutex.Lock()
 	rt.acMutex.Lock()
+	defer rt.mutex.Unlock()
 	defer rt.acMutex.Unlock()
-	v, err := proto.Marshal(node)
-	if err != nil {
-		return AntechamberErr.New("could not marshall node: %s", err)
-	}
-	err = rt.antechamber.Put(ctx, xorNodeID(node.Id, rt.self.Id).Bytes(), v)
-	if err != nil {
-		return AntechamberErr.New("could not add key value pair to antechamber: %s", err)
-	}
 
-	{ // remove nodes outside the closest k
-		keys, err := rt.antechamber.List(ctx, nil, 0)
+	inNeighborhood, err := rt.wouldBeInNearestK(ctx, node.Id)
+	if err != nil {
+		return AntechamberErr.New("could not check node neighborhood: %s", err)
+	}
+	if inNeighborhood {
+		v, err := proto.Marshal(node)
 		if err != nil {
-			return AntechamberErr.New("could not list nodes %s", err)
+			return AntechamberErr.New("could not marshall node: %s", err)
 		}
-		size := len(keys)
-		for diff := size - rt.bucketSize; diff > 0; diff-- {
-			xor, err := storj.NodeIDFromBytes(keys[size-diff])
-			if err != nil {
-				return AntechamberErr.New("could not get xor from key %s", err)
-			}
-			nodeID := xorNodeID(xor, rt.self.Id)
-			err = rt.antechamber.Delete(ctx, xorNodeID(nodeID, rt.self.Id).Bytes())
-			if err != nil && !storage.ErrKeyNotFound.Has(err) {
-				return AntechamberErr.New("could not delete node %s", err)
-			}
-			if err != nil {
-				return AntechamberErr.New("could not remove node %s", err)
-			}
+		err = rt.antechamber.Put(ctx, xorNodeID(node.Id, rt.self.Id).Bytes(), v)
+		if err != nil {
+			return AntechamberErr.New("could not add key value pair to antechamber: %s", err)
 		}
 	}
 	return nil
 }
 
 // antechamberRemoveNode removes a node from the antechamber
-// Called when node moves into RT, node is outside the closest k antechamber nodes, or node failed contact
+// Called when node moves into RT, node is outside neighborhood (check when any node is added to RT), or node failed contact
 func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.acMutex.Lock()
@@ -70,29 +55,61 @@ func (rt *RoutingTable) antechamberRemoveNode(ctx context.Context, nodeID storj.
 	return nil
 }
 
-// getAllAntechamberNodes returns all the nodes from the antechamber
-func (rt *RoutingTable) getAllAntechamberNodes(ctx context.Context) (nodes []*pb.Node, err error) {
+// antechamberFindNear returns the closest nodes to target from the antechamber up to the limit
+// it is called in conjunction with RT FindNear in some circumstances
+func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.acMutex.Lock()
 	defer rt.acMutex.Unlock()
-
-	var nodeErrors errs.Group
-
-	err = rt.iterateAntechamber(ctx, storj.NodeID{}, func(ctx context.Context, xor storj.NodeID, protoNode []byte) error {
-		newNode := pb.Node{}
-		err := proto.Unmarshal(protoNode, &newNode)
-		if err != nil {
-			nodeErrors.Add(err)
+	closestNodes := make([]*pb.Node, 0, limit+1)
+	err = rt.iterateAntechamber(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
+		newPos := len(closestNodes)
+		for ; newPos > 0 && compareByXor(closestNodes[newPos-1].Id, newID, target) > 0; newPos-- { //todo update comparebyxor with xor self, target... newID should be xor
 		}
-		nodes = append(nodes, &newNode)
+		if newPos != limit {
+			newNode := pb.Node{}
+			err := proto.Unmarshal(protoNode, &newNode)
+			if err != nil {
+				return err
+			}
+			closestNodes = append(closestNodes, &newNode)
+			if newPos != len(closestNodes) { //reorder
+				copy(closestNodes[newPos+1:], closestNodes[newPos:])
+				closestNodes[newPos] = &newNode
+				if len(closestNodes) > limit {
+					closestNodes = closestNodes[:limit]
+				}
+			}
+		}
 		return nil
 	})
+	return closestNodes, Error.Wrap(err)
+}
 
+// findOutsiderNodes removes the nodes outside the rt node neighborhood
+func (rt *RoutingTable) findOutsiderNodes(ctx context.Context) (keys storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	rt.mutex.Lock()
+	rt.acMutex.Lock()
+	defer rt.mutex.Unlock()
+	defer rt.acMutex.Unlock()
+	neighborhood, err := rt.FindNear(ctx, rt.self.Id, rt.bucketSize)
 	if err != nil {
-		nodeErrors.Add(err)
+		return keys, AntechamberErr.New("could not Find Near: %s", err)
 	}
-
-	return nodes, nodeErrors.Err()
+	size := len(neighborhood)
+	if size <= rt.bucketSize {
+		// node neighborhood has room, no trimming needed
+		return keys, nil
+	}
+	furthest := neighborhood[size-1]
+	// take xor of furthest node
+	err = rt.iterateAntechamber(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
+		// compare values until we find the nodes farther than the furthest node newnodexor > furthestxor
+		// possibly iterate backwards furthestxor < newnodexor
+		// add values to a slice to delete
+	})
+	return keys, nil
 }
 
 // iterateAntechamber is a helper method that iterates through the whole antechamber table
