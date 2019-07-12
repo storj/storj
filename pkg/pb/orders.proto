@@ -50,7 +50,7 @@ message OrderLimit {
     node.NodeAddress satellite_address = 11;
 }
 
-// OrderLimitSigning is provided by satellite to execute specific action on storage node within some limits
+// OrderLimitSigning provides OrderLimit signing serialization
 message OrderLimitSigning {
     // unique serial to avoid replay attacks
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
@@ -90,7 +90,7 @@ message Order {
     bytes uplink_signature = 3;
 }
 
-// OrderSigning is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber
+// OrderSigning provides Order signing format
 message OrderSigning {
     // serial of the order limit that was signed
     bytes serial_number = 1 [(gogoproto.customtype) = "SerialNumber", (gogoproto.nullable) = false];
@@ -113,6 +113,7 @@ message PieceHash {
     bytes signature = 3;
 }
 
+// PieceHashSigning provides piece hash signing format.
 message PieceHashSigning {
     // piece id
     bytes piece_id = 1 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
