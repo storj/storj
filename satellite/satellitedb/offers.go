@@ -26,7 +26,7 @@ type offersDB struct {
 
 // ListAll returns all offersDB from the db
 func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
-	offersDbx, err := db.db.All_Offer(ctx)
+	offersDbx, err := db.db.All_Offer_OrderBy_Asc_Id(ctx)
 	if err != nil {
 		return nil, offerErr.Wrap(err)
 	}
@@ -52,9 +52,16 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 
 	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 
-	var awardCreditInCents, inviteeCreditInCents int
+	var (
+		awardCreditInCents        int
+		inviteeCreditInCents      int
+		awardCreditDurationDays   sql.NullInt64
+		inviteeCreditDurationDays sql.NullInt64
+		redeemableCap             sql.NullInt64
+	)
+
 	o := rewards.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
 		return nil, offerErr.New("no current offer")
 	}
@@ -63,6 +70,9 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	}
 	o.AwardCredit = currency.Cents(awardCreditInCents)
 	o.InviteeCredit = currency.Cents(inviteeCreditInCents)
+	o.RedeemableCap = int(redeemableCap.Int64)
+	o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
+	o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
 
 	return &o, nil
 }
@@ -99,12 +109,14 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 		dbx.Offer_Description(o.Description),
 		dbx.Offer_AwardCreditInCents(o.AwardCredit.Cents()),
 		dbx.Offer_InviteeCreditInCents(o.InviteeCredit.Cents()),
-		dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
-		dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
-		dbx.Offer_RedeemableCap(o.RedeemableCap),
 		dbx.Offer_ExpiresAt(o.ExpiresAt),
 		dbx.Offer_Status(int(o.Status)),
 		dbx.Offer_Type(int(o.Type)),
+		dbx.Offer_Create_Fields{
+			AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
+			InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
+			RedeemableCap:             dbx.Offer_RedeemableCap(o.RedeemableCap),
+		},
 	)
 	if err != nil {
 		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
@@ -151,10 +163,20 @@ func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {
 
 	return offers, errList.Err()
 }
-
 func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 	if offerDbx == nil {
 		return nil, offerErr.New("offerDbx parameter is nil")
+	}
+
+	var redeemableCap, awardCreditDurationDays, inviteeCreditDurationDays int
+	if offerDbx.RedeemableCap != nil {
+		redeemableCap = *offerDbx.RedeemableCap
+	}
+	if offerDbx.AwardCreditDurationDays != nil {
+		awardCreditDurationDays = *offerDbx.AwardCreditDurationDays
+	}
+	if offerDbx.InviteeCreditDurationDays != nil {
+		inviteeCreditDurationDays = *offerDbx.InviteeCreditDurationDays
 	}
 
 	o := rewards.Offer{
@@ -163,10 +185,10 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		Description:               offerDbx.Description,
 		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
 		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
-		RedeemableCap:             offerDbx.RedeemableCap,
+		RedeemableCap:             redeemableCap,
 		ExpiresAt:                 offerDbx.ExpiresAt,
-		AwardCreditDurationDays:   offerDbx.AwardCreditDurationDays,
-		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
+		AwardCreditDurationDays:   awardCreditDurationDays,
+		InviteeCreditDurationDays: inviteeCreditDurationDays,
 		CreatedAt:                 offerDbx.CreatedAt,
 		Status:                    rewards.OfferStatus(offerDbx.Status),
 		Type:                      rewards.OfferType(offerDbx.Type),
