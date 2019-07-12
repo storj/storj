@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 )
 
@@ -41,14 +41,13 @@ var DefaultConfig = Config{
 // Client implements uploading, downloading and deleting content from a piecestore.
 type Client struct {
 	log    *zap.Logger
-	signer signing.Signer
 	client pb.PiecestoreClient
 	conn   *grpc.ClientConn
 	config Config
 }
 
 // Dial dials the target piecestore endpoint.
-func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log *zap.Logger, signer signing.Signer, config Config) (*Client, error) {
+func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log *zap.Logger, config Config) (*Client, error) {
 	conn, err := transport.DialNode(ctx, target)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -56,7 +55,6 @@ func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log 
 
 	return &Client{
 		log:    log,
-		signer: signer,
 		client: pb.NewPiecestoreClient(conn),
 		conn:   conn,
 		config: config,
@@ -64,11 +62,18 @@ func Dial(ctx context.Context, transport transport.Client, target *pb.Node, log 
 }
 
 // Delete uses delete order limit to delete a piece on piece store.
-func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit) (err error) {
+func (client *Client) Delete(ctx context.Context, limit *pb.OrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = client.client.Delete(ctx, &pb.PieceDeleteRequest{
 		Limit: limit,
 	})
+	return Error.Wrap(err)
+}
+
+// Retain uses a bloom filter to tell the piece store which pieces to keep.
+func (client *Client) Retain(ctx context.Context, req *pb.RetainRequest) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.Retain(ctx, req)
 	return Error.Wrap(err)
 }
 

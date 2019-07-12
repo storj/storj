@@ -29,12 +29,11 @@ hr{
 }
 
 .offers-table{
-    width: 1110px;
+    width : 1106px;
     margin-left: -15px;
     background: #FFFFFF;
     border: 1.5px solid #DFDFDF;
     border-radius: 6px;
-    width: 1106px;
     overflow-x: auto;
     overflow-y: hidden;
 }
@@ -45,7 +44,7 @@ hr{
     line-height: 49px;
     letter-spacing: -0.100741px;
     margin-top:-5px;
-    width: 1103px;
+    width: 120%;
     color: #656565;
     background: #F2F3F5;
     border: 1px solid #DADDE5;
@@ -185,4 +184,29 @@ input{
 
 .stop-offer{
     cursor:pointer;
+}
+
+.modal-btn{
+    margin-right:-30px;
+}
+
+.header-row .col-heading{
+    margin-left:-110px;
+}
+
+.partner-wrapper,
+.partners-table{
+    margin-left:-10px;
+    margin-right:0px;
+    padding-right:0px;
+}
+
+.partners-table{
+    width:1800px;
+}
+
+.partner-wrapper{
+    padding-left:0px;
+    overflow-x: auto;
+    max-width: 1150px;
 }

@@ -6,7 +6,6 @@ package uplink_test
 import (
 	"bytes"
 	"io/ioutil"
-	"reflect"
 	"testing"
 	"time"
 
@@ -16,20 +15,9 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
-
-// hackyGetBucketAttribution exists to read the unexported Attribution field on a bucket.
-// It should be removed once there's an exported way to do this.
-func hackyGetBucketAttribution(bucket *uplink.Bucket) string {
-	return reflect.ValueOf(bucket).
-		Elem().
-		FieldByName("bucket").
-		FieldByName("Attribution").
-		String()
-}
 
 type testConfig struct {
 	uplinkCfg uplink.Config
@@ -62,83 +50,6 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 		defer ctx.Check(proj.Close)
 
 		testFunc(t, ctx, planet, proj)
-	})
-}
-
-// check that partner bucket attributes are stored and retrieved correctly.
-func TestPartnerBucketAttrs(t *testing.T) {
-	var (
-		access     = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
-		bucketName = "mightynein"
-	)
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()])
-		require.NoError(t, err)
-
-		partnerID := testrand.UUID()
-
-		t.Run("without partner id", func(t *testing.T) {
-			config := uplink.Config{}
-			config.Volatile.TLS.SkipPeerCAWhitelist = true
-
-			up, err := uplink.NewUplink(ctx, &config)
-			require.NoError(t, err)
-			defer ctx.Check(up.Close)
-
-			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
-			require.NoError(t, err)
-			defer ctx.Check(project.Close)
-
-			bucketInfo, err := project.CreateBucket(ctx, bucketName, nil) // TODO: by specifying config here it can be rolled into the testAttrs test
-			require.NoError(t, err)
-
-			assert.Equal(t, bucketInfo.Attribution, "")
-		})
-
-		t.Run("open with partner id", func(t *testing.T) {
-			config := uplink.Config{}
-			config.Volatile.TLS.SkipPeerCAWhitelist = true
-			config.Volatile.PartnerID = partnerID.String()
-
-			up, err := uplink.NewUplink(ctx, &config)
-			require.NoError(t, err)
-			defer ctx.Check(up.Close)
-
-			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
-			require.NoError(t, err)
-			defer ctx.Check(project.Close)
-
-			bucket, err := project.OpenBucket(ctx, bucketName, access)
-			require.NoError(t, err)
-			defer ctx.Check(bucket.Close)
-
-			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
-		})
-
-		t.Run("open with different partner id", func(t *testing.T) {
-			config := uplink.Config{}
-			config.Volatile.TLS.SkipPeerCAWhitelist = true
-			config.Volatile.PartnerID = testrand.UUID().String()
-
-			up, err := uplink.NewUplink(ctx, &config)
-			require.NoError(t, err)
-			defer ctx.Check(up.Close)
-
-			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
-			require.NoError(t, err)
-			defer ctx.Check(project.Close)
-
-			bucket, err := project.OpenBucket(ctx, bucketName, access)
-			require.NoError(t, err)
-			defer ctx.Check(bucket.Close)
-
-			// shouldn't change
-			assert.Equal(t, hackyGetBucketAttribution(bucket), partnerID.String())
-		})
 	})
 }
 
@@ -192,6 +103,7 @@ func TestBucketAttrs(t *testing.T) {
 			assert.Equal(t, inBucketConfig.EncryptionParameters, got.EncryptionParameters)
 			assert.Equal(t, inBucketConfig.Volatile.RedundancyScheme, got.Volatile.RedundancyScheme)
 			assert.Equal(t, inBucketConfig.Volatile.SegmentsSize, got.Volatile.SegmentsSize)
+			assert.Equal(t, inBucketConfig, got.BucketConfig)
 
 			err = proj.DeleteBucket(ctx, bucketName)
 			require.NoError(t, err)

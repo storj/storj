@@ -15,7 +15,6 @@ type DB interface {
 	ListAll(ctx context.Context) (Offers, error)
 	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
-	Redeem(ctx context.Context, offerID int, isDefault bool) error
 	Finish(ctx context.Context, offerID int) error
 }
 
@@ -85,7 +84,6 @@ type Offer struct {
 	InviteeCreditDurationDays int
 
 	RedeemableCap int
-	NumRedeemed   int
 
 	ExpiresAt time.Time
 	CreatedAt time.Time
