@@ -180,6 +180,13 @@ read limitoffset (
 	orderby asc node.id
 )
 
+read limitoffset (
+	select node.id node.last_net node.address node.protocol
+	where  node.id >= ?
+	where  node.disqualified = null
+	orderby asc node.id
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
