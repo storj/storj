@@ -1061,12 +1061,6 @@ func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	return m.db.ListAll(ctx)
 }
 
-func (m *lockedRewards) Redeem(ctx context.Context, offerID int, isDefault bool) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID, isDefault)
-}
-
 // StoragenodeAccounting returns database for storing information about storagenode use
 func (m *locked) StoragenodeAccounting() accounting.StoragenodeAccounting {
 	m.Lock()
