@@ -1,0 +1,53 @@
+<!-- Copyright (C) 2019 Storj Labs, Inc.
+See LICENSE for copying information. -->
+
+{{define "partnerOffersModal"}}
+<div class="modal fade p-5" id="partner-offers-modal" tabindex="-1" role="dialog" aria-labelledby="partner-offers-modal-lbl" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="partner-offers-modal-lbl">Create Partner Offer</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="Name">Offer Name</label>
+                            <input type="text" class="form-control" name="Name" id="Name" placeholder="May Referral" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="Description">Description</label>
+                            <input type="text" class="form-control" name="Description" id="Description" placeholder="Our test with $50 for May" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="ExpiresAt">Credit Exp Date</label>
+                            <input type="date" class="form-control" id="ExpiresAt" name="ExpiresAt" placeholder="06/01/19" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-4">
+                            <label for="InviteeCredit">Give Credit</label>
+                            <input type="number" class="form-control" name="InviteeCredit" id="InviteeCredit" placeholder="$50" required>                        
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="InviteeCreditDurationDays">Give Credit Exp.</label>
+                            <input type="number" class="form-control" name="InviteeCreditDurationDays" id="InviteeCreditDurationDays" min="1" placeholder="14 days" required>
+                        </div>
+                        <div class="form-group col-md-4">
+                            <label for="RedeemableCap">Redeemable Capacity</label>
+                            <input type="number" class="form-control" name="RedeemableCap" id="RedeemableCap" min="1" placeholder="150 users" required>
+                        </div>
+                    </div>
+                    <div class="m-1 text-left">
+                        <button type="submit" class="btn btn-primary">Create Offer</button>
+                        <a class="ml-3" href="/">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}

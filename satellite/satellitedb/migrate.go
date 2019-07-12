@@ -955,6 +955,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
 				},
 			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     42,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP num_redeemed;`,
+				},
+			},
 		},
 	}
 }

@@ -113,7 +113,7 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 	if bucketListOptions != nil {
 		opts = &uplink.BucketListOptions{
 			Cursor:    C.GoString(bucketListOptions.cursor),
-			Direction: storj.ListDirection(bucketListOptions.direction),
+			Direction: storj.Forward,
 			Limit:     int(bucketListOptions.limit),
 		}
 	}
