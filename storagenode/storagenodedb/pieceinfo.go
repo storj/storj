@@ -24,7 +24,7 @@ type pieceinfo struct {
 func (db *DB) PieceInfo() pieces.DB { return db.info.PieceInfo() }
 
 // PieceInfo returns database for storing piece information
-func (db *InfoDB) PieceInfo() pieces.DB { return &db.pieceinfo }
+func (db *InfoDB) PieceInfo() pieces.DB { return &pieceinfo{db} }
 
 // Add inserts piece information into the database.
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {

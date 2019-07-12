@@ -12,7 +12,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
@@ -25,7 +24,6 @@ var ErrInfo = errs.Class("infodb")
 type InfoDB struct {
 	db          *sql.DB
 	bandwidthdb bandwidthdb
-	pieceinfo   pieceinfo
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -38,11 +36,9 @@ func newInfo(path string) (*InfoDB, error) {
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
-
 	dbutil.Configure(db, mon)
 
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 
 	return infoDb, nil
@@ -55,6 +51,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
+	dbutil.Configure(db, mon)
 
 	// Set max idle and max open to 1 to control concurrent access to the memory DB
 	// Setting max open higher than 1 results in table locked errors
@@ -62,13 +59,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 	db.SetMaxOpenConns(1)
 	db.SetConnMaxLifetime(-1)
 
-	mon.Chain("db_stats", monkit.StatSourceFunc(
-		func(cb func(name string, val float64)) {
-			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
-		}))
-
 	infoDb := &InfoDB{db: db}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb}
 
 	return infoDb, nil

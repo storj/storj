@@ -48,6 +48,9 @@ func TestQuery(t *testing.T) {
 			UNIQUE ( a, b )
 		);
 		CREATE INDEX names_a ON names (a, b);
+		CREATE TRIGGER trigger INSERT ON users BEGIN
+			INSERT INTO NAMES (a) VALUES (NEW.c);
+		END;
 	`)
 
 	require.NoError(t, err)
@@ -94,6 +97,13 @@ func TestQuery(t *testing.T) {
 				Name:    "names_a",
 				Table:   "names",
 				Columns: []string{"a", "b"},
+			},
+		},
+		Triggers: []*dbschema.Trigger{
+			{
+				Name:   "trigger",
+				Table:  "users",
+				Action: "INSERT",
 			},
 		},
 	}
