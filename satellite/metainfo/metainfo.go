@@ -660,6 +660,9 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 
 	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
@@ -750,10 +753,9 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}
 
 	listOpts := storj.BucketListOptions{
-		Cursor: string(req.Cursor),
-		Limit:  int(req.Limit),
-		// We are only supporting the forward direction for listing buckets
-		Direction: storj.Forward,
+		Cursor:    string(req.Cursor),
+		Limit:     int(req.Limit),
+		Direction: storj.ListDirection(req.Direction),
 	}
 	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
 	if err != nil {
@@ -774,18 +776,18 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	}, nil
 }
 
-func getAllowedBuckets(ctx context.Context, action macaroon.Action) (allowedBuckets map[string]struct{}, err error) {
+func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
 	keyData, ok := auth.GetAPIKey(ctx)
 	if !ok {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
 	}
 	key, err := macaroon.ParseAPIKey(string(keyData))
 	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
 	}
-	allowedBuckets, err = key.GetAllowedBuckets(ctx, action)
+	allowedBuckets, err := key.GetAllowedBuckets(ctx, action)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
 	}
 	return allowedBuckets, err
 }
@@ -807,7 +809,6 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (sto
 		ID:                  *bucketID,
 		Name:                string(req.GetName()),
 		ProjectID:           projectID,
-		Attribution:         string(req.GetAttributionId()),
 		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
 		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
 		DefaultRedundancyScheme: storj.RedundancyScheme{
@@ -830,7 +831,6 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 	return &pb.Bucket{
 		Name:               []byte(bucket.Name),
 		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
-		AttributionId:      []byte(bucket.Attribution),
 		CreatedAt:          bucket.Created,
 		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{

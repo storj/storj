@@ -225,7 +225,7 @@ func (client *Client) SetAttribution(ctx context.Context, bucket string, partner
 		BucketName: []byte(bucket),
 	})
 
-	return err
+	return Error.Wrap(err)
 }
 
 // GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
@@ -233,4 +233,111 @@ func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoR
 	defer mon.Task()(&ctx)(&err)
 
 	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
+}
+
+// CreateBucket creates a new bucket
+func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	req := convertBucketToProtoRequest(bucket)
+	resp, err := client.client.CreateBucket(ctx, &req)
+	if err != nil {
+		return storj.Bucket{}, Error.Wrap(err)
+	}
+
+	return convertProtoToBucket(resp.Bucket), nil
+}
+
+// GetBucket returns a bucket
+func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
+		return storj.Bucket{}, Error.Wrap(err)
+	}
+	return convertProtoToBucket(resp.Bucket), nil
+}
+
+// DeleteBucket deletes a bucket
+func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.DeleteBucket(ctx, &pb.BucketDeleteRequest{Name: []byte(bucketName)})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.ErrBucketNotFound.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// ListBuckets lists buckets
+func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	req := &pb.BucketListRequest{
+		Cursor:    []byte(listOpts.Cursor),
+		Limit:     int32(listOpts.Limit),
+		Direction: int32(listOpts.Direction),
+	}
+	resp, err := client.client.ListBuckets(ctx, req)
+	if err != nil {
+		return storj.BucketList{}, Error.Wrap(err)
+	}
+	resultBucketList := storj.BucketList{
+		More: resp.GetMore(),
+	}
+	resultBucketList.Items = make([]storj.Bucket, len(resp.GetItems()))
+	for i, item := range resp.GetItems() {
+		resultBucketList.Items[i] = storj.Bucket{
+			Name:    string(item.GetName()),
+			Created: item.GetCreatedAt(),
+		}
+	}
+	return resultBucketList, nil
+}
+
+func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {
+	rs := bucket.DefaultRedundancyScheme
+	return pb.BucketCreateRequest{
+		Name:               []byte(bucket.Name),
+		PathCipher:         pb.CipherSuite(bucket.PathCipher),
+		DefaultSegmentSize: bucket.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(rs.Algorithm),
+			MinReq:           int32(rs.RequiredShares),
+			Total:            int32(rs.TotalShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			ErasureShareSize: rs.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
+			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+		},
+	}
+}
+
+func convertProtoToBucket(pbBucket *pb.Bucket) storj.Bucket {
+	defaultRS := pbBucket.GetDefaultRedundancyScheme()
+	defaultEP := pbBucket.GetDefaultEncryptionParameters()
+	return storj.Bucket{
+		Name:                string(pbBucket.GetName()),
+		PathCipher:          storj.CipherSuite(pbBucket.GetPathCipher()),
+		Created:             pbBucket.GetCreatedAt(),
+		DefaultSegmentsSize: pbBucket.GetDefaultSegmentSize(),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
+			ShareSize:      defaultRS.GetErasureShareSize(),
+			RequiredShares: int16(defaultRS.GetMinReq()),
+			RepairShares:   int16(defaultRS.GetRepairThreshold()),
+			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
+			TotalShares:    int16(defaultRS.GetTotal()),
+		},
+		DefaultEncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int32(defaultEP.BlockSize),
+		},
+	}
 }

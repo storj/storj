@@ -789,3 +789,10 @@ read limitoffset ( // Forward
 	where bucket_metainfo.name >= ?
 	orderby asc bucket_metainfo.name
 )
+
+read limitoffset ( // After
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name > ?
+	orderby asc bucket_metainfo.name
+)
