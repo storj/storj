@@ -40,6 +40,11 @@ let router = new Router({
             component: Register
         },
         {
+            path: ROUTES.REFERRAL.path,
+            name: ROUTES.REFERRAL.name,
+            component: Register
+        },
+        {
             path: ROUTES.FORGOT_PASSWORD.path,
             name: ROUTES.FORGOT_PASSWORD.name,
             component: ForgotPassword

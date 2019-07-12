@@ -32,6 +32,7 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                 isTermsAccepted: false,
                 isTermsAcceptedError: false,
                 secret: '',
+                partnerId: '',
                 loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
             };
         },
@@ -141,6 +142,11 @@ import { setUserId } from '@/utils/consoleLocalStorage';
         mounted(): void {
             if (this.$route.query.token) {
                 this.$data.secret = this.$route.query.token.toString();
+            }
+
+            if (this.$route.params.ids) {
+                let { ids = '' } = this.$route.params;
+                this.$data.partnerId = JSON.parse(atob(ids));
             }
         }
     })
