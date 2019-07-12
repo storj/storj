@@ -1007,7 +1007,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     44,
 				Action: migrate.SQL{
 					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
-			}
+				},
+			},
 		},
 	}
 }
