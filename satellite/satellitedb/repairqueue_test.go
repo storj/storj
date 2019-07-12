@@ -71,9 +71,12 @@ func TestRepairQueueOrder(t *testing.T) {
 
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 		// set recentRepairPath attempted to now, oldRepairPath attempted to 2 hours ago, olderRepairPath to 3 hours ago
-		dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now(), recentRepairPath)
-		dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-2*time.Hour), oldRepairPath)
-		dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-3*time.Hour), olderRepairPath)
+		_, err := dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now(), recentRepairPath)
+		require.NoError(t, err)
+		_, err = dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-2*time.Hour), oldRepairPath)
+		require.NoError(t, err)
+		_, err = dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-3*time.Hour), olderRepairPath)
+		require.NoError(t, err)
 
 		// path with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
