@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
@@ -188,7 +189,7 @@ func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID
 }
 
 // ListBuckets returns a list of buckets for a project
-func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets map[string]struct{}) (bucketList storj.BucketList, err error) {
+func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
 }

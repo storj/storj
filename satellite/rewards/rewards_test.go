@@ -42,7 +42,7 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCreditDurationDays: 30,
 				RedeemableCap:             50,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * 1),
-				Status:                    rewards.Default,
+				Status:                    rewards.Active,
 				Type:                      rewards.FreeCredit,
 			},
 		}

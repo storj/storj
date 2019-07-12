@@ -157,19 +157,6 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	// partnerID set and bucket's attribution is not set
-	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.Attribution == "" {
-		err = p.checkBucketAttribution(ctx, bucketName)
-		if err != nil {
-			return nil, err
-		}
-
-		// update the bucket with attribution info
-		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
-		if err != nil {
-			return nil, err
-		}
-	}
 	encryptionParameters := cfg.EncryptionParameters
 
 	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
@@ -245,18 +232,4 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 	}
 
 	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
-}
-
-// updateBucket updates an existing bucket's attribution info.
-func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	bucket = storj.Bucket{
-		Attribution:                 p.uplinkCfg.Volatile.PartnerID,
-		PathCipher:                  bucketInfo.PathCipher,
-		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
-		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
-		DefaultSegmentsSize:         bucketInfo.DefaultSegmentsSize,
-	}
-	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

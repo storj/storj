@@ -166,9 +166,6 @@ kademlia.operator.wallet: ""
 # path to static resources
 # marketing.static-dir: ""
 
-# lifespan of bandwidth agreements in days
-# metainfo.bw-expiration: 45
-
 # the database connection string to use
 # metainfo.database-url: "postgres://"
 
@@ -224,7 +221,7 @@ kademlia.operator.wallet: ""
 # monkit.hw.oomlog: "/var/log/kern.log"
 
 # how long until an order expires
-# orders.expiration: 1080h0m0s
+# orders.expiration: 168h0m0s
 
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
@@ -291,6 +288,9 @@ kademlia.operator.wallet: ""
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
 # repairer.max-buffer-mem: 4.0 MB
+
+# ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
+# repairer.max-excess-rate-optimal-threshold: 0.05
 
 # maximum segments that can be repaired concurrently
 # repairer.max-repair: 5

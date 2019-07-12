@@ -55,7 +55,7 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+		_, _, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, false)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
@@ -64,10 +64,10 @@ func TestInvalidAPIKey(t *testing.T) {
 		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
 		_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
@@ -169,7 +169,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+		_, _, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
@@ -178,16 +178,16 @@ func TestRestrictedAPIKey(t *testing.T) {
 		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.SegmentInfoAllowed)
 
-		_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.ReadSegmentAllowed)
 
-		_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
 
 		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
-		_, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
 		assertUnauthenticated(t, err, test.ReadBucketAllowed)
 	}
 }
@@ -310,7 +310,7 @@ func TestCommitSegment(t *testing.T) {
 				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now().Add(time.Hour)
-			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			addresedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
 			require.NoError(t, err)
 
 			// create number of pieces below repair threshold
@@ -441,7 +441,7 @@ func TestCreateSegment(t *testing.T) {
 				fail: false,
 			},
 		} {
-			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
+			_, _, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
 			if r.fail {
 				require.Error(t, err)
 			} else {
@@ -484,7 +484,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 
-			_, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
+			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
 			if err != nil {
 				assert.True(t, r.errFlag)
 			} else {
@@ -705,7 +705,7 @@ func TestGetProjectInfo(t *testing.T) {
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 
-	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
+	addressedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
@@ -794,7 +794,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-63-0123456789012345678901234567890123456789012345abc",
 		}
 		for _, name := range validNames {
-			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.NoError(t, err, "bucket name: %v", name)
 		}
 
@@ -808,7 +808,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
-			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.Error(t, err, "bucket name: %v", name)
 		}
 	})

@@ -131,25 +131,40 @@ func (a *APIKey) Check(ctx context.Context, secret []byte, action Action, revoke
 	return nil
 }
 
+// AllowedBuckets stores information about which buckets are
+// allowed to be accessed, where `Buckets` stores names of buckets that are
+// allowed and `All` is a bool that indicates if all buckets are allowed or not
+type AllowedBuckets struct {
+	All     bool
+	Buckets map[string]struct{}
+}
+
 // GetAllowedBuckets returns a list of all the allowed bucket paths that match the Action operation
-func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowedBuckets map[string]struct{}, err error) {
+func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowed AllowedBuckets, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	caveats := a.mac.Caveats()
+	// if there aren't any caveats, then all buckets are allowed
+	if len(caveats) == 0 {
+		allowed.All = true
+		return allowed, err
+	}
+
+	allowed.Buckets = map[string]struct{}{}
 	for _, cavbuf := range caveats {
 		var cav Caveat
 		err := proto.Unmarshal(cavbuf, &cav)
 		if err != nil {
-			return allowedBuckets, ErrFormat.New("invalid caveat format: %v", err)
+			return allowed, ErrFormat.New("invalid caveat format: %v", err)
 		}
 		if cav.Allows(action) {
 			for _, caveatPath := range cav.AllowedPaths {
-				allowedBuckets[string(caveatPath.Bucket)] = struct{}{}
+				allowed.Buckets[string(caveatPath.Bucket)] = struct{}{}
 			}
 		}
 	}
 
-	return allowedBuckets, err
+	return allowed, err
 }
 
 // Restrict generates a new APIKey with the provided Caveat attached.

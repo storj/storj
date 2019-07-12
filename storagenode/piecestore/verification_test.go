@@ -140,10 +140,9 @@ func TestOrderLimitPutValidation(t *testing.T) {
 			satellite = unapprovedSatellite
 		}
 
-		orderLimit := GenerateOrderLimit(
+		orderLimit, piecePrivateKey := GenerateOrderLimit(
 			t,
 			satellite.ID,
-			planet.Uplinks[0].ID(),
 			planet.StorageNodes[0].ID(),
 			tt.pieceID,
 			tt.action,
@@ -156,7 +155,7 @@ func TestOrderLimitPutValidation(t *testing.T) {
 		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
-		uploader, err := client.Upload(ctx, orderLimit)
+		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
 		require.NoError(t, err)
 
 		var writeErr error
@@ -205,10 +204,9 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 		satellite := planet.Satellites[0].Identity
 
-		orderLimit := GenerateOrderLimit(
+		orderLimit, piecePrivateKey := GenerateOrderLimit(
 			t,
 			satellite.ID,
-			planet.Uplinks[0].ID(),
 			planet.StorageNodes[0].ID(),
 			storj.PieceID{1},
 			pb.PieceAction_PUT,
@@ -221,7 +219,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
-		uploader, err := client.Upload(ctx, orderLimit)
+		uploader, err := client.Upload(ctx, orderLimit, piecePrivateKey)
 		require.NoError(t, err)
 
 		data := testrand.Bytes(defaultPieceSize)
@@ -263,10 +261,9 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			satellite = tt.satellite
 		}
 
-		orderLimit := GenerateOrderLimit(
+		orderLimit, piecePrivateKey := GenerateOrderLimit(
 			t,
 			satellite.ID,
-			planet.Uplinks[0].ID(),
 			planet.StorageNodes[0].ID(),
 			tt.pieceID,
 			tt.action,
@@ -279,7 +276,7 @@ func TestOrderLimitGetValidation(t *testing.T) {
 		orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
 		require.NoError(t, err)
 
-		downloader, err := client.Download(ctx, orderLimit, 0, tt.limit)
+		downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, tt.limit)
 		require.NoError(t, err)
 
 		var readErr error
@@ -329,7 +326,7 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 			PieceSize:       diff,
 			PieceCreation:   now,
 			PieceExpiration: time.Time{},
-			Uplink:          planet.Uplinks[0].Identity.PeerIdentity(),
+			OrderLimit:      &pb.OrderLimit{},
 			UplinkPieceHash: &pb.PieceHash{},
 		})
 		require.NoError(t, err)

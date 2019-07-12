@@ -133,7 +133,6 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
-				BwExpiration:         45,
 				RS: metainfo.RSConfig{
 					MaxSegmentSize:   64 * memory.MiB,
 					MaxBufferMem:     memory.Size(256),
@@ -146,7 +145,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Orders: orders.Config{
-				Expiration: 45 * 24 * time.Hour,
+				Expiration: 7 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
 				Interval:                  30 * time.Second,
@@ -154,10 +153,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				ReliabilityCacheStaleness: 5 * time.Minute,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:    10,
-				Interval:     time.Hour,
-				Timeout:      1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
-				MaxBufferMem: 4 * memory.MiB,
+				MaxRepair:                     10,
+				Interval:                      time.Hour,
+				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				MaxBufferMem:                  4 * memory.MiB,
+				MaxExcessRateOptimalThreshold: 0.05,
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,

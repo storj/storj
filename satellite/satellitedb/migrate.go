@@ -926,16 +926,56 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`UPDATE nodes SET disqualified=NULL WHERE disqualified IS NOT NULL AND audit_reputation_alpha / (audit_reputation_alpha + audit_reputation_beta) >= 0.6;`,
 				},
-			}, {
-				Description: "Set default offer for each offer type in offers table",
+			},
+			{
+				Description: "Add unique id for project payments. Add is_default property",
 				Version:     40,
 				Action: migrate.SQL{
+					`DROP TABLE project_payments CASCADE`,
+					`CREATE TABLE project_payments (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+						payment_method_id bytea NOT NULL,
+						is_default boolean NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Move InjuredSegment path from string to bytes",
+				Version:     41,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
+					`ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
+					`UPDATE injuredsegments SET path = decode(path_old, 'escape');`,
+					`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`,
+					`ALTER TABLE injuredsegments DROP COLUMN path_old;`,
+					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
+				},
+			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     42,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP num_redeemed;`,
+				},
+			},
+			{
+				Description: "Set default offer for each offer type in offers table",
+				Version:     43,
+				Action: migrate.SQL{
+					`ALTER TABLE offers
+						ALTER COLUMN redeemable_cap DROP NOT NULL,
+						ALTER COLUMN invitee_credit_duration_days DROP NOT NULL,
+						ALTER COLUMN award_credit_duration_days DROP NOT NULL
+					`,
 					`INSERT INTO offers (
 						name,
 						description,
 						award_credit_in_cents,
 						invitee_credit_in_cents,
-						num_redeemed,
 						expires_at,
 						created_at,
 						status,
@@ -945,7 +985,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						'Is active when no other active referral offer',
 						300,
 						600,
-						0,
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',
 						1,
@@ -955,7 +994,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						'Default free credit offer',
 						'Is active when no active free credit offer',
 						300,
-						0,
 						0,
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',

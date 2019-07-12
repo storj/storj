@@ -75,7 +75,7 @@ func (client *Client) Close() error {
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
+func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
@@ -87,10 +87,10 @@ func (client *Client) CreateSegment(ctx context.Context, bucket string, path sto
 		Expiration:              expiration,
 	})
 	if err != nil {
-		return nil, rootPieceID, Error.Wrap(err)
+		return nil, rootPieceID, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetAddressedLimits(), response.RootPieceId, nil
+	return response.GetAddressedLimits(), response.RootPieceId, response.PrivateKey, nil
 }
 
 // CommitSegment requests to store the pointer for the segment
@@ -131,7 +131,7 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 }
 
 // ReadSegment requests the order limits for reading a segment
-func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.DownloadSegmentOld(ctx, &pb.SegmentDownloadRequestOld{
@@ -141,12 +141,12 @@ func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, nil, Error.Wrap(err)
+		return nil, nil, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), nil
+	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), response.PrivateKey, nil
 }
 
 // sortLimits sorts order limits and fill missing ones with nil values
@@ -168,7 +168,7 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 }
 
 // DeleteSegment requests the order limits for deleting a segment
-func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.DeleteSegmentOld(ctx, &pb.SegmentDeleteRequestOld{
@@ -178,12 +178,12 @@ func (client *Client) DeleteSegment(ctx context.Context, bucket string, path sto
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, Error.Wrap(err)
+		return nil, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetAddressedLimits(), nil
+	return response.GetAddressedLimits(), response.PrivateKey, nil
 }
 
 // ListSegments lists the available segments
@@ -225,7 +225,7 @@ func (client *Client) SetAttribution(ctx context.Context, bucket string, partner
 		BucketName: []byte(bucket),
 	})
 
-	return err
+	return Error.Wrap(err)
 }
 
 // GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
@@ -233,4 +233,111 @@ func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoR
 	defer mon.Task()(&ctx)(&err)
 
 	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
+}
+
+// CreateBucket creates a new bucket
+func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	req := convertBucketToProtoRequest(bucket)
+	resp, err := client.client.CreateBucket(ctx, &req)
+	if err != nil {
+		return storj.Bucket{}, Error.Wrap(err)
+	}
+
+	return convertProtoToBucket(resp.Bucket), nil
+}
+
+// GetBucket returns a bucket
+func (client *Client) GetBucket(ctx context.Context, bucketName string) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
+		return storj.Bucket{}, Error.Wrap(err)
+	}
+	return convertProtoToBucket(resp.Bucket), nil
+}
+
+// DeleteBucket deletes a bucket
+func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.DeleteBucket(ctx, &pb.BucketDeleteRequest{Name: []byte(bucketName)})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.ErrBucketNotFound.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// ListBuckets lists buckets
+func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	req := &pb.BucketListRequest{
+		Cursor:    []byte(listOpts.Cursor),
+		Limit:     int32(listOpts.Limit),
+		Direction: int32(listOpts.Direction),
+	}
+	resp, err := client.client.ListBuckets(ctx, req)
+	if err != nil {
+		return storj.BucketList{}, Error.Wrap(err)
+	}
+	resultBucketList := storj.BucketList{
+		More: resp.GetMore(),
+	}
+	resultBucketList.Items = make([]storj.Bucket, len(resp.GetItems()))
+	for i, item := range resp.GetItems() {
+		resultBucketList.Items[i] = storj.Bucket{
+			Name:    string(item.GetName()),
+			Created: item.GetCreatedAt(),
+		}
+	}
+	return resultBucketList, nil
+}
+
+func convertBucketToProtoRequest(bucket storj.Bucket) pb.BucketCreateRequest {
+	rs := bucket.DefaultRedundancyScheme
+	return pb.BucketCreateRequest{
+		Name:               []byte(bucket.Name),
+		PathCipher:         pb.CipherSuite(bucket.PathCipher),
+		DefaultSegmentSize: bucket.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(rs.Algorithm),
+			MinReq:           int32(rs.RequiredShares),
+			Total:            int32(rs.TotalShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			ErasureShareSize: rs.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
+			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+		},
+	}
+}
+
+func convertProtoToBucket(pbBucket *pb.Bucket) storj.Bucket {
+	defaultRS := pbBucket.GetDefaultRedundancyScheme()
+	defaultEP := pbBucket.GetDefaultEncryptionParameters()
+	return storj.Bucket{
+		Name:                string(pbBucket.GetName()),
+		PathCipher:          storj.CipherSuite(pbBucket.GetPathCipher()),
+		Created:             pbBucket.GetCreatedAt(),
+		DefaultSegmentsSize: pbBucket.GetDefaultSegmentSize(),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
+			ShareSize:      defaultRS.GetErasureShareSize(),
+			RequiredShares: int16(defaultRS.GetMinReq()),
+			RepairShares:   int16(defaultRS.GetRepairThreshold()),
+			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
+			TotalShares:    int16(defaultRS.GetTotal()),
+		},
+		DefaultEncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int32(defaultEP.BlockSize),
+		},
+	}
 }
