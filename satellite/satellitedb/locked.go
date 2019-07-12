@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -110,7 +111,7 @@ func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projec
 }
 
 // List returns all buckets for a project
-func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets map[string]struct{}) (bucketList storj.BucketList, err error) {
+func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
@@ -346,16 +347,40 @@ func (m *lockedProjectPayments) Create(ctx context.Context, info console.Project
 	return m.db.Create(ctx, info)
 }
 
-func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) (*console.ProjectPayment, error) {
+func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Delete(ctx, projectPaymentID)
+}
+
+func (m *lockedProjectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetByID(ctx, projectPaymentID)
+}
+
+func (m *lockedProjectPayments) GetByPayerID(ctx context.Context, payerID uuid.UUID) ([]*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByPayerID(ctx, payerID)
 }
 
-func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+func (m *lockedProjectPayments) GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*console.ProjectPayment, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.GetByProjectID(ctx, projectID)
+}
+
+func (m *lockedProjectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.GetDefaultByProjectID(ctx, projectID)
+}
+
+func (m *lockedProjectPayments) Update(ctx context.Context, info console.ProjectPayment) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.Update(ctx, info)
 }
 
 // Projects is a getter for Projects repository
@@ -1034,12 +1059,6 @@ func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListAll(ctx)
-}
-
-func (m *lockedRewards) Redeem(ctx context.Context, offerID int, isDefault bool) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID, isDefault)
 }
 
 // StoragenodeAccounting returns database for storing information about storagenode use

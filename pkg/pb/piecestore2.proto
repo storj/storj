@@ -7,12 +7,14 @@ option go_package = "pb";
 package piecestore;
 
 import "gogo.proto";
+import "google/protobuf/timestamp.proto";
 import "orders.proto";
 
 service Piecestore {
     rpc Upload(stream PieceUploadRequest) returns (PieceUploadResponse) {}
     rpc Download(stream PieceDownloadRequest) returns (stream PieceDownloadResponse) {}
     rpc Delete(PieceDeleteRequest) returns (PieceDeleteResponse) {}
+    rpc Retain(RetainRequest) returns (RetainResponse);
 }
 
 // Expected order of messages from uplink:
@@ -79,4 +81,12 @@ message PieceDeleteRequest {
 }
 
 message PieceDeleteResponse {
+}
+
+message RetainRequest {
+    google.protobuf.Timestamp creation_date = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    bytes filter = 2;
+}
+
+message RetainResponse {
 }
