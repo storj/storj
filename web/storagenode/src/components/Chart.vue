@@ -12,9 +12,8 @@
                 type: String,
                 default: '$'
             },
-            max: String,
-            min: String,
-            tooltipHTML: String,
+            max: Number,
+            min: Number,
             tooltipConstructor: Function,
             chartData: Object,
         },
@@ -61,11 +60,11 @@
                         enabled: false,
 
                         custom: ((tooltipModel) => {
-                            this.$props.tooltipConstructor(tooltipModel, this.$props.tooltipHTML);
+                            this.$props.tooltipConstructor(tooltipModel);
                         }),
 
                         labels: {
-                            enabled: false,
+                            enabled: true,
                         }
                     }
                 }

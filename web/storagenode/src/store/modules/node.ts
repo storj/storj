@@ -1,6 +1,7 @@
 import { NODE_ACTIONS, NODE_MUTATIONS } from '@/utils/constants';
 import { httpGet } from '@/api/storagenode';
 import { formatBytes } from '@/utils/converter.ts';
+import { BandwidthChartDataFormatter } from '@/utils/chartModule'
 
 export const nodeModule = {
     state: {
@@ -13,6 +14,7 @@ export const nodeModule = {
         },
         satellites: [],
         selectedSatellite: null,
+        bandwidthChartData: new BandwidthChartDataFormatter([]).getFormattedData(),
         bandwidth: {
             egress: null,
             ingress: null,
@@ -44,6 +46,8 @@ export const nodeModule = {
             state.bandwidth.remaining = formatBytes(nodeInfo.bandwidth.remaining);
             state.bandwidth.available = formatBytes(nodeInfo.bandwidth.remaining + nodeInfo.bandwidth.used);
             state.satellites = nodeInfo.satellites;
+            state.bandwidthChartData = new BandwidthChartDataFormatter(nodeInfo.bandwidthChartData).getFormattedData();
+            console.log(nodeInfo);
         },
 
         [NODE_MUTATIONS.SELECT_SATELLITE](state, id: any): void {
@@ -72,6 +76,6 @@ export const nodeModule = {
         },
         [NODE_ACTIONS.SELECT_SATELLITE]: function ({commit}, id: any): void {
             commit(NODE_MUTATIONS.SELECT_SATELLITE, id);
-        }
+        },
     },
 };

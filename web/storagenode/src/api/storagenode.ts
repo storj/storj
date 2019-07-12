@@ -8,6 +8,7 @@
  */
 export async function httpGet(url) {
     let response = await fetch(url);
+    console.log(response);
 
     if (response.ok) {
         return response.json();
