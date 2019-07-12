@@ -124,9 +124,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval: 1 * time.Second,
-				RefreshInterval:   1 * time.Second,
-				RefreshLimit:      100,
+				DiscoveryInterval:  1 * time.Second,
+				RefreshInterval:    1 * time.Second,
+				RefreshLimit:       100,
+				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),

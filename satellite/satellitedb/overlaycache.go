@@ -566,6 +566,37 @@ func (cache *overlaycache) Paginate(ctx context.Context, offset int64, limit int
 	return infos, more, nil
 }
 
+// PaginateQualified will retrieve all qualified nodes
+func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, limit int) (_ []*pb.Node, _ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := storj.NodeID{}
+
+	// more represents end of table. If there are more rows in the database, more will be true.
+	more := true
+
+	if limit <= 0 || limit > storage.LookupLimit {
+		limit = storage.LookupLimit
+	}
+
+	dbxInfos, err := cache.db.Limited_Node_Id_Node_LastNet_Node_Address_Node_Protocol_By_Id_GreaterOrEqual_And_Disqualified_Is_Null_OrderBy_Asc_Id(ctx, dbx.Node_Id(cursor.Bytes()), limit, offset)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(dbxInfos) < limit {
+		more = false
+	}
+
+	infos := make([]*pb.Node, len(dbxInfos))
+	for i, dbxInfo := range dbxInfos {
+		infos[i], err = convertDBNodeToPBNode(ctx, dbxInfo)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	return infos, more, nil
+}
+
 // Update updates node address
 func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, defaults overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -904,6 +935,26 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	}
 
 	return node, nil
+}
+
+func convertDBNodeToPBNode(ctx context.Context, info *dbx.Id_LastNet_Address_Protocol_Row) (_ *pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if info == nil {
+		return nil, Error.New("missing info")
+	}
+
+	id, err := storj.NodeIDFromBytes(info.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.Node{
+		Id:     id,
+		LastIp: info.LastNet,
+		Address: &pb.NodeAddress{
+			Address:   info.Address,
+			Transport: pb.NodeTransport(info.Protocol),
+		},
+	}, nil
 }
 
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {

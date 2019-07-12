@@ -886,6 +886,13 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
+// Paginate will page through the database nodes
+func (m *lockedOverlayCache) PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.PaginateQualified(ctx, offset, limit)
+}
+
 // Reliable returns all nodes that are reliable
 func (m *lockedOverlayCache) Reliable(ctx context.Context, a1 *overlay.NodeCriteria) (storj.NodeIDList, error) {
 	m.Lock()
