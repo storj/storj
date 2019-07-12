@@ -14,11 +14,30 @@ import (
 // EncodeOrderLimit encodes order limit into bytes for signing. Removes signature from serialized limit.
 func EncodeOrderLimit(ctx context.Context, limit *pb.OrderLimit) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	signature := limit.SatelliteSignature
-	limit.SatelliteSignature = nil
-	out, err := proto.Marshal(limit)
-	limit.SatelliteSignature = signature
-	return out, err
+
+	signing := pb.OrderLimitSigning{}
+	signing.SerialNumber = limit.SerialNumber
+	signing.SatelliteId = limit.SatelliteId
+	signing.DeprecatedUplinkId = limit.DeprecatedUplinkId
+	if !limit.UplinkPublicKey.IsZero() {
+		signing.UplinkPublicKey = &limit.UplinkPublicKey
+	}
+	signing.StorageNodeId = limit.StorageNodeId
+	signing.PieceId = limit.PieceId
+	signing.Limit = limit.Limit
+	signing.Action = limit.Action
+	if limit.PieceExpiration.IsZero() {
+		signing.PieceExpiration = &limit.PieceExpiration
+	}
+	if limit.OrderExpiration.IsZero() {
+		signing.OrderExpiration = &limit.OrderExpiration
+	}
+	if limit.OrderCreation.IsZero() {
+		signing.OrderCreation = &limit.OrderCreation
+	}
+	signing.SatelliteAddress = limit.SatelliteAddress
+
+	return proto.Marshal(&signing)
 }
 
 // EncodeOrder encodes order into bytes for signing. Removes signature from serialized order.
