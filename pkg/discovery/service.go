@@ -117,6 +117,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 			node := node
 
 			limiter.Go(ctx, func() {
+				// NB: FetchInfo updates node uptime already
 				info, err := discovery.kad.FetchInfo(ctx, *node)
 				if ctx.Err() != nil {
 					return
@@ -124,15 +125,7 @@ func (discovery *Discovery) refresh(ctx context.Context) (err error) {
 
 				if err != nil {
 					discovery.log.Info("could not ping node", zap.Stringer("ID", node.Id), zap.Error(err))
-					if _, err := discovery.cache.UpdateUptime(ctx, node.Id, false); err != nil {
-						discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
-					}
 					return
-				}
-
-				// TODO: combine these into the same db call
-				if _, err = discovery.cache.UpdateUptime(ctx, node.Id, true); err != nil {
-					discovery.log.Error("could not update node uptime in cache", zap.Stringer("ID", node.Id), zap.Error(err))
 				}
 
 				if _, err = discovery.cache.UpdateNodeInfo(ctx, node.Id, info); err != nil {
