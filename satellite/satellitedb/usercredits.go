@@ -56,27 +56,36 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 }
 
 // Create insert a new record of user credit
-func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit, redeemableCap int) error {
+func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit) error {
 	var statement string
+
+	if userCredit.ExpiresAt.Before(time.Now().UTC()) {
+		return errs.New("user credit is already expired")
+	}
 
 	switch t := c.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
 				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, time('now'))) AS v
-					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE offer_id = ?);
+					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?);
 		`
 	case *pq.Driver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
-				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, ?::bytea, now())) AS v
-					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE offer_id = ?);
+				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), now())) AS v
+					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?);
 		`
 	default:
 		return errs.New("Unsupported database %t", t)
 	}
 
-	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, userCredit.ReferredBy[:], redeemableCap, userCredit.OfferID, redeemableCap)
+	var referrerID []byte
+	if userCredit.ReferredBy != nil {
+		referrerID = userCredit.ReferredBy[:]
+	}
+
+	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
 	if err != nil {
 		return errs.Wrap(err)
 	}

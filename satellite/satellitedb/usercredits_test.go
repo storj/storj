@@ -34,34 +34,35 @@ func TestUsercredits(t *testing.T) {
 			{
 				UserID:        randomID,
 				OfferID:       activeOffer.ID,
-				ReferredBy:    referrer.ID,
+				ReferredBy:    &referrer.ID,
 				CreditsEarned: currency.Cents(100),
 				ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 			},
 			{
 				UserID:        user.ID,
 				OfferID:       10,
-				ReferredBy:    referrer.ID,
+				ReferredBy:    &referrer.ID,
 				CreditsEarned: currency.Cents(100),
 				ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 			},
 			{
 				UserID:        user.ID,
 				OfferID:       activeOffer.ID,
-				ReferredBy:    randomID,
+				ReferredBy:    &randomID,
 				CreditsEarned: currency.Cents(100),
 				ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 			},
 		}
 
 		for _, ivc := range invalidUserCredits {
-			err := consoleDB.UserCredits().Create(ctx, ivc, activeOffer.RedeemableCap)
+			err := consoleDB.UserCredits().Create(ctx, ivc)
 			require.Error(t, err)
 		}
 
 		type result struct {
 			remainingCharge int
 			usage           console.UserCreditUsage
+			referred        int64
 			hasUpdateErr    bool
 			hasCreateErr    bool
 		}
@@ -76,7 +77,7 @@ func TestUsercredits(t *testing.T) {
 				userCredit: console.UserCredit{
 					UserID:        user.ID,
 					OfferID:       activeOffer.ID,
-					ReferredBy:    referrer.ID,
+					ReferredBy:    &referrer.ID,
 					CreditsEarned: currency.Cents(100),
 					ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 				},
@@ -89,6 +90,7 @@ func TestUsercredits(t *testing.T) {
 						UsedCredits:      currency.Cents(100),
 						Referred:         0,
 					},
+					referred: 1,
 				},
 			},
 			{
@@ -96,7 +98,7 @@ func TestUsercredits(t *testing.T) {
 				userCredit: console.UserCredit{
 					UserID:        user.ID,
 					OfferID:       activeOffer.ID,
-					ReferredBy:    referrer.ID,
+					ReferredBy:    &referrer.ID,
 					CreditsEarned: currency.Cents(100),
 					ExpiresAt:     time.Now().UTC().AddDate(0, 0, -5),
 				},
@@ -109,6 +111,8 @@ func TestUsercredits(t *testing.T) {
 						UsedCredits:      currency.Cents(100),
 						Referred:         0,
 					},
+					referred:     1,
+					hasCreateErr: true,
 					hasUpdateErr: true,
 				},
 			},
@@ -117,7 +121,7 @@ func TestUsercredits(t *testing.T) {
 				userCredit: console.UserCredit{
 					UserID:        user.ID,
 					OfferID:       activeOffer.ID,
-					ReferredBy:    referrer.ID,
+					ReferredBy:    &referrer.ID,
 					CreditsEarned: currency.Cents(100),
 					ExpiresAt:     time.Now().UTC().AddDate(0, 0, 5),
 				},
@@ -130,6 +134,7 @@ func TestUsercredits(t *testing.T) {
 						UsedCredits:      currency.Cents(180),
 						Referred:         0,
 					},
+					referred: 2,
 				},
 			},
 			{
@@ -137,7 +142,7 @@ func TestUsercredits(t *testing.T) {
 				userCredit: console.UserCredit{
 					UserID:        user.ID,
 					OfferID:       activeOffer.ID,
-					ReferredBy:    randomID,
+					ReferredBy:    &randomID,
 					CreditsEarned: currency.Cents(100),
 					ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 				},
@@ -148,6 +153,7 @@ func TestUsercredits(t *testing.T) {
 						AvailableCredits: currency.Cents(20),
 						UsedCredits:      currency.Cents(180),
 					},
+					referred:     2,
 					hasCreateErr: true,
 				},
 			},
@@ -156,7 +162,7 @@ func TestUsercredits(t *testing.T) {
 				userCredit: console.UserCredit{
 					UserID:        user.ID,
 					OfferID:       defaultOffer.ID,
-					ReferredBy:    randomID,
+					ReferredBy:    nil,
 					CreditsEarned: currency.Cents(100),
 					ExpiresAt:     time.Now().UTC().AddDate(0, 1, 0),
 				},
@@ -164,16 +170,17 @@ func TestUsercredits(t *testing.T) {
 				expected: result{
 					usage: console.UserCreditUsage{
 						Referred:         0,
-						AvailableCredits: currency.Cents(20),
+						AvailableCredits: currency.Cents(120),
 						UsedCredits:      currency.Cents(180),
 					},
-					hasCreateErr: true,
+					referred:     2,
+					hasCreateErr: false,
 				},
 			},
 		}
 
-		for i, vc := range validUserCredits {
-			err := consoleDB.UserCredits().Create(ctx, vc.userCredit, offer.RedeemableCap)
+		for _, vc := range validUserCredits {
+			err := consoleDB.UserCredits().Create(ctx, vc.userCredit)
 			if vc.expected.hasCreateErr {
 				require.Error(t, err)
 			} else {
@@ -199,11 +206,7 @@ func TestUsercredits(t *testing.T) {
 			{
 				referred, err := consoleDB.UserCredits().GetCreditUsage(ctx, referrer.ID, time.Now().UTC())
 				require.NoError(t, err)
-				if vc.expected.hasCreateErr {
-					require.Equal(t, int64(i), referred.Referred)
-				} else {
-					require.Equal(t, int64(i+1), referred.Referred)
-				}
+				require.Equal(t, vc.expected.referred, referred.Referred)
 			}
 		}
 	})

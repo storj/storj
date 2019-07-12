@@ -571,10 +571,10 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit, redeemableCap int) error {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Create(ctx, userCredit, redeemableCap)
+	return m.db.Create(ctx, userCredit)
 }
 
 func (m *lockedUserCredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*console.UserCreditUsage, error) {
@@ -886,7 +886,7 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
-// Paginate will page through the database nodes
+// PaginateQualified will page through the qualified nodes
 func (m *lockedOverlayCache) PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
 	m.Lock()
 	defer m.Unlock()
