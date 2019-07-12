@@ -1002,6 +1002,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					) ON CONFLICT DO NOTHING;`,
 				},
 			},
+			{
+				Description: "Add index on InjuredSegments attempted column",
+				Version:     44,
+				Action: migrate.SQL{
+					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
+				},
+			},
 		},
 	}
 }
