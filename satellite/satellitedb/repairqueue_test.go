@@ -71,31 +71,31 @@ func TestRepairQueueOrder(t *testing.T) {
 
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 		// set recentRepairPath attempted to now, oldRepairPath attempted to 2 hours ago, olderRepairPath to 3 hours ago
-		_, err := dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now(), recentRepairPath)
+		_, err := dbAccess.Query(dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now(), recentRepairPath)
 		require.NoError(t, err)
-		_, err = dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-2*time.Hour), oldRepairPath)
+		_, err = dbAccess.Query(dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-2*time.Hour), oldRepairPath)
 		require.NoError(t, err)
-		_, err = dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-3*time.Hour), olderRepairPath)
+		_, err = dbAccess.Query(dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-3*time.Hour), olderRepairPath)
 		require.NoError(t, err)
 
 		// path with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, nullPath, string(injuredSeg.Path))
+		assert.Equal(t, nullPath, string(injuredSeg.Path))
 
 		// path with attempted = 3 hours ago should be selected next
 		injuredSeg, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, olderRepairPath, string(injuredSeg.Path))
+		assert.Equal(t, olderRepairPath, string(injuredSeg.Path))
 
 		// path with attempted = 2 hours ago should be selected next
 		injuredSeg, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		require.Equal(t, oldRepairPath, string(injuredSeg.Path))
+		assert.Equal(t, oldRepairPath, string(injuredSeg.Path))
 
 		// queue should be considered "empty" now
 		injuredSeg, err = repairQueue.Select(ctx)
-		require.True(t, storage.ErrEmptyQueue.Has(err))
-		require.Nil(t, injuredSeg)
+		assert.True(t, storage.ErrEmptyQueue.Has(err))
+		assert.Nil(t, injuredSeg)
 	})
 }
