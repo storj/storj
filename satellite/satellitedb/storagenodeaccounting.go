@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -199,9 +198,6 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 // QueryNodeSpaceUsage returns slice of NodeSpaceUsage for given period
 func (db *StoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	s, e := start.String(), end.String()
-	fmt.Println(s, e)
 
 	query := `SELECT id, at_rest_total, start_time 
 		FROM accounting_rollups
