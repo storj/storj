@@ -25,42 +25,42 @@
 
     @Component
     export default class PaginationArea extends Vue {
-        public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-        public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+        public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
+        public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
     
         public get pages(): number[] {
             return new Array(this.$store.state.bucketUsageModule.page.pageCount);
-        };
+        }
         
         public get currentPage(): number {
             return this.$store.state.bucketUsageModule.page.currentPage;
-        };
+        }
         
         public get firstEdge(): number {
             return this.$store.state.bucketUsageModule.page.offset + 1;
-        };
+        }
         
         public get lastEdge(): number {
             let offset = this.$store.state.bucketUsageModule.page.offset;
             let bucketsLength = this.$store.state.bucketUsageModule.page.bucketUsages.length;
         
             return offset + bucketsLength;
-        };
+        }
         
         public get totalCount(): number {
             return this.$store.state.bucketUsageModule.page.totalCount;
-        };
+        }
         
         public get isFirstPage() {
             return this.$store.state.bucketUsageModule.page.currentPage === 1;
-        };
+        }
         
         public get isLastPage(): boolean {
             let currentPage = this.$store.state.bucketUsageModule.page.currentPage;
             let pageCount = this.$store.state.bucketUsageModule.page.pageCount;
         
             return currentPage === pageCount;
-        };
+        }
     
     
         public async onPageClick(event: any, page: number) {
@@ -68,11 +68,11 @@
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
             }
-        };
+        }
     
         public isSelected(page: number): string {
             return page === this.currentPage ? "selected" : "";
-        };
+        }
     
         public async nextPage() {
             if (this.isLastPage) {
@@ -83,7 +83,7 @@
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
             }
-        };
+        }
     
         public async prevPage() {
             if (this.isFirstPage) {
@@ -94,7 +94,7 @@
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
             }
-        };
+        }
     }
 </script>
 

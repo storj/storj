@@ -52,19 +52,19 @@
         
         public get buckets(): BucketUsage[] {
             return this.$store.state.bucketUsageModule.page.bucketUsages;
-        };
+        }
         
         public get pages(): number {
             return this.$store.state.bucketUsageModule.page.pageCount;
-        };
+        }
         
         public get search(): string {
             return this.$store.state.bucketUsageModule.cursor.search;
-        };
+        }
         
         public mounted() {
             this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
-        };
+        }
     }
 </script>
 

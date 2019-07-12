@@ -20,15 +20,15 @@
     
         public get storage(): string {
             return this.bucket.storage.toFixed(4);
-        };
+        }
     
         public get egress(): string {
             return this.bucket.egress.toFixed(4);
-        };
-    
+        }
+        
         public get objectCount(): string {
             return this.bucket.objectCount.toString();
-        };
+        }
     }
 </script>
 

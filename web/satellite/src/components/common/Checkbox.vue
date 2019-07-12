@@ -17,9 +17,9 @@
         @Prop({default: false})
         private readonly isCheckboxError: boolean;
         
-        private readonly checked: boolean = false;
+        private checked: boolean = false;
         
-        private onChange(): void {
+        public onChange(): void {
             this.$emit('setData', this.checked);
         }
     }

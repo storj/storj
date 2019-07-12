@@ -19,18 +19,18 @@
     export default class SearchArea extends Vue {
         public get search(): string {
             return this.$store.state.bucketUsageModule.cursor.search;
-        };
+        }
         
         public set search(search: string) {
             this.$store.dispatch(BUCKET_USAGE_ACTIONS.SET_SEARCH, search);
-        };
+        }
     
         public async fetch(): Promise<any> {
             const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
             if (!bucketsResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
             }
-        };
+        }
     }
 </script>
 
