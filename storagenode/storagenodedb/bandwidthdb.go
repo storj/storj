@@ -100,6 +100,8 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 
 	usage := &bandwidth.Usage{}
 
+	from = from.UTC()
+	to = to.UTC()
 	rows, err := db.db.Query(`
 		SELECT action, sum(a) amount from(
 				SELECT action, sum(amount) a
@@ -140,6 +142,8 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 	entries := map[storj.NodeID]*bandwidth.Usage{}
 
+	from = from.UTC()
+	to = to.UTC()
 	rows, err := db.db.Query(`
 	SELECT satellite_id, action, sum(a) amount from(
 			SELECT satellite_id, action, sum(amount) a
