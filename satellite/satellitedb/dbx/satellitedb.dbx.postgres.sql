@@ -62,7 +62,7 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	path text NOT NULL,
+	path bytea NOT NULL,
 	data bytea NOT NULL,
 	attempted timestamp,
 	PRIMARY KEY ( path )

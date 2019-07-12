@@ -944,8 +944,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Remove num_redeemed column in offers table",
+				Description: "Move InjuredSegment path from string to bytes",
 				Version:     41,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
+					`ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
+					`UPDATE injuredsegments SET path = decode(path_old, 'escape');`,
+					`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`,
+					`ALTER TABLE injuredsegments DROP COLUMN path_old;`,
+					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
+				},
+			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     42,
 				Action: migrate.SQL{
 					`ALTER TABLE offers DROP num_redeemed;`,
 				},

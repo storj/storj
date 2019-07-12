@@ -117,7 +117,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)
+	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -135,13 +135,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, err := repairer.orders.CreatePutRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, getOrderLimits, newNodes)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// Download the segment using just the healthy pieces
-	rr, err := repairer.ec.Get(ctx, getOrderLimits, redundancy, pointer.GetSegmentSize())
+	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -153,7 +153,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, expiration, repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, r, expiration, repairer.timeout, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}

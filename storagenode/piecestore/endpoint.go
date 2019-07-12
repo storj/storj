@@ -59,6 +59,7 @@ type Config struct {
 	ExpirationGracePeriod time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
@@ -206,11 +207,6 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 	}()
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	pieceWriter, err = endpoint.store.Writer(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
@@ -233,7 +229,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 	}
 
 	largestOrder := pb.Order{}
-	defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
+	defer endpoint.SaveOrder(ctx, limit, &largestOrder)
 
 	for {
 		message, err = stream.Recv() // TODO: reuse messages to avoid allocations
@@ -250,7 +246,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 
 		if message.Order != nil {
-			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
+			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
 			largestOrder = *message.Order
@@ -283,7 +279,7 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 
 		if message.Done != nil {
 			expectedHash := pieceWriter.Hash()
-			if err := endpoint.VerifyPieceHash(ctx, peer, limit, message.Done, expectedHash); err != nil {
+			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, expectedHash); err != nil {
 				return err // TODO: report grpc status internal server error
 			}
 
@@ -302,8 +298,8 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 					PieceCreation:   limit.OrderCreation,
 					PieceExpiration: limit.PieceExpiration,
 
+					OrderLimit:      limit,
 					UplinkPieceHash: message.Done,
-					Uplink:          peer,
 				}
 
 				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
@@ -398,11 +394,6 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 		}
 	}()
 
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -479,7 +470,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 
 	recvErr := func() (err error) {
 		largestOrder := pb.Order{}
-		defer endpoint.SaveOrder(ctx, limit, &largestOrder, peer)
+		defer endpoint.SaveOrder(ctx, limit, &largestOrder)
 
 		// ensure that we always terminate sending goroutine
 		defer throttle.Fail(io.EOF)
@@ -497,7 +488,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				return ErrProtocol.New("expected order as the message")
 			}
 
-			if err := endpoint.VerifyOrder(ctx, peer, limit, message.Order, largestOrder.Amount); err != nil {
+			if err := endpoint.VerifyOrder(ctx, limit, message.Order, largestOrder.Amount); err != nil {
 				return err
 			}
 
@@ -521,7 +512,7 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 }
 
 // SaveOrder saves the order with all necessary information. It assumes it has been already verified.
-func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order, uplink *identity.PeerIdentity) {
+func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, order *pb.Order) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -544,28 +535,36 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 }
 
 // Retain keeps only piece ids specified in the request
-func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (*pb.RetainResponse, error) {
+func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
+	}
+
+	err = endpoint.trust.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, status.Error(codes.PermissionDenied, Error.New("retain called with untrusted ID").Error())
 	}
 
 	filter, err := bloomfilter.NewFromBytes(retainReq.GetFilter())
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
 	}
 
 	const limit = 1000
 	offset := 0
+	numDeleted := 0
 	hasMorePieces := true
 
 	for hasMorePieces {
-		// subtract one hour to leave room for clock difference between the satellite and storage node
-		createdBefore := retainReq.GetCreationDate().Add(-1 * time.Hour)
+		// subtract some time to leave room for clock difference between the satellite and storage node
+		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
 		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 		}
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
@@ -578,10 +577,12 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
 				}
+				numDeleted++
 			}
 		}
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
+		offset -= numDeleted
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
