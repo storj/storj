@@ -123,64 +123,53 @@ func (sender *Sender) runOnce(ctx context.Context) (err error) {
 		return nil
 	}
 
+	requests := make(chan ArchiveRequest, batchSize)
+	var batchGroup errgroup.Group
+	batchGroup.Go(func() error { return sender.handleBatches(ctx, requests) })
+
 	if len(ordersBySatellite) > 0 {
 		var group errgroup.Group
 		ctx, cancel := context.WithTimeout(ctx, sender.config.Timeout)
 		defer cancel()
 
-		ch := make(chan ArchiveRequest, batchSize)
-		done := make(chan struct{})
-		go func() {
-			sender.handleBatches(ctx, ch)
-			close(done)
-		}()
-
 		for satelliteID, orders := range ordersBySatellite {
 			satelliteID, orders := satelliteID, orders
 			group.Go(func() error {
-				sender.Settle(ctx, satelliteID, orders, ch)
+				sender.Settle(ctx, satelliteID, orders, requests)
 				return nil
 			})
 		}
 
 		_ = group.Wait() // doesn't return errors
-		close(ch)
-		<-done
 	} else {
 		sender.log.Debug("no orders to send")
 	}
 
-	return nil
+	close(requests)
+	return batchGroup.Wait()
 }
 
 // Settle uploads orders to the satellite.
-func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, ch chan ArchiveRequest) {
+func (sender *Sender) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) {
 	log := sender.log.Named(satelliteID.String())
-	err := sender.settle(ctx, log, satelliteID, orders, ch)
+	err := sender.settle(ctx, log, satelliteID, orders, requests)
 	if err != nil {
 		log.Error("failed to settle orders", zap.Error(err))
 	}
 }
 
-func (sender *Sender) handleBatches(ctx context.Context, ch chan ArchiveRequest) {
-	err := sender.doHandleBatches(ctx, ch)
-	if err != nil {
-		sender.log.Error("failed to handle batches", zap.Error(err))
-	}
-}
-
-func (sender *Sender) doHandleBatches(ctx context.Context, ch chan ArchiveRequest) (err error) {
+func (sender *Sender) handleBatches(ctx context.Context, requests chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// In case anything goes wrong, discard everything from the channel.
 	defer func() {
-		for range ch {
+		for range requests {
 		}
 	}()
 
-	buffer := make([]ArchiveRequest, 0, cap(ch))
+	buffer := make([]ArchiveRequest, 0, cap(requests))
 
-	for request := range ch {
+	for request := range requests {
 		buffer = append(buffer, request)
 		if len(buffer) < cap(buffer) {
 			continue
@@ -198,7 +187,7 @@ func (sender *Sender) doHandleBatches(ctx context.Context, ch chan ArchiveReques
 	return nil
 }
 
-func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, ch chan ArchiveRequest) (err error) {
+func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))
@@ -262,9 +251,10 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 			status = StatusRejected
 		default:
 			errHandle(OrderError, "unexpected response: %v", response.Status)
+			continue
 		}
 
-		ch <- ArchiveRequest{
+		requests <- ArchiveRequest{
 			Satellite: satelliteID,
 			Serial:    response.SerialNumber,
 			Status:    status,
