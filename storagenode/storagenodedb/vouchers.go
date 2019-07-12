@@ -87,7 +87,7 @@ func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (
 		args = append(args, id)
 	}
 
-	args = append(args, time.Now())
+	args = append(args, time.Now().UTC())
 
 	row := db.db.QueryRow(db.InfoDB.Rebind(`
 		SELECT voucher_serialized
