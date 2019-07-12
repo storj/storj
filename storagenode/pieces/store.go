@@ -13,7 +13,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -41,8 +40,8 @@ type Info struct {
 	PieceCreation   time.Time
 	PieceExpiration time.Time
 
+	OrderLimit      *pb.OrderLimit
 	UplinkPieceHash *pb.PieceHash
-	Uplink          *identity.PeerIdentity
 }
 
 // ExpiredInfo is a fully namespaced piece id

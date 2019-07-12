@@ -338,4 +338,51 @@ public class LibuplinkInstrumentedTest {
             uplink.close();
         }
     }
+
+    @Test
+    public void testEncryptionAccessWithRoot() throws Exception {
+        Config config = new Config();
+
+        Uplink uplink = new Uplink(config, filesDir);
+        try {
+            Project project = uplink.openProject(VALID_SATELLITE_ADDRESS, VALID_API_KEY);
+            try {
+                byte[] saltedKey = project.saltedKeyFromPassphrase("some-passphrase");
+                EncryptionAccess ea = Mobile.newEncryptionAccessWithRoot("bucket", "unencryptedPath", "encryptedPath", saltedKey);
+                String serialized = ea.serialize();
+                assertNotEquals("", serialized);
+            } finally {
+                project.close();
+            }
+        } finally {
+            uplink.close();
+        }
+    }
+
+    @Test
+    public void testApiKey() throws Exception {
+        String apiKeyData = "13YqeKQiA3ANSuDu4rqX6eGs3YWox9GRi9rEUKy1HidXiNNm6a5SiE49Hk9gomHZVcQhq4eFQh8yhDgfGKg268j6vqWKEhnJjFPLqAP";
+        APIKey apiKey = Mobile.parseAPIKey(apiKeyData);
+
+        String serialized = apiKey.serialize();
+        assertEquals(serialized, apiKeyData);
+
+        Caveat caveat = new Caveat();
+        caveat.setDisallowDeletes(true);
+        caveat.setDisallowWrites(true);
+        caveat.setDisallowReads(true);
+        caveat.setDisallowLists(true);
+        caveat.setNotAfter(100);
+        caveat.setNotBefore(50);
+
+        CaveatPath path = new CaveatPath();
+        path.setBucket("bucket".getBytes());
+        path.setEncryptedPathPrefix("123456".getBytes());
+        caveat.addCaveatPath(path);
+
+        APIKey newAPIKey = apiKey.restrict(caveat);
+        assertNotEquals("", newAPIKey.serialize());
+    }
+
+
 }

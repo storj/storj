@@ -24,8 +24,9 @@ type pieceinfo struct {
 }
 
 type spaceUsed struct {
-	once sync.Once
+	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	used int64
+	once sync.Once
 }
 
 // PieceInfo returns database for storing piece information
@@ -38,6 +39,11 @@ func (db *InfoDB) PieceInfo() pieces.DB { return &db.pieceinfo }
 func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	orderLimit, err := proto.Marshal(info.OrderLimit)
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+
 	uplinkPieceHash, err := proto.Marshal(info.UplinkPieceHash)
 	if err != nil {
 		return ErrInfo.Wrap(err)
@@ -46,9 +52,9 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 	// TODO remove `uplink_cert_id` from DB
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
-			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, uplink_piece_hash, uplink_cert_id)
-		VALUES (?,?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, uplinkPieceHash, 0)
+			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
+		VALUES (?,?,?,?,?,?,?,?)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, orderLimit, uplinkPieceHash, 0)
 
 	if err == nil {
 		db.loadSpaceUsed(ctx)
@@ -64,7 +70,7 @@ func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT piece_id
 		FROM pieceinfo
-		WHERE satellite_id = ? AND piece_creation < ?
+		WHERE satellite_id = ? AND datetime(piece_creation) < datetime(?)
 		ORDER BY piece_id
 		LIMIT ? OFFSET ?
 	`), satelliteID, createdBefore, limit, offset)
@@ -90,13 +96,20 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 	info.SatelliteID = satelliteID
 	info.PieceID = pieceID
 
+	var orderLimit []byte
 	var uplinkPieceHash []byte
 
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
-		SELECT piece_size, piece_creation, piece_expiration, uplink_piece_hash
+		SELECT piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash
 		FROM pieceinfo
 		WHERE satellite_id = ? AND piece_id = ?
-	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &uplinkPieceHash)
+	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &orderLimit, &uplinkPieceHash)
+	if err != nil {
+		return nil, ErrInfo.Wrap(err)
+	}
+
+	info.OrderLimit = &pb.OrderLimit{}
+	err = proto.Unmarshal(orderLimit, info.OrderLimit)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -160,7 +173,9 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT satellite_id, piece_id, piece_size
 		FROM pieceinfo
-		WHERE datetime(piece_expiration) < datetime(?) AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
+		WHERE piece_expiration IS NOT NULL
+		AND datetime(piece_expiration) < datetime(?)
+		AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
 		ORDER BY satellite_id
 		LIMIT ?
 	`), expiredAt, expiredAt, limit)

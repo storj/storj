@@ -38,6 +38,7 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 		return ErrInfo.Wrap(err)
 	}
 
+	// TODO: remove uplink_cert_id
 	_, err = db.db.Exec(`
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,

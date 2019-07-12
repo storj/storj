@@ -63,6 +63,7 @@ func testNodeSelectionConfig(auditCount int64, newNodePercentage float64, distin
 func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 	valid1ID := testrand.NodeID()
 	valid2ID := testrand.NodeID()
+	valid3ID := testrand.NodeID()
 	missingID := testrand.NodeID()
 	address := &pb.NodeAddress{Address: "127.0.0.1:0"}
 
@@ -74,6 +75,12 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.NoError(t, err)
 
 		err = cache.Put(ctx, valid2ID, pb.Node{Id: valid2ID, Address: address})
+		require.NoError(t, err)
+
+		err = cache.Put(ctx, valid3ID, pb.Node{Id: valid3ID, Address: address})
+		require.NoError(t, err)
+
+		_, err = cache.UpdateUptime(ctx, valid3ID, false)
 		require.NoError(t, err)
 	}
 
@@ -111,6 +118,15 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		assert.NoError(t, err)
 		assert.NotNil(t, more)
 		assert.NotEqual(t, len(zero), 0)
+	}
+
+	{ // PaginateQualified
+
+		// should return two nodes
+		nodes, more, err := cache.PaginateQualified(ctx, 0, 3)
+		assert.NotNil(t, more)
+		assert.NoError(t, err)
+		assert.Equal(t, len(nodes), 2)
 	}
 
 	{ // Reputation
