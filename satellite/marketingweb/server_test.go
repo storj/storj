@@ -42,12 +42,22 @@ func TestCreateAndStopOffers(t *testing.T) {
 			}, {
 				Path: "/create/free-credit-offer",
 				Values: url.Values{
-					"Name":                      {"Free Credit Credit"},
+					"Name":                      {"Free Credit"},
 					"Description":               {"desc"},
 					"ExpiresAt":                 {"2119-06-27"},
 					"InviteeCredit":             {"50"},
 					"InviteeCreditDurationDays": {"50"},
 					"RedeemableCap":             {"150"},
+				},
+			}, {
+				Path: "/create/partner-offer",
+				Values: url.Values{
+					"Name":                    {"Partner Credit"},
+					"Description":             {"desc"},
+					"ExpiresAt":               {"2119-06-27"},
+					"AwardCredit":             {"50"},
+					"AwardCreditDurationDays": {"50"},
+					"RedeemableCap":           {"150"},
 				},
 			},
 		}
