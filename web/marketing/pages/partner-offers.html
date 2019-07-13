@@ -16,25 +16,25 @@ See LICENSE for copying information. -->
     <div class="row offer-heading">
         <p class="offer-type">Default&nbsp;Offer</p>
     </div>
-    {{$defaultOffer := .PartnerOffers.Default}}
+    {{$defaultOffer := .OfferSet.PartnerOffers.Default}}
     {{if not $defaultOffer.IsEmpty}}
     <div class="row data-row">
-        <div class="col ml-3">{{$defaultOffer.Name}}</div>
+        <div class="col">{{$defaultOffer.Name}}</div>
         <div class="col">${{$defaultOffer.InviteeCredit}}</div> 
         <div class="col">&#8734;</div>
         <div class="col">{{printf "%.10s" $defaultOffer.CreatedAt}}</div>
         <div class="col">&#8734;</div>
         <div class="col">Default</div>
-        <div class="col ml-5">https://mars.tardigrade.io/refs/001</div>
+        <div class="col ml-5">https://mars.tardigrade.io/refs/{{$defaultOffer.Name}}</div>
     </div><hr>
     {{end}}
     <div class="row offer-heading ">
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
-    {{$currentOffer := .PartnerOffers.Active}}
+    {{$currentOffer := .OfferSet.PartnerOffers.Active}}
     {{if not $currentOffer.IsEmpty}}
         <div class="row data-row">
-            <div class="col ml-3">{{$currentOffer.Name}}</div>
+            <div class="col">{{$currentOffer.Name}}</div>
             <div class="col">${{$currentOffer.InviteeCredit}}</div> 
             <div class="col">{{$currentOffer.RedeemableCap}}</div>
             <div class="col">{{printf "%.10s" $currentOffer.CreatedAt}}</div>
@@ -44,22 +44,22 @@ See LICENSE for copying information. -->
                     <strong>Live &#183;</strong>
                 </span>
             </div>
-            <div class="col ml-5">https://mars.tardigrade.io/refs/001</div>  
+            <div class="col ml-5">https://mars.tardigrade.io/refs/{{$currentOffer.Name}}</div>  
         </div><hr>
     {{end}}
     {{template "stopPartnerOffer" .}}
     <div class="row offer-heading ">
         <p class="offer-type">Other&nbsp;Offers</p>
     </div>
-    {{range .PartnerOffers.Done}}
+    {{range .OfferSet.PartnerOffers.Done}}
     <div class="row data-row">
-        <div class="col ml-3">{{.Name}}</div>
+        <div class="col">{{.Name}}</div>
         <div class="col">${{.InviteeCredit}}</div>
         <div class="col">{{.RedeemableCap}}</div>
         <div class="col">{{printf "%.10s" .CreatedAt}}</div>
         <div class="col">{{printf "%.10s" .ExpiresAt}}</div>
         <div class="col">off</div>
-        <div class="col ml-5">https://mars.tardigrade.io/refs/003</div>
+        <div class="col ml-5">https://mars.tardigrade.io/refs/{{.Name}}</div>
     </div><hr>
     {{end}}
     {{end}}

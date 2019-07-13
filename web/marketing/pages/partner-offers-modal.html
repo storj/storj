@@ -15,8 +15,13 @@ See LICENSE for copying information. -->
                     <form action="/create/partner-offer" method="POST" enctype="application/x-www-form-urlencoded">
                         <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label for="Name">Offer Name</label>
-                            <input type="text" class="form-control" name="Name" id="Name" placeholder="May Referral" required>
+                            <label for="Name">Select Partner</label>
+                            <select name="Name" id="Name" class="form-control" required>
+                                {{$partners := .Partners}}
+                                {{range $partners}}
+                                <option value="{{.ID}}-{{.Name}}">{{.Name}}</option>
+                                {{end}}
+                            </select>
                         </div>
                         <div class="form-group col-md-4">
                             <label for="Description">Description</label>
