@@ -203,7 +203,7 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
 }
 
 func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
-	defer mon.Task()(&ctx)
+	defer mon.Task()(&ctx)(nil)
 	db.space.once.Do(func() {
 		usedSpace, _ := db.CalculatedSpaceUsed(ctx)
 		atomic.AddInt64(&db.space.used, usedSpace)
