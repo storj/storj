@@ -86,7 +86,7 @@ func (db *DB) CreateSchema(schema string) error {
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
 // TestDBAccess for raw database access,
-// should not be used outside of migration tests.
+// should not be used outside of tests.
 func (db *locked) TestDBAccess() *dbx.DB {
 	return db.db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }

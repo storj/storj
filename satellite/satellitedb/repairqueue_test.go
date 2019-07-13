@@ -93,6 +93,7 @@ func TestRepairQueueOrder(t *testing.T) {
 			}
 			return nil
 		})
+		require.NoError(t, err)
 
 		// path with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
