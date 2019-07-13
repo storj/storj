@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
+	sqlite3 "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -71,6 +73,16 @@ func TestRepairQueueOrder(t *testing.T) {
 		}
 
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
+		var timeConvertPrefix string
+		switch d := dbAccess.DB.Driver().(type) {
+		case *sqlite3.SQLiteDriver:
+			timeConvertPrefix = "datetime("
+		case *pq.Driver:
+			timeConvertPrefix = "timezone('utc', "
+		default:
+			t.Errorf("Unsupported database type %t", d)
+		}
+
 		err := dbAccess.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			updateList := []struct {
 				path      []byte
@@ -81,7 +93,7 @@ func TestRepairQueueOrder(t *testing.T) {
 				{olderRepairPath, time.Now().Add(-3 * time.Hour)},
 			}
 			for _, item := range updateList {
-				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), item.attempted, item.path)
+				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = `+timeConvertPrefix+`?) WHERE path = ?`), item.attempted, item.path)
 				if err != nil {
 					return err
 				}
