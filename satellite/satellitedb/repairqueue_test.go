@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -58,40 +59,55 @@ func TestRepairQueueOrder(t *testing.T) {
 
 		repairQueue := db.RepairQueue()
 
-		nullPath := "/path/null"
-		recentRepairPath := "/path/recent"
-		oldRepairPath := "/path/old"
-		olderRepairPath := "/path/older"
+		nullPath := []byte("/path/null")
+		recentRepairPath := []byte("/path/recent")
+		oldRepairPath := []byte("/path/old")
+		olderRepairPath := []byte("/path/older")
 
-		for _, path := range []string{oldRepairPath, recentRepairPath, nullPath, olderRepairPath} {
-			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
+		for _, path := range [][]byte{oldRepairPath, recentRepairPath, nullPath, olderRepairPath} {
+			injuredSeg := &pb.InjuredSegment{Path: path}
 			err := repairQueue.Insert(ctx, injuredSeg)
 			require.NoError(t, err)
 		}
 
 		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-		// set recentRepairPath attempted to now, oldRepairPath attempted to 2 hours ago, olderRepairPath to 3 hours ago
-		_, err := dbAccess.Query(dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now(), recentRepairPath)
-		require.NoError(t, err)
-		_, err = dbAccess.Query(dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-2*time.Hour), oldRepairPath)
-		require.NoError(t, err)
-		_, err = dbAccess.Query(dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), time.Now().Add(-3*time.Hour), olderRepairPath)
-		require.NoError(t, err)
+		err := dbAccess.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			updateList := []struct {
+				path      []byte
+				attempted time.Time
+			}{
+				{recentRepairPath, time.Now()},
+				{oldRepairPath, time.Now().Add(-2 * time.Hour)},
+				{olderRepairPath, time.Now().Add(-3 * time.Hour)},
+			}
+			for _, item := range updateList {
+				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = datetime(?) WHERE path = ?`), item.attempted, item.path)
+				if err != nil {
+					return err
+				}
+				count, err := res.RowsAffected()
+				if err != nil {
+					return err
+				}
+				require.EqualValues(t, 1, count)
+			}
+			return nil
+		})
 
 		// path with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, nullPath, string(injuredSeg.Path))
+		assert.Equal(t, string(nullPath), string(injuredSeg.Path))
 
 		// path with attempted = 3 hours ago should be selected next
 		injuredSeg, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, olderRepairPath, string(injuredSeg.Path))
+		assert.Equal(t, string(olderRepairPath), string(injuredSeg.Path))
 
 		// path with attempted = 2 hours ago should be selected next
 		injuredSeg, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, oldRepairPath, string(injuredSeg.Path))
+		assert.Equal(t, string(oldRepairPath), string(injuredSeg.Path))
 
 		// queue should be considered "empty" now
 		injuredSeg, err = repairQueue.Select(ctx)
