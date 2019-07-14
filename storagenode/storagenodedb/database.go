@@ -54,7 +54,7 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	pieces := filestore.New(piecesDir)
+	pieces := filestore.New(piecesDir, log)
 
 	infodb, err := newInfo(config.Info2)
 	if err != nil {
@@ -85,7 +85,7 @@ func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	pieces := filestore.New(piecesDir)
+	pieces := filestore.New(piecesDir, log)
 
 	infodb, err := NewInfoTest()
 	if err != nil {

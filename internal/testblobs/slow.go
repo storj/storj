@@ -26,7 +26,7 @@ type SlowDB struct {
 func NewSlowDB(log *zap.Logger, db storagenode.DB) *SlowDB {
 	return &SlowDB{
 		DB:    db,
-		blobs: NewSlowBlobs(log, db.Pieces()),
+		blobs: newSlowBlobs(log, db.Pieces()),
 		log:   log,
 	}
 }
@@ -49,9 +49,9 @@ type SlowBlobs struct {
 	log   *zap.Logger
 }
 
-// NewSlowBlobs creates a new slow blob store wrapping the provided blobs.
+// newSlowBlobs creates a new slow blob store wrapping the provided blobs.
 // Use SetLatency to dynamically configure the latency of all operations.
-func NewSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
+func newSlowBlobs(log *zap.Logger, blobs storage.Blobs) *SlowBlobs {
 	return &SlowBlobs{
 		log:   log,
 		blobs: blobs,
@@ -71,16 +71,63 @@ func (slow *SlowBlobs) Open(ctx context.Context, ref storage.BlobRef) (storage.B
 	return slow.blobs.Open(ctx, ref)
 }
 
+// OpenLocated opens a reader for the already-located blob, avoiding the potential need
+// to check multiple storage formats to find the blob.
+func (slow *SlowBlobs) OpenLocated(ctx context.Context, access storage.StoredBlobAccess) (storage.BlobReader, error) {
+	slow.sleep()
+	return slow.blobs.OpenLocated(ctx, access)
+}
+
 // Delete deletes the blob with the namespace and key.
 func (slow *SlowBlobs) Delete(ctx context.Context, ref storage.BlobRef) error {
 	slow.sleep()
 	return slow.blobs.Delete(ctx, ref)
 }
 
+// Lookup looks up disk metadata on the blob file
+func (slow *SlowBlobs) Lookup(ctx context.Context, ref storage.BlobRef) (storage.StoredBlobAccess, error) {
+	slow.sleep()
+	return slow.blobs.Lookup(ctx, ref)
+}
+
+// LookupSpecific looks up disk metadata for the blob file with the given storage format
+// version. This avoids the potential need to check multiple storage formats for the blob
+// when the format is already known.
+func (slow *SlowBlobs) LookupSpecific(ctx context.Context, ref storage.BlobRef, formatVer storage.FormatVersion) (storage.StoredBlobAccess, error) {
+	slow.sleep()
+	return slow.blobs.LookupSpecific(ctx, ref, formatVer)
+}
+
+// ForAllV1KeysInNamespace executes doForEach for each locally stored blob in the given namespace,
+// if that blob was created before the specified time. If doForEach returns
+// a non-nil error, ForAllV1KeysInNamespace will stop iterating and return the error
+// immediately.
+func (slow *SlowBlobs) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, createdBefore time.Time, doForEach func(storage.StoredBlobAccess) error) error {
+	slow.sleep()
+	return slow.blobs.ForAllV1KeysInNamespace(ctx, namespace, createdBefore, doForEach)
+}
+
 // FreeSpace return how much free space left for writing.
 func (slow *SlowBlobs) FreeSpace() (int64, error) {
 	slow.sleep()
 	return slow.blobs.FreeSpace()
+}
+
+// ReserveSpace marks some amount of space as reserved.
+func (slow *SlowBlobs) ReserveSpace(amount int64) {
+	slow.blobs.ReserveSpace(amount)
+}
+
+// SpaceUsed adds up how much is used in all namespaces
+func (slow *SlowBlobs) SpaceUsed(ctx context.Context) (int64, error) {
+	slow.sleep()
+	return slow.blobs.SpaceUsed(ctx)
+}
+
+// SpaceUsedInNamespace adds up how much is used in the given namespace
+func (slow *SlowBlobs) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
+	slow.sleep()
+	return slow.blobs.SpaceUsedInNamespace(ctx, namespace)
 }
 
 // SetLatency configures the blob store to sleep for delay duration for all

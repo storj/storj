@@ -28,7 +28,7 @@ func TestPieceInfo(t *testing.T) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		pieceinfos := db.PieceInfo()
+		pieceinfos := db.V0PieceInfo().(pieces.V0PieceInfoDBForTest)
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -26,7 +27,7 @@ func TestStoreLoad(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"))
+	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
 
 	data := testrand.Bytes(blobSize)
@@ -155,7 +156,7 @@ func TestDeleteWhileReading(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, err := filestore.NewAt(ctx.Dir("store"))
+	store, err := filestore.NewAt(ctx.Dir("store"), zaptest.NewLogger(t))
 	require.NoError(t, err)
 
 	data := testrand.Bytes(blobSize)

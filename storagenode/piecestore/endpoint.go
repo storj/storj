@@ -74,7 +74,6 @@ type Endpoint struct {
 	monitor *monitor.Service
 
 	store       *pieces.Store
-	pieceinfo   pieces.DB
 	orders      orders.DB
 	usage       bandwidth.DB
 	usedSerials UsedSerials
@@ -83,7 +82,7 @@ type Endpoint struct {
 }
 
 // NewEndpoint creates a new piecestore endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, pieceinfo pieces.DB, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, store *pieces.Store, orders orders.DB, usage bandwidth.DB, usedSerials UsedSerials, config Config) (*Endpoint, error) {
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -93,7 +92,6 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, moni
 		monitor: monitor,
 
 		store:       store,
-		pieceinfo:   pieceinfo,
 		orders:      orders,
 		usage:       usage,
 		usedSerials: usedSerials,
@@ -119,10 +117,7 @@ func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequ
 	}
 
 	// TODO: parallelize this and maybe return early
-	pieceInfoErr := endpoint.pieceinfo.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
-	pieceErr := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId)
-
-	if err := errs.Combine(pieceInfoErr, pieceErr); err != nil {
+	if err := endpoint.store.Delete(ctx, delete.Limit.SatelliteId, delete.Limit.PieceId); err != nil {
 		// explicitly ignoring error because the errors
 		// TODO: add more debug info
 		endpoint.log.Error("delete failed", zap.Stringer("Piece ID", delete.Limit.PieceId), zap.Error(err))
@@ -277,44 +272,40 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 		}
 
 		if message.Done != nil {
-			expectedHash := pieceWriter.Hash()
-			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, expectedHash); err != nil {
+			calculatedHash := pieceWriter.Hash()
+			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, calculatedHash); err != nil {
 				return err // TODO: report grpc status internal server error
 			}
 			if message.Done.PieceSize != pieceWriter.Size() {
 				return ErrProtocol.New("Size of finished piece does not match size declared by uplink! %d != %d",
-					message.Done.GetPieceSize(), pieceWriter.Size())
+					message.Done.PieceSize, pieceWriter.Size())
 			}
 
-			if err := pieceWriter.Commit(ctx); err != nil {
-				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
-			}
-
-			// TODO: do this in a goroutine
 			{
-				// TODO: maybe this should be as a pieceWriter.Commit(ctx, info)
-				info := &pieces.Info{
-					SatelliteID: limit.SatelliteId,
-
-					PieceID:         limit.PieceId,
-					PieceSize:       pieceWriter.Size(),
-					PieceCreation:   limit.OrderCreation,
-					PieceExpiration: limit.PieceExpiration,
-
-					OrderLimit:      limit,
-					UplinkPieceHash: message.Done,
+				var expTime *time.Time
+				if !limit.PieceExpiration.IsZero() {
+					expTime = &limit.PieceExpiration
 				}
-
-				if err := endpoint.pieceinfo.Add(ctx, info); err != nil {
-					ignoreCancelContext := context.Background()
-					deleteErr := endpoint.store.Delete(ignoreCancelContext, limit.SatelliteId, limit.PieceId)
-					return ErrInternal.Wrap(errs.Combine(err, deleteErr))
+				info := &pieces.PieceHeader{
+					Hash:           calculatedHash,
+					CreationTime:   limit.OrderCreation,
+					ExpirationTime: expTime,
+					Signature:      message.Done.GetSignature(),
+				}
+				if err := pieceWriter.Commit(ctx, info); err != nil {
+					return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
+				}
+				if expTime != nil {
+					err := endpoint.store.SetExpiration(ctx, limit.SatelliteId, limit.PieceId, *expTime)
+					if err != nil {
+						return ErrInternal.Wrap(err)
+					}
 				}
 			}
 
 			storageNodeHash, err := signing.SignPieceHash(ctx, endpoint.signer, &pb.PieceHash{
 				PieceId:   limit.PieceId,
-				Hash:      expectedHash,
+				Hash:      calculatedHash,
 				PieceSize: pieceWriter.Size(),
 				Timestamp: time.Now(),
 			})
@@ -556,40 +547,28 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		return nil, status.Error(codes.InvalidArgument, Error.Wrap(err).Error())
 	}
 
-	const limit = 1000
-	offset := 0
 	numDeleted := 0
-	hasMorePieces := true
 
-	for hasMorePieces {
-		// subtract some time to leave room for clock difference between the satellite and storage node
-		createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
+	// subtract some time to leave room for clock difference between the satellite and storage node
+	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
-		pieceIDs, err := endpoint.pieceinfo.GetPieceIDs(ctx, peer.ID, createdBefore, limit, offset)
-		if err != nil {
-			return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
-		}
-		for _, pieceID := range pieceIDs {
-			if !filter.Contains(pieceID) {
-				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
-					// continue because if we fail to delete from file system,
-					// we need to keep the pieceinfo so we can delete next time
-					continue
-				}
-				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
-				}
-				numDeleted++
+	err = endpoint.store.ForAllPieceIDsOwnedBySatellite(ctx, peer.ID, createdBefore, func(access pieces.StoredPieceAccess) error {
+		pieceID := access.PieceID()
+		if !filter.Contains(pieceID) {
+			if err := endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
+				endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
 			}
+			numDeleted++
 		}
-		hasMorePieces = (len(pieceIDs) == limit)
-		offset += len(pieceIDs)
-		offset -= numDeleted
 		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
+		return nil
+	})
+	if err != nil {
+		return nil, status.Error(codes.Internal, Error.Wrap(err).Error())
 	}
+	mon.IntVal("garbage_collection_pieces_deleted").Observe(int64(numDeleted))
 	return &pb.RetainResponse{}, nil
 }
 

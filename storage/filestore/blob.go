@@ -16,10 +16,11 @@ import (
 // blobReader implements reading blobs
 type blobReader struct {
 	*os.File
+	formatVersion storage.FormatVersion
 }
 
-func newBlobReader(file *os.File) *blobReader {
-	return &blobReader{file}
+func newBlobReader(file *os.File, formatVersion storage.FormatVersion) *blobReader {
+	return &blobReader{file, formatVersion}
 }
 
 // Size returns how large is the blob.
@@ -29,6 +30,10 @@ func (blob *blobReader) Size() (int64, error) {
 		return 0, err
 	}
 	return stat.Size(), err
+}
+
+func (blob *blobReader) GetStorageFormatVersion() storage.FormatVersion {
+	return blob.formatVersion
 }
 
 // blobWriter implements writing blobs
@@ -74,4 +79,10 @@ func (blob *blobWriter) Size() (int64, error) {
 		return 0, err
 	}
 	return pos, err
+}
+
+// GetStorageFormatVersion indicates what storage format version the blob is using.
+func (blob *blobWriter) GetStorageFormatVersion() storage.FormatVersion {
+	// Only one storage format needs to be supported for writing.
+	return storage.MaxStorageFormatVersionSupported
 }

@@ -4,6 +4,7 @@
 package piecestore_test
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"io"
@@ -506,8 +507,7 @@ func TestRetain(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
-		pieceInfos := db.PieceInfo()
-		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces())
+		store := pieces.NewStore(zaptest.NewLogger(t), db.Pieces(), db.V0PieceInfo(), db.PieceExpirationDB())
 
 		const numPieces = 1000
 		const numPiecesToKeep = 990
@@ -531,7 +531,7 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{})
+		endpoint, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, nil, nil, nil, ps.Config{})
 		require.NoError(t, err)
 
 		recentTime := time.Now()
@@ -583,10 +583,11 @@ func TestRetain(t *testing.T) {
 				OrderLimit:      &pb.OrderLimit{},
 			}
 
-			err = pieceInfos.Add(ctx, &pieceinfo0)
+			v0db := store.GetV0PieceInfoDB().(pieces.V0PieceInfoDBForTest)
+			err = v0db.Add(ctx, &pieceinfo0)
 			require.NoError(t, err)
 
-			err = pieceInfos.Add(ctx, &pieceinfo1)
+			err = v0db.Add(ctx, &pieceinfo1)
 			require.NoError(t, err)
 
 		}
@@ -607,12 +608,12 @@ func TestRetain(t *testing.T) {
 		require.NoError(t, err)
 
 		// check we have deleted nothing for satellite1
-		satellite1Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		satellite1Pieces, err := getAllPieceIDs(ctx, store, satellite1.ID, recentTime.Add(time.Duration(5)*time.Second))
 		require.NoError(t, err)
 		require.Equal(t, numPieces, len(satellite1Pieces))
 
 		// check we did not delete recent pieces
-		satellite0Pieces, err := pieceInfos.GetPieceIDs(ctx, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second), numPieces, 0)
+		satellite0Pieces, err := getAllPieceIDs(ctx, store, satellite0.ID, recentTime.Add(time.Duration(5)*time.Second))
 		require.NoError(t, err)
 
 		for _, id := range pieceIDs[:numPiecesToKeep] {
@@ -623,6 +624,14 @@ func TestRetain(t *testing.T) {
 			require.Contains(t, satellite0Pieces, id, "piece should not have been deleted (recent piece)")
 		}
 	})
+}
+
+func getAllPieceIDs(ctx context.Context, store *pieces.Store, satellite storj.NodeID, createdSince time.Time) (pieceIDs []storj.PieceID, err error) {
+	err = store.ForAllPieceIDsOwnedBySatellite(ctx, satellite, createdSince, func(pieceAccess pieces.StoredPieceAccess) error {
+		pieceIDs = append(pieceIDs, pieceAccess.PieceID())
+		return nil
+	})
+	return pieceIDs, err
 }
 
 // generateTestIDs generates n piece ids

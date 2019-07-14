@@ -8,26 +8,97 @@ import (
 	"context"
 	"hash"
 	"io"
+	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/storage"
 )
+
+const (
+	// V1PieceHeaderSize is the size of the piece header used by piece storage format 1 (.sj1).
+	// It has a constant size because:
+	//
+	//  * we do not anticipate needing more than this
+	//  * we will be able to sum up all space used by a satellite (or all satellites) without
+	//    opening and reading from each piece file
+	//  * this simplifies piece file writing (no need to precalculate the necessary header
+	//    size before writing)
+	//
+	// If more space than this is needed, we will need to use a new storage format version.
+	V1PieceHeaderSize = 128
+)
+
+// PieceHeader is essentially the same as pb.PieceHeader, but does not depend on the pb modules.
+type PieceHeader struct {
+	// Hash gives the content hash of the piece (on which the uplink and storagenode agree).
+	Hash []byte
+	// CreationTime is the creation time as supplied by the uplink. The exact value is required
+	// in order to reconstruct the original PieceHashSigning and verify the uplink signature.
+	CreationTime time.Time
+	// Signature gives the signature from the uplink's PieceHash order. The corresponding
+	// PieceHashSigning may be reconstructed using the piece id and size from the piecestore
+	// and the hash and upload_time from above.
+	Signature []byte
+	// ExpirationTime is the time at which this storage node may delete this piece without
+	// consequence, as specified by the satellite in the OrderLimit.
+	ExpirationTime *time.Time
+}
+
+func pieceHeaderFromProtobuf(pbHeader *pb.PieceHeader) *PieceHeader {
+	if pbHeader == nil {
+		return nil
+	}
+	// TODO: can we just take a new reference to these slices instead of copying them? does the
+	// proto machinery guarantee that it won't reuse the underlying byte array or anything?
+	hashCopy := make([]byte, len(pbHeader.Hash))
+	sigCopy := make([]byte, len(pbHeader.Signature))
+	copy(hashCopy, pbHeader.Hash)
+	copy(sigCopy, pbHeader.Signature)
+
+	return &PieceHeader{
+		Hash:           hashCopy,
+		CreationTime:   pbHeader.CreationTime,
+		Signature:      sigCopy,
+		ExpirationTime: pbHeader.ExpirationTime,
+	}
+}
+
+func pieceHeaderToProtobuf(header *PieceHeader) *pb.PieceHeader {
+	if header == nil {
+		return nil
+	}
+	return &pb.PieceHeader{
+		Hash:           header.Hash,
+		CreationTime:   header.CreationTime,
+		Signature:      header.Signature,
+		ExpirationTime: header.ExpirationTime,
+	}
+}
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
 	buf  bufio.Writer
 	hash hash.Hash
 	blob storage.BlobWriter
-	size int64
+	size int64 // piece size only; i.e., not including piece header
 
 	closed bool
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blob storage.BlobWriter, bufferSize int) (*Writer, error) {
+func NewWriter(blob storage.BlobWriter, bufferSize int, formatVersion storage.FormatVersion) (*Writer, error) {
 	w := &Writer{}
+	if formatVersion < storage.FormatV1 {
+		return nil, Error.New("writing to storage format version 0 is not supported")
+	}
+	// skip header area for now; fill in on commit
+	if _, err := blob.Seek(V1PieceHeaderSize, io.SeekStart); err != nil {
+		return nil, Error.Wrap(err)
+	}
 	w.buf = *bufio.NewWriterSize(blob, bufferSize)
 	w.blob = blob
 	w.hash = pkcrypto.NewHash()
@@ -42,23 +113,54 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return n, Error.Wrap(err)
 }
 
-// Size returns the amount of data written so far.
+// Size returns the amount of data written to the piece so far, not including the size of
+// the piece header.
 func (w *Writer) Size() int64 { return w.size }
 
 // Hash returns the hash of data written so far.
 func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 
 // Commit commits piece to permanent storage.
-func (w *Writer) Commit(ctx context.Context) (err error) {
+func (w *Writer) Commit(ctx context.Context, pieceHeader *PieceHeader) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return Error.New("already closed")
 	}
+
+	// point of no return: after this we definitely either commit or cancel
 	w.closed = true
+	defer func() {
+		if err != nil {
+			err = Error.Wrap(errs.Combine(err, w.blob.Cancel(ctx)))
+		} else {
+			err = Error.Wrap(w.blob.Commit(ctx))
+		}
+	}()
+
 	if err := w.buf.Flush(); err != nil {
-		return Error.Wrap(errs.Combine(err, w.blob.Cancel(ctx)))
+		return err
 	}
-	return Error.Wrap(w.blob.Commit(ctx))
+	headerBytes, err := proto.Marshal(pieceHeaderToProtobuf(pieceHeader))
+	if err != nil {
+		return err
+	}
+	if len(headerBytes) > V1PieceHeaderSize {
+		// This should never happen under normal circumstances, and it might deserve a panic(),
+		// but I'm not *entirely* sure this case can't be triggered by a malicious uplink. Are
+		// google.protobuf.Timestamp fields variable-width?
+		return Error.New("marshaled piece header too big!")
+	}
+	if _, err := w.blob.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	if _, err = w.blob.Write(headerBytes); err != nil {
+		return Error.New("failed writing piece header at file start: %v", err)
+	}
+	// seek back to the end, as blob.Commit will truncate from the current file position
+	if _, err := w.blob.Seek(0, io.SeekEnd); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Cancel deletes any temporarily written data.
@@ -74,10 +176,12 @@ func (w *Writer) Cancel(ctx context.Context) (err error) {
 
 // Reader implements a piece reader that reads content from blob store.
 type Reader struct {
+	formatVersion storage.FormatVersion
+
 	buf  bufio.Reader
 	blob storage.BlobReader
-	pos  int64
-	size int64
+	pos  int64 // relative to file start; i.e., it includes piece header
+	size int64 // piece size only; i.e., not including piece header
 }
 
 // NewReader creates a new reader for storage.BlobReader.
@@ -86,41 +190,83 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+	formatVersion := blob.GetStorageFormatVersion()
+	if formatVersion >= storage.FormatV1 && size < V1PieceHeaderSize {
+		return nil, Error.New("invalid piece file for storage format version %d: too small for header (%d < %d)", formatVersion, size, V1PieceHeaderSize)
+	}
 
-	reader := &Reader{}
-	reader.buf = *bufio.NewReaderSize(blob, bufferSize)
-	reader.blob = blob
-	reader.size = size
-
+	reader := &Reader{
+		formatVersion: formatVersion,
+		buf:           *bufio.NewReaderSize(blob, bufferSize),
+		blob:          blob,
+		size:          size - V1PieceHeaderSize,
+	}
 	return reader, nil
+}
+
+// GetPieceHeader reads, unmarshals, and returns the piece header. It may only be called
+// before any Read() calls. (Retrieving the header at any time could be supported, but for
+// the sake of performance we need to understand why and how often that would happen.)
+func (r *Reader) GetPieceHeader() (*PieceHeader, error) {
+	if r.formatVersion < storage.FormatV1 {
+		return nil, Error.New("Can't get piece header from storage format V0 reader")
+	}
+	if r.pos != 0 {
+		return nil, Error.New("GetPieceHeader called when not at the beginning of the blob stream")
+	}
+	var headerBytes [V1PieceHeaderSize]byte
+	n, err := r.blob.Read(headerBytes[:])
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	r.pos += int64(n)
+	header := &pb.PieceHeader{}
+	if err := proto.Unmarshal(headerBytes[:], header); err != nil {
+		return nil, Error.New("piece header: %v", err)
+	}
+	return pieceHeaderFromProtobuf(header), nil
 }
 
 // Read reads data from the underlying blob, buffering as necessary.
 func (r *Reader) Read(data []byte) (int, error) {
+	if r.formatVersion >= storage.FormatV1 && r.pos < V1PieceHeaderSize {
+		// should only be necessary once per reader. or zero times, if GetPieceHeader is used
+		if _, err := r.Seek(0, io.SeekStart); err != nil {
+			return 0, Error.Wrap(err)
+		}
+	}
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
 	return n, Error.Wrap(err)
 }
 
-// Seek seeks to the specified location.
+// Seek seeks to the specified location within the piece content (ignoring the header).
 func (r *Reader) Seek(offset int64, whence int) (int64, error) {
+	if whence == io.SeekStart && r.formatVersion >= storage.FormatV1 {
+		offset += V1PieceHeaderSize
+	}
 	if whence == io.SeekStart && r.pos == offset {
 		return r.pos, nil
 	}
-
 	r.buf.Reset(r.blob)
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
+	if r.formatVersion >= storage.FormatV1 {
+		pos -= V1PieceHeaderSize
+	}
 	return pos, Error.Wrap(err)
 }
 
 // ReadAt reads data at the specified offset
 func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
+	if r.formatVersion >= storage.FormatV1 {
+		offset += V1PieceHeaderSize
+	}
 	n, err := r.blob.ReadAt(data, offset)
 	return n, Error.Wrap(err)
 }
 
-// Size returns the amount of data written so far.
+// Size returns the amount of data in the piece.
 func (r *Reader) Size() int64 { return r.size }
 
 // Close closes the reader.

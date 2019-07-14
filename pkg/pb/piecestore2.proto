@@ -90,3 +90,17 @@ message RetainRequest {
 
 message RetainResponse {
 }
+
+// PieceHeader is used in piece storage to keep track of piece attributes.
+message PieceHeader {
+    // content hash of the piece
+    bytes hash = 1;
+    // timestamp when upload occurred, as given by the "timestamp" field in the original orders.PieceHash
+    google.protobuf.Timestamp creation_time = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    // signature from uplink over the original orders.PieceHash (the corresponding PieceHashSigning
+    // is reconstructable using the piece id from the piecestore, the piece size from the
+    // filesystem (minus the piece header size), and these (hash, upload_time, signature) fields).
+    bytes signature = 3;
+    // expiration timestamp, as given in the OrderLimit
+    google.protobuf.Timestamp expiration_time = 4 [(gogoproto.stdtime) = true];
+}

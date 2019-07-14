@@ -28,10 +28,10 @@ func TestPieces(t *testing.T) {
 	dir, err := filestore.NewDir(ctx.Dir("pieces"))
 	require.NoError(t, err)
 
-	blobs := filestore.New(dir)
+	blobs := filestore.New(dir, zaptest.NewLogger(t))
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zaptest.NewLogger(t), blobs)
+	store := pieces.NewStore(zaptest.NewLogger(t), blobs, nil, nil)
 
 	satelliteID := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion()).ID
 	pieceID := storj.NewPieceID()
@@ -53,7 +53,7 @@ func TestPieces(t *testing.T) {
 		assert.Equal(t, hash.Sum(nil), writer.Hash())
 
 		// commit
-		require.NoError(t, writer.Commit(ctx))
+		require.NoError(t, writer.Commit(ctx, &pieces.PieceHeader{}))
 		// after commit we should be able to call cancel without an error
 		require.NoError(t, writer.Cancel(ctx))
 	}
@@ -102,7 +102,7 @@ func TestPieces(t *testing.T) {
 		// cancel writing
 		require.NoError(t, writer.Cancel(ctx))
 		// commit should not fail
-		require.Error(t, writer.Commit(ctx))
+		require.Error(t, writer.Commit(ctx, &pieces.PieceHeader{}))
 
 		// read should fail
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)

@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/pieces"
 )
 
 const oneWeek = 7 * 24 * time.Hour
@@ -318,17 +317,6 @@ func setSpace(ctx context.Context, t *testing.T, planet *testplanet.Planet, spac
 	for _, storageNode := range planet.StorageNodes {
 		availableSpace, err := storageNode.Storage2.Monitor.AvailableSpace(ctx)
 		require.NoError(t, err)
-		diff := (space - availableSpace) * -1
-		now := time.Now()
-		err = storageNode.DB.PieceInfo().Add(ctx, &pieces.Info{
-			SatelliteID:     planet.Satellites[0].ID(),
-			PieceID:         storj.PieceID{99},
-			PieceSize:       diff,
-			PieceCreation:   now,
-			PieceExpiration: time.Time{},
-			OrderLimit:      &pb.OrderLimit{},
-			UplinkPieceHash: &pb.PieceHash{},
-		})
-		require.NoError(t, err)
+		storageNode.DB.Pieces().ReserveSpace(availableSpace - space)
 	}
 }
