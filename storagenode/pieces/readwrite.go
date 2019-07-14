@@ -97,7 +97,7 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 
 // Read reads data from the underlying blob, buffering as necessary.
 func (r *Reader) Read(data []byte) (int, error) {
-	n, err := r.blob.Read(data)
+	n, err := r.buf.Read(data)
 	r.pos += int64(n)
 	return n, Error.Wrap(err)
 }
