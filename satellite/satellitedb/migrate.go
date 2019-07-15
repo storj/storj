@@ -929,7 +929,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				Description: "Add pending audit path",
-				Version:     40,
+				Version:     46,
 				Action: migrate.SQL{
 					`ALTER TABLE pending_audits ADD COLUMN path text NOT NULL DEFAULT '';`,
 				},
