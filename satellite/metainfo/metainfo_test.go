@@ -817,7 +817,7 @@ func TestBucketNameValidation(t *testing.T) {
 
 func TestBeginCommitObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
@@ -861,7 +861,7 @@ func TestBeginCommitObject(t *testing.T) {
 
 func TestBeginFinishDeleteObject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -884,13 +884,13 @@ func TestBeginFinishDeleteObject(t *testing.T) {
 
 func TestListObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
 
 		files := make([]string, 10)
-		data := testrand.Bytes(5 * memory.KiB)
+		data := testrand.Bytes(1 * memory.KiB)
 		for i := 0; i < len(files); i++ {
 			files[i] = "path" + strconv.Itoa(i)
 			err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", files[i], data)
