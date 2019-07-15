@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func init() { utcChecks = true }
-
 func TestUTCDB(t *testing.T) {
 	notUTC := time.FixedZone("not utc", -1)
 	db := utcDB{sql.OpenDB(emptyConnector{})}

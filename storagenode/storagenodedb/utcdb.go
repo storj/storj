@@ -6,13 +6,21 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 )
 
-// utcChecks controls if the time zone checks are enabled.
-var utcChecks = false
+// utcChecks controls if the time zone checks are enabled. They are by default
+// enabled only during tests.
+var utcChecks = len(os.Args) > 0 && strings.HasSuffix(os.Args[0], ".test")
+
+// EnableUTCChecks turns on tracking for timestamps being passed to the database being in
+// the UTC location. They cannot be turned off once turned on, and should be turned on
+// before any database calls are made.
+func EnableUTCChecks() { utcChecks = true }
 
 // utcDB wraps a sql.DB and checks all of the arguments to queries to ensure they are in UTC.
 type utcDB struct {
