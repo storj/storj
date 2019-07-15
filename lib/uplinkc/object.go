@@ -7,6 +7,7 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"io"
 	"time"
 	"unsafe"
@@ -139,6 +140,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
+		fmt.Printf("go error: %s\n", err)
 		*cErr = C.CString(err.Error())
 	}
 	return C.size_t(n)
@@ -160,6 +162,18 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 		*cErr = C.CString(err.Error())
 		return
 	}
+}
+
+//export upload_cancel
+func upload_cancel(uploader C.UploaderRef, cErr **C.char) {
+	upload, ok := universe.Get(uploader._handle).(*Upload)
+	if !ok {
+		*cErr = C.CString("invalid uploader")
+		return
+	}
+	defer universe.Del(uploader._handle)
+
+	upload.cancel()
 }
 
 // list_objects lists objects a user is authorized to see.
