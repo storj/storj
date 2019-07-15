@@ -259,6 +259,20 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`ALTER TABLE pieceinfo ADD COLUMN order_limit BLOB NOT NULL DEFAULT X''`,
 				},
 			},
+			{
+				Description: "Optimize index usage.",
+				Version:     10,
+				Action: migrate.SQL{
+					`DROP INDEX idx_used_serial`,
+					`DROP INDEX idx_pieceinfo_expiration`,
+					`DROP INDEX idx_bandwidth_usage_created`,
+					`DROP INDEX idx_order_archive_satellite`,
+					`DROP INDEX idx_order_archive_status`,
+					`CREATE INDEX idx_used_serial ON used_serial(datetime(expiration))`,
+					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(datetime(piece_expiration)) WHERE piece_expiration IS NOT NULL`,
+					`CREATE INDEX idx_bandwidth_usage_created ON bandwidth_usage(datetime(created_at))`,
+				},
+			},
 		},
 	}
 }
