@@ -6,6 +6,7 @@ option go_package = "pb";
 
 import "gogo.proto";
 import "node.proto";
+import "vouchers.proto";
 
 package overlay;
 
@@ -20,6 +21,7 @@ message QueryRequest {
     node.Node target = 2;
     int64 limit = 3;
     bool pingback = 4;
+    repeated vouchers.Voucher vouchers = 5;
 }
 
 message QueryResponse {

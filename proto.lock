@@ -3297,6 +3297,12 @@
                 "id": 4,
                 "name": "pingback",
                 "type": "bool"
+              },
+              {
+                "id": 5,
+                "name": "vouchers",
+                "type": "vouchers.Voucher",
+                "is_repeated": true
               }
             ]
           },
@@ -3399,6 +3405,9 @@
           },
           {
             "path": "node.proto"
+          },
+          {
+            "path": "vouchers.proto"
           }
         ],
         "package": {
