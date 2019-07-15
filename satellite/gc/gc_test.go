@@ -4,6 +4,8 @@
 package gc_test
 
 import (
+	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/gc"
 )
 
 // TestGarbageCollection does the following:
@@ -107,6 +110,32 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pieceInfo)
 	})
+}
+
+func TestService_NewPieceTracker_and_Send(t *testing.T) {
+	config := gc.Config{
+		Interval:          time.Minute,
+		Active:            true,
+		InitialPieces:     400000,
+		FalsePositiveRate: 0.1,
+	}
+
+	service := gc.NewService(zap.NewNop(), config, nil, nil)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		service.NewPieceTracker()
+		wg.Done()
+	}()
+
+	go func() {
+		service.Send(context.Background(), &gc.PieceTracker{}, func() {})
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
 
 func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
