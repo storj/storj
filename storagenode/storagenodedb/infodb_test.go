@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 )
