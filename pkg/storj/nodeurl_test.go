@@ -24,6 +24,7 @@ func TestNodeURL(t *testing.T) {
 		}
 
 		for _, testcase := range []Test{
+			{"", storj.NodeURL{}},
 			// host
 			{"33.20.0.1:7777", storj.NodeURL{emptyID, "33.20.0.1:7777"}},
 			{"[2001:db8:1f70::999:de8:7648:6e8]:7777", storj.NodeURL{emptyID, "[2001:db8:1f70::999:de8:7648:6e8]:7777"}},
@@ -45,7 +46,6 @@ func TestNodeURL(t *testing.T) {
 
 	t.Run("Invalid", func(t *testing.T) {
 		for _, testcase := range []string{
-			"",
 			// invalid host
 			"exampl e.com:7777",
 			// invalid node id

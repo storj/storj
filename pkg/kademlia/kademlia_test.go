@@ -418,7 +418,7 @@ func newKademlia(ctx context.Context, log *zap.Logger, nodeType pb.NodeType, boo
 		Operator: operator,
 	}
 
-	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), nil)
+	rt, err := NewRoutingTable(log, self, teststore.New(), teststore.New(), teststore.New(), nil)
 	if err != nil {
 		return nil, err
 	}

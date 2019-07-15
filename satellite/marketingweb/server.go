@@ -9,11 +9,9 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
-	"reflect"
-	"time"
+	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,11 +19,8 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-var (
-	// Error is satellite marketing error type
-	Error   = errs.Class("satellite marketing error")
-	decoder = schema.NewDecoder()
-)
+// Error is satellite marketing error type
+var Error = errs.Class("satellite marketing error")
 
 // Config contains configuration for marketingweb server
 type Config struct {
@@ -47,35 +42,6 @@ type Server struct {
 		internalError *template.Template
 		badRequest    *template.Template
 	}
-}
-
-// offerSet provides a separation of marketing offers by type.
-type offerSet struct {
-	ReferralOffers rewards.Offers
-	FreeCredits    rewards.Offers
-}
-
-// init safely registers convertStringToTime for the decoder.
-func init() {
-	decoder.RegisterConverter(time.Time{}, convertStringToTime)
-}
-
-// organizeOffers organizes offers by type.
-func organizeOffers(offers []rewards.Offer) offerSet {
-	var os offerSet
-	for _, offer := range offers {
-
-		switch offer.Type {
-		case rewards.FreeCredit:
-			os.FreeCredits.Set = append(os.FreeCredits.Set, offer)
-		case rewards.Referral:
-			os.ReferralOffers.Set = append(os.ReferralOffers.Set, offer)
-		default:
-			continue
-		}
-
-	}
-	return os
 }
 
 // commonPages returns templates that are required for all routes.
@@ -104,6 +70,7 @@ func NewServer(logger *zap.Logger, config Config, db rewards.DB, listener net.Li
 		mux.HandleFunc("/", s.GetOffers)
 		mux.PathPrefix("/static/").Handler(fs)
 		mux.HandleFunc("/create/{offer_type}", s.CreateOffer)
+		mux.HandleFunc("/stop/{offer_id}", s.StopOffer)
 	}
 	s.server.Handler = mux
 
@@ -130,7 +97,7 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := s.templates.home.ExecuteTemplate(w, "base", organizeOffers(offers)); err != nil {
+	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 		s.serveInternalError(w, req, err)
 	}
@@ -144,6 +111,10 @@ func (s *Server) parseTemplates() (err error) {
 		filepath.Join(s.templateDir, "referral-offers-modal.html"),
 		filepath.Join(s.templateDir, "free-offers.html"),
 		filepath.Join(s.templateDir, "free-offers-modal.html"),
+		filepath.Join(s.templateDir, "partner-offers.html"),
+		filepath.Join(s.templateDir, "partner-offers-modal.html"),
+		filepath.Join(s.templateDir, "stop-free-credit.html"),
+		filepath.Join(s.templateDir, "stop-referral-offer.html"),
 	)
 
 	pageNotFoundFiles := append(s.commonPages(),
@@ -159,7 +130,7 @@ func (s *Server) parseTemplates() (err error) {
 	)
 
 	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"ToDollars": rewards.ToDollars,
+		"isEmpty": rewards.Offer.IsEmpty,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)
@@ -181,33 +152,6 @@ func (s *Server) parseTemplates() (err error) {
 	}
 
 	return nil
-}
-
-// convertStringToTime formats form time input as time.Time.
-func convertStringToTime(value string) reflect.Value {
-	v, err := time.Parse("2006-01-02", value)
-	if err != nil {
-		// invalid decoder value
-		return reflect.Value{}
-	}
-	return reflect.ValueOf(v)
-}
-
-// parseOfferForm decodes POST form data into a new offer.
-func parseOfferForm(w http.ResponseWriter, req *http.Request) (o rewards.NewOffer, e error) {
-	err := req.ParseForm()
-	if err != nil {
-		return o, err
-	}
-
-	if err := decoder.Decode(&o, req.PostForm); err != nil {
-		return o, err
-	}
-
-	o.InviteeCreditInCents = rewards.ToCents(o.InviteeCreditInCents)
-	o.AwardCreditInCents = rewards.ToCents(o.AwardCreditInCents)
-
-	return o, nil
 }
 
 // CreateOffer handles requests to create new offers.
@@ -236,6 +180,24 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 	if _, err := s.db.Create(req.Context(), &offer); err != nil {
 		s.log.Error("failed to insert new offer", zap.Error(err))
 		s.serveBadRequest(w, req, err)
+		return
+	}
+
+	http.Redirect(w, req, "/", http.StatusSeeOther)
+}
+
+// StopOffer expires the current offer and replaces it with the default offer.
+func (s *Server) StopOffer(w http.ResponseWriter, req *http.Request) {
+	offerID, err := strconv.Atoi(mux.Vars(req)["offer_id"])
+	if err != nil {
+		s.log.Error("failed to parse offer id", zap.Error(err))
+		s.serveBadRequest(w, req, err)
+		return
+	}
+
+	if err := s.db.Finish(req.Context(), offerID); err != nil {
+		s.log.Error("failed to stop offer", zap.Error(err))
+		s.serveInternalError(w, req, err)
 		return
 	}
 

@@ -8,15 +8,17 @@ import (
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
 	proto "github.com/gogo/protobuf/proto"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	_ "github.com/golang/protobuf/ptypes/timestamp"
 	grpc "google.golang.org/grpc"
 	math "math"
+	time "time"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
+var _ = time.Kitchen
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
@@ -90,27 +92,30 @@ func (x SettlementResponse_Status) String() string {
 }
 
 func (SettlementResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{4, 0}
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{7, 0}
 }
 
-// OrderLimit2 is provided by satellite to execute specific action on storage node within some limits
-type OrderLimit2 struct {
+// OrderLimit is provided by satellite to execute specific action on storage node within some limits
+type OrderLimit struct {
 	// unique serial to avoid replay attacks
 	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
 	// satellite who issued this order limit allowing orderer to do the specified action
 	SatelliteId NodeID `protobuf:"bytes,2,opt,name=satellite_id,json=satelliteId,proto3,customtype=NodeID" json:"satellite_id"`
 	// uplink who requested or whom behalf the order limit to do an action
-	UplinkId NodeID `protobuf:"bytes,3,opt,name=uplink_id,json=uplinkId,proto3,customtype=NodeID" json:"uplink_id"`
-	// storage node who can reclaim the order limit specified by serial
+	DeprecatedUplinkId *NodeID `protobuf:"bytes,3,opt,name=deprecated_uplink_id,json=deprecatedUplinkId,proto3,customtype=NodeID" json:"deprecated_uplink_id,omitempty"`
+	// public key that will be used to sign orders and piece hash
+	UplinkPublicKey PiecePublicKey `protobuf:"bytes,13,opt,name=uplink_public_key,json=uplinkPublicKey,proto3,customtype=PiecePublicKey" json:"uplink_public_key"`
+	// storage node who can re claimthe order limit specified by serial
 	StorageNodeId NodeID `protobuf:"bytes,4,opt,name=storage_node_id,json=storageNodeId,proto3,customtype=NodeID" json:"storage_node_id"`
 	// piece which is allowed to be touched
 	PieceId PieceID `protobuf:"bytes,5,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
 	// limit in bytes how much can be changed
-	Limit              int64                `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
-	Action             PieceAction          `protobuf:"varint,7,opt,name=action,proto3,enum=orders.PieceAction" json:"action,omitempty"`
-	PieceExpiration    *timestamp.Timestamp `protobuf:"bytes,8,opt,name=piece_expiration,json=pieceExpiration,proto3" json:"piece_expiration,omitempty"`
-	OrderExpiration    *timestamp.Timestamp `protobuf:"bytes,9,opt,name=order_expiration,json=orderExpiration,proto3" json:"order_expiration,omitempty"`
-	SatelliteSignature []byte               `protobuf:"bytes,10,opt,name=satellite_signature,json=satelliteSignature,proto3" json:"satellite_signature,omitempty"`
+	Limit              int64       `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	Action             PieceAction `protobuf:"varint,7,opt,name=action,proto3,enum=orders.PieceAction" json:"action,omitempty"`
+	PieceExpiration    time.Time   `protobuf:"bytes,8,opt,name=piece_expiration,json=pieceExpiration,proto3,stdtime" json:"piece_expiration"`
+	OrderExpiration    time.Time   `protobuf:"bytes,9,opt,name=order_expiration,json=orderExpiration,proto3,stdtime" json:"order_expiration"`
+	OrderCreation      time.Time   `protobuf:"bytes,12,opt,name=order_creation,json=orderCreation,proto3,stdtime" json:"order_creation"`
+	SatelliteSignature []byte      `protobuf:"bytes,10,opt,name=satellite_signature,json=satelliteSignature,proto3" json:"satellite_signature,omitempty"`
 	// satellites aren't necessarily discoverable in kademlia. this allows
 	// a storage node to find a satellite and handshake with it to get its key.
 	SatelliteAddress     *NodeAddress `protobuf:"bytes,11,opt,name=satellite_address,json=satelliteAddress,proto3" json:"satellite_address,omitempty"`
@@ -119,74 +124,188 @@ type OrderLimit2 struct {
 	XXX_sizecache        int32        `json:"-"`
 }
 
-func (m *OrderLimit2) Reset()         { *m = OrderLimit2{} }
-func (m *OrderLimit2) String() string { return proto.CompactTextString(m) }
-func (*OrderLimit2) ProtoMessage()    {}
-func (*OrderLimit2) Descriptor() ([]byte, []int) {
+func (m *OrderLimit) Reset()         { *m = OrderLimit{} }
+func (m *OrderLimit) String() string { return proto.CompactTextString(m) }
+func (*OrderLimit) ProtoMessage()    {}
+func (*OrderLimit) Descriptor() ([]byte, []int) {
 	return fileDescriptor_e0f5d4cf0fc9e41b, []int{0}
 }
-func (m *OrderLimit2) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_OrderLimit2.Unmarshal(m, b)
+func (m *OrderLimit) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OrderLimit.Unmarshal(m, b)
 }
-func (m *OrderLimit2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_OrderLimit2.Marshal(b, m, deterministic)
+func (m *OrderLimit) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OrderLimit.Marshal(b, m, deterministic)
 }
-func (m *OrderLimit2) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_OrderLimit2.Merge(m, src)
+func (m *OrderLimit) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderLimit.Merge(m, src)
 }
-func (m *OrderLimit2) XXX_Size() int {
-	return xxx_messageInfo_OrderLimit2.Size(m)
+func (m *OrderLimit) XXX_Size() int {
+	return xxx_messageInfo_OrderLimit.Size(m)
 }
-func (m *OrderLimit2) XXX_DiscardUnknown() {
-	xxx_messageInfo_OrderLimit2.DiscardUnknown(m)
+func (m *OrderLimit) XXX_DiscardUnknown() {
+	xxx_messageInfo_OrderLimit.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_OrderLimit2 proto.InternalMessageInfo
+var xxx_messageInfo_OrderLimit proto.InternalMessageInfo
 
-func (m *OrderLimit2) GetLimit() int64 {
+func (m *OrderLimit) GetLimit() int64 {
 	if m != nil {
 		return m.Limit
 	}
 	return 0
 }
 
-func (m *OrderLimit2) GetAction() PieceAction {
+func (m *OrderLimit) GetAction() PieceAction {
 	if m != nil {
 		return m.Action
 	}
 	return PieceAction_INVALID
 }
 
-func (m *OrderLimit2) GetPieceExpiration() *timestamp.Timestamp {
+func (m *OrderLimit) GetPieceExpiration() time.Time {
 	if m != nil {
 		return m.PieceExpiration
 	}
-	return nil
+	return time.Time{}
 }
 
-func (m *OrderLimit2) GetOrderExpiration() *timestamp.Timestamp {
+func (m *OrderLimit) GetOrderExpiration() time.Time {
 	if m != nil {
 		return m.OrderExpiration
 	}
-	return nil
+	return time.Time{}
 }
 
-func (m *OrderLimit2) GetSatelliteSignature() []byte {
+func (m *OrderLimit) GetOrderCreation() time.Time {
+	if m != nil {
+		return m.OrderCreation
+	}
+	return time.Time{}
+}
+
+func (m *OrderLimit) GetSatelliteSignature() []byte {
 	if m != nil {
 		return m.SatelliteSignature
 	}
 	return nil
 }
 
-func (m *OrderLimit2) GetSatelliteAddress() *NodeAddress {
+func (m *OrderLimit) GetSatelliteAddress() *NodeAddress {
 	if m != nil {
 		return m.SatelliteAddress
 	}
 	return nil
 }
 
-// Order2 is a one step of fullfilling Amount number of bytes from an OrderLimit2 with SerialNumber
-type Order2 struct {
+// OrderLimitSigning provides OrderLimit signing serialization
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
+type OrderLimitSigning struct {
+	// unique serial to avoid replay attacks
+	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
+	// satellite who issued this order limit allowing orderer to do the specified action
+	SatelliteId NodeID `protobuf:"bytes,2,opt,name=satellite_id,json=satelliteId,proto3,customtype=NodeID" json:"satellite_id"`
+	// uplink who requested or whom behalf the order limit to do an action
+	DeprecatedUplinkId *NodeID `protobuf:"bytes,3,opt,name=deprecated_uplink_id,json=deprecatedUplinkId,proto3,customtype=NodeID" json:"deprecated_uplink_id,omitempty"`
+	// public key that will be used to sign orders and piece hash
+	UplinkPublicKey *PiecePublicKey `protobuf:"bytes,13,opt,name=uplink_public_key,json=uplinkPublicKey,proto3,customtype=PiecePublicKey" json:"uplink_public_key,omitempty"`
+	// storage node who can re claimthe order limit specified by serial
+	StorageNodeId NodeID `protobuf:"bytes,4,opt,name=storage_node_id,json=storageNodeId,proto3,customtype=NodeID" json:"storage_node_id"`
+	// piece which is allowed to be touched
+	PieceId PieceID `protobuf:"bytes,5,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
+	// limit in bytes how much can be changed
+	Limit              int64       `protobuf:"varint,6,opt,name=limit,proto3" json:"limit,omitempty"`
+	Action             PieceAction `protobuf:"varint,7,opt,name=action,proto3,enum=orders.PieceAction" json:"action,omitempty"`
+	PieceExpiration    *time.Time  `protobuf:"bytes,8,opt,name=piece_expiration,json=pieceExpiration,proto3,stdtime" json:"piece_expiration,omitempty"`
+	OrderExpiration    *time.Time  `protobuf:"bytes,9,opt,name=order_expiration,json=orderExpiration,proto3,stdtime" json:"order_expiration,omitempty"`
+	OrderCreation      *time.Time  `protobuf:"bytes,12,opt,name=order_creation,json=orderCreation,proto3,stdtime" json:"order_creation,omitempty"`
+	SatelliteSignature []byte      `protobuf:"bytes,10,opt,name=satellite_signature,json=satelliteSignature,proto3" json:"satellite_signature,omitempty"`
+	// satellites aren't necessarily discoverable in kademlia. this allows
+	// a storage node to find a satellite and handshake with it to get its key.
+	SatelliteAddress     *NodeAddress `protobuf:"bytes,11,opt,name=satellite_address,json=satelliteAddress,proto3" json:"satellite_address,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
+	XXX_unrecognized     []byte       `json:"-"`
+	XXX_sizecache        int32        `json:"-"`
+}
+
+func (m *OrderLimitSigning) Reset()         { *m = OrderLimitSigning{} }
+func (m *OrderLimitSigning) String() string { return proto.CompactTextString(m) }
+func (*OrderLimitSigning) ProtoMessage()    {}
+func (*OrderLimitSigning) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{1}
+}
+func (m *OrderLimitSigning) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OrderLimitSigning.Unmarshal(m, b)
+}
+func (m *OrderLimitSigning) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OrderLimitSigning.Marshal(b, m, deterministic)
+}
+func (m *OrderLimitSigning) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderLimitSigning.Merge(m, src)
+}
+func (m *OrderLimitSigning) XXX_Size() int {
+	return xxx_messageInfo_OrderLimitSigning.Size(m)
+}
+func (m *OrderLimitSigning) XXX_DiscardUnknown() {
+	xxx_messageInfo_OrderLimitSigning.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OrderLimitSigning proto.InternalMessageInfo
+
+func (m *OrderLimitSigning) GetLimit() int64 {
+	if m != nil {
+		return m.Limit
+	}
+	return 0
+}
+
+func (m *OrderLimitSigning) GetAction() PieceAction {
+	if m != nil {
+		return m.Action
+	}
+	return PieceAction_INVALID
+}
+
+func (m *OrderLimitSigning) GetPieceExpiration() *time.Time {
+	if m != nil {
+		return m.PieceExpiration
+	}
+	return nil
+}
+
+func (m *OrderLimitSigning) GetOrderExpiration() *time.Time {
+	if m != nil {
+		return m.OrderExpiration
+	}
+	return nil
+}
+
+func (m *OrderLimitSigning) GetOrderCreation() *time.Time {
+	if m != nil {
+		return m.OrderCreation
+	}
+	return nil
+}
+
+func (m *OrderLimitSigning) GetSatelliteSignature() []byte {
+	if m != nil {
+		return m.SatelliteSignature
+	}
+	return nil
+}
+
+func (m *OrderLimitSigning) GetSatelliteAddress() *NodeAddress {
+	if m != nil {
+		return m.SatelliteAddress
+	}
+	return nil
+}
+
+// Order is a one step of fullfilling Amount number of bytes from an OrderLimit with SerialNumber
+type Order struct {
 	// serial of the order limit that was signed
 	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
 	// amount to be signed for
@@ -198,38 +317,94 @@ type Order2 struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Order2) Reset()         { *m = Order2{} }
-func (m *Order2) String() string { return proto.CompactTextString(m) }
-func (*Order2) ProtoMessage()    {}
-func (*Order2) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{1}
+func (m *Order) Reset()         { *m = Order{} }
+func (m *Order) String() string { return proto.CompactTextString(m) }
+func (*Order) ProtoMessage()    {}
+func (*Order) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{2}
 }
-func (m *Order2) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Order2.Unmarshal(m, b)
+func (m *Order) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Order.Unmarshal(m, b)
 }
-func (m *Order2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Order2.Marshal(b, m, deterministic)
+func (m *Order) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Order.Marshal(b, m, deterministic)
 }
-func (m *Order2) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Order2.Merge(m, src)
+func (m *Order) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Order.Merge(m, src)
 }
-func (m *Order2) XXX_Size() int {
-	return xxx_messageInfo_Order2.Size(m)
+func (m *Order) XXX_Size() int {
+	return xxx_messageInfo_Order.Size(m)
 }
-func (m *Order2) XXX_DiscardUnknown() {
-	xxx_messageInfo_Order2.DiscardUnknown(m)
+func (m *Order) XXX_DiscardUnknown() {
+	xxx_messageInfo_Order.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Order2 proto.InternalMessageInfo
+var xxx_messageInfo_Order proto.InternalMessageInfo
 
-func (m *Order2) GetAmount() int64 {
+func (m *Order) GetAmount() int64 {
 	if m != nil {
 		return m.Amount
 	}
 	return 0
 }
 
-func (m *Order2) GetUplinkSignature() []byte {
+func (m *Order) GetUplinkSignature() []byte {
+	if m != nil {
+		return m.UplinkSignature
+	}
+	return nil
+}
+
+// OrderSigning provides Order signing format
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
+type OrderSigning struct {
+	// serial of the order limit that was signed
+	SerialNumber SerialNumber `protobuf:"bytes,1,opt,name=serial_number,json=serialNumber,proto3,customtype=SerialNumber" json:"serial_number"`
+	// amount to be signed for
+	Amount int64 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	// signature
+	UplinkSignature      []byte   `protobuf:"bytes,3,opt,name=uplink_signature,json=uplinkSignature,proto3" json:"uplink_signature,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *OrderSigning) Reset()         { *m = OrderSigning{} }
+func (m *OrderSigning) String() string { return proto.CompactTextString(m) }
+func (*OrderSigning) ProtoMessage()    {}
+func (*OrderSigning) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{3}
+}
+func (m *OrderSigning) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_OrderSigning.Unmarshal(m, b)
+}
+func (m *OrderSigning) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_OrderSigning.Marshal(b, m, deterministic)
+}
+func (m *OrderSigning) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_OrderSigning.Merge(m, src)
+}
+func (m *OrderSigning) XXX_Size() int {
+	return xxx_messageInfo_OrderSigning.Size(m)
+}
+func (m *OrderSigning) XXX_DiscardUnknown() {
+	xxx_messageInfo_OrderSigning.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_OrderSigning proto.InternalMessageInfo
+
+func (m *OrderSigning) GetAmount() int64 {
+	if m != nil {
+		return m.Amount
+	}
+	return 0
+}
+
+func (m *OrderSigning) GetUplinkSignature() []byte {
 	if m != nil {
 		return m.UplinkSignature
 	}
@@ -241,6 +416,10 @@ type PieceHash struct {
 	PieceId PieceID `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
 	// hash of the piece that was/is uploaded
 	Hash []byte `protobuf:"bytes,2,opt,name=hash,proto3" json:"hash,omitempty"`
+	// size of uploaded piece
+	PieceSize int64 `protobuf:"varint,4,opt,name=piece_size,json=pieceSize,proto3" json:"piece_size,omitempty"`
+	// timestamp when upload occurred
+	Timestamp time.Time `protobuf:"bytes,5,opt,name=timestamp,proto3,stdtime" json:"timestamp"`
 	// signature either satellite or storage node
 	Signature            []byte   `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -252,7 +431,7 @@ func (m *PieceHash) Reset()         { *m = PieceHash{} }
 func (m *PieceHash) String() string { return proto.CompactTextString(m) }
 func (*PieceHash) ProtoMessage()    {}
 func (*PieceHash) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{2}
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{4}
 }
 func (m *PieceHash) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PieceHash.Unmarshal(m, b)
@@ -279,6 +458,20 @@ func (m *PieceHash) GetHash() []byte {
 	return nil
 }
 
+func (m *PieceHash) GetPieceSize() int64 {
+	if m != nil {
+		return m.PieceSize
+	}
+	return 0
+}
+
+func (m *PieceHash) GetTimestamp() time.Time {
+	if m != nil {
+		return m.Timestamp
+	}
+	return time.Time{}
+}
+
 func (m *PieceHash) GetSignature() []byte {
 	if m != nil {
 		return m.Signature
@@ -286,19 +479,93 @@ func (m *PieceHash) GetSignature() []byte {
 	return nil
 }
 
+// PieceHashSigning provides piece hash signing format.
+//
+// It is never used for sending across the network, it is
+// used in signing to ensure that nullable=false fields get handled properly.
+// Its purpose is to solidify the format of how we serialize for
+// signing, to handle some backwards compatibility considerations.
+type PieceHashSigning struct {
+	// piece id
+	PieceId PieceID `protobuf:"bytes,1,opt,name=piece_id,json=pieceId,proto3,customtype=PieceID" json:"piece_id"`
+	// hash of the piece that was/is uploaded
+	Hash []byte `protobuf:"bytes,2,opt,name=hash,proto3" json:"hash,omitempty"`
+	// size of uploaded piece
+	PieceSize int64 `protobuf:"varint,4,opt,name=piece_size,json=pieceSize,proto3" json:"piece_size,omitempty"`
+	// timestamp when upload occurred
+	Timestamp *time.Time `protobuf:"bytes,5,opt,name=timestamp,proto3,stdtime" json:"timestamp,omitempty"`
+	// signature either satellite or storage node
+	Signature            []byte   `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *PieceHashSigning) Reset()         { *m = PieceHashSigning{} }
+func (m *PieceHashSigning) String() string { return proto.CompactTextString(m) }
+func (*PieceHashSigning) ProtoMessage()    {}
+func (*PieceHashSigning) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{5}
+}
+func (m *PieceHashSigning) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_PieceHashSigning.Unmarshal(m, b)
+}
+func (m *PieceHashSigning) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_PieceHashSigning.Marshal(b, m, deterministic)
+}
+func (m *PieceHashSigning) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PieceHashSigning.Merge(m, src)
+}
+func (m *PieceHashSigning) XXX_Size() int {
+	return xxx_messageInfo_PieceHashSigning.Size(m)
+}
+func (m *PieceHashSigning) XXX_DiscardUnknown() {
+	xxx_messageInfo_PieceHashSigning.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_PieceHashSigning proto.InternalMessageInfo
+
+func (m *PieceHashSigning) GetHash() []byte {
+	if m != nil {
+		return m.Hash
+	}
+	return nil
+}
+
+func (m *PieceHashSigning) GetPieceSize() int64 {
+	if m != nil {
+		return m.PieceSize
+	}
+	return 0
+}
+
+func (m *PieceHashSigning) GetTimestamp() *time.Time {
+	if m != nil {
+		return m.Timestamp
+	}
+	return nil
+}
+
+func (m *PieceHashSigning) GetSignature() []byte {
+	if m != nil {
+		return m.Signature
+	}
+	return nil
+}
+
 type SettlementRequest struct {
-	Limit                *OrderLimit2 `protobuf:"bytes,1,opt,name=limit,proto3" json:"limit,omitempty"`
-	Order                *Order2      `protobuf:"bytes,2,opt,name=order,proto3" json:"order,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
-	XXX_unrecognized     []byte       `json:"-"`
-	XXX_sizecache        int32        `json:"-"`
+	Limit                *OrderLimit `protobuf:"bytes,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	Order                *Order      `protobuf:"bytes,2,opt,name=order,proto3" json:"order,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
 }
 
 func (m *SettlementRequest) Reset()         { *m = SettlementRequest{} }
 func (m *SettlementRequest) String() string { return proto.CompactTextString(m) }
 func (*SettlementRequest) ProtoMessage()    {}
 func (*SettlementRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{3}
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{6}
 }
 func (m *SettlementRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SettlementRequest.Unmarshal(m, b)
@@ -318,14 +585,14 @@ func (m *SettlementRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SettlementRequest proto.InternalMessageInfo
 
-func (m *SettlementRequest) GetLimit() *OrderLimit2 {
+func (m *SettlementRequest) GetLimit() *OrderLimit {
 	if m != nil {
 		return m.Limit
 	}
 	return nil
 }
 
-func (m *SettlementRequest) GetOrder() *Order2 {
+func (m *SettlementRequest) GetOrder() *Order {
 	if m != nil {
 		return m.Order
 	}
@@ -344,7 +611,7 @@ func (m *SettlementResponse) Reset()         { *m = SettlementResponse{} }
 func (m *SettlementResponse) String() string { return proto.CompactTextString(m) }
 func (*SettlementResponse) ProtoMessage()    {}
 func (*SettlementResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_e0f5d4cf0fc9e41b, []int{4}
+	return fileDescriptor_e0f5d4cf0fc9e41b, []int{7}
 }
 func (m *SettlementResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SettlementResponse.Unmarshal(m, b)
@@ -374,9 +641,12 @@ func (m *SettlementResponse) GetStatus() SettlementResponse_Status {
 func init() {
 	proto.RegisterEnum("orders.PieceAction", PieceAction_name, PieceAction_value)
 	proto.RegisterEnum("orders.SettlementResponse_Status", SettlementResponse_Status_name, SettlementResponse_Status_value)
-	proto.RegisterType((*OrderLimit2)(nil), "orders.OrderLimit2")
-	proto.RegisterType((*Order2)(nil), "orders.Order2")
+	proto.RegisterType((*OrderLimit)(nil), "orders.OrderLimit")
+	proto.RegisterType((*OrderLimitSigning)(nil), "orders.OrderLimitSigning")
+	proto.RegisterType((*Order)(nil), "orders.Order")
+	proto.RegisterType((*OrderSigning)(nil), "orders.OrderSigning")
 	proto.RegisterType((*PieceHash)(nil), "orders.PieceHash")
+	proto.RegisterType((*PieceHashSigning)(nil), "orders.PieceHashSigning")
 	proto.RegisterType((*SettlementRequest)(nil), "orders.SettlementRequest")
 	proto.RegisterType((*SettlementResponse)(nil), "orders.SettlementResponse")
 }
@@ -384,49 +654,61 @@ func init() {
 func init() { proto.RegisterFile("orders.proto", fileDescriptor_e0f5d4cf0fc9e41b) }
 
 var fileDescriptor_e0f5d4cf0fc9e41b = []byte{
-	// 667 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x53, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0xae, 0xf3, 0xe3, 0x24, 0x93, 0x34, 0x71, 0xb7, 0x15, 0x0a, 0x11, 0x52, 0x83, 0xc5, 0x21,
-	0xb4, 0x92, 0x4b, 0x8d, 0x84, 0xd4, 0x0b, 0x52, 0xda, 0x58, 0xc5, 0xa8, 0x2a, 0xd1, 0xc6, 0xe5,
-	0xc0, 0x25, 0x72, 0xea, 0xc5, 0xb5, 0x70, 0x6c, 0xe3, 0x5d, 0x4b, 0x3c, 0x01, 0x6f, 0xc5, 0x9d,
-	0x13, 0x0f, 0xc0, 0xa1, 0xcf, 0x82, 0x76, 0xec, 0x38, 0x29, 0x14, 0xf5, 0xd0, 0x9b, 0xbf, 0x99,
-	0xef, 0x9b, 0xf1, 0xcc, 0x7c, 0x0b, 0x9d, 0x38, 0xf5, 0x58, 0xca, 0x8d, 0x24, 0x8d, 0x45, 0x4c,
-	0xd4, 0x1c, 0x0d, 0xc0, 0x8f, 0xfd, 0x38, 0x8f, 0x0d, 0xf6, 0xfd, 0x38, 0xf6, 0x43, 0x76, 0x84,
-	0x68, 0x91, 0x7d, 0x3e, 0x12, 0xc1, 0x92, 0x71, 0xe1, 0x2e, 0x93, 0x82, 0x00, 0x51, 0xec, 0xb1,
-	0xfc, 0x5b, 0xff, 0x55, 0x83, 0xf6, 0x07, 0x59, 0xe3, 0x22, 0x58, 0x06, 0xc2, 0x24, 0x27, 0xb0,
-	0xcd, 0x59, 0x1a, 0xb8, 0xe1, 0x3c, 0xca, 0x96, 0x0b, 0x96, 0xf6, 0x95, 0xa1, 0x32, 0xea, 0x9c,
-	0xee, 0xfd, 0xbc, 0xdd, 0xdf, 0xfa, 0x7d, 0xbb, 0xdf, 0x99, 0x61, 0xf2, 0x12, 0x73, 0xb4, 0xc3,
-	0x37, 0x10, 0x39, 0x86, 0x0e, 0x77, 0x05, 0x0b, 0xc3, 0x40, 0xb0, 0x79, 0xe0, 0xf5, 0x2b, 0xa8,
-	0xec, 0x16, 0x4a, 0xf5, 0x32, 0xf6, 0x98, 0x3d, 0xa1, 0xed, 0x92, 0x63, 0x7b, 0xe4, 0x10, 0x5a,
-	0x59, 0x12, 0x06, 0xd1, 0x17, 0xc9, 0xaf, 0xde, 0xcb, 0x6f, 0xe6, 0x04, 0xdb, 0x23, 0x6f, 0xa0,
-	0xc7, 0x45, 0x9c, 0xba, 0x3e, 0x9b, 0xcb, 0x01, 0xa4, 0xa4, 0x76, 0xaf, 0x64, 0xbb, 0xa0, 0x21,
-	0xf4, 0xc8, 0x01, 0x34, 0x93, 0x80, 0x5d, 0xa3, 0xa0, 0x8e, 0x82, 0x5e, 0x21, 0x68, 0x4c, 0x65,
-	0xdc, 0x9e, 0xd0, 0x06, 0x12, 0x6c, 0x8f, 0xec, 0x41, 0x3d, 0x94, 0x8b, 0xe8, 0xab, 0x43, 0x65,
-	0x54, 0xa5, 0x39, 0x20, 0x87, 0xa0, 0xba, 0xd7, 0x22, 0x88, 0xa3, 0x7e, 0x63, 0xa8, 0x8c, 0xba,
-	0xe6, 0xae, 0x51, 0x1c, 0x01, 0xf5, 0x63, 0x4c, 0xd1, 0x82, 0x42, 0x2c, 0xd0, 0xf2, 0x76, 0xec,
-	0x5b, 0x12, 0xa4, 0x2e, 0xca, 0x9a, 0x43, 0x65, 0xd4, 0x36, 0x07, 0x46, 0x7e, 0x19, 0x63, 0x75,
-	0x19, 0xc3, 0x59, 0x5d, 0x86, 0xf6, 0x50, 0x63, 0x95, 0x12, 0x59, 0x06, 0x9b, 0x6c, 0x96, 0x69,
-	0x3d, 0x5c, 0x06, 0x35, 0x1b, 0x65, 0x8e, 0x60, 0x77, 0x7d, 0x14, 0x1e, 0xf8, 0x91, 0x2b, 0xb2,
-	0x94, 0xf5, 0x41, 0xee, 0x81, 0x92, 0x32, 0x35, 0x5b, 0x65, 0xc8, 0x5b, 0xd8, 0x59, 0x0b, 0x5c,
-	0xcf, 0x4b, 0x19, 0xe7, 0xfd, 0x36, 0x36, 0xde, 0x31, 0xd0, 0x38, 0x72, 0xad, 0xe3, 0x3c, 0x41,
-	0xb5, 0x92, 0x5b, 0x44, 0xf4, 0xef, 0x0a, 0xa8, 0x68, 0xa8, 0x47, 0x79, 0xe9, 0x09, 0xa8, 0xee,
-	0x32, 0xce, 0x22, 0x81, 0x2e, 0xaa, 0xd2, 0x02, 0x91, 0x97, 0xa0, 0x15, 0x86, 0x59, 0xcf, 0x82,
-	0xbe, 0xa1, 0xbd, 0x3c, 0x5e, 0x0e, 0xa2, 0x07, 0xd0, 0xc2, 0xf3, 0xbc, 0x73, 0xf9, 0xcd, 0x1d,
-	0x0f, 0x28, 0x0f, 0x78, 0x80, 0x40, 0xed, 0xc6, 0xe5, 0x37, 0xb9, 0x7f, 0x29, 0x7e, 0x93, 0x67,
-	0xd0, 0xfa, 0xbb, 0xe1, 0x3a, 0xa0, 0x7b, 0xb0, 0x33, 0x63, 0x42, 0x84, 0x6c, 0xc9, 0x22, 0x41,
-	0xd9, 0xd7, 0x8c, 0x71, 0xf9, 0xab, 0x85, 0x95, 0x14, 0x5c, 0x5e, 0xe9, 0x99, 0x8d, 0xd7, 0xb6,
-	0xf2, 0xd7, 0x0b, 0xa8, 0x63, 0x12, 0x5b, 0xb6, 0xcd, 0xee, 0x1d, 0xaa, 0x49, 0xf3, 0xa4, 0xfe,
-	0x43, 0x01, 0xb2, 0xd9, 0x86, 0x27, 0x71, 0xc4, 0xd9, 0x63, 0xb6, 0x7c, 0x02, 0x2a, 0x17, 0xae,
-	0xc8, 0x38, 0x36, 0xee, 0x9a, 0xcf, 0x57, 0x8d, 0xff, 0x6d, 0x63, 0xcc, 0x90, 0x48, 0x0b, 0x81,
-	0x7e, 0x0c, 0x6a, 0x1e, 0x21, 0x6d, 0x68, 0xd8, 0x97, 0x1f, 0xc7, 0x17, 0xf6, 0x44, 0xdb, 0x22,
-	0x1d, 0x68, 0x8e, 0xcf, 0xce, 0xac, 0xa9, 0x63, 0x4d, 0x34, 0x45, 0x22, 0x6a, 0xbd, 0xb7, 0xce,
-	0x24, 0xaa, 0x1c, 0xf8, 0xd0, 0xde, 0x78, 0x2f, 0x77, 0x75, 0x0d, 0xa8, 0x4e, 0xaf, 0x1c, 0x4d,
-	0x91, 0x1f, 0xe7, 0x96, 0xa3, 0x55, 0xc8, 0x36, 0xb4, 0xce, 0x2d, 0x67, 0x3e, 0xbe, 0x9a, 0xd8,
-	0x8e, 0x56, 0x25, 0x5d, 0x00, 0x09, 0xa9, 0x35, 0x1d, 0xdb, 0x54, 0xab, 0x49, 0x3c, 0xbd, 0x2a,
-	0x71, 0x9d, 0x00, 0xa8, 0x13, 0xeb, 0xc2, 0x72, 0x2c, 0x4d, 0x35, 0x67, 0x85, 0x03, 0x39, 0xb1,
-	0x01, 0xd6, 0xa3, 0x90, 0xa7, 0xf7, 0x8d, 0x87, 0xc7, 0x1a, 0x0c, 0xfe, 0x3f, 0xb9, 0xbe, 0x35,
-	0x52, 0x5e, 0x29, 0xa7, 0xb5, 0x4f, 0x95, 0x64, 0xb1, 0x50, 0xf1, 0xcd, 0xbd, 0xfe, 0x13, 0x00,
-	0x00, 0xff, 0xff, 0xab, 0x0a, 0xc7, 0x5c, 0x86, 0x05, 0x00, 0x00,
+	// 859 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xdc, 0x55, 0xcf, 0x6f, 0xe3, 0x44,
+	0x14, 0xee, 0x34, 0x89, 0xd3, 0xbc, 0x38, 0xa9, 0x33, 0x5b, 0xad, 0x42, 0x04, 0x6a, 0x09, 0x97,
+	0xb0, 0x48, 0x29, 0x1b, 0x24, 0xa4, 0x95, 0x50, 0xa5, 0xa4, 0xb1, 0x8a, 0x69, 0xd5, 0x8d, 0x26,
+	0x29, 0x07, 0x2e, 0x91, 0x13, 0x0f, 0xae, 0xb5, 0x8e, 0x6d, 0x3c, 0x63, 0x89, 0xdd, 0x2b, 0xe2,
+	0xc6, 0x81, 0x7f, 0x88, 0x3b, 0x07, 0x24, 0xee, 0x1c, 0x96, 0xff, 0x83, 0x13, 0x9a, 0xe7, 0x5f,
+	0x29, 0x74, 0x05, 0xed, 0x2e, 0x12, 0x70, 0xf3, 0x9b, 0xf7, 0xbe, 0xf7, 0xe6, 0xcd, 0xfb, 0xbe,
+	0x67, 0xd0, 0xc3, 0xd8, 0xe1, 0xb1, 0x18, 0x46, 0x71, 0x28, 0x43, 0xaa, 0xa5, 0x56, 0x0f, 0xdc,
+	0xd0, 0x0d, 0xd3, 0xb3, 0xde, 0xa1, 0x1b, 0x86, 0xae, 0xcf, 0x8f, 0xd1, 0x5a, 0x25, 0x5f, 0x1e,
+	0x4b, 0x6f, 0xc3, 0x85, 0xb4, 0x37, 0x51, 0x16, 0x00, 0x41, 0xe8, 0xf0, 0xf4, 0xbb, 0xff, 0x8d,
+	0x06, 0xf0, 0x54, 0xe5, 0xb8, 0xf0, 0x36, 0x9e, 0xa4, 0x4f, 0xa0, 0x25, 0x78, 0xec, 0xd9, 0xfe,
+	0x32, 0x48, 0x36, 0x2b, 0x1e, 0x77, 0xc9, 0x11, 0x19, 0xe8, 0x93, 0x83, 0x1f, 0x5f, 0x1e, 0xee,
+	0xfc, 0xf2, 0xf2, 0x50, 0x9f, 0xa3, 0xf3, 0x12, 0x7d, 0x4c, 0x17, 0x5b, 0x16, 0x7d, 0x0c, 0xba,
+	0xb0, 0x25, 0xf7, 0x7d, 0x4f, 0xf2, 0xa5, 0xe7, 0x74, 0x77, 0x11, 0xd9, 0xce, 0x90, 0xda, 0x65,
+	0xe8, 0x70, 0x6b, 0xca, 0x9a, 0x45, 0x8c, 0xe5, 0xd0, 0x4f, 0xe0, 0xc0, 0xe1, 0x51, 0xcc, 0xd7,
+	0xb6, 0xe4, 0xce, 0x32, 0x89, 0x7c, 0x2f, 0x78, 0xa6, 0xa0, 0x15, 0x84, 0xc2, 0x16, 0x8c, 0x96,
+	0x71, 0x57, 0x18, 0x66, 0x39, 0x74, 0x02, 0x9d, 0x0c, 0x12, 0x25, 0x2b, 0xdf, 0x5b, 0x2f, 0x9f,
+	0xf1, 0xe7, 0xdd, 0x16, 0x42, 0x1f, 0x66, 0x55, 0xdb, 0x33, 0x8f, 0xaf, 0xf9, 0x0c, 0xdd, 0xe7,
+	0xfc, 0x39, 0xdb, 0x4f, 0x01, 0xc5, 0x01, 0xfd, 0x18, 0xf6, 0x85, 0x0c, 0x63, 0xdb, 0xe5, 0x4b,
+	0xf5, 0x28, 0xaa, 0x78, 0xf5, 0xd6, 0x7b, 0xb7, 0xb2, 0x30, 0x34, 0x1d, 0xfa, 0x08, 0xf6, 0x22,
+	0x95, 0x5a, 0x01, 0x6a, 0x08, 0xd8, 0xcf, 0x00, 0x75, 0x2c, 0x69, 0x4d, 0x59, 0x1d, 0x03, 0x2c,
+	0x87, 0x1e, 0x40, 0xcd, 0x57, 0x8f, 0xdb, 0xd5, 0x8e, 0xc8, 0xa0, 0xc2, 0x52, 0x83, 0x7e, 0x00,
+	0x9a, 0xbd, 0x96, 0x5e, 0x18, 0x74, 0xeb, 0x47, 0x64, 0xd0, 0x1e, 0x3d, 0x18, 0x66, 0x83, 0x45,
+	0xfc, 0x18, 0x5d, 0x2c, 0x0b, 0xa1, 0x4f, 0xc1, 0x48, 0xcb, 0xf1, 0xaf, 0x23, 0x2f, 0xb6, 0x11,
+	0xb6, 0x77, 0x44, 0x06, 0xcd, 0x51, 0x6f, 0x98, 0x4e, 0x7b, 0x98, 0x4f, 0x7b, 0xb8, 0xc8, 0xa7,
+	0x3d, 0xd9, 0x53, 0x57, 0xfa, 0xfe, 0xd7, 0x43, 0xc2, 0xf6, 0x11, 0x6d, 0x16, 0x60, 0x95, 0x10,
+	0xcb, 0x6d, 0x27, 0x6c, 0xdc, 0x25, 0x21, 0xa2, 0xb7, 0x12, 0x9e, 0x43, 0x3b, 0x4d, 0xb8, 0x8e,
+	0x79, 0x9a, 0x4e, 0xbf, 0x43, 0xba, 0x16, 0x62, 0x4f, 0x33, 0x28, 0x3d, 0x86, 0x07, 0x25, 0x95,
+	0x84, 0xe7, 0x06, 0xb6, 0x4c, 0x62, 0xde, 0x05, 0xf5, 0xd0, 0x8c, 0x16, 0xae, 0x79, 0xee, 0xa1,
+	0x27, 0xd0, 0x29, 0x01, 0xb6, 0xe3, 0xc4, 0x5c, 0x88, 0x6e, 0x13, 0x2f, 0xd0, 0x19, 0x22, 0xdb,
+	0xd5, 0xdc, 0xc6, 0xa9, 0x83, 0x19, 0x45, 0x6c, 0x76, 0xd2, 0xff, 0xad, 0x06, 0x9d, 0x52, 0x05,
+	0x2a, 0xaf, 0x17, 0xb8, 0xff, 0x29, 0x31, 0x9c, 0xbc, 0x5a, 0x0c, 0xf4, 0x7f, 0x24, 0x84, 0xf3,
+	0x7b, 0x09, 0xa1, 0x7a, 0xbb, 0x08, 0xce, 0xef, 0x25, 0x82, 0xea, 0xed, 0x02, 0x38, 0xbb, 0x87,
+	0x00, 0xaa, 0xff, 0x0a, 0xf2, 0x7f, 0x4b, 0xa0, 0x86, 0xe4, 0x7f, 0x1d, 0xc2, 0x3f, 0x04, 0xcd,
+	0xde, 0x84, 0x49, 0x20, 0x91, 0xea, 0x15, 0x96, 0x59, 0xf4, 0x7d, 0x30, 0x32, 0x5e, 0x96, 0xad,
+	0x20, 0xa3, 0x73, 0x0a, 0x16, 0x7d, 0xf4, 0xbf, 0x23, 0xa0, 0xe3, 0x3d, 0xde, 0x80, 0xfe, 0xde,
+	0xc0, 0x75, 0x7e, 0x22, 0xd0, 0x40, 0x0a, 0x7e, 0x6a, 0x8b, 0xeb, 0x1b, 0x3c, 0x27, 0x7f, 0xc1,
+	0x73, 0x0a, 0xd5, 0x6b, 0x5b, 0x5c, 0xa7, 0xa2, 0x67, 0xf8, 0x4d, 0xdf, 0x01, 0x48, 0xf1, 0xc2,
+	0x7b, 0xc1, 0x51, 0x5a, 0x15, 0xd6, 0xc0, 0x93, 0xb9, 0xf7, 0x82, 0xd3, 0x09, 0x34, 0x8a, 0xbf,
+	0x34, 0xea, 0xe8, 0xef, 0x6e, 0xce, 0x12, 0x46, 0xdf, 0x86, 0xc6, 0x1f, 0x9b, 0x2a, 0x0f, 0xfa,
+	0x3f, 0x13, 0x30, 0x8a, 0x76, 0xf2, 0x17, 0xfe, 0x87, 0xbb, 0x3a, 0xb9, 0x5b, 0x57, 0xd5, 0xbb,
+	0x75, 0xb4, 0x82, 0xce, 0x9c, 0x4b, 0xe9, 0xf3, 0x0d, 0x0f, 0x24, 0xe3, 0x5f, 0x25, 0x5c, 0x48,
+	0x3a, 0xc8, 0x77, 0x0c, 0xc1, 0x72, 0x34, 0x5f, 0x26, 0xe5, 0x76, 0xcf, 0xf7, 0xce, 0x7b, 0x50,
+	0x43, 0x1f, 0x36, 0xd4, 0x1c, 0xb5, 0x6e, 0x44, 0xb2, 0xd4, 0xd7, 0xff, 0x81, 0x00, 0xdd, 0x2e,
+	0x22, 0xa2, 0x30, 0x10, 0xfc, 0x75, 0x98, 0xf9, 0x04, 0x34, 0x21, 0x6d, 0x99, 0x08, 0xac, 0xdb,
+	0x1e, 0xbd, 0x9b, 0xd7, 0xfd, 0x73, 0x99, 0xe1, 0x1c, 0x03, 0x59, 0x06, 0xe8, 0x3f, 0x06, 0x2d,
+	0x3d, 0xa1, 0x4d, 0xa8, 0x5b, 0x97, 0x9f, 0x8f, 0x2f, 0xac, 0xa9, 0xb1, 0x43, 0x75, 0xd8, 0x1b,
+	0x9f, 0x9e, 0x9a, 0xb3, 0x85, 0x39, 0x35, 0x88, 0xb2, 0x98, 0xf9, 0x99, 0x79, 0xaa, 0xac, 0xdd,
+	0x47, 0x2e, 0x34, 0xb7, 0xd6, 0xe8, 0x4d, 0x5c, 0x1d, 0x2a, 0xb3, 0xab, 0x85, 0x41, 0xd4, 0xc7,
+	0x99, 0xb9, 0x30, 0x76, 0x69, 0x0b, 0x1a, 0x67, 0xe6, 0x62, 0x39, 0xbe, 0x9a, 0x5a, 0x0b, 0xa3,
+	0x42, 0xdb, 0x00, 0xca, 0x64, 0xe6, 0x6c, 0x6c, 0x31, 0xa3, 0xaa, 0xec, 0xd9, 0x55, 0x61, 0xd7,
+	0x28, 0x80, 0x36, 0x35, 0x2f, 0xcc, 0x85, 0x69, 0x68, 0xa3, 0x39, 0x68, 0xf8, 0x70, 0x82, 0x5a,
+	0x00, 0x65, 0x2b, 0xf4, 0xad, 0xdb, 0xda, 0xc3, 0x51, 0xf5, 0x7a, 0xaf, 0xee, 0xbc, 0xbf, 0x33,
+	0x20, 0x1f, 0x92, 0x49, 0xf5, 0x8b, 0xdd, 0x68, 0xb5, 0xd2, 0x90, 0x2a, 0x1f, 0xfd, 0x1e, 0x00,
+	0x00, 0xff, 0xff, 0x87, 0x49, 0x03, 0x47, 0xfa, 0x0a, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.

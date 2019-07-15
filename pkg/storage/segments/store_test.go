@@ -57,7 +57,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, expectedSize, meta.Size)
 					assert.Equal(t, test.metadata, meta.Data)
-					assert.Equal(t, test.expiration, meta.Expiration)
+					assert.True(t, test.expiration.Equal(meta.Expiration))
 					assert.True(t, meta.Modified.After(beforeModified))
 				}
 
@@ -66,7 +66,7 @@ func TestSegmentStoreMeta(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, expectedSize, meta.Size)
 					assert.Equal(t, test.metadata, meta.Data)
-					assert.Equal(t, test.expiration, meta.Expiration)
+					assert.True(t, test.expiration.Equal(meta.Expiration))
 					assert.True(t, meta.Modified.After(beforeModified))
 				} else {
 					require.Contains(t, err.Error(), test.err)
@@ -263,7 +263,7 @@ func runTest(t *testing.T, test func(t *testing.T, ctx *testcontext.Context, pla
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		ec := ecclient.NewClient(planet.Uplinks[0].Transport, 0)
+		ec := ecclient.NewClient(planet.Uplinks[0].Log.Named("ecclient"), planet.Uplinks[0].Transport, 0)
 		fc, err := infectious.NewFEC(2, 4)
 		require.NoError(t, err)
 

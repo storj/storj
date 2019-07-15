@@ -50,130 +50,128 @@
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component(
-        {
-            beforeMount() {
-                this.$data.self = this as any;
+    @Component({
+        beforeMount() {
+            this.$data.self = this as any;
+        },
+        data: function () {
+            return {
+                projectName: '',
+                description: '',
+                nameError: '',
+                createdProjectId: '',
+                self: null,
+                isLoading: false,
+            };
+        },
+        methods: {
+            setProjectName: function (value: string): void {
+                this.$data.projectName = value;
+                this.$data.nameError = '';
             },
-            data: function () {
-                return {
-                    projectName: '',
-                    description: '',
-                    nameError: '',
-                    createdProjectId: '',
-                    self: null,
-                    isLoading: false,
+            setProjectDescription: function (value: string): void {
+                this.$data.description = value;
+            },
+            onCloseClick: function (): void {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            },
+            createProjectClick: async function (): Promise<any> {
+                if (this.$data.isLoading) {
+                return;
+                }
+
+                this.$data.isLoading = true;
+
+                if (!this.$data.self.validateProjectName(this.$data.projectName)) {
+                this.$data.isLoading = false;
+
+                return;
+                }
+
+                if (!await this.$data.self.createProject()) {
+                this.$data.isLoading = false;
+
+                return;
+                }
+
+                this.$data.self.selectCreatedProject();
+
+                this.$data.self.fetchProjectMembers();
+
+                this.$data.self.checkIfsFirstProject();
+
+                this.$data.isLoading = false;
+            },
+            validateProjectName: function(): boolean {
+                this.$data.projectName = this.$data.projectName.trim();
+
+                const rgx = /^[^/]+$/;
+                if (!rgx.test(this.$data.projectName)) {
+                this.$data.nameError = 'Name for project is invalid!';
+
+                return false;
+                }
+
+                if (this.$data.projectName.length > 20) {
+                this.$data.nameError = 'Name should be less than 21 character!';
+
+                return false;
+                }
+
+                return true;
+            },
+            createProject: async function(): Promise<boolean> {
+                const project: CreateProjectModel = {
+                    name: this.$data.projectName,
+                    description: this.$data.description,
                 };
+
+                let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, project);
+                if (!response.isSuccess) {
+                    this.$data.self.notifyError(response.errorMessage);
+
+                    return false;
+                }
+
+                this.$data.createdProjectId = response.data.id;
+
+                return true;
             },
-            methods: {
-                setProjectName: function (value: string): void {
-                    this.$data.projectName = value;
-                    this.$data.nameError = '';
-                },
-                setProjectDescription: function (value: string): void {
-                    this.$data.description = value;
-                },
-                onCloseClick: function (): void {
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                },
-                createProjectClick: async function (): Promise<any> {
-                    if (this.$data.isLoading) {
-                        return;
-                    }
+            selectCreatedProject: function () {
+                this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$data.createdProjectId);
 
-                    this.$data.isLoading = true;
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+            },
+            checkIfsFirstProject: function() {
+                let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
 
-                    if (!this.$data.self.validateProjectName(this.$data.projectName)) {
-                        this.$data.isLoading = false;
+                isFirstProject
+                    ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
+                    : this.$data.self.notifySuccess('Project created successfully!');
+            },
+            fetchProjectMembers: async function(): Promise<any> {
+                this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-                        return;
-                    }
-
-                    if (!await this.$data.self.createProject()) {
-                        this.$data.isLoading = false;
-
-                        return;
-                    }
-
-                    this.$data.self.selectCreatedProject();
-
-                    this.$data.self.fetchProjectMembers();
-
-                    this.$data.self.checkIfsFirstProject();
-
-                    this.$data.isLoading = false;
-                },
-                validateProjectName: function(): boolean {
-                    this.$data.projectName = this.$data.projectName.trim();
-
-                    const rgx = /^[^/]+$/;
-                    if (!rgx.test(this.$data.projectName)) {
-                        this.$data.nameError = 'Name for project is invalid!';
-
-                        return false;
-                    }
-
-                    if (this.$data.projectName.length > 20) {
-                        this.$data.nameError = 'Name should be less than 21 character!';
-
-                        return false;
-                    }
-
-                    return true;
-                },
-                createProject: async function(): Promise<boolean> {
-                    let response: RequestResponse<Project> = await this.$store.dispatch(PROJETS_ACTIONS.CREATE, {
-                        name: this.$data.projectName,
-                        description: this.$data.description,
-                        isTermsAccepted: this.$data.isTermsAccepted
-                    });
-                    if (!response.isSuccess) {
-                        this.$data.self.notifyError(response.errorMessage);
-
-                        return false;
-                    }
-
-                    this.$data.createdProjectId = response.data.id;
-
-                    return true;
-                },
-                selectCreatedProject: function () {
-                    this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.$data.createdProjectId);
-
-                    this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-                },
-                checkIfsFirstProject: function() {
-                    let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
-
-                    isFirstProject
-                        ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
-                        : this.$data.self.notifySuccess('Project created successfully!');
-                },
-                fetchProjectMembers: async function(): Promise<any> {
-                    this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-
-                    const response: RequestResponse<TeamMemberModel[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
-                    if (!response.isSuccess) {
-                        this.$data.self.notifyError(response.errorMessage);
-                    }
-                },
-                notifyError(message: string) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
-                },
-                notifySuccess(message: string) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
+                const response: RequestResponse<TeamMemberModel[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+                if (!response.isSuccess) {
+                    this.$data.self.notifyError(response.errorMessage);
                 }
             },
-            components: {
-                HeaderedInput,
-                Checkbox,
-                Button
+            notifyError(message: string) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, message);
+            },
+            notifySuccess(message: string) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
             }
+        },
+        components: {
+            HeaderedInput,
+            Checkbox,
+            Button
         }
-    )
+    })
 
-    export default class NewProjectPopup extends Vue {
-    }
+    export default class NewProjectPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -189,9 +187,11 @@
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .new-project-popup {
         width: 100%;
         max-width: 845px;

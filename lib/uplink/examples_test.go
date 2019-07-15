@@ -62,12 +62,12 @@ func TestBucketExamples(t *testing.T) {
 			require.Equal(t, out.String(), "hello world\n")
 
 			out = bytes.NewBuffer(nil)
-			userAPIKey, userAccess, err := RestrictAccessExampleByAdmin(ctx, satelliteAddr, apiKey, access, &cfg, out)
+			userScope, err := RestrictAccessExampleByAdmin(ctx, satelliteAddr, apiKey, access, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "success!\n")
 
 			out = bytes.NewBuffer(nil)
-			err = RestrictAccessExampleByUser(ctx, satelliteAddr, userAPIKey, userAccess, &cfg, out)
+			err = RestrictAccessExampleByUser(ctx, userScope, &cfg, out)
 			require.NoError(t, err)
 			require.Equal(t, out.String(), "hello world\n")
 		})

@@ -8,7 +8,6 @@ import (
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/vivint/infectious"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/eestream"
@@ -103,10 +102,10 @@ func (p *Project) CreateBucket(ctx context.Context, name string, cfg *BucketConf
 	cfg.setDefaults()
 
 	bucket = storj.Bucket{
-		PathCipher:           cfg.PathCipher.ToCipher(),
-		EncryptionParameters: cfg.EncryptionParameters,
-		RedundancyScheme:     cfg.Volatile.RedundancyScheme,
-		SegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
+		PathCipher:                  cfg.PathCipher,
+		DefaultEncryptionParameters: cfg.EncryptionParameters,
+		DefaultRedundancyScheme:     cfg.Volatile.RedundancyScheme,
+		DefaultSegmentsSize:         cfg.Volatile.SegmentsSize.Int64(),
 	}
 	return p.project.CreateBucket(ctx, name, &bucket)
 }
@@ -138,11 +137,11 @@ func (p *Project) GetBucketInfo(ctx context.Context, bucket string) (b storj.Buc
 		return b, nil, err
 	}
 	cfg := &BucketConfig{
-		PathCipher:           b.PathCipher.ToCipherSuite(),
-		EncryptionParameters: b.EncryptionParameters,
+		PathCipher:           b.PathCipher,
+		EncryptionParameters: b.DefaultEncryptionParameters,
 	}
-	cfg.Volatile.RedundancyScheme = b.RedundancyScheme
-	cfg.Volatile.SegmentsSize = memory.Size(b.SegmentsSize)
+	cfg.Volatile.RedundancyScheme = b.DefaultRedundancyScheme
+	cfg.Volatile.SegmentsSize = memory.Size(b.DefaultSegmentsSize)
 	return b, cfg, nil
 }
 
@@ -158,23 +157,9 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 		return nil, err
 	}
 
-	// partnerID set and bucket's attribution is not set
-	if p.uplinkCfg.Volatile.PartnerID != "" && bucketInfo.Attribution == "" {
-		err = p.checkBucketAttribution(ctx, bucketName)
-		if err != nil {
-			return nil, err
-		}
+	encryptionParameters := cfg.EncryptionParameters
 
-		// update the bucket with attribution info
-		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	encryptionScheme := cfg.EncryptionParameters.ToEncryptionScheme()
-
-	ec := ecclient.NewClient(p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
+	ec := ecclient.NewClient(p.uplinkCfg.Volatile.Log.Named("ecclient"), p.tc, p.uplinkCfg.Volatile.MaxMemory.Int())
 	fc, err := infectious.NewFEC(int(cfg.Volatile.RedundancyScheme.RequiredShares), int(cfg.Volatile.RedundancyScheme.TotalShares))
 	if err != nil {
 		return nil, err
@@ -188,13 +173,13 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 	}
 
 	maxEncryptedSegmentSize, err := encryption.CalcEncryptedSize(cfg.Volatile.SegmentsSize.Int64(),
-		cfg.EncryptionParameters.ToEncryptionScheme())
+		cfg.EncryptionParameters)
 	if err != nil {
 		return nil, err
 	}
 	segmentStore := segments.NewSegmentStore(p.metainfo, ec, rs, p.maxInlineSize.Int(), maxEncryptedSegmentSize)
 
-	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionScheme.BlockSize), encryptionScheme.Cipher, p.maxInlineSize.Int())
+	streamStore, err := streams.NewStreamStore(segmentStore, cfg.Volatile.SegmentsSize.Int64(), access.store, int(encryptionParameters.BlockSize), encryptionParameters.CipherSuite, p.maxInlineSize.Int())
 	if err != nil {
 		return nil, err
 	}
@@ -226,16 +211,11 @@ func (p *Project) SaltedKeyFromPassphrase(ctx context.Context, passphrase string
 	if err != nil {
 		return nil, err
 	}
-	key, err := encryption.DeriveDefaultPassword([]byte(passphrase), salt)
+	key, err := encryption.DeriveRootKey([]byte(passphrase), salt, "")
 	if err != nil {
 		return nil, err
 	}
-	if len(key) != len(storj.Key{}) {
-		return nil, errs.New("unexpected key length!")
-	}
-	var result storj.Key
-	copy(result[:], key)
-	return &result, nil
+	return key, nil
 }
 
 // checkBucketAttribution Checks the bucket attribution
@@ -252,18 +232,4 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 	}
 
 	return p.metainfo.SetAttribution(ctx, bucketName, *partnerID)
-}
-
-// updateBucket updates an existing bucket's attribution info.
-func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	bucket = storj.Bucket{
-		Attribution:          p.uplinkCfg.Volatile.PartnerID,
-		PathCipher:           bucketInfo.PathCipher,
-		EncryptionParameters: bucketInfo.EncryptionParameters,
-		RedundancyScheme:     bucketInfo.RedundancyScheme,
-		SegmentsSize:         bucketInfo.SegmentsSize,
-	}
-	return p.project.CreateBucket(ctx, bucketInfo.Name, &bucket)
 }

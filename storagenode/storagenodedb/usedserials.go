@@ -17,16 +17,15 @@ type usedSerials struct {
 	*InfoDB
 }
 
-// UsedSerials returns certificate database.
+// UsedSerials returns used serials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials { return db.info.UsedSerials() }
 
-// UsedSerials returns certificate database.
+// UsedSerials returns used serials database.
 func (db *InfoDB) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
 
 // Add adds a serial to the database.
 func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serialNumber storj.SerialNumber, expiration time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	_, err = db.db.Exec(`
 		INSERT INTO
@@ -39,9 +38,8 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 // DeleteExpired deletes expired serial numbers
 func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
-	_, err = db.db.Exec(`DELETE FROM used_serial WHERE expiration < ?`, now)
+	_, err = db.db.Exec(`DELETE FROM used_serial WHERE datetime(expiration) < datetime(?)`, now)
 	return ErrInfo.Wrap(err)
 }
 
@@ -49,7 +47,6 @@ func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err er
 // Note, this will lock the database and should only be used during startup.
 func (db *usedSerials) IterateAll(ctx context.Context, fn piecestore.SerialNumberFn) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	defer db.locked()()
 
 	rows, err := db.db.Query(`SELECT satellite_id, serial_number, expiration FROM used_serial`)
 	if err != nil {

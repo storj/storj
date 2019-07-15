@@ -5,12 +5,16 @@ package storagenodedb
 
 import (
 	"database/sql"
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
@@ -21,8 +25,9 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	mu sync.Mutex
-	db *sql.DB
+	db          *sql.DB
+	bandwidthdb bandwidthdb
+	pieceinfo   pieceinfo
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -31,37 +36,49 @@ func newInfo(path string) (*InfoDB, error) {
 		return nil, err
 	}
 
-	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL")
+	db, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
 	dbutil.Configure(db, mon)
 
-	return &InfoDB{db: db}, nil
+	infoDb := &InfoDB{db: db}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+
+	return infoDb, nil
 }
 
 // NewInfoInMemory creates a new inmemory InfoDB.
 func NewInfoInMemory() (*InfoDB, error) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	// create memory DB with a shared cache and a unique name to avoid collisions
+	db, err := sql.Open("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()))
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
 
-	dbutil.Configure(db, mon)
+	// Set max idle and max open to 1 to control concurrent access to the memory DB
+	// Setting max open higher than 1 results in table locked errors
+	db.SetMaxIdleConns(1)
+	db.SetMaxOpenConns(1)
+	db.SetConnMaxLifetime(-1)
 
-	return &InfoDB{db: db}, nil
+	mon.Chain("db_stats", monkit.StatSourceFunc(
+		func(cb func(name string, val float64)) {
+			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
+		}))
+
+	infoDb := &InfoDB{db: db}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+
+	return infoDb, nil
 }
 
 // Close closes any resources.
 func (db *InfoDB) Close() error {
 	return db.db.Close()
-}
-
-// locked allows easy locking the database.
-func (db *InfoDB) locked() func() {
-	db.mu.Lock()
-	return db.mu.Unlock
 }
 
 // CreateTables creates any necessary tables.
@@ -205,11 +222,55 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
-					`UPDATE pieceinfo SET piece_expiration = '2019-06-25 00:00:00.000000+00:00' WHERE satellite_id 
-						IN (x'84A74C2CD43C5BA76535E1F42F5DF7C287ED68D33522782F4AFABFDB40000000', 
-							x'A28B4F04E10BAE85D67F4C6CB82BF8D4C0F0F47A8EA72627524DEB6EC0000000', 
+					`UPDATE pieceinfo SET piece_expiration = '2019-06-25 00:00:00.000000+00:00' WHERE satellite_id
+						IN (x'84A74C2CD43C5BA76535E1F42F5DF7C287ED68D33522782F4AFABFDB40000000',
+							x'A28B4F04E10BAE85D67F4C6CB82BF8D4C0F0F47A8EA72627524DEB6EC0000000',
 							x'AF2C42003EFC826AB4361F73F9D890942146FE0EBE806786F8E7190800000000'
 					)`,
+				},
+			},
+			{
+				Description: "Add creation date.",
+				Version:     6,
+				Action: migrate.SQL{
+					`ALTER TABLE pieceinfo ADD COLUMN piece_creation TIMESTAMP NOT NULL DEFAULT 'epoch'`,
+				},
+			},
+			{
+				Description: "Drop certificate table.",
+				Version:     7,
+				Action: migrate.SQL{
+					`DROP TABLE certificate`,
+					`CREATE TABLE certificate (cert_id INTEGER)`,
+				},
+			},
+			{
+				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
+				Version:     8,
+				Action: migrate.SQL{
+					`DELETE FROM used_serial`,
+					`DROP INDEX idx_pieceinfo_deletion_failed`,
+				},
+			},
+			{
+				Description: "Add order limit table.",
+				Version:     9,
+				Action: migrate.SQL{
+					`ALTER TABLE pieceinfo ADD COLUMN order_limit BLOB NOT NULL DEFAULT X''`,
+				},
+			},
+			{
+				Description: "Optimize index usage.",
+				Version:     10,
+				Action: migrate.SQL{
+					`DROP INDEX idx_used_serial`,
+					`DROP INDEX idx_pieceinfo_expiration`,
+					`DROP INDEX idx_bandwidth_usage_created`,
+					`DROP INDEX idx_order_archive_satellite`,
+					`DROP INDEX idx_order_archive_status`,
+					`CREATE INDEX idx_used_serial ON used_serial(datetime(expiration))`,
+					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(datetime(piece_expiration)) WHERE piece_expiration IS NOT NULL`,
+					`CREATE INDEX idx_bandwidth_usage_created ON bandwidth_usage(datetime(created_at))`,
 				},
 			},
 		},

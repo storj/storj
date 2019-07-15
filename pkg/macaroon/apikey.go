@@ -75,6 +75,16 @@ func ParseAPIKey(key string) (*APIKey, error) {
 	return &APIKey{mac: mac}, nil
 }
 
+// ParseRawAPIKey parses raw api key data and returns an APIKey if the APIKey
+// was correctly formatted. It does not validate the key.
+func ParseRawAPIKey(data []byte) (*APIKey, error) {
+	mac, err := ParseMacaroon(data)
+	if err != nil {
+		return nil, ErrFormat.Wrap(err)
+	}
+	return &APIKey{mac: mac}, nil
+}
+
 // NewAPIKey generates a brand new unrestricted API key given the provided
 // server project secret
 func NewAPIKey(secret []byte) (*APIKey, error) {
@@ -121,6 +131,42 @@ func (a *APIKey) Check(ctx context.Context, secret []byte, action Action, revoke
 	return nil
 }
 
+// AllowedBuckets stores information about which buckets are
+// allowed to be accessed, where `Buckets` stores names of buckets that are
+// allowed and `All` is a bool that indicates if all buckets are allowed or not
+type AllowedBuckets struct {
+	All     bool
+	Buckets map[string]struct{}
+}
+
+// GetAllowedBuckets returns a list of all the allowed bucket paths that match the Action operation
+func (a *APIKey) GetAllowedBuckets(ctx context.Context, action Action) (allowed AllowedBuckets, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	caveats := a.mac.Caveats()
+	// if there aren't any caveats, then all buckets are allowed
+	if len(caveats) == 0 {
+		allowed.All = true
+		return allowed, err
+	}
+
+	allowed.Buckets = map[string]struct{}{}
+	for _, cavbuf := range caveats {
+		var cav Caveat
+		err := proto.Unmarshal(cavbuf, &cav)
+		if err != nil {
+			return allowed, ErrFormat.New("invalid caveat format: %v", err)
+		}
+		if cav.Allows(action) {
+			for _, caveatPath := range cav.AllowedPaths {
+				allowed.Buckets[string(caveatPath.Bucket)] = struct{}{}
+			}
+		}
+	}
+
+	return allowed, err
+}
+
 // Restrict generates a new APIKey with the provided Caveat attached.
 func (a *APIKey) Restrict(caveat Caveat) (*APIKey, error) {
 	buf, err := proto.Marshal(&caveat)
@@ -149,6 +195,11 @@ func (a *APIKey) Serialize() string {
 	return base58.CheckEncode(a.mac.Serialize(), 0)
 }
 
+// SerializeRaw serialize the API Key to raw bytes
+func (a *APIKey) SerializeRaw() []byte {
+	return a.mac.Serialize()
+}
+
 // Allows returns true if the provided action is allowed by the caveat.
 func (c *Caveat) Allows(action Action) bool {
 	// if the action is after the caveat's "not after" field, then it is invalid
@@ -165,6 +216,12 @@ func (c *Caveat) Allows(action Action) bool {
 	// buckets in the allowed paths.
 	if action.Op == ActionRead && len(action.EncryptedPath) == 0 {
 		if len(c.AllowedPaths) == 0 {
+			return true
+		}
+		if len(action.Bucket) == 0 {
+			// if no action.bucket name is provided, then this call is checking that
+			// we can list all buckets. In that case, return true here and we will
+			// filter out buckets that aren't allowed later with `GetAllowedBuckets()`
 			return true
 		}
 		for _, path := range c.AllowedPaths {

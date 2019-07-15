@@ -16,27 +16,26 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import SearchArea from './SearchArea.vue';
-import Button from '@/components/common/Button.vue';
-import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import SearchArea from './SearchArea.vue';
+    import Button from '@/components/common/Button.vue';
+    import SortApiKeysHeader from '@/components/apiKeys/headerArea/SortApiKeysHeader.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    components: {
-        SearchArea,
-        Button,
-        SortApiKeysHeader,
-    },
-    methods: {
-        togglePopup: function () {
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+    @Component({
+        components: {
+            SearchArea,
+            Button,
+            SortApiKeysHeader,
         },
-    },
-})
+        methods: {
+            togglePopup: function () {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+            },
+        },
+    })
 
-export default class HeaderArea extends Vue {
-}
+    export default class HeaderArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

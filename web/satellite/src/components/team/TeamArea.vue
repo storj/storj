@@ -11,8 +11,7 @@
                 <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
                         :projectMember = "member"
-                        v-bind:class = "[member.isSelected ? 'selected' : '']"
-                    />
+                        v-bind:class = "[member.isSelected ? 'selected' : '']" />
                 </div>
             </div>
             <!-- only when selecting team members -->
@@ -28,72 +27,75 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
-import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
-import Footer from '@/components/team/footerArea/Footer.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import TeamMemberItem from '@/components/team/TeamMemberItem.vue';
+    import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
+    import Footer from '@/components/team/footerArea/Footer.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component({
-    data: function () {
-        return {
-            emptyImage: EMPTY_STATE_IMAGES.TEAM,
-            isFetchInProgress: false,
-        };
-    },
-    methods: {
-        onMemberClick: function (member: any) {
-            this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+    @Component({
+        mounted: function() {
+            this.$store.dispatch(PM_ACTIONS.FETCH);
         },
-        handleScroll: async function () {
-            const documentElement = document.getElementById('scrollable_team_container');
-            if (!documentElement) {
-                return;
-            }
-
-            const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
-
-            if (!isAtBottom || this.$data.isFetchInProgress) return;
-
-            this.$data.isFetchInProgress = true;
-
-            const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
-
-            this.$data.isFetchInProgress = false;
-
-            if (response.isSuccess) return;
-
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        data: function () {
+            return {
+                emptyImage: EMPTY_STATE_IMAGES.TEAM,
+                isFetchInProgress: false,
+            };
         },
-    },
-    computed: {
-        projectMembers: function () {
-            return this.$store.getters.projectMembers;
+        methods: {
+            onMemberClick: function (member: any) {
+                this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
+            },
+            handleScroll: async function () {
+                const documentElement = document.getElementById('scrollable_team_container');
+                if (!documentElement) {
+                    return;
+                }
+
+                const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
+
+                if (!isAtBottom || this.$data.isFetchInProgress) return;
+
+                this.$data.isFetchInProgress = true;
+
+                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+
+                this.$data.isFetchInProgress = false;
+
+                if (response.isSuccess) return;
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+            },
         },
-        projectMembersCount: function () {
-            return this.$store.getters.projectMembersCountGetter;
+        computed: {
+            projectMembers: function () {
+                return this.$store.getters.projectMembers;
+            },
+            projectMembersCount: function () {
+                return this.$store.getters.projectMembersCountGetter;
+            },
+            selectedProjectMembers: function () {
+                return this.$store.getters.selectedProjectMembers;
+            },
         },
-        selectedProjectMembers: function () {
-            return this.$store.getters.selectedProjectMembers;
-        },
-    },
-    components: {
-        TeamMemberItem,
-        HeaderArea,
-        Footer,
+        components: {
+            TeamMemberItem,
+            HeaderArea,
+            Footer,
+        }
+    })
+
+    export default class TeamArea extends Vue {
     }
-})
-
-export default class TeamArea extends Vue {
-}
 </script>
 
 <style scoped lang="scss">
     .team-area {
         position: relative;
     }
-
+    
     .team-header {
         position: fixed;
         padding: 55px 30px 0px 64px;
@@ -103,14 +105,15 @@ export default class TeamArea extends Vue {
         z-index: 999;
         top: auto;
     }
+    
     .team-container {
-       padding: 0px 30px 55px 64px;
-       overflow-y: scroll;
-       max-height: 84vh;
+        padding: 0px 30px 55px 64px;
+        overflow-y: scroll;
+        max-height: 84vh;
         height: 84vh;
-       position: relative;
-
-       &__content {
+        position: relative;
+        
+        &__content {
             display: grid;
             grid-template-columns: 230px 230px 230px 230px 230px 230px;
             width: 100%;
@@ -119,85 +122,86 @@ export default class TeamArea extends Vue {
             justify-content: space-between;
             margin-top: 150px;
             margin-bottom: 100px;
-       }
-   }
-
+        }
+    }
+    
     .user-container {
         height: 160px;
     }
-
+    
     .empty-search-result-area {
         height: 80vh;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
-
+        
         &__text {
             font-family: 'font_bold';
             font-size: 32px;
             line-height: 39px;
             margin-top: 100px;
         }
-
+        
         &__image {
             margin-top: 40px;
         }
     }
-
+    
     @media screen and (max-width: 1600px) {
         .team-header {
             max-width: 76%;
         }
     }
-
-   @media screen and (max-width: 1600px) {
-       .team-container {
-
+    
+    @media screen and (max-width: 1600px) {
+        .team-container {
+        
             &__content {
                 grid-template-columns: 220px 220px 220px 220px 220px;
             }
-       }
-
+        }
+        
         .team-header {
             max-width: 75%;
         }
-
-       .user-container {
-           height: 160px;
-       }
-   }
-
+        
+        .user-container {
+            height: 160px;
+        }
+    }
+    
     @media screen and (max-width: 1366px) {
-       .team-container {
-
+        .team-container {
+        
             &__content {
                 grid-template-columns: 210px 210px 210px 210px;
             }
         }
-
+        
         .team-header {
             max-width: 70.2%;
         }
-
-         .user-container {
-             height: 160px;
-         }
-   }
-
-   @media screen and (max-width: 1120px) {
-       .team-container {
-
-           &__content {
+        
+        .user-container {
+            height: 160px;
+        }
+    }
+    
+    @media screen and (max-width: 1120px) {
+        .team-container {
+    
+            &__content {
                 grid-template-columns: 200px 200px 200px 200px;
             }
         }
+        
         .team-header {
             max-width: 82.7%;
         }
-
-       .user-container {
-           height: 150px;
-       }
-   }
+        
+        .user-container {
+            height: 150px;
+        }
+    }
 </style>

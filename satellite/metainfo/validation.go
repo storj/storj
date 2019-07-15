@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,9 +24,6 @@ import (
 )
 
 const (
-	// BucketNameRestricted feature flag to toggle bucket name validation
-	BucketNameRestricted = false
-
 	requestTTL = time.Hour * 4
 )
 
@@ -41,7 +38,7 @@ type TTLItem struct {
 }
 
 type createRequest struct {
-	Expiration *timestamp.Timestamp
+	Expiration time.Time
 	Redundancy *pb.RedundancyScheme
 
 	ttl time.Time
@@ -159,7 +156,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (err error) {
+func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -175,7 +172,7 @@ func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.Seg
 	return nil
 }
 
-func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
+func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -198,6 +195,10 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("invalid no order limit for piece")
 		}
 
+		if req.Pointer.SegmentSize > endpoint.rsConfig.MaxSegmentSize.Int64() || req.Pointer.SegmentSize < 0 {
+			return Error.New("segment size %v is out of range, maximum is %v", req.Pointer.SegmentSize, endpoint.rsConfig.MaxSegmentSize)
+		}
+
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
@@ -207,9 +208,9 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			}
 
 			if limit == nil {
-				return Error.New("invalid no order limit for piece")
+				return Error.New("empty order limit for piece")
 			}
-			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId)
+			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
 				return Error.New("invalid order limit piece id")
 			}
@@ -225,7 +226,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 		switch {
 		case !found:
 			return Error.New("missing create request or request expired")
-		case !proto.Equal(createRequest.Expiration, req.Pointer.ExpirationDate):
+		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
 			return Error.New("pointer expiration date does not match requested one")
 		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
 			return Error.New("pointer redundancy scheme date does not match requested one")
@@ -240,10 +241,6 @@ func (endpoint *Endpoint) validateBucket(ctx context.Context, bucket []byte) (er
 
 	if len(bucket) == 0 {
 		return Error.New("bucket not specified")
-	}
-
-	if !BucketNameRestricted {
-		return nil
 	}
 
 	if len(bucket) < 3 || len(bucket) > 63 {
@@ -308,15 +305,13 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 		return Error.New("pointer type is INLINE but remote segment is set")
 	}
 
-	// TODO does it all?
 	if pointer.Type == pb.Pointer_REMOTE {
-		if pointer.Remote == nil {
+		switch {
+		case pointer.Remote == nil:
 			return Error.New("no remote segment specified")
-		}
-		if pointer.Remote.RemotePieces == nil {
+		case pointer.Remote.RemotePieces == nil:
 			return Error.New("no remote segment pieces specified")
-		}
-		if pointer.Remote.Redundancy == nil {
+		case pointer.Remote.Redundancy == nil:
 			return Error.New("no redundancy scheme specified")
 		}
 	}
@@ -348,5 +343,29 @@ func (endpoint *Endpoint) validateRedundancy(ctx context.Context, redundancy *pb
 		}
 	}
 
+	return nil
+}
+
+func (endpoint *Endpoint) validatePieceHash(ctx context.Context, piece *pb.RemotePiece, limits []*pb.OrderLimit) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if piece.Hash == nil {
+		return errs.New("no piece hash, removing from pointer %v (%v)", piece.NodeId, piece.PieceNum)
+	}
+
+	timestamp := piece.Hash.Timestamp
+	if timestamp.Before(time.Now().Add(-pieceHashExpiration)) {
+		return errs.New("piece hash timestamp is too old (%v), removing from pointer %v (num: %v)", timestamp, piece.NodeId, piece.PieceNum)
+	}
+
+	limit := limits[piece.PieceNum]
+	if limit != nil {
+		switch {
+		case limit.PieceId != piece.Hash.PieceId:
+			return errs.New("piece hash pieceID doesn't match limit pieceID, removing from pointer (%v != %v)", piece.Hash.PieceId, limit.PieceId)
+		case limit.Limit < piece.Hash.PieceSize:
+			return errs.New("piece hash PieceSize is larger than order limit, removing from pointer (%v > %v)", piece.Hash.PieceSize, limit.Limit)
+		}
+	}
 	return nil
 }

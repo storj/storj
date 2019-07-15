@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/pkg/kademlia/kademliaclient"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 )
@@ -18,7 +19,7 @@ import (
 type peerDiscovery struct {
 	log *zap.Logger
 
-	dialer      *Dialer
+	dialer      *kademliaclient.Dialer
 	self        *pb.Node
 	target      storj.NodeID
 	k           int
@@ -31,7 +32,7 @@ type peerDiscovery struct {
 // ErrMaxRetries is used when a lookup has been retried the max number of times
 var ErrMaxRetries = errs.Class("max retries exceeded for id:")
 
-func newPeerDiscovery(log *zap.Logger, dialer *Dialer, target storj.NodeID, startingNodes []*pb.Node, k, alpha int, self *pb.Node) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target storj.NodeID, startingNodes []*pb.Node, k, alpha int, self *pb.Node) *peerDiscovery {
 	discovery := &peerDiscovery{
 		log:         log,
 		dialer:      dialer,
