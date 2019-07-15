@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,8 +18,8 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/accounting"
+	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/eestream"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -129,15 +128,8 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if req.Expiration != nil {
-		exp, err := ptypes.Timestamp(req.Expiration)
-		if err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, err.Error())
-		}
-
-		if !exp.After(time.Now()) {
-			return nil, errs.New("Invalid expiration time")
-		}
+	if !req.Expiration.IsZero() && !req.Expiration.After(time.Now()) {
+		return nil, errs.New("Invalid expiration time")
 	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
@@ -188,13 +180,8 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
 	bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-	rootPieceID, addressedLimits, err := endpoint.orders.CreatePutOrderLimits(ctx, uplinkIdentity, bucketID, nodes, req.Expiration, maxPieceSize)
+	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucketID, nodes, req.Expiration, maxPieceSize)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -206,7 +193,7 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 		})
 	}
 
-	return &pb.SegmentWriteResponseOld{AddressedLimits: addressedLimits, RootPieceId: rootPieceID}, nil
+	return &pb.SegmentWriteResponseOld{AddressedLimits: addressedLimits, RootPieceId: rootPieceID, PrivateKey: piecePrivateKey}, nil
 }
 
 func calculateSpaceUsed(ptr *pb.Pointer) (inlineSpace, remoteSpace int64) {
@@ -259,7 +246,34 @@ func (endpoint *Endpoint) CommitSegmentOld(ctx context.Context, req *pb.SegmentC
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
+			limit, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	// clear hashes so we don't store them
+	for _, piece := range req.GetPointer().GetRemote().GetRemotePieces() {
+		piece.Hash = nil
+	}
+
 	inlineUsed, remoteUsed := calculateSpaceUsed(req.Pointer)
+
+	// ToDo: Replace with hash & signature validation
+	// Ensure neither uplink or storage nodes are cheating on us
+	if req.Pointer.Type == pb.Pointer_REMOTE {
+		//We cannot have more redundancy than total/min
+		if float64(remoteUsed) > (float64(req.Pointer.SegmentSize)/float64(req.Pointer.Remote.Redundancy.MinReq))*float64(req.Pointer.Remote.Redundancy.Total) {
+			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", req.Pointer.SegmentSize, remoteUsed, req.Pointer.Remote.Redundancy.MinReq, req.Pointer.Remote.Redundancy.Total)
+			return nil, status.Errorf(codes.InvalidArgument, "mismatched segment size and piece usage")
+		}
+	}
+
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
 		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
 		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
@@ -345,16 +359,11 @@ func (endpoint *Endpoint) DownloadSegmentOld(ctx context.Context, req *pb.Segmen
 		}
 		return &pb.SegmentDownloadResponseOld{Pointer: pointer}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
-		limits, err := endpoint.orders.CreateGetOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-
-		return &pb.SegmentDownloadResponseOld{Pointer: pointer, AddressedLimits: limits}, nil
+		return &pb.SegmentDownloadResponseOld{Pointer: pointer, AddressedLimits: limits, PrivateKey: privateKey}, nil
 	}
 
 	return &pb.SegmentDownloadResponseOld{}, nil
@@ -400,11 +409,6 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		uplinkIdentity, err := identity.PeerIdentityFromContext(ctx)
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-
 		for _, piece := range pointer.GetRemote().GetRemotePieces() {
 			_, err := endpoint.containment.Delete(ctx, piece.NodeId)
 			if err != nil {
@@ -413,12 +417,12 @@ func (endpoint *Endpoint) DeleteSegmentOld(ctx context.Context, req *pb.SegmentD
 		}
 
 		bucketID := createBucketID(keyInfo.ProjectID, req.Bucket)
-		limits, err := endpoint.orders.CreateDeleteOrderLimits(ctx, uplinkIdentity, bucketID, pointer)
+		limits, privateKey, err := endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
 
-		return &pb.SegmentDeleteResponseOld{AddressedLimits: limits}, nil
+		return &pb.SegmentDeleteResponseOld{AddressedLimits: limits, PrivateKey: privateKey}, nil
 	}
 
 	return &pb.SegmentDeleteResponseOld{}, nil
@@ -480,8 +484,6 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 
 			// err := auth.VerifyMsg(piece.Hash, piece.NodeId)
 			// if err == nil {
-			// 	// set to nil after verification to avoid storing in DB
-			// 	piece.Hash = nil
 			// 	remotePieces = append(remotePieces, piece)
 			// } else {
 			// 	// TODO satellite should send Delete request for piece that failed
@@ -643,37 +645,205 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	}, nil
 }
 
-// CreateBucket creates a bucket
-func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (_ *pb.BucketCreateResponse, err error) {
+// GetBucket returns a bucket
+func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: placeholder to implement pb.MetainfoServer interface.
-	return &pb.BucketCreateResponse{}, err
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:     macaroon.ActionRead,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.BucketGetResponse{
+		Bucket: convertBucketToProto(ctx, bucket),
+	}, nil
 }
 
-// GetBucket gets a bucket
-func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (_ *pb.BucketGetResponse, err error) {
+// CreateBucket creates a new bucket
+func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: placeholder to implement pb.MetainfoServer interface.
-	return &pb.BucketGetResponse{}, err
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:     macaroon.ActionWrite,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &pb.BucketCreateResponse{
+		Bucket: convertBucketToProto(ctx, bucket),
+	}, nil
 }
 
 // DeleteBucket deletes a bucket
-func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (_ *pb.BucketDeleteResponse, err error) {
+func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: placeholder to implement pb.MetainfoServer interface.
-	return &pb.BucketDeleteResponse{}, err
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:     macaroon.ActionDelete,
+		Bucket: req.Name,
+		Time:   time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Name)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.metainfo.DeleteBucket(ctx, req.Name, keyInfo.ProjectID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.BucketDeleteResponse{}, nil
 }
 
-// ListBuckets returns a list of buckets
-func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (_ *pb.BucketListResponse, err error) {
+// ListBuckets returns buckets in a project where the bucket name matches the request cursor
+func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: placeholder to implement pb.MetainfoServer interface.
-	return &pb.BucketListResponse{}, err
+	action := macaroon.Action{
+		Op:   macaroon.ActionRead,
+		Time: time.Now(),
+	}
+	keyInfo, err := endpoint.validateAuth(ctx, action)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	allowedBuckets, err := getAllowedBuckets(ctx, action)
+	if err != nil {
+		return nil, err
+	}
+
+	listOpts := storj.BucketListOptions{
+		Cursor:    string(req.Cursor),
+		Limit:     int(req.Limit),
+		Direction: storj.ListDirection(req.Direction),
+	}
+	bucketList, err := endpoint.metainfo.ListBuckets(ctx, keyInfo.ProjectID, listOpts, allowedBuckets)
+	if err != nil {
+		return nil, err
+	}
+
+	bucketItems := make([]*pb.BucketListItem, len(bucketList.Items))
+	for i, item := range bucketList.Items {
+		bucketItems[i] = &pb.BucketListItem{
+			Name:      []byte(item.Name),
+			CreatedAt: item.Created,
+		}
+	}
+
+	return &pb.BucketListResponse{
+		Items: bucketItems,
+		More:  bucketList.More,
+	}, nil
 }
 
-// SetBucketAttribution returns a list of buckets
-func (endpoint *Endpoint) SetBucketAttribution(ctx context.Context, req *pb.BucketSetAttributionRequest) (_ *pb.BucketSetAttributionResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	// TODO: placeholder to implement pb.MetainfoServer interface.
-	return &pb.BucketSetAttributionResponse{}, err
+func getAllowedBuckets(ctx context.Context, action macaroon.Action) (_ macaroon.AllowedBuckets, err error) {
+	keyData, ok := auth.GetAPIKey(ctx)
+	if !ok {
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Invalid API credential GetAPIKey: %v", err)
+	}
+	key, err := macaroon.ParseAPIKey(string(keyData))
+	if err != nil {
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Unauthenticated, "Invalid API credential ParseAPIKey: %v", err)
+	}
+	allowedBuckets, err := key.GetAllowedBuckets(ctx, action)
+	if err != nil {
+		return macaroon.AllowedBuckets{}, status.Errorf(codes.Internal, "GetAllowedBuckets: %v", err)
+	}
+	return allowedBuckets, err
+}
+
+// SetBucketAttribution sets the bucket attribution.
+func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAttributionRequest) (resp *pb.BucketSetAttributionResponse, err error) {
+	return resp, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
+	bucketID, err := uuid.New()
+	if err != nil {
+		return storj.Bucket{}, err
+	}
+
+	defaultRS := req.GetDefaultRedundancyScheme()
+	defaultEP := req.GetDefaultEncryptionParameters()
+	return storj.Bucket{
+		ID:                  *bucketID,
+		Name:                string(req.GetName()),
+		ProjectID:           projectID,
+		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
+		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
+			ShareSize:      defaultRS.GetErasureShareSize(),
+			RequiredShares: int16(defaultRS.GetMinReq()),
+			RepairShares:   int16(defaultRS.GetRepairThreshold()),
+			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
+			TotalShares:    int16(defaultRS.GetTotal()),
+		},
+		DefaultEncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int32(defaultEP.BlockSize),
+		},
+	}, nil
+}
+
+func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket) {
+	rs := bucket.DefaultRedundancyScheme
+	return &pb.Bucket{
+		Name:               []byte(bucket.Name),
+		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
+		CreatedAt:          bucket.Created,
+		DefaultSegmentSize: bucket.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_RS,
+			MinReq:           int32(rs.RequiredShares),
+			Total:            int32(rs.TotalShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			ErasureShareSize: rs.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
+			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+		},
+	}
 }

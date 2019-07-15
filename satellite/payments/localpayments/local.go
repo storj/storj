@@ -6,10 +6,11 @@ package localpayments
 import (
 	"context"
 	"crypto/rand"
+	mathRand "math/rand"
 	"time"
 
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/satellite/payments"
 )
@@ -30,22 +31,6 @@ var storjCustomer = payments.Customer{
 	CreatedAt: creationDate,
 }
 
-// defaultPaymentMethod represents one and only payment method for local payments,
-// which attached to all customers by default
-var defaultPaymentMethod = payments.PaymentMethod{
-	ID:         []byte("0"),
-	CustomerID: []byte("0"),
-	Card: payments.Card{
-		Country:  "us",
-		Brand:    "visa",
-		Name:     "Storj Labs",
-		ExpMonth: 12,
-		ExpYear:  2024,
-		LastFour: "3567",
-	},
-	CreatedAt: creationDate,
-}
-
 // internalPaymentsErr is a wrapper for local payments service errors
 var internalPaymentsErr = errs.Class("internal payments error")
 
@@ -57,6 +42,10 @@ type DB interface {
 // service is internal payments.Service implementation
 type service struct {
 	db DB
+}
+
+func (*service) AddPaymentMethod(ctx context.Context, params payments.AddPaymentMethodParams) (*payments.PaymentMethod, error) {
+	return paymentMethod("", []byte(params.CustomerID)), nil
 }
 
 // NewService create new instance of local payments service
@@ -89,19 +78,19 @@ func (*service) GetCustomer(ctx context.Context, id []byte) (_ *payments.Custome
 // GetCustomerDefaultPaymentMethod always returns defaultPaymentMethod
 func (*service) GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (_ *payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return &defaultPaymentMethod, nil
+	return paymentMethod("", customerID), nil
 }
 
 // GetCustomerPaymentsMethods always returns payments.Customer list with defaultPaymentMethod
 func (*service) GetCustomerPaymentsMethods(ctx context.Context, customerID []byte) (_ []payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return []payments.PaymentMethod{defaultPaymentMethod}, nil
+	return []payments.PaymentMethod{*paymentMethod("", customerID)}, nil
 }
 
 // GetPaymentMethod always returns defaultPaymentMethod or error
 func (*service) GetPaymentMethod(ctx context.Context, id []byte) (_ *payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return &defaultPaymentMethod, nil
+	return paymentMethod(string(id), []byte("")), nil
 }
 
 // CreateProjectInvoice creates invoice from provided params
@@ -117,4 +106,40 @@ func (*service) GetInvoice(ctx context.Context, id []byte) (_ *payments.Invoice,
 	defer mon.Task()(&ctx)(&err)
 	// TODO: get project invoice stamp by invoice id from the db and fill data
 	return &payments.Invoice{}, nil
+}
+
+// paymentMethod returns paymentMethod object which mocks stripe response
+func paymentMethod(methodID string, customerID []byte) *payments.PaymentMethod {
+	id := methodID
+	if methodID == "" {
+		id = "pm_" + randomString(24)
+	}
+
+	cusID := customerID
+	if len(customerID) <= 1 {
+		cusID = []byte("cus_" + randomString(14))
+	}
+
+	return &payments.PaymentMethod{
+		ID:         []byte(id),
+		CustomerID: cusID,
+		Card: payments.Card{
+			Country:  "us",
+			Brand:    "visa",
+			Name:     "Storj Labs",
+			ExpMonth: 12,
+			ExpYear:  2024,
+			LastFour: "3567",
+		},
+		CreatedAt: creationDate,
+		IsDefault: true,
+	}
+}
+
+func randomString(len int) string {
+	bytes := make([]byte, len)
+	for i := 0; i < len; i++ {
+		bytes[i] = byte(65 + mathRand.Intn(25))
+	}
+	return string(bytes)
 }

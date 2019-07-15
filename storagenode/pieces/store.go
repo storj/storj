@@ -13,7 +13,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -38,11 +37,11 @@ type Info struct {
 
 	PieceID         storj.PieceID
 	PieceSize       int64
-	PieceCreation   *time.Time
-	PieceExpiration *time.Time
+	PieceCreation   time.Time
+	PieceExpiration time.Time
 
+	OrderLimit      *pb.OrderLimit
 	UplinkPieceHash *pb.PieceHash
-	Uplink          *identity.PeerIdentity
 }
 
 // ExpiredInfo is a fully namespaced piece id
@@ -58,12 +57,16 @@ type DB interface {
 	Add(context.Context, *Info) error
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
+	// GetPieceIDs gets pieceIDs using the satelliteID
+	GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, limit, offset int) (pieceIDs []storj.PieceID, err error)
 	// Delete deletes Info about a piece.
 	Delete(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) error
 	// DeleteFailed marks piece deletion from disk failed
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
-	// SpaceUsed calculates disk space used by all pieces
+	// SpaceUsed returns the in memory value for disk space used by all pieces
 	SpaceUsed(ctx context.Context) (int64, error)
+	// CalculatedSpaceUsed calculates disk space used by all pieces
+	CalculatedSpaceUsed(ctx context.Context) (int64, error)
 	// SpaceUsedBySatellite calculates disk space used by all pieces by satellite
 	SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error)
 	// GetExpired gets orders that are expired and were created before some time

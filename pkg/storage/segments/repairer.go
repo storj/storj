@@ -5,6 +5,7 @@ package segments
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -29,18 +30,37 @@ type Repairer struct {
 	ec       ecclient.Client
 	identity *identity.FullIdentity
 	timeout  time.Duration
+
+	// multiplierOptimalThreshold is the value that multiplied by the optimal
+	// threshold results in the maximum limit of number of nodes to upload
+	// repaired pieces
+	multiplierOptimalThreshold float64
 }
 
-// NewSegmentRepairer creates a new instance of SegmentRepairer
-func NewSegmentRepairer(log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service, cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration) *Repairer {
+// NewSegmentRepairer creates a new instance of SegmentRepairer.
+//
+// excessPercentageOptimalThreshold is the percentage to apply over the optimal
+// threshould to determine the maximum limit of nodes to upload repaired pieces,
+// when negative, 0 is applied.
+func NewSegmentRepairer(
+	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
+	cache *overlay.Cache, ec ecclient.Client, identity *identity.FullIdentity, timeout time.Duration,
+	excessOptimalThreshold float64,
+) *Repairer {
+
+	if excessOptimalThreshold < 0 {
+		excessOptimalThreshold = 0
+	}
+
 	return &Repairer{
-		log:      log,
-		metainfo: metainfo,
-		orders:   orders,
-		cache:    cache,
-		ec:       ec.WithForceErrorDetection(true),
-		identity: identity,
-		timeout:  timeout,
+		log:                        log,
+		metainfo:                   metainfo,
+		orders:                     orders,
+		cache:                      cache,
+		ec:                         ec.WithForceErrorDetection(true),
+		identity:                   identity,
+		timeout:                    timeout,
+		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 	}
 }
 
@@ -117,14 +137,22 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, err := repairer.orders.CreateGetRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, healthyPieces)
+	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucketID, pointer, healthyPieces)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
+	var requestCount int
+	{
+		totalNeeded := math.Ceil(float64(redundancy.OptimalThreshold()) *
+			repairer.multiplierOptimalThreshold,
+		)
+		requestCount = int(totalNeeded) - len(healthyPieces)
+	}
+
 	// Request Overlay for n-h new storage nodes
 	request := overlay.FindStorageNodesRequest{
-		RequestedCount: redundancy.TotalCount() - len(healthyPieces),
+		RequestedCount: requestCount,
 		FreeBandwidth:  pieceSize,
 		FreeDisk:       pieceSize,
 		ExcludedNodes:  excludeNodeIDs,
@@ -135,13 +163,13 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, err := repairer.orders.CreatePutRepairOrderLimits(ctx, repairer.identity.PeerIdentity(), bucketID, pointer, getOrderLimits, newNodes)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucketID, pointer, getOrderLimits, newNodes)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
 	// Download the segment using just the healthy pieces
-	rr, err := repairer.ec.Get(ctx, getOrderLimits, redundancy, pointer.GetSegmentSize())
+	rr, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -153,7 +181,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	defer func() { err = errs.Combine(err, r.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, redundancy, r, convertTime(expiration), repairer.timeout, path)
+	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, r, expiration, repairer.timeout, path)
 	if err != nil {
 		return Error.Wrap(err)
 	}

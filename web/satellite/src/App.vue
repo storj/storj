@@ -26,6 +26,10 @@
                     'sortTeamMemberByDropdownButton',
                     'notificationArea',
                     'successfulRegistrationPopup',
+                    'deletePaymentMethodButton',
+                    'deletePaymentMethodDialog',
+                    'makeDefaultPaymentMethodButton',
+                    'makeDefaultPaymentDialog'
                 ]
             };
         },
@@ -41,6 +45,7 @@
                     }
                     target = target.parentNode;
                 }
+
                 this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
             }
         }
@@ -51,7 +56,6 @@
 </script>
 
 <style lang="scss">
-
     @font-face {
         font-family: "font_regular";
         src: url("../static/fonts/font_regular.ttf");

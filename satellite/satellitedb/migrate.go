@@ -928,6 +928,98 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
+				Description: "Add unique id for project payments. Add is_default property",
+				Version:     40,
+				Action: migrate.SQL{
+					`DROP TABLE project_payments CASCADE`,
+					`CREATE TABLE project_payments (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+						payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
+						payment_method_id bytea NOT NULL,
+						is_default boolean NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				Description: "Move InjuredSegment path from string to bytes",
+				Version:     41,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments RENAME COLUMN path TO path_old;`,
+					`ALTER TABLE injuredsegments ADD COLUMN path bytea;`,
+					`UPDATE injuredsegments SET path = decode(path_old, 'escape');`,
+					`ALTER TABLE injuredsegments ALTER COLUMN path SET NOT NULL;`,
+					`ALTER TABLE injuredsegments DROP COLUMN path_old;`,
+					`ALTER TABLE injuredsegments ADD CONSTRAINT injuredsegments_pk PRIMARY KEY (path);`,
+				},
+			},
+			{
+				Description: "Remove num_redeemed column in offers table",
+				Version:     42,
+				Action: migrate.SQL{
+					`ALTER TABLE offers DROP num_redeemed;`,
+				},
+			},
+			{
+				Description: "Set default offer for each offer type in offers table",
+				Version:     43,
+				Action: migrate.SQL{
+					`ALTER TABLE offers
+						ALTER COLUMN redeemable_cap DROP NOT NULL,
+						ALTER COLUMN invitee_credit_duration_days DROP NOT NULL,
+						ALTER COLUMN award_credit_duration_days DROP NOT NULL
+					`,
+					`INSERT INTO offers (
+						name,
+						description,
+						award_credit_in_cents,
+						invitee_credit_in_cents,
+						expires_at,
+						created_at,
+						status,
+						type )
+					VALUES (
+						'Default referral offer',
+						'Is active when no other active referral offer',
+						300,
+						600,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						2
+					),
+					(
+						'Default free credit offer',
+						'Is active when no active free credit offer',
+						300,
+						0,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						1
+					) ON CONFLICT DO NOTHING;`,
+				},
+			},
+			{
+				Description: "Add index on InjuredSegments attempted column",
+				Version:     44,
+				Action: migrate.SQL{
+					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
+				},
+			},
+			{
+				Description: "Add partner id field to support OSPP",
+				Version:     45,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
+				},
+			},
+			{
 				Description: "Add pending audit path",
 				Version:     46,
 				Action: migrate.SQL{

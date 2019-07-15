@@ -141,11 +141,11 @@ func (project *Project) GetBucketInfo(bucketName string) (*BucketInfo, error) {
 }
 
 // ListBuckets will list authorized buckets.
-func (project *Project) ListBuckets(cursor string, direction, limit int) (*BucketList, error) {
+func (project *Project) ListBuckets(cursor string, limit int) (*BucketList, error) {
 	scope := project.scope.child()
 	opts := libuplink.BucketListOptions{
 		Cursor:    cursor,
-		Direction: storj.ListDirection(direction),
+		Direction: storj.Forward,
 		Limit:     limit,
 	}
 	list, err := project.lib.ListBuckets(scope.ctx, &opts)

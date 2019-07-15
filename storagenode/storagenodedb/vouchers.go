@@ -54,7 +54,7 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID, expirationBuffer time.Duration) (need bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	expiresBefore := time.Now().Add(expirationBuffer)
+	expiresBefore := time.Now().UTC().Add(expirationBuffer)
 
 	// query returns row if voucher is good. If not, it is either expiring or does not exist
 	row := db.db.QueryRow(`
@@ -87,7 +87,7 @@ func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (
 		args = append(args, id)
 	}
 
-	args = append(args, time.Now())
+	args = append(args, time.Now().UTC())
 
 	row := db.db.QueryRow(db.InfoDB.Rebind(`
 		SELECT voucher_serialized
