@@ -126,16 +126,18 @@ func TestService_NewPieceTracker_and_Send(t *testing.T) {
 	wg.Add(2)
 
 	go func() {
-		service.NewPieceTracker()
+		_ = service.NewPieceTracker()
 		wg.Done()
 	}()
 
+	var err error
 	go func() {
-		service.Send(context.Background(), &gc.PieceTracker{}, func() {})
+		err = service.Send(context.Background(), &gc.PieceTracker{}, func() {})
 		wg.Done()
 	}()
 
 	wg.Wait()
+	require.NoError(t, err)
 }
 
 func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
