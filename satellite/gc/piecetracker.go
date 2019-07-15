@@ -40,7 +40,9 @@ type PieceTracker struct {
 	initialPieces      int64
 	falsePositiveRate  float64
 	retainInfos        map[storj.NodeID]*RetainInfo
-	pieceCounts        map[storj.NodeID]int
+
+	// This map MUST ONLY BE USED as readonly
+	pieceCounts map[storj.NodeID]int
 }
 
 // Add adds a pieceID to the relevant node's RetainInfo

@@ -5,6 +5,7 @@ package gc
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -39,17 +40,20 @@ type Service struct {
 	transport       transport.Client
 	overlay         overlay.DB
 	lastSendTime    time.Time
-	lastPieceCounts map[storj.NodeID]int
+	lastPieceCounts atomic.Value
 }
 
 // NewService creates a new instance of the gc service
 func NewService(log *zap.Logger, config Config, transport transport.Client, overlay overlay.DB) *Service {
+	var lastPieceCounts atomic.Value
+	lastPieceCounts.Store(map[storj.NodeID]int{})
+
 	return &Service{
 		log:             log,
 		config:          config,
 		transport:       transport,
 		overlay:         overlay,
-		lastPieceCounts: make(map[storj.NodeID]int),
+		lastPieceCounts: lastPieceCounts,
 	}
 }
 
@@ -68,7 +72,7 @@ func (service *Service) NewPieceTracker() *PieceTracker {
 		initialPieces:      service.config.InitialPieces,
 		falsePositiveRate:  service.config.FalsePositiveRate,
 		retainInfos:        make(map[storj.NodeID]*RetainInfo),
-		pieceCounts:        service.lastPieceCounts,
+		pieceCounts:        service.lastPieceCountsValue(),
 		overlay:            service.overlay,
 	}
 }
@@ -80,30 +84,38 @@ func (service *Service) Send(ctx context.Context, pieceTracker *PieceTracker, cb
 	service.lastSendTime = time.Now().UTC()
 
 	go func() {
-		err := service.sendRetainRequests(ctx, pieceTracker)
+		piecesCounts, err := service.sendRetainRequests(ctx, pieceTracker)
 		if err != nil {
 			service.log.Error("error sending retain infos", zap.Error(err))
 		}
+
+		service.lastPieceCounts.Store(piecesCounts)
 		cb()
 	}()
 
 	return nil
 }
 
-func (service *Service) sendRetainRequests(ctx context.Context, pieceTracker *PieceTracker) (err error) {
+func (service *Service) sendRetainRequests(
+	ctx context.Context, pieceTracker *PieceTracker,
+) (pieceCounts map[storj.NodeID]int, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	pieceCounts = make(map[storj.NodeID]int, service.lastPieceCountsNumNodes())
 
 	var errList errs.Group
 	for id, retainInfo := range pieceTracker.GetRetainInfos() {
-		err := service.sendOneRetainRequest(ctx, id, retainInfo)
+		err := service.sendOneRetainRequest(ctx, id, retainInfo, pieceCounts)
 		if err != nil {
 			errList.Add(err)
 		}
 	}
-	return errList.Err()
+	return pieceCounts, errList.Err()
 }
 
-func (service *Service) sendOneRetainRequest(ctx context.Context, id storj.NodeID, retainInfo *RetainInfo) (err error) {
+func (service *Service) sendOneRetainRequest(
+	ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, pieceCounts map[storj.NodeID]int,
+) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log := service.log.Named(id.String())
@@ -122,7 +134,7 @@ func (service *Service) sendOneRetainRequest(ctx context.Context, id storj.NodeI
 		err = errs.Combine(err, ps.Close())
 	}()
 
-	service.lastPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
+	pieceCounts[id] = retainInfo.count // save count for next bloom filter generation
 	mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
 
 	filterBytes := retainInfo.Filter.Bytes()
@@ -133,4 +145,22 @@ func (service *Service) sendOneRetainRequest(ctx context.Context, id storj.NodeI
 		Filter:       filterBytes,
 	}
 	return ps.Retain(ctx, retainReq)
+}
+
+func (service *Service) lastPieceCountsValue() map[storj.NodeID]int {
+	m := service.lastPieceCounts.Load()
+	if m == nil {
+		return nil
+	}
+
+	return m.(map[storj.NodeID]int)
+}
+
+func (service *Service) lastPieceCountsNumNodes() int {
+	m := service.lastPieceCounts.Load()
+	if m == nil {
+		return 0
+	}
+
+	return len(m.(map[storj.NodeID]int))
 }
