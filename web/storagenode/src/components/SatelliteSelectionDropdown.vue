@@ -45,8 +45,7 @@
         },
     })
 
-    export default class SatelliteChoiceDropdown extends Vue {
-    }
+    export default class SatelliteChoiceDropdown extends Vue {}
 </script>
 
 <style lang="scss">

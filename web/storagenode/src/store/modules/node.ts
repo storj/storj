@@ -29,7 +29,7 @@ export const nodeModule = {
         },
         checks: {
             uptime: '0',
-            audit: '23.5',
+            audit: '0',
         },
     },
     mutations: {
@@ -47,7 +47,6 @@ export const nodeModule = {
             state.bandwidth.available = formatBytes(nodeInfo.bandwidth.remaining + nodeInfo.bandwidth.used);
             state.satellites = nodeInfo.satellites;
             state.bandwidthChartData = new BandwidthChartDataFormatter(nodeInfo.bandwidthChartData).getFormattedData();
-            console.log(nodeInfo);
         },
 
         [NODE_MUTATIONS.SELECT_SATELLITE](state, id: any): void {

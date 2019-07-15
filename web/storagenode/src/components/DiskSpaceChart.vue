@@ -3,13 +3,14 @@
 
 <template>
     <div class="chart">
-        <Chart id="disk-space-chart" :chartData="diskSpaceUsed" :width="400" :height="150" min="1" max="7.2"
-               tooltipHTML="<div class='tooltip-body'>
-                                  <p class='tooltip-body__data'><b>30GB</b></p>
-                                  <p class='tooltip-body__footer'>May 25, 2019</p>
-                              </div>"
-               :tooltipConstructor = "tooltip"
-        />
+        <Chart
+            id="disk-space-chart"
+            :chartData="diskSpaceUsed"
+            :width="400"
+            :height="150"
+            min="1"
+            max="7.2"
+            :tooltipConstructor = "tooltip" />
     </div>
 </template>
 
@@ -48,7 +49,7 @@
         }),
 
         methods: {
-            tooltip: function (tooltipModel, html): void {
+            tooltip: function (tooltipModel): void {
                 // Tooltip Element
                 var tooltipEl = document.getElementById('disk-space-tooltip');
                 // Create element on first render
@@ -61,17 +62,21 @@
                 // Hide if no tooltip
                 if (tooltipModel.opacity === 0) {
                     tooltipEl.style.opacity = '0';
+
                     return;
                 }
 
                 // Set Text
                 if (tooltipModel.body) {
-                    tooltipEl.innerHTML = html;
+                    tooltipEl.innerHTML = `<div class='tooltip-body'>
+                                               <p class='tooltip-body__data'><b>30GB</b></p>
+                                               <p class='tooltip-body__footer'>May 25, 2019</p>
+                                           </div>`;
                 }
 
-                var diskSpaceChart = document.getElementById('disk-space-chart');
+                let diskSpaceChart = document.getElementById('disk-space-chart');
                 if(diskSpaceChart) {
-                    var position = diskSpaceChart.getBoundingClientRect();
+                    let position = diskSpaceChart.getBoundingClientRect();
 
                     tooltipEl.style.opacity = '1';
                     tooltipEl.style.position = 'absolute';
@@ -82,9 +87,7 @@
         }
     })
 
-    export default class DiskSpaceChart extends Vue {
-
-    }
+    export default class DiskSpaceChart extends Vue {}
 </script>
 
 <style lang="scss">

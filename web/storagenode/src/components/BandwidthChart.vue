@@ -126,8 +126,7 @@
         }
     })
 
-    export default class BandwidthChart extends Vue {
-    }
+    export default class BandwidthChart extends Vue {}
 </script>
 
 <style lang="scss">

@@ -26,10 +26,12 @@
 			<BarInfoContainer label="Disk Space Remaining" :amount="diskSpace.remaining"
 							  infoText="of disk space left" :currentBarAmount="diskSpace.used" :maxBarAmount="diskSpace.available" />
 		</div>
-		<p class="info-area__title">Uptime & Audit Checks by Satellite</p>
-		<div class="info-area__checks-area">
-			<ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" infoText="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."/>
-			<ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Audit checks occur to make sure the file data sent to your storage node is still there and intact. This is the percentage of audit checks you’ve passed."/>
+		<div v-if="isSatelliteSelected">
+			<p class="info-area__title">Uptime & Audit Checks by Satellite</p>
+			<div class="info-area__checks-area">
+				<ChecksAreaContainer label="Uptime Checks" :amount="checks.uptime" infoText="Uptime checks occur to make sure  your node is still online. This is the percentage of uptime checks you’ve passed."/>
+				<ChecksAreaContainer label="Audit Checks" :amount="checks.audit" infoText="Audit checks occur to make sure the file data sent to your storage node is still there and intact. This is the percentage of audit checks you’ve passed."/>
+			</div>
 		</div>
 		<p class="info-area__title">Payout</p>
 		<PayoutContainer label="STORJ Wallet Address" :walletAddress="wallet" />
@@ -68,7 +70,11 @@
 
 			checks: function () {
 				return this.$store.state.nodeModule.checks;
-			}
+			},
+
+            isSatelliteSelected: function (): boolean {
+                return !!this.$store.state.nodeModule.selectedSatellite;
+            }
 		},
     })
 

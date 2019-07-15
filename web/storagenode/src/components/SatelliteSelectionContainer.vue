@@ -41,8 +41,7 @@
         }
     })
 
-    export default class SatelliteSelectionContainer extends Vue {
-    }
+    export default class SatelliteSelectionContainer extends Vue {}
 </script>
 
 <style lang="scss">

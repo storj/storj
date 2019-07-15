@@ -77,8 +77,7 @@
         }
     })
 
-    export default class Chart extends Vue {
-    }
+    export default class Chart extends Vue {}
 </script>
 
 <style lang="scss">
