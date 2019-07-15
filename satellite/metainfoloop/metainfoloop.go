@@ -30,7 +30,7 @@ type Observer interface {
 
 // Config contains configurable values for the metainfo loop
 type Config struct {
-	CoalesceDuration time.Duration
+	CoalesceDuration time.Duration `help:"how frequently metainfoloop should iterate over segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 }
 
 // Service is a metainfo loop service
