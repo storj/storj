@@ -283,46 +283,6 @@ func (db *InfoDB) Migration() *migrate.Migration {
 									)`,
 				},
 			},
-			{
-				Description: "Convert bandwidth rollups created_at to UTC.",
-				Version:     12,
-				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
-					limit := 1000
-					for offset := 0; ; offset++ {
-						rows, err := tx.Query(`
-											SELECT rowid, created_at
-											FROM bandwidth_usage
-											ORDER BY rowid
-											LIMIT ?
-											OFFSET ?
-										`, limit, offset*limit)
-						if err != nil {
-							return ErrInfo.Wrap(err)
-						}
-
-						found := 0
-						for rows.Next() {
-							var createdAt time.Time
-							var rowID int64
-							err := rows.Scan(&rowID, &createdAt)
-							if err != nil {
-								return ErrInfo.Wrap(err)
-							}
-							found++
-							_, err = tx.Exec("update bandwidth_usage set created_at = ? where rowid = ?;",
-								createdAt.UTC(), rowID)
-							if err != nil {
-								return ErrInfo.Wrap(err)
-							}
-						}
-
-						if found == 0 {
-							break
-						}
-					}
-					return nil
-				}),
-			},
 		},
 	}
 }
