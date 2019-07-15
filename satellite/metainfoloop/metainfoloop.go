@@ -128,5 +128,5 @@ func (service *Service) Join(ctx context.Context, observer Observer) (err error)
 	// wait for loop to iterate over all segments
 	err = <-service.loopEnded
 
-	return nil
+	return err
 }
