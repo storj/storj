@@ -286,10 +286,10 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Version:     12,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
 					deletecmd := exec.Command("rm -r %s/blob/%s %s/blob/%s %s/blob/%s %s/blob/%s ",
-						db.location, "", // us-central1
-						db.location, "", // europe-west1
-						db.location, "", // asia-east1
-						db.location, "") // "tothemoon"
+						db.location, "ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa", // us-central1
+						db.location, "v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa", // europe-west1
+						db.location, "qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa", // asia-east1
+						db.location, "abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa") // "tothemoon (stefan)"
 					return deletecmd.Run()
 				}),
 			},
