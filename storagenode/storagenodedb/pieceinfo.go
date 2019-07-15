@@ -167,7 +167,7 @@ func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID,
 		SET deletion_failed_at = ?
 		WHERE satellite_id = ?
 		  AND piece_id = ?
-	`), now, satelliteID, pieceID)
+	`), now.UTC(), satelliteID, pieceID)
 
 	return ErrInfo.Wrap(err)
 }
