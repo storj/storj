@@ -14,7 +14,7 @@ import (
 // utcChecks controls if the time zone checks are enabled.
 var utcChecks = false
 
-// utcDB wraps a sql.DB and checks all of the arguments to queries to ensure they are
+// utcDB wraps a sql.DB and checks all of the arguments to queries to ensure they are in UTC.
 type utcDB struct {
 	db *sql.DB
 }
