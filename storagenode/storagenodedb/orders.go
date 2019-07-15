@@ -165,7 +165,7 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(status), time.Now(), satellite, serial, satellite, serial)
+	`, int(status), time.Now().UTC(), satellite, serial, satellite, serial)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
