@@ -115,7 +115,7 @@ func TestGarbageCollection(t *testing.T) {
 func TestService_NewPieceTracker_and_Send(t *testing.T) {
 	config := gc.Config{
 		Interval:          time.Minute,
-		Active:            true,
+		Enabled:           true,
 		InitialPieces:     400000,
 		FalsePositiveRate: 0.1,
 	}

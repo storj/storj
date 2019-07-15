@@ -167,7 +167,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 			},
 			GarbageCollection: gc.Config{
 				Interval:          30 * time.Second,
-				Active:            true,
+				Enabled:           true,
 				InitialPieces:     10,
 				FalsePositiveRate: 0.1,
 			},

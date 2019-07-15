@@ -27,7 +27,7 @@ var (
 // Config contains configurable values for garbage collection
 type Config struct {
 	Interval time.Duration `help:"how frequently garbage collection filters should be sent to storage nodes" releaseDefault:"168h" devDefault:"10m"`
-	Active   bool          `help:"set if garbage collection is actively running or not" releaseDefault:"true" devDefault:"true"`
+	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a filter" releaseDefault:"0.1" devDefault:"0.1"`
@@ -172,5 +172,5 @@ func (service *Service) lastPieceCountsNumNodes() int {
 func (service *Service) isActiveFrom(from time.Time) bool {
 	lastSendTime := service.lastSendTime.Load().(time.Time)
 
-	return service.config.Active && from.After(lastSendTime.Add(service.config.Interval))
+	return service.config.Enabled && from.After(lastSendTime.Add(service.config.Interval))
 }
