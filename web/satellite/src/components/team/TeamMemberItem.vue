@@ -6,44 +6,25 @@
         <div class="user-container__avatar" :style="avatarData.style">
             <h1>{{avatarData.letter}}</h1>
         </div>
-        <p class="user-container__user-name">{{userInfo.fullName}}</p>
-        <p class="user-container__user-email">{{userInfo.email}}</p>
-        <p class="user-container__date">{{new Date(projectMember.joinedAt).toLocaleDateString()}}</p>
+        <p class="user-container__user-name">{{this.projectMember.formattedFullName()}}</p>
+        <p class="user-container__user-email">{{this.projectMember.formattedEmail()}}</p>
+        <p class="user-container__date">{{this.projectMember.joinedAtLocal()}}</p>
     </div>
 </template>
 
 <script lang="ts">
-    import {Component, Prop, Vue} from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import { getColor } from '@/utils/avatarColorManager';
+    import { TeamMember } from '../../types/teamMembers';
 
     @Component
-
     export default class TeamMemberItem extends Vue {
         @Prop()
-        private projectMember: TeamMemberModel;
+        private projectMember: TeamMember;
 
-        private getFullName(user: any): string {
-            return user.shortName === '' ? user.fullName : user.shortName;
-        }
-
-        public get userInfo(): object {
-            let fullName = this.getFullName(this.projectMember.user);
-
-            let email: string = this.projectMember.user.email;
-
-            if (fullName.length > 16) {
-                fullName = fullName.slice(0, 13) + '...';
-            }
-
-            if (email.length > 16) {
-                email = this.projectMember.user.email.slice(0, 13) + '...';
-            }
-
-            return { fullName, email };
-        }
-
+        // TODO: fix this method
         public get avatarData(): object {
-            let fullName = this.getFullName(this.projectMember.user);
+            let fullName: string = this.projectMember.fullName();
 
             const letter = fullName.slice(0, 1).toLocaleUpperCase();
 

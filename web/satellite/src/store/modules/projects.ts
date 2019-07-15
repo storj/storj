@@ -3,6 +3,7 @@
 
 import { PROJECTS_MUTATIONS } from '../mutationConstants';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
+import { RequestResponse } from '@/types/response';
 
 let defaultSelectedProject: Project = {
     name: '',
@@ -24,20 +25,23 @@ export const projectsModule = {
         [PROJECTS_MUTATIONS.FETCH](state: any, projects: Project[]): void {
             state.projects = projects;
 
-            if (state.selectedProject.id) {
-                let projectsCount = state.projects.length;
-
-                for (let i = 0; i < projectsCount; i++) {
-                    let project = state.projects[i];
-
-                    if (project.id === state.selectedProject.id) {
-                        state.selectedProject = project;
-                        return;
-                    }
-                }
-
-                state.selectedProject = defaultSelectedProject
+            if (!state.selectedProject.id) {
+                return;
             }
+
+            let projectsCount = state.projects.length;
+
+            for (let i = 0; i < projectsCount; i++) {
+                let project = state.projects[i];
+
+                if (project.id === state.selectedProject.id) {
+                    state.selectedProject = project;
+
+                    return;
+                }
+            }
+
+            state.selectedProject = defaultSelectedProject;
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
             const selected = state.projects.find((project: any) => project.id === projectID);
@@ -87,7 +91,7 @@ export const projectsModule = {
 
             return response;
         },
-        selectProject: function ({commit}: any, projectID: string) {
+        selectProject: function ({commit}: any, projectID: string): void {
             commit(PROJECTS_MUTATIONS.SELECT, projectID);
         },
         updateProject: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
@@ -108,12 +112,12 @@ export const projectsModule = {
 
             return response;
         },
-        clearProjects: function({commit}: any) {
+        clearProjects: function({commit}: any): void {
             commit(PROJECTS_MUTATIONS.CLEAR);
         }
     },
     getters: {
-        projects: (state: any) => {
+        projects: (state: any): Project[] => {
             return state.projects.map((project: any) => {
                 if (project.id === state.selectedProject.id) {
                     project.isSelected = true;
@@ -122,6 +126,6 @@ export const projectsModule = {
                 return project;
             });
         },
-        selectedProject: (state: any) => state.selectedProject,
+        selectedProject: (state: any): Project => state.selectedProject,
     },
 };

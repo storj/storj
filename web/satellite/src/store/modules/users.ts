@@ -8,6 +8,8 @@ import {
     changePasswordRequest,
     getUserRequest,
 } from '@/api/users';
+import { UpdatedUser, UpdatePasswordModel, User } from '@/types/users';
+import { RequestResponse } from '@/types/response';
 
 export const usersModule = {
     state: {

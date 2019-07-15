@@ -49,6 +49,8 @@
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { TeamMember } from '../../types/teamMembers';
+    import { RequestResponse } from '../../types/response';
 
     @Component({
         components: {
@@ -159,7 +161,7 @@
         private async fetchProjectMembers(): Promise<any> {
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-            const response: RequestResponse<TeamMemberModel[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const response: RequestResponse<TeamMember[]> = await this.$store.dispatch(PM_ACTIONS.FETCH);
             if (!response.isSuccess) {
                 this.notifyError(response.errorMessage);
             }

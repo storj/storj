@@ -4,13 +4,10 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { ApiKey } from '@/types/apiKeys';
+import { RequestResponse } from '@/types/response';
 
 export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<ApiKey[]>> {
-    let result: RequestResponse<ApiKey[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: []
-    };
+    let result: RequestResponse<ApiKey[]> = new RequestResponse<ApiKey[]>();
 
     let response: any = await apollo.query({
         query: gql(
@@ -41,11 +38,7 @@ export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<A
 }
 
 export async function createAPIKey(projectID: string, name: string): Promise<RequestResponse<ApiKey>> {
-    let result: RequestResponse<ApiKey> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: new ApiKey('', '', '', ''),
-    };
+    let result: RequestResponse<ApiKey> = new RequestResponse<ApiKey>();
 
     let response: any = await apollo.mutate({
         mutation: gql(
@@ -81,11 +74,8 @@ export async function createAPIKey(projectID: string, name: string): Promise<Req
 }
 
 export async function deleteAPIKeys(ids: string[]): Promise<RequestResponse<null>> {
-    let result: RequestResponse<any> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    // TODO: find needed type instead of any
+    let result: RequestResponse<any> = new RequestResponse<any>();
 
     let response: any = await apollo.mutate({
         mutation: gql(

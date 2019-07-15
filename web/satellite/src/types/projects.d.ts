@@ -18,17 +18,7 @@ declare type UpdateProjectModel = {
     description: string,
 };
 
-// TeamMemberModel stores needed info about user info to show it on UI
-declare type TeamMemberModel = {
-    user: {
-        id: string,
-        email: string,
-        firstName: string,
-        lastName: string,
-    }
-    joinedAt: string,
-};
-
+// CreateProjectModel is a type, used for creating project
 declare type CreateProjectModel = {
     name: string,
     description: string,

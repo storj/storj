@@ -3,14 +3,11 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { RequestResponse } from '@/types/response';
 
 // fetchProjectUsage retrieves total project usage for a given period
 export async function fetchProjectUsage(projectID: string, since: Date, before: Date): Promise<RequestResponse<ProjectUsage>> {
-    let result: RequestResponse<ProjectUsage> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: {} as ProjectUsage
-    };
+    let result: RequestResponse<ProjectUsage> = new RequestResponse<ProjectUsage>();
 
     let response: any = await apollo.query(
         {
@@ -44,11 +41,7 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
 
 // fetchBucketUsages retrieves bucket usage totals for a particular project
 export async function fetchBucketUsages(projectID: string, before: Date, cursor: BucketUsageCursor): Promise<RequestResponse<BucketUsagePage>> {
-    let result: RequestResponse<BucketUsagePage> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: {} as BucketUsagePage
-    };
+    let result: RequestResponse<BucketUsagePage> = new RequestResponse<BucketUsagePage>();
 
     let response: any = null;
     try {
@@ -97,15 +90,7 @@ export async function fetchBucketUsages(projectID: string, before: Date, cursor:
 }
 
 export async function fetchCreditUsage(): Promise<RequestResponse<CreditUsage>> {
-    let result: RequestResponse<CreditUsage> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: {
-            referred: 0,
-            usedCredits: 0,
-            availableCredits: 0,
-        }
-    };
+    let result: RequestResponse<CreditUsage> = new RequestResponse<CreditUsage>();
 
     let response: any = await apollo.query(
         {

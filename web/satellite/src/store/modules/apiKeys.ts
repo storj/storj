@@ -5,6 +5,7 @@ import { API_KEYS_MUTATIONS } from '../mutationConstants';
 import { createAPIKey, deleteAPIKeys, fetchAPIKeys } from '@/api/apiKeys';
 import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 import { ApiKey } from '@/types/apiKeys';
+import { RequestResponse } from "@/types/response";
 
 export const apiKeysModule = {
     state: {

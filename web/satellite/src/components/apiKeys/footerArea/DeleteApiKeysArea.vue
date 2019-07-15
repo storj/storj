@@ -31,6 +31,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import { API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { RequestResponse } from '../../../types/response';
 
     @Component({
         components: {

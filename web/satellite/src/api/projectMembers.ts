@@ -4,6 +4,8 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { TeamMember } from '@/types/teamMembers';
+import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request.
 export async function addProjectMembersRequest(projectID: string, emails: string[]): Promise<RequestResponse<null>> {
@@ -70,8 +72,8 @@ export async function deleteProjectMembersRequest(projectID: string, emails: str
 }
 
 // Performs graqhQL request.
-export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMemberModel[]>> {
-    let result: RequestResponse<TeamMemberModel[]> = {
+export async function fetchProjectMembersRequest(projectID: string, limit: string, offset: string, sortBy: ProjectMemberSortByEnum, searchQuery: string): Promise<RequestResponse<TeamMember[]>> {
+    let result: RequestResponse<TeamMember[]> = {
         errorMessage: '',
         isSuccess: false,
         data: []

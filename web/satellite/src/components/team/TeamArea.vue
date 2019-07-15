@@ -6,7 +6,7 @@
         <div class="team-header">
             <HeaderArea/>
         </div>
-        <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="handleScroll" class="team-container">
+        <div id="scrollable_team_container" v-if="projectMembers.length > 0 || projectMembersCount > 0" v-on:scroll="onScroll" class="team-container">
             <div class="team-container__content">
                 <div v-for="member in projectMembers" v-on:click="onMemberClick(member)" v-bind:key="member.id">
                     <TeamMemberItem
@@ -61,6 +61,7 @@
     import HeaderArea from '@/components/team/headerArea/HeaderArea.vue';
     import Footer from '@/components/team/footerArea/Footer.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { TeamMember } from '../../types/teamMembers';
 
     @Component({
         components: {
@@ -69,7 +70,6 @@
             Footer,
         }
     })
-
     export default class TeamArea extends Vue {
         private isFetchInProgress: boolean = false;
 
@@ -81,13 +81,14 @@
             this.$store.dispatch(PM_ACTIONS.TOGGLE_SELECTION, member.user.id);
         }
 
-        public async handleScroll(): Promise<void> {
-            const documentElement = document.getElementById('scrollable_team_container');
-            if (!documentElement) {
+        public async onScroll(): Promise<void> {
+            // TODO: cache team container
+            const teamContainer = document.getElementById('scrollable_team_container');
+            if (!teamContainer) {
                 return;
             }
 
-            const isAtBottom = documentElement.scrollTop + documentElement.clientHeight === documentElement.scrollHeight;
+            const isAtBottom = teamContainer.scrollTop + teamContainer.clientHeight === teamContainer.scrollHeight;
 
             if (!isAtBottom || this.isFetchInProgress) return;
 
@@ -102,15 +103,15 @@
             this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
         }
 
-        public get projectMembers() {
+        public get projectMembers(): TeamMember[] {
             return this.$store.getters.projectMembers;
         }
 
-        public get projectMembersCount() {
-            return this.$store.getters.projectMembersCountGetter;
+        public get projectMembersCount(): number {
+            return this.$store.getters.projectMembersCount;
         }
 
-        public get selectedProjectMembers() {
+        public get selectedProjectMembers(): TeamMember[] {
             return this.$store.getters.selectedProjectMembers;
         }
     }

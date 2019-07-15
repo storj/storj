@@ -3,24 +3,11 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { RequestResponse } from '@/types/response';
 
 // Performs graqhQL request for project creation.
 export async function createProjectRequest(createProjectModel: CreateProjectModel): Promise<RequestResponse<Project>> {
-    let project: Project = {
-        id: '',
-
-        name: '',
-        description: '',
-        createdAt: '',
-
-        isSelected: false,
-    };
-
-    let result: RequestResponse<Project> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: project,
-    };
+    let result: RequestResponse<Project> = new RequestResponse<Project>();
 
     let response: any = await apollo.mutate(
         {
@@ -51,11 +38,7 @@ export async function createProjectRequest(createProjectModel: CreateProjectMode
 
 // Performs graqhQL request for fetching all projects of current user.
 export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>> {
-    let result: RequestResponse<Project[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: []
-    };
+    let result: RequestResponse<Project[]>  = new RequestResponse<Project[]>();
 
     let response: any = await apollo.query(
         {
@@ -86,11 +69,7 @@ export async function fetchProjectsRequest(): Promise<RequestResponse<Project[]>
 
 // Performs graqhQL request for updating selected project description
 export async function updateProjectRequest(projectID: string, description: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null>  = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
@@ -118,11 +97,7 @@ export async function updateProjectRequest(projectID: string, description: strin
 
 // Performs graqhQL request for deleting selected project
 export async function deleteProjectRequest(projectID: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null>  = new RequestResponse<null>();
 
     let response = await apollo.mutate(
         {

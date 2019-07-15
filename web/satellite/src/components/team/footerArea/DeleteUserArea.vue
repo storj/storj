@@ -31,11 +31,12 @@
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import { PM_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { TeamMember } from '../../../types/teamMembers';
 
     @Component({
         methods: {
             onDelete: async function () {
-                const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMemberModel) => {
+                const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
                     return member.user.email;
                 });
 

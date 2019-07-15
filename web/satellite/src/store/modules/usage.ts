@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS} from '@/store/mutationConstants';
-import {BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS} from '@/utils/constants/actionNames';
+import { BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS } from '@/store/mutationConstants';
+import { BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 import { fetchBucketUsages, fetchProjectUsage, fetchCreditUsage } from '@/api/usage';
+import { RequestResponse } from '@/types/response';
 
 export const usageModule = {
     state: {
