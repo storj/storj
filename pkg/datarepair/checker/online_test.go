@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/overlay"
