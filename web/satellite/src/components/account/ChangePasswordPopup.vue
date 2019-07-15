@@ -67,118 +67,113 @@
     import { validatePassword } from '@/utils/validation';
 
     @Component({
-        data: function () {
-            return {
-                oldPassword: '',
-                newPassword: '',
-                confirmationPassword: '',
-                oldPasswordError: '',
-                newPasswordError: '',
-                confirmationPasswordError: '',
-            };
-        },
-        methods: {
-            setOldPassword: function (value: string) {
-                this.$data.oldPassword = value;
-                this.$data.oldPasswordError = '';
-            },
-            setNewPassword: function (value: string) {
-                this.$data.newPassword = value;
-                this.$data.newPasswordError = '';
-            },
-            setPasswordConfirmation: function (value: string) {
-                this.$data.confirmationPassword = value;
-                this.$data.confirmationPasswordError = '';
-            },
-            cancel: function () {
-                this.$data.oldPassword = '';
-                this.$data.newPassword = '';
-                this.$data.confirmationPassword = '';
-
-                this.$data.oldPasswordError = '';
-                this.$data.newPasswordError = '';
-                this.$data.confirmationPasswordError = '';
-
-                let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-                oldPasswordInput.setValue('');
-
-                let newPasswordInput: any = this.$refs['newPasswordInput'];
-                newPasswordInput.setValue('');
-
-                let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-                confirmPasswordInput.setValue('');
-            },
-            onUpdateClick: async function () {
-                let hasError = false;
-                if (!this.$data.oldPassword) {
-                    this.$data.oldPasswordError = 'Password required';
-                    hasError = true;
-                }
-
-                if (!validatePassword(this.$data.newPassword)) {
-                    this.$data.newPasswordError = 'Invalid password. Use 6 or more characters';
-                    hasError = true;
-                }
-
-                if (!this.$data.confirmationPassword) {
-                    this.$data.confirmationPasswordError = 'Password required';
-                    hasError = true;
-                }
-
-                if (this.$data.newPassword !== this.$data.confirmationPassword) {
-                    this.$data.confirmationPasswordError = 'Password not match to new one';
-                    hasError = true;
-                }
-
-                if (hasError) {
-                    return;
-                }
-
-                let response = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
-					{
-                        oldPassword: this.$data.oldPassword,
-                        newPassword: this.$data.newPassword
-					}
-				);
-
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-
-                    return;
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-
-                this.$data.oldPassword = '';
-                this.$data.newPassword = '';
-                this.$data.confirmationPassword = '';
-
-                this.$data.oldPasswordError = '';
-                this.$data.newPasswordError = '';
-                this.$data.confirmationPasswordError = '';
-
-                let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-                oldPasswordInput.setValue('');
-
-                let newPasswordInput: any = this.$refs['newPasswordInput'];
-                newPasswordInput.setValue('');
-
-                let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-                confirmPasswordInput.setValue('');
-            },
-            onCloseClick: function () {
-                (this as any).cancel();
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-            }
-        },
         components: {
             HeaderlessInput,
             Button,
         }
     })
+    export default class ChangePasswordPopup extends Vue {
+        private oldPassword: string = '';
+        private newPassword: string = '';
+        private confirmationPassword: string = '';
+        private oldPasswordError: string = '';
+        private newPasswordError: string = '';
+        private confirmationPasswordError: string = '';
 
-    export default class ChangePasswordPopup extends Vue {}
+        public setOldPassword(value: string): void {
+            this.oldPassword = value;
+            this.oldPasswordError = '';
+        }
+        public setNewPassword(value: string): void {
+            this.newPassword = value;
+            this.newPasswordError = '';
+        }
+        public setPasswordConfirmation(value: string): void {
+            this.confirmationPassword = value;
+            this.confirmationPasswordError = '';
+        }
+        public cancel(): void {
+            this.oldPassword = '';
+            this.newPassword = '';
+            this.confirmationPassword = '';
+
+            this.oldPasswordError = '';
+            this.newPasswordError = '';
+            this.confirmationPasswordError = '';
+
+            let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+            oldPasswordInput.setValue('');
+
+            let newPasswordInput: any = this.$refs['newPasswordInput'];
+            newPasswordInput.setValue('');
+
+            let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+            confirmPasswordInput.setValue('');
+        }
+        public async onUpdateClick(): Promise<void> {
+            let hasError = false;
+            if (!this.oldPassword) {
+                this.oldPasswordError = 'Password required';
+                hasError = true;
+            }
+
+            if (!validatePassword(this.newPassword)) {
+                this.newPasswordError = 'Invalid password. Use 6 or more characters';
+                hasError = true;
+            }
+
+            if (!this.confirmationPassword) {
+                this.confirmationPasswordError = 'Password required';
+                hasError = true;
+            }
+
+            if (this.newPassword !== this.confirmationPassword) {
+                this.confirmationPasswordError = 'Password not match to new one';
+                hasError = true;
+            }
+
+            if (hasError) {
+                return;
+            }
+
+            let response = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
+                {
+                    oldPassword: this.oldPassword,
+                    newPassword: this.newPassword
+                }
+            );
+
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                return;
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Password successfully changed!');
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+
+            this.oldPassword = '';
+            this.newPassword = '';
+            this.confirmationPassword = '';
+
+            this.oldPasswordError = '';
+            this.newPasswordError = '';
+            this.confirmationPasswordError = '';
+
+            let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+            oldPasswordInput.setValue('');
+
+            let newPasswordInput: any = this.$refs['newPasswordInput'];
+            newPasswordInput.setValue('');
+
+            let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+            confirmPasswordInput.setValue('');
+        }
+        public onCloseClick(): void {
+            this.cancel();
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+        }
+    }
 </script>
 
 <style scoped lang="scss">
