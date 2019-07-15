@@ -528,15 +528,11 @@ func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, p
 	remoteSegment := pointer.GetRemote()
 	newRemotePieces := remoteSegment.RemotePieces[:0]
 	for _, piece := range remoteSegment.RemotePieces {
-		isFailed := false
 		for _, failedNode := range failedNodes {
 			if piece.NodeId == failedNode {
-				isFailed = true
+				newRemotePieces = append(newRemotePieces, piece)
 				break
 			}
-		}
-		if !isFailed {
-			newRemotePieces = append(newRemotePieces, piece)
 		}
 	}
 	remoteSegment.RemotePieces = newRemotePieces
@@ -553,14 +549,14 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath
 	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return newPointer, ErrSegmentDeleted.New(segmentPath)
+			return nil, ErrSegmentDeleted.New(segmentPath)
 		}
-		return newPointer, err
+		return nil, err
 	}
 	if oldPointer != nil {
 		if newPointer.GetCreationDate().GetSeconds() != oldPointer.GetCreationDate().GetSeconds() ||
 			newPointer.GetCreationDate().GetNanos() != oldPointer.GetCreationDate().GetNanos() {
-			return newPointer, ErrSegmentDeleted.New(segmentPath)
+			return nil, ErrSegmentDeleted.New(segmentPath)
 		}
 	}
 	return newPointer, nil

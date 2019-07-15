@@ -553,7 +553,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 
 		//refetch the stripe
 		stripe, _, err = audits.Cursor.NextStripe(ctx)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		require.NotNil(t, stripe)
 
 		report, err = audits.Verifier.Verify(ctx, stripe, nil)
@@ -566,8 +566,7 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 
 		for _, newPiece := range stripe.Segment.GetRemote().GetRemotePieces() {
-			require.NotEqual(t, newPiece.NodeId, piece.NodeId)
+			assert.NotEqual(t, newPiece.NodeId, piece.NodeId)
 		}
-
 	})
 }
