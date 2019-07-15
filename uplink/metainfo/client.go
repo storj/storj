@@ -382,14 +382,10 @@ func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID)
 	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
 		StreamId: streamID,
 	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return Error.Wrap(err)
 }
 
-// BeginDeleteObject TODO
+// BeginDeleteObject begins object deletion process
 func (client *Client) BeginDeleteObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -405,21 +401,17 @@ func (client *Client) BeginDeleteObject(ctx context.Context, bucket []byte, encr
 	return response.StreamId, nil
 }
 
-// FinishDeleteObject TODO
+// FinishDeleteObject finishes object deletion process
 func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.StreamID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.FinishDeleteObject(ctx, &pb.ObjectFinishDeleteRequest{
 		StreamId: streamID,
 	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	return Error.Wrap(err)
 }
 
-// ListObjects TODO
+// ListObjects lists objects according to specific parameters
 func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedPrefix []byte, encryptedCursor []byte, limit int32) (_ []storj.Object, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -433,16 +425,14 @@ func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedP
 		return []storj.Object{}, false, Error.Wrap(err)
 	}
 
+	// TODO maybe we should just return pb.ObjectListItem
 	objects := make([]storj.Object, len(response.Items))
 	for i, object := range response.Items {
 		objects[i] = storj.Object{
-			// Bucket:  string(bucket),
 			Path:    string(object.EncryptedPath),
 			Version: uint32(object.Version),
 			Created: object.CreatedAt,
 			Expires: object.ExpiresAt,
-			// Metadata: object.EncryptedMetadata,
-
 		}
 	}
 
