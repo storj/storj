@@ -73,6 +73,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			func(ctx context.Context, it storage.Iterator) error {
 				var item storage.ListItem
 
+				// iterate over every segment in metainfo
 				for it.Next(ctx, &item) {
 					pointer := &pb.Pointer{}
 
@@ -83,6 +84,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 					path := storj.Path(item.Key.String())
 
+					// send segment info to every observer
 					for _, o := range service.observers {
 						remote := pointer.GetRemote()
 						if remote != nil {
@@ -123,6 +125,7 @@ func (service *Service) Join(ctx context.Context, observer Observer) (err error)
 	// wait for observer combine
 	<-service.observersCombined
 
+	// wait for loop to iterate over all segments
 	err = <-service.loopEnded
 
 	return nil
