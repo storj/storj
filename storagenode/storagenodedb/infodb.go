@@ -269,6 +269,13 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(piece_expiration) WHERE piece_expiration IS NOT NULL`,
 				},
 			},
+			{
+				Description: "Network Wipe Pre Beta",
+				Version:     11,
+				Action: migrate.SQL{
+					`UPDATE pieceinfo SET piece_expiration = '2019-07-16 00:00:00.000000+00:00'`,
+				},
+			},
 		},
 	}
 }
