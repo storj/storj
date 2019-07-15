@@ -261,31 +261,45 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Create bandwidth_usage_rollup table.",
+				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
+					`DROP INDEX idx_used_serial`,
+					`DROP INDEX idx_pieceinfo_expiration`,
+					`DROP INDEX idx_bandwidth_usage_created`,
+					`DROP INDEX idx_order_archive_satellite`,
+					`DROP INDEX idx_order_archive_status`,
+					`CREATE INDEX idx_used_serial ON used_serial(datetime(expiration))`,
+					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(datetime(piece_expiration)) WHERE piece_expiration IS NOT NULL`,
+					`CREATE INDEX idx_bandwidth_usage_created ON bandwidth_usage(datetime(created_at))`,
+				},
+			},
+			{
+				Description: "Create bandwidth_usage_rollup table.",
+				Version:     11,
+				Action: migrate.SQL{
 					`CREATE TABLE bandwidth_usage_rollups (
-						interval_start	TIMESTAMP NOT NULL,
-						satellite_id  	BLOB    NOT NULL,
-						action        	INTEGER NOT NULL,
-						amount        	BIGINT  NOT NULL,
-						PRIMARY KEY ( interval_start, satellite_id, action )
-					)`,
+										interval_start	TIMESTAMP NOT NULL,
+										satellite_id  	BLOB    NOT NULL,
+										action        	INTEGER NOT NULL,
+										amount        	BIGINT  NOT NULL,
+										PRIMARY KEY ( interval_start, satellite_id, action )
+									)`,
 				},
 			},
 			{
 				Description: "Convert bandwidth rollups created_at to UTC.",
-				Version:     11,
+				Version:     12,
 				Action: migrate.Func(func(log *zap.Logger, db migrate.DB, tx *sql.Tx) error {
 					limit := 1000
 					for offset := 0; ; offset++ {
 						rows, err := tx.Query(`
-							SELECT rowid, created_at
-							FROM bandwidth_usage
-							ORDER BY rowid
-							LIMIT ?
-							OFFSET ?
-						`, limit, offset*limit)
+											SELECT rowid, created_at
+											FROM bandwidth_usage
+											ORDER BY rowid
+											LIMIT ?
+											OFFSET ?
+										`, limit, offset*limit)
 						if err != nil {
 							return ErrInfo.Wrap(err)
 						}

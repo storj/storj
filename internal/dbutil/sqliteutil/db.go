@@ -17,13 +17,13 @@ import (
 func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	_, err = db.Exec(script)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return QuerySchema(db)
@@ -33,18 +33,18 @@ func LoadSchemaFromSQL(script string) (_ *dbschema.Schema, err error) {
 func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 	defer func() { err = errs.Combine(err, db.Close()) }()
 
 	_, err = db.Exec(script)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	snapshot, err := QuerySnapshot(db)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	snapshot.Script = script
@@ -55,12 +55,12 @@ func LoadSnapshotFromSQL(script string) (_ *dbschema.Snapshot, err error) {
 func QuerySnapshot(db dbschema.Queryer) (*dbschema.Snapshot, error) {
 	schema, err := QuerySchema(db)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	data, err := QueryData(db, schema)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
 
 	return &dbschema.Snapshot{

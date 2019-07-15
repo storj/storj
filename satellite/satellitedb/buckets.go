@@ -42,6 +42,9 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancyScheme.RepairShares)),
 		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancyScheme.OptimalShares)),
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
+		dbx.BucketMetainfo_Create_Fields{
+			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
+		},
 	)
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
