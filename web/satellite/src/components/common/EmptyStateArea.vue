@@ -24,7 +24,7 @@
 
     @Component({
         components: {
-            Button
+            Button,
         }
     })
     export default class EmptyStateProjectArea extends Vue {
@@ -40,7 +40,7 @@
         @Prop({default: false})
         private readonly isButtonShown: boolean;
         
-        @Prop({default: () => {}})
+        @Prop()
         private readonly onButtonClick: Function;
         
         @Prop({default: 'Default'})

@@ -43,41 +43,36 @@ export async function fetchProjectUsage(projectID: string, since: Date, before: 
 export async function fetchBucketUsages(projectID: string, before: Date, cursor: BucketUsageCursor): Promise<RequestResponse<BucketUsagePage>> {
     let result: RequestResponse<BucketUsagePage> = new RequestResponse<BucketUsagePage>();
 
-    let response: any = null;
-    try {
-        response = await apollo.query(
-            {
-                query: gql(`
-                    query {
-                        project(id: "${projectID}") {
-                            bucketUsages(before: "${before.toISOString()}", cursor: {
-                                    limit: ${cursor.limit}, search: "${cursor.search}", page: ${cursor.page}
-                                }) {
-                                    bucketUsages{
-                                        bucketName,
-                                        storage,
-                                        egress,
-                                        objectCount,
-                                        since,
-                                        before
-                                    },
-                                    search,
-                                    limit,
-                                    offset,
-                                    pageCount,
-                                    currentPage,
-                                    totalCount 
-                            }
+    let response: any = await apollo.query(
+        {
+            query: gql(`
+                query {
+                    project(id: "${projectID}") {
+                        bucketUsages(before: "${before.toISOString()}", cursor: {
+                                limit: ${cursor.limit}, search: "${cursor.search}", page: ${cursor.page}
+                            }) {
+                                bucketUsages{
+                                    bucketName,
+                                    storage,
+                                    egress,
+                                    objectCount,
+                                    since,
+                                    before
+                                },
+                                search,
+                                limit,
+                                offset,
+                                pageCount,
+                                currentPage,
+                                totalCount 
                         }
-                    }`
-                ),
-                fetchPolicy: 'no-cache',
-                errorPolicy: 'all'
-            }
-        );
-    } catch (e) {
-        console.log(e);
-    }
+                    }
+                }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
 
     if (response.errors) {
         result.errorMessage = response.errors[0].message;

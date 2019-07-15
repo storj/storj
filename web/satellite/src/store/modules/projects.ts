@@ -34,11 +34,13 @@ export const projectsModule = {
             for (let i = 0; i < projectsCount; i++) {
                 let project = state.projects[i];
 
-                if (project.id === state.selectedProject.id) {
-                    state.selectedProject = project;
-
-                    return;
+                if (project.id !== state.selectedProject.id) {
+                    continue;
                 }
+
+                state.selectedProject = project;
+
+                return;
             }
 
             state.selectedProject = defaultSelectedProject;

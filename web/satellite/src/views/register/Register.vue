@@ -123,6 +123,7 @@
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                 this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
+
                 return;
             }
             if (response.data) {

@@ -26,30 +26,33 @@
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import EmptyState from '@/components/common/EmptyStateArea.vue';
-	import SearchArea from '@/components/buckets/SearchArea.vue';
-	import BucketItem from '@/components/buckets/BucketItem.vue';
-	import PaginationArea from '@/components/buckets/PaginationArea.vue';
-	import SortingHeader from '@/components/buckets/SortingHeader.vue';
-	import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
-	import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import SearchArea from '@/components/buckets/SearchArea.vue';
+    import BucketItem from '@/components/buckets/BucketItem.vue';
+    import PaginationArea from '@/components/buckets/PaginationArea.vue';
+    import SortingHeader from '@/components/buckets/SortingHeader.vue';
+    import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { BUCKET_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
-	@Component({
-		components: {
-			EmptyState,
-			SearchArea,
-			SortingHeader,
-			BucketItem,
-			PaginationArea,
-			NoBucketArea,
-		}
-	})
-
-	export default class BucketArea extends Vue {
+    @Component({
+        components: {
+            EmptyState,
+            SearchArea,
+            SortingHeader,
+            BucketItem,
+            PaginationArea,
+            NoBucketArea,
+        }
+    })
+    export default class BucketArea extends Vue {
         public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
-        
+
+        public mounted(): void {
+            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+        }
+
         public get buckets(): BucketUsage[] {
             return this.$store.state.bucketUsageModule.page.bucketUsages;
         }
@@ -60,10 +63,6 @@
         
         public get search(): string {
             return this.$store.state.bucketUsageModule.cursor.search;
-        }
-        
-        public mounted() {
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
         }
     }
 </script>

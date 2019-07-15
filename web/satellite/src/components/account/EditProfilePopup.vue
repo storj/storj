@@ -49,11 +49,11 @@
     import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-		components: {
-			HeaderedInput,
-			Button,
-		}
-	})
+        components: {
+            HeaderedInput,
+            Button,
+        }
+    })
     export default class EditProfilePopup extends Vue {
         private originalFullName: string = this.$store.getters.user.fullName;
         private originalShortName: string = this.$store.getters.user.shortName;
@@ -84,6 +84,7 @@
         public async onUpdateClick(): Promise<void> {
             if (!this.fullName) {
                 this.fullNameError = 'Full name expected';
+
                 return;
             }
 
@@ -95,6 +96,7 @@
             let response = await this.$store.dispatch(USER_ACTIONS.UPDATE, user);
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
                 return;
             }
 

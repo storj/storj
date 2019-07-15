@@ -17,9 +17,9 @@
     import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
 
     @Component({
-    	components: {
-    		TabNavigation,
-    	},
+        components: {
+            TabNavigation,
+        },
     })
     export default class AccountArea extends Vue {
         private navigation: any = ACCOUNT_ROUTES;

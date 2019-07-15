@@ -25,6 +25,7 @@
 
     @Component
     export default class PaginationArea extends Vue {
+        // TODO: use svg loader
         public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
         public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
     
@@ -51,7 +52,7 @@
             return this.$store.state.bucketUsageModule.page.totalCount;
         }
         
-        public get isFirstPage() {
+        public get isFirstPage(): boolean {
             return this.$store.state.bucketUsageModule.page.currentPage === 1;
         }
         
@@ -63,7 +64,7 @@
         }
     
     
-        public async onPageClick(event: any, page: number) {
+        public async onPageClick(event: any, page: number): Promise<void> {
             const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, page);
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
@@ -71,12 +72,12 @@
         }
     
         public isSelected(page: number): string {
-            return page === this.currentPage ? "selected" : "";
+            return page === this.currentPage ? 'selected' : '';
         }
     
-        public async nextPage() {
+        public async nextPage(): Promise<void> {
             if (this.isLastPage) {
-                return
+                return;
             }
         
             const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, this.currentPage + 1);
@@ -85,9 +86,9 @@
             }
         }
     
-        public async prevPage() {
+        public async prevPage(): Promise<void> {
             if (this.isFirstPage) {
-                return
+                return;
             }
         
             const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, this.currentPage - 1);

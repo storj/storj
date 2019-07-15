@@ -13,10 +13,11 @@
 <script lang="ts">
     import { Component, Vue, Prop } from 'vue-property-decorator';
 
+    // TODO: should it be functional?
     @Component
     export default class BucketItem extends Vue {
         @Prop()
-        private readonly bucket: any;
+        private readonly bucket: BucketUsage;
     
         public get storage(): string {
             return this.bucket.storage.toFixed(4);

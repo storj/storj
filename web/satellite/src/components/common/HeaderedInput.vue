@@ -40,7 +40,7 @@
 <script lang="ts">
     import { Component, Prop, Vue } from 'vue-property-decorator';
 
-	// Custom input component with labeled header
+    // Custom input component with labeled header
     @Component
     export default class HeaderedInput extends Vue {
         @Prop({default: ''})

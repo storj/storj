@@ -45,7 +45,7 @@
         }
 
         public get isDropdownShown(): boolean {
-            return this.$store.state.appStateModule.appState.isProjectsDropdownShown
+            return this.$store.state.appStateModule.appState.isProjectsDropdownShown;
         }
 
         public get hasProjects(): boolean {

@@ -16,6 +16,7 @@ export const usageModule = {
         [PROJECT_USAGE_MUTATIONS.FETCH](state: any, projectUsage: ProjectUsage) {
            state.projectUsage = projectUsage;
         },
+        // TODO: create type here instead of {startDate, endDate}
         [PROJECT_USAGE_MUTATIONS.SET_DATE](state: any, {startDate, endDate}: any) {
             state.startDate = startDate as Date;
             state.endDate = endDate as Date;
@@ -30,7 +31,7 @@ export const usageModule = {
         [PROJECT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any, {startDate, endDate}: any): Promise<RequestResponse<ProjectUsage>> {
             const projectID = rootGetters.selectedProject.id;
 
-            let result = await fetchProjectUsage(projectID, startDate, endDate);
+            let result: RequestResponse<ProjectUsage> = await fetchProjectUsage(projectID, startDate, endDate);
 
             if (result.isSuccess) {
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, {startDate, endDate});
@@ -40,12 +41,12 @@ export const usageModule = {
             return result;
         },
         [PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP]: async function({commit, rootGetters}: any): Promise<RequestResponse<ProjectUsage>> {
-            const projectID = rootGetters.selectedProject.id;
+            const projectID: string = rootGetters.selectedProject.id;
 
             const endDate = new Date();
             const startDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1));
 
-            let result = await fetchProjectUsage(projectID, startDate, endDate);
+            let result: RequestResponse<ProjectUsage> = await fetchProjectUsage(projectID, startDate, endDate);
 
             if (result.isSuccess) {
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, {startDate, endDate});
@@ -71,7 +72,7 @@ export const usageModule = {
             return result;
         },
         [PROJECT_USAGE_ACTIONS.CLEAR]: function({commit}): void {
-           commit(PROJECT_USAGE_MUTATIONS.CLEAR);
+            commit(PROJECT_USAGE_MUTATIONS.CLEAR);
         }
     }
 };
@@ -143,4 +144,4 @@ export const creditUsageModule = {
             return result;
         },
     }
-}
+};

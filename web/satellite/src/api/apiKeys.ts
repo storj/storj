@@ -109,7 +109,7 @@ function prepareIdList(ids: string[]): string {
     return idString;
 }
 
-function getApiKeysList(apiKeys: Array<any>): ApiKey[] {
+function getApiKeysList(apiKeys: ApiKey[]): ApiKey[] {
     if (!apiKeys) {
         return [];
     }

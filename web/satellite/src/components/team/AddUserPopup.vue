@@ -76,11 +76,10 @@
             Button
         }
     })
-
     export default class AddUserPopup extends Vue {
         public imageSource: string = EMPTY_STATE_IMAGES.ADD_USER;
         public imageDeleteUser: string = EMPTY_STATE_IMAGES.DELETE_USER;
-        private inputs: Array<EmailInput> = [new EmailInput(), new EmailInput(), new EmailInput()];
+        private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
         private formError: string = '';
         private isLoading: boolean = false;
 
@@ -92,7 +91,7 @@
             this.isLoading = true;
 
             let length = this.inputs.length;
-            let newInputsArray: Array<EmailInput> = [];
+            let newInputsArray: EmailInput[] = [];
             let areAllEmailsValid = true;
             let emailArray: string[] = [];
 
