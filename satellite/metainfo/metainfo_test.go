@@ -904,6 +904,9 @@ func TestListObjects(t *testing.T) {
 		items, _, err := metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 0)
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
+		for _, item := range items {
+			require.NotEmpty(t, item.Path)
+		}
 
 		items, _, err = metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 3)
 		require.NoError(t, err)
