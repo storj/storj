@@ -107,6 +107,12 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	})
 }
 
+// Close halts the metainfo loop
+func (service *Service) Close() error {
+	service.Loop.Close()
+	return nil
+}
+
 // Join will join the looper for one full cycle until completion and then returns.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
