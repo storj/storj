@@ -19,10 +19,11 @@
     import { Component, Vue } from 'vue-property-decorator';
     import ProjectSelectionDropdown from './ProjectSelectionDropdown.vue';
     import { APP_STATE_ACTIONS, PROJETS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { RequestResponse } from '../../../types/response';
 
     @Component({
         components: {
-            ProjectSelectionDropdown
+            ProjectSelectionDropdown,
         }
     })
     export default class ProjectSelectionArea extends Vue {
