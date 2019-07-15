@@ -10,6 +10,7 @@ import (
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
@@ -22,11 +23,9 @@ var (
 
 // Observer is an interface defining an observer that can subscribe to the metainfo loop
 type Observer interface {
-	// Name() string
-
-	// Bucket(...)
-	// Object(...)
-	Pointer(*pb.Pointer)
+	RemoteSegment(context.Context, storj.Path, *pb.Pointer) error
+	RemoteObject(context.Context, storj.Path, *pb.Pointer) error
+	InlineSegment(context.Context, storj.Path, *pb.Pointer) error
 }
 
 // Config contains configurable values for the metainfo loop
@@ -82,8 +81,21 @@ func (service *Service) Run(ctx context.Context) (err error) {
 						return Error.New("error unmarshalling pointer %s", err)
 					}
 
+					path := storj.Path(item.Key.String())
+
 					for _, o := range service.observers {
-						o.Pointer(pointer)
+						remote := pointer.GetRemote()
+						if remote != nil {
+							_ = o.RemoteSegment(ctx, path, pointer)
+
+							pathElements := storj.SplitPath(path)
+							if len(pathElements) >= 2 && pathElements[1] == "l" {
+								_ = o.RemoteObject(ctx, path, pointer)
+							}
+
+						} else {
+							_ = o.InlineSegment(ctx, path, pointer)
+						}
 					}
 				}
 				return nil
