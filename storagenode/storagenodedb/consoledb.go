@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/date"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
@@ -62,8 +63,8 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from)
-	_, before := getDateEdges(to)
+	since, _ := date.DayBoundary(from.UTC())
+	_, before := date.DayBoundary(to.UTC())
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE ? <= created_at AND created_at <= ?",
@@ -118,7 +119,7 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 			return nil, err
 		}
 
-		from, to := getDateEdges(createdAt)
+		from, to := date.DayBoundary(createdAt)
 
 		bandwidthUsed, ok := dailyBandwidth[from]
 		if !ok {

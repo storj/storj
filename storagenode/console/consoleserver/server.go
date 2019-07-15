@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
@@ -253,7 +254,7 @@ func (server *Server) getBandwidth(ctx context.Context, satelliteID *storj.NodeI
 }
 
 func (server *Server) getBandwidthChartData(ctx context.Context, satelliteID *storj.NodeID) (_ []console.BandwidthUsed, err error) {
-	from, to := getMonthRange()
+	from, to := date.MonthBoundary()
 
 	if satelliteID != nil {
 		return server.service.GetDailyBandwidthUsed(ctx, *satelliteID, from, to)
@@ -287,16 +288,4 @@ func (server *Server) parseSatelliteIDParam(satelliteID string) (*storj.NodeID, 
 	}
 
 	return nil, nil
-}
-
-// getMonthRange is used to get first and last dates of month
-func getMonthRange() (firstDay, lastDay time.Time) {
-	now := time.Now()
-	currentYear, currentMonth, _ := now.Date()
-	currentLocation := now.Location()
-
-	firstDay = time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
-	lastDay = firstDay.AddDate(0, 1, -1)
-
-	return
 }
