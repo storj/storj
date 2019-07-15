@@ -41,7 +41,7 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 	_, err = db.db.Exec(`
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
-		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created)
+		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
 	if err == nil {
 		db.bandwidth.mu.Lock()
 		defer db.bandwidth.mu.Unlock()
@@ -89,8 +89,8 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 	rows, err := db.db.Query(`
 		SELECT action, sum(amount)
 		FROM bandwidth_usage
-		WHERE datetime(created_at) BETWEEN datetime(?) AND datetime(?)
-		GROUP BY action`, from, to)
+		WHERE ? <= created_at AND created_at <= ?
+		GROUP BY action`, from.UTC(), to.UTC())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return usage, nil
@@ -121,8 +121,8 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	rows, err := db.db.Query(`
 		SELECT satellite_id, action, sum(amount)
 		FROM bandwidth_usage
-		WHERE datetime(created_at) BETWEEN datetime(?) AND datetime(?)
-		GROUP BY satellite_id, action`, from, to)
+		WHERE ? <= created_at AND created_at <= ?
+		GROUP BY satellite_id, action`, from.UTC(), to.UTC())
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return entries, nil
