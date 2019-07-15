@@ -285,7 +285,11 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Free Storagenodes from trash data",
 				Version:     12,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
-					deletecmd := exec.Command("rm -r %s/blob/%s %s/blob/%s %s/blob/%s %s/blob/%s ", db.location, "", "", "", "")
+					deletecmd := exec.Command("rm -r %s/blob/%s %s/blob/%s %s/blob/%s %s/blob/%s ",
+						db.location, "", // us-central1
+						db.location, "", // europe-west1
+						db.location, "", // asia-east1
+						db.location, "") // "tothemoon"
 					return deletecmd.Run()
 				}),
 			},
