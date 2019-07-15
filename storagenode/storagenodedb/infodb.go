@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
@@ -28,6 +29,7 @@ type InfoDB struct {
 	db          utcDB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
+	location    string
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -46,6 +48,7 @@ func newInfo(path string) (*InfoDB, error) {
 	infoDb := &InfoDB{db: utcDB{db}}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.location = path
 
 	return infoDb, nil
 }
@@ -270,11 +273,21 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Network Wipe Pre Beta",
+				Description: "Free Storagenodes from trash data",
 				Version:     11,
 				Action: migrate.SQL{
-					`UPDATE pieceinfo SET piece_expiration = '2019-07-16 00:00:00.000000+00:00'`,
+					`DELETE FROM pieceinfo`,
+					`DELETE FROM used_serials`,
+					`DELETE FROM order_archive`,
 				},
+			},
+			{
+				Description: "Free Storagenodes from trash data",
+				Version:     12,
+				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+					deletecmd := exec.Command("rm -r %s/blob/%s %s/blob/%s %s/blob/%s %s/blob/%s ", db.location, "", "", "", "")
+					return deletecmd.Run()
+				}),
 			},
 		},
 	}
