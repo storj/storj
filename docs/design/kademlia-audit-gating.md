@@ -36,6 +36,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
 
 ## Design
 
+// TODO: explain vouchers design with protobufs & method signatures
 1. Satellite Signatures for Node Verification
    - Identities can sign messages already
    - Create a Voucher (message) that satellites can sign that a Node has been verified: qualification status, audit successes, and uptime
@@ -43,6 +44,7 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
    - The vouchers issued by the satellite should have an expiration on them (tunable by satellite)
    - Nodes are expected to get up to date vouchers
 
+// TODO update these interfaces / methods
 ```go
    // Satellite
    // IsVetted returns whether or not the node reaches reputable thresholds
@@ -64,6 +66,12 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
    - Create Whitelist/blacklist with an abstraction layer for trusted/untrusted Satellites
    - These lists will live on each Node
    - NB: We are using `config.Storage.WhitelistedSatelliteIDs` "a comma-separated list of approved satellite node id’s" for now
+
+// TODO: 
+
+• add signatures for antechamber methods
+
+• protobufs for vouchers
 
 3. Routing Table Antechamber
    - XOR ordered data structure (boltDB bucket)
