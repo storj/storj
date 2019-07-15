@@ -39,8 +39,8 @@ type Service struct {
 	config          Config
 	transport       transport.Client
 	overlay         overlay.DB
-	lastSendTime    time.Time
 	lastPieceCounts atomic.Value
+	lastSendTime    atomic.Value
 }
 
 // NewService creates a new instance of the gc service
@@ -48,12 +48,16 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 	var lastPieceCounts atomic.Value
 	lastPieceCounts.Store(map[storj.NodeID]int{})
 
+	var lastSendTime atomic.Value
+	lastSendTime.Store(time.Time{})
+
 	return &Service{
 		log:             log,
 		config:          config,
 		transport:       transport,
 		overlay:         overlay,
 		lastPieceCounts: lastPieceCounts,
+		lastSendTime:    lastSendTime,
 	}
 }
 
@@ -62,7 +66,7 @@ func (service *Service) NewPieceTracker() *PieceTracker {
 	// Creation date of the gc bloom filter - the storage nodes shouldn't delete any piece newer than this.
 	filterCreationDate := time.Now().UTC()
 
-	if !service.config.Active || filterCreationDate.Before(service.lastSendTime.Add(service.config.Interval)) {
+	if !service.isActiveFrom(filterCreationDate) {
 		return nil
 	}
 
@@ -81,7 +85,7 @@ func (service *Service) NewPieceTracker() *PieceTracker {
 func (service *Service) Send(ctx context.Context, pieceTracker *PieceTracker, cb func()) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	service.lastSendTime = time.Now().UTC()
+	service.lastSendTime.Store(time.Now().UTC())
 
 	go func() {
 		piecesCounts, err := service.sendRetainRequests(ctx, pieceTracker)
@@ -163,4 +167,10 @@ func (service *Service) lastPieceCountsNumNodes() int {
 	}
 
 	return len(m.(map[storj.NodeID]int))
+}
+
+func (service *Service) isActiveFrom(from time.Time) bool {
+	lastSendTime := service.lastSendTime.Load().(time.Time)
+
+	return service.config.Active && from.After(lastSendTime.Add(service.config.Interval))
 }
