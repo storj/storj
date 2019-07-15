@@ -128,10 +128,6 @@ func (endpoint *Endpoint) SegmentInfoOld(ctx context.Context, req *pb.SegmentInf
 func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentWriteRequestOld) (resp *pb.SegmentWriteResponseOld, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !req.Expiration.IsZero() && !req.Expiration.After(time.Now()) {
-		return nil, errs.New("Invalid expiration time")
-	}
-
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
@@ -145,6 +141,10 @@ func (endpoint *Endpoint) CreateSegmentOld(ctx context.Context, req *pb.SegmentW
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	if !req.Expiration.IsZero() && !req.Expiration.After(time.Now()) {
+		return nil, status.Errorf(codes.InvalidArgument, "Invalid expiration time")
 	}
 
 	err = endpoint.validateRedundancy(ctx, req.Redundancy)

@@ -44,7 +44,7 @@ func TestInvalidAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 1, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -79,7 +79,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 1, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -208,7 +208,7 @@ func TestServiceList(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 6, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -287,7 +287,7 @@ func TestServiceList(t *testing.T) {
 
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -453,14 +453,21 @@ func TestCreateSegment(t *testing.T) {
 
 func TestExpirationTimeSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
-		pointer := createTestPointer(t)
+		rs := &pb.RedundancyScheme{
+			MinReq:           1,
+			RepairThreshold:  1,
+			SuccessThreshold: 1,
+			Total:            1,
+			ErasureShareSize: 1024,
+			Type:             pb.RedundancyScheme_RS,
+		}
 
 		for _, r := range []struct {
 			expirationDate time.Time
@@ -484,7 +491,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 
-			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
+			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, rs, memory.MiB.Int64(), r.expirationDate)
 			if err != nil {
 				assert.True(t, r.errFlag)
 			} else {
@@ -496,7 +503,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 
 func TestDoubleCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -607,7 +614,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 	}
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -628,7 +635,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 func TestSetAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
@@ -678,7 +685,7 @@ func TestSetAttribution(t *testing.T) {
 
 func TestGetProjectInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
