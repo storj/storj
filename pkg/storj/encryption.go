@@ -110,7 +110,7 @@ func (nonce Nonce) IsZero() bool {
 	return nonce == Nonce{}
 }
 
-// String representation of the serial number
+// String representation of the nonce
 func (nonce Nonce) String() string { return nonceEncoding.EncodeToString(nonce.Bytes()) }
 
 // Bytes returns bytes of the nonce
