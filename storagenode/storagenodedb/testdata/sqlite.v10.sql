@@ -7,7 +7,7 @@ CREATE TABLE used_serial (
 -- primary key on satellite id and serial number
 CREATE UNIQUE INDEX pk_used_serial ON used_serial(satellite_id, serial_number);
 -- expiration index to allow fast deletion
-CREATE INDEX idx_used_serial ON used_serial(datetime(expiration));
+CREATE INDEX idx_used_serial ON used_serial(expiration);
 
 -- certificate table for storing uplink/satellite certificates
 CREATE TABLE certificate (
@@ -33,7 +33,7 @@ CREATE TABLE pieceinfo (
 -- primary key by satellite id and piece id
 CREATE UNIQUE INDEX pk_pieceinfo ON pieceinfo(satellite_id, piece_id);
 -- fast queries for expiration for pieces that have one
-CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(datetime(piece_expiration)) WHERE piece_expiration IS NOT NULL;
+CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(piece_expiration) WHERE piece_expiration IS NOT NULL;
 
 -- table for storing bandwidth usage
 CREATE TABLE bandwidth_usage (
@@ -43,7 +43,7 @@ CREATE TABLE bandwidth_usage (
     created_at    TIMESTAMP NOT NULL
 );
 CREATE INDEX idx_bandwidth_usage_satellite ON bandwidth_usage(satellite_id);
-CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(datetime(created_at));
+CREATE INDEX idx_bandwidth_usage_created   ON bandwidth_usage(created_at);
 
 -- table for storing all unsent orders
 CREATE TABLE unsent_order (

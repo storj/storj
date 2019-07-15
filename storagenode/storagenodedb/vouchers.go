@@ -38,14 +38,14 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 
 	_, err = db.db.Exec(`
 		INSERT INTO vouchers(
-			satellite_id, 
-			voucher_serialized, 
+			satellite_id,
+			voucher_serialized,
 			expiration
 		) VALUES (?, ?, ?)
 			ON CONFLICT(satellite_id) DO UPDATE SET
 				voucher_serialized = ?,
 				expiration = ?
-	`, id, voucherSerialized, expiration, voucherSerialized, expiration)
+	`, id, voucherSerialized, expiration, voucherSerialized, expiration.UTC())
 
 	return err
 }
@@ -54,14 +54,14 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID, expirationBuffer time.Duration) (need bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	expiresBefore := time.Now().UTC().Add(expirationBuffer)
+	expiresBefore := time.Now().Add(expirationBuffer)
 
 	// query returns row if voucher is good. If not, it is either expiring or does not exist
 	row := db.db.QueryRow(`
 		SELECT satellite_id
 		FROM vouchers
 		WHERE satellite_id = ? AND expiration >= ?
-	`, satelliteID, expiresBefore)
+	`, satelliteID, expiresBefore.UTC())
 
 	var bytes []byte
 	err = row.Scan(&bytes)
