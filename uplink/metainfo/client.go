@@ -341,3 +341,110 @@ func convertProtoToBucket(pbBucket *pb.Bucket) storj.Bucket {
 		},
 	}
 }
+
+// BeginObject begins object creation
+func (client *Client) BeginObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32,
+	rs storj.RedundancyScheme, ep storj.EncryptionParameters, expiresAt time.Time, nonce storj.Nonce, encryptedMetadata []byte) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO do proper algorithm conversion
+	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
+		Bucket:                 bucket,
+		EncryptedPath:          encryptedPath,
+		Version:                version,
+		ExpiresAt:              expiresAt,
+		EncryptedMetadataNonce: nonce,
+		EncryptedMetadata:      encryptedMetadata,
+		RedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_RS,
+			ErasureShareSize: rs.ShareSize,
+			MinReq:           int32(rs.RequiredShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			Total:            int32(rs.TotalShares),
+		},
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(ep.CipherSuite),
+			BlockSize:   int64(ep.BlockSize),
+		},
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response.StreamId, nil
+}
+
+// CommitObject commits created object
+func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
+		StreamId: streamID,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// BeginDeleteObject TODO
+func (client *Client) BeginDeleteObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginDeleteObject(ctx, &pb.ObjectBeginDeleteRequest{
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
+		Version:       version,
+	})
+	if err != nil {
+		return storj.StreamID{}, Error.Wrap(err)
+	}
+
+	return response.StreamId, nil
+}
+
+// FinishDeleteObject TODO
+func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.StreamID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.FinishDeleteObject(ctx, &pb.ObjectFinishDeleteRequest{
+		StreamId: streamID,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// ListObjects TODO
+func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedPrefix []byte, encryptedCursor []byte, limit int32) (_ []storj.Object, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.ListObjects(ctx, &pb.ObjectListRequest{
+		Bucket:          bucket,
+		EncryptedPrefix: encryptedPrefix,
+		EncryptedCursor: encryptedCursor,
+		Limit:           limit,
+	})
+	if err != nil {
+		return []storj.Object{}, false, Error.Wrap(err)
+	}
+
+	objects := make([]storj.Object, len(response.Items))
+	for i, object := range response.Items {
+		objects[i] = storj.Object{
+			// Bucket:  string(bucket),
+			Path:    string(object.EncryptedPath),
+			Version: uint32(object.Version),
+			Created: object.CreatedAt,
+			Expires: object.ExpiresAt,
+			// Metadata: object.EncryptedMetadata,
+
+		}
+	}
+
+	return objects, response.More, Error.Wrap(err)
+}
