@@ -878,23 +878,29 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// take bucket RS values if not set in request
-	pbRS := &pb.RedundancyScheme{
-		Type: pb.RedundancyScheme_RS,
-	}
-	if req.RedundancyScheme.ErasureShareSize == 0 {
+	pbRS := req.RedundancyScheme
+	if pbRS.ErasureShareSize == 0 {
 		pbRS.ErasureShareSize = bucket.DefaultRedundancyScheme.ShareSize
 	}
-	if req.RedundancyScheme.MinReq == 0 {
+	if pbRS.MinReq == 0 {
 		pbRS.MinReq = int32(bucket.DefaultRedundancyScheme.RequiredShares)
 	}
-	if req.RedundancyScheme.RepairThreshold == 0 {
+	if pbRS.RepairThreshold == 0 {
 		pbRS.RepairThreshold = int32(bucket.DefaultRedundancyScheme.RepairShares)
 	}
-	if req.RedundancyScheme.SuccessThreshold == 0 {
+	if pbRS.SuccessThreshold == 0 {
 		pbRS.SuccessThreshold = int32(bucket.DefaultRedundancyScheme.OptimalShares)
 	}
-	if req.RedundancyScheme.Total == 0 {
+	if pbRS.Total == 0 {
 		pbRS.Total = int32(bucket.DefaultRedundancyScheme.TotalShares)
+	}
+
+	pbEP := req.EncryptionParameters
+	if pbEP.CipherSuite == 0 {
+		pbEP.CipherSuite = pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite)
+	}
+	if pbEP.BlockSize == 0 {
+		pbEP.BlockSize = int64(bucket.DefaultEncryptionParameters.BlockSize)
 	}
 
 	satStreamID := &pb.SatStreamID{
@@ -922,13 +928,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	return &pb.ObjectBeginResponse{
-		Bucket:           req.Bucket,
-		EncryptedPath:    req.EncryptedPath,
-		Version:          req.Version,
-		StreamId:         streamID,
-		RedundancyScheme: pbRS,
-		// TODO what with EncryptionParameters
-		EncryptionParameters: &pb.EncryptionParameters{},
+		Bucket:               req.Bucket,
+		EncryptedPath:        req.EncryptedPath,
+		Version:              req.Version,
+		StreamId:             streamID,
+		RedundancyScheme:     pbRS,
+		EncryptionParameters: pbEP,
 	}, nil
 }
 
