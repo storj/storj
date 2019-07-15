@@ -176,7 +176,7 @@ func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.Seg
 }
 
 func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
-	defer mon.Task()(&ctx)(nil)
+	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
