@@ -71,7 +71,7 @@ defaults: "release"
 # discovery.refresh-limit: 100
 
 # set if garbage collection is actively running or not
-# garbage-collection.active: true
+# garbage-collection.enabled: true
 
 # the false positive rate used for creating a filter
 # garbage-collection.false-positive-rate: 0.1
