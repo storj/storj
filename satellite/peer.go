@@ -51,6 +51,7 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfoloop"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
@@ -111,8 +112,9 @@ type Config struct {
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	Metainfo metainfo.Config
-	Orders   orders.Config
+	Metainfo     metainfo.Config
+	Metainfoloop metainfoloop.Config
+	Orders       orders.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -167,6 +169,10 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
+	}
+
+	Metainfoloop struct {
+		Service *metainfoloop.Service
 	}
 
 	Inspector struct {
@@ -421,6 +427,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
+	}
+
+	{ // setup metainfoloop
+		log.Debug("Setting up metainfoloop")
+		metaloop := metainfoloop.New(config.Metainfoloop, peer.Metainfo.Service)
+		peer.Metainfoloop.Service = metaloop
 	}
 
 	{ // setup datarepair
