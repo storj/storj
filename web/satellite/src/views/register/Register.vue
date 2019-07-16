@@ -92,10 +92,12 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                     fullName: this.$data.fullName.trim(),
                     shortName: this.$data.shortName.trim(),
                     partnerId: this.$data.partnerId,
-                    referrerId: this.$data.referrerId
                 };
 
-                let response = await createUserRequest(user, this.$data.password, this.$data.secret);
+                let referrerId = this.$data.referrerId;
+                let currentRewardID = 1 || this.$store.state.currentReward.id
+
+                let response = await createUserRequest(user, this.$data.password, this.$data.secret, referrerId, currentRewardID);
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                     this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;

@@ -5,7 +5,6 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/satellite/console"
 )
@@ -81,9 +80,6 @@ func graphqlUserInput() *graphql.InputObject {
 			FieldPassword: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			FieldPartnerID: &graphql.InputObjectFieldConfig{
-				Type: graphql.String,
-			},
 		},
 	})
 }
@@ -96,15 +92,10 @@ func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
 	return
 }
 
-func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser, err error) {
+func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
 	user.UserInfo = fromMapUserInfo(args)
-	partnerID, err := uuid.Parse(args[FieldPartnerID].(string))
-	if err != nil {
-		return user, err
-	}
-	user.PartnerID = *partnerID
 	user.Password, _ = args[FieldPassword].(string)
-	return user, nil
+	return
 }
 
 // fillUserInfo fills satellite.UserInfo from satellite.User and input args

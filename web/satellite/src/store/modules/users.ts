@@ -15,8 +15,6 @@ export const usersModule = {
             fullName: '',
             shortName: '',
             email: '',
-            partnerId: '',
-            referrerId: '',
         }
     },
 

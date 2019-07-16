@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -79,6 +80,9 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
+					FieldPartnerID: &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
 					ReferrerID: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
@@ -90,16 +94,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
-					referrerID := p.Args[ReferrerID].(string)
+					partnerInput := p.Args[FieldPartnerID].(string)
+					referrerInput := p.Args[ReferrerID].(string)
 					rewardID := p.Args[RewardID].(int)
-
-					createUser, err := fromMapCreateUser(input)
-					if err != nil {
-						log.Error("register: failed to parse partnerID",
-							zap.Error(err))
-
-						return nil, err
-					}
+					createUser := fromMapCreateUser(input)
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)
 					if err != nil {
@@ -110,6 +108,14 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
+					if len(partnerInput) > 1 {
+						partnerID, err := uuid.Parse(partnerInput)
+						if err != nil {
+							return nil, err
+						}
+						createUser.PartnerID = *partnerID
+					}
+
 					user, err := service.CreateUser(p.Context, createUser, secret)
 					if err != nil {
 						log.Error("register: failed to create account",
@@ -117,6 +123,33 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							zap.Error(err))
 
 						return nil, err
+					}
+
+					if len(referrerInput) > 1 {
+						referrerID, err := uuid.Parse(referrerInput)
+						if err != nil {
+							log.Error("register: failed to parse referrer ID",
+								zap.String("rawReferralID", referrerInput),
+								zap.Error(err))
+
+							return nil, err
+						}
+
+						tempReward := rewards.Offer{
+							ID:                        rewardID,
+							InviteeCreditDurationDays: 14,
+							Status:                    rewards.Default,
+							Type:                      rewards.Referral,
+						}
+
+						err = service.RedeemRewards(p.Context, tempReward, referrerID, user.ID)
+						if err != nil {
+							log.Error("register: failed to redeem credits",
+								zap.String("rawSecret", secretInput),
+								zap.Error(err))
+
+							return nil, err
+						}
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
