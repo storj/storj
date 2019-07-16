@@ -420,7 +420,7 @@ message SegmentMakeInlineRequest {
     bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
     SegmentPosition position = 2;
 
-    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
     bytes encrypted_key = 4;
 
     bytes encrypted_inline_data = 5;
