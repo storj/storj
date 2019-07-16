@@ -905,7 +905,8 @@ func TestListObjects(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
 		for _, item := range items {
-			require.NotEmpty(t, item.Path)
+			require.NotEmpty(t, item.EncryptedPath)
+			require.True(t, item.CreatedAt.Before(time.Now()))
 		}
 
 		items, _, err = metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 3)

@@ -33,7 +33,10 @@ import (
 	"storj.io/storj/storage"
 )
 
-const pieceHashExpiration = 2 * time.Hour
+const (
+	pieceHashExpiration = 2 * time.Hour
+	satIDExpiration     = 24 * time.Hour
+)
 
 var (
 	mon = monkit.Package()
@@ -952,6 +955,10 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
+	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, status.Errorf(codes.InvalidArgument, "stream ID expired")
+	}
+
 	_, err = endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
@@ -962,7 +969,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// no logic for shim implementation
+	// we don't need to do anything for shim implementation
 
 	return &pb.ObjectCommitResponse{}, nil
 }
@@ -1037,6 +1044,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
 		Version:       req.Version,
+		CreationDate:  time.Now(),
 	}
 
 	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
@@ -1074,6 +1082,10 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
+	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, status.Errorf(codes.InvalidArgument, "stream ID expired")
+	}
+
 	_, err = endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
@@ -1084,7 +1096,7 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// no logic for shim implementation
+	// we don't need to do anything for shim implementation
 
 	return &pb.ObjectFinishDeleteResponse{}, nil
 }

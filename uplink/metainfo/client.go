@@ -412,7 +412,7 @@ func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.Str
 }
 
 // ListObjects lists objects according to specific parameters
-func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedPrefix []byte, encryptedCursor []byte, limit int32) (_ []storj.Object, more bool, err error) {
+func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedPrefix []byte, encryptedCursor []byte, limit int32) (_ []storj.ObjectListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListObjects(ctx, &pb.ObjectListRequest{
@@ -422,17 +422,20 @@ func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedP
 		Limit:           limit,
 	})
 	if err != nil {
-		return []storj.Object{}, false, Error.Wrap(err)
+		return []storj.ObjectListItem{}, false, Error.Wrap(err)
 	}
 
-	// TODO maybe we should just return pb.ObjectListItem
-	objects := make([]storj.Object, len(response.Items))
+	objects := make([]storj.ObjectListItem, len(response.Items))
 	for i, object := range response.Items {
-		objects[i] = storj.Object{
-			Path:    string(object.EncryptedPath),
-			Version: uint32(object.Version),
-			Created: object.CreatedAt,
-			Expires: object.ExpiresAt,
+		objects[i] = storj.ObjectListItem{
+			EncryptedPath:          object.EncryptedPath,
+			Version:                object.Version,
+			Status:                 int32(object.Status),
+			StatusAt:               object.StatusAt,
+			CreatedAt:              object.CreatedAt,
+			ExpiresAt:              object.ExpiresAt,
+			EncryptedMetadataNonce: object.EncryptedMetadataNonce,
+			EncryptedMetadata:      object.EncryptedMetadata,
 		}
 	}
 
