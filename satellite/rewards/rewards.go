@@ -10,6 +10,9 @@ import (
 	"storj.io/storj/internal/currency"
 )
 
+// MaxRedemptionErr is the error message used when an offer has reached its redemption capacity
+var MaxRedemptionErr = "This offer redemption has reached its capacity"
+
 // DB holds information about offer
 type DB interface {
 	ListAll(ctx context.Context) (Offers, error)
