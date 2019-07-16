@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfoloop
+package metainfo
 
 import (
 	"context"
@@ -9,19 +9,16 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/storage"
 )
 
 var (
-	// Error is a standard error class for this package
-	Error = errs.Class("metainfo loop error")
-	mon   = monkit.Package()
+	// LoopError is a standard error class for this component
+	LoopError = errs.Class("metainfo loop error")
 )
 
 // Observer is an interface defining an observer that can subscribe to the metainfo loop
@@ -31,24 +28,24 @@ type Observer interface {
 	InlineSegment(context.Context, storj.Path, *pb.Pointer) error
 }
 
-// Config contains configurable values for the metainfo loop
-type Config struct {
+// LoopConfig contains configurable values for the metainfo loop
+type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how frequently metainfoloop should iterate over segments" releaseDefault:"30s" devDefault:"0h0m10s"`
 }
 
-// Service is a metainfo loop service
-type Service struct {
+// LoopService is a metainfo loop service
+type LoopService struct {
 	waitingObservers  []Observer
 	observers         []Observer
 	Loop              *sync2.Cycle
-	metainfo          *metainfo.Service
+	metainfo          *Service
 	observersCombined chan bool
 	loopEnded         chan error
 }
 
-// New creates a new metainfo loop service
-func New(config Config, metainfo *metainfo.Service) *Service {
-	return &Service{
+// NewLoop creates a new metainfo loop service
+func NewLoop(config LoopConfig, metainfo *Service) *LoopService {
+	return &LoopService{
 		Loop:              sync2.NewCycle(config.CoalesceDuration),
 		metainfo:          metainfo,
 		observersCombined: make(chan bool),
@@ -57,7 +54,7 @@ func New(config Config, metainfo *metainfo.Service) *Service {
 }
 
 // Run starts the looping service.
-func (service *Service) Run(ctx context.Context) (err error) {
+func (service *LoopService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
@@ -82,7 +79,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 					err = proto.Unmarshal(item.Value, pointer)
 					if err != nil {
-						return Error.New("error unmarshalling pointer %s", err)
+						return LoopError.New("error unmarshalling pointer %s", err)
 					}
 
 					path := storj.Path(item.Key.String())
@@ -113,7 +110,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 // Close halts the metainfo loop
-func (service *Service) Close() error {
+func (service *LoopService) Close() error {
 	service.Loop.Close()
 	return nil
 }
@@ -121,7 +118,7 @@ func (service *Service) Close() error {
 // Join will join the looper for one full cycle until completion and then returns.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
-func (service *Service) Join(ctx context.Context, observer Observer) (err error) {
+func (service *LoopService) Join(ctx context.Context, observer Observer) (err error) {
 	// TODO fix concurrent read/writes or something
 	service.waitingObservers = append(service.waitingObservers, observer)
 

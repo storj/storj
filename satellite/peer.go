@@ -51,7 +51,6 @@ import (
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfoloop"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/payments"
@@ -113,7 +112,7 @@ type Config struct {
 	Discovery discovery.Config
 
 	Metainfo     metainfo.Config
-	Metainfoloop metainfoloop.Config
+	Metainfoloop metainfo.LoopConfig
 	Orders       orders.Config
 
 	Checker  checker.Config
@@ -172,7 +171,7 @@ type Peer struct {
 	}
 
 	Metainfoloop struct {
-		Service *metainfoloop.Service
+		Service *metainfo.LoopService
 	}
 
 	Inspector struct {
@@ -431,7 +430,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup metainfoloop
 		log.Debug("Setting up metainfoloop")
-		metaloop := metainfoloop.New(config.Metainfoloop, peer.Metainfo.Service)
+		metaloop := metainfo.NewLoop(config.Metainfoloop, peer.Metainfo.Service)
 		peer.Metainfoloop.Service = metaloop
 	}
 
