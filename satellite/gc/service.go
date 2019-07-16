@@ -127,15 +127,19 @@ func (service *Service) sendRetainRequest(
 
 	log := service.log.Named(id.String())
 
-	// todo get address from overlay
+	dossier, err := service.overlay.Get(ctx, id)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	target := &pb.Node{
 		Id:      id,
-		Address: retainInfo.address,
+		Address: dossier.Address,
 	}
 
 	ps, err := piecestore.Dial(ctx, service.transport, target, log, piecestore.DefaultConfig)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 	defer func() {
 		err2 := ps.Close()
