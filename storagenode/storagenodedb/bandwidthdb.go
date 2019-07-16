@@ -18,16 +18,14 @@ import (
 )
 
 type bandwidthdb struct {
-	*InfoDB
-	bandwidth bandwidthUsed
-	loop      *sync2.Cycle
-}
-
-type bandwidthUsed struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
-	used      int64
-	mu        sync.RWMutex
+	usedSpace int64
+	usedMu    sync.RWMutex
 	usedSince time.Time
+
+	*InfoDB
+
+	loop *sync2.Cycle
 }
 
 // Bandwidth returns table for storing bandwidth usage.
@@ -56,19 +54,19 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 			bandwidth_usage(satellite_id, action, amount, created_at)
 		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
 	if err == nil {
-		db.bandwidth.mu.Lock()
-		defer db.bandwidth.mu.Unlock()
+		db.usedMu.Lock()
+		defer db.usedMu.Unlock()
 
 		beginningOfMonth := getBeginningOfMonth(created.UTC())
-		if beginningOfMonth.Equal(db.bandwidth.usedSince) {
-			db.bandwidth.used += amount
-		} else if beginningOfMonth.After(db.bandwidth.usedSince) {
+		if beginningOfMonth.Equal(db.usedSince) {
+			db.usedSpace += amount
+		} else if beginningOfMonth.After(db.usedSince) {
 			usage, err := db.Summary(ctx, beginningOfMonth, time.Now().UTC())
 			if err != nil {
 				return err
 			}
-			db.bandwidth.usedSince = beginningOfMonth
-			db.bandwidth.used = usage.Total()
+			db.usedSince = beginningOfMonth
+			db.usedSpace = usage.Total()
 		}
 	}
 	return ErrInfo.Wrap(err)
@@ -77,13 +75,13 @@ func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action
 // MonthSummary returns summary of the current months bandwidth usages
 func (db *bandwidthdb) MonthSummary(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	db.bandwidth.mu.RLock()
+	db.usedMu.RLock()
 	beginningOfMonth := getBeginningOfMonth(time.Now().UTC())
-	if beginningOfMonth.Equal(db.bandwidth.usedSince) {
-		defer db.bandwidth.mu.RUnlock()
-		return db.bandwidth.used, nil
+	if beginningOfMonth.Equal(db.usedSince) {
+		defer db.usedMu.RUnlock()
+		return db.usedSpace, nil
 	}
-	db.bandwidth.mu.RUnlock()
+	db.usedMu.RUnlock()
 
 	usage, err := db.Summary(ctx, beginningOfMonth, time.Now())
 	if err != nil {
@@ -199,7 +197,7 @@ func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage
 		WHERE datetime(created_at) < datetime(?)
-		GROUP BY created_hr, satellite_id, action;		
+		GROUP BY created_hr, satellite_id, action;
 
 		DELETE FROM bandwidth_usage WHERE datetime(created_at) < datetime(?);
 	`, hour, hour)
