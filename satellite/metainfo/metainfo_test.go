@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"context"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -811,5 +812,105 @@ func TestBucketNameValidation(t *testing.T) {
 			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.Error(t, err, "bucket name: %v", name)
 		}
+	})
+}
+
+func TestBeginCommitObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfoService := planet.Satellites[0].Metainfo.Service
+
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		projectID := projects[0].ID
+
+		bucket := storj.Bucket{
+			Name:       "initial-bucket",
+			ProjectID:  projectID,
+			PathCipher: config.GetEncryptionParameters().CipherSuite,
+		}
+		_, err = metainfoService.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		streamID, err := metainfo.BeginObject(
+			ctx,
+			[]byte(bucket.Name),
+			[]byte("encrypted-path"),
+			1,
+			storj.RedundancyScheme{},
+			storj.EncryptionParameters{},
+			time.Time{},
+			testrand.Nonce(),
+			testrand.Bytes(memory.KiB),
+		)
+		require.NoError(t, err)
+
+		err = metainfo.CommitObject(ctx, streamID)
+		require.NoError(t, err)
+	})
+}
+
+func TestBeginFinishDeleteObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		streamID, err := metainfo.BeginDeleteObject(
+			ctx,
+			[]byte("initial-bucket"),
+			[]byte("encrypted-path"),
+			1,
+		)
+		require.NoError(t, err)
+
+		err = metainfo.FinishDeleteObject(ctx, streamID)
+		require.NoError(t, err)
+	})
+}
+
+func TestListObjects(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		files := make([]string, 10)
+		data := testrand.Bytes(1 * memory.KiB)
+		for i := 0; i < len(files); i++ {
+			files[i] = "path" + strconv.Itoa(i)
+			err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", files[i], data)
+			require.NoError(t, err)
+		}
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		items, _, err := metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 0)
+		require.NoError(t, err)
+		require.Equal(t, len(files), len(items))
+		for _, item := range items {
+			require.NotEmpty(t, item.EncryptedPath)
+			require.True(t, item.CreatedAt.Before(time.Now()))
+		}
+
+		items, _, err = metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 3)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(items))
 	})
 }

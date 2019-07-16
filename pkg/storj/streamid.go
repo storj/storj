@@ -17,7 +17,7 @@ var ErrStreamID = errs.Class("stream ID error")
 var streamIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // StreamID is the unique identifier for stream related to object
-type StreamID [16]byte
+type StreamID []byte
 
 // StreamIDFromString decodes an base32 encoded
 func StreamIDFromString(s string) (StreamID, error) {
@@ -30,18 +30,14 @@ func StreamIDFromString(s string) (StreamID, error) {
 
 // StreamIDFromBytes converts a byte slice into a stream ID
 func StreamIDFromBytes(b []byte) (StreamID, error) {
-	if len(b) != len(StreamID{}) {
-		return StreamID{}, ErrStreamID.New("not enough bytes to make a stream ID; have %d, need %d", len(b), len(NodeID{}))
-	}
-
-	var id StreamID
-	copy(id[:], b)
+	id := make([]byte, len(b))
+	copy(id, b)
 	return id, nil
 }
 
 // IsZero returns whether stream ID is unassigned
 func (id StreamID) IsZero() bool {
-	return id == StreamID{}
+	return len(id) == 0
 }
 
 // String representation of the stream ID
@@ -69,7 +65,7 @@ func (id *StreamID) Unmarshal(data []byte) error {
 }
 
 // Size returns the length of a stream ID (implements gogo's custom type interface)
-func (id *StreamID) Size() int {
+func (id StreamID) Size() int {
 	return len(id)
 }
 
