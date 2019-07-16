@@ -35,21 +35,21 @@ type LoopConfig struct {
 
 // LoopService is a metainfo loop service
 type LoopService struct {
-	waitingObservers  []Observer
-	observers         []Observer
-	Loop              *sync2.Cycle
-	metainfo          *Service
-	observersCombined chan bool
-	loopEnded         chan error
+	waitingObservers []Observer
+	observers        []Observer
+	Loop             *sync2.Cycle
+	metainfo         *Service
+	loopStartChans   map[Observer]chan struct{}
+	loopEndChans     map[Observer]chan error
 }
 
 // NewLoop creates a new metainfo loop service
 func NewLoop(config LoopConfig, metainfo *Service) *LoopService {
 	return &LoopService{
-		Loop:              sync2.NewCycle(config.CoalesceDuration),
-		metainfo:          metainfo,
-		observersCombined: make(chan bool),
-		loopEnded:         make(chan error),
+		Loop:           sync2.NewCycle(config.CoalesceDuration),
+		metainfo:       metainfo,
+		loopStartChans: make(map[Observer]chan struct{}),
+		loopEndChans:   make(map[Observer]chan error),
 	}
 }
 
@@ -58,16 +58,18 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
+		// wait for observers
 		if len(service.waitingObservers) == 0 {
 			return nil
 		}
-		// wait for observers
-		// coalesce incoming observers, within 5s
-		// TODO fix concurrent read/writes or something
+
+		// TODO coalesce incoming observers, within 5s
 		service.observers = service.waitingObservers
 		service.waitingObservers = []Observer{}
 
-		service.observersCombined <- true
+		for _, obs := range service.observers {
+			service.loopStartChans[obs] <- struct{}{}
+		}
 
 		err = service.metainfo.Iterate(ctx, "", "", true, false,
 			func(ctx context.Context, it storage.Iterator) error {
@@ -103,7 +105,9 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 				return nil
 			})
 
-		service.loopEnded <- err
+		for _, obs := range service.observers {
+			service.loopEndChans[obs] <- err
+		}
 
 		return err
 	})
@@ -119,14 +123,15 @@ func (service *LoopService) Close() error {
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
 func (service *LoopService) Join(ctx context.Context, observer Observer) (err error) {
-	// TODO fix concurrent read/writes or something
+	service.loopStartChans[observer] = make(chan struct{})
+	service.loopEndChans[observer] = make(chan error)
 	service.waitingObservers = append(service.waitingObservers, observer)
 
 	// wait for observer combine
-	<-service.observersCombined
+	<-service.loopStartChans[observer]
 
 	// wait for loop to iterate over all segments
-	err = <-service.loopEnded
+	err = <-service.loopEndChans[observer]
 
 	return err
 }

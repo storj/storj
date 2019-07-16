@@ -145,6 +145,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					Validate:         false,
 				},
 			},
+			Metainfoloop: metainfo.LoopConfig{
+				CoalesceDuration: 10 * time.Second,
+			},
 			Orders: orders.Config{
 				Expiration: 7 * 24 * time.Hour,
 			},
