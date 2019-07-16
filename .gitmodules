@@ -1,3 +1,0 @@
-[submodule "lib/libstorj"]
-	path = lib/libstorj
-	url = git@github.com:bryanchriswhite/libstorj.git
