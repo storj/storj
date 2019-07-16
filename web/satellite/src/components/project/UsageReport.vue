@@ -69,7 +69,7 @@
         }
     })
     export default class UsageReport extends Vue {
-        private startTime: any = {
+        public startTime: any = {
             time: '',
         };
         private dateRange: any;
@@ -107,7 +107,7 @@
             return this.$store.state.usageModule.projectUsage.objectCount.toPrecision(5);
         }
 
-        public mounted() {
+        public mounted(): void {
             this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
         }
 

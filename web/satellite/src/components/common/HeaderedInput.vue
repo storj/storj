@@ -72,18 +72,18 @@
             this.value = this.initValue;
         }
         
-        public get style() {
+        public get style(): object {
             return {
                 width: this.width,
                 height: this.height,
             };
         }
     
-        public onInput() {
+        public onInput(): void {
             this.$emit('setData', this.$data.value);
         }
         
-        public setValue(value: string) {
+        public setValue(value: string): void {
             this.value = value;
         }
     }

@@ -69,7 +69,7 @@
         private isEditing: boolean = false;
         private newDescription: string = '';
 
-        public mounted() {
+        public mounted(): void {
             this.$store.dispatch(PROJETS_ACTIONS.FETCH);
         }
 

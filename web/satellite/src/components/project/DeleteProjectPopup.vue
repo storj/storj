@@ -92,7 +92,6 @@
     })
     export default class DeleteProjectPopup extends Vue {
         private projectName: string = '';
-
         private nameError: string = '';
         private isLoading: boolean = false;
 

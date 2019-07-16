@@ -51,7 +51,7 @@
     export default class ApiKeysArea extends Vue {
         public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
-        public mounted() {
+        public mounted(): void {
             this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
         }
 

@@ -31,9 +31,9 @@
     })
     export default class ProjectDetailsArea extends Vue {
         // TODO: make type for project routes
-        private navigation: any = PROJECT_ROUTES;
+        public navigation: any = PROJECT_ROUTES;
 
-        public mounted() {
+        public mounted(): void {
             this.$router.push(PROJECT_ROUTES.DETAILS.path);
         }
 

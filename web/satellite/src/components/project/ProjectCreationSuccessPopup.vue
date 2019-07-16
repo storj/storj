@@ -64,13 +64,13 @@
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
         }
 
-        private onCreateAPIKeyClick(): void {
+        public onCreateAPIKeyClick(): void {
             this.$router.push(ROUTES.API_KEYS.path);
             this.onCloseClick();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
         }
 
-        private get isPopupShown(): boolean {
+        public get isPopupShown(): boolean {
             return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
         }
     }

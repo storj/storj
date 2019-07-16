@@ -16,7 +16,7 @@
     })
     export default class NavigationArea extends Vue {
         // TODO: create types for navigation items
-        private readonly navigation: any = NAVIGATION_ITEMS;
+        public readonly navigation: any = NAVIGATION_ITEMS;
 
         public togglePopup(): void {
             if (!this.$store.getters.selectedProject.id) return;
