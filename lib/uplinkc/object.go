@@ -135,6 +135,12 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 		return C.size_t(0)
 	}
 
+	select {
+		case <-upload.ctx.Done():
+			return C.size_t(0)
+		default:
+	}
+
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := upload.wc.Write(buf)
@@ -169,7 +175,6 @@ func upload_cancel(uploader C.UploaderRef, cErr **C.char) {
 		*cErr = C.CString("invalid uploader")
 		return
 	}
-	defer universe.Del(uploader._handle)
 
 	upload.cancel()
 }
@@ -288,6 +293,11 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 		*cErr = C.CString(err.Error())
 		return
 	}
+}
+
+//export free_upload_ref
+func free_upload_ref(uploader C.UploaderRef) {
+	universe.Del(uploader._handle)
 }
 
 //export free_upload_opts
