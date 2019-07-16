@@ -356,6 +356,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
+	})
+
+	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
@@ -384,6 +388,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
+	if peer.DB.Bandwidth() != nil {
+		errlist.Add(peer.DB.Bandwidth().Close())
+	}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}

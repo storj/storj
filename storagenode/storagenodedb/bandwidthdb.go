@@ -11,6 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
@@ -19,6 +20,7 @@ import (
 type bandwidthdb struct {
 	*InfoDB
 	bandwidth bandwidthUsed
+	loop      *sync2.Cycle
 }
 
 type bandwidthUsed struct {
@@ -34,10 +36,21 @@ func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 // Bandwidth returns table for storing bandwidth usage.
 func (db *InfoDB) Bandwidth() bandwidth.DB { return &db.bandwidthdb }
 
+// Run starts the background process for rollups of bandwidth usage
+func (db *bandwidthdb) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return db.loop.Run(ctx, db.Bandwidth().Rollup)
+}
+
+// Close stops the background process for rollups of bandwidth usage
+func (db *bandwidthdb) Close() (err error) {
+	db.loop.Close()
+	return nil
+}
+
 // Add adds bandwidth usage to the table
 func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	_, err = db.db.Exec(`
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
@@ -86,11 +99,21 @@ func (db *bandwidthdb) Summary(ctx context.Context, from, to time.Time) (_ *band
 
 	usage := &bandwidth.Usage{}
 
+	from = from.UTC()
+	to = to.UTC()
 	rows, err := db.db.Query(`
-		SELECT action, sum(amount)
-		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?
-		GROUP BY action`, from.UTC(), to.UTC())
+		SELECT action, sum(a) amount from(
+				SELECT action, sum(amount) a
+				FROM bandwidth_usage
+				WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+				GROUP BY action
+				UNION ALL
+				SELECT action, sum(amount) a
+				FROM bandwidth_usage_rollups
+				WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+				GROUP BY action
+		) GROUP BY action;
+		`, from, to, from, to)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return usage, nil
@@ -118,11 +141,21 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 
 	entries := map[storj.NodeID]*bandwidth.Usage{}
 
+	from = from.UTC()
+	to = to.UTC()
 	rows, err := db.db.Query(`
-		SELECT satellite_id, action, sum(amount)
-		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?
-		GROUP BY satellite_id, action`, from.UTC(), to.UTC())
+	SELECT satellite_id, action, sum(a) amount from(
+			SELECT satellite_id, action, sum(amount) a
+			FROM bandwidth_usage
+			WHERE datetime(?) <= datetime(created_at) AND datetime(created_at) <= datetime(?)
+			GROUP BY satellite_id, action
+			UNION ALL
+			SELECT satellite_id, action, sum(amount) a
+			FROM bandwidth_usage_rollups
+			WHERE datetime(?) <= datetime(interval_start) AND datetime(interval_start) <= datetime(?)
+			GROUP BY satellite_id, action
+		) GROUP BY satellite_id, action;
+		`, from, to, from, to)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return entries, nil
@@ -151,6 +184,35 @@ func (db *bandwidthdb) SummaryBySatellite(ctx context.Context, from, to time.Tim
 	}
 
 	return entries, ErrInfo.Wrap(rows.Err())
+}
+
+// Rollup bandwidth_usage data earlier than the current hour, then delete the rolled up records
+func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now().UTC()
+	// Go back an hour to give us room for late persists
+	hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location()).Add(-time.Hour)
+
+	result, err := db.db.Exec(`
+		INSERT INTO bandwidth_usage_rollups (interval_start, satellite_id,  action, amount)
+		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
+			FROM bandwidth_usage
+		WHERE datetime(created_at) < datetime(?)
+		GROUP BY created_hr, satellite_id, action;		
+
+		DELETE FROM bandwidth_usage WHERE datetime(created_at) < datetime(?);
+	`, hour, hour)
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+
+	_, err = result.RowsAffected()
+	if err != nil {
+		return ErrInfo.Wrap(err)
+	}
+
+	return nil
 }
 
 func getBeginningOfMonth(now time.Time) time.Time {
