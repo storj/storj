@@ -4,16 +4,15 @@
 <template src="./registrationSuccessPopup.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import ROUTES from '@/utils/constants/routerConstants';
-import { resendEmailRequest } from '../../api/users';
-import { getUserID } from '@/utils/consoleLocalStorage';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import { resendEmailRequest } from '../../api/users';
+    import { getUserID } from '@/utils/consoleLocalStorage';
 
 
-@Component(
-    {
+    @Component({
         beforeDestroy: function() {
             if (this.$data.intervalID) {
                 clearInterval(this.$data.intervalID);
@@ -32,7 +31,7 @@ import { getUserID } from '@/utils/consoleLocalStorage';
             }
         },
         methods: {
-            onResendEmailButtonClick: async function () {
+            onResendEmailButtonClick: async function (): Promise<void> {
                 this.$data.isResendEmailButtonDisabled = true;
 
                 let userID = getUserID();
@@ -45,13 +44,14 @@ import { getUserID } from '@/utils/consoleLocalStorage';
                     (this as any).startResendEmailCountdown();
                 }
             },
-            onCloseClick: function () {
+            onCloseClick: function (): void {
                 this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
                 this.$router.push(ROUTES.LOGIN.path);
             },
             startResendEmailCountdown: function () {
                 let countdown = 30;
                 let self = this;
+
                 this.$data.intervalID = setInterval(function () {
                     countdown--;
 
@@ -66,13 +66,11 @@ import { getUserID } from '@/utils/consoleLocalStorage';
             }
         },
         components: {
-            Button,
+        Button,
         },
-    }
-)
+    })
 
-export default class RegistrationSuccessPopup extends Vue {
-}
+    export default class RegistrationSuccessPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">

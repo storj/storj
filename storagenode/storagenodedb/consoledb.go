@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -34,7 +33,7 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT DISTINCT satellite_id
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?`), from, to)
+		WHERE ? <= created_at AND created_at <= ?`), from.UTC(), to.UTC())
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -63,12 +62,12 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
+	since, _ := getDateEdges(from)
+	_, before := getDateEdges(to)
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE ? <= created_at AND created_at <= ?",
-		since, before)
+		since.UTC(), before.UTC())
 }
 
 // GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
@@ -76,12 +75,12 @@ func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to ti
 func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
+	since, _ := getDateEdges(from)
+	_, before := getDateEdges(to)
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
-		satelliteID, since, before)
+		satelliteID, since.UTC(), before.UTC())
 }
 
 // getDailyBandwidthUsed returns slice of grouped by date bandwidth usage
@@ -89,16 +88,15 @@ func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID stor
 func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	qb := strings.Builder{}
-	qb.WriteString("SELECT action, SUM(amount), created_at ")
-	qb.WriteString("FROM bandwidth_usage ")
-	if cond != "" {
-		qb.WriteString(cond + " ")
-	}
-	qb.WriteString("GROUP BY DATE(created_at), action ")
-	qb.WriteString("ORDER BY created_at ASC")
+	query := db.Rebind(`
+		SELECT action, SUM(amount), created_at
+		FROM bandwidth_usage
+		` + cond + `
+		GROUP BY DATE(created_at), action
+		ORDER BY created_at ASC
+	`)
 
-	rows, err := db.db.QueryContext(ctx, db.Rebind(qb.String()), args)
+	rows, err := db.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

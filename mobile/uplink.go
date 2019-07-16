@@ -141,11 +141,11 @@ func (project *Project) GetBucketInfo(bucketName string) (*BucketInfo, error) {
 }
 
 // ListBuckets will list authorized buckets.
-func (project *Project) ListBuckets(cursor string, direction, limit int) (*BucketList, error) {
+func (project *Project) ListBuckets(cursor string, limit int) (*BucketList, error) {
 	scope := project.scope.child()
 	opts := libuplink.BucketListOptions{
 		Cursor:    cursor,
-		Direction: storj.ListDirection(direction),
+		Direction: storj.Forward,
 		Limit:     limit,
 	}
 	list, err := project.lib.ListBuckets(scope.ctx, &opts)
@@ -171,4 +171,16 @@ func safeError(err error) error {
 		return nil
 	}
 	return fmt.Errorf("%v", err.Error())
+}
+
+// SaltedKeyFromPassphrase returns a key generated from the given passphrase using a stable,
+// project-specific salt
+func (project *Project) SaltedKeyFromPassphrase(passphrase string) (keyData []byte, err error) {
+	scope := project.scope.child()
+
+	key, err := project.lib.SaltedKeyFromPassphrase(scope.ctx, passphrase)
+	if err != nil {
+		return nil, err
+	}
+	return key[:], nil
 }

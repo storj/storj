@@ -27,11 +27,11 @@ import {
     PM_ACTIONS,
     API_KEYS_ACTIONS,
     PROJECT_USAGE_ACTIONS,
-    BUCKET_USAGE_ACTIONS
+    BUCKET_USAGE_ACTIONS,
+    PROJECT_PAYMENT_METHODS_ACTIONS
 } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         computed: {
             projects: function () {
                 return this.$store.getters.projects;
@@ -47,6 +47,7 @@ import {
                 const keysResponse = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
                 const usageResponse = await this.$store.dispatch(PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP);
                 const bucketsResponse = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+                const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
 
                 if (!pmResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
@@ -63,13 +64,15 @@ import {
                 if (!bucketsResponse.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
                 }
+
+                if (!paymentMethodsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+                }
             }
         },
-    }
-)
+    })
 
-export default class ProjectSelectionDropdown extends Vue {
-}
+    export default class ProjectSelectionDropdown extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -83,6 +86,7 @@ export default class ProjectSelectionDropdown extends Vue {
         background-color: #FFFFFF;
         z-index: 1120;
     }
+
     .project-selection-overflow-container {
         position: relative;
         width: 226px;

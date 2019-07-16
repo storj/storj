@@ -17,10 +17,10 @@ type usedSerials struct {
 	*InfoDB
 }
 
-// UsedSerials returns certificate database.
+// UsedSerials returns used serials database.
 func (db *DB) UsedSerials() piecestore.UsedSerials { return db.info.UsedSerials() }
 
-// UsedSerials returns certificate database.
+// UsedSerials returns used serials database.
 func (db *InfoDB) UsedSerials() piecestore.UsedSerials { return &usedSerials{db} }
 
 // Add adds a serial to the database.
@@ -30,7 +30,7 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 	_, err = db.db.Exec(`
 		INSERT INTO
 			used_serial(satellite_id, serial_number, expiration)
-		VALUES(?, ?, ?)`, satelliteID, serialNumber, expiration)
+		VALUES(?, ?, ?)`, satelliteID, serialNumber, expiration.UTC())
 
 	return ErrInfo.Wrap(err)
 }
@@ -39,7 +39,7 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.Exec(`DELETE FROM used_serial WHERE expiration < ?`, now)
+	_, err = db.db.Exec(`DELETE FROM used_serial WHERE expiration < ?`, now.UTC())
 	return ErrInfo.Wrap(err)
 }
 

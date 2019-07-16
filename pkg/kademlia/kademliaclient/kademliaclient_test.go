@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package kademlia_test
+package kademliaclient_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/kademlia"
+	"storj.io/storj/pkg/kademlia/kademliaclient"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/peertls/tlsopts"
 	"storj.io/storj/pkg/storj"
@@ -42,7 +42,7 @@ func TestDialer(t *testing.T) {
 	{ // PingNode: storage node pings all other storage nodes
 		self := planet.StorageNodes[0]
 
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -64,7 +64,7 @@ func TestDialer(t *testing.T) {
 	{ // FetchPeerIdentity: storage node fetches identity of the satellite
 		self := planet.StorageNodes[0]
 
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -93,7 +93,7 @@ func TestDialer(t *testing.T) {
 
 	{ // Lookup: storage node query every node for everyone elese
 		self := planet.StorageNodes[1]
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -128,7 +128,7 @@ func TestDialer(t *testing.T) {
 
 	{ // Lookup: storage node queries every node for missing storj.NodeID{} and storj.NodeID{255}
 		self := planet.StorageNodes[2]
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), self.Transport)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), self.Transport)
 		defer ctx.Check(dialer.Close)
 
 		targets := []storj.NodeID{
@@ -194,7 +194,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), slowClient)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), slowClient)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -230,7 +230,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), slowClient)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), slowClient)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group
@@ -267,7 +267,7 @@ func TestSlowDialerHasTimeout(t *testing.T) {
 		slowClient := network.NewClient(self.Transport)
 		require.NotNil(t, slowClient)
 
-		dialer := kademlia.NewDialer(zaptest.NewLogger(t), slowClient)
+		dialer := kademliaclient.NewDialer(zaptest.NewLogger(t), slowClient)
 		defer ctx.Check(dialer.Close)
 
 		var group errgroup.Group

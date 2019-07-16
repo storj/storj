@@ -16,7 +16,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/ranger"
@@ -29,10 +28,10 @@ var mon = monkit.Package()
 
 // Client defines an interface for storing erasure coded data to piece store nodes
 type Client interface {
-	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
-	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
-	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
-	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) error
+	Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
+	Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error)
+	Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (ranger.Ranger, error)
+	Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) error
 	WithForceErrorDetection(force bool) Client
 }
 
@@ -61,11 +60,10 @@ func (ec *ecClient) WithForceErrorDetection(force bool) Client {
 
 func (ec *ecClient) dialPiecestore(ctx context.Context, n *pb.Node) (*piecestore.Client, error) {
 	logger := ec.log.Named(n.Id.String())
-	signer := signing.SignerFromFullIdentity(ec.transport.Identity())
-	return piecestore.Dial(ctx, ec.transport, n, logger, signer, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, ec.transport, n, logger, piecestore.DefaultConfig)
 }
 
-func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != rs.TotalCount() {
@@ -100,11 +98,9 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	psCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	start := time.Now()
-
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, readers[i], expiration)
+			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
@@ -112,9 +108,6 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 	successfulNodes = make([]*pb.Node, len(limits))
 	successfulHashes = make([]*pb.PieceHash, len(limits))
 	var successfulCount int32
-	var timer *time.Timer
-	var lastSuccess time.Time
-	var waitStart time.Time
 
 	for range limits {
 		info := <-infos
@@ -133,36 +126,13 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
-		lastSuccess = time.Now()
 
-		switch int(atomic.AddInt32(&successfulCount, 1)) {
-		case rs.OptimalThreshold():
-			ec.log.Sugar().Infof("Success threshold (%d nodes) reached. Canceling the long tail...", rs.OptimalThreshold())
-			if timer != nil {
-				timer.Stop()
-			}
+		atomic.AddInt32(&successfulCount, 1)
+
+		if int(successfulCount) >= rs.OptimalThreshold() {
+			ec.log.Sugar().Infof("Success threshold (%d nodes) reached. Cancelling remaining uploads.", rs.OptimalThreshold())
 			cancel()
-		case rs.RepairThreshold() + 1:
-			waitStart = time.Now()
-			elapsed := waitStart.Sub(start)
-			more := elapsed * 3 / 2
-
-			ec.log.Sugar().Debugf("Repair threshold (%d nodes) passed in %.2f s. Starting a timer for %.2f s for reaching the success threshold (%d nodes)...",
-				rs.RepairThreshold(), elapsed.Seconds(), more.Seconds(), rs.OptimalThreshold())
-
-			timer = time.AfterFunc(more, func() {
-				if ctx.Err() != context.Canceled {
-					ec.log.Sugar().Debugf("Timer expired. Successfully uploaded to %d nodes. Canceling the long tail...", atomic.LoadInt32(&successfulCount))
-					cancel()
-				}
-			})
 		}
-	}
-
-	// Ensure timer is stopped in the case of repair threshold is reached, but
-	// not the success threshold due to errors instead of slowness.
-	if timer != nil {
-		timer.Stop()
 	}
 
 	defer func() {
@@ -182,21 +152,14 @@ func (ec *ecClient) Put(ctx context.Context, limits []*pb.AddressedOrderLimit, r
 		return nil, nil, Error.New("successful puts (%d) less than or equal to repair threshold (%d)", successes, rs.RepairThreshold())
 	}
 
-	// Monitor what the best fraction would have been for this upload.
-	if !lastSuccess.IsZero() && !waitStart.IsZero() {
-		repairThreshold := waitStart.Sub(start).Seconds()
-		extraDuration := lastSuccess.Sub(waitStart).Seconds()
-		if extraDuration != 0 {
-			mon.FloatVal("repair_threshold").Observe(repairThreshold)
-			mon.FloatVal("extra_duration").Observe(extraDuration)
-			mon.FloatVal("optimal_fraction").Observe(extraDuration / repairThreshold)
-		}
+	if successes < rs.OptimalThreshold() {
+		return nil, nil, Error.New("successful puts (%d) less than success threshold (%d)", successes, rs.OptimalThreshold())
 	}
 
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
+func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, rs eestream.RedundancyStrategy, data io.Reader, expiration time.Time, timeout time.Duration, path storj.Path) (successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != rs.TotalCount() {
@@ -225,27 +188,24 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 
 	for i, addressedLimit := range limits {
 		go func(i int, addressedLimit *pb.AddressedOrderLimit) {
-			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, readers[i], expiration)
+			hash, err := ec.putPiece(psCtx, ctx, addressedLimit, privateKey, readers[i], expiration)
 			infos <- info{i: i, err: err, hash: hash}
 		}(i, addressedLimit)
 	}
 
-	successfulNodes = make([]*pb.Node, len(limits))
-	successfulHashes = make([]*pb.PieceHash, len(limits))
+	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s up to %d nodes to try to have a number of pieces around the successful threshold (%d)",
+		timeout, path, nonNilCount(limits), rs.OptimalThreshold())
+
 	var successfulCount int32
-
-	// how many nodes must be repaired to reach the success threshold: o - (n - r)
-	optimalCount := rs.OptimalThreshold() - (rs.TotalCount() - nonNilCount(limits))
-
-	ec.log.Sugar().Infof("Starting a timer for %s for repairing %s to %d nodes to reach the success threshold (%d nodes)...",
-		timeout, path, optimalCount, rs.OptimalThreshold())
-
 	timer := time.AfterFunc(timeout, func() {
 		if ctx.Err() != context.Canceled {
 			ec.log.Sugar().Infof("Timer expired. Successfully repaired %s to %d nodes. Canceling the long tail...", path, atomic.LoadInt32(&successfulCount))
 			cancel()
 		}
 	})
+
+	successfulNodes = make([]*pb.Node, len(limits))
+	successfulHashes = make([]*pb.PieceHash, len(limits))
 
 	for range limits {
 		info := <-infos
@@ -267,11 +227,8 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 		atomic.AddInt32(&successfulCount, 1)
 	}
 
-	// Ensure timer is stopped in the case the success threshold is not reached
-	// due to errors instead of slowness.
-	if timer != nil {
-		timer.Stop()
-	}
+	// Ensure timer is stopped
+	_ = timer.Stop()
 
 	// TODO: clean up the partially uploaded segment's pieces
 	defer func() {
@@ -294,7 +251,7 @@ func (ec *ecClient) Repair(ctx context.Context, limits []*pb.AddressedOrderLimit
 	return successfulNodes, successfulHashes, nil
 }
 
-func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
+func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, data io.ReadCloser, expiration time.Time) (hash *pb.PieceHash, err error) {
 	nodeName := "nil"
 	if limit != nil {
 		nodeName = limit.GetLimit().StorageNodeId.String()[0:8]
@@ -319,7 +276,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	}
 	defer func() { err = errs.Combine(err, ps.Close()) }()
 
-	upload, err := ps.Upload(ctx, limit.GetLimit())
+	upload, err := ps.Upload(ctx, limit.GetLimit(), privateKey)
 	if err != nil {
 		ec.log.Sugar().Debugf("Failed requesting upload of piece %s to node %s: %v", pieceID, storageNodeID, err)
 		return nil, err
@@ -356,7 +313,7 @@ func (ec *ecClient) putPiece(ctx, parent context.Context, limit *pb.AddressedOrd
 	return hash, err
 }
 
-func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, es eestream.ErasureScheme, size int64) (rr ranger.Ranger, err error) {
+func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, size int64) (rr ranger.Ranger, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -379,6 +336,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 		rrs[i] = &lazyPieceRanger{
 			dialPiecestore: ec.dialPiecestore,
 			limit:          addressedLimit,
+			privateKey:     privateKey,
 			size:           pieceSize,
 		}
 	}
@@ -391,7 +349,7 @@ func (ec *ecClient) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, e
 	return eestream.Unpad(rr, int(paddedSize-size))
 }
 
-func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit) (err error) {
+func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errch := make(chan error, len(limits))
@@ -412,7 +370,7 @@ func (ec *ecClient) Delete(ctx context.Context, limits []*pb.AddressedOrderLimit
 				errch <- err
 				return
 			}
-			err = ps.Delete(ctx, limit)
+			err = ps.Delete(ctx, limit, privateKey)
 			err = errs.Combine(err, ps.Close())
 			if err != nil {
 				ec.log.Sugar().Errorf("Failed deleting piece %s from node %s: %v", limit.PieceId, limit.StorageNodeId, err)
@@ -474,6 +432,7 @@ func calcPadded(size int64, blockSize int) int64 {
 type lazyPieceRanger struct {
 	dialPiecestore dialPiecestoreFunc
 	limit          *pb.AddressedOrderLimit
+	privateKey     storj.PiecePrivateKey
 	size           int64
 }
 
@@ -493,7 +452,7 @@ func (lr *lazyPieceRanger) Range(ctx context.Context, offset, length int64) (_ i
 		return nil, err
 	}
 
-	download, err := ps.Download(ctx, lr.limit.GetLimit(), offset, length)
+	download, err := ps.Download(ctx, lr.limit.GetLimit(), lr.privateKey, offset, length)
 	if err != nil {
 		return nil, errs.Combine(err, ps.Close())
 	}

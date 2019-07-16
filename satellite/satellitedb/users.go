@@ -56,6 +56,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		dbx.User_PasswordHash(user.PasswordHash),
 		dbx.User_Create_Fields{
 			ShortName: dbx.User_ShortName(user.ShortName),
+			PartnerId: dbx.User_PartnerId(user.PartnerID[:]),
 		},
 	)
 

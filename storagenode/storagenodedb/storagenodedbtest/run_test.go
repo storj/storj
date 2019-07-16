@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -129,40 +129,39 @@ func createOrders(t *testing.T, ctx *testcontext.Context, orders map[string]orde
 	}
 	return nil
 }
+
 func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
-
 	storageNodeIdentity := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-
 	satelliteIdentity := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-	uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
-	piece := storj.NewPieceID()
+	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+	require.NoError(t, err)
 
+	piece := testrand.PieceID()
 	serialNumber := testrand.SerialNumber()
-	exp := ptypes.TimestampNow()
+	expiration := time.Now()
 
 	limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satelliteIdentity), &pb.OrderLimit{
 		SerialNumber:    serialNumber,
 		SatelliteId:     satelliteIdentity.ID,
-		UplinkId:        uplink.ID,
+		UplinkPublicKey: piecePublicKey,
 		StorageNodeId:   storageNodeIdentity.ID,
 		PieceId:         piece,
 		Limit:           100,
 		Action:          pb.PieceAction_GET,
-		PieceExpiration: exp,
-		OrderExpiration: exp,
+		PieceExpiration: expiration,
+		OrderExpiration: expiration,
 	})
 	require.NoError(t, err)
 
-	order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order{
+	order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
 		SerialNumber: serialNumber,
 		Amount:       50,
 	})
 	require.NoError(t, err)
 
 	return &orders.Info{
-		Limit:  limit,
-		Order:  order,
-		Uplink: uplink.PeerIdentity(),
+		Limit: limit,
+		Order: order,
 	}
 }

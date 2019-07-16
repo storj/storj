@@ -11,14 +11,13 @@
 </template>
 
 <script lang="ts">
-import { mapState } from 'vuex';
-import { Component, Vue } from 'vue-property-decorator';
-import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { mapState } from 'vuex';
+    import { Component, Vue } from 'vue-property-decorator';
+    import NewProjectPopup from '@/components/project/NewProjectPopup.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-// Button and popup for adding new Project
-@Component(
-    {
+    // Button and popup for adding new Project
+    @Component({
         methods: {
             toggleSelection: function () {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
@@ -35,11 +34,9 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
                 return state.projectsModule.projects.length;
             }
         }),
-    }
-)
+    })
 
-export default class NewProjectArea extends Vue {
-}
+    export default class NewProjectArea extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -79,6 +76,7 @@ export default class NewProjectArea extends Vue {
             }
         }
     }
+    
     .new-project-button-container.active {
         background-color: #2683FF;
         border: 1px solid #2683FF;

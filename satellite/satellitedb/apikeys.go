@@ -83,6 +83,9 @@ func (keys *apikeys) Create(ctx context.Context, head []byte, info console.APIKe
 		dbx.ApiKey_Head(head),
 		dbx.ApiKey_Name(info.Name),
 		dbx.ApiKey_Secret(info.Secret),
+		dbx.ApiKey_Create_Fields{
+			PartnerId: dbx.ApiKey_PartnerId(info.PartnerID[:]),
+		},
 	)
 
 	if err != nil {
