@@ -112,7 +112,7 @@ func toPBDailyStorageUsage(usages []accounting.NodeSpaceUsage) []*pb.DailyStorag
 		pbUsages = append(pbUsages, &pb.DailyStorageUsageResponse_StorageUsage{
 			RollupId: usage.RollupID,
 			AtRestTotal: usage.AtRestTotal,
-			TimeStamp:   usage.TimeStamp,
+			Timestamp:   usage.Timestamp,
 		})
 	}
 

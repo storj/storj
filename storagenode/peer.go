@@ -365,12 +365,8 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.NodeStats.RunStatsLoop(ctx))
+		return errs2.IgnoreCanceled(peer.NodeStats.Run(ctx))
 	})
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.NodeStats.RunSpaceLoop(ctx))
-	})
-
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
 	})

@@ -22,5 +22,5 @@ type SpaceUsageStamp struct {
 
 	AtRestTotal float64
 
-	TimeStamp time.Time
+	Timestamp time.Time
 }

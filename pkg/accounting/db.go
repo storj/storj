@@ -51,7 +51,7 @@ type NodeSpaceUsage struct {
 	NodeID      storj.NodeID
 	AtRestTotal float64
 
-	TimeStamp time.Time
+	Timestamp time.Time
 }
 
 // StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes

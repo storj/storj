@@ -55,30 +55,35 @@ type Service struct {
 func NewService(log *zap.Logger, transport transport.Client, consoleDB console.DB, kademlia *kademlia.Kademlia) *Service {
 	return &Service{
 		log:         log,
-		statsTicker: time.NewTicker(time.Duration(time.Second * 30)),
-		spaceTicker: time.NewTicker(time.Duration(time.Second * 60)),
+		statsTicker: time.NewTicker(time.Second * 30),
+		spaceTicker: time.NewTicker(time.Second * 60),
 		transport:   transport,
 		consoleDB:   consoleDB,
 		kademlia:    kademlia,
 	}
 }
 
-// RunStatsLoop continuously queries satellite for stats info with some interval
-func (s *Service) RunStatsLoop(ctx context.Context) (err error) {
+// Run runs loop
+func (s *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err = s.CacheStatsFromSatellites(ctx)
-		if err != nil {
-			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
-		}
-
 		select {
 		// handle cancellation signal first
 		case <-ctx.Done():
 			return ctx.Err()
-		// wait for the next interval to happen
+		// wait for the next cache interval to happen
 		case <-s.statsTicker.C:
+			err = s.CacheStatsFromSatellites(ctx)
+			if err != nil {
+				s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+			}
+		// wait for the next space interval to happen
+		case <-s.spaceTicker.C:
+			err = s.CacheSpaceUsageFromSatellites(ctx)
+			if err != nil {
+				s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
+			}
 		}
 	}
 }
@@ -128,26 +133,6 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 	}
 
 	return cacheStatsErr.Err()
-}
-
-// RunStatsLoop continuously queries satellite for disk space usage with some interval
-func (s *Service) RunSpaceLoop(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for {
-		err = s.CacheSpaceUsageFromSatellites(ctx)
-		if err != nil {
-			s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
-		}
-
-		select {
-		// handle cancellation signal first
-		case <-ctx.Done():
-			return ctx.Err()
-		// wait for the next interval to happen
-		case <-s.statsTicker.C:
-		}
-	}
 }
 
 // CacheSpaceUsageFromSatellites queries disk space usage from all the satellites
@@ -289,7 +274,7 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 			RollupID:    pbUsage.RollupId,
 			SatelliteID: satelliteID,
 			AtRestTotal: pbUsage.AtRestTotal,
-			TimeStamp:   pbUsage.TimeStamp,
+			Timestamp:   pbUsage.Timestamp,
 		})
 	}
 

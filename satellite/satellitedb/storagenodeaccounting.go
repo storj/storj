@@ -234,7 +234,7 @@ func (db *StoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID
 			RollupID:    id,
 			NodeID:      nodeID,
 			AtRestTotal: atRestTotal,
-			TimeStamp:   startTime,
+			Timestamp:   startTime,
 		})
 	}
 

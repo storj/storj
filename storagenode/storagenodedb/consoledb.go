@@ -193,7 +193,7 @@ func (db *consoledb) StoreSpaceUsageStamps(ctx context.Context, stamps []console
 		}
 
 		for _, stamp := range stamps {
-			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.TimeStamp)
+			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp)
 
 			if err != nil {
 				return err
@@ -337,7 +337,7 @@ func (db *consoledb) GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to t
 
 		stamps = append(stamps, console.SpaceUsageStamp{
 			AtRestTotal: atRestTotal,
-			TimeStamp:   timeStamp,
+			Timestamp:   timeStamp,
 		})
 	}
 
@@ -384,7 +384,7 @@ func (db *consoledb) GetDailyDiskSpaceUsageSatellite(ctx context.Context, satell
 			RollupID:    rollupID,
 			SatelliteID: satellite,
 			AtRestTotal: atRestTotal,
-			TimeStamp:   timeStamp,
+			Timestamp:   timeStamp,
 		})
 	}
 
