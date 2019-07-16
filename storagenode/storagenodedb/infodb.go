@@ -29,6 +29,7 @@ type InfoDB struct {
 	db          utcDB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
+	location    string
 }
 
 // newInfo creates or opens InfoDB at the specified path.
@@ -47,6 +48,7 @@ func newInfo(path string) (*InfoDB, error) {
 	infoDb := &InfoDB{db: utcDB{db}}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
+	infoDb.location = path
 
 	return infoDb, nil
 }
@@ -282,6 +284,82 @@ func (db *InfoDB) Migration() *migrate.Migration {
 										PRIMARY KEY ( interval_start, satellite_id, action )
 									)`,
 				},
+			},
+			{
+				Description: "Clear Tables from Alpha data",
+				Version:     12,
+				Action: migrate.SQL{
+					`DROP TABLE pieceinfo`,
+					`DROP TABLE used_serial`,
+					`DROP TABLE order_archive`,
+					`CREATE TABLE pieceinfo_ (
+						satellite_id     BLOB      NOT NULL,
+						piece_id         BLOB      NOT NULL,
+						piece_size       BIGINT    NOT NULL,
+						piece_expiration TIMESTAMP,
+
+						order_limit       BLOB    NOT NULL,
+						uplink_piece_hash BLOB    NOT NULL,
+						uplink_cert_id    INTEGER NOT NULL,
+
+						deletion_failed_at TIMESTAMP,
+						piece_creation TIMESTAMP NOT NULL,
+
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
+					)`,
+					`CREATE UNIQUE INDEX pk_pieceinfo_ ON pieceinfo_(satellite_id, piece_id)`,
+					`CREATE INDEX idx_pieceinfo__expiration ON pieceinfo_(piece_expiration) WHERE piece_expiration IS NOT NULL`,
+					`CREATE TABLE used_serial_ (
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
+						expiration    TIMESTAMP NOT NULL
+					)`,
+					`CREATE UNIQUE INDEX pk_used_serial_ ON used_serial_(satellite_id, serial_number)`,
+					`CREATE INDEX idx_used_serial_ ON used_serial_(expiration)`,
+					`CREATE TABLE order_archive_ (
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
+
+						order_limit_serialized BLOB NOT NULL,
+						order_serialized       BLOB NOT NULL,
+
+						uplink_cert_id INTEGER NOT NULL,
+
+						status      INTEGER   NOT NULL,
+						archived_at TIMESTAMP NOT NULL,
+
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
+					)`,
+				},
+			},
+			{
+				Description: "Free Storagenodes from trash data",
+				Version:     13,
+				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+					// When using inmemory DB, skip deletion process
+					if db.location == "" {
+						return nil
+					}
+
+					err := os.RemoveAll(filepath.Join(filepath.Dir(db.location), "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
+					if err != nil {
+						log.Sugar().Debug(err)
+					}
+					err = os.RemoveAll(filepath.Join(filepath.Dir(db.location), "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
+					if err != nil {
+						log.Sugar().Debug(err)
+					}
+					err = os.RemoveAll(filepath.Join(filepath.Dir(db.location), "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
+					if err != nil {
+						log.Sugar().Debug(err)
+					}
+					err = os.RemoveAll(filepath.Join(filepath.Dir(db.location), "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
+					if err != nil {
+						log.Sugar().Debug(err)
+					}
+					// To prevent the node from starting up, we just log errors and return nil
+					return nil
+				}),
 			},
 		},
 	}
