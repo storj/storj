@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/zap"
+
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -14,6 +16,7 @@ import (
 
 // Observer implements the observer interface for gc
 type Observer struct {
+	log          *zap.Logger
 	pieceCounts  map[storj.NodeID]int
 	retainInfos  map[storj.NodeID]*RetainInfo
 	config       Config
@@ -21,8 +24,9 @@ type Observer struct {
 }
 
 // NewObserver instantiates a gc Observer
-func NewObserver(pieceCounts map[storj.NodeID]int, config Config) *Observer {
+func NewObserver(log *zap.Logger, pieceCounts map[storj.NodeID]int, config Config) *Observer {
 	return &Observer{
+		log:          log,
 		pieceCounts:  pieceCounts,
 		retainInfos:  make(map[storj.NodeID]*RetainInfo),
 		config:       config,
@@ -34,6 +38,16 @@ func NewObserver(pieceCounts map[storj.NodeID]int, config Config) *Observer {
 func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	remote := pointer.GetRemote()
+	pieces := remote.GetRemotePieces()
+
+	for _, piece := range pieces {
+		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		err = observer.add(ctx, piece.NodeId, pieceID)
+		if err != nil {
+			observer.log.Debug("error adding piece to retain info", zap.Stringer("NodeID", piece.NodeId), zap.Stringer("PieceID", pieceID), zap.Error(err))
+		}
+	}
 	return nil
 }
 
