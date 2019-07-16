@@ -128,9 +128,9 @@ export async function createUserRequest(user: User, password: string, secret: st
                         password: "${password}",
                         fullName: "${user.fullName}",
                         shortName: "${user.shortName}",
+                        referredBy: "${user.referredBy}"
                     },
                     secret: "${secret}",
-                    refId: "${user.refId}",
                 ){email, id}
             }`
             ),

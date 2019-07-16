@@ -26,6 +26,8 @@ const (
 	FieldShortName = "shortName"
 	// FieldCreatedAt is a field name for created at timestamp
 	FieldCreatedAt = "createdAt"
+	// FieldReferredBy is a field name for referrer ID
+	FieldReferredBy = "referredBy"
 )
 
 // base graphql config for user
@@ -47,6 +49,9 @@ func baseUserConfig() graphql.ObjectConfig {
 			},
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
+			},
+			FieldReferredBy: &graphql.Field{
+				Type: graphql.String,
 			},
 		},
 	}
@@ -73,6 +78,9 @@ func graphqlUserInput() *graphql.InputObject {
 				Type: graphql.String,
 			},
 			FieldPassword: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
+			FieldReferredBy: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 		},

@@ -51,6 +51,8 @@ const (
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
+	// CurrentReward is a field name for current reward offer
+	CurrentReward = "currentReward"
 	// FieldProjectID is field name for projectID
 	FieldProjectID = "projectID"
 	// FieldNewPassword is a field name for new password
