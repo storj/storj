@@ -289,9 +289,47 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
-					`DELETE FROM pieceinfo`,
-					`DELETE FROM used_serial`,
-					`DELETE FROM order_archive`,
+					`DROP TABLE pieceinfo`,
+					`DROP TABLE used_serial`,
+					`DROP TABLE order_archive`,
+					`CREATE TABLE pieceinfo_ (
+						satellite_id     BLOB      NOT NULL,
+						piece_id         BLOB      NOT NULL,
+						piece_size       BIGINT    NOT NULL,
+						piece_expiration TIMESTAMP,
+
+						order_limit       BLOB    NOT NULL,
+						uplink_piece_hash BLOB    NOT NULL,
+						uplink_cert_id    INTEGER NOT NULL,
+
+						deletion_failed_at TIMESTAMP,
+						piece_creation TIMESTAMP NOT NULL,
+
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
+					)`,
+					`CREATE UNIQUE INDEX pk_pieceinfo_ ON pieceinfo_(satellite_id, piece_id)`,
+					`CREATE INDEX idx_pieceinfo__expiration ON pieceinfo_(piece_expiration) WHERE piece_expiration IS NOT NULL`,
+					`CREATE TABLE used_serial_ (
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
+						expiration    TIMESTAMP NOT NULL
+					)`,
+					`CREATE UNIQUE INDEX pk_used_serial_ ON used_serial_(satellite_id, serial_number)`,
+					`CREATE INDEX idx_used_serial_ ON used_serial_(expiration)`,
+					`CREATE TABLE order_archive_ (
+						satellite_id  BLOB NOT NULL,
+						serial_number BLOB NOT NULL,
+
+						order_limit_serialized BLOB NOT NULL,
+						order_serialized       BLOB NOT NULL,
+
+						uplink_cert_id INTEGER NOT NULL,
+
+						status      INTEGER   NOT NULL,
+						archived_at TIMESTAMP NOT NULL,
+
+						FOREIGN KEY(uplink_cert_id) REFERENCES certificate(cert_id)
+					)`,
 				},
 			},
 			{
