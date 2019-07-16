@@ -62,6 +62,7 @@
     import Footer from '@/components/team/footerArea/Footer.vue';
     import { NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
     import { TeamMember } from '../../types/teamMembers';
+    import { RequestResponse } from '@/types/response';
 
     @Component({
         components: {
@@ -73,7 +74,7 @@
     export default class TeamArea extends Vue {
         private isFetchInProgress: boolean = false;
 
-        public mounted() {
+        public mounted(): void {
             this.$store.dispatch(PM_ACTIONS.FETCH);
         }
 
@@ -94,7 +95,7 @@
 
             this.isFetchInProgress = true;
 
-            const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
 
             this.isFetchInProgress = false;
 

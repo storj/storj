@@ -21,8 +21,8 @@
     @Component
     export default class PaginationArea extends Vue {
         // TODO: use svg loader in future
-        private arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
-        private arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+        public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
+        public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
     }
 </script>
 

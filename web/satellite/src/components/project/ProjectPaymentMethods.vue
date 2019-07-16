@@ -25,7 +25,7 @@
         }
     })
     export default class ProjectPaymentMethods extends Vue {
-        private get paymentMethods(): PaymentMethod[] {
+        public get paymentMethods(): PaymentMethod[] {
             return this.$store.state.projectPaymentsMethodsModule.paymentMethods;
         }
     }

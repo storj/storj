@@ -24,7 +24,7 @@
 
         // TODO: fix this method
         public get avatarData(): object {
-            let fullName: string = this.projectMember.fullName();
+            let fullName: string = this.projectMember.user.getFullName();
 
             const letter = fullName.slice(0, 1).toLocaleUpperCase();
 

@@ -13,6 +13,10 @@ export class User {
         this.shortName = shortName;
         this.email = email;
     }
+
+    public getFullName(): string {
+        return this.shortName === '' ? this.fullName : this.shortName;
+    }
 }
 
 export class UpdatedUser {

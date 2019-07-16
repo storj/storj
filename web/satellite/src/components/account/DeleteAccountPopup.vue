@@ -67,8 +67,8 @@
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Button from '@/components/common/Button.vue';
     import { removeToken } from '@/utils/tokenManager';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { RequestResponse } from '@/types/response';
 
     @Component({
         components: {
@@ -77,13 +77,14 @@
         }
     })
     export default class DeleteAccountPopup extends Vue {
+        public passwordError: string = '';
         private password: string = '';
-        private passwordError: string = '';
         private isLoading: boolean = false;
 
         public setPassword(value: string): void {
             this.password = value;
         }
+
         public async onDeleteAccountClick(): Promise<void> {
             if (this.isLoading) {
                 return;
@@ -91,7 +92,7 @@
 
             this.isLoading = true;
 
-            let response = await this.$store.dispatch(USER_ACTIONS.DELETE, this.password);
+            let response: RequestResponse<object> = await this.$store.dispatch(USER_ACTIONS.DELETE, this.password);
 
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
@@ -106,6 +107,7 @@
             this.isLoading = false;
             this.$router.push('/login');
         }
+
         public onCloseClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
         }

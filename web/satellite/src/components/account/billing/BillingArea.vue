@@ -33,7 +33,7 @@
         }
     })
     export default class BillingArea extends Vue {
-        private billing: number = 1;
+        public billing: number = 1;
     }
 </script>
 

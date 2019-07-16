@@ -36,7 +36,6 @@
             Button
         }
     })
-
     export default class ApproveDeleteApiKeysArea extends Vue {}
 </script>
 

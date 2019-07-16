@@ -8,6 +8,7 @@ import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
 import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
 import { RequestResponse } from '@/types/response';
+import { Project } from '@/types/projects';
 
 const mutations = projectsModule.mutations;
 

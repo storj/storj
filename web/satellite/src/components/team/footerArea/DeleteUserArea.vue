@@ -34,41 +34,38 @@
     import { TeamMember } from '../../../types/teamMembers';
 
     @Component({
-        methods: {
-            onDelete: async function () {
-                const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
-                    return member.user.email;
-                });
-
-                const response = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
-
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
-
-                    return;
-                }
-
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
-            },
-            onClearSelection: function () {
-                this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
-            }
-
-        },
-        computed: {
-            selectedProjectMembersCount: function () {
-                return this.$store.getters.selectedProjectMembers.length;
-            },
-            projectMembersCount: function () {
-                return this.$store.getters.projectMembers.length;
-            }
-        },
         components: {
             Button
         }
     })
-
     export default class DeleteUserArea extends Vue {
+        public async onDelete(): Promise<any> {
+            const projectMemberEmails = this.$store.getters.selectedProjectMembers.map((member: TeamMember) => {
+                return member.user.email;
+            });
+
+            const response = await this.$store.dispatch(PM_ACTIONS.DELETE, projectMemberEmails);
+
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Error while deleting users from team');
+
+                return;
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members was successfully removed from project');
+        }
+
+        public onClearSelection(): void {
+            this.$store.dispatch(PM_ACTIONS.CLEAR_SELECTION);
+        }
+
+        public get selectedProjectMembersCount(): number {
+            return this.$store.getters.selectedProjectMembers.length;
+        }
+
+        public get projectMembersCount(): number {
+            return this.$store.getters.projectMembers.length;
+        }
     }
 </script>
 

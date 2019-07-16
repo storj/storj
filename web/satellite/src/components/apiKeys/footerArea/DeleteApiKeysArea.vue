@@ -38,7 +38,6 @@
             Button
         }
     })
-
     export default class DeleteApiKeysArea extends Vue {
         public async onDelete(): Promise<void> {
             let selectedKeys: string[] = this.$store.getters.selectedAPIKeys.map((key) => { return key.id; });

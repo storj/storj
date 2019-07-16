@@ -36,9 +36,7 @@
             Button
         }
     })
-
-    export default class ApproveDeleteUserArea extends Vue {
-    }
+    export default class ApproveDeleteUserArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

@@ -38,7 +38,6 @@
     import { Component, Prop, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
     import VueClipboards from 'vue-clipboards';
-    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
     Vue.use(VueClipboards);

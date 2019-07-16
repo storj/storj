@@ -4,11 +4,11 @@
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
 import { RequestResponse } from '@/types/response';
+import { CreateProjectModel, Project } from '@/types/projects';
 
 // Performs graqhQL request for project creation.
 export async function createProjectRequest(createProjectModel: CreateProjectModel): Promise<RequestResponse<Project>> {
     let result: RequestResponse<Project> = new RequestResponse<Project>();
-
     let response: any = await apollo.mutate(
         {
             mutation: gql(`
@@ -31,6 +31,8 @@ export async function createProjectRequest(createProjectModel: CreateProjectMode
     } else {
         result.isSuccess = true;
         result.data.id = response.data.createProject.id;
+        result.data.description = createProjectModel.description;
+        result.data.name = createProjectModel.name;
     }
 
     return result;

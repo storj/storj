@@ -65,6 +65,7 @@
     import Button from '@/components/common/Button.vue';
     import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import { validatePassword } from '@/utils/validation';
+    import { RequestResponse } from '@/types/response';
 
     @Component({
         components: {
@@ -84,32 +85,17 @@
             this.oldPassword = value;
             this.oldPasswordError = '';
         }
+
         public setNewPassword(value: string): void {
             this.newPassword = value;
             this.newPasswordError = '';
         }
+
         public setPasswordConfirmation(value: string): void {
             this.confirmationPassword = value;
             this.confirmationPasswordError = '';
         }
-        public cancel(): void {
-            this.oldPassword = '';
-            this.newPassword = '';
-            this.confirmationPassword = '';
 
-            this.oldPasswordError = '';
-            this.newPasswordError = '';
-            this.confirmationPasswordError = '';
-
-            let oldPasswordInput: any = this.$refs['oldPasswordInput'];
-            oldPasswordInput.setValue('');
-
-            let newPasswordInput: any = this.$refs['newPasswordInput'];
-            newPasswordInput.setValue('');
-
-            let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
-            confirmPasswordInput.setValue('');
-        }
         public async onUpdateClick(): Promise<void> {
             let hasError = false;
             if (!this.oldPassword) {
@@ -136,7 +122,7 @@
                 return;
             }
 
-            let response = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
+            let response: RequestResponse<object> = await this.$store.dispatch(USER_ACTIONS.CHANGE_PASSWORD,
                 {
                     oldPassword: this.oldPassword,
                     newPassword: this.newPassword
@@ -169,9 +155,29 @@
             let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
             confirmPasswordInput.setValue('');
         }
+
         public onCloseClick(): void {
             this.cancel();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+        }
+
+        private cancel(): void {
+            this.oldPassword = '';
+            this.newPassword = '';
+            this.confirmationPassword = '';
+
+            this.oldPasswordError = '';
+            this.newPasswordError = '';
+            this.confirmationPasswordError = '';
+
+            let oldPasswordInput: any = this.$refs['oldPasswordInput'];
+            oldPasswordInput.setValue('');
+
+            let newPasswordInput: any = this.$refs['newPasswordInput'];
+            newPasswordInput.setValue('');
+
+            let confirmPasswordInput: any = this.$refs['confirmPasswordInput'];
+            confirmPasswordInput.setValue('');
         }
     }
 </script>

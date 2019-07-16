@@ -51,6 +51,7 @@
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
     import { TeamMember } from '../../types/teamMembers';
     import { RequestResponse } from '../../types/response';
+    import { CreateProjectModel, Project } from '@/types/projects';
 
     @Component({
         components: {
@@ -79,7 +80,7 @@
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
         }
 
-        public async createProjectClick (): Promise<any> {
+        public async createProjectClick (): Promise<void> {
             if (this.isLoading) {
                 return;
             }
@@ -138,7 +139,6 @@
 
                 return false;
             }
-
             this.createdProjectId = response.data.id;
 
             return true;

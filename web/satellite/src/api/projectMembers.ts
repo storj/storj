@@ -107,7 +107,7 @@ export async function fetchProjectMembersRequest(projectID: string, limit: strin
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.project.members;
+        result.data = getProjectMembersList(response.data.project.members);
     }
 
     return result;
@@ -121,4 +121,12 @@ function prepareEmailList(emails: string[]): string {
     });
 
     return emailString;
+}
+
+function getProjectMembersList(projectMembers: any[]): TeamMember[] {
+    if (!projectMembers) {
+        return [];
+    }
+
+    return projectMembers.map(key => new TeamMember(key.user.fullName, key.user.shortName, key.user.email, '', key.user.id));
 }

@@ -22,7 +22,7 @@
         },
     })
     export default class AccountArea extends Vue {
-        private navigation: any = ACCOUNT_ROUTES;
+        public navigation: object = ACCOUNT_ROUTES;
 
         public mounted(): void {
             this.$router.push(ACCOUNT_ROUTES.PROFILE.path);

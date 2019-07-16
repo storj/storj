@@ -47,8 +47,8 @@
     @Component
     export default class SortAccountBillingHeader extends Vue {
         // TODO: use svg loader in future
-        private arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
-        private arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
+        public arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
+        public arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
     }
 </script>
 

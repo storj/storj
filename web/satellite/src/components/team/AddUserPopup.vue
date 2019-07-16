@@ -70,6 +70,7 @@
     import { EmailInput } from '@/types/EmailInput';
     import { validateEmail } from '@/utils/validation';
     import ROUTES from '@/utils/constants/routerConstants';
+    import { RequestResponse } from '@/types/response';
 
     @Component({
         components: {
@@ -142,7 +143,7 @@
                 return;
             }
 
-            const response = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
+            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH, { limit: 20, offset: 0 });
 
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
@@ -154,7 +155,7 @@
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Members successfully added to project!');
             this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
-            const fetchMembersResponse = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            const fetchMembersResponse: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
             if (!fetchMembersResponse.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
             }
@@ -174,7 +175,7 @@
         public deleteInput(index): void {
             if (this.inputs.length === 1) return;
 
-            (this as any).resetFormErrors(index);
+            this.resetFormErrors(index);
 
             this.$delete(this.inputs, index);
         }
@@ -205,7 +206,7 @@
 
         private resetFormErrors(index): void {
             this.inputs[index].setError(false);
-            if (!(this).hasInputError()) {
+            if (!this.hasInputError()) {
 
                 this.formError = '';
             }

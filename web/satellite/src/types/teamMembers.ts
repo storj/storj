@@ -16,12 +16,8 @@ export class TeamMember {
         this.joinedAt = joinedAt;
     }
 
-    public fullName(): string {
-        return this.user.shortName === '' ? this.user.fullName : this.user.shortName;
-    }
-
     public formattedFullName(): string {
-        let fullName: string = this.fullName();
+        let fullName: string = this.user.getFullName();
 
         if (fullName.length > 16) {
             fullName = fullName.slice(0, 13) + '...';

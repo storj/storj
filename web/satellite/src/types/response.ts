@@ -5,4 +5,11 @@ export class RequestResponse<T> {
     public isSuccess: boolean;
     public errorMessage: string;
     public data: T;
+
+    public constructor() {
+        this.isSuccess = false;
+        this.errorMessage = '';
+
+        this.data = {} as T;
+    }
 }

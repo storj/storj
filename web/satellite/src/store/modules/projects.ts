@@ -4,19 +4,12 @@
 import { PROJECTS_MUTATIONS } from '../mutationConstants';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
 import { RequestResponse } from '@/types/response';
-
-let defaultSelectedProject: Project = {
-    name: '',
-    id: '',
-    description: '',
-    createdAt: '',
-    isSelected: true,
-};
+import { CreateProjectModel, Project, UpdateProjectModel } from '@/types/projects';
 
 export const projectsModule = {
     state: {
         projects: [],
-        selectedProject: defaultSelectedProject
+        selectedProject: new Project(true),
     },
     mutations: {
         [PROJECTS_MUTATIONS.CREATE](state: any, createdProject: Project): void {
@@ -43,7 +36,7 @@ export const projectsModule = {
                 return;
             }
 
-            state.selectedProject = defaultSelectedProject;
+            state.selectedProject = new Project(true);
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
             const selected = state.projects.find((project: any) => project.id === projectID);
@@ -66,12 +59,12 @@ export const projectsModule = {
             state.projects = state.projects.filter(proj => proj.id !== projectID);
 
             if (state.selectedProject.id === projectID) {
-                state.selectedProject = defaultSelectedProject;
+                state.selectedProject = new Project(true);
             }
         },
         [PROJECTS_MUTATIONS.CLEAR](state: any): void {
             state.projects = [];
-            state.selectedProject = defaultSelectedProject;
+            state.selectedProject = new Project(true);
         },
     },
     actions: {

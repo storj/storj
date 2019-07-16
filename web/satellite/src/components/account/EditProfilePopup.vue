@@ -57,19 +57,19 @@
     export default class EditProfilePopup extends Vue {
         private originalFullName: string = this.$store.getters.user.fullName;
         private originalShortName: string = this.$store.getters.user.shortName;
-
         private fullName: string = this.$store.getters.user.fullName;
         private shortName: string = this.$store.getters.user.shortName;
-
         private fullNameError: string = '';
 
         public setFullName(value: string): void {
             this.fullName = value.trim();
             this.fullNameError = '';
         }
+
         public setShortName(value: string): void {
             this.shortName = value.trim();
         }
+
         public cancel(): void {
             this.fullName = this.originalFullName;
             this.fullNameError = '';
@@ -81,6 +81,7 @@
             let shortNameInput: any = this.$refs['shortNameInput'];
             shortNameInput.setValue(this.originalShortName);
         }
+
         public async onUpdateClick(): Promise<void> {
             if (!this.fullName) {
                 this.fullNameError = 'Full name expected';
@@ -106,6 +107,7 @@
             this.originalShortName = this.$store.getters.user.shortName;
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
         }
+
         public onCloseClick(): void {
             this.cancel();
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);

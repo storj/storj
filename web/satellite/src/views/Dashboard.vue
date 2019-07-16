@@ -40,6 +40,7 @@ import {AppState} from "../utils/constants/appStateEnum";
     import { AppState } from '../utils/constants/appStateEnum';
     import { RequestResponse } from '../types/response';
     import { User } from '../types/users';
+    import { Project } from '@/types/projects';
 
     @Component({
     mounted: async function() {
