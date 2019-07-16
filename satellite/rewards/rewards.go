@@ -47,6 +47,23 @@ type UpdateOffer struct {
 	ExpiresAt time.Time
 }
 
+// OfferInfo holds fields needed for redeem an offer
+type OfferInfo struct {
+	ID            int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
+
+	RedeemableCap int
+
+	AwardCreditDurationDays   int
+	InviteeCreditDurationDays int
+
+	ExpiresAt time.Time
+
+	Status OfferStatus
+	Type   OfferType
+}
+
 // OfferType indicates the type of an offer
 type OfferType int
 

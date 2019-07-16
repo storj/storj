@@ -95,3 +95,7 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
 export const CREDIT_USAGE_ACTIONS = {
     FETCH: 'fetchCreditUsage',
 };
+
+export const REWARD_ACTIONS = {
+    FETCH: 'fetchCurrentReward',
+};

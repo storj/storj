@@ -24,18 +24,14 @@ const (
 	FieldExpiresAt = "expiresAt"
 	// FieldType is a field name for the type of reward offers
 	FieldType = "type"
+	// FieldStatus is a field name for the status of reward offers
+	FieldStatus = "status"
 )
 
 func graphqlReward() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: RewardType,
 		Fields: graphql.Fields{
-			FieldName: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldDescription: &graphql.Field{
-				Type: graphql.String,
-			},
 			FieldAwardCreditInCent: &graphql.Field{
 				Type: graphql.Int,
 			},
@@ -49,6 +45,12 @@ func graphqlReward() *graphql.Object {
 				Type: graphql.Int,
 			},
 			FieldInviteeCreditDurationDays: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldType: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldStatus: &graphql.Field{
 				Type: graphql.Int,
 			},
 			FieldExpiresAt: &graphql.Field{

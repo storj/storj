@@ -62,8 +62,6 @@ const (
 	Secret = "secret"
 	// ReferrerID is a field name for referrer user ID
 	ReferrerID = "referrerID"
-	// RewardID is a field name for current reward offer ID
-	RewardID = "rewardID"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -80,14 +78,14 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
+					CurrentReward: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.reward),
+					},
 					FieldPartnerID: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 					ReferrerID: &graphql.ArgumentConfig{
 						Type: graphql.String,
-					},
-					RewardID: &graphql.ArgumentConfig{
-						Type: graphql.Int,
 					},
 				},
 				// creates user and company from input params and returns userID if succeed
@@ -96,7 +94,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					secretInput, _ := p.Args[Secret].(string)
 					partnerInput := p.Args[FieldPartnerID].(string)
 					referrerInput := p.Args[ReferrerID].(string)
-					rewardID := p.Args[RewardID].(int)
+					reward := p.Args[CurrentReward].(rewards.OfferInfo)
 					createUser := fromMapCreateUser(input)
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)
@@ -135,14 +133,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							return nil, err
 						}
 
-						tempReward := rewards.Offer{
-							ID:                        rewardID,
-							InviteeCreditDurationDays: 14,
-							Status:                    rewards.Default,
-							Type:                      rewards.Referral,
-						}
-
-						err = service.RedeemRewards(p.Context, tempReward, referrerID, user.ID)
+						err = service.RedeemRewards(p.Context, reward, referrerID, user.ID)
 						if err != nil {
 							log.Error("register: failed to redeem credits",
 								zap.String("rawSecret", secretInput),

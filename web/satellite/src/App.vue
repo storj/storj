@@ -12,7 +12,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import NotificationArea from '@/components/notifications/NotificationArea.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { APP_STATE_ACTIONS, REWARD_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
         data: function() {
@@ -48,7 +48,10 @@
 
                 this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
             }
-        }
+        },
+        mounted() {
+            this.$store.dispatch(REWARD_ACTIONS.FETCH);
+        },
     })
 
     export default class App extends Vue {
