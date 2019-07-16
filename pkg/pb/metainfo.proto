@@ -231,9 +231,9 @@ message Object {
     pointerdb.RedundancyScheme      redundancy_scheme     = 12;
     encryption.EncryptionParameters encryption_parameters = 13;
 
-    int64 total_size  = 14;
-    int64 inline_size = 15;
-    int64 remote_size = 16;
+    int64 total_size  = 14; // total size of object
+    int64 inline_size = 15; // size of line part of object
+    int64 remote_size = 16; // size of remote part of object
 }
 
 message ObjectBeginRequest {

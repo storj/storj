@@ -5,7 +5,6 @@ package storj
 
 import (
 	"time"
-
 )
 
 // ObjectListItem represents listed object
