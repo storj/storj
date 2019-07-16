@@ -30,10 +30,10 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 
 	var satellites storj.NodeIDList
 
-	rows, err := db.db.QueryContext(ctx, db.Rebind(`
-		SELECT DISTINCT satellite_id
+	rows, err := db.db.QueryContext(ctx,
+		`SELECT DISTINCT satellite_id
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?`), from, to)
+		WHERE ? <= created_at AND created_at <= ?`, from, to)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -61,7 +61,7 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *console.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := db.Rebind(`INSERT INTO node_stats (
+	stmt := `INSERT INTO node_stats (
 				satellite_id, 
 				uptime_success_count,
 				uptime_total_count,
@@ -74,7 +74,7 @@ func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *c
 				audit_reputation_beta,
 				audit_reputation_score,
 				updated_at
-			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	_, err = db.db.ExecContext(ctx, stmt,
 		stats.SatelliteID,
@@ -101,7 +101,7 @@ func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *c
 func (db *consoledb) UpdateStats(ctx context.Context, stats console.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := db.Rebind(`UPDATE node_stats
+	stmt := `UPDATE node_stats
 			SET uptime_success_count = ?,
 				uptime_total_count = ?,
 				uptime_reputation_alpha = ?,
@@ -113,7 +113,7 @@ func (db *consoledb) UpdateStats(ctx context.Context, stats console.Stats) (err 
 				audit_reputation_beta = ?,
 				audit_reputation_score = ?,
 				updated_at = ?
-			WHERE satellite_id = ?`)
+			WHERE satellite_id = ?`
 
 	res, err := db.db.ExecContext(ctx, stmt,
 		stats.UptimeCheck.SuccessCount,
@@ -151,7 +151,7 @@ func (db *consoledb) GetStatsSatellite(ctx context.Context, satelliteID storj.No
 	stats := console.Stats{}
 
 	row := db.db.QueryRowContext(ctx,
-		db.Rebind(`SELECT * FROM node_stats WHERE satellite_id = ?`),
+		`SELECT * FROM node_stats WHERE satellite_id = ?`,
 		satelliteID,
 	)
 
@@ -183,8 +183,8 @@ func (db *consoledb) StoreSpaceUsageStamps(ctx context.Context, stamps []console
 		return nil
 	}
 
-	stmt := db.Rebind(`INSERT OR REPLACE INTO rollup_space_usages(rollup_id, satellite_id, at_rest_total, timestamp) 
-			VALUES(?,?,?,?)`)
+	stmt := `INSERT OR REPLACE INTO rollup_space_usages(rollup_id, satellite_id, at_rest_total, timestamp) 
+			VALUES(?,?,?,?)`
 
 	cb := func(tx *sql.Tx) error {
 		txStmt, err := tx.PrepareContext(ctx, stmt)
@@ -237,13 +237,11 @@ func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID stor
 func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, args ...interface{}) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := db.Rebind(`
-		SELECT action, SUM(amount), created_at
-		FROM bandwidth_usage
-		` + cond + `
-		GROUP BY DATE(created_at), action
-		ORDER BY created_at ASC
-	`)
+	query := `SELECT action, SUM(amount), created_at
+				FROM bandwidth_usage
+				` + cond + `
+				GROUP BY DATE(created_at), action
+				ORDER BY created_at ASC`
 
 	rows, err := db.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -307,14 +305,14 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 func (db *consoledb) GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := db.Rebind(`SELECT SUM(at_rest_total), timestamp 
-							FROM rollup_space_usages
-							WHERE rollup_id IN (
-								SELECT MAX(rollup_id)
-								FROM rollup_space_usages
-								WHERE ? <= timestamp AND timestamp <= ?
-								GROUP BY DATE(timestamp), satellite_id
-							) GROUP BY DATE(timestamp)`)
+	query := `SELECT SUM(at_rest_total), timestamp 
+				FROM rollup_space_usages
+				WHERE rollup_id IN (
+					SELECT MAX(rollup_id)
+					FROM rollup_space_usages
+					WHERE ? <= timestamp AND timestamp <= ?
+					GROUP BY DATE(timestamp), satellite_id
+				) GROUP BY DATE(timestamp)`
 
 	rows, err := db.db.QueryContext(ctx, query, from, to)
 	if err != nil {
@@ -349,15 +347,15 @@ func (db *consoledb) GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to t
 func (db *consoledb) GetDailyDiskSpaceUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := db.Rebind(`SELECT *
-							FROM rollup_space_usages
-							WHERE rollup_id IN (
-								SELECT MAX(rollup_id) 
-								FROM rollup_space_usages
-								WHERE satellite_id = ?
-								AND ? <= timestamp AND timestamp <= ?
-								GROUP BY DATE(timestamp)
-							)`)
+	query := `SELECT *
+				FROM rollup_space_usages
+				WHERE rollup_id IN (
+					SELECT MAX(rollup_id) 
+					FROM rollup_space_usages
+					WHERE satellite_id = ?
+					AND ? <= timestamp AND timestamp <= ?
+					GROUP BY DATE(timestamp)
+				)`
 
 	rows, err := db.db.QueryContext(ctx, query, satelliteID, from, to)
 	if err != nil {
@@ -401,6 +399,7 @@ func (db *consoledb) withTx(ctx context.Context, cb func(tx *sql.Tx) error) erro
 	defer func() {
 		if err != nil {
 			err = errs.Combine(err, tx.Rollback())
+			return
 		}
 
 		err = tx.Commit()
