@@ -107,59 +107,28 @@ func TestLibstorj(t *testing.T) {
 	}
 
 	var libstorjIncludes []testcontext.Include
-	//libstorjHeader := testcontext.Include{
-	//	Header: filepath.Join(currentdir, "..", "libstorj", "src", "storj.h"),
-	//}
 
 	srcFiles := []string{
-		//"bip39.c",
-		//"crypto.c",
 		"downloader.c",
-		//"http.c",
-		//"rs.c",
 		"storj.c",
 		"uploader.c",
-		//"utils.c",
 	}
 	for i, base := range srcFiles {
 		srcFiles[i] = filepath.Join(currentdir, "..", "libstorj", "src", base)
 	}
 
-	testHeaders := []string{
-		//"storjtests.h",
-		//"mockbridge.json.h",
-		//"mockbridgeinfo.json.h",
-	}
-	for _, headerPath := range testHeaders {
-		libstorjIncludes = append(libstorjIncludes, testcontext.Include{
-			Header: headerPath,
-		})
-	}
-
-	testFiles := []string{
-		//"mockbridge.c",
-		//"mockfarmer.c",
-		"tests.c",
-	}
-	for i, base := range testFiles {
-		testFiles[i] = filepath.Join(currentdir, "..", "libstorj", "test", base)
-	}
+	testFile := filepath.Join(currentdir, "..", "libstorj", "test", "tests.c")
 
 	includes := append([]testcontext.Include{
 		libuplink,
 		definition,
 		testcontext.CLibJSON,
-		//testcontext.CLibNettle,
 		testcontext.CLibUV,
-		//testcontext.CLibCurl,
-		//testcontext.CLibMath,
-		//testcontext.CLibMicroHTTPD,
-		//libstorjHeader,
 	}, libstorjIncludes...)
 
 	testexe := ctx.CompileC(t, testcontext.CompileCOptions{
 		Dest:     "libstorj",
-		Sources:  append(srcFiles, testFiles...),
+		Sources:  append(srcFiles, testFile),
 		Includes: includes,
 		NoWarn:   true,
 	})

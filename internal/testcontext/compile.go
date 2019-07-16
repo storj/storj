@@ -12,15 +12,9 @@ import (
 )
 
 var (
-	// Standard
-	CLibMath = Include{Standard: true, Library: "m"}
-
 	// Installed/shared
 	CLibJSON       = Include{Standard: true, Library: "json-c"}
-	CLibNettle     = Include{Standard: true, Library: "nettle"}
 	CLibUV         = Include{Standard: true, Library: "uv"}
-	CLibCurl       = Include{Standard: true, Library: "curl"}
-	CLibMicroHTTPD = Include{Standard: true, Library: "microhttpd"}
 )
 
 // CompileCOptions stores options for compiling C source to an executable.
