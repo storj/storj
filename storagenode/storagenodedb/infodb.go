@@ -277,7 +277,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Version:     11,
 				Action: migrate.SQL{
 					`DELETE FROM pieceinfo`,
-					`DELETE FROM used_serials`,
+					`DELETE FROM used_serial`,
 					`DELETE FROM order_archive`,
 				},
 			},
