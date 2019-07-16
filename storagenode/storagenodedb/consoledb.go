@@ -33,7 +33,7 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT DISTINCT satellite_id
 		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?`), from, to)
+		WHERE ? <= created_at AND created_at <= ?`), from.UTC(), to.UTC())
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -62,12 +62,12 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
+	since, _ := getDateEdges(from)
+	_, before := getDateEdges(to)
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE ? <= created_at AND created_at <= ?",
-		since, before)
+		since.UTC(), before.UTC())
 }
 
 // GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
@@ -75,12 +75,12 @@ func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to ti
 func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
+	since, _ := getDateEdges(from)
+	_, before := getDateEdges(to)
 
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
-		satelliteID, since, before)
+		satelliteID, since.UTC(), before.UTC())
 }
 
 // getDailyBandwidthUsed returns slice of grouped by date bandwidth usage

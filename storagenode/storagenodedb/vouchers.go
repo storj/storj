@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -28,9 +29,6 @@ func (db *InfoDB) Vouchers() vouchers.DB { return &vouchersdb{db} }
 func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	id := voucher.SatelliteId
-	expiration := voucher.Expiration.UTC()
-
 	voucherSerialized, err := proto.Marshal(voucher)
 	if err != nil {
 		return ErrInfo.Wrap(err)
@@ -38,14 +36,14 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 
 	_, err = db.db.Exec(`
 		INSERT INTO vouchers(
-			satellite_id, 
-			voucher_serialized, 
+			satellite_id,
+			voucher_serialized,
 			expiration
 		) VALUES (?, ?, ?)
 			ON CONFLICT(satellite_id) DO UPDATE SET
 				voucher_serialized = ?,
 				expiration = ?
-	`, id, voucherSerialized, expiration, voucherSerialized, expiration)
+	`, voucher.SatelliteId, voucherSerialized, voucher.Expiration.UTC(), voucherSerialized, voucher.Expiration.UTC())
 
 	return err
 }
@@ -54,14 +52,14 @@ func (db *vouchersdb) Put(ctx context.Context, voucher *pb.Voucher) (err error) 
 func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID, expirationBuffer time.Duration) (need bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	expiresBefore := time.Now().UTC().Add(expirationBuffer)
+	expiresBefore := time.Now().Add(expirationBuffer)
 
 	// query returns row if voucher is good. If not, it is either expiring or does not exist
 	row := db.db.QueryRow(`
 		SELECT satellite_id
 		FROM vouchers
 		WHERE satellite_id = ? AND expiration >= ?
-	`, satelliteID, expiresBefore)
+	`, satelliteID, expiresBefore.UTC())
 
 	var bytes []byte
 	err = row.Scan(&bytes)
@@ -75,18 +73,19 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 }
 
 // GetValid returns one valid voucher from the list of approved satellites
-func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (*pb.Voucher, error) {
-	var err error
+func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (_ *pb.Voucher, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var args []interface{}
+	if len(satellites) == 0 {
+		return nil, errs.New("at least one satellite required")
+	}
 
 	idCondition := `satellite_id IN (?` + strings.Repeat(", ?", len(satellites)-1) + `)`
 
+	var args []interface{}
 	for _, id := range satellites {
 		args = append(args, id)
 	}
-
 	args = append(args, time.Now().UTC())
 
 	row := db.db.QueryRow(db.InfoDB.Rebind(`
