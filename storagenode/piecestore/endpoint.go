@@ -282,6 +282,10 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 			if err := endpoint.VerifyPieceHash(ctx, limit, message.Done, expectedHash); err != nil {
 				return err // TODO: report grpc status internal server error
 			}
+			if message.Done.PieceSize != pieceWriter.Size() {
+				return ErrProtocol.New("Size of finished piece does not match size declared by uplink! %d != %d",
+					message.Done.GetPieceSize(), pieceWriter.Size())
+			}
 
 			if err := pieceWriter.Commit(ctx); err != nil {
 				return ErrInternal.Wrap(err) // TODO: report grpc status internal server error

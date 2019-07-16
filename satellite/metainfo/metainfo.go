@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -19,10 +20,12 @@ import (
 
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/eestream"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
@@ -30,7 +33,10 @@ import (
 	"storj.io/storj/storage"
 )
 
-const pieceHashExpiration = 2 * time.Hour
+const (
+	pieceHashExpiration = 2 * time.Hour
+	satIDExpiration     = 24 * time.Hour
+)
 
 var (
 	mon = monkit.Package()
@@ -65,11 +71,12 @@ type Endpoint struct {
 	apiKeys        APIKeys
 	createRequests *createRequests
 	rsConfig       RSConfig
+	satellite      signing.Signer
 }
 
 // NewEndpoint creates new metainfo endpoint instance
 func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cache *overlay.Cache, partnerinfo attribution.DB,
-	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig) *Endpoint {
+	containment Containment, apiKeys APIKeys, projectUsage *accounting.ProjectUsage, rsConfig RSConfig, satellite signing.Signer) *Endpoint {
 	// TODO do something with too many params
 	return &Endpoint{
 		log:            log,
@@ -82,6 +89,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, orders *orders.Service, cac
 		projectUsage:   projectUsage,
 		createRequests: newCreateRequests(),
 		rsConfig:       rsConfig,
+		satellite:      satellite,
 	}
 }
 
@@ -846,4 +854,249 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
 		},
 	}
+}
+
+// BeginObject begins object
+func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	bucket, err := endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	// take bucket RS values if not set in request
+	pbRS := req.RedundancyScheme
+	if pbRS.ErasureShareSize == 0 {
+		pbRS.ErasureShareSize = bucket.DefaultRedundancyScheme.ShareSize
+	}
+	if pbRS.MinReq == 0 {
+		pbRS.MinReq = int32(bucket.DefaultRedundancyScheme.RequiredShares)
+	}
+	if pbRS.RepairThreshold == 0 {
+		pbRS.RepairThreshold = int32(bucket.DefaultRedundancyScheme.RepairShares)
+	}
+	if pbRS.SuccessThreshold == 0 {
+		pbRS.SuccessThreshold = int32(bucket.DefaultRedundancyScheme.OptimalShares)
+	}
+	if pbRS.Total == 0 {
+		pbRS.Total = int32(bucket.DefaultRedundancyScheme.TotalShares)
+	}
+
+	pbEP := req.EncryptionParameters
+	if pbEP.CipherSuite == 0 {
+		pbEP.CipherSuite = pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite)
+	}
+	if pbEP.BlockSize == 0 {
+		pbEP.BlockSize = int64(bucket.DefaultEncryptionParameters.BlockSize)
+	}
+
+	satStreamID := &pb.SatStreamID{
+		Bucket:         req.Bucket,
+		EncryptedPath:  req.EncryptedPath,
+		Version:        req.Version,
+		Redundancy:     pbRS,
+		CreationDate:   time.Now(),
+		ExpirationDate: req.ExpiresAt,
+	}
+
+	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	encodedStreamID, err := proto.Marshal(satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.ObjectBeginResponse{
+		Bucket:               req.Bucket,
+		EncryptedPath:        req.EncryptedPath,
+		Version:              req.Version,
+		StreamId:             streamID,
+		RedundancyScheme:     pbRS,
+		EncryptionParameters: pbEP,
+	}, nil
+}
+
+// CommitObject commits object when all segments are also committed
+func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID := &pb.SatStreamID{}
+	err = proto.Unmarshal(req.StreamId, streamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	err = signing.VerifyStreamID(ctx, endpoint.satellite, streamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, status.Errorf(codes.InvalidArgument, "stream ID expired")
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// we don't need to do anything for shim implementation
+
+	return &pb.ObjectCommitResponse{}, nil
+}
+
+// ListObjects list objects according to specific parameters
+func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: []byte{},
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	prefix, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.EncryptedPrefix)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	metaflags := meta.All
+	// TODO use flags
+	// TODO find out how EncryptedCursor -> startAfter/endAfter
+	segments, more, err := endpoint.metainfo.List(ctx, prefix, "", "", false, req.Limit, metaflags)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	items := make([]*pb.ObjectListItem, len(segments))
+	for i, segment := range segments {
+		items[i] = &pb.ObjectListItem{
+			EncryptedPath: []byte(segment.Path),
+			CreatedAt:     segment.Pointer.CreationDate,
+			ExpiresAt:     segment.Pointer.ExpirationDate,
+		}
+	}
+
+	return &pb.ObjectListResponse{
+		Items: items,
+		More:  more,
+	}, nil
+}
+
+// BeginDeleteObject begins object deletion process
+func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	satStreamID := &pb.SatStreamID{
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Version:       req.Version,
+		CreationDate:  time.Now(),
+	}
+
+	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	encodedStreamID, err := proto.Marshal(satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.ObjectBeginDeleteResponse{
+		StreamId: streamID,
+	}, nil
+}
+
+// FinishDeleteObject finishes object deletion
+func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.ObjectFinishDeleteRequest) (resp *pb.ObjectFinishDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID := &pb.SatStreamID{}
+	err = proto.Unmarshal(req.StreamId, streamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	err = signing.VerifyStreamID(ctx, endpoint.satellite, streamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, status.Errorf(codes.InvalidArgument, "stream ID expired")
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// we don't need to do anything for shim implementation
+
+	return &pb.ObjectFinishDeleteResponse{}, nil
 }
