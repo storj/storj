@@ -285,15 +285,21 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Free Storagenodes from trash data",
 				Version:     12,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+					// When using inmemory DB, skip deletion process
+					if db.location == "" {
+						return nil
+					}
 					deletecmd := exec.Command("rm", "-r",
-						fmt.Sprintf("%s/blob/%s", db.location, "ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa"), // us-central1
-						fmt.Sprintf("%s/blob/%s", db.location, "v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa"), // europe-west1
-						fmt.Sprintf("%s/blob/%s", db.location, "qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa"), // asia-east1
-						fmt.Sprintf("%s/blob/%s", db.location, "abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
+						filepath.Join(db.location, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa"), // us-central1
+						filepath.Join(db.location, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa"), // europe-west1
+						filepath.Join(db.location, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa"), // asia-east1
+						filepath.Join(db.location, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					err := deletecmd.Run()
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
+					// If a folder is not found, the above command is returning an err.
+					// To prevent the node from starting up, we just log it and return nil
 					return nil
 				}),
 			},
