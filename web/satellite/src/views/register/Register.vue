@@ -145,8 +145,10 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                 this.$data.secret = this.$route.query.token.toString();
             }
 
-            let { referralId = '' } = this.$route.params;
-            this.$data.referredBy = referralId.toString() || undefined;
+            let { ids = '' } = this.$route.params;
+            let referralIds = JSON.parse(atob(ids))
+            this.$data.partnerId = referralIds.partnerId;
+            this.$store.user.referrerId = referralIds.userId;
         }
     })
 
