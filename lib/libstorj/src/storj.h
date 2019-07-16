@@ -23,7 +23,6 @@ extern "C" {
   #define STORJ_API
 #endif
 
-#include <assert.h>
 #include <json-c/json.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,14 +30,11 @@ extern "C" {
 #include <stdarg.h>
 #include <string.h>
 #include <uv.h>
-#include <curl/curl.h>
 #include "uplink.h"
 
 #include <inttypes.h>
 
-#ifdef _WIN32
 #include <time.h>
-#endif
 
 #ifndef _WIN32
 #include <sys/mman.h>
