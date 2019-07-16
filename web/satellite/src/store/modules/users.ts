@@ -14,7 +14,7 @@ export const usersModule = {
         user: {
             fullName: '',
             shortName: '',
-            email: '',
+            email: ''
         }
     },
 
