@@ -19,8 +19,6 @@ import (
 )
 
 type pieceinfo struct {
-	fixMe byte
-
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
 	usedSpace     int64
 	loadSpaceOnce sync.Once
