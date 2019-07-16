@@ -660,10 +660,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfoloop.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Metainfoloop.Service.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))
