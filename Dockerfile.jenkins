@@ -6,7 +6,8 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
 RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main" | tee /etc/apt/sources.list.d/pgdg.list
 
 RUN apt-get update
-RUN apt-get install -y -qq postgresql-11 unzip libuv1-dev libjson-c-dev
+RUN apt-get install -y -qq postgresql-11 unzip
+RUN apt-get install -y  libuv1-dev libjson-c-dev
 
 RUN rm /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'local   all             all                                     trust' >> /etc/postgresql/11/main/pg_hba.conf; \
