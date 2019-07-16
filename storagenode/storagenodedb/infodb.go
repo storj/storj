@@ -14,10 +14,11 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
+	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/internal/sync2"
 )
 
 // ErrInfo is the default error class for InfoDB
@@ -46,7 +47,7 @@ func newInfo(path string) (*InfoDB, error) {
 
 	infoDb := &InfoDB{db: utcDB{db}}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
 	infoDb.location = path
 
 	return infoDb, nil
@@ -73,7 +74,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 
 	infoDb := &InfoDB{db: utcDB{db}}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
 
 	return infoDb, nil
 }
@@ -272,8 +273,21 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Clear Tables from Alpha data",
+				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
+				Action: migrate.SQL{
+					`CREATE TABLE bandwidth_usage_rollups (
+										interval_start	TIMESTAMP NOT NULL,
+										satellite_id  	BLOB    NOT NULL,
+										action        	INTEGER NOT NULL,
+										amount        	BIGINT  NOT NULL,
+										PRIMARY KEY ( interval_start, satellite_id, action )
+									)`,
+				},
+			},
+			{
+				Description: "Clear Tables from Alpha data",
+				Version:     12,
 				Action: migrate.SQL{
 					`DELETE FROM pieceinfo`,
 					`DELETE FROM used_serial`,
@@ -282,7 +296,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 			},
 			{
 				Description: "Free Storagenodes from trash data",
-				Version:     12,
+				Version:     13,
 				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
 					// When using inmemory DB, skip deletion process
 					if db.location == "" {
