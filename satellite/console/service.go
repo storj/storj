@@ -929,11 +929,22 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, err
 	}
 
-	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
+	apikey := APIKeyInfo{
 		Name:      name,
 		ProjectID: projectID,
 		Secret:    secret,
-	})
+	}
+
+	user, err := s.GetUser(ctx, auth.User.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	// If the user has a partnerID set it in the apikey for value attribution
+	if !user.PartnerID.IsZero() {
+		apikey.PartnerID = user.PartnerID
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
 	if err != nil {
 		return nil, nil, errs.New(internalErrMsg)
 	}
