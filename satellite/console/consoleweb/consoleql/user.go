@@ -26,6 +26,8 @@ const (
 	FieldShortName = "shortName"
 	// FieldCreatedAt is a field name for created at timestamp
 	FieldCreatedAt = "createdAt"
+	// FieldPartnerID is a field name for partnerID
+	FieldPartnerID = "partnerID"
 )
 
 // base graphql config for user
@@ -75,6 +77,9 @@ func graphqlUserInput() *graphql.InputObject {
 			FieldPassword: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
+			FieldPartnerID: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
 		},
 	})
 }
@@ -90,6 +95,7 @@ func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
 func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
 	user.UserInfo = fromMapUserInfo(args)
 	user.Password, _ = args[FieldPassword].(string)
+	user.PartnerID, _ = args[FieldPartnerID].(string)
 	return
 }
 

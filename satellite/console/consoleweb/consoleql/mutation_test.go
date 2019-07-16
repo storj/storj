@@ -76,7 +76,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				ShortName: "Roll",
 				Email:     "test@mail.test",
 			},
-			Password: "123a123",
+			Password:  "123a123",
+			PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 1)
@@ -84,6 +85,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
+		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
@@ -106,18 +108,20 @@ func TestGrapqhlMutation(t *testing.T) {
 					ShortName: "Green",
 					Email:     "u1@mail.test",
 				},
-				Password: "123a123",
+				Password:  "123a123",
+				PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 			}
 
 			regTokenTest, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerID:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
+				newUser.PartnerID,
 				regTokenTest.Secret,
 			)
 
@@ -145,6 +149,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, newUser.FullName, user.FullName)
 			assert.Equal(t, newUser.ShortName, user.ShortName)
+			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
