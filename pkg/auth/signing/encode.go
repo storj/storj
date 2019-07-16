@@ -99,3 +99,14 @@ func EncodeStreamID(ctx context.Context, streamID *pb.SatStreamID) (_ []byte, er
 	streamID.SatelliteSignature = signature
 	return out, err
 }
+
+// EncodeSegmentID encodes segment ID into bytes for signing.
+func EncodeSegmentID(ctx context.Context, segmentID *pb.SatSegmentID) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	signature := segmentID.SatelliteSignature
+	// TODO verify if that can cause race
+	segmentID.SatelliteSignature = nil
+	out, err := proto.Marshal(segmentID)
+	segmentID.SatelliteSignature = signature
+	return out, err
+}
