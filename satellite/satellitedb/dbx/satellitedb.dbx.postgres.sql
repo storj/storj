@@ -269,7 +269,7 @@ CREATE TABLE user_payments (
 );
 CREATE TABLE project_payments (
 	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	project_id bytea REFERENCES projects( id ) ON DELETE CASCADE,
 	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 	payment_method_id bytea NOT NULL,
 	is_default boolean NOT NULL,

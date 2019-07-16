@@ -23,6 +23,7 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
             errorPolicy: 'all'
         }
     );
+    console.log(response);
 
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
@@ -36,9 +37,9 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
 export async function setDefaultPaymentMethodRequest(projectID: string, paymentID: string): Promise<RequestResponse<null>> {
    let result: RequestResponse<null> = new RequestResponse<null>();
 
-   let response: any = await apollo.mutate(
-       {
-           mutation: gql(`
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
                 mutation {
                     setDefaultPaymentMethod(
                         projectID: "${projectID}",
@@ -46,18 +47,18 @@ export async function setDefaultPaymentMethodRequest(projectID: string, paymentI
                     )
                 }
            `),
-           fetchPolicy: 'no-cache',
-           errorPolicy: 'all'
-       }
-   );
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
 
-   if (response.errors) {
-       result.errorMessage = response.errors[0].message;
-   } else {
-       result.isSuccess = true;
-   }
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
 
-   return result;
+    return result;
 }
 
 export async function deletePaymentMethodRequest(paymentID: string):Promise<RequestResponse<null>> {
@@ -118,6 +119,40 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
     } else {
         result.isSuccess = true;
         result.data = response.data.project.paymentMethods;
+    }
+
+    return result;
+}
+
+export async function fetchUserPaymentMethods(): Promise<RequestResponse<PaymentMethod[]>> {
+    let result: RequestResponse<PaymentMethod[]> = new RequestResponse();
+
+    let response: any = await apollo.query(
+        {
+            query: gql(`
+                query {
+                    userPaymentMethods {
+                            id,
+                            expYear,
+                            expMonth,
+                            brand,
+                            lastFour,
+                            holderName,
+                            addedAt,
+                    }
+                }`
+            ),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
+
+    console.log(response)
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+        result.data = response.data.userPaymentMethods;
     }
 
     return result;

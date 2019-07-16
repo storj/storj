@@ -6,6 +6,7 @@ package consoleql
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -35,6 +36,8 @@ const (
 	ForgotPasswordQuery = "forgotPassword"
 	// ResendAccountActivationEmailQuery is a query name for password recovery request
 	ResendAccountActivationEmailQuery = "resendAccountActivationEmail"
+	// UserPaymentMethods is a query to fetch all user payment methods
+	UserPaymentMethods = "userPaymentMethods"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient
@@ -214,6 +217,43 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					)
 
 					return true, nil
+				},
+			},
+			UserPaymentMethods: &graphql.Field{
+				Type:graphql.NewList(types.paymentMethod),
+				Resolve: func(p graphql.ResolveParams) ( interface{}, error) {
+					methods, err := service.GetUserPaymentMethods(p.Context)
+					if err != nil {
+						return nil, err
+					}
+
+					var userPayments []struct{
+						ExpYear    int64
+						ExpMonth   int64
+						CardBrand  string
+						LastFour   string
+						HolderName string
+						AddedAt    time.Time
+					}
+					for _, method := range methods {
+						userPayments = append(userPayments,struct{
+							ExpYear    int64
+							ExpMonth   int64
+							CardBrand  string
+							LastFour   string
+							HolderName string
+							AddedAt    time.Time
+						}{
+							ExpMonth:method.Card.ExpMonth,
+							ExpYear:method.Card.ExpYear,
+							CardBrand:method.Card.Brand,
+							LastFour:method.Card.LastFour,
+							HolderName:method.Card.Name,
+							AddedAt:method.CreatedAt,
+						},)
+					}
+
+					return userPayments, nil
 				},
 			},
 		},

@@ -99,7 +99,7 @@ func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPayme
 
 	method, err := s.client.PaymentMethods.New(cparams)
 	if err != nil {
-		return nil, err
+		return nil, extractStripeErrorMessage(err)
 	}
 
 	pparams := &stripe.PaymentMethodAttachParams{
@@ -108,7 +108,7 @@ func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPayme
 
 	paymentMethod, err := s.client.PaymentMethods.Attach(method.ID, pparams)
 	if err != nil {
-		return nil, err
+		return nil, extractStripeErrorMessage(err)
 	}
 
 	return &payments.PaymentMethod{
@@ -122,6 +122,10 @@ func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPayme
 			Country:  paymentMethod.Card.Country,
 		},
 	}, nil
+}
+func extractStripeErrorMessage(inErr error) error {
+	stripeErr := inErr.(*stripe.Error)
+	return errs.New(stripeErr.Msg)
 }
 
 // GetCustomerDefaultPaymentMethod retrieves customer default payment method from stripe network

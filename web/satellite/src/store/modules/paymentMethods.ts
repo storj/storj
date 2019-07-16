@@ -1,12 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { PROJECT_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
-import { PROJECT_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
+import { PROJECT_PAYMENT_METHODS_MUTATIONS, USER_PAYMENT_METHODS_MUTATIONS } from '@/store/mutationConstants';
+import { PROJECT_PAYMENT_METHODS_ACTIONS, USER_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 import {
     addProjectPaymentMethodRequest,
     deletePaymentMethodRequest,
-    fetchProjectPaymentMethods,
+    fetchProjectPaymentMethods, fetchUserPaymentMethods,
     setDefaultPaymentMethodRequest
 } from '@/api/paymentMethods';
 import { RequestResponse } from '@/types/response';
@@ -54,4 +54,25 @@ export const projectPaymentsMethodsModule = {
             return await deletePaymentMethodRequest(projectPaymentID);
         }
     },
+};
+
+export const userPaymentsMethodsModule = {
+    state: {
+        userPaymentMethods: [] as PaymentMethod[],
+    },
+    mutations: {
+        [USER_PAYMENT_METHODS_MUTATIONS.FETCH](state: any, paymentMethods: PaymentMethod[]){
+           state.userPaymentMethods = paymentMethods;
+        },
+    },
+    actions: {
+        [USER_PAYMENT_METHODS_ACTIONS.FETCH]:async function({commit}): Promise<RequestResponse<PaymentMethod[]>> {
+            let result = await fetchUserPaymentMethods();
+            if (result.isSuccess) {
+                commit(USER_PAYMENT_METHODS_MUTATIONS.FETCH, result.data);
+            }
+
+            return result;
+        }
+    }
 };

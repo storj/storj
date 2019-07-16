@@ -292,7 +292,7 @@ model project_payment (
 
     field id                blob
 
-    field project_id        project.id              cascade
+    field project_id        project.id cascade ( nullable )
     field payer_id          user_payment.user_id    cascade
     field payment_method_id blob
     field is_default        bool ( updatable )

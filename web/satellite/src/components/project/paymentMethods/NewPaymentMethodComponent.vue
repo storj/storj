@@ -35,8 +35,8 @@
     import Button from '@/components/common/Button.vue';
     import {
         NOTIFICATION_ACTIONS,
-        PROJECT_PAYMENT_METHODS_ACTIONS
-    } from '@/utils/constants/actionNames';
+        PROJECT_PAYMENT_METHODS_ACTIONS, USER_PAYMENT_METHODS_ACTIONS
+    } from "@/utils/constants/actionNames";
     import Checkbox from '@/components/common/Checkbox.vue';
 
     @Component(
@@ -94,7 +94,7 @@
                     event.preventDefault();
                     stripe.createToken(card).then(async function (result: any) {
                         if (result.token.card.funding == 'prepaid') {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards not supported');
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards are not supported');
 
                             return;
                         }
@@ -105,11 +105,21 @@
 
                         const response = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
                         if (!response.isSuccess) {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.error);
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                            return;
+                        }
+                        self.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+
+                        const projectPaymentsResponse = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+                        if (!projectPaymentsResponse.isSuccess) {
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
                         }
 
-                        await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-                        self.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+                        const userPaymentMethodResponse = await self.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
+                        if (!userPaymentMethodResponse.isSuccess) {
+                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+                        }
                         card.clear();
                     });
                 });

@@ -12,7 +12,7 @@ import { notificationsModule } from '@/store/modules/notifications';
 import { appStateModule } from '@/store/modules/appState';
 import { apiKeysModule } from '@/store/modules/apiKeys';
 import { bucketUsageModule, usageModule, creditUsageModule } from '@/store/modules/usage';
-import { projectPaymentsMethodsModule } from '@/store/modules/paymentMethods';
+import { projectPaymentsMethodsModule, userPaymentsMethodsModule } from '@/store/modules/paymentMethods';
 
 Vue.use(Vuex);
 
@@ -28,6 +28,7 @@ const store = new Vuex.Store({
         usageModule,
         bucketUsageModule,
         projectPaymentsMethodsModule,
+        userPaymentsMethodsModule,
         creditUsageModule
     }
 });

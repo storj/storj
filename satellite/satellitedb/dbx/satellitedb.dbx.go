@@ -541,7 +541,7 @@ CREATE TABLE user_payments (
 );
 CREATE TABLE project_payments (
 	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	project_id bytea REFERENCES projects( id ) ON DELETE CASCADE,
 	payer_id bytea NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 	payment_method_id bytea NOT NULL,
 	is_default boolean NOT NULL,
@@ -887,7 +887,7 @@ CREATE TABLE user_payments (
 );
 CREATE TABLE project_payments (
 	id BLOB NOT NULL,
-	project_id BLOB NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	project_id BLOB REFERENCES projects( id ) ON DELETE CASCADE,
 	payer_id BLOB NOT NULL REFERENCES user_payments( user_id ) ON DELETE CASCADE,
 	payment_method_id BLOB NOT NULL,
 	is_default INTEGER NOT NULL,
@@ -5114,6 +5114,10 @@ type ProjectPayment struct {
 
 func (ProjectPayment) _Table() string { return "project_payments" }
 
+type ProjectPayment_Create_Fields struct {
+	ProjectId ProjectPayment_ProjectId_Field
+}
+
 type ProjectPayment_Update_Fields struct {
 	IsDefault ProjectPayment_IsDefault_Field
 }
@@ -5146,6 +5150,19 @@ type ProjectPayment_ProjectId_Field struct {
 func ProjectPayment_ProjectId(v []byte) ProjectPayment_ProjectId_Field {
 	return ProjectPayment_ProjectId_Field{_set: true, _value: v}
 }
+
+func ProjectPayment_ProjectId_Raw(v []byte) ProjectPayment_ProjectId_Field {
+	if v == nil {
+		return ProjectPayment_ProjectId_Null()
+	}
+	return ProjectPayment_ProjectId(v)
+}
+
+func ProjectPayment_ProjectId_Null() ProjectPayment_ProjectId_Field {
+	return ProjectPayment_ProjectId_Field{_set: true, _null: true}
+}
+
+func (f ProjectPayment_ProjectId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f ProjectPayment_ProjectId_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5764,15 +5781,15 @@ func (obj *postgresImpl) Create_Project(ctx context.Context,
 
 func (obj *postgresImpl) Create_ProjectPayment(ctx context.Context,
 	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
 	project_payment_payer_id ProjectPayment_PayerId_Field,
 	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
+	project_payment_is_default ProjectPayment_IsDefault_Field,
+	optional ProjectPayment_Create_Fields) (
 	project_payment *ProjectPayment, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_payment_id.value()
-	__project_id_val := project_payment_project_id.value()
+	__project_id_val := optional.ProjectId.value()
 	__payer_id_val := project_payment_payer_id.value()
 	__payment_method_id_val := project_payment_payment_method_id.value()
 	__is_default_val := project_payment_is_default.value()
@@ -6741,10 +6758,17 @@ func (obj *postgresImpl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_Tru
 	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = true LIMIT 2")
+	var __cond_0 = &__sqlbundle_Condition{Left: "project_payments.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.is_default = true AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
+	__values = append(__values)
+
+	if !project_payment_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_payment_project_id.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -6784,10 +6808,17 @@ func (obj *postgresImpl) All_ProjectPayment_By_ProjectId(ctx context.Context,
 	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	rows []*ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "project_payments.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
+	__values = append(__values)
+
+	if !project_payment_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_payment_project_id.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -9548,15 +9579,15 @@ func (obj *sqlite3Impl) Create_Project(ctx context.Context,
 
 func (obj *sqlite3Impl) Create_ProjectPayment(ctx context.Context,
 	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
 	project_payment_payer_id ProjectPayment_PayerId_Field,
 	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
+	project_payment_is_default ProjectPayment_IsDefault_Field,
+	optional ProjectPayment_Create_Fields) (
 	project_payment *ProjectPayment, err error) {
 
 	__now := obj.db.Hooks.Now().UTC()
 	__id_val := project_payment_id.value()
-	__project_id_val := project_payment_project_id.value()
+	__project_id_val := optional.ProjectId.value()
 	__payer_id_val := project_payment_payer_id.value()
 	__payment_method_id_val := project_payment_payment_method_id.value()
 	__is_default_val := project_payment_is_default.value()
@@ -10570,10 +10601,17 @@ func (obj *sqlite3Impl) Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True
 	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	project_payment *ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ? AND project_payments.is_default = 1 LIMIT 2")
+	var __cond_0 = &__sqlbundle_Condition{Left: "project_payments.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.is_default = 1 AND "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
+	__values = append(__values)
+
+	if !project_payment_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_payment_project_id.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -10613,10 +10651,17 @@ func (obj *sqlite3Impl) All_ProjectPayment_By_ProjectId(ctx context.Context,
 	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	rows []*ProjectPayment, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE project_payments.project_id = ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "project_payments.project_id", Equal: true, Right: "?", Null: true}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT project_payments.id, project_payments.project_id, project_payments.payer_id, project_payments.payment_method_id, project_payments.is_default, project_payments.created_at FROM project_payments WHERE "), __cond_0}}
 
 	var __values []interface{}
-	__values = append(__values, project_payment_project_id.value())
+	__values = append(__values)
+
+	if !project_payment_project_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, project_payment_project_id.value())
+	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14071,16 +14116,16 @@ func (rx *Rx) Create_ProjectMember(ctx context.Context,
 
 func (rx *Rx) Create_ProjectPayment(ctx context.Context,
 	project_payment_id ProjectPayment_Id_Field,
-	project_payment_project_id ProjectPayment_ProjectId_Field,
 	project_payment_payer_id ProjectPayment_PayerId_Field,
 	project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-	project_payment_is_default ProjectPayment_IsDefault_Field) (
+	project_payment_is_default ProjectPayment_IsDefault_Field,
+	optional ProjectPayment_Create_Fields) (
 	project_payment *ProjectPayment, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_ProjectPayment(ctx, project_payment_id, project_payment_project_id, project_payment_payer_id, project_payment_payment_method_id, project_payment_is_default)
+	return tx.Create_ProjectPayment(ctx, project_payment_id, project_payment_payer_id, project_payment_payment_method_id, project_payment_is_default, optional)
 
 }
 
@@ -15107,10 +15152,10 @@ type Methods interface {
 
 	Create_ProjectPayment(ctx context.Context,
 		project_payment_id ProjectPayment_Id_Field,
-		project_payment_project_id ProjectPayment_ProjectId_Field,
 		project_payment_payer_id ProjectPayment_PayerId_Field,
 		project_payment_payment_method_id ProjectPayment_PaymentMethodId_Field,
-		project_payment_is_default ProjectPayment_IsDefault_Field) (
+		project_payment_is_default ProjectPayment_IsDefault_Field,
+		optional ProjectPayment_Create_Fields) (
 		project_payment *ProjectPayment, err error)
 
 	Create_RegistrationToken(ctx context.Context,

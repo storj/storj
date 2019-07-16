@@ -92,6 +92,10 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     DELETE: 'deletePaymentMethod'
 };
 
+export const USER_PAYMENT_METHODS_ACTIONS = {
+    FETCH: 'fetchUserPaymentMethods',
+};
+
 export const CREDIT_USAGE_ACTIONS = {
     FETCH: 'fetchCreditUsage',
 };

@@ -61,10 +61,13 @@ func (pp *projectPayments) Create(ctx context.Context, info console.ProjectPayme
 
 	dbxInfo, err := pp.methods.Create_ProjectPayment(ctx,
 		dbx.ProjectPayment_Id(id[:]),
-		dbx.ProjectPayment_ProjectId(info.ProjectID[:]),
 		dbx.ProjectPayment_PayerId(info.PayerID[:]),
 		dbx.ProjectPayment_PaymentMethodId(info.PaymentMethodID),
-		dbx.ProjectPayment_IsDefault(info.IsDefault))
+		dbx.ProjectPayment_IsDefault(info.IsDefault),
+		struct {
+			ProjectId dbx.ProjectPayment_ProjectId_Field
+		}{ProjectId: dbx.ProjectPayment_ProjectId(info.ProjectID[:])},
+	)
 
 	if err != nil {
 		return nil, err

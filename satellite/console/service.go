@@ -187,14 +187,30 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 		return nil, err
 	}
 
+	var customerID []byte
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
-		return nil, err
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+
+		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+			Email: authorization.User.Email,
+			Name:  authorization.User.FullName,
+		})
+		if err != nil {
+			return nil, err
+		}
+		customerID = cus.ID
+	}
+
+	if userPayments != nil {
+		customerID = userPayments.CustomerID
 	}
 
 	params := payments.AddPaymentMethodParams{
 		Token:      paymentMethodToken,
-		CustomerID: string(userPayments.CustomerID),
+		CustomerID: string(customerID),
 	}
 
 	method, err := s.pm.AddPaymentMethod(ctx, params)
@@ -334,6 +350,22 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 	}
 
 	return projectPayments, nil
+}
+
+func (s *Service) GetUserPaymentMethods(ctx context.Context)(_ []payments.PaymentMethod, err error){
+	defer mon.Task()(&ctx)(&err)
+
+	authorization, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.pm.GetCustomerPaymentsMethods(ctx, userPayments.CustomerID)
 }
 
 // GenerateActivationToken - is a method for generating activation token
