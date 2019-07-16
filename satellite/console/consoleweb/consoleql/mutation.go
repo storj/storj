@@ -8,6 +8,7 @@ import (
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
@@ -132,6 +133,9 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 							return nil, err
 						}
+
+						// User can only earn credits after adding payment info. Therefore, we set the credits to 0 on registration
+						reward.InviteeCredit = currency.Cents(0)
 
 						err = service.RedeemRewards(p.Context, reward, referrerID, user.ID)
 						if err != nil {
