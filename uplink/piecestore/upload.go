@@ -181,8 +181,10 @@ func (client *Upload) Commit(ctx context.Context) (_ *pb.PieceHash, err error) {
 
 	// sign the hash for storage node
 	uplinkHash, err := signing.SignUplinkPieceHash(ctx, client.privateKey, &pb.PieceHash{
-		PieceId: client.limit.PieceId,
-		Hash:    client.hash.Sum(nil),
+		PieceId:   client.limit.PieceId,
+		PieceSize: client.offset,
+		Hash:      client.hash.Sum(nil),
+		Timestamp: client.limit.OrderCreation,
 	})
 	if err != nil {
 		// failed to sign, let's close the sending side, no need to wait for a response

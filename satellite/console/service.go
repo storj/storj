@@ -645,6 +645,31 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	return usage, nil
 }
 
+// RedeemRewards creates a new record in database when new user earns new credits
+func (s *Service) RedeemRewards(ctx context.Context, offer rewards.Offer, referrerID *uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := GetAuth(ctx)
+
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	newCredit := UserCredit{
+		UserID:        auth.User.ID,
+		OfferID:       offer.ID,
+		ReferredBy:    referrerID,
+		CreditsEarned: offer.InviteeCredit,
+		ExpiresAt:     time.Now().UTC().AddDate(0, 0, offer.InviteeCreditDurationDays),
+	}
+	err = s.store.UserCredits().Create(ctx, newCredit)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
+}
+
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)

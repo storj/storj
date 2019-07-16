@@ -49,12 +49,18 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 		return ErrInfo.Wrap(err)
 	}
 
+	var pieceExpiration *time.Time
+	if !info.PieceExpiration.IsZero() {
+		utcExpiration := info.PieceExpiration.UTC()
+		pieceExpiration = &utcExpiration
+	}
+
 	// TODO remove `uplink_cert_id` from DB
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
 			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, orderLimit, uplinkPieceHash, 0)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation.UTC(), pieceExpiration, orderLimit, uplinkPieceHash, 0)
 
 	if err == nil {
 		db.loadSpaceUsed(ctx)
@@ -73,7 +79,7 @@ func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, 
 		WHERE satellite_id = ? AND datetime(piece_creation) < datetime(?)
 		ORDER BY piece_id
 		LIMIT ? OFFSET ?
-	`), satelliteID, createdBefore, limit, offset)
+	`), satelliteID, createdBefore.UTC(), limit, offset)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -161,7 +167,7 @@ func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID,
 		SET deletion_failed_at = ?
 		WHERE satellite_id = ?
 		  AND piece_id = ?
-	`), now, satelliteID, pieceID)
+	`), now.UTC(), satelliteID, pieceID)
 
 	return ErrInfo.Wrap(err)
 }
@@ -174,11 +180,11 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 		SELECT satellite_id, piece_id, piece_size
 		FROM pieceinfo
 		WHERE piece_expiration IS NOT NULL
-		AND datetime(piece_expiration) < datetime(?)
-		AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
+		AND piece_expiration < ?
+		AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
 		ORDER BY satellite_id
 		LIMIT ?
-	`), expiredAt, expiredAt, limit)
+	`), expiredAt.UTC(), expiredAt.UTC(), limit)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}

@@ -163,6 +163,7 @@ func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {
 
 	return offers, errList.Err()
 }
+
 func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 	if offerDbx == nil {
 		return nil, offerErr.New("offerDbx parameter is nil")
