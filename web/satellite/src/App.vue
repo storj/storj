@@ -48,7 +48,7 @@
 
                 this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
             }
-        },
+        }
     })
 
     export default class App extends Vue {
