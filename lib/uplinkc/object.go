@@ -7,7 +7,6 @@ package main
 import "C"
 
 import (
-	"fmt"
 	"io"
 	"time"
 	"unsafe"
@@ -140,7 +139,6 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
-		fmt.Printf("go error: %s\n", err)
 		*cErr = C.CString(err.Error())
 	}
 	return C.size_t(n)
