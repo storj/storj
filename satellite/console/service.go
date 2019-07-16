@@ -129,13 +129,22 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
+		newUser := &User{
+			Email:        user.Email,
+			FullName:     user.FullName,
+			ShortName:    user.ShortName,
+			PasswordHash: hash,
+		}
+		if user.PartnerID != "" {
+			partnerID, err := uuid.Parse(user.PartnerID)
+			if err != nil {
+				return errs.New(internalErrMsg)
+			}
+			newUser.PartnerID = *partnerID
+		}
+
 		u, err = tx.Users().Insert(ctx,
-			&User{
-				Email:        user.Email,
-				FullName:     user.FullName,
-				ShortName:    user.ShortName,
-				PasswordHash: hash,
-			},
+			newUser,
 		)
 		if err != nil {
 			return errs.New(internalErrMsg)

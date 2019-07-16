@@ -51,7 +51,8 @@ func (user *UserInfo) IsValid() error {
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
 	UserInfo
-	Password string `json:"password"`
+	Password  string `json:"password"`
+	PartnerID string `json:"partner_id"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -60,6 +61,13 @@ func (user *CreateUser) IsValid() error {
 
 	errs.AddWrap(user.UserInfo.IsValid())
 	errs.AddWrap(validatePassword(user.Password))
+
+	if user.PartnerID != "" {
+		_, err := uuid.Parse(user.PartnerID)
+		if err != nil {
+			errs.AddWrap(err)
+		}
+	}
 
 	return errs.Combine()
 }
