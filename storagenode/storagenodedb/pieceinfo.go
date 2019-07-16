@@ -19,14 +19,11 @@ import (
 )
 
 type pieceinfo struct {
-	*InfoDB
-	space spaceUsed
-}
-
-type spaceUsed struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
-	used int64
-	once sync.Once
+	usedSpace     int64
+	loadSpaceOnce sync.Once
+
+	*InfoDB
 }
 
 // PieceInfo returns database for storing piece information
@@ -64,7 +61,7 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 
 	if err == nil {
 		db.loadSpaceUsed(ctx)
-		atomic.AddInt64(&db.space.used, info.PieceSize)
+		atomic.AddInt64(&db.usedSpace, info.PieceSize)
 	}
 	return ErrInfo.Wrap(err)
 }
@@ -152,7 +149,7 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	if pieceSize != 0 && err == nil {
 		db.loadSpaceUsed(ctx)
 
-		atomic.AddInt64(&db.space.used, -pieceSize)
+		atomic.AddInt64(&db.usedSpace, -pieceSize)
 	}
 
 	return ErrInfo.Wrap(err)
@@ -205,14 +202,14 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	db.loadSpaceUsed(ctx)
 
-	return atomic.LoadInt64(&db.space.used), nil
+	return atomic.LoadInt64(&db.usedSpace), nil
 }
 
 func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
 	defer mon.Task()(&ctx)(nil)
-	db.space.once.Do(func() {
+	db.loadSpaceOnce.Do(func() {
 		usedSpace, _ := db.CalculatedSpaceUsed(ctx)
-		atomic.AddInt64(&db.space.used, usedSpace)
+		atomic.AddInt64(&db.usedSpace, usedSpace)
 	})
 }
 

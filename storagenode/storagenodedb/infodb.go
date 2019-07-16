@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -46,8 +45,8 @@ func newInfo(path string) (*InfoDB, error) {
 	dbutil.Configure(db, mon)
 
 	infoDb := &InfoDB{db: utcDB{db}}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 	infoDb.location = path
 
 	return infoDb, nil
@@ -73,8 +72,8 @@ func NewInfoInMemory() (*InfoDB, error) {
 		}))
 
 	infoDb := &InfoDB{db: utcDB{db}}
-	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
+	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 
 	return infoDb, nil
 }
