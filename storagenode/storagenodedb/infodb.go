@@ -305,8 +305,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					if err != nil {
 						log.Sugar().Debug(err)
 					}
-					// If a folder is not found, the above command is returning an err.
-					// To prevent the node from starting up, we just log it and return nil
+					// To prevent the node from starting up, we just log errors and return nil
 					return nil
 				}),
 			},
