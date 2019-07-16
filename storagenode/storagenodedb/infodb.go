@@ -273,7 +273,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Free Storagenodes from trash data",
+				Description: "Clear Tables from Alpha data",
 				Version:     11,
 				Action: migrate.SQL{
 					`DELETE FROM pieceinfo`,
@@ -290,7 +290,11 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						fmt.Sprintf("%s/blob/%s", db.location, "v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa"), // europe-west1
 						fmt.Sprintf("%s/blob/%s", db.location, "qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa"), // asia-east1
 						fmt.Sprintf("%s/blob/%s", db.location, "abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
-					return deletecmd.Run()
+					err := deletecmd.Run()
+					if err != nil {
+						log.Sugar().Debug(err)
+					}
+					return nil
 				}),
 			},
 		},
