@@ -60,7 +60,7 @@ func TestGarbageCollection(t *testing.T) {
 				break
 			}
 		}
-		require.NotNil(t, deletedPieceID)
+		require.NotZero(t, deletedPieceID)
 
 		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestGarbageCollection(t *testing.T) {
 				break
 			}
 		}
-		require.NotNil(t, keptPieceID)
+		require.NotZero(t, keptPieceID)
 
 		// Delete object from metainfo service on satellite
 		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
