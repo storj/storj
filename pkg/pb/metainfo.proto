@@ -232,7 +232,7 @@ message Object {
     encryption.EncryptionParameters encryption_parameters = 13;
 
     int64 total_size  = 14; // total size of object
-    int64 inline_size = 15; // size of line part of object
+    int64 inline_size = 15; // size of inline part of object
     int64 remote_size = 16; // size of remote part of object
 }
 
