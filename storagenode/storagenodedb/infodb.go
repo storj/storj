@@ -289,11 +289,13 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					if db.location == "" {
 						return nil
 					}
-					deletecmd := exec.Command("rm", "-r",
-						filepath.Join(db.location, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa"), // us-central1
-						filepath.Join(db.location, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa"), // europe-west1
-						filepath.Join(db.location, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa"), // asia-east1
-						filepath.Join(db.location, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
+
+					usca := filepath.Join(filepath.Dir(db.location), "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa") // us-central1
+					euro := filepath.Join(filepath.Dir(db.location), "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa") // europe-west1
+					asia := filepath.Join(filepath.Dir(db.location), "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa") // asia-east1
+					stef := filepath.Join(filepath.Dir(db.location), "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa") // "tothemoon (stefan)"
+
+					deletecmd := exec.Command("rm", "-r", usca, euro, asia, stef)
 					err := deletecmd.Run()
 					if err != nil {
 						log.Sugar().Debug(err)
