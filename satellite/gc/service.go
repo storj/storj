@@ -81,7 +81,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	return service.loop.Run(ctx, func(ctx context.Context) error {
 		pieceCounts := service.lastPieceCountsValue()
-		obs := NewObserver(pieceCounts, service.config)
+		obs := NewObserver(service.log.Named("gc observer"), pieceCounts, service.config)
 
 		err := service.metainfoloop.Join(ctx, obs)
 		if err != nil {
@@ -107,7 +107,7 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 	// TODO: add a sync limiter so we can send multiple bloom filters concurrently
 	var errList errs.Group
 	for id, retainInfo := range obs.retainInfos {
-		err := service.sendOneRetainRequest(ctx, id, retainInfo, newPieceCounts)
+		err := service.sendRetainRequest(ctx, id, retainInfo, newPieceCounts)
 		if err != nil {
 			errList.Add(err)
 		}
@@ -120,7 +120,7 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 	return nil
 }
 
-func (service *Service) sendOneRetainRequest(
+func (service *Service) sendRetainRequest(
 	ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, newPieceCounts map[storj.NodeID]int,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -138,7 +138,8 @@ func (service *Service) sendOneRetainRequest(
 		return err
 	}
 	defer func() {
-		err = errs.Combine(err, ps.Close())
+		err2 := ps.Close()
+		err = errs.Combine(err, Error.Wrap(err2))
 	}()
 
 	// todo add piece count to overlay (when there is a column for them)
@@ -152,7 +153,11 @@ func (service *Service) sendOneRetainRequest(
 		CreationDate: retainInfo.CreationDate,
 		Filter:       filterBytes,
 	}
-	return ps.Retain(ctx, retainReq)
+	err = ps.Retain(ctx, retainReq)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 func (service *Service) lastPieceCountsValue() map[storj.NodeID]int {
