@@ -18,6 +18,7 @@ import (
 
 	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/internal/migrate"
+	"storj.io/storj/internal/sync2"
 )
 
 // ErrInfo is the default error class for InfoDB
@@ -25,7 +26,7 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db          *sql.DB
+	db          utcDB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
 }
@@ -43,9 +44,9 @@ func newInfo(path string) (*InfoDB, error) {
 
 	dbutil.Configure(db, mon)
 
-	infoDb := &InfoDB{db: db}
+	infoDb := &InfoDB{db: utcDB{db}}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
 
 	return infoDb, nil
 }
@@ -69,9 +70,9 @@ func NewInfoInMemory() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	infoDb := &InfoDB{db: db}
+	infoDb := &InfoDB{db: utcDB{db}}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb, space: spaceUsed{used: 0, once: sync.Once{}}}
-	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}}
+	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, bandwidth: bandwidthUsed{used: 0, mu: sync.RWMutex{}, usedSince: time.Time{}}, loop: sync2.NewCycle(time.Hour)}
 
 	return infoDb, nil
 }
@@ -88,10 +89,10 @@ func (db *InfoDB) CreateTables(log *zap.Logger) error {
 }
 
 // RawDB returns access to the raw database, only for migration tests.
-func (db *InfoDB) RawDB() *sql.DB { return db.db }
+func (db *InfoDB) RawDB() *sql.DB { return db.db.db }
 
 // Begin begins transaction
-func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.Begin() }
+func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.db.Begin() }
 
 // Rebind rebind parameters
 func (db *InfoDB) Rebind(s string) string { return s }
@@ -263,14 +264,23 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
-					`DROP INDEX idx_used_serial`,
 					`DROP INDEX idx_pieceinfo_expiration`,
-					`DROP INDEX idx_bandwidth_usage_created`,
 					`DROP INDEX idx_order_archive_satellite`,
 					`DROP INDEX idx_order_archive_status`,
-					`CREATE INDEX idx_used_serial ON used_serial(datetime(expiration))`,
-					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(datetime(piece_expiration)) WHERE piece_expiration IS NOT NULL`,
-					`CREATE INDEX idx_bandwidth_usage_created ON bandwidth_usage(datetime(created_at))`,
+					`CREATE INDEX idx_pieceinfo_expiration ON pieceinfo(piece_expiration) WHERE piece_expiration IS NOT NULL`,
+				},
+			},
+			{
+				Description: "Create bandwidth_usage_rollup table.",
+				Version:     11,
+				Action: migrate.SQL{
+					`CREATE TABLE bandwidth_usage_rollups (
+										interval_start	TIMESTAMP NOT NULL,
+										satellite_id  	BLOB    NOT NULL,
+										action        	INTEGER NOT NULL,
+										amount        	BIGINT  NOT NULL,
+										PRIMARY KEY ( interval_start, satellite_id, action )
+									)`,
 				},
 			},
 		},
