@@ -195,11 +195,13 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	return csv, nil
 }
 
-// QueryNodeSpaceUsage returns slice of NodeSpaceUsage for given period
-func (db *StoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeSpaceUsage, err error) {
+// QueryNodeStorageUsage returns slice of NodeStorageUsage for given period
+func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeStorageUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT id, at_rest_total, start_time 
+	query := `SELECT id, at_rest_total, start_time, 
+		LAG(at_rest_total) OVER win as prev_at_rest, 
+		LAG(start_time) OVER win as prev_start_time
 		FROM accounting_rollups
 		WHERE id IN (
 			SELECT MAX(id)
@@ -208,7 +210,8 @@ func (db *StoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID
 			AND ? <= start_time AND start_time <= ?
 			GROUP BY start_time
 			ORDER BY start_time ASC
-		)`
+		)
+		WINDOW win AS (ORDER BY ID)`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
 	if err != nil {
@@ -219,26 +222,41 @@ func (db *StoragenodeAccounting) QueryNodeSpaceUsage(ctx context.Context, nodeID
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	var nodeSpaceUsages []accounting.NodeSpaceUsage
+	var nodeStorageUsages []accounting.NodeStorageUsage
 	for rows.Next() {
 		var id int64
 		var atRestTotal float64
 		var startTime time.Time
+		var prevAtRestTotal sql.NullFloat64
+		var prevStartTime nullTime
 
-		err = rows.Scan(&id, &atRestTotal, &startTime)
+		err = rows.Scan(&id, &atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		nodeSpaceUsages = append(nodeSpaceUsages, accounting.NodeSpaceUsage{
+		// skip first entry is we can not extract hours
+		// properly without storagenode storage tallies
+		// which formed this value
+		if !prevStartTime.Valid {
+			continue
+		}
+
+		atRest := atRestTotal - prevAtRestTotal.Float64
+		hours := startTime.Sub(prevStartTime.Time).Hours()
+		if hours != 0 {
+			atRest /= hours
+		}
+
+		nodeStorageUsages = append(nodeStorageUsages, accounting.NodeStorageUsage{
 			RollupID:    id,
 			NodeID:      nodeID,
-			AtRestTotal: atRestTotal,
+			StorageUsed: atRest,
 			Timestamp:   startTime,
 		})
 	}
 
-	return nodeSpaceUsages, nil
+	return nodeStorageUsages, nil
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time

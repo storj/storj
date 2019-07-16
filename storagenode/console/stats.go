@@ -4,13 +4,24 @@
 package console
 
 import (
+	"context"
 	"time"
 
 	"storj.io/storj/pkg/storj"
 )
 
-// Stats encapsulates storagenode stats retrieved from the satellite
-type Stats struct {
+// Stats is interface for working with node stats db
+type Stats interface {
+	// Create inserts new stats into the db
+	Create(ctx context.Context, stats NodeStats) (*NodeStats, error)
+	// Update updates stored stats
+	Update(ctx context.Context, stats NodeStats) error
+	// Get retrieves stats for specific satellite
+	Get(ctx context.Context, satelliteID storj.NodeID) (*NodeStats, error)
+}
+
+// NodeStats encapsulates storagenode stats retrieved from the satellite
+type NodeStats struct {
 	SatelliteID storj.NodeID
 
 	UptimeCheck ReputationStats

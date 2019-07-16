@@ -23,9 +23,29 @@ func (db *InfoDB) Console() console.DB { return &consoledb{db} }
 // Console returns console.DB
 func (db *DB) Console() console.DB { return db.info.Console() }
 
-// GetSatelliteIDs returns list of satelliteIDs that storagenode has interacted with
+// Satellites returns consoledb as console.Satellites
+func (db *consoledb) Satellites() console.Satellites {
+	return db
+}
+
+// Bandwidth returns consoledb as console.Bandwidth
+func (db *consoledb) Bandwidth() console.Bandwidth {
+	return db
+}
+
+// DiskSpaceUsages returns consoledb as console.DiskSpaceUsages
+func (db *consoledb) DiskSpaceUsages() console.DiskSpaceUsages {
+	return &diskSpaceUsage{InfoDB: db.InfoDB}
+}
+
+// Stats returns nodeStats as console.Stats
+func (db *consoledb) Stats() console.Stats {
+	return &nodeStats{InfoDB: db.InfoDB}
+}
+
+// GetIDs returns list of satelliteIDs that storagenode has interacted with
 // at least once
-func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_ storj.NodeIDList, err error) {
+func (db *consoledb) GetIDs(ctx context.Context, from, to time.Time) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var satellites storj.NodeIDList
@@ -57,171 +77,9 @@ func (db *consoledb) GetSatelliteIDs(ctx context.Context, from, to time.Time) (_
 	return satellites, nil
 }
 
-// CreateStats inserts new stats into the db
-func (db *consoledb) CreateStats(ctx context.Context, stats console.Stats) (_ *console.Stats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	stmt := `INSERT INTO node_stats (
-				satellite_id, 
-				uptime_success_count,
-				uptime_total_count,
-				uptime_reputation_alpha,
-				uptime_reputation_beta,
-				uptime_reputation_score,
-				audit_success_count,
-				audit_total_count,
-				audit_reputation_alpha,
-				audit_reputation_beta,
-				audit_reputation_score,
-				updated_at
-			) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`
-
-	_, err = db.db.ExecContext(ctx, stmt,
-		stats.SatelliteID,
-		stats.UptimeCheck.SuccessCount,
-		stats.UptimeCheck.TotalCount,
-		stats.UptimeCheck.ReputationAlpha,
-		stats.UptimeCheck.ReputationBeta,
-		stats.UptimeCheck.ReputationScore,
-		stats.AuditCheck.SuccessCount,
-		stats.AuditCheck.TotalCount,
-		stats.AuditCheck.ReputationAlpha,
-		stats.AuditCheck.ReputationBeta,
-		stats.AuditCheck.ReputationScore,
-		stats.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &stats, nil
-}
-
-// UpdateStats updates stored stats
-func (db *consoledb) UpdateStats(ctx context.Context, stats console.Stats) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	stmt := `UPDATE node_stats
-			SET uptime_success_count = ?,
-				uptime_total_count = ?,
-				uptime_reputation_alpha = ?,
-				uptime_reputation_beta = ?,
-				uptime_reputation_score = ?,
-				audit_success_count = ?,
-				audit_total_count = ?,
-				audit_reputation_alpha = ?,
-				audit_reputation_beta = ?,
-				audit_reputation_score = ?,
-				updated_at = ?
-			WHERE satellite_id = ?`
-
-	res, err := db.db.ExecContext(ctx, stmt,
-		stats.UptimeCheck.SuccessCount,
-		stats.UptimeCheck.TotalCount,
-		stats.UptimeCheck.ReputationAlpha,
-		stats.UptimeCheck.ReputationBeta,
-		stats.UptimeCheck.ReputationScore,
-		stats.AuditCheck.SuccessCount,
-		stats.AuditCheck.TotalCount,
-		stats.AuditCheck.ReputationAlpha,
-		stats.AuditCheck.ReputationBeta,
-		stats.AuditCheck.ReputationScore,
-		stats.UpdatedAt,
-		stats.SatelliteID,
-	)
-	if err != nil {
-		return err
-	}
-
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return sql.ErrNoRows
-	}
-
-	return nil
-}
-
-// GetStatsSatellite retrieves stats for specific satellite
-func (db *consoledb) GetStatsSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *console.Stats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	stats := console.Stats{}
-
-	row := db.db.QueryRowContext(ctx,
-		`SELECT * FROM node_stats WHERE satellite_id = ?`,
-		satelliteID,
-	)
-
-	err = row.Scan(&stats.SatelliteID,
-		&stats.UptimeCheck.SuccessCount,
-		&stats.UptimeCheck.TotalCount,
-		&stats.UptimeCheck.ReputationAlpha,
-		&stats.UptimeCheck.ReputationBeta,
-		&stats.UptimeCheck.ReputationScore,
-		&stats.AuditCheck.SuccessCount,
-		&stats.AuditCheck.TotalCount,
-		&stats.AuditCheck.ReputationAlpha,
-		&stats.AuditCheck.ReputationBeta,
-		&stats.AuditCheck.ReputationScore,
-		&stats.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &stats, nil
-}
-
-// StoreSpaceUsageStamps stores disk space usage stamps to db
-func (db *consoledb) StoreSpaceUsageStamps(ctx context.Context, stamps []console.SpaceUsageStamp) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(stamps) == 0 {
-		return nil
-	}
-
-	stmt := `INSERT OR REPLACE INTO rollup_space_usages(rollup_id, satellite_id, at_rest_total, timestamp) 
-			VALUES(?,?,?,?)`
-
-	cb := func(tx *sql.Tx) error {
-		txStmt, err := tx.PrepareContext(ctx, stmt)
-		if err != nil {
-			return err
-		}
-
-		for _, stamp := range stamps {
-			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp)
-
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}
-
-	return db.withTx(ctx, cb)
-}
-
-// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
-// sorted in ascending order
-func (db *consoledb) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	since, _ := getDateEdges(from.UTC())
-	_, before := getDateEdges(to.UTC())
-
-	return db.getDailyBandwidthUsed(ctx,
-		"WHERE ? <= created_at AND created_at <= ?",
-		since, before)
-}
-
-// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+// GetDaily returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order for particular satellite
-func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+func (db *consoledb) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	since, _ := getDateEdges(from.UTC())
@@ -230,6 +88,19 @@ func (db *consoledb) GetDailyBandwidthUsed(ctx context.Context, satelliteID stor
 	return db.getDailyBandwidthUsed(ctx,
 		"WHERE satellite_id = ? AND ? <= created_at AND created_at <= ?",
 		satelliteID, since, before)
+}
+
+// GetDaily returns slice of daily bandwidth usage for provided time range,
+// sorted in ascending order
+func (db *consoledb) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []console.BandwidthUsed, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	since, _ := getDateEdges(from.UTC())
+	_, before := getDateEdges(to.UTC())
+
+	return db.getDailyBandwidthUsed(ctx,
+		"WHERE ? <= created_at AND created_at <= ?",
+		since, before)
 }
 
 // getDailyBandwidthUsed returns slice of grouped by date bandwidth usage
@@ -298,114 +169,6 @@ func (db *consoledb) getDailyBandwidthUsed(ctx context.Context, cond string, arg
 	}
 
 	return bandwidthUsedList, nil
-}
-
-// GetDailyDiskSpaceUsageTotal returns daily disk usage summed across all known satellites
-// for provided time range
-func (db *consoledb) GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	query := `SELECT SUM(at_rest_total), timestamp 
-				FROM rollup_space_usages
-				WHERE rollup_id IN (
-					SELECT MAX(rollup_id)
-					FROM rollup_space_usages
-					WHERE ? <= timestamp AND timestamp <= ?
-					GROUP BY DATE(timestamp), satellite_id
-				) GROUP BY DATE(timestamp)`
-
-	rows, err := db.db.QueryContext(ctx, query, from, to)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	var stamps []console.SpaceUsageStamp
-	for rows.Next() {
-		var atRestTotal float64
-		var timeStamp time.Time
-
-		err = rows.Scan(&atRestTotal, &timeStamp)
-		if err != nil {
-			return nil, err
-		}
-
-		stamps = append(stamps, console.SpaceUsageStamp{
-			AtRestTotal: atRestTotal,
-			Timestamp:   timeStamp,
-		})
-	}
-
-	return stamps, nil
-}
-
-// GetDailyDiskSpaceUsageSatellite returns daily disk usage for particular satellite
-// for provided time range
-func (db *consoledb) GetDailyDiskSpaceUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	query := `SELECT *
-				FROM rollup_space_usages
-				WHERE rollup_id IN (
-					SELECT MAX(rollup_id) 
-					FROM rollup_space_usages
-					WHERE satellite_id = ?
-					AND ? <= timestamp AND timestamp <= ?
-					GROUP BY DATE(timestamp)
-				)`
-
-	rows, err := db.db.QueryContext(ctx, query, satelliteID, from, to)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	var stamps []console.SpaceUsageStamp
-	for rows.Next() {
-		var rollupID int64
-		var satellite storj.NodeID
-		var atRestTotal float64
-		var timeStamp time.Time
-
-		err = rows.Scan(&rollupID, &satellite, &atRestTotal, &timeStamp)
-		if err != nil {
-			return nil, err
-		}
-
-		stamps = append(stamps, console.SpaceUsageStamp{
-			RollupID:    rollupID,
-			SatelliteID: satellite,
-			AtRestTotal: atRestTotal,
-			Timestamp:   timeStamp,
-		})
-	}
-
-	return stamps, nil
-}
-
-// withTx is a helper method which executes callback in transaction scope
-func (db *consoledb) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	return cb(tx)
 }
 
 // getDateEdges returns start and end of the provided day

@@ -4,10 +4,23 @@
 package console
 
 import (
+	"context"
 	"time"
 
 	"storj.io/storj/pkg/storj"
 )
+
+// DiskSpaceUsages is interface for working with disk space usage db
+type DiskSpaceUsages interface {
+	// Store stores disk space usage stamps to db
+	Store(ctx context.Context, stamps []DiskSpaceUsage) error
+	// GetDaily returns daily disk usage for particular satellite
+	// for provided time range
+	GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]DiskSpaceUsage, error)
+	// GetDailyTotal returns daily disk usage summed across all known satellites
+	// for provided time range
+	GetDailyTotal(ctx context.Context, from, to time.Time) ([]DiskSpaceUsage, error)
+}
 
 // DiskSpaceInfo stores all info about storagenode disk space usage
 type DiskSpaceInfo struct {
@@ -15,8 +28,8 @@ type DiskSpaceInfo struct {
 	Used      int64 `json:"used"`
 }
 
-// SpaceUsageStamp is space usage for satellite at some point in time
-type SpaceUsageStamp struct {
+// DiskSpaceUsage is space usage for satellite at some point in time
+type DiskSpaceUsage struct {
 	RollupID    int64
 	SatelliteID storj.NodeID
 

@@ -4,6 +4,7 @@
 package storagenodedb
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math/rand"
@@ -271,15 +272,34 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						updated_at TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id)
 					)`,
-					`CREATE TABLE rollup_space_usages (
+					`CREATE TABLE rollup_disk_storage_usages (
 						rollup_id INTEGER NOT NULL,
 						satellite_id BLOB NOT NULL,
 						at_rest_total REAL NOT NUll,
 						timestamp TIMESTAMP NOT NULL,
-						PRIMARY KEY (rollup_id, satellite_id)
+						PRIMARY KEY (satellite_id, timestamp)
 					)`,
 				},
 			},
 		},
 	}
+}
+
+// withTx is a helper method which executes callback in transaction scope
+func (db *InfoDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+
+	return cb(tx)
 }

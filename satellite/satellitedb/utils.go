@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"database/sql/driver"
+	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -22,6 +23,26 @@ func bytesToUUID(data []byte) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+// null time helps convert nil to time.Time
+type nullTime struct {
+	time.Time
+	Valid bool
+}
+
+// Scan implements the Scanner interface.
+func (nt *nullTime) Scan(value interface{}) error {
+	nt.Time, nt.Valid = value.(time.Time)
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (nt nullTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return nil, nil
+	}
+	return nt.Time, nil
 }
 
 type postgresNodeIDList storj.NodeIDList

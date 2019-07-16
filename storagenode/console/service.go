@@ -28,29 +28,10 @@ var (
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
-	// GetSatelliteIDs returns list of satelliteIDs that storagenode has interacted with
-	// at least once
-	GetSatelliteIDs(ctx context.Context, from, to time.Time) (storj.NodeIDList, error)
-	// CreateStats inserts new stats into the db
-	CreateStats(ctx context.Context, stats Stats) (*Stats, error)
-	// UpdateStats updates stored stats
-	UpdateStats(ctx context.Context, stats Stats) error
-	// GetStatsSatellite retrieves stats for specific satellite
-	GetStatsSatellite(ctx context.Context, satelliteID storj.NodeID) (*Stats, error)
-	// StoreSpaceUsageStamps stores disk space usage stamps to db
-	StoreSpaceUsageStamps(ctx context.Context, stamps []SpaceUsageStamp) error
-	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
-	// sorted in ascending order
-	GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) ([]BandwidthUsed, error)
-	// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
-	// sorted in ascending order for particular satellite
-	GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]BandwidthUsed, error)
-	// GetDailyDiskSpaceUsageTotal returns daily disk usage summed across all known satellites
-	// for provided time range
-	GetDailyDiskSpaceUsageTotal(ctx context.Context, from, to time.Time) ([]SpaceUsageStamp, error)
-	// GetDailyDiskSpaceUsageSatellite returns daily disk usage for particular satellite
-	// for provided time range
-	GetDailyDiskSpaceUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]SpaceUsageStamp, error)
+	Satellites() Satellites
+	Bandwidth() Bandwidth
+	DiskSpaceUsages() DiskSpaceUsages
+	Stats() Stats
 }
 
 // Service is handling storage node operator related logic
@@ -124,12 +105,12 @@ func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (_ *BandwidthInfo, 
 	return FromUsage(usage, s.allocatedBandwidth.Int64())
 }
 
-// GetDailyTotalBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+// GetDailyTotal returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order
-func (s *Service) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []BandwidthUsed, err error) {
+func (s *Service) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usage, err := s.consoleDB.GetDailyTotalBandwidthUsed(ctx, from, to)
+	usage, err := s.consoleDB.Bandwidth().GetDailyTotal(ctx, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +118,12 @@ func (s *Service) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.
 	return usage, nil
 }
 
-// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
+// GetDaily returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order for particular satellite
-func (s *Service) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []BandwidthUsed, err error) {
+func (s *Service) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usage, err := s.consoleDB.GetDailyBandwidthUsed(ctx, satelliteID, from, to)
+	usage, err := s.consoleDB.Bandwidth().GetDaily(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -234,5 +215,5 @@ func (s *Service) CheckVersion(ctx context.Context) (err error) {
 // GetSatellites used to retrieve satellites list
 func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
+	return s.consoleDB.Satellites().GetIDs(ctx, time.Time{}, time.Now())
 }

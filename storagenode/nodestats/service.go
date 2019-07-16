@@ -93,7 +93,7 @@ func (s *Service) Run(ctx context.Context) (err error) {
 func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellites, err := s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
+	satellites, err := s.consoleDB.Satellites().GetIDs(ctx, time.Time{}, time.Now())
 	if err != nil {
 		return NodeStatsServiceErr.Wrap(err)
 	}
@@ -109,10 +109,10 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 		stats.UpdatedAt = time.Now()
 
 		// try to update stats from satellite
-		if err = s.consoleDB.UpdateStats(ctx, *stats); err != nil {
+		if err = s.consoleDB.Stats().Update(ctx, *stats); err != nil {
 			// if stats doesn't exists - create new one
 			if err == sql.ErrNoRows {
-				_, err = s.consoleDB.CreateStats(ctx, *stats)
+				_, err = s.consoleDB.Stats().Create(ctx, *stats)
 				if err != nil {
 					cacheStatsErr.Add(NodeStatsServiceErr.Wrap(err))
 					continue
@@ -125,7 +125,7 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 
 		s.log.Info(fmt.Sprintf("CacheStats %s: %v", satellite, stats))
 
-		satStats, err := s.consoleDB.GetStatsSatellite(ctx, satellite)
+		satStats, err := s.consoleDB.Stats().Get(ctx, satellite)
 		if err != nil {
 			s.log.Error(fmt.Sprintf("SAT %s err: %v", satellite, err))
 		}
@@ -140,7 +140,7 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellites, err := s.consoleDB.GetSatelliteIDs(ctx, time.Time{}, time.Now())
+	satellites, err := s.consoleDB.Satellites().GetIDs(ctx, time.Time{}, time.Now())
 	if err != nil {
 		return NodeStatsServiceErr.Wrap(err)
 	}
@@ -156,7 +156,7 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 			continue
 		}
 
-		err = s.consoleDB.StoreSpaceUsageStamps(ctx, spaceUsages)
+		err = s.consoleDB.DiskSpaceUsages().Store(ctx, spaceUsages)
 		if err != nil {
 			cacheSpaceErr.Add(NodeStatsServiceErr.Wrap(err))
 			continue
@@ -164,24 +164,35 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 
 		s.log.Info(fmt.Sprintf("CacheSpace %s: %v", satellite, spaceUsages))
 
-		perSat, err := s.consoleDB.GetDailyDiskSpaceUsageSatellite(ctx, satellite, startDate, endDate)
+		perSat, err := s.consoleDB.DiskSpaceUsages().GetDaily(ctx, satellite, startDate, endDate)
 		if err != nil {
 			s.log.Error(fmt.Sprintf("SAT %s err: %v", satellite, err))
 		}
-		s.log.Info(fmt.Sprintf("CacheSpace QUERY SAT %s: %v", satellite, perSat))
+
+		for _, ps := range perSat {
+			s.log.Info(fmt.Sprintf("CacheSpace QUERY SAT %s", satellite))
+			s.log.Info(fmt.Sprintf("CacheSpace QUERY rollupID: %d", ps.RollupID))
+			s.log.Info(fmt.Sprintf("CacheSpace QUERY atRest: %f", ps.AtRestTotal))
+			s.log.Info(fmt.Sprintf("CacheSpace QUERY timestamp: %s", ps.Timestamp))
+		}
 	}
 
-	totals, err := s.consoleDB.GetDailyDiskSpaceUsageTotal(ctx, startDate, endDate)
+	totals, err := s.consoleDB.DiskSpaceUsages().GetDailyTotal(ctx, startDate, endDate)
 	if err != nil {
 		s.log.Error(fmt.Sprintf("TOTAL err: %v", err))
 	}
+
 	s.log.Info(fmt.Sprintf("CacheSpace QUERY TOTAL %v", totals))
+	for _, t := range totals {
+		s.log.Info(fmt.Sprintf("CacheSpace QUERY atRest: %f", t.AtRestTotal))
+		s.log.Info(fmt.Sprintf("CacheSpace QUERY timestamp: %s", t.Timestamp))
+	}
 
 	return cacheSpaceErr.Err()
 }
 
 // GetStatsFromSatellite retrieves node stats from particular satellite
-func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *console.Stats, err error) {
+func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *console.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.DialNodeStats(ctx, satelliteID)
@@ -203,7 +214,7 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 	uptime := resp.GetUptimeCheck()
 	audit := resp.GetAuditCheck()
 
-	return &console.Stats{
+	return &console.NodeStats{
 		SatelliteID: satelliteID,
 		UptimeCheck: console.ReputationStats{
 			TotalCount:      uptime.GetTotalCount(),
@@ -223,7 +234,7 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 }
 
 // GetDailyStorageUsedForSatellite returns daily SpaceUsageStamps over a period of time for a particular satellite
-func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.SpaceUsageStamp, err error) {
+func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.DiskSpaceUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.DialNodeStats(ctx, satelliteID)
@@ -265,12 +276,12 @@ func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (
 	}, nil
 }
 
-// fromSpaceUsageResponse get SpaceUsageStamp slice from pb.SpaceUsageResponse
-func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []console.SpaceUsageStamp {
-	var stamps []console.SpaceUsageStamp
+// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []console.DiskSpaceUsage {
+	var stamps []console.DiskSpaceUsage
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
-		stamps = append(stamps, console.SpaceUsageStamp{
+		stamps = append(stamps, console.DiskSpaceUsage{
 			RollupID:    pbUsage.RollupId,
 			SatelliteID: satelliteID,
 			AtRestTotal: pbUsage.AtRestTotal,
