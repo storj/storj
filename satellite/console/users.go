@@ -51,7 +51,8 @@ func (user *UserInfo) IsValid() error {
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
 	UserInfo
-	Password string `json:"password"`
+	PartnerID uuid.UUID `json:"partnerId,omitempty"`
+	Password  string    `json:"password"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.

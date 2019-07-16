@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
+	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/satellite/console"
 )
@@ -26,8 +27,8 @@ const (
 	FieldShortName = "shortName"
 	// FieldCreatedAt is a field name for created at timestamp
 	FieldCreatedAt = "createdAt"
-	// FieldReferredBy is a field name for referrer ID
-	FieldReferredBy = "referredBy"
+	// FieldPartnerID is a field name for partner ID
+	FieldPartnerID = "partnerID"
 )
 
 // base graphql config for user
@@ -50,7 +51,7 @@ func baseUserConfig() graphql.ObjectConfig {
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
 			},
-			FieldReferredBy: &graphql.Field{
+			FieldPartnerID: &graphql.Field{
 				Type: graphql.String,
 			},
 		},
@@ -80,7 +81,7 @@ func graphqlUserInput() *graphql.InputObject {
 			FieldPassword: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
-			FieldReferredBy: &graphql.InputObjectFieldConfig{
+			FieldPartnerID: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 		},
@@ -95,10 +96,15 @@ func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
 	return
 }
 
-func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser) {
+func fromMapCreateUser(args map[string]interface{}) (user console.CreateUser, err error) {
 	user.UserInfo = fromMapUserInfo(args)
+	partnerID, err := uuid.Parse(args[FieldPartnerID].(string))
+	if err != nil {
+		return user, err
+	}
+	user.PartnerID = *partnerID
 	user.Password, _ = args[FieldPassword].(string)
-	return
+	return user, nil
 }
 
 // fillUserInfo fills satellite.UserInfo from satellite.User and input args

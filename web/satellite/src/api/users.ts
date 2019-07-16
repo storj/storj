@@ -128,7 +128,8 @@ export async function createUserRequest(user: User, password: string, secret: st
                         password: "${password}",
                         fullName: "${user.fullName}",
                         shortName: "${user.shortName}",
-                        referredBy: "${user.referredBy}"
+                        partnerId: "${user.partnerId}",
+                        referrerId: "${user.referrerId}"
                     },
                     secret: "${secret}",
                 ){email, id}

@@ -59,6 +59,10 @@ const (
 	FieldNewPassword = "newPassword"
 	// Secret is a field name for registration token for user creation during Vanguard release
 	Secret = "secret"
+	// ReferrerID is a field name for referrer user ID
+	ReferrerID = "referrerID"
+	// RewardID is a field name for current reward offer ID
+	RewardID = "rewardID"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -75,12 +79,27 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
+					ReferrerID: &graphql.ArgumentConfig{
+						Type: graphql.String,
+					},
+					RewardID: &graphql.ArgumentConfig{
+						Type: graphql.Int,
+					},
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
-					createUser := fromMapCreateUser(input)
+					referrerID := p.Args[ReferrerID].(string)
+					rewardID := p.Args[RewardID].(int)
+
+					createUser, err := fromMapCreateUser(input)
+					if err != nil {
+						log.Error("register: failed to parse partnerID",
+							zap.Error(err))
+
+						return nil, err
+					}
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)
 					if err != nil {

@@ -32,7 +32,8 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                 isTermsAccepted: false,
                 isTermsAcceptedError: false,
                 secret: '',
-                referredBy: undefined,
+                partnerId: '',
+                referrerId: '',
                 loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
             };
         },
@@ -90,7 +91,8 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                     email: this.$data.email.trim(),
                     fullName: this.$data.fullName.trim(),
                     shortName: this.$data.shortName.trim(),
-                    referredBy: this.$data.referredBy
+                    partnerId: this.$data.partnerId,
+                    referrerId: this.$data.referrerId
                 };
 
                 let response = await createUserRequest(user, this.$data.password, this.$data.secret);
@@ -145,10 +147,12 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                 this.$data.secret = this.$route.query.token.toString();
             }
 
-            let { ids = '' } = this.$route.params;
-            let referralIds = JSON.parse(atob(ids))
-            this.$data.partnerId = referralIds.partnerId;
-            this.$store.user.referrerId = referralIds.userId;
+            let { ids } = this.$route.params;
+            let referralIds = ids ? JSON.parse(atob(ids)) : undefined;
+            if (referralIds) {
+                this.$data.partnerId = referralIds.partnerId;
+                this.$data.referrerId = referralIds.userId;
+            }
         }
     })
 

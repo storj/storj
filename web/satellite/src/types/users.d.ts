@@ -5,7 +5,8 @@ declare type User = {
     fullName: string,
     shortName: string,
     email: string,
-    referredBy?: string,
+    partnerId?: string,
+    referrerId?: string,
 };
 
 declare type UpdatedUser = {
