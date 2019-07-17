@@ -23,7 +23,7 @@
                     placeholder="Enter Project Description"
                     additional-label="Optional"
                     class="full-input"
-                    isMultiline
+                    isMultiline="true"
                     height="100px"
                     width="100%"
                     @setData="setProjectDescription">

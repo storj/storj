@@ -30,7 +30,7 @@
                         placeholder="Enter Description"
                         width="70vw"
                         height="10vh"
-                        isMultiline
+                        isMultiline="true"
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
                         <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite="true"/>
