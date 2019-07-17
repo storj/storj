@@ -158,6 +158,7 @@ waitformore:
 
 				path := item.Key.String()
 				pathElements := storj.SplitPath(path)
+				isLastSeg := len(pathElements) >= 2 && pathElements[1] == "l"
 
 				nextObservers := observers[:0]
 
@@ -169,15 +170,13 @@ waitformore:
 							continue
 						}
 
-						if len(pathElements) >= 2 && pathElements[1] == "l" {
+						if isLastSeg {
 							if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
 								continue
 							}
 						}
-					} else {
-						if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
-							continue
-						}
+					} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+						continue
 					}
 
 					select {
