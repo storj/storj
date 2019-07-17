@@ -23,7 +23,7 @@ type handshakeCapture struct {
 }
 
 // ClientHandshake does the authentication handshake specified by the corresponding
-// authentication protocol on rawConn for clients. It returns the authenticated
+// authentication protocol on conn for clients. It returns the authenticated
 // connection and the corresponding auth information about the connection.
 func (capture *handshakeCapture) ClientHandshake(ctx context.Context, s string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	conn, auth, err := capture.TransportCredentials.ClientHandshake(ctx, s, conn)

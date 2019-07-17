@@ -37,7 +37,7 @@ type satelliteInfoCache struct {
 	identity *identity.PeerIdentity
 }
 
-// NewPool creates a new trust pool using kademlia to find certificates and with the specified list of trusted satellites.
+// NewPool creates a new trust pool of the specified list of trusted satellites.
 func NewPool(transport transport.Client, trustedSatellites storj.NodeURLs) (*Pool, error) {
 	// TODO: preload all satellite peer identities
 
