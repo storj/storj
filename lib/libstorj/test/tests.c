@@ -304,6 +304,7 @@ void check_store_file(int error_code, storj_file_meta_t *info, void *handle)
 
 void check_store_file_cancel(int error_code, storj_file_meta_t *file, void *handle)
 {
+    // TODO: currently this should never be called. Not sure if that's the correct behavior.
     require(handle == NULL);
     if (error_code == STORJ_TRANSFER_CANCELED) {
         pass("storj_bridge_store_file_cancel");
@@ -415,8 +416,7 @@ int test_upload_cancel(storj_env_t *env)
     storj_bridge_store_file_cancel(state);
     require_no_last_error_if(uv_run(env->loop, UV_RUN_DEFAULT));
 
-    // TODO: needs to go before `uv_run`?
-//    storj_bridge_store_file_cancel(state);
+    // TODO: test a longer-running upload and cancel after calling `uv_run`?
 
     return 0;
 }

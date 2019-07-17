@@ -28,6 +28,7 @@ static void cleanup_state(storj_upload_state_t *state)
 static void after_get_file_info(uv_work_t *work, int status)
 {
     if (status) {
+        // TODO: should finished_cb be called here?
         free(work);
         return;
     }
@@ -37,6 +38,8 @@ static void after_get_file_info(uv_work_t *work, int status)
     storj_upload_state_t *state = upload_work->data;
 
     if (state->error_status) {
+        /* Currently, if status == 0 && state->error_status != 0,
+           finished_cb gets called; this is inconsistent. */
         goto cleanup;
     }
 
