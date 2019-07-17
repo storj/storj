@@ -33,6 +33,7 @@ type TypeCreator struct {
 	userInput         *graphql.InputObject
 	projectInput      *graphql.InputObject
 	bucketUsageCursor *graphql.InputObject
+	rewardInput       *graphql.InputObject
 }
 
 // Create create types and check for error
@@ -50,6 +51,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.bucketUsageCursor = graphqlBucketUsageCursor()
 	if err := c.bucketUsageCursor.Error(); err != nil {
+		return err
+	}
+
+	c.rewardInput = graphqlRedeemReward()
+	if err := c.rewardInput.Error(); err != nil {
 		return err
 	}
 

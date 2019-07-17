@@ -12,7 +12,6 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -80,7 +79,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						Type: graphql.NewNonNull(graphql.String),
 					},
 					CurrentReward: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(types.reward),
+						Type: types.rewardInput,
 					},
 					FieldPartnerID: &graphql.ArgumentConfig{
 						Type: graphql.String,
@@ -95,7 +94,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					secretInput, _ := p.Args[Secret].(string)
 					partnerInput := p.Args[FieldPartnerID].(string)
 					referrerInput := p.Args[ReferrerID].(string)
-					reward := p.Args[CurrentReward].(rewards.OfferInfo)
+					rewardInput := p.Args[CurrentReward].(map[string]interface{})
+					reward, err := fromMapRewardInfo(rewardInput)
+					if err != nil {
+						log.Error("register: failed to parse current reward",
+							zap.Error(err))
+
+						return nil, err
+					}
+
 					createUser := fromMapCreateUser(input)
 
 					secret, err := console.RegistrationSecretFromBase64(secretInput)

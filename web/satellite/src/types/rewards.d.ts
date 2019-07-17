@@ -1,10 +1,11 @@
 declare type Reward = {
-    awardCreditInCent: number,
+    id: number,
+    awardCreditInCent?: number,
     inviteeCreditInCents: number,
     redeemableCap: number,
-    awardCreditDurationDays: number,
+    awardCreditDurationDays?: number,
     inviteeCreditDurationDays: number,
     type: number,
     status: number,
-    expiresAt: Date,
+    expiresAt: string,
 }

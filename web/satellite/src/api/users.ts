@@ -130,9 +130,15 @@ export async function createUserRequest(user: User, password: string, secret: st
                         shortName: "${user.shortName}",
                     },
                     secret: "${secret}",
+                    currentReward: {
+                        id: ${reward.id},
+                        inviteeCreditInCents: ${reward.inviteeCreditInCents},
+                        inviteeCreditDurationDays: ${reward.inviteeCreditDurationDays},
+                        redeemableCap: ${reward.redeemableCap},
+                        expiresAt: "${reward.expiresAt}",
+                    },
                     partnerID: "${user.partnerId}",
                     referrerID: "${referrerId}",
-                    currentReward: ${reward}
                 ){email, id}
             }`
             ),
