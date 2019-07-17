@@ -564,7 +564,7 @@ int test_api()
     test_upload_cancel(env);
     require_no_last_error;
 
-//    test_download(env);
+    test_download(env);
     // TODO: download cancel
 
     // list files

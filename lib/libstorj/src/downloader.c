@@ -320,7 +320,7 @@ static void resolve_file(uv_work_t *work)
 
     size_t buf_len;
     uint8_t *buf;
-    while (true) {
+    while (state->downloaded_bytes < state->total_bytes) {
         buf = malloc(buf_len);
         size_t read_size = download_read(state->downloader_ref, buf, buf_len, STORJ_LAST_ERROR);
         STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;
