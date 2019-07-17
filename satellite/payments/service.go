@@ -11,6 +11,7 @@ import (
 // Service is interfaces that defines behavior for working with payments
 type Service interface {
 	CreateCustomer(ctx context.Context, params CreateCustomerParams) (*Customer, error)
+	AddPaymentMethod(ctx context.Context, params AddPaymentMethodParams) (*PaymentMethod, error)
 	GetCustomer(ctx context.Context, id []byte) (*Customer, error)
 	GetCustomerDefaultPaymentMethod(ctx context.Context, customerID []byte) (*PaymentMethod, error)
 	GetCustomerPaymentsMethods(ctx context.Context, customerID []byte) ([]PaymentMethod, error)
@@ -23,6 +24,12 @@ type Service interface {
 type CreateCustomerParams struct {
 	Email string
 	Name  string
+}
+
+// AddPaymentMethodParams contains info needed to create new payment method
+type AddPaymentMethodParams struct {
+	Token      string
+	CustomerID string
 }
 
 // Customer contains customer info
@@ -50,7 +57,8 @@ type PaymentMethod struct {
 	ID         []byte
 	CustomerID []byte
 
-	Card Card
+	Card      Card
+	IsDefault bool
 
 	CreatedAt time.Time
 }

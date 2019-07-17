@@ -98,6 +98,8 @@ type DB interface {
 	Orders() orders.DB
 	// Containment returns database for containment
 	Containment() audit.Containment
+	// Buckets returns the database to interact with buckets
+	Buckets() metainfo.BucketsDB
 }
 
 // Config is the global config satellite
@@ -200,7 +202,7 @@ type Peer struct {
 	}
 
 	Vouchers struct {
-		Service *vouchers.Service
+		Endpoint *vouchers.Endpoint
 	}
 
 	Console struct {
@@ -341,13 +343,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 
 	{ // setup vouchers
 		log.Debug("Setting up vouchers")
-		peer.Vouchers.Service = vouchers.NewService(
+		peer.Vouchers.Endpoint = vouchers.NewEndpoint(
 			peer.Log.Named("vouchers"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			config.Vouchers.Expiration,
 		)
-		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Service)
+		pb.RegisterVouchersServer(peer.Server.GRPC(), peer.Vouchers.Endpoint)
 	}
 
 	{ // setup live accounting
@@ -375,20 +377,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.Orders(),
 			peer.DB.CertDB(),
+			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Kademlia.ExternalAddress,
 			},
+			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -401,7 +403,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		}
 
 		peer.Metainfo.Database = db // for logging: storelogger.New(peer.Log.Named("pdb"), db)
-		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"), peer.Metainfo.Database)
+		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
+			peer.Metainfo.Database,
+			peer.DB.Buckets(),
+		)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -413,6 +418,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
+			signing.SignerFromFullIdentity(peer.Identity),
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
@@ -426,8 +432,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.RepairQueue(),
 			peer.Overlay.Service, peer.DB.Irreparable(),
 			0, peer.Log.Named("checker"),
-			config.Checker.Interval,
-			config.Checker.IrreparableInterval)
+			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
 			peer.Log.Named("repairer"),

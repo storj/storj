@@ -4,14 +4,13 @@
 <template src="./navigationArea.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { mapState } from 'vuex';
-import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import AddUserPopup from '@/components/team/AddUserPopup.vue';
+    import { Component, Vue } from 'vue-property-decorator';
+    import { mapState } from 'vuex';
+    import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
-@Component(
-    {
+    @Component({
         data: function () {
             return {
                 navigation: NAVIGATION_ITEMS,
@@ -35,11 +34,9 @@ import AddUserPopup from '@/components/team/AddUserPopup.vue';
             isAddTeamMembersPopupShown: (state: any) => state.appStateModule.appState.isAddTeamMembersPopupShown,
             isProjectNotSelected: (state: any) => state.projectsModule.selectedProject.id === '',
         }),
-    }
-)
+    })
 
-export default class NavigationArea extends Vue {
-}
+    export default class NavigationArea extends Vue {}
 </script>
 
 <style src="./navigationArea.scss" lang="scss"></style>

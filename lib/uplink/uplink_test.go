@@ -6,10 +6,10 @@ package uplink
 import (
 	"testing"
 	"time"
-
-	"github.com/stretchr/testify/assert"
+	
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/transport"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestUplinkConfigDefaults tests that the uplink configuration gets the correct defaults applied

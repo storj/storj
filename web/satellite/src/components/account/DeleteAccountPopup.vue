@@ -24,8 +24,8 @@
                     <Button label='Delete' width='205px' height='48px' class='red' :onPress='onDeleteAccountClick'/>
                 </div>
             </div>
-            <div class='delete-account__close-cross-container'>
-                <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg' v-on:click='onCloseClick'>
+            <div class='delete-account__close-cross-container' @click='onCloseClick'>
+                <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>
                     <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
                 </svg>
             </div>
@@ -34,15 +34,14 @@
 </template>
 
 <script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
-import HeaderedInput from '@/components/common/HeaderedInput.vue';
-import Button from '@/components/common/Button.vue';
-import { removeToken } from '@/utils/tokenManager';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import HeaderedInput from '@/components/common/HeaderedInput.vue';
+    import Button from '@/components/common/Button.vue';
+    import { removeToken } from '@/utils/tokenManager';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function() {
             return {
                 password: '',
@@ -85,10 +84,9 @@ import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/c
             HeaderedInput,
             Button
         }
-    }
-)
+    })
 
-export default class DeleteAccountPopup extends Vue {}
+    export default class DeleteAccountPopup extends Vue {}
 </script>
 
 <style scoped lang='scss'>
@@ -104,12 +102,15 @@ export default class DeleteAccountPopup extends Vue {}
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .red {
         background-color: #EB5757;
     }
+
     .text {
         margin: 0;
         margin-bottom: 0 !important;
@@ -117,6 +118,7 @@ export default class DeleteAccountPopup extends Vue {}
         font-size: 16px;
         line-height: 25px;
     }
+
     .delete-account {
         width: 100%;
         max-width: 845px;

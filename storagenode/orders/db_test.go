@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +32,6 @@ func TestOrders(t *testing.T) {
 
 		satellite0 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
-		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
 		piece := storj.NewPieceID()
 
 		serialNumber := testrand.SerialNumber()
@@ -48,33 +46,33 @@ func TestOrders(t *testing.T) {
 		require.Len(t, emptyArchive, 0)
 
 		now := time.Now()
-		nowTimestamp, err := ptypes.TimestampProto(now)
+
+		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
 
 		limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite0), &pb.OrderLimit{
 			SerialNumber:    serialNumber,
 			SatelliteId:     satellite0.ID,
-			UplinkId:        uplink.ID,
+			UplinkPublicKey: piecePublicKey,
 			StorageNodeId:   storagenode.ID,
 			PieceId:         piece,
 			Limit:           100,
 			Action:          pb.PieceAction_GET,
 			OrderCreation:   now.AddDate(0, 0, -1),
-			PieceExpiration: nowTimestamp,
-			OrderExpiration: nowTimestamp,
+			PieceExpiration: now,
+			OrderExpiration: now,
 		})
 		require.NoError(t, err)
 
-		order, err := signing.SignOrder(ctx, signing.SignerFromFullIdentity(uplink), &pb.Order{
+		order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
 			SerialNumber: serialNumber,
 			Amount:       50,
 		})
 		require.NoError(t, err)
 
 		info := &orders.Info{
-			Limit:  limit,
-			Order:  order,
-			Uplink: uplink.PeerIdentity(),
+			Limit: limit,
+			Order: order,
 		}
 
 		// basic add
@@ -120,9 +118,8 @@ func TestOrders(t *testing.T) {
 
 		require.Empty(t, cmp.Diff([]*orders.ArchivedInfo{
 			{
-				Limit:  limit,
-				Order:  order,
-				Uplink: uplink.PeerIdentity(),
+				Limit: limit,
+				Order: order,
 
 				Status:     orders.StatusAccepted,
 				ArchivedAt: archived[0].ArchivedAt,

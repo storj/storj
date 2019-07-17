@@ -14,23 +14,6 @@
                 </div>
                 <h2>Account Settings</h2>
             </div>
-            <!--<div class="account-dropdown-item-container billing" >-->
-                <!--<div class="account-dropdown-item-container__image-container">-->
-                    <!--<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">-->
-                        <!--<path d="M20 7.26316V3.87134C20 3.40351 19.7938 2.93567 19.4845 2.5848C19.1753 2.23392 18.7629 2 18.3505 2H1.64948C1.23711 2 0.824742 2.23392 0.515464 2.5848C0.206186 2.93567 0 3.40351 0 3.87134V7.26316H20Z" fill="#354049"/>-->
-                        <!--<path d="M0 9.36816V16.1852C0 16.5862 0.206186 16.9872 0.515464 17.288C0.824742 17.5887 1.23711 17.7892 1.64948 17.7892H18.3505C18.7629 17.7892 19.1753 17.5887 19.4845 17.288C19.7938 16.9872 20 16.5862 20 16.1852V9.36816H0ZM5.36083 15.1827H2.68041V13.8794H5.36083V15.1827ZM10.7217 15.1827H6.70103V13.8794H10.7217V15.1827Z" fill="#354049"/>-->
-                    <!--</svg>-->
-                <!--</div>-->
-                <!--<h2>Billing History</h2>-->
-            <!--</div>-->
-            <!--<div class="account-dropdown-item-container payment" >-->
-                <!--<div class="account-dropdown-item-container__image-container">-->
-                    <!--<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">-->
-                        <!--<path d="M16.898 4.28571L12.7143 0.102041C12.7143 0 12.6122 0 12.4082 0H3.63265C2.71429 0 2 0.714286 2 1.63265V18.3673C2 19.2857 2.71429 20 3.63265 20H15.3673C16.2857 20 17 19.2857 17 18.3673V4.59184C17 4.4898 17 4.38775 16.898 4.28571ZM6.18367 10.9184C7 10.9184 7.71429 11.6327 7.71429 12.449C7.71429 13.1633 7.30612 13.6735 6.69388 13.8776V13.9796C6.69388 14.2857 6.4898 14.4898 6.18367 14.4898C5.87755 14.4898 5.67347 14.2857 5.67347 13.9796H5.16327C4.85714 13.9796 4.65306 13.7755 4.65306 13.4694C4.65306 13.1633 4.85714 12.9592 5.16327 12.9592H6.18367C6.4898 12.9592 6.69388 12.7551 6.69388 12.449C6.69388 12.1429 6.4898 11.9388 6.18367 11.9388C5.36735 11.9388 4.65306 11.2245 4.65306 10.4082C4.65306 9.69388 5.06122 9.18367 5.67347 8.97959V8.87755C5.67347 8.57143 5.87755 8.36735 6.18367 8.36735C6.4898 8.36735 6.69388 8.57143 6.69388 8.87755H7.20408C7.5102 8.87755 7.71429 9.08163 7.71429 9.38775C7.71429 9.69388 7.5102 9.89796 7.20408 9.89796H6.18367C5.87755 9.89796 5.67347 10.102 5.67347 10.4082C5.67347 10.7143 5.87755 10.9184 6.18367 10.9184ZM13.4286 14.3878H9.34694V12.551H13.3265V14.3878H13.4286ZM15.3673 10.7143H9.34694V8.87755H15.3673V10.7143ZM13.7347 4.18367C13.2245 4.18367 12.9184 3.77551 12.9184 3.36735V1.42857L15.6735 4.18367H13.7347Z" fill="#354049"/>-->
-                    <!--</svg>-->
-                <!--</div>-->
-                <!--<h2>Payment Setup</h2>-->
-            <!--</div>-->
             <div class="account-dropdown-item-container logout" v-on:click="onLogoutClick">
                 <div class="account-dropdown-item-container__image-container">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -44,13 +27,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { removeToken } from '@/utils/tokenManager';
-import ROUTES from '@/utils/constants/routerConstants';
-import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS, API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import { removeToken } from '@/utils/tokenManager';
+    import ROUTES from '@/utils/constants/routerConstants';
+    import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS, API_KEYS_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function () {
             return {};
         },
@@ -64,6 +46,7 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS, API_KEYS_
             },
             onLogoutClick: function () {
                 removeToken();
+
                 this.$router.push(ROUTES.LOGIN.path);
                 this.$store.dispatch(PM_ACTIONS.CLEAR);
                 this.$store.dispatch(PROJETS_ACTIONS.CLEAR);
@@ -72,11 +55,9 @@ import { APP_STATE_ACTIONS, PROJETS_ACTIONS, PM_ACTIONS, USER_ACTIONS, API_KEYS_
                 this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
             }
         },
-    }
-)
+    })
 
-export default class ProjectSelectionDropdown extends Vue {
-}
+    export default class ProjectSelectionDropdown extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -114,6 +95,7 @@ export default class ProjectSelectionDropdown extends Vue {
 
         &:hover {
             background-color: #F2F2F6;
+
             path {
                 fill: #2683FF !important;
             }

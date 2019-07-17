@@ -17,10 +17,9 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-@Component(
-    {
+    @Component({
         props: {
             apiKey: Object,
         },
@@ -35,13 +34,13 @@ import { Component, Vue } from 'vue-property-decorator';
                 return name.slice(0, 12) + '...';
             }
         }
-    }
-)
-export default class ApiKeysItem extends Vue {}
+    })
+
+    export default class ApiKeysItem extends Vue {}
 </script>
 
 <style scoped lang="scss">
-   .apikey-item-container {
+    .apikey-item-container {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -51,15 +50,15 @@ export default class ApiKeysItem extends Vue {}
         background-color: #fff;
         cursor: pointer;
         transition: box-shadow .2s ease-out;
-
+        
         &:hover {
             box-shadow: 0px 12px 24px rgba(175, 183, 193, 0.4);
         }
-
+        
         &:last-child {
             margin-left: 0;
         }
-
+        
         &__date {
             font-family: 'font_regular';
             font-size: 12px;
@@ -67,7 +66,7 @@ export default class ApiKeysItem extends Vue {}
             color: #AFB7C1;
             margin: 0;
         }
-
+        
         &__name {
             font-family: 'font_medium';
             font-size: 16px;
@@ -75,7 +74,7 @@ export default class ApiKeysItem extends Vue {}
             color: #354049;
             margin-top: 20px;
         }
-
+        
         &__avatar {
             min-width: 40px;
             max-width: 40px;
@@ -86,33 +85,34 @@ export default class ApiKeysItem extends Vue {}
             justify-content: center;
         }
     }
+    
     .apikey-item-container.selected {
         box-shadow: 0px 12px 24px rgba(38, 131, 255, 0.4);
         background-color: #2683FF;
-
+        
         p {
-
+            
             &:nth-child(2) {
                 color: #fff;
             }
-
+            
             &:nth-child(3) {
                 color: #fff;
             }
-
+            
             &:nth-child(4) {
                 color: #fff;
             }
-
+            
             &:nth-child(5) {
                 color: #fff;
             }
         }
-
+        
         svg path {
             fill: white;
         }
-
+        
         .white {
             fill: #2683FF;
         }

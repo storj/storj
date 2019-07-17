@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/crypto/argon2"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -36,7 +37,7 @@ func DeriveRootKey(password, salt []byte, path storj.Path) (*storj.Key, error) {
 	}
 
 	// use a time of 1, 64MB of ram, and all of the cores.
-	keyData := argon2.IDKey(password, pathSalt, 1, 64<<10, uint8(runtime.GOMAXPROCS(-1)), 32)
+	keyData := argon2.IDKey(password, pathSalt, 1, uint32(64*memory.MiB/memory.KiB), uint8(runtime.GOMAXPROCS(-1)), 32)
 	if len(keyData) != len(storj.Key{}) {
 		return nil, errs.New("invalid output from argon2id")
 	}
@@ -44,18 +45,4 @@ func DeriveRootKey(password, salt []byte, path storj.Path) (*storj.Key, error) {
 	var key storj.Key
 	copy(key[:], keyData)
 	return &key, nil
-}
-
-// DeriveDefaultPassword combines a salt from the project with a user password to create
-// a default password used for DeriveRootKey in the case that a single secret should be
-// used to derive all of the bucket level secrets. See the password key derivation design
-// doc.
-func DeriveDefaultPassword(password, salt []byte) ([]byte, error) {
-	mixedSalt, err := sha256hmac(password, salt)
-	if err != nil {
-		return nil, err
-	}
-
-	// use a time of 1, 64MB of ram, and all of the cores.
-	return argon2.IDKey(password, mixedSalt, 1, 64<<10, uint8(runtime.GOMAXPROCS(-1)), 32), nil
 }
