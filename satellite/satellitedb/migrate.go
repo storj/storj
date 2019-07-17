@@ -962,6 +962,63 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE offers DROP num_redeemed;`,
 				},
 			},
+			{
+				Description: "Set default offer for each offer type in offers table",
+				Version:     43,
+				Action: migrate.SQL{
+					`ALTER TABLE offers
+						ALTER COLUMN redeemable_cap DROP NOT NULL,
+						ALTER COLUMN invitee_credit_duration_days DROP NOT NULL,
+						ALTER COLUMN award_credit_duration_days DROP NOT NULL
+					`,
+					`INSERT INTO offers (
+						name,
+						description,
+						award_credit_in_cents,
+						invitee_credit_in_cents,
+						expires_at,
+						created_at,
+						status,
+						type )
+					VALUES (
+						'Default referral offer',
+						'Is active when no other active referral offer',
+						300,
+						600,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						2
+					),
+					(
+						'Default free credit offer',
+						'Is active when no active free credit offer',
+						300,
+						0,
+						'2119-03-14 08:28:24.636949+00',
+						'2019-07-14 08:28:24.636949+00',
+						1,
+						1
+					) ON CONFLICT DO NOTHING;`,
+				},
+			},
+			{
+				Description: "Add index on InjuredSegments attempted column",
+				Version:     44,
+				Action: migrate.SQL{
+					`CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );`,
+				},
+			},
+			{
+				Description: "Add partner id field to support OSPP",
+				Version:     45,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
+					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
+				},
+			},
 		},
 	}
 }

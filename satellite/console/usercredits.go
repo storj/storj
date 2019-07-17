@@ -15,7 +15,7 @@ import (
 // UserCredits holds information to interact with database
 type UserCredits interface {
 	GetCreditUsage(ctx context.Context, userID uuid.UUID, expirationEndDate time.Time) (*UserCreditUsage, error)
-	Create(ctx context.Context, userCredit UserCredit) (*UserCredit, error)
+	Create(ctx context.Context, userCredit UserCredit) error
 	UpdateAvailableCredits(ctx context.Context, creditsToCharge int, id uuid.UUID, billingStartDate time.Time) (remainingCharge int, err error)
 }
 
@@ -24,7 +24,7 @@ type UserCredit struct {
 	ID            int
 	UserID        uuid.UUID
 	OfferID       int
-	ReferredBy    uuid.UUID
+	ReferredBy    *uuid.UUID
 	CreditsEarned currency.USD
 	CreditsUsed   currency.USD
 	ExpiresAt     time.Time

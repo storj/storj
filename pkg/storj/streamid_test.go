@@ -6,28 +6,28 @@ package storj_test
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/storj"
 )
 
 func TestStreamID_Encode(t *testing.T) {
-	_, err := storj.StreamIDFromString("likn43kilfzd")
-	assert.Error(t, err)
-
-	_, err = storj.StreamIDFromBytes([]byte{1, 2, 3, 4, 5})
-	assert.Error(t, err)
-
 	for i := 0; i < 10; i++ {
-		streamID := testrand.StreamID()
+		expectedSize := testrand.Intn(255)
+		streamID := testrand.StreamID(expectedSize)
 
 		fromString, err := storj.StreamIDFromString(streamID.String())
-		assert.NoError(t, err)
-		fromBytes, err := storj.StreamIDFromBytes(streamID.Bytes())
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		require.Equal(t, streamID.String(), fromString.String())
 
-		assert.Equal(t, streamID, fromString)
-		assert.Equal(t, streamID, fromBytes)
+		fromBytes, err := storj.StreamIDFromBytes(streamID.Bytes())
+		require.NoError(t, err)
+		require.Equal(t, streamID.Bytes(), fromBytes.Bytes())
+
+		require.Equal(t, streamID, fromString)
+		require.Equal(t, expectedSize, fromString.Size())
+		require.Equal(t, streamID, fromBytes)
+		require.Equal(t, expectedSize, fromBytes.Size())
 	}
 }
