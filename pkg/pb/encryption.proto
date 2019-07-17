@@ -11,13 +11,9 @@ message EncryptionParameters {
   int64 block_size = 2;
 }
 
-message CipherSuite {
-  enum Type {
-    ENC_UNSPECIFIED = 0;
-    ENC_NULL = 1;
-    ENC_AESGCM = 2;
-    ENC_SECRETBOX = 3;
-  }
-
-  Type type = 1;
+enum CipherSuite {
+  ENC_UNSPECIFIED = 0;
+  ENC_NULL = 1;
+  ENC_AESGCM = 2;
+  ENC_SECRETBOX = 3;
 }

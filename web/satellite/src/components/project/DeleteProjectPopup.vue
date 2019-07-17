@@ -22,7 +22,6 @@
                         v-model="projectName"
                         v-on:keyup="resetError" >
                 </div>
-                
                 <div class="delete-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
                     <Button 
@@ -34,8 +33,8 @@
                         :isDisabled="isDeleteButtonDisabled" />
                 </div>
             </div>
-            <div class="delete-project-popup__close-cross-container">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" v-on:click="onCloseClick">
+            <div class="delete-project-popup__close-cross-container" @click="onCloseClick">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
                 </svg>
             </div>
@@ -44,14 +43,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PROJETS_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function () {
             return {
                 projectName: '',
@@ -80,8 +78,7 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
 
                 let response = await this.$store.dispatch(
                     PROJETS_ACTIONS.DELETE,
-                    this.$store.getters.selectedProject.id,
-                );
+                    this.$store.getters.selectedProject.id);
 
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
@@ -99,8 +96,7 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
                 if (this.$store.state.projectsModule.projects.length > 0) {
                     this.$store.dispatch(
                         PROJETS_ACTIONS.SELECT,
-                        this.$store.state.projectsModule.projects[0].id,
-                    );
+                        this.$store.state.projectsModule.projects[0].id);
 
                     this.$store.dispatch(PM_ACTIONS.FETCH);
                     this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
@@ -120,11 +116,9 @@ import { API_KEYS_ACTIONS } from '@/utils/constants/actionNames';
         components: {
             Button
         }
-    }
-)
+    })
 
-export default class DeleteProjectPopup extends Vue {
-}
+    export default class DeleteProjectPopup extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -140,12 +134,15 @@ export default class DeleteProjectPopup extends Vue {
         justify-content: center;
         align-items: center;
     }
+
     .input-container.full-input {
         width: 100%;
     }
+
     .red {
         background-color: #EB5757;
     }
+
     .delete-project-popup {
         width: 100%;
         max-width: 800px;
@@ -252,7 +249,6 @@ export default class DeleteProjectPopup extends Vue {
 
             &__info-panel-container {
                 display: none;
-
             }
 
             &__form-container {

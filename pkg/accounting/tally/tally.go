@@ -115,7 +115,6 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	nodeData = make(map[storj.NodeID]float64)
 	bucketTallies = make(map[string]*accounting.BucketTally)
 
-	var bucketCount int64
 	var totalTallies accounting.BucketTally
 
 	err = t.metainfo.Iterate(ctx, "", "", true, false,
@@ -133,11 +132,7 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 				// check to make sure there are at least *4* path elements. the first three
 				// are project, segment, and bucket name, but we want to make sure we're talking
 				// about an actual object, and that there's an object name specified
-
-				// handle conditions with buckets with no files
-				if len(pathElements) == 3 {
-					bucketCount++
-				} else if len(pathElements) >= 4 {
+				if len(pathElements) >= 4 {
 					project, segment, bucketName := pathElements[0], pathElements[1], pathElements[2]
 
 					bucketID := storj.JoinPaths(project, bucketName)
@@ -196,7 +191,6 @@ func (t *Service) CalculateAtRestData(ctx context.Context) (latestTally time.Tim
 	}
 
 	totalTallies.Report("total")
-	mon.IntVal("bucket_count").Observe(bucketCount)
 
 	//store byte hours, not just bytes
 	numHours := time.Now().Sub(latestTally).Hours()

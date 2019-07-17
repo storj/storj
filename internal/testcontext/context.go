@@ -99,6 +99,16 @@ func (ctx *Context) Go(fn func() error) {
 	})
 }
 
+// Wait blocks until all of the goroutines launched with Go are done and
+// fails the test if any of them returned an error.
+func (ctx *Context) Wait() {
+	ctx.test.Helper()
+	err := ctx.group.Wait()
+	if err != nil {
+		ctx.test.Fatal(err)
+	}
+}
+
 // Check calls fn and checks result
 func (ctx *Context) Check(fn func() error) {
 	ctx.test.Helper()

@@ -32,9 +32,10 @@ type Projects interface {
 type Project struct {
 	ID uuid.UUID `json:"id"`
 
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	UsageLimit  int64  `json:"usageLimit"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	UsageLimit  int64     `json:"usageLimit"`
+	PartnerID   uuid.UUID `json:"partnerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

@@ -31,7 +31,7 @@ func ExampleEncryptPath() {
 		panic(err)
 	}
 	fmt.Println("path to encrypt:", path)
-	fmt.Println("encrypted path: ", encryptedPath)
+	fmt.Println("encrypted path: ", hex.EncodeToString([]byte(encryptedPath.Raw())))
 
 	// decrypting the path
 	decryptedPath, err := encryption.DecryptPath("bucket", encryptedPath, storj.EncAESGCM, store)
@@ -43,6 +43,6 @@ func ExampleEncryptPath() {
 	// Output:
 	// root key (32 bytes): 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
 	// path to encrypt: fold1/fold2/fold3/file.txt
-	// encrypted path:  OHzjTiBUvLmgQouCAYdu74MlqDl791aOka_EBzlAb_rR/RT0pG5y4lHFVRi1sHtwjZ1B7DeVbRvpyMfO6atfOefSC/rXJX6O9Pk4rGtnlLUIUoc9Gz0y6N-xemdNyAasbo3dQm/qiEo3IYUlA989mKFE7WB98GHJK88AI98hhUgwv39ePexslzg
+	// encrypted path:  02387ce34e2054bcb9a0428b820102876eef8325a8397bf7568e91afc40739406ffad12f02453d291b9cb8947155462d6c1edc2367507b0de55b46fa7231f3ba6ad7ce79f4822f02ad7257e8ef4f938ac6b6794b50852873d1b3d32e018dfb17a674dc806ac6e8ddd4262f02aa2128dc8614940f7cf6628513b581f7c18724af3c01018f7c861520c2fdfd78f7b1b25ce0
 	// decrypted path:  fold1/fold2/fold3/file.txt
 }

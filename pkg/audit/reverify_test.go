@@ -59,10 +59,10 @@ func TestReverifySuccess(t *testing.T) {
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, stripe.Index, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
@@ -126,10 +126,10 @@ func TestReverifyFailMissingShare(t *testing.T) {
 
 		pieces := stripe.Segment.GetRemote().GetRemotePieces()
 		rootPieceID := stripe.Segment.GetRemote().RootPieceId
-		limit, err := orders.CreateAuditOrderLimit(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
+		limit, privateKey, err := orders.CreateAuditOrderLimit(ctx, bucketID, pieces[0].NodeId, pieces[0].PieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
-		share, err := audits.Verifier.GetShare(ctx, limit, stripe.Index, shareSize, int(pieces[0].PieceNum))
+		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, stripe.Index, shareSize, int(pieces[0].PieceNum))
 		require.NoError(t, err)
 
 		pending := &audit.PendingAudit{
