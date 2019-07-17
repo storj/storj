@@ -17,11 +17,9 @@ var (
 )
 
 const (
-	// DefaultDialTimeout is the default time to wait for a connection to be established.
-	// DefaultDialTimeout applies to all consumers of libuplink (Satellite, Bootstrap, etc) except uplink CLI.
-	DefaultDialTimeout = 20 * time.Second
+	// defaultTransportDialTimeout is the default time to wait for a connection to be established.
+	defaultTransportDialTimeout = 20 * time.Second
 
-	// DefaultRequestTimeout is the default time to wait for a response.
-	// DefaultRequestTimeout applies to all consumers of libuplink (Satellite, Bootstrap, etc) except uplink CLI.
-	DefaultRequestTimeout = 20 * time.Second
+	// defaultTransportRequestTimeout is the default time to wait for a response.
+	defaultTransportRequestTimeout = 20 * time.Second
 )
