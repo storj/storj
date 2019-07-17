@@ -144,7 +144,6 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		return VoucherError.New("failed to start request: %v", err)
 	}
 
-	// TODO: separate status for disqualified nodes?
 	switch resp.GetStatus() {
 	case pb.VoucherResponse_REJECTED:
 		service.log.Info("Voucher request denied. Vetting process not yet complete")
