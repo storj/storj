@@ -101,8 +101,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
-
-				SatelliteIDRestriction: true,
 				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{
