@@ -60,6 +60,7 @@ type Loop struct {
 	config   LoopConfig
 	metainfo *Service
 	join     chan *observerContext
+	done     chan struct{}
 }
 
 // NewLoop creates a new metainfo loop service
@@ -68,12 +69,15 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 		metainfo: metainfo,
 		config:   config,
 		join:     make(chan *observerContext),
+		done:     make(chan struct{}),
 	}
 }
 
 // Run starts the looping service
 func (service *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	defer close(service.done)
 
 	for {
 		err := service.runOnce(ctx)
@@ -89,21 +93,21 @@ func (service *Loop) Run(ctx context.Context) (err error) {
 func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	context := &observerContext{
+	obsContext := &observerContext{
 		Observer: observer,
 		ctx:      ctx,
 		done:     make(chan error),
 	}
 
 	select {
-	case service.join <- context:
+	case <-service.done:
+		return context.Canceled
+	case service.join <- obsContext:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 
-	err = context.Wait()
-
-	return err
+	return obsContext.Wait()
 }
 
 func (service *Loop) runOnce(ctx context.Context) (err error) {
