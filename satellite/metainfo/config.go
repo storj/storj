@@ -4,6 +4,8 @@
 package metainfo
 
 import (
+	"time"
+
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/dbutil"
@@ -31,6 +33,12 @@ type RSConfig struct {
 	Validate         bool        `help:"validate redundancy scheme configuration" default:"true"`
 }
 
+// LoopConfig contains configurable values for the metainfo loop
+type LoopConfig struct {
+	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
+	Interval         time.Duration `help:"how long to wait between metainfo iterations" releaseDefault:"30s" devDefault:"30s"`
+}
+
 // Config is a configuration struct that is everything you need to start a metainfo
 type Config struct {
 	DatabaseURL          string      `help:"the database connection string to use" releaseDefault:"postgres://" devDefault:"bolt://$CONFDIR/pointerdb.db"`
@@ -38,6 +46,7 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig    `help:"redundancy scheme configuration"`
+	Loop                 LoopConfig  `help:"metainfo loop configuration"`
 }
 
 // NewStore returns database for storing pointer data

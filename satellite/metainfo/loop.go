@@ -29,14 +29,8 @@ type Observer interface {
 	InlineSegment(context.Context, storj.Path, *pb.Pointer) error
 }
 
-// LoopConfig contains configurable values for the metainfo loop
-type LoopConfig struct {
-	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
-	Interval         time.Duration `help:"how long to wait between metainfo iterations" releaseDefault:"30s" devDefault:"30s"`
-}
-
-// LoopService is a metainfo loop service
-type LoopService struct {
+// Loop is a metainfo loop service
+type Loop struct {
 	waitingObservers []Observer
 	observers        []Observer
 	Loop             *sync2.Cycle
@@ -48,8 +42,8 @@ type LoopService struct {
 }
 
 // NewLoop creates a new metainfo loop service
-func NewLoop(config LoopConfig, metainfo *Service) *LoopService {
-	return &LoopService{
+func NewLoop(config LoopConfig, metainfo *Service) *Loop {
+	return &Loop{
 		Loop:           sync2.NewCycle(config.Interval),
 		metainfo:       metainfo,
 		loopStartChans: make(map[Observer]chan struct{}),
@@ -59,7 +53,7 @@ func NewLoop(config LoopConfig, metainfo *Service) *LoopService {
 }
 
 // Run starts the looping service
-func (service *LoopService) Run(ctx context.Context) (err error) {
+func (service *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
@@ -130,7 +124,7 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 }
 
 // Close halts the metainfo loop
-func (service *LoopService) Close() error {
+func (service *Loop) Close() error {
 	service.Loop.Close()
 	return nil
 }
@@ -138,7 +132,7 @@ func (service *LoopService) Close() error {
 // Join will join the looper for one full cycle until completion and then returns.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
-func (service *LoopService) Join(ctx context.Context, observer Observer) (err error) {
+func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	service.mux.Lock()
