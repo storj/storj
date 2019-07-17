@@ -24,11 +24,19 @@ import (
 
 func TestMetainfoLoop(t *testing.T) {
 	// upload 5 remote files with 1 segment
-	// upload 3 remote files with 2 segments
+	// (TODO) upload 3 remote files with 2 segments
 	// upload 2 inline files
 	// connect two observers to the metainfo loop
 	// run the metainfo loop
-	// expect that each observer has seen 8 remote files, 11 remote segments, and 2 inline files/segments
+	// expect that each observer has seen
+	//     5 remote files
+	//     5 remote segments
+	//     2 inline files/segments
+	//     7 unique path items
+
+	// TODO: figure out how to configure testplanet so we can upload 2*segmentSize to get two segments
+	segmentSize := 8 * memory.KiB
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 4,
@@ -46,22 +54,22 @@ func TestMetainfoLoop(t *testing.T) {
 
 		// upload 5 remote files with 1 segment
 		for i := 0; i < 5; i++ {
-			testData := testrand.Bytes(8 * memory.KiB)
+			testData := testrand.Bytes(segmentSize)
 			path := "/some/remote/path/" + string(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
 		}
 
-		// upload 3 remote files with 2 segments
-		for i := 0; i < 3; i++ {
-			testData := testrand.Bytes(16 * memory.KiB)
-			path := "/some/other/remote/path/" + string(i)
-			err := ul.Upload(ctx, satellite, "bucket", path, testData)
-			require.NoError(t, err)
-		}
+		// (TODO) upload 3 remote files with 2 segments
+		// for i := 0; i < 3; i++ {
+		// 	testData := testrand.Bytes(2 * segmentSize)
+		// 	path := "/some/other/remote/path/" + string(i)
+		// 	err := ul.Upload(ctx, satellite, "bucket", path, testData)
+		// 	require.NoError(t, err)
+		// }
 
 		// upload 2 inline files
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 2; i++ {
 			testData := testrand.Bytes(1 * memory.KiB)
 			path := "/some/inline/path/" + string(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
@@ -87,10 +95,10 @@ func TestMetainfoLoop(t *testing.T) {
 
 		wg.Wait()
 		for _, obs := range []*testObserver{obs1, obs2} {
-			assert.EqualValues(t, obs.remoteSegCount, 11)
-			assert.EqualValues(t, obs.remoteFileCount, 8)
-			assert.EqualValues(t, obs.inlineSegCount, 2)
-			assert.EqualValues(t, len(obs.uniquePaths), 13)
+			assert.EqualValues(t, 5, obs.remoteSegCount)
+			assert.EqualValues(t, 5, obs.remoteFileCount)
+			assert.EqualValues(t, 2, obs.inlineSegCount)
+			assert.EqualValues(t, 7, len(obs.uniquePaths))
 		}
 	})
 }

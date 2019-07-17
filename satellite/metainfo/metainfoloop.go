@@ -95,6 +95,7 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 					}
 
 					path := storj.Path(item.Key.String())
+					pathElements := storj.SplitPath(path)
 
 					// send segment info to every observer
 					for _, o := range service.observers {
@@ -102,7 +103,6 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 						if remote != nil {
 							_ = o.RemoteSegment(ctx, path, pointer)
 
-							pathElements := storj.SplitPath(path)
 							if len(pathElements) >= 2 && pathElements[1] == "l" {
 								_ = o.RemoteObject(ctx, path, pointer)
 							}
@@ -119,8 +119,10 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 		for _, obs := range service.observers {
 			service.loopEndChans[obs] <- err
 
+			service.mux.Lock()
 			delete(service.loopStartChans, obs)
 			delete(service.loopEndChans, obs)
+			service.mux.Unlock()
 		}
 
 		return err
@@ -137,10 +139,9 @@ func (service *LoopService) Close() error {
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
 func (service *LoopService) Join(ctx context.Context, observer Observer) (err error) {
+	service.mux.Lock()
 	service.loopStartChans[observer] = make(chan struct{})
 	service.loopEndChans[observer] = make(chan error)
-
-	service.mux.Lock()
 	service.waitingObservers = append(service.waitingObservers, observer)
 	service.mux.Unlock()
 
