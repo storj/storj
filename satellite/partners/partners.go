@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package marketingweb
+package partners
 
 // Partner contains the name and ID of an Open Source Partner
 type Partner struct {

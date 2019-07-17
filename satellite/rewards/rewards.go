@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/storj/internal/currency"
+	"storj.io/storj/satellite/partners"
 )
 
 // DB holds information about offer
@@ -109,11 +110,22 @@ type OrganizedOffers struct {
 	Done    Offers
 }
 
+// OpenSourcePartner contains all data for an Open Source Partner.
+type OpenSourcePartner struct {
+	Name          string
+	ID            string
+	Offers        Offers
+	PartnerOffers OrganizedOffers
+}
+
+// PartnerSet contains a list of Open Source Partners.
+type PartnerSet []OpenSourcePartner
+
 // OfferSet provides a separation of marketing offers by type.
 type OfferSet struct {
 	ReferralOffers OrganizedOffers
 	FreeCredits    OrganizedOffers
-	PartnerOffers  OrganizedOffers
+	PartnerTables  PartnerSet
 }
 
 // OrganizeOffersByStatus organizes offers by OfferStatus.
@@ -155,6 +167,45 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
-	offerSet.PartnerOffers = p.OrganizeOffersByStatus()
+	offerSet.PartnerTables = OrganizePartnerData(p)
 	return offerSet
+}
+
+// CreatePartnerSet generates a PartnerSet from the config file.
+func CreatePartnerSet() PartnerSet {
+	partners := partners.LoadPartners()
+	var ps PartnerSet
+	for _, partner := range partners {
+		ps = append(ps, OpenSourcePartner{
+			Name:   partner.Name,
+			ID:     partner.ID,
+			Offers: Offers{},
+		})
+	}
+	return ps
+}
+
+// MatchOffersToPartnerSet assigns offers to the partner they belong to.
+func MatchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
+	for _, o := range offers {
+		for index, p := range partnerSet {
+			if o.Name == p.ID+"-"+p.Name {
+				p.Offers = append(p.Offers, o)
+				partnerSet[index].Offers = append(partnerSet[index].Offers, o)
+			}
+		}
+	}
+
+	for index, partner := range partnerSet {
+		partnerSet[index].PartnerOffers = partner.Offers.OrganizeOffersByStatus()
+	}
+	return partnerSet
+}
+
+// OrganizePartnerData returns a list of Open Source Partners
+// whos offers have been organized by status, type, and
+// assigned to the correct partner.
+func OrganizePartnerData(offers Offers) PartnerSet {
+	partnerData := MatchOffersToPartnerSet(offers, CreatePartnerSet())
+	return partnerData
 }

@@ -15,7 +15,7 @@ See LICENSE for copying information. -->
     <div class="row offer-heading ">
         <p class="offer-type">Default&nbsp;Offer</p>
     </div>
-    {{$defaultOffer := .OfferSet.ReferralOffers.Default}}
+    {{$defaultOffer := .ReferralOffers.Default}}
     {{if not $defaultOffer.IsEmpty}}
     <div class="row data-row">
         <div class="col ml-3">{{$defaultOffer.Name}}</div>
@@ -30,7 +30,7 @@ See LICENSE for copying information. -->
     <div class="row offer-heading ">
         <p class="offer-type">Current&nbsp;Offer</p>
     </div>
-    {{$currentOffer := .OfferSet.ReferralOffers.Active}}
+    {{$currentOffer := .ReferralOffers.Active}}
     {{if not $currentOffer.IsEmpty}}
         <div class="row data-row">
             <div class="col ml-3">{{$currentOffer.Name}}</div>
@@ -48,9 +48,9 @@ See LICENSE for copying information. -->
     {{end}}
     {{template "stopReferralOffer" .}}
     <div class="row offer-heading ">
-        <p class="offer-type">Other&nbsp;Offers</p>
+        <p class="offer-type">Discontinued&nbsp;Offers</p>
     </div>
-    {{range .OfferSet.ReferralOffers.Done}}
+    {{range .ReferralOffers.Done}}
     <div class="row data-row">
         <div class="col ml-3">{{.Name}}</div>
         <div class="col">${{.InviteeCredit}}</div>

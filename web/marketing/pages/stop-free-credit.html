@@ -8,8 +8,8 @@ See LICENSE for copying information. -->
             <div class="row d-flex justify-content-between">
                 <img class="mt-3 ml-5" src="/static/img/warning.png" height="30" width="30"/>
                 <p class="mt-3">Replace 
-                    <strong>{{.OfferSet.FreeCredits.Active.Name}}</strong> with 
-                    <strong>{{.OfferSet.FreeCredits.Default.Name}}</strong> ?
+                    <strong>{{.FreeCredits.Active.Name}}</strong> with 
+                    <strong>{{.FreeCredits.Default.Name}}</strong> ?
                 </p>
                 <div class="mt-2 mb-2 d-flex">
                     <a href="/">
@@ -17,7 +17,7 @@ See LICENSE for copying information. -->
                             Cancel
                         </button>
                     </a>
-                    <form method="POST" action="/stop/{{.OfferSet.FreeCredits.Active.ID}}">
+                    <form method="POST" action="/stop/{{.FreeCredits.Active.ID}}">
                         <button class="btn btn-primary mr-4" type="submit">
                             Yes
                         </button>

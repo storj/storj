@@ -44,12 +44,6 @@ type Server struct {
 	}
 }
 
-// TemplateData provides offers and partners for rendering.
-type TemplateData struct {
-	OfferSet rewards.OfferSet
-	Partners Partners
-}
-
 // commonPages returns templates that are required for all routes.
 func (s *Server) commonPages() []string {
 	return []string{
@@ -103,12 +97,7 @@ func (s *Server) GetOffers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	data := TemplateData{
-		OfferSet: offers.OrganizeOffersByType(),
-		Partners: LoadPartners(),
-	}
-
-	if err := s.templates.home.ExecuteTemplate(w, "base", data); err != nil {
+	if err := s.templates.home.ExecuteTemplate(w, "base", offers.OrganizeOffersByType()); err != nil {
 		s.log.Error("failed to execute template", zap.Error(err))
 		s.serveInternalError(w, req, err)
 	}
