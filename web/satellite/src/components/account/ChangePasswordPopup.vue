@@ -23,7 +23,7 @@
                     label="Old Password"
                     placeholder ="Enter Old Password"
                     width="100%"
-                    isPassword
+                    isPassword="true"
                     ref="oldPasswordInput"
                     :error="oldPasswordError"
                     @setData="setOldPassword" />
@@ -33,7 +33,7 @@
                     placeholder ="Enter New Password"
                     width="100%"
                     ref="newPasswordInput"
-                    isPassword
+                    isPassword="true"
                     :error="newPasswordError"
                     @setData="setNewPassword" />
                 <HeaderlessInput
@@ -42,7 +42,7 @@
                     placeholder="Confirm password"
                     width="100%"
                     ref="confirmPasswordInput"
-                    isPassword
+                    isPassword="true"
                     :error="confirmationPasswordError"
                     @setData="setPasswordConfirmation" />
                 <div class="change-password-popup__form-container__button-container">
