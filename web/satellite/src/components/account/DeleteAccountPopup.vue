@@ -49,7 +49,7 @@
                     @setData='setPassword'>
                 </HeaderedInput>
                 <div class='delete-account__form-container__button-container'>
-                    <Button label='Cancel' width='205px' height='48px' :onPress='onCloseClick' isWhite/>
+                    <Button label='Cancel' width='205px' height='48px' :onPress='onCloseClick' isWhite="true"/>
                     <Button label='Delete' width='205px' height='48px' class='red' :onPress='onDeleteAccountClick'/>
                 </div>
             </div>

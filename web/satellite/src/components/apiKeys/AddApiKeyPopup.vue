@@ -40,7 +40,7 @@
                     class="full-input"
                     width="100%" />
                 <div class="add-api-key-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite />
+                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true" />
                     <Button label="Create API Key" width="205px" height="48px" :onPress="onCreateClick" />
                 </div>
             </div>

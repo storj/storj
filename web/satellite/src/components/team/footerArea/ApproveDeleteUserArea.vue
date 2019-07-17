@@ -16,7 +16,7 @@
                     width="140px" 
                     height="48px"
                     :onPress="onCancelButtonClick" 
-                    isWhite />
+                    isWhite="true" />
                 <Button 
                     label="Delete" 
                     width="140px" 

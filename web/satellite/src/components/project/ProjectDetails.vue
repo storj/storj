@@ -33,13 +33,13 @@
                         isMultiline
                         @setData="setNewDescription" />
                     <div class="project-details-info-container__description-container__buttons-area">
-                        <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite/>
+                        <Button label="Cancel" width="180px" height="48px" :onPress="toggleEditing" isWhite="true"/>
                         <Button label="Save" width="180px" height="48px" :onPress="onSaveButtonClick"/>
                     </div>
                 </div>
             </div>
             <div class="project-details__button-area" id="deleteProjectPopupButton">
-                <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion/>
+                <Button class="delete-project" label="Delete project" width="180px" height="48px" :onPress="toggleDeleteDialog" isDeletion="true"/>
             </div>
         </div>
         <DeleteProjectPopup v-if="isPopupShown" />

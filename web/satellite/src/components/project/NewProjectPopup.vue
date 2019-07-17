@@ -29,7 +29,7 @@
                     @setData="setProjectDescription">
                 </HeaderedInput>
                 <div class="new-project-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite/>
+                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true"/>
                     <Button label="Next" width="205px" height="48px" :onPress="createProjectClick"/>
                 </div>
             </div>
