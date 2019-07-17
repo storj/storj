@@ -528,7 +528,7 @@ func TestRetain(t *testing.T) {
 			storj.NodeURL{ID: satellite1.ID},
 		}
 
-		trusted, err := trust.NewPool(nil, false, whitelisted)
+		trusted, err := trust.NewPool(nil, whitelisted)
 		require.NoError(t, err)
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())
