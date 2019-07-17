@@ -58,7 +58,7 @@ func NewLoop(config LoopConfig, metainfo *Service) *LoopService {
 	}
 }
 
-// Run starts the looping service.
+// Run starts the looping service
 func (service *LoopService) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -139,6 +139,8 @@ func (service *LoopService) Close() error {
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
 func (service *LoopService) Join(ctx context.Context, observer Observer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	service.mux.Lock()
 	service.loopStartChans[observer] = make(chan struct{})
 	service.loopEndChans[observer] = make(chan error)

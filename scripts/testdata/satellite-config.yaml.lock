@@ -205,8 +205,11 @@ kademlia.operator.wallet: ""
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
 
-# how frequently metainfoloop should iterate over segments
-# metainfoloop.coalesce-duration: 30s
+# how long to wait for new observers before starting iteration
+# metainfoloop.coalesce-duration: 5s
+
+# how long to wait between metainfo iterations
+# metainfoloop.interval: 30s
 
 # address to send telemetry to
 # metrics.addr: "collectora.storj.io:9000"
