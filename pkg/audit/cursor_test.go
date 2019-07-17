@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -37,7 +36,7 @@ func TestAuditSegment(t *testing.T) {
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
 		//populate metainfo with 10 non-expired pointers of test data
-		tests, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{Seconds: time.Now().Unix() + 3000})
+		tests, cursor, metainfo := populateTestData(t, planet, time.Now().Add(3*time.Second))
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -113,7 +112,7 @@ func TestDeleteExpired(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		//populate metainfo with 10 expired pointers of test data
-		_, cursor, metainfo := populateTestData(t, planet, &timestamp.Timestamp{})
+		_, cursor, metainfo := populateTestData(t, planet, time.Now().Add(-time.Second*1))
 		//make sure it they're in there
 		list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
@@ -136,7 +135,7 @@ type testData struct {
 	path storj.Path
 }
 
-func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *timestamp.Timestamp) ([]testData, *audit.Cursor, *metainfo.Service) {
+func populateTestData(t *testing.T, planet *testplanet.Planet, expiration time.Time) ([]testData, *audit.Cursor, *metainfo.Service) {
 	ctx := context.TODO()
 	tests := []testData{
 		{bm: "success-1", path: "folder1/file1"},
@@ -166,13 +165,14 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration *times
 	return tests, cursor, metainfo
 }
 
-func makePointer(path storj.Path, expiration *timestamp.Timestamp) *pb.Pointer {
+func makePointer(path storj.Path, expiration time.Time) *pb.Pointer {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,
 		NodeId:   teststorj.NodeIDFromString("testId"),
 	})
 	return &pb.Pointer{
+		CreationDate:   time.Now(),
 		ExpirationDate: expiration,
 		Type:           pb.Pointer_REMOTE,
 		Remote: &pb.RemoteSegment{

@@ -46,5 +46,5 @@ func SetupProject(m *metainfo.Client) (*Project, error) {
 		return nil, Error.New("failed to create streams: %v", err)
 	}
 
-	return NewProject(strms, memory.KiB.Int32(), rs, 64*memory.MiB.Int64()), nil
+	return NewProject(strms, memory.KiB.Int32(), rs, 64*memory.MiB.Int64(), *m), nil
 }

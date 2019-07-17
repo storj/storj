@@ -19,12 +19,12 @@
                         <div v-for="(input, index) in inputs"
                             class="add-user__form-container__inputs-group__item"
                             :key="index" >
-                            <input
-                                placeholder="test@mail.test"
-                                v-model="input.value"
-                                :class="[input.error ? 'error' : 'no-error']"
-                                @keyup="resetFormErrors(index)" />
-                            <span v-html="imageDeleteUser" @click="deleteInput(index)"></span>
+                                <input
+                                    placeholder="test@mail.test"
+                                    v-model="input.value"
+                                    :class="[input.error ? 'error' : 'no-error']"
+                                    @keyup="resetFormErrors(index)" />
+                                <span v-html="imageDeleteUser" @click="deleteInput(index)"></span>
                         </div>
                     </div>
                     <div class="add-user-row">
@@ -43,8 +43,8 @@
                         <Button label='Add Team Members' width='205px' height='48px' :onPress="isButtonActive ? onAddUsersClick : () => {}" :isDisabled="!isButtonActive"/>
                     </div>
                 </div>
-                <div class='add-user__close-cross-container'>
-                    <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg' @click='onClose'>
+                <div class='add-user__close-cross-container' @click='onClose'>
+                    <svg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'>
                         <path d='M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z' fill='#384B65'/>
                     </svg>
                 </div>
@@ -63,22 +63,23 @@
 </template>
 
 <script lang='ts'>
-import { Component, Vue } from 'vue-property-decorator';
-import Button from '@/components/common/Button.vue';
-import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
-import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { EmailInput } from '@/types/EmailInput';
-import { validateEmail } from '@/utils/validation';
-import ROUTES from '@/utils/constants/routerConstants';
+    import { Component, Vue } from 'vue-property-decorator';
+    import Button from '@/components/common/Button.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { PM_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { EmailInput } from '@/types/EmailInput';
+    import { validateEmail } from '@/utils/validation';
+    import ROUTES from '@/utils/constants/routerConstants';
 
-@Component(
-    {
+    @Component({
         data: function() {
             return {
                 inputs: [new EmailInput(), new EmailInput(), new EmailInput()],
                 formError: '',
+
                 imageSource: EMPTY_STATE_IMAGES.ADD_USER,
                 imageDeleteUser: EMPTY_STATE_IMAGES.DELETE_USER,
+
                 isLoading: false,
             };
         },
@@ -88,7 +89,7 @@ import ROUTES from '@/utils/constants/routerConstants';
                     return;
                 }
 
-                this.$data.isLoading = true;
+            this.$data.isLoading = true;
 
                 let length = this.$data.inputs.length;
                 let newInputsArray: any[] = [];
@@ -166,7 +167,6 @@ import ROUTES from '@/utils/constants/routerConstants';
             },
             addInput: function(): void {
                 let inputsLength = this.$data.inputs.length;
-
                 if (inputsLength < 10) {
                     this.$data.inputs.push(new EmailInput());
                 }
@@ -181,7 +181,9 @@ import ROUTES from '@/utils/constants/routerConstants';
             resetFormErrors: function(index): void {
                 this.$data.inputs[index].setError(false);
                 if (!(this as any).hasInputError()) {
+
                     this.$data.formError = '';
+
                 }
             },
             onClose: function(): void {
@@ -192,7 +194,7 @@ import ROUTES from '@/utils/constants/routerConstants';
                     return element.error;
                 });
             },
-         },
+        },
         computed: {
             isMaxInputsCount: function(): boolean {
                 return this.$data.inputs.length > 9;
@@ -215,10 +217,9 @@ import ROUTES from '@/utils/constants/routerConstants';
         components: {
             Button
         }
-    }
-)
+    })
 
-export default class AddUserPopup extends Vue {}
+    export default class AddUserPopup extends Vue {}
 </script>
 
 <style scoped lang='scss'>
@@ -270,6 +271,7 @@ export default class AddUserPopup extends Vue {}
             }
         }
     }
+
     .inactive-label {
         color: #DADDE5;
     }
@@ -279,10 +281,13 @@ export default class AddUserPopup extends Vue {}
     }
 
     .inactive-image {
+
         svg {
+
             rect {
                 fill: #DADDE5;
             }
+
             path {
                 fill: #ACB0BC;
             }
@@ -453,7 +458,6 @@ export default class AddUserPopup extends Vue {}
                 align-items: center;
                 margin-top: 30px;
                 padding: 0 80px 0 50px;
-
             }
         }
 

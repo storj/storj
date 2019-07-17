@@ -14,7 +14,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -30,16 +29,14 @@ var (
 
 // Info contains full information about an order.
 type Info struct {
-	Limit  *pb.OrderLimit
-	Order  *pb.Order
-	Uplink *identity.PeerIdentity
+	Limit *pb.OrderLimit
+	Order *pb.Order
 }
 
 // ArchivedInfo contains full information about an archived order.
 type ArchivedInfo struct {
-	Limit  *pb.OrderLimit
-	Order  *pb.Order
-	Uplink *identity.PeerIdentity
+	Limit *pb.OrderLimit
+	Order *pb.Order
 
 	Status     Status
 	ArchivedAt time.Time

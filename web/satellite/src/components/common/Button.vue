@@ -12,11 +12,10 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Vue } from 'vue-property-decorator';
 
-// Custom button component with label
-@Component(
-    {
+    // Custom button component with label
+    @Component({
         props: {
             label: {
                 type: String,
@@ -59,15 +58,13 @@ import { Component, Vue } from 'vue-property-decorator';
                 if (this.$props.isWhite) return 'container white';
 
                 if (this.$props.isDeletion) return 'container red';
-                
+
                 return 'container';
             },
         }
-    }
-)
+    })
 
-export default class Button extends Vue {
-}
+    export default class Button extends Vue {}
 </script>
 
 <style scoped lang="scss">
@@ -118,6 +115,7 @@ export default class Button extends Vue {
             color: #fff;
         }
     }
+
     .container.white,
     .container.red {
         background-color: transparent;
@@ -127,6 +125,7 @@ export default class Button extends Vue {
             color: #354049;
         }
     }
+
     .container.disabled {
         background-color: #DADDE5;
         border-color: #DADDE5;

@@ -7,10 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
@@ -18,13 +17,13 @@ import (
 	"storj.io/storj/pkg/pb"
 )
 
-// Config contains voucher service configuration parameters
+// Config contains voucher endpoint configuration parameters
 type Config struct {
 	Expiration time.Duration `help:"length of time before a voucher expires" default:"720h0m0s"`
 }
 
-// Service for issuing signed vouchers
-type Service struct {
+// Endpoint for issuing signed vouchers
+type Endpoint struct {
 	log        *zap.Logger
 	satellite  signing.Signer
 	cache      *overlay.Cache
@@ -38,9 +37,9 @@ var (
 	mon = monkit.Package()
 )
 
-// NewService creates a new service for issuing signed vouchers
-func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, expiration time.Duration) *Service {
-	return &Service{
+// NewEndpoint creates a new endpoint for issuing signed vouchers
+func NewEndpoint(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache, expiration time.Duration) *Endpoint {
+	return &Endpoint{
 		log:        log,
 		satellite:  satellite,
 		cache:      cache,
@@ -49,7 +48,7 @@ func NewService(log *zap.Logger, satellite signing.Signer, cache *overlay.Cache,
 }
 
 // Request receives a voucher request and returns a voucher and an error
-func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ *pb.VoucherResponse, err error) {
+func (endpoint *Endpoint) Request(ctx context.Context, req *pb.VoucherRequest) (_ *pb.VoucherResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
@@ -57,30 +56,24 @@ func (service *Service) Request(ctx context.Context, req *pb.VoucherRequest) (_ 
 		return nil, Error.Wrap(err)
 	}
 
-	reputable, err := service.cache.IsVetted(ctx, peer.ID)
+	reputable, err := endpoint.cache.IsVetted(ctx, peer.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	service.log.Debug("Node reputation", zap.Bool("reputable", reputable))
+	endpoint.log.Debug("Node reputation", zap.Bool("reputable", reputable))
 
 	if !reputable {
 		return &pb.VoucherResponse{Status: pb.VoucherResponse_REJECTED}, nil
 	}
 
-	expirationTime := time.Now().UTC().Add(service.expiration)
-	expiration, err := ptypes.TimestampProto(expirationTime)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
 	unsigned := &pb.Voucher{
-		SatelliteId:   service.satellite.ID(),
+		SatelliteId:   endpoint.satellite.ID(),
 		StorageNodeId: peer.ID,
-		Expiration:    expiration,
+		Expiration:    time.Now().Add(endpoint.expiration),
 	}
 
-	voucher, err := signing.SignVoucher(ctx, service.satellite, unsigned)
+	voucher, err := signing.SignVoucher(ctx, endpoint.satellite, unsigned)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

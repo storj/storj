@@ -63,6 +63,7 @@ export default class SortUsersDropdown extends Vue {
         text-decoration: none;
         outline: none;
     }
+
     .sort-container {
         position: relative;
         padding-right: 10px;
@@ -112,8 +113,8 @@ export default class SortUsersDropdown extends Vue {
     }
 
     @media screen and (max-width: 720px) {
-
         .sort-toggle-container {
+
             &__sort-name {
                 display: none;
             }

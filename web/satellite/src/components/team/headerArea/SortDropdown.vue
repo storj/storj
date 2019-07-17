@@ -20,12 +20,11 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
+    @Component({
         data: function () {
             return {
                 sortByEnum: ProjectMemberSortByEnum,
@@ -43,19 +42,14 @@ import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/con
             onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
                 this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-
                 const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
                 if (response.isSuccess) return;
-
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-
             }
         },
-    }
-)
+    })
 
-export default class SortDropdown extends Vue {
-}
+    export default class SortDropdown extends Vue {}
 </script>
 
 <style scoped lang="scss">

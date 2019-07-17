@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -39,7 +39,7 @@ type TTLItem struct {
 }
 
 type createRequest struct {
-	Expiration *timestamp.Timestamp
+	Expiration time.Time
 	Redundancy *pb.RedundancyScheme
 
 	ttl time.Time
@@ -150,7 +150,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, action macaroon.Acti
 	return keyInfo, nil
 }
 
-func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequest) (err error) {
+func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.SegmentWriteRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -166,7 +166,7 @@ func (endpoint *Endpoint) validateCreateSegment(ctx context.Context, req *pb.Seg
 	return nil
 }
 
-func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (err error) {
+func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.SegmentCommitRequestOld) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = endpoint.validateBucket(ctx, req.Bucket)
@@ -189,6 +189,18 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("invalid no order limit for piece")
 		}
 
+		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.rsConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+		})
+		if err != nil {
+			return err
+		}
+
+		if req.Pointer.SegmentSize > maxAllowed || req.Pointer.SegmentSize < 0 {
+			return Error.New("segment size %v is out of range, maximum allowed is %v", req.Pointer.SegmentSize, maxAllowed)
+		}
+
 		for _, piece := range remote.RemotePieces {
 			limit := req.OriginalLimits[piece.PieceNum]
 
@@ -198,7 +210,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			}
 
 			if limit == nil {
-				return Error.New("invalid no order limit for piece")
+				return Error.New("empty order limit for piece")
 			}
 			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
@@ -216,7 +228,7 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 		switch {
 		case !found:
 			return Error.New("missing create request or request expired")
-		case !proto.Equal(createRequest.Expiration, req.Pointer.ExpirationDate):
+		case !createRequest.Expiration.Equal(req.Pointer.ExpirationDate):
 			return Error.New("pointer expiration date does not match requested one")
 		case !proto.Equal(createRequest.Redundancy, req.Pointer.Remote.Redundancy):
 			return Error.New("pointer redundancy scheme date does not match requested one")

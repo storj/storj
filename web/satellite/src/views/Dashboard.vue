@@ -33,8 +33,8 @@ import {AppState} from "../utils/constants/appStateEnum";
         PROJETS_ACTIONS,
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
-        BUCKET_USAGE_ACTIONS
-    } from '@/utils/constants/actionNames';
+        BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
+    } from "@/utils/constants/actionNames";
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import { AppState } from '../utils/constants/appStateEnum';
@@ -82,6 +82,11 @@ import {AppState} from "../utils/constants/appStateEnum";
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + bucketsResponse.errorMessage);
             }
 
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+            }
+
             this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
         }, 800);
     },
@@ -127,6 +132,7 @@ export default class Dashboard extends Vue {
             height: 100%;
         }
     }
+
     @media screen and (max-width: 720px) {
         .dashboard-container {
             &__main-area{
@@ -134,6 +140,7 @@ export default class Dashboard extends Vue {
             }
         }
     }
+
     .loading-overlay {
         display: flex;
         justify-content: center;
