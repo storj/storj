@@ -73,7 +73,7 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	if redeemableCap.Valid {
 		o.RedeemableCap = int(redeemableCap.Int64)
 	}
-	if redeemableCap.Valid {
+	if awardCreditDurationDays.Valid {
 		o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
 	}
 	if inviteeCreditDurationDays.Valid {
