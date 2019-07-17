@@ -6,6 +6,7 @@ package transport
 import (
 	"context"
 	"net"
+	"sync"
 
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
@@ -20,7 +21,9 @@ import (
 // TODO: check whether this would be problematic with concurrency or should we thread the authinfo through context?
 type handshakeCapture struct {
 	credentials.TransportCredentials
-	AuthInfo credentials.AuthInfo
+
+	mu       sync.Mutex
+	authInfo credentials.AuthInfo
 }
 
 // ClientHandshake does the authentication handshake specified by the corresponding
@@ -28,7 +31,11 @@ type handshakeCapture struct {
 // connection and the corresponding auth information about the connection.
 func (capture *handshakeCapture) ClientHandshake(ctx context.Context, s string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	conn, auth, err := capture.TransportCredentials.ClientHandshake(ctx, s, conn)
-	capture.AuthInfo = auth
+	if err == nil {
+		capture.mu.Lock()
+		capture.authInfo = auth
+		capture.mu.Unlock()
+	}
 	return conn, auth, err
 }
 
@@ -37,7 +44,11 @@ func (capture *handshakeCapture) ClientHandshake(ctx context.Context, s string, 
 // the connection.
 func (capture *handshakeCapture) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	conn, auth, err := capture.TransportCredentials.ServerHandshake(conn)
-	capture.AuthInfo = auth
+	if err == nil {
+		capture.mu.Lock()
+		capture.authInfo = auth
+		capture.mu.Unlock()
+	}
 	return conn, auth, err
 }
 
@@ -83,7 +94,11 @@ func (transport *Transport) FetchPeerIdentity(ctx context.Context, node *pb.Node
 	}()
 	transport.AlertSuccess(timedCtx, node)
 
-	switch info := capture.AuthInfo.(type) {
+	capture.mu.Lock()
+	authinfo := capture.authInfo
+	capture.mu.Unlock()
+
+	switch info := authinfo.(type) {
 	case credentials.TLSInfo:
 		chain := info.State.PeerCertificates
 		if len(chain)-1 < peertls.CAIndex {
@@ -97,6 +112,6 @@ func (transport *Transport) FetchPeerIdentity(ctx context.Context, node *pb.Node
 
 		return pi, nil
 	default:
-		return nil, Error.New("unknown capture info %T", capture.AuthInfo)
+		return nil, Error.New("unknown capture info %T", authinfo)
 	}
 }
