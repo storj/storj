@@ -34,7 +34,8 @@ storj_encrypt_options_t encrypt_options = {
 
 storj_upload_opts_t upload_options = {
     // NB: about +500 years from time of writing
-    .expires = 17329017831
+    .expires = 17329017831,
+    .content_type = "text/plain"
 };
 
 storj_log_options_t log_options = {
@@ -288,7 +289,8 @@ void check_store_file(int error_code, storj_file_meta_t *info, void *handle)
     require_not_empty(info->id);
     require_not_empty(info->bucket_id);
     require_not_empty(info->created);
-    require_not_empty(info->mimetype);
+
+    require_equal(upload_options.content_type, info->mimetype);
 
     require_equal(test_upload_file_name, info->id);
     require_equal(test_bucket_name, info->bucket_id);

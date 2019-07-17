@@ -196,9 +196,9 @@ STORJ_API storj_upload_state_t *storj_bridge_store_file(storj_env_t *env,
         STORJ_DEFAULT_UPLOAD_BUFFER_SIZE : opts->buffer_size;
 
     state->upload_opts = malloc(sizeof(UploadOptions));
-    // TODO: content type / mimetype
-//    state->upload_opts->content_type = strdup(opts->content_type);
     state->upload_opts->expires = opts->expires;
+    state->upload_opts->content_type = (opts->content_type) ?
+        strdup(opts->content_type) : "";
 
     state->env = env;
     state->file_name = strdup(opts->file_name);
