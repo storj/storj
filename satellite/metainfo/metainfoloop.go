@@ -94,7 +94,7 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 						return LoopError.New("error unmarshalling pointer %s", err)
 					}
 
-					path := storj.Path(item.Key.String())
+					path := item.Key.String()
 					pathElements := storj.SplitPath(path)
 
 					// send segment info to every observer
