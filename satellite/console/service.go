@@ -645,20 +645,12 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	return usage, nil
 }
 
-// RedeemRewards creates a new record in database when new user earns new credits
-func (s *Service) RedeemRewards(ctx context.Context, offer rewards.OfferInfo, referrerID *uuid.UUID, userID uuid.UUID) (err error) {
+// CreateCredit creates a new record in database when new user earns new credits
+func (s *Service) CreateCredit(ctx context.Context, newCredit UserCredit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err != nil {
 		return errs.Wrap(err)
-	}
-
-	newCredit := UserCredit{
-		UserID:        userID,
-		OfferID:       offer.ID,
-		ReferredBy:    referrerID,
-		CreditsEarned: offer.InviteeCredit,
-		ExpiresAt:     time.Now().UTC().AddDate(0, 0, offer.InviteeCreditDurationDays),
 	}
 
 	err = s.store.UserCredits().Create(ctx, newCredit)

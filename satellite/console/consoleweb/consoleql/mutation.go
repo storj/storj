@@ -4,6 +4,8 @@
 package consoleql
 
 import (
+	"time"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"go.uber.org/zap"
@@ -145,8 +147,9 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
+					var referrerID *uuid.UUID
 					if len(referrerInput) > 1 {
-						referrerID, err := uuid.Parse(referrerInput)
+						referrerID, err = uuid.Parse(referrerInput)
 						if err != nil {
 							log.Error("register: failed to parse referrer ID",
 								zap.String("rawReferralID", referrerInput),
@@ -154,18 +157,24 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 
 							return nil, err
 						}
+					}
 
-						// User can only earn credits after adding payment info. Therefore, we set the credits to 0 on registration
-						reward.InviteeCredit = currency.Cents(0)
+					// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
+					newCredit := console.UserCredit{
+						UserID:        user.ID,
+						OfferID:       reward.ID,
+						ReferredBy:    referrerID,
+						CreditsEarned: currency.Cents(0),
+						ExpiresAt:     time.Now().UTC().AddDate(0, 0, reward.InviteeCreditDurationDays),
+					}
 
-						err = service.RedeemRewards(p.Context, reward, referrerID, user.ID)
-						if err != nil {
-							log.Error("register: failed to redeem credits",
-								zap.String("rawSecret", secretInput),
-								zap.Error(err))
+					err = service.CreateCredit(p.Context, newCredit)
+					if err != nil {
+						log.Error("register: failed to create credit",
+							zap.String("rawSecret", secretInput),
+							zap.Error(err))
 
-							return nil, err
-						}
+						return nil, err
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
