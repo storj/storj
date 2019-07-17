@@ -202,6 +202,9 @@ void check_resolve_file_progress(double progress,
                                  void *handle)
 {
     require(handle == NULL);
+    if (progress == (double)0) {
+        pass("storj_bridge_resolve_file (progress started)");
+    }
     if (progress == (double)1) {
         pass("storj_bridge_resolve_file (progress finished)");
     }
@@ -211,7 +214,10 @@ void check_resolve_file_progress(double progress,
 
 void check_resolve_file(int status, FILE *fd, void *handle)
 {
+    require(ftell(fd) != 0);
+
     fclose(fd);
+
     require(handle == NULL);
     if (status) {
         fail("storj_bridge_resolve_file");
@@ -375,6 +381,7 @@ int create_test_upload_file(char *filepath)
         fputs(page, fp);
         free(page);
     }
+    fputs("\n", fp);
 
     fclose(fp);
     return 0;
@@ -431,6 +438,7 @@ int test_download(storj_env_t *env)
                                                               test_upload_file_name,
                                                               file,
                                                               test_encryption_access,
+                                                              0,
                                                               NULL,
                                                               check_resolve_file_progress,
                                                               check_resolve_file);

@@ -321,6 +321,13 @@ static void resolve_file(uv_work_t *work)
     size_t buf_len;
     uint8_t *buf;
     while (state->downloaded_bytes < state->total_bytes) {
+        size_t remaining_size = state->total_bytes - state->downloaded_bytes;
+        if (remaining_size >= state->buffer_size) {
+            buf_len = state->buffer_size;
+        } else {
+            buf_len = remaining_size;
+        }
+
         buf = malloc(buf_len);
         size_t read_size = download_read(state->downloader_ref, buf, buf_len, STORJ_LAST_ERROR);
         STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;
@@ -328,10 +335,11 @@ static void resolve_file(uv_work_t *work)
 
         if (read_size <= 0) {
             free(buf);
+            // TODO: call finished_cb?
             break;
         }
 
-        size_t written_size = fwrite(buf, sizeof(char), buf_len, state->destination);
+        size_t written_size = fwrite(buf, sizeof(char), read_size, state->destination);
         // TODO: what if written_size != buf_len!?
 
         // TODO: use uv_async_init/uv_async_send instead of calling cb directly?
@@ -363,6 +371,7 @@ static void queue_resolve_file(uv_work_t *work, int status)
 
     // TODO: need to copy?
     state->info = req->file;
+    state->total_bytes = req->file->size;
 
     uv_queue_work(state->env->loop, work, resolve_file, cleanup_work);
 }
@@ -394,6 +403,7 @@ STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
                                                             const char *file_id,
                                                             FILE *destination,
                                                             const char *encryption_access,
+                                                            size_t buffer_size,
                                                             void *handle,
                                                             storj_progress_cb progress_cb,
                                                             storj_finished_download_cb finished_cb)
@@ -402,6 +412,9 @@ STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
     if (!state) {
         return NULL;
     }
+
+    state->buffer_size = (buffer_size == 0) ?
+        STORJ_DEFAULT_UPLOAD_BUFFER_SIZE : buffer_size;
 
     // setup download state
     state->encryption_access = strdup(encryption_access);

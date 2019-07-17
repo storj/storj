@@ -893,6 +893,7 @@ STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
                                                             const char *file_id,
                                                             FILE *destination,
                                                             const char *encryption_access,
+                                                            size_t buffer_size,
                                                             void *handle,
                                                             storj_progress_cb progress_cb,
                                                             storj_finished_download_cb finished_cb);
