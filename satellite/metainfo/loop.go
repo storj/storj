@@ -5,13 +5,11 @@ package metainfo
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage"
@@ -29,26 +27,47 @@ type Observer interface {
 	InlineSegment(context.Context, storj.Path, *pb.Pointer) error
 }
 
+type observerContext struct {
+	Observer
+	ctx  context.Context
+	done chan error
+}
+
+func (observer *observerContext) HandleError(err error) bool {
+	if err != nil {
+		observer.done <- err
+		close(observer.done)
+		return true
+	}
+	return false
+}
+
+func (observer *observerContext) Finish() {
+	close(observer.done)
+}
+
+func (observer *observerContext) Wait() error {
+	return <-observer.done
+}
+
+// LoopConfig contains configurable values for the metainfo loop
+type LoopConfig struct {
+	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
+}
+
 // Loop is a metainfo loop service
 type Loop struct {
-	waitingObservers []Observer
-	observers        []Observer
-	Loop             *sync2.Cycle
-	metainfo         *Service
-	loopStartChans   map[Observer]chan struct{}
-	loopEndChans     map[Observer]chan error
-	mux              sync.Mutex
-	config           LoopConfig
+	config   LoopConfig
+	metainfo *Service
+	join     chan *observerContext
 }
 
 // NewLoop creates a new metainfo loop service
 func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 	return &Loop{
-		Loop:           sync2.NewCycle(config.Interval),
-		metainfo:       metainfo,
-		loopStartChans: make(map[Observer]chan struct{}),
-		loopEndChans:   make(map[Observer]chan error),
-		config:         config,
+		metainfo: metainfo,
+		config:   config,
+		join:     make(chan *observerContext),
 	}
 }
 
@@ -56,77 +75,12 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 func (service *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		// wait for observers
-		if len(service.waitingObservers) == 0 {
-			return nil
+	for {
+		err := service.runOnce(ctx)
+		if err != nil {
+			return err
 		}
-
-		// coalesce incoming observers, within 5s
-		time.Sleep(service.config.CoalesceDuration)
-
-		service.mux.Lock()
-		service.observers = service.waitingObservers
-		service.waitingObservers = []Observer{}
-		service.mux.Unlock()
-
-		// notify observers of loop start
-		for _, obs := range service.observers {
-			service.loopStartChans[obs] <- struct{}{}
-		}
-
-		err = service.metainfo.Iterate(ctx, "", "", true, false,
-			func(ctx context.Context, it storage.Iterator) error {
-				var item storage.ListItem
-
-				// iterate over every segment in metainfo
-				for it.Next(ctx, &item) {
-					pointer := &pb.Pointer{}
-
-					err = proto.Unmarshal(item.Value, pointer)
-					if err != nil {
-						return LoopError.New("error unmarshalling pointer %s", err)
-					}
-
-					path := item.Key.String()
-					pathElements := storj.SplitPath(path)
-
-					// send segment info to every observer
-					for _, o := range service.observers {
-						remote := pointer.GetRemote()
-						if remote != nil {
-							_ = o.RemoteSegment(ctx, path, pointer)
-
-							if len(pathElements) >= 2 && pathElements[1] == "l" {
-								_ = o.RemoteObject(ctx, path, pointer)
-							}
-
-						} else {
-							_ = o.InlineSegment(ctx, path, pointer)
-						}
-					}
-				}
-				return nil
-			})
-
-		// notify observers of loop completion or error
-		for _, obs := range service.observers {
-			service.loopEndChans[obs] <- err
-
-			service.mux.Lock()
-			delete(service.loopStartChans, obs)
-			delete(service.loopEndChans, obs)
-			service.mux.Unlock()
-		}
-
-		return err
-	})
-}
-
-// Close halts the metainfo loop
-func (service *Loop) Close() error {
-	service.Loop.Close()
-	return nil
+	}
 }
 
 // Join will join the looper for one full cycle until completion and then returns.
@@ -135,17 +89,119 @@ func (service *Loop) Close() error {
 func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	service.mux.Lock()
-	service.loopStartChans[observer] = make(chan struct{})
-	service.loopEndChans[observer] = make(chan error)
-	service.waitingObservers = append(service.waitingObservers, observer)
-	service.mux.Unlock()
+	context := &observerContext{
+		Observer: observer,
+		ctx:      ctx,
+		done:     make(chan error),
+	}
 
-	// wait for observer combine
-	<-service.loopStartChans[observer]
-
-	// wait for loop to iterate over all segments
-	err = <-service.loopEndChans[observer]
+	service.join <- context
+	err = context.Wait()
 
 	return err
+}
+
+func (service *Loop) runOnce(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var observers []*observerContext
+
+	defer func() {
+		for _, observer := range observers {
+			observer.Finish()
+		}
+	}()
+
+	select {
+	case observer := <-service.join:
+		observers = append(observers, observer)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	timer := time.NewTimer(service.config.CoalesceDuration)
+waitformore:
+	for {
+		select {
+		case observer := <-service.join:
+			observers = append(observers, observer)
+		case <-timer.C:
+			break waitformore
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	err = service.metainfo.Iterate(ctx, "", "", true, false,
+		func(ctx context.Context, it storage.Iterator) error {
+			var item storage.ListItem
+
+			// iterate over every segment in metainfo
+			for it.Next(ctx, &item) {
+				pointer := &pb.Pointer{}
+
+				err = proto.Unmarshal(item.Value, pointer)
+				if err != nil {
+					// TODO: figure out what to do
+					// return LoopError.New("error unmarshalling pointer %s", err)
+					continue
+				}
+
+				path := item.Key.String()
+				pathElements := storj.SplitPath(path)
+
+				nextObservers := observers[:0]
+
+				// send segment info to every observer
+				for i, observer := range observers {
+
+					remote := pointer.GetRemote()
+					if remote != nil {
+						if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
+							continue
+						}
+
+						if len(pathElements) >= 2 && pathElements[1] == "l" {
+							if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
+								continue
+							}
+						}
+					} else {
+						if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+							continue
+						}
+					}
+
+					select {
+					case <-observer.ctx.Done():
+						observer.HandleError(observer.ctx.Err())
+						continue
+					default:
+					}
+
+					nextObservers = append(nextObservers, observer)
+				}
+
+				observers = nextObservers
+				if len(observers) == 0 {
+					return nil
+				}
+
+				select {
+				case <-ctx.Done():
+					for _, observer := range observers {
+						observer.HandleError(ctx.Err())
+					}
+					observers = nil
+					return ctx.Err()
+				default:
+				}
+			}
+			return nil
+		})
+}
+
+// Close halts the metainfo loop
+func (service *Loop) Close() error {
+	return nil
 }
