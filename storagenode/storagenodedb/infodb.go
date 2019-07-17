@@ -360,6 +360,23 @@ func (db *InfoDB) Migration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				Description: "Free Storagenodes from orphaned tmp data",
+				Version:     14,
+				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+					// When using inmemory DB, skip deletion process
+					if db.location == "" {
+						return nil
+					}
+
+					err := os.RemoveAll(filepath.Join(filepath.Dir(db.location), "tmp"))
+					if err != nil {
+						log.Sugar().Debug(err)
+					}
+					// To prevent the node from starting up, we just log errors and return nil
+					return nil
+				}),
+			},
 		},
 	}
 }
