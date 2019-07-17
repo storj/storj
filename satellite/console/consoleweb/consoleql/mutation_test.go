@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -25,6 +26,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -112,13 +114,25 @@ func TestGrapqhlMutation(t *testing.T) {
 			regTokenTest, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
 
+			currentReward := rewards.OfferInfo{
+				ID:                        1,
+				InviteeCredit:             currency.Cents(10),
+				InviteeCreditDurationDays: 13,
+				RedeemableCap:             10,
+				ExpiresAt:                 time.Now().UTC(),
+			}
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\", currentReward: {id: %d, inviteeCreditInCents: %d, inviteeCreditDurationDays: %d, redeemableCap: %d, expiresAt: \"%s\"}){id,shortName,fullName,email,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
 				regTokenTest.Secret,
+				currentReward.ID,
+				currentReward.InviteeCredit.Cents(),
+				currentReward.InviteeCreditDurationDays,
+				currentReward.RedeemableCap,
+				currentReward.ExpiresAt,
 			)
 
 			result := graphql.Do(graphql.Params{

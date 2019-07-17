@@ -92,8 +92,13 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
-					partnerInput := p.Args[FieldPartnerID].(string)
-					referrerInput := p.Args[ReferrerID].(string)
+					var partnerInput, referrerInput string
+					if p.Args[FieldPartnerID] != nil {
+						partnerInput = p.Args[FieldPartnerID].(string)
+					}
+					if p.Args[ReferrerID] != nil {
+						referrerInput = p.Args[ReferrerID].(string)
+					}
 					rewardInput := p.Args[CurrentReward].(map[string]interface{})
 					reward, err := fromMapRewardInfo(rewardInput)
 					if err != nil {

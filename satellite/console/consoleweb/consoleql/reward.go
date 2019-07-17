@@ -91,7 +91,7 @@ func fromMapRewardInfo(args map[string]interface{}) (reward rewards.OfferInfo, e
 	if args[FieldStatus] != nil {
 		reward.Status = args[FieldStatus].(rewards.OfferStatus)
 	}
-	expiresAt, err := time.Parse(time.RFC3339, args[FieldExpiresAt].(string))
+	expiresAt, err := time.Parse("2006-01-02 15:04:05 -0700 UTC", args[FieldExpiresAt].(string))
 	if err != nil {
 		return reward, err
 	}
