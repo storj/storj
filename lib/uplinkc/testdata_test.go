@@ -95,7 +95,7 @@ func TestC(t *testing.T) {
 
 func TestLibstorj(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
-	defer ctx.Cleanup()
+	//defer ctx.Cleanup()
 
 	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 

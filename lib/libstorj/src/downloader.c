@@ -344,15 +344,11 @@ static void resolve_file(uv_work_t *work)
 
         // TODO: use uv_async_init/uv_async_send instead of calling cb directly?
         state->downloaded_bytes += read_size;
-        double progress = state->downloaded_bytes / state->info->size;
+        double progress = (double)state->downloaded_bytes / state->total_bytes;
         state->progress_cb(progress, state->downloaded_bytes,
-                           state->info->size, state->handle);
+                           state->total_bytes, state->handle);
         free(buf);
     }
-    state->progress_cb(1, state->downloaded_bytes,
-                       state->info->size, state->handle);
-
-//    state->progress_finished = true;
 
     download_close(downloader_ref, STORJ_LAST_ERROR);
     STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;

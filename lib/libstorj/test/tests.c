@@ -11,7 +11,11 @@ char *test_upload_path;
 
 double test_upload_progress = 0;
 uint64_t test_uploaded_bytes = 0;
-uint64_t test_total_bytes = 0;
+uint64_t test_upload_total_bytes = 0;
+
+double test_download_progress = 0;
+uint64_t test_downloaded_bytes = 0;
+uint64_t test_download_total_bytes = 0;
 
 BucketConfig test_bucket_cfg = {
     .path_cipher = STORJ_ENC_AESGCM,
@@ -201,6 +205,20 @@ void check_resolve_file_progress(double progress,
                                  uint64_t total_bytes,
                                  void *handle)
 {
+    require_no_last_error;
+
+    require(progress >= test_download_progress);
+    require(downloaded_bytes >= test_downloaded_bytes);
+
+    if (test_download_total_bytes == 0) {
+        test_download_total_bytes = total_bytes;
+    }
+
+    require(total_bytes == test_download_total_bytes);
+
+    test_download_progress = progress;
+    test_downloaded_bytes = downloaded_bytes;
+
     require(handle == NULL);
     if (progress == (double)0) {
         pass("storj_bridge_resolve_file (progress started)");
@@ -208,17 +226,20 @@ void check_resolve_file_progress(double progress,
     if (progress == (double)1) {
         pass("storj_bridge_resolve_file (progress finished)");
     }
-
-    // TODO check error case
 }
 
 void check_resolve_file(int status, FILE *fd, void *handle)
 {
+    require_no_last_error;
     require(ftell(fd) != 0);
 
     fclose(fd);
 
-    require(handle == NULL);
+    require(!handle);
+
+    // TODO: more assertions?
+    // TODO: verify upload/download file contents match
+
     if (status) {
         fail("storj_bridge_resolve_file");
         printf("Download failed: %s\n", storj_strerror(status));
@@ -248,11 +269,11 @@ void check_store_file_progress(double progress,
     require(progress >= test_upload_progress);
     require(uploaded_bytes >= test_uploaded_bytes);
 
-    if (test_total_bytes == 0) {
-        test_total_bytes = total_bytes;
+    if (test_upload_total_bytes == 0) {
+        test_upload_total_bytes = total_bytes;
     }
 
-    require(total_bytes == test_total_bytes);
+    require(total_bytes == test_upload_total_bytes);
 
     test_upload_progress = progress;
     test_uploaded_bytes = uploaded_bytes;
@@ -365,6 +386,11 @@ void check_file_info(uv_work_t *work_req, int status)
 
 int create_test_upload_file(char *filepath)
 {
+    // TODO: make `total` an argument;
+    int64_t total = 4096000;
+    int64_t subtotal = 0;
+    size_t page_size = 1024000;
+
     FILE *fp;
     fp = fopen(filepath, "w");
 
@@ -373,12 +399,19 @@ int create_test_upload_file(char *filepath)
         exit(0);
     }
 
-    int shard_size = 4096;
-    char *bytes = "abcdefghijklmn";
-    for (int i = 0; i < strlen(bytes); i++) {
-        char *page = calloc(shard_size + 1, sizeof(char));
-        memset(page, bytes[i], shard_size);
+//    int shard_size = 409600;
+//    char *bytes = "abcdefghijklmn";
+//    for (int i = 0; i < strlen(bytes); i++) {
+//        char *page = calloc(shard_size + 1, sizeof(char));
+//        memset(page, bytes[i], shard_size);
+//        fputs(page, fp);
+//        free(page);
+//    }
+    while (subtotal < total) {
+        char *page = malloc(page_size);
+        memset(page, 65, page_size);
         fputs(page, fp);
+        subtotal += page_size;
         free(page);
     }
     fputs("\n", fp);
@@ -519,13 +552,20 @@ static void reset_test_upload()
 {
     test_upload_progress = 0;
     test_uploaded_bytes = 0;
-    test_total_bytes = 0;
+    test_upload_total_bytes = 0;
 
     // init upload options
     upload_options.bucket_id = strdup(test_bucket_name);
     upload_options.file_name = strdup(test_upload_file_name);
     upload_options.fd = fopen(test_upload_path, "r");
     upload_options.encryption_access = strdup(test_encryption_access);
+}
+
+static void reset_test_download()
+{
+    test_download_progress = 0;
+    test_downloaded_bytes = 0;
+    test_download_total_bytes = 0;
 }
 
 int test_api()
@@ -572,6 +612,7 @@ int test_api()
     test_upload_cancel(env);
     require_no_last_error;
 
+    reset_test_download();
     test_download(env);
     // TODO: download cancel
 
