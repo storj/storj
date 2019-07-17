@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"storj.io/storj/pkg/auth"
+	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -188,8 +189,16 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 			return Error.New("invalid no order limit for piece")
 		}
 
-		if req.Pointer.SegmentSize > endpoint.rsConfig.MaxSegmentSize.Int64() || req.Pointer.SegmentSize < 0 {
-			return Error.New("segment size %v is out of range, maximum is %v", req.Pointer.SegmentSize, endpoint.rsConfig.MaxSegmentSize)
+		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.rsConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+		})
+		if err != nil {
+			return err
+		}
+
+		if req.Pointer.SegmentSize > maxAllowed || req.Pointer.SegmentSize < 0 {
+			return Error.New("segment size %v is out of range, maximum allowed is %v", req.Pointer.SegmentSize, maxAllowed)
 		}
 
 		for _, piece := range remote.RemotePieces {
