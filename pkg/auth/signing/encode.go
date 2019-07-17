@@ -93,7 +93,6 @@ func EncodeVoucher(ctx context.Context, voucher *pb.Voucher) (_ []byte, err erro
 func EncodeStreamID(ctx context.Context, streamID *pb.SatStreamID) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	signature := streamID.SatelliteSignature
-	// TODO verify if that can cause race
 	streamID.SatelliteSignature = nil
 	out, err := proto.Marshal(streamID)
 	streamID.SatelliteSignature = signature
@@ -104,7 +103,6 @@ func EncodeStreamID(ctx context.Context, streamID *pb.SatStreamID) (_ []byte, er
 func EncodeSegmentID(ctx context.Context, segmentID *pb.SatSegmentID) (_ []byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 	signature := segmentID.SatelliteSignature
-	// TODO verify if that can cause race
 	segmentID.SatelliteSignature = nil
 	out, err := proto.Marshal(segmentID)
 	segmentID.SatelliteSignature = signature

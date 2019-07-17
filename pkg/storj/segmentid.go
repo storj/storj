@@ -45,18 +45,17 @@ func (id SegmentID) String() string { return segmentIDEncoding.EncodeToString(id
 // Bytes returns bytes of the segment ID
 func (id SegmentID) Bytes() []byte { return id[:] }
 
-// Marshal serializes a segment ID
+// Marshal serializes a segment ID (implements gogo's custom type interface)
 func (id SegmentID) Marshal() ([]byte, error) {
 	return id.Bytes(), nil
 }
 
-// MarshalTo serializes a segment ID into the passed byte slice
+// MarshalTo serializes a segment ID into the passed byte slice (implements gogo's custom type interface)
 func (id *SegmentID) MarshalTo(data []byte) (n int, err error) {
-	n = copy(data, id.Bytes())
-	return n, nil
+	return copy(data, id.Bytes()), nil
 }
 
-// Unmarshal deserializes a segment ID
+// Unmarshal deserializes a segment ID (implements gogo's custom type interface)
 func (id *SegmentID) Unmarshal(data []byte) error {
 	var err error
 	*id, err = SegmentIDFromBytes(data)
@@ -68,17 +67,14 @@ func (id SegmentID) Size() int {
 	return len(id)
 }
 
-// MarshalJSON serializes a segment ID to a json string as bytes
+// MarshalJSON serializes a segment ID to a json string as bytes (implements gogo's custom type interface)
 func (id SegmentID) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + id.String() + `"`), nil
 }
 
-// UnmarshalJSON deserializes a json string (as bytes) to a segment ID
+// UnmarshalJSON deserializes a json string (as bytes) to a segment ID (implements gogo's custom type interface)
 func (id *SegmentID) UnmarshalJSON(data []byte) error {
 	var err error
 	*id, err = SegmentIDFromString(string(data))
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }

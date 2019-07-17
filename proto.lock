@@ -3050,7 +3050,7 @@
                 "options": [
                   {
                     "name": "(gogoproto.customtype)",
-                    "value": "StreamID"
+                    "value": "Nonce"
                   },
                   {
                     "name": "(gogoproto.nullable)",
