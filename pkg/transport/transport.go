@@ -26,6 +26,7 @@ type Observer interface {
 type Client interface {
 	DialNode(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*grpc.ClientConn, error)
 	DialAddress(ctx context.Context, address string, opts ...grpc.DialOption) (*grpc.ClientConn, error)
+	FetchPeerIdentity(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (*identity.PeerIdentity, error)
 	Identity() *identity.FullIdentity
 	WithObservers(obs ...Observer) Client
 	AlertSuccess(ctx context.Context, node *pb.Node)
