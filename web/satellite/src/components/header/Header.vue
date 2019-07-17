@@ -7,6 +7,7 @@
             <ProjectSelectionArea class="header-container__left-area__project-selection"/>
         </div>
         <div class="header-container__right-area">
+            <AddPaymentMethodPopup></AddPaymentMethodPopup>
             <NewProjectArea class="header-container__right-area__new-project" />
             <AccountButton class="header-container__right-area__account-button" />
         </div>
@@ -18,12 +19,14 @@
     import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
     import NewProjectArea from '@/components/header/NewProjectArea.vue';
     import AccountButton from './AccountButton.vue';
+    import AddPaymentMethodPopup from '@/components/project/paymentMethods/AddPaymentMethodPopup.vue';
 
     @Component({
         components: {
             ProjectSelectionArea,
             NewProjectArea,
             AccountButton,
+            AddPaymentMethodPopup
         },
     })
     export default class DashboardHeader extends Vue {}

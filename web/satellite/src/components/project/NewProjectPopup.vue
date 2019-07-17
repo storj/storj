@@ -24,11 +24,13 @@
                     placeholder="Enter Project Description"
                     additional-label="Optional"
                     class="full-input"
+                    isMultiline
                     isMultiline="true"
                     height="100px"
                     width="100%"
                     @setData="setProjectDescription">
                 </HeaderedInput>
+                <Button label="+ New Card" :onPress="onNewCardClick"/>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true"/>
                     <Button label="Next" width="205px" height="48px" :onPress="createProjectClick"/>
@@ -79,6 +81,10 @@
 
         public onCloseClick (): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
+        }
+
+        public onNewCardClick() {
+            console.log("new card click");
         }
 
         public async createProjectClick (): Promise<void> {
@@ -175,6 +181,7 @@
         private notifySuccess(message: string): void {
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, message);
         }
+
     }
 </script>
 
