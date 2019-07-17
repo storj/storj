@@ -88,3 +88,14 @@ func EncodeVoucher(ctx context.Context, voucher *pb.Voucher) (_ []byte, err erro
 	voucher.SatelliteSignature = signature
 	return out, err
 }
+
+// EncodeStreamID encodes stream ID into bytes for signing.
+func EncodeStreamID(ctx context.Context, streamID *pb.SatStreamID) (_ []byte, err error) {
+	defer mon.Task()(&ctx)(&err)
+	signature := streamID.SatelliteSignature
+	// TODO verify if that can cause race
+	streamID.SatelliteSignature = nil
+	out, err := proto.Marshal(streamID)
+	streamID.SatelliteSignature = signature
+	return out, err
+}

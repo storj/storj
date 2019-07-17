@@ -16,8 +16,13 @@ type DB interface {
 	Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) error
 	// MonthSummary returns summary of the current months bandwidth usages
 	MonthSummary(ctx context.Context) (int64, error)
+	Rollup(ctx context.Context) (err error)
 	Summary(ctx context.Context, from, to time.Time) (*Usage, error)
 	SummaryBySatellite(ctx context.Context, from, to time.Time) (map[storj.NodeID]*Usage, error)
+	// Run starts the background process for rollups of bandwidth usage
+	Run(ctx context.Context) (err error)
+	// Close stop the background process for rollups of bandwidth usage
+	Close() (err error)
 }
 
 // Usage contains bandwidth usage information based on the type

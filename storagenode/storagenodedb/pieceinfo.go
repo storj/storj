@@ -19,14 +19,11 @@ import (
 )
 
 type pieceinfo struct {
-	*InfoDB
-	space spaceUsed
-}
-
-type spaceUsed struct {
 	// Moved to top of struct to resolve alignment issue with atomic operations on ARM
-	used int64
-	once sync.Once
+	usedSpace     int64
+	loadSpaceOnce sync.Once
+
+	*InfoDB
 }
 
 // PieceInfo returns database for storing piece information
@@ -49,16 +46,22 @@ func (db *pieceinfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 		return ErrInfo.Wrap(err)
 	}
 
+	var pieceExpiration *time.Time
+	if !info.PieceExpiration.IsZero() {
+		utcExpiration := info.PieceExpiration.UTC()
+		pieceExpiration = &utcExpiration
+	}
+
 	// TODO remove `uplink_cert_id` from DB
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
 		INSERT INTO
-			pieceinfo(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
+			pieceinfo_(satellite_id, piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash, uplink_cert_id)
 		VALUES (?,?,?,?,?,?,?,?)
-	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation, info.PieceExpiration, orderLimit, uplinkPieceHash, 0)
+	`), info.SatelliteID, info.PieceID, info.PieceSize, info.PieceCreation.UTC(), pieceExpiration, orderLimit, uplinkPieceHash, 0)
 
 	if err == nil {
 		db.loadSpaceUsed(ctx)
-		atomic.AddInt64(&db.space.used, info.PieceSize)
+		atomic.AddInt64(&db.usedSpace, info.PieceSize)
 	}
 	return ErrInfo.Wrap(err)
 }
@@ -69,11 +72,11 @@ func (db *pieceinfo) GetPieceIDs(ctx context.Context, satelliteID storj.NodeID, 
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT piece_id
-		FROM pieceinfo
+		FROM pieceinfo_
 		WHERE satellite_id = ? AND datetime(piece_creation) < datetime(?)
 		ORDER BY piece_id
 		LIMIT ? OFFSET ?
-	`), satelliteID, createdBefore, limit, offset)
+	`), satelliteID, createdBefore.UTC(), limit, offset)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -101,7 +104,7 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash
-		FROM pieceinfo
+		FROM pieceinfo_
 		WHERE satellite_id = ? AND piece_id = ?
 	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &orderLimit, &uplinkPieceHash)
 	if err != nil {
@@ -130,7 +133,7 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	var pieceSize int64
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT piece_size
-		FROM pieceinfo
+		FROM pieceinfo_
 		WHERE satellite_id = ? AND piece_id = ?
 	`), satelliteID, pieceID).Scan(&pieceSize)
 	// Ignore no rows found errors
@@ -138,7 +141,7 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 		return ErrInfo.Wrap(err)
 	}
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
-		DELETE FROM pieceinfo
+		DELETE FROM pieceinfo_
 		WHERE satellite_id = ?
 		  AND piece_id = ?
 	`), satelliteID, pieceID)
@@ -146,7 +149,7 @@ func (db *pieceinfo) Delete(ctx context.Context, satelliteID storj.NodeID, piece
 	if pieceSize != 0 && err == nil {
 		db.loadSpaceUsed(ctx)
 
-		atomic.AddInt64(&db.space.used, -pieceSize)
+		atomic.AddInt64(&db.usedSpace, -pieceSize)
 	}
 
 	return ErrInfo.Wrap(err)
@@ -157,11 +160,11 @@ func (db *pieceinfo) DeleteFailed(ctx context.Context, satelliteID storj.NodeID,
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = db.db.ExecContext(ctx, db.Rebind(`
-		UPDATE pieceinfo
+		UPDATE pieceinfo_
 		SET deletion_failed_at = ?
 		WHERE satellite_id = ?
 		  AND piece_id = ?
-	`), now, satelliteID, pieceID)
+	`), now.UTC(), satelliteID, pieceID)
 
 	return ErrInfo.Wrap(err)
 }
@@ -172,13 +175,13 @@ func (db *pieceinfo) GetExpired(ctx context.Context, expiredAt time.Time, limit 
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT satellite_id, piece_id, piece_size
-		FROM pieceinfo
+		FROM pieceinfo_
 		WHERE piece_expiration IS NOT NULL
-		AND datetime(piece_expiration) < datetime(?)
-		AND ((deletion_failed_at IS NULL) OR datetime(deletion_failed_at) <> datetime(?))
+		AND piece_expiration < ?
+		AND ((deletion_failed_at IS NULL) OR deletion_failed_at <> ?)
 		ORDER BY satellite_id
 		LIMIT ?
-	`), expiredAt, expiredAt, limit)
+	`), expiredAt.UTC(), expiredAt.UTC(), limit)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
 	}
@@ -199,14 +202,14 @@ func (db *pieceinfo) SpaceUsed(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	db.loadSpaceUsed(ctx)
 
-	return atomic.LoadInt64(&db.space.used), nil
+	return atomic.LoadInt64(&db.usedSpace), nil
 }
 
 func (db *pieceinfo) loadSpaceUsed(ctx context.Context) {
 	defer mon.Task()(&ctx)(nil)
-	db.space.once.Do(func() {
+	db.loadSpaceOnce.Do(func() {
 		usedSpace, _ := db.CalculatedSpaceUsed(ctx)
-		atomic.AddInt64(&db.space.used, usedSpace)
+		atomic.AddInt64(&db.usedSpace, usedSpace)
 	})
 }
 
@@ -216,7 +219,7 @@ func (db *pieceinfo) CalculatedSpaceUsed(ctx context.Context) (_ int64, err erro
 	var sum sql.NullInt64
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT SUM(piece_size)
-		FROM pieceinfo
+		FROM pieceinfo_
 	`)).Scan(&sum)
 
 	if err == sql.ErrNoRows || !sum.Valid {
@@ -232,7 +235,7 @@ func (db *pieceinfo) SpaceUsedBySatellite(ctx context.Context, satelliteID storj
 	var sum sql.NullInt64
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT SUM(piece_size)
-		FROM pieceinfo
+		FROM pieceinfo_
 		WHERE satellite_id = ?
 	`), satelliteID).Scan(&sum)
 
