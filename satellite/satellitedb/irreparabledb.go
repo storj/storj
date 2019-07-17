@@ -87,10 +87,14 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.
 	}, nil
 }
 
-// Getlimited number of irreparable segments by offset
-func (db *irreparableDB) GetLimited(ctx context.Context, limit int, offset int64) (resp []*pb.IrreparableSegment, err error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) (resp []*pb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rows, err := db.db.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
+	const offset = 0
+	rows, err := db.db.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx,
+		dbx.Irreparabledb_Segmentpath(lastSeenSegmentPath),
+		limit, offset,
+	)
 	if err != nil {
 		return nil, err
 	}
