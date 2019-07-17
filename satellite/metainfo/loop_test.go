@@ -43,14 +43,13 @@ func TestMetainfoLoop(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfoloop.CoalesceDuration = 1 * time.Second
-				config.Metainfoloop.Interval = 1 * time.Second
+				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
-		metaLoop := satellite.Metainfoloop.Service
+		metaLoop := satellite.Metainfo.Loop
 
 		// upload 5 remote files with 1 segment
 		for i := 0; i < 5; i++ {

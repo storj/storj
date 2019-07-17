@@ -132,7 +132,7 @@ waitformore:
 		}
 	}
 
-	err = service.metainfo.Iterate(ctx, "", "", true, false,
+	return service.metainfo.Iterate(ctx, "", "", true, false,
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
@@ -153,8 +153,7 @@ waitformore:
 				nextObservers := observers[:0]
 
 				// send segment info to every observer
-				for i, observer := range observers {
-
+				for _, observer := range observers {
 					remote := pointer.GetRemote()
 					if remote != nil {
 						if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
