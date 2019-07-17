@@ -6,7 +6,7 @@ static uv_work_t *uv_work_new()
     return work;
 }
 
-static void cleanup_work(uv_work_t *work)
+static void cleanup_upload_work(uv_work_t *work)
 {
     storj_upload_state_t *state = work->data;
 
@@ -27,14 +27,19 @@ static void cleanup_state(storj_upload_state_t *state)
 
 static void after_get_file_info(uv_work_t *work, int status)
 {
+    if (status) {
+        free(work);
+        return;
+    }
+
     get_file_info_request_t *req = work->data;
     uv_work_t *upload_work = req->handle;
+    storj_upload_state_t *state = upload_work->data;
 
-    if (req->error_code) {
+    if (state->error_status) {
         goto cleanup;
     }
 
-    storj_upload_state_t *state = upload_work->data;
     storj_file_meta_t *info = state->info;
     STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;
 
@@ -47,7 +52,7 @@ static void after_get_file_info(uv_work_t *work, int status)
     info->size = req->file->size;
 
 cleanup:
-    cleanup_work(upload_work);
+    cleanup_upload_work(upload_work);
     storj_free_get_file_info_request(req);
     free(work);
 }
@@ -57,6 +62,7 @@ static void queue_get_file_info(uv_work_t *work, int status)
     storj_upload_state_t *state = work->data;
     STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;
     if (state->error_status) {
+        after_get_file_info(work, state->error_status);
         return;
     }
 
