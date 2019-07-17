@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -92,20 +93,28 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
-					var partnerInput, referrerInput string
+
+					var (
+						partnerInput  string
+						referrerInput string
+						reward        rewards.OfferInfo
+					)
 					if p.Args[FieldPartnerID] != nil {
 						partnerInput = p.Args[FieldPartnerID].(string)
 					}
 					if p.Args[ReferrerID] != nil {
 						referrerInput = p.Args[ReferrerID].(string)
 					}
-					rewardInput := p.Args[CurrentReward].(map[string]interface{})
-					reward, err := fromMapRewardInfo(rewardInput)
-					if err != nil {
-						log.Error("register: failed to parse current reward",
-							zap.Error(err))
+					if p.Args[CurrentReward] != nil {
+						var err error
+						rewardInput := p.Args[CurrentReward].(map[string]interface{})
+						reward, err = fromMapRewardInfo(rewardInput)
+						if err != nil {
+							log.Error("register: failed to parse current reward",
+								zap.Error(err))
 
-						return nil, err
+							return nil, err
+						}
 					}
 
 					createUser := fromMapCreateUser(input)
