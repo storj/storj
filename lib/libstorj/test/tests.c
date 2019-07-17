@@ -274,7 +274,7 @@ void check_store_file_progress_cancel(double progress,
 
     require(handle == NULL);
     if (progress != (double)1) {
-        pass("storj_bridge_store_file (progress incomplete)");
+        pass("storj_bridge_store_file_cancel (progress incomplete)");
     }
 }
 
