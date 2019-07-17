@@ -258,6 +258,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Transport,
 			peer.Kademlia.Service,
 			peer.DB.Orders(),
+			peer.Storage2.Trust,
 			config.Storage2.Sender,
 		)
 	}
