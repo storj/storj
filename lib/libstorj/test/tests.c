@@ -20,11 +20,11 @@ BucketConfig test_bucket_cfg = {
     .encryption_parameters.block_size = 2048,
 
     .redundancy_scheme.algorithm = STORJ_REED_SOLOMON,
-    .redundancy_scheme.share_size = 1024,
-    .redundancy_scheme.required_shares = 2,
-    .redundancy_scheme.repair_shares = 4,
-    .redundancy_scheme.optimal_shares = 5,
-    .redundancy_scheme.total_shares = 6
+    .redundancy_scheme.share_size = 256,
+    .redundancy_scheme.required_shares = 4,
+    .redundancy_scheme.repair_shares = 6,
+    .redundancy_scheme.optimal_shares = 8,
+    .redundancy_scheme.total_shares = 10
 };
 
 storj_bridge_options_t bridge_options;
