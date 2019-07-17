@@ -674,8 +674,13 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
+	convBucket, err := convertBucketToProto(ctx, bucket)
+	if err != nil {
+		return resp, err
+	}
+
 	return &pb.BucketGetResponse{
-		Bucket: convertBucketToProto(ctx, bucket),
+		Bucket: convBucket,
 	}, nil
 }
 
@@ -702,19 +707,49 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
-	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	if err == nil {
+		var partnerID uuid.UUID
+		err = partnerID.UnmarshalJSON(req.GetPartnerId())
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
+		//update the bucket
+		bucket.PartnerID = partnerID
+		bucket, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
+
+		convBucket, err := convertBucketToProto(ctx, bucket)
+		if err != nil {
+			return resp, err
+		}
+
+		return &pb.BucketCreateResponse{
+			Bucket: convBucket,
+		}, nil
 	}
 
-	bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	// create the bucket
+	if storj.ErrBucketNotFound.Has(err) {
+		bucket, err := convertProtoToBucket(req, keyInfo.ProjectID)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
 
-	return &pb.BucketCreateResponse{
-		Bucket: convertBucketToProto(ctx, bucket),
-	}, nil
+		bucket, err = endpoint.metainfo.CreateBucket(ctx, bucket)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		convBucket, err := convertBucketToProto(ctx, bucket)
+		if err != nil {
+			return resp, err
+		}
+
+		return &pb.BucketCreateResponse{
+			Bucket: convBucket,
+		}, nil
+	}
+	return nil, Error.Wrap(err)
 }
 
 // DeleteBucket deletes a bucket
@@ -805,7 +840,7 @@ func (endpoint *Endpoint) SetBucketAttribution(context.Context, *pb.BucketSetAtt
 	return resp, status.Error(codes.Unimplemented, "not implemented")
 }
 
-func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (storj.Bucket, error) {
+func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (bucket storj.Bucket, err error) {
 	bucketID, err := uuid.New()
 	if err != nil {
 		return storj.Bucket{}, err
@@ -813,10 +848,20 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (sto
 
 	defaultRS := req.GetDefaultRedundancyScheme()
 	defaultEP := req.GetDefaultEncryptionParameters()
+
+	var partnerID uuid.UUID
+	err = partnerID.UnmarshalJSON(req.GetPartnerId())
+
+	// partnerID not set(ie nil) is not error)
+	if err != nil && !partnerID.IsZero() {
+		return bucket, errs.New("Invalid uuid")
+	}
+
 	return storj.Bucket{
 		ID:                  *bucketID,
 		Name:                string(req.GetName()),
 		ProjectID:           projectID,
+		PartnerID:           partnerID,
 		PathCipher:          storj.CipherSuite(req.GetPathCipher()),
 		DefaultSegmentsSize: req.GetDefaultSegmentSize(),
 		DefaultRedundancyScheme: storj.RedundancyScheme{
@@ -834,11 +879,16 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (sto
 	}, nil
 }
 
-func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket) {
+func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *pb.Bucket, err error) {
 	rs := bucket.DefaultRedundancyScheme
+	partnerID, err := bucket.PartnerID.MarshalJSON()
+	if err != nil {
+		return pbBucket, err
+	}
 	return &pb.Bucket{
 		Name:               []byte(bucket.Name),
 		PathCipher:         pb.CipherSuite(int(bucket.PathCipher)),
+		PartnerId:          partnerID,
 		CreatedAt:          bucket.Created,
 		DefaultSegmentSize: bucket.DefaultSegmentsSize,
 		DefaultRedundancyScheme: &pb.RedundancyScheme{
@@ -853,7 +903,7 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 			CipherSuite: pb.CipherSuite(int(bucket.DefaultEncryptionParameters.CipherSuite)),
 			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
 		},
-	}
+	}, nil
 }
 
 // BeginObject begins object

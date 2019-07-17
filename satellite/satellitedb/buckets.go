@@ -73,6 +73,20 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// UpdateBucket upates a bucket
+func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var updateFields dbx.BucketMetainfo_Update_Fields
+	updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
+
+	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
+	if err != nil {
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+	}
+	return convertDBXtoBucket(dbxBucket)
+}
+
 // DeleteBucket deletes a bucket
 func (db *bucketsDB) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -172,10 +186,16 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 	if err != nil {
 		return bucket, err
 	}
+	partnerID, err := bytesToUUID(dbxBucket.PartnerId)
+	if err != nil {
+		return bucket, err
+	}
+
 	return storj.Bucket{
 		ID:                  id,
 		Name:                string(dbxBucket.Name),
 		ProjectID:           project,
+		PartnerID:           partnerID,
 		Created:             dbxBucket.CreatedAt,
 		PathCipher:          storj.CipherSuite(dbxBucket.PathCipher),
 		DefaultSegmentsSize: int64(dbxBucket.DefaultSegmentSize),
