@@ -36,6 +36,7 @@ func TestMetainfoLoop(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Metainfoloop.CoalesceDuration = 1 * time.Second
+				config.Metainfoloop.Interval = 1 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -30,7 +31,8 @@ type Observer interface {
 
 // LoopConfig contains configurable values for the metainfo loop
 type LoopConfig struct {
-	CoalesceDuration time.Duration `help:"how frequently metainfoloop should iterate over segments" releaseDefault:"30s" devDefault:"0h0m10s"`
+	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
+	Interval         time.Duration `help:"how long to wait between metainfo iterations" releaseDefault:"30s" devDefault:"30s"`
 }
 
 // LoopService is a metainfo loop service
@@ -41,15 +43,18 @@ type LoopService struct {
 	metainfo         *Service
 	loopStartChans   map[Observer]chan struct{}
 	loopEndChans     map[Observer]chan error
+	mux              sync.Mutex
+	config           LoopConfig
 }
 
 // NewLoop creates a new metainfo loop service
 func NewLoop(config LoopConfig, metainfo *Service) *LoopService {
 	return &LoopService{
-		Loop:           sync2.NewCycle(config.CoalesceDuration),
+		Loop:           sync2.NewCycle(config.Interval),
 		metainfo:       metainfo,
 		loopStartChans: make(map[Observer]chan struct{}),
 		loopEndChans:   make(map[Observer]chan error),
+		config:         config,
 	}
 }
 
@@ -63,10 +68,15 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		// TODO coalesce incoming observers, within 5s
+		// coalesce incoming observers, within 5s
+		time.Sleep(service.config.CoalesceDuration)
+
+		service.mux.Lock()
 		service.observers = service.waitingObservers
 		service.waitingObservers = []Observer{}
+		service.mux.Unlock()
 
+		// notify observers of loop start
 		for _, obs := range service.observers {
 			service.loopStartChans[obs] <- struct{}{}
 		}
@@ -105,8 +115,12 @@ func (service *LoopService) Run(ctx context.Context) (err error) {
 				return nil
 			})
 
+		// notify observers of loop completion or error
 		for _, obs := range service.observers {
 			service.loopEndChans[obs] <- err
+
+			delete(service.loopStartChans, obs)
+			delete(service.loopEndChans, obs)
 		}
 
 		return err
@@ -125,7 +139,10 @@ func (service *LoopService) Close() error {
 func (service *LoopService) Join(ctx context.Context, observer Observer) (err error) {
 	service.loopStartChans[observer] = make(chan struct{})
 	service.loopEndChans[observer] = make(chan error)
+
+	service.mux.Lock()
 	service.waitingObservers = append(service.waitingObservers, observer)
+	service.mux.Unlock()
 
 	// wait for observer combine
 	<-service.loopStartChans[observer]
