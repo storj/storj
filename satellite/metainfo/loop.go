@@ -95,7 +95,12 @@ func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
 		done:     make(chan error),
 	}
 
-	service.join <- context
+	select {
+	case service.join <- context:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	err = context.Wait()
 
 	return err
