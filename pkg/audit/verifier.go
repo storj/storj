@@ -543,8 +543,8 @@ func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath
 		return nil, err
 	}
 
-	if !pointer.CreationDate.Equal(stripe.Segment.CreationDate) {
-		return ErrSegmentDeleted.New(stripe.SegmentPath)
+	if oldPointer.CreationDate != newPointer.CreationDate {
+		return nil, ErrSegmentDeleted.New(segmentPath)
 	}
 	return newPointer, nil
 }
