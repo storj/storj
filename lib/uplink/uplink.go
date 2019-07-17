@@ -17,6 +17,9 @@ import (
 	"storj.io/storj/uplink/metainfo"
 )
 
+const defaultUplinkDialTimeout = 20 * time.Second
+const defaultUplinkRequestTimeout = 20 * time.Second
+
 // Config represents configuration options for an Uplink
 type Config struct {
 	// Volatile groups config values that are likely to change semantics
@@ -92,10 +95,10 @@ func (cfg *Config) setDefaults(ctx context.Context) error {
 		cfg.Volatile.Log = zap.NewNop()
 	}
 	if cfg.Volatile.DialTimeout.Seconds() == 0 {
-		cfg.Volatile.DialTimeout = transport.DefaultDialTimeout
+		cfg.Volatile.DialTimeout = defaultUplinkDialTimeout
 	}
 	if cfg.Volatile.RequestTimeout.Seconds() == 0 {
-		cfg.Volatile.RequestTimeout = transport.DefaultRequestTimeout
+		cfg.Volatile.RequestTimeout = defaultUplinkRequestTimeout
 	}
 	return nil
 }
