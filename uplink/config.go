@@ -102,6 +102,9 @@ func (c ScopeConfig) GetScope() (_ *libuplink.Scope, err error) {
 			return nil, errs.Wrap(err)
 		}
 		encAccess, err = libuplink.ParseEncryptionAccess(strings.TrimSpace(string(data)))
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		data := []byte(c.Legacy.Enc.EncryptionKey)
 		if c.Legacy.Enc.KeyFilepath != "" {
