@@ -5,6 +5,7 @@ package metainfo_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -76,19 +77,19 @@ func TestMetainfoLoop(t *testing.T) {
 		}
 
 		// create 2 observers
-		obs1 := newTestObserver(t)
-		obs2 := newTestObserver(t)
+		obs1 := newTestObserver(t, nil)
+		obs2 := newTestObserver(t, nil)
 
 		var wg sync.WaitGroup
 		wg.Add(2)
 		go func() {
 			err := metaLoop.Join(ctx, obs1)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			wg.Done()
 		}()
 		go func() {
 			err := metaLoop.Join(ctx, obs2)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			wg.Done()
 		}()
 
@@ -102,21 +103,98 @@ func TestMetainfoLoop(t *testing.T) {
 	})
 }
 
+func TestMetainfoLoopObserverCancel(t *testing.T) {
+	// hook three observers up to metainfo loop
+	// let observer 1 run normally
+	// let observer 2 return an error from one of its handlers
+	// let observer 3's context be canceled
+	// expect observer 1 to see all segments
+	// expect observers 2 and 3 to finish with errors
+
+	// TODO: figure out how to configure testplanet so we can upload 2*segmentSize to get two segments
+	segmentSize := 8 * memory.KiB
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		metaLoop := satellite.Metainfo.Loop
+
+		// upload 3 remote files with 1 segment
+		for i := 0; i < 3; i++ {
+			testData := testrand.Bytes(segmentSize)
+			path := "/some/remote/path/" + string(i)
+			err := ul.Upload(ctx, satellite, "bucket", path, testData)
+			require.NoError(t, err)
+		}
+
+		// create 1 "good" observer
+		obs1 := newTestObserver(t, nil)
+
+		// create observer that will return an error from RemoteSegment
+		obs2 := newTestObserver(t, func() error {
+			return errors.New("test error")
+		})
+
+		// create observer that will cancel its own context from RemoteSegment
+		obs3Ctx, cancel := context.WithCancel(ctx)
+		obs3 := newTestObserver(t, func() error {
+			cancel()
+			return nil
+		})
+
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() {
+			err := metaLoop.Join(ctx, obs1)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		go func() {
+			err := metaLoop.Join(ctx, obs2)
+			assert.EqualError(t, err, "test error")
+			wg.Done()
+		}()
+		go func() {
+			err := metaLoop.Join(obs3Ctx, obs3)
+			assert.EqualError(t, err, "context canceled")
+			wg.Done()
+		}()
+
+		wg.Wait()
+
+		// expect that obs1 saw all three segments, but obs2 and obs3 only saw the first one
+		assert.EqualValues(t, 3, obs1.remoteSegCount)
+		assert.EqualValues(t, 1, obs2.remoteSegCount)
+		assert.EqualValues(t, 1, obs3.remoteSegCount)
+	})
+}
+
 type testObserver struct {
 	remoteSegCount  int
 	remoteFileCount int
 	inlineSegCount  int
 	uniquePaths     map[string]struct{}
 	t               *testing.T
+	mockRemoteFunc  func() error // if set, run this during RemoteSegment()
 }
 
-func newTestObserver(t *testing.T) *testObserver {
+func newTestObserver(t *testing.T, mockRemoteFunc func() error) *testObserver {
 	return &testObserver{
 		remoteSegCount:  0,
 		remoteFileCount: 0,
 		inlineSegCount:  0,
 		uniquePaths:     make(map[string]struct{}),
 		t:               t,
+		mockRemoteFunc:  mockRemoteFunc,
 	}
 }
 
@@ -126,6 +204,11 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, poi
 		obs.t.Error("Expected unique path in observer.RemoteSegment")
 	}
 	obs.uniquePaths[path] = struct{}{}
+
+	if obs.mockRemoteFunc != nil {
+		return obs.mockRemoteFunc()
+	}
+
 	return nil
 }
 
