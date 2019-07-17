@@ -75,9 +75,9 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
+				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
 			},
-			Password:  "123a123",
-			PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
+			Password: "123a123",
 		}
 
 		regToken, err := service.CreateRegToken(ctx, 1)
@@ -107,16 +107,16 @@ func TestGrapqhlMutation(t *testing.T) {
 					FullName:  "Green Mickey",
 					ShortName: "Green",
 					Email:     "u1@mail.test",
+					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 				},
-				Password:  "123a123",
-				PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
+				Password: "123a123",
 			}
 
 			regTokenTest, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
 
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerID:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
@@ -438,7 +438,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Run("Create api key mutation", func(t *testing.T) {
 			keyName := "key1"
 			query := fmt.Sprintf(
-				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerID}}}",
+				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerId}}}",
 				project.ID.String(),
 				keyName,
 			)

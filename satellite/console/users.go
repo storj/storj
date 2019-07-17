@@ -30,6 +30,7 @@ type UserInfo struct {
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
 	Email     string `json:"email"`
+	PartnerID string `json:"partnerId"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
@@ -51,8 +52,7 @@ func (user *UserInfo) IsValid() error {
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
 	UserInfo
-	Password  string `json:"password"`
-	PartnerID string `json:"partner_id"`
+	Password string `json:"password"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
