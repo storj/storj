@@ -5,7 +5,6 @@ package trust
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -20,6 +19,7 @@ import (
 
 // Error is the default error class
 var Error = errs.Class("trust:")
+
 var mon = monkit.Package()
 
 // Pool implements different peer verifications.
@@ -63,7 +63,7 @@ func (pool *Pool) VerifySatelliteID(ctx context.Context, id storj.NodeID) (err e
 
 	_, ok := pool.trustedSatellites[id]
 	if !ok {
-		return fmt.Errorf("satellite %q is untrusted", id)
+		return Error.New("satellite %q is untrusted", id)
 	}
 	return nil
 }
@@ -79,7 +79,7 @@ func (pool *Pool) GetSignee(ctx context.Context, id storj.NodeID) (_ signing.Sig
 	pool.mu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("signee %q is untrusted", id)
+		return nil, Error.New("signee %q is untrusted", id)
 	}
 
 	info.mu.Lock()

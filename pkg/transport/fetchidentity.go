@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/pkg/peertls"
 )
 
+// handshakeCapture implements a credentials.TransportCredentials for capturing handshake information.
 // TODO: check whether this would be problematic with concurrency or should we thread the authinfo through context?
 type handshakeCapture struct {
 	credentials.TransportCredentials
