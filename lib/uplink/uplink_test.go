@@ -6,10 +6,11 @@ package uplink
 import (
 	"testing"
 	"time"
-	
+
+	"github.com/stretchr/testify/assert"
+
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/transport"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestUplinkConfigDefaults tests that the uplink configuration gets the correct defaults applied
@@ -26,7 +27,7 @@ func TestUplinkConfigDefaultTimeouts(t *testing.T) {
 	assert.Equal(t, 20*time.Second, client.cfg.Volatile.DialTimeout)
 	assert.Equal(t, 20*time.Second, client.cfg.Volatile.RequestTimeout)
 
-	// Assert the values propogate correctly all the way down to the transport layer.
+	// Assert the values propagate correctly all the way down to the transport layer.
 	trans, ok := client.tc.(*transport.Transport)
 	assert.Equal(t, true, ok)
 	assert.Equal(t, 20*time.Second, trans.Timeouts().Dial)
@@ -58,7 +59,7 @@ func TestUplinkConfigSetTimeouts(t *testing.T) {
 	assert.Equal(t, 120*time.Second, client.cfg.Volatile.DialTimeout)
 	assert.Equal(t, 120*time.Second, client.cfg.Volatile.RequestTimeout)
 
-	// Assert the values propogate correctly all the way down to the transport layer.
+	// Assert the values propagate correctly all the way down to the transport layer.
 	trans, ok := client.tc.(*transport.Transport)
 	assert.Equal(t, true, ok)
 	assert.Equal(t, 120*time.Second, trans.Timeouts().Dial)
