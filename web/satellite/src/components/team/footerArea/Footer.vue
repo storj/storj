@@ -21,7 +21,5 @@
             ApproveDeleteUserArea,
         }
     })
-
-    export default class TeamFooter extends Vue {
-    }
+    export default class TeamFooter extends Vue {}
 </script>
