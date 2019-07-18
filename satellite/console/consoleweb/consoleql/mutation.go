@@ -83,8 +83,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
 
-					var referredBy *uuid.UUID
-
 					offerType := rewards.FreeCredit
 
 					createUser := fromMapCreateUser(input)
@@ -96,17 +94,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							zap.Error(err))
 
 						return nil, err
-					}
-
-					if createUser.PartnerID != "" {
-						referredBy, err = uuid.Parse(createUser.PartnerID)
-						if err != nil {
-							log.Error("register: failed to parse partner ID",
-								zap.String("rawSecret", secretInput),
-								zap.Error(err))
-
-							return nil, err
-						}
 					}
 
 					user, err := service.CreateUser(p.Context, createUser, secret)
@@ -131,7 +118,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						newCredit := console.UserCredit{
 							UserID:        user.ID,
 							OfferID:       currentReward.ID,
-							ReferredBy:    referredBy,
+							ReferredBy:    nil,
 							CreditsEarned: currency.Cents(0),
 							ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.CreditDurationOnRegister()),
 						}
