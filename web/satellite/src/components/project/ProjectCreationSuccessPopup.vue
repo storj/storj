@@ -35,7 +35,7 @@
                     <a href="https://github.com/storj/storj/wiki/Uplink-CLI" target="_blank">Uplink CLI.</a>
                 </p>
                 <div class="project-creation-success-popup__form-container__button-container">
-                    <Button label="I will do it later" width="214px" height="50px" :onPress="onCloseClick" isWhite />
+                    <Button label="I will do it later" width="214px" height="50px" :onPress="onCloseClick" isWhite="true" />
                     <Button label="Create first API Key" width="214px" height="50px" :onPress="onCreateAPIKeyClick" />
                 </div>
             </div>
@@ -55,27 +55,25 @@
     import ROUTES from '@/utils/constants/routerConstants';
 
     @Component({
-        computed: {
-            isPopupShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
-            }
-        },
-        methods: {
-            onCloseClick: function (): void {
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
-            },
-            onCreateAPIKeyClick: function (): void {
-                this.$router.push(ROUTES.API_KEYS.path);
-                (this as any).onCloseClick();
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-            }
-        },
         components: {
             Button,
         }
     })
+    export default class ProjectCreationSuccessPopup extends Vue {
+        private onCloseClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP);
+        }
 
-    export default class ProjectCreationSuccessPopup extends Vue {}
+        public onCreateAPIKeyClick(): void {
+            this.$router.push(ROUTES.API_KEYS.path);
+            this.onCloseClick();
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        }
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isSuccessfulProjectCreationPopupShown;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

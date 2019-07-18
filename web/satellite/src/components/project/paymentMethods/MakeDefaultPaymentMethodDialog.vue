@@ -7,7 +7,7 @@
             <h1>Update Default Card</h1>
             <h2>We will automatically charge your default card at the close of the current billing period</h2>
             <div class="button-container">
-                <Button height="48px" width="128px" label="Cancel" isWhite :on-press="onCancelClick"/>
+                <Button height="48px" width="128px" label="Cancel" isWhite="true" :on-press="onCancelClick"/>
                 <Button class="delete-button" height="48px" width="128px" label="Update" :on-press="onUpdateClick"/>
             </div>
         </div>
