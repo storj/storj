@@ -176,8 +176,8 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
-	//remove failed audit pieces from the pointer so as to only penalize once for failed audits
-	err = verifier.RemoveFailedPieces(ctx, stripe.SegmentPath, stripe.Segment, failedNodes)
+	// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+	err = verifier.removeFailedPieces(ctx, stripe.SegmentPath, stripe.Segment, failedNodes)
 	if err != nil {
 		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Error(err))
 	}
@@ -379,8 +379,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 						return
 					}
-					//remove failed audit pieces from the pointer so as to only penalize once for failed audits
-					err = verifier.RemoveFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+					// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+					err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
 					if err != nil {
 						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					}
@@ -405,14 +405,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				ch <- result{nodeID: piece.NodeId, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.Stringer("Node ID", piece.NodeId))
 			} else {
-				//remove failed audit pieces from the pointer so as to only penalize once for failed audits
 				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, nil)
 				if err != nil {
 					ch <- result{nodeID: piece.NodeId, status: success}
 					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-				err = verifier.RemoveFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+				// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+				err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
 				if err != nil {
 					verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				}
@@ -511,8 +511,8 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	}, nil
 }
 
-// RemoveFailedPieces removes lost pieces from a pointer
-func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
+// removeFailedPieces removes lost pieces from a pointer
+func (verifier *Verifier) removeFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(failedNodes) == 0 {
 		return nil
