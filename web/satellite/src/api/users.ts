@@ -112,7 +112,7 @@ export async function createUserRequest(user: User, password: string, secret: st
                         shortName: "${user.shortName}",
                         partnerID: "${user.partnerId}",
                     },
-                    secret: "${secret}",,
+                    secret: "${secret}",
                 ){email, id}
             }`
             ),
