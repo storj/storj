@@ -259,7 +259,89 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "loop closed")
 
-		// expect that obs1 and obs2 each saw one remote segment
+		// expect that obs1 and obs2 each saw fewer than three remote segments
+		assert.True(t, obs1.remoteSegCount < 3)
+		assert.True(t, obs2.remoteSegCount < 3)
+	})
+}
+
+// TestMetainfoLoopClose does the following:
+// * upload 3 remote segments
+// * hook two observers up to metainfo loop
+// * close loop partway through
+// * expect both observers to exit with an error and see fewer than 3 remote segments
+// * expect that a new observer attempting to join at this point receives a loop closed error
+func TestMetainfoLoopClose(t *testing.T) {
+	segmentSize := 8 * memory.KiB
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// upload 3 remote files with 1 segment
+		for i := 0; i < 3; i++ {
+			testData := testrand.Bytes(segmentSize)
+			path := "/some/remote/path/" + string(i)
+			err := ul.Upload(ctx, satellite, "bucket", path, testData)
+			require.NoError(t, err)
+		}
+
+		// create a new metainfo loop
+		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
+			CoalesceDuration: 1 * time.Second,
+		}, satellite.Metainfo.Service)
+		// create a channel that allows us to sync closing the loop with loop iteration
+		loopSync := make(chan struct{})
+
+		// create 1 normal observer
+		obs1 := newTestObserver(t, nil)
+
+		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
+		obs2 := newTestObserver(t, func() error {
+			<-loopSync
+			return nil
+		})
+
+		var wg sync.WaitGroup
+		wg.Add(3)
+
+		// start loop
+		go func() {
+			err := metaLoop.Run(ctx)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "loop closed")
+			wg.Done()
+		}()
+		go func() {
+			err := metaLoop.Join(ctx, obs1)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "loop closed")
+			wg.Done()
+		}()
+		go func() {
+			err := metaLoop.Join(ctx, obs2)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "loop closed")
+			wg.Done()
+		}()
+
+		// iterate over first segment, then close loop
+		loopSync <- struct{}{}
+		metaLoop.Close()
+		close(loopSync)
+
+		wg.Wait()
+
+		obs3 := newTestObserver(t, nil)
+		err := metaLoop.Join(ctx, obs3)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "loop closed")
+
+		// expect that obs1 and obs2 each saw fewer than three remote segments
 		assert.True(t, obs1.remoteSegCount < 3)
 		assert.True(t, obs2.remoteSegCount < 3)
 	})

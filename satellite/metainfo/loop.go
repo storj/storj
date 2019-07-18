@@ -18,6 +18,8 @@ import (
 var (
 	// LoopError is a standard error class for this component.
 	LoopError = errs.Class("metainfo loop error")
+	// LoopClosedError is a loop closed error
+	LoopClosedError = LoopError.New("loop closed")
 )
 
 // Observer is an interface defining an observer that can subscribe to the metainfo loop.
@@ -60,7 +62,10 @@ type Loop struct {
 	config   LoopConfig
 	metainfo *Service
 	join     chan *observerContext
-	done     chan struct{}
+	// "done" is closed when loop.Run completely exits
+	done chan struct{}
+	// "close" is closed when loop.Close() is called
+	close chan struct{}
 }
 
 // NewLoop creates a new metainfo loop service.
@@ -70,6 +75,7 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 		config:   config,
 		join:     make(chan *observerContext),
 		done:     make(chan struct{}),
+		close:    make(chan struct{}),
 	}
 }
 
@@ -86,11 +92,11 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	}
 
 	select {
-	case <-loop.done:
-		return LoopError.New("loop closed")
 	case loop.join <- obsContext:
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-loop.close:
+		return LoopClosedError
 	}
 
 	return obsContext.Wait()
@@ -128,6 +134,8 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 		observers = append(observers, observer)
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-loop.close:
+		return LoopClosedError
 	}
 
 	// after the first observer is found, set timer for CoalesceDuration and add any observers that try to join before the timer is up
@@ -145,6 +153,12 @@ waitformore:
 			}
 			observers = nil
 			return ctx.Err()
+		case <-loop.close:
+			for _, observer := range observers {
+				observer.HandleError(LoopClosedError)
+			}
+			observers = nil
+			return LoopClosedError
 		}
 	}
 
@@ -210,6 +224,12 @@ waitformore:
 					}
 					observers = nil
 					return ctx.Err()
+				case <-loop.close:
+					for _, observer := range observers {
+						observer.HandleError(LoopClosedError)
+					}
+					observers = nil
+					return LoopClosedError
 				default:
 				}
 			}
@@ -227,6 +247,6 @@ waitformore:
 
 // Close halts the metainfo loop.
 func (loop *Loop) Close() error {
-	// TODO not implemented yet
+	close(loop.close)
 	return nil
 }
