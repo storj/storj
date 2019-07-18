@@ -19,20 +19,14 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({
-        data:function () {
-            return {
-                searchQuery:''
-            };
-        },
-        methods: {
-            clearSearch: function () {
-                this.$data.searchQuery = '';
-            }
-        }
-    })
+    @Component
+    export default class SearchArea extends Vue {
+        private searchQuery: string = '';
 
-    export default class SearchArea extends Vue {}
+        public clearSearch(): void {
+            this.searchQuery = '';
+        }
+    }
 </script>
 
 <style scoped lang="scss">
