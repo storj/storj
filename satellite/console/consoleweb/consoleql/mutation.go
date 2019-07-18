@@ -124,26 +124,26 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						log.Error("register: failed to get current offer",
 							zap.String("rawSecret", secretInput),
 							zap.Error(err))
-
-						return nil, err
 					}
 
-					// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
-					newCredit := console.UserCredit{
-						UserID:        user.ID,
-						OfferID:       currentReward.ID,
-						ReferredBy:    referredBy,
-						CreditsEarned: currency.Cents(0),
-						ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
-					}
+					if currentReward != nil {
+						// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
+						newCredit := console.UserCredit{
+							UserID:        user.ID,
+							OfferID:       currentReward.ID,
+							ReferredBy:    referredBy,
+							CreditsEarned: currency.Cents(0),
+							ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
+						}
 
-					err = service.CreateCredit(p.Context, newCredit)
-					if err != nil {
-						log.Error("register: failed to create credit",
-							zap.String("rawSecret", secretInput),
-							zap.Error(err))
+						err = service.CreateCredit(p.Context, newCredit)
+						if err != nil {
+							log.Error("register: failed to create credit",
+								zap.String("rawSecret", secretInput),
+								zap.Error(err))
 
-						return nil, err
+							return nil, err
+						}
 					}
 
 					token, err := service.GenerateActivationToken(p.Context, user.ID, user.Email)
