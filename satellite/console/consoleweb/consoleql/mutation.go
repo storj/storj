@@ -77,24 +77,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					FieldPartnerID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
 				},
 				// creates user and company from input params and returns userID if succeed
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
 
-					var (
-						partnerInput string
-						referredBy   *uuid.UUID
-					)
+					var referredBy *uuid.UUID
 
 					offerType := rewards.FreeCredit
-					if p.Args[FieldPartnerID] != nil {
-						partnerInput = p.Args[FieldPartnerID].(string)
-					}
 
 					createUser := fromMapCreateUser(input)
 
@@ -107,12 +98,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					if partnerInput != "" {
-						referredBy, err = uuid.Parse(partnerInput)
+					if createUser.PartnerID != "" {
+						referredBy, err = uuid.Parse(createUser.PartnerID)
 						if err != nil {
+							log.Error("register: failed to parse partner ID",
+								zap.String("rawSecret", secretInput),
+								zap.Error(err))
+
 							return nil, err
 						}
-						createUser.PartnerID = *referredBy
 					}
 
 					user, err := service.CreateUser(p.Context, createUser, secret)
