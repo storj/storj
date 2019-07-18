@@ -90,6 +90,9 @@ func (db *irreparableDB) Get(ctx context.Context, segmentPath []byte) (resp *pb.
 // GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
 func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) (resp []*pb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
+	// the offset is hardcoded to 0 since we are using the lastSeenSegmentPath to
+	// indicate the item we last listed instead. In a perfect world this db query would
+	// not take an offset as an argument, but currently dbx only supports `limitoffset`
 	const offset = 0
 	rows, err := db.db.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx,
 		dbx.Irreparabledb_Segmentpath(lastSeenSegmentPath),
