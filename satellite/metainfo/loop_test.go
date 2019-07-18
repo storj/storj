@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -212,15 +213,15 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		}, satellite.Metainfo.Service)
 		// create a cancelable context to pass into metaLoop.Run
 		loopCtx, cancel := context.WithCancel(ctx)
-		// create a channel that allows us to sync cancelling the loop context with loop iteration
-		loopContextCancel := make(chan struct{})
 
 		// create 1 normal observer
 		obs1 := newTestObserver(t, nil)
 
 		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
 		obs2 := newTestObserver(t, func() error {
-			<-loopContextCancel
+			// cancel context during call to obs2.RemoteSegment inside loop
+			fmt.Println("WE ARE CANCELING THE Context")
+			cancel()
 			return nil
 		})
 
@@ -247,11 +248,6 @@ func TestMetainfoLoopCancel(t *testing.T) {
 			wg.Done()
 		}()
 
-		// iterate over first segment, then cancel context
-		loopContextCancel <- struct{}{}
-		cancel()
-		close(loopContextCancel)
-
 		wg.Wait()
 
 		obs3 := newTestObserver(t, nil)
@@ -260,6 +256,7 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		assert.Contains(t, err.Error(), "loop closed")
 
 		// expect that obs1 and obs2 each saw fewer than three remote segments
+		fmt.Println(obs1.remoteSegCount)
 		assert.True(t, obs1.remoteSegCount < 3)
 		assert.True(t, obs2.remoteSegCount < 3)
 	})

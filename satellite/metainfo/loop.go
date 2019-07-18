@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -64,6 +65,7 @@ type Loop struct {
 	join     chan *observerContext
 	done     chan struct{}
 	cancel   func()
+	someCtx  context.Context
 }
 
 // NewLoop creates a new metainfo loop service.
@@ -103,6 +105,8 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	loop.someCtx = ctx
+	// if we remove these two lines the test passes
 	ctx, cancel := context.WithCancel(ctx)
 	loop.cancel = cancel
 	defer close(loop.done)
@@ -159,6 +163,7 @@ waitformore:
 
 			// iterate over every segment in metainfo
 			for it.Next(ctx, &item) {
+				fmt.Println("iterating...")
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -209,13 +214,17 @@ waitformore:
 
 				// if context has been canceled, send the error to observers and exit. Otherwise, continue
 				select {
+				case <-loop.someCtx.Done():
+					fmt.Println("the original context is done")
 				case <-ctx.Done():
+					fmt.Println("context is done")
 					for _, observer := range observers {
 						observer.HandleError(ctx.Err())
 					}
 					observers = nil
 					return ctx.Err()
 				default:
+					fmt.Println("continuing iteration")
 				}
 			}
 			return nil
