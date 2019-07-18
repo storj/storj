@@ -156,6 +156,7 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 	return offerSet
 }
 
+// CreditDurationOnRegister returns the correct credit duration in days based on offer type for new users
 func (o Offer) CreditDurationOnRegister() int {
 	switch o.Type {
 	case Referral:
