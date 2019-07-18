@@ -1,19 +1,19 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package partners
+package rewards
 
 // Partner contains the name and ID of an Open Source Partner
-type Partner struct {
+type partner struct {
 	ID, Name string
 }
 
 // Partners contains a list of partners.
-type Partners []Partner
+type Partners []partner
 
 // LoadPartners returns our current Open Source Partners.
 func LoadPartners() Partners {
-	return []Partner{
+	return Partners{
 		{
 			Name: "Couchbase",
 			ID:   "OSPP001",
