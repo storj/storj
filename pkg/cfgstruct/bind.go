@@ -160,7 +160,13 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			if field.Tag.Get("user") == "true" {
 				setBoolAnnotation(flags, flagname, "user")
 			}
-			if field.Tag.Get("hidden") == "true" {
+			// hidden and deprecated both mark the flag as hidden for display, but only
+			// hidden sets a bool annotation used for skipping writing the flag to config files.
+			switch {
+			case field.Tag.Get("hidden") == "true":
+				setBoolAnnotation(flags, flagname, "hidden")
+				fallthrough
+			case field.Tag.Get("deprecated") == "true":
 				err := flags.MarkHidden(flagname)
 				if err != nil {
 					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
@@ -239,9 +245,18 @@ func bindConfig(flags FlagSet, prefix string, val reflect.Value, vars map[string
 			if field.Tag.Get("user") == "true" {
 				setBoolAnnotation(flags, flagname, "user")
 			}
-			if field.Tag.Get("hidden") == "true" {
+
+			// hidden and deprecated both mark the flag as hidden for display, but only
+			// hidden sets a bool annotation used for skipping writing the flag to config files.
+			switch {
+			case field.Tag.Get("hidden") == "true":
+				setBoolAnnotation(flags, flagname, "hidden")
+				fallthrough
+			case field.Tag.Get("deprecated") == "true":
 				err := flags.MarkHidden(flagname)
-				check(err)
+				if err != nil {
+					panic(fmt.Sprintf("mark hidden failed %s: %v", flagname, err))
+				}
 			}
 		}
 	}

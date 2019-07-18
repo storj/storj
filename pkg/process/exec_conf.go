@@ -104,7 +104,7 @@ func saveConfig(flagset *pflag.FlagSet, outfile string, overrides map[string]int
 			continue
 		}
 
-		if f.Hidden == true {
+		if readBoolAnnotation(f, "hidden") {
 			continue
 		}
 

@@ -65,13 +65,13 @@ type ScopeConfig struct {
 // Legacy holds deprecated configuration values
 type Legacy struct {
 	Client struct {
-		APIKey        string `default:"" help:"the api key to use for the satellite (deprecated)" noprefix:"true"`
-		SatelliteAddr string `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite (deprecated)" noprefix:"true"`
+		APIKey        string `default:"" help:"the api key to use for the satellite (deprecated)" noprefix:"true" deprecated:"true"`
+		SatelliteAddr string `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite (deprecated)" noprefix:"true" deprecated:"true"`
 	}
 	Enc struct {
-		EncryptionKey     string `help:"the root key for encrypting the data which will be stored in KeyFilePath (deprecated)" setup:"true"`
-		KeyFilepath       string `help:"the path to the file which contains the root key for encrypting the data (deprecated)"`
-		EncAccessFilepath string `help:"the path to a file containing a serialized encryption access (deprecated)"`
+		EncryptionKey     string `help:"the root key for encrypting the data which will be stored in KeyFilePath (deprecated)" setup:"true" deprecated:"true"`
+		KeyFilepath       string `help:"the path to the file which contains the root key for encrypting the data (deprecated)" deprecated:"true"`
+		EncAccessFilepath string `help:"the path to a file containing a serialized encryption access (deprecated)" deprecated:"true"`
 	}
 }
 
