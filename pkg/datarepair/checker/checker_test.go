@@ -30,13 +30,13 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		checker.Loop.Stop()
 
 		//add noise to metainfo before bad record
-		for x := 0; x < 1000; x++ {
+		for x := 0; x < 10; x++ {
 			makePointer(t, planet, fmt.Sprintf("a-%d", x), false)
 		}
 		//create piece that needs repair
 		makePointer(t, planet, fmt.Sprintf("b"), true)
 		//add more noise to metainfo after bad record
-		for x := 0; x < 1000; x++ {
+		for x := 0; x < 10; x++ {
 			makePointer(t, planet, fmt.Sprintf("c-%d", x), false)
 		}
 		err := checker.IdentifyInjuredSegments(ctx)

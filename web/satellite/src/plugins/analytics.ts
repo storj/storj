@@ -10,7 +10,7 @@ const Analytics = {
         const hasSegmentID = options.id && options.id.length > 0;
 
         if (!hasSegmentID) {
-            options.id = "fake id";
+            options.id = 'fake id';
         }
 
         if ((isDoNotTrack || !hasSegmentID) && options.router != undefined) {

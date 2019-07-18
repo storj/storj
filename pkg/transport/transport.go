@@ -54,10 +54,10 @@ func NewClient(tlsOpts *tlsopts.Options, obs ...Observer) Client {
 // NewClientWithTimeouts returns a transport client with a specified timeout for requests
 func NewClientWithTimeouts(tlsOpts *tlsopts.Options, timeouts Timeouts, obs ...Observer) Client {
 	if timeouts.Request == 0 {
-		timeouts.Request = defaultRequestTimeout
+		timeouts.Request = defaultTransportRequestTimeout
 	}
 	if timeouts.Dial == 0 {
-		timeouts.Dial = defaultDialTimeout
+		timeouts.Dial = defaultTransportDialTimeout
 	}
 
 	return &Transport{
@@ -173,4 +173,9 @@ func (transport *Transport) AlertSuccess(ctx context.Context, node *pb.Node) {
 	for _, o := range transport.observers {
 		o.ConnSuccess(ctx, node)
 	}
+}
+
+// Timeouts returns the timeout values for dialing and requests.
+func (transport *Transport) Timeouts() Timeouts {
+	return transport.timeouts
 }

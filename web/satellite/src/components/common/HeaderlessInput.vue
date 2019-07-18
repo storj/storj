@@ -35,75 +35,59 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
 
     // Custom input component for login page
-    @Component({
-        data: () => {
-            return {
-                value: '',
-                textType: 'text',
-                passwordType: 'password',
-                isPasswordShown: false
-            };
-        },
-        methods: {
-            // Emits data to parent component
-            onInput: function(): void {
-                this.$emit('setData', this.$data.value);
-            },
-            // Change condition of password visibility
-            changeVision: function(): void {
-                this.$data.isPasswordShown = !this.$data.isPasswordShown;
-                if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
-            },
-            setValue(value: string) {
-                this.$data.value = value;
-            }
-        },
-        props: {
-            placeholder: {
-                type: String,
-                default: 'default'
-            },
-            isPassword: {
-                type: Boolean,
-                default: false
-            },
-            height: {
-                type: String,
-                default: '48px'
-            },
-            width: {
-                type: String,
-                default: '100%'
-            },
-            isWhite: {
-                type: Boolean,
-                default: false
-            },
-            label: String,
-            error: String
-        },
-        computed: {
-            style: function () {
-                return {
-                    inputStyle: {
-                        width: this.$props.width,
-                        height: this.$props.height
-                    },
-                    labelStyle: {
-                        color: this.$props.isWhite ? 'white' : '#354049'
-                    },
-                    errorStyle: {
-                        color: this.$props.isWhite ? 'white' : '#FF5560'
-                    },
-                };
-            }
-        }
-    })
+    @Component
+    export default class HeaderlessInput extends Vue {
+        public textType: string = 'text';
+        private value: string = '';
+        private passwordType: string = 'password';
+        private isPasswordShown: boolean = false;
 
-    export default class HeaderlessInput extends Vue {}
+        @Prop({default: 'default'})
+        private readonly placeholder: string;
+        @Prop({default: false})
+        private readonly isPassword: boolean;
+        @Prop({default: '48px'})
+        private readonly height: string;
+        @Prop({default: '100%'})
+        private readonly width: string;
+        @Prop({default: false})
+        private readonly isWhite: boolean;
+        @Prop({default: ''})
+        private readonly label: string;
+        @Prop({default: ''})
+        private readonly error: string;
+
+        public onInput(): void {
+            this.$emit('setData', this.value);
+        }
+
+        public changeVision(): void {
+            this.isPasswordShown = !this.isPasswordShown;
+            if (this.isPassword) this.passwordType = this.passwordType == 'password' ? 'text' : 'password';
+        }
+
+        public setValue(value: string): void {
+            this.value = value;
+        }
+
+        public get style(): object {
+            return {
+                inputStyle: {
+                    width: this.width,
+                    height: this.height
+                },
+                labelStyle: {
+                    color: this.isWhite ? 'white' : '#354049'
+                },
+                errorStyle: {
+                    color: this.isWhite ? 'white' : '#FF5560'
+                },
+            };
+        }
+    }
 </script>
 
 <style scoped lang="scss">
