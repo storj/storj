@@ -741,11 +741,11 @@ func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.Ir
 	return m.db.Get(ctx, segmentPath)
 }
 
-// GetLimited number of segments from offset
-func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) ([]*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetLimited(ctx, limit, offset)
+	return m.db.GetLimited(ctx, limit, lastSeenSegmentPath)
 }
 
 // IncrementRepairAttempts increments the repair attempts.
