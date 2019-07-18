@@ -34,10 +34,13 @@ import {AppState} from "../utils/constants/appStateEnum";
         USER_ACTIONS,
         PROJECT_USAGE_ACTIONS,
         BUCKET_USAGE_ACTIONS, PROJECT_PAYMENT_METHODS_ACTIONS
-    } from "@/utils/constants/actionNames";
+    } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import { AppState } from '../utils/constants/appStateEnum';
+    import { RequestResponse } from '../types/response';
+    import { User } from '../types/users';
+    import { Project } from '@/types/projects';
 
     @Component({
     mounted: async function() {

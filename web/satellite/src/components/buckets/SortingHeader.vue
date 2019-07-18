@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template>
+<template functional>
     <tr class="sort-header-container">
         <th class="sort-header-container__item">
             <div class="row">
@@ -29,8 +29,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({})
-
+    @Component
     export default class SortBucketsHeader extends Vue {}
 </script>
 

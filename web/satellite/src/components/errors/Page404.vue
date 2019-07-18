@@ -6,8 +6,7 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    @Component({})
-
+    @Component
     // 404 component on page not found error
     export default class Page404 extends Vue {}
 </script>

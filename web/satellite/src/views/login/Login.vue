@@ -4,96 +4,96 @@
 <template src="./login.html"></template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
-import Button from '@/components/common/Button.vue';
-import { setToken } from '@/utils/tokenManager';
-import ROUTES from '@/utils/constants/routerConstants';
-import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { getTokenRequest } from '@/api/users';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
-import { AppState } from '@/utils/constants/appStateEnum';
-import { validateEmail, validatePassword } from '@/utils/validation';
-import EVENTS from '../../utils/constants/analyticsEventNames';
+	import { Component, Vue } from 'vue-property-decorator';
+	import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+	import Button from '@/components/common/Button.vue';
+	import { setToken } from '@/utils/tokenManager';
+	import ROUTES from '@/utils/constants/routerConstants';
+	import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+	import { getTokenRequest } from '@/api/users';
+	import { LOADING_CLASSES } from '@/utils/constants/classConstants';
+	import { AppState } from '@/utils/constants/appStateEnum';
+	import { validateEmail, validatePassword } from '@/utils/validation';
+	import EVENTS from '../../utils/constants/analyticsEventNames';
 
-@Component({
-    data: function () {
-        return {
-            email: '',
-            password: '',
-            loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
-            loadingLogoClassName: LOADING_CLASSES.LOADING_LOGO,
-            forgotPasswordRouterPath: ROUTES.FORGOT_PASSWORD.path,
-            emailError: '',
-            passwordError: '',
-        };
-    },
-    methods: {
-        onLogoClick: function (): void {
-            location.reload();
-        },
-        setEmail: function (value: string): void {
-            this.$data.email = value;
-            this.$data.emailError = '';
-        },
-        setPassword: function (value: string): void {
-            this.$data.password = value;
-            this.$data.passwordError = '';
-        },
-        activateLoadingOverlay: function(): void {
-            this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
-            this.$data.loadingLogoClassName = LOADING_CLASSES.LOADING_LOGO_ACTIVE;
-        },
-        onLogin: async function (): Promise<any> {
-            let self = this as any;
-            this.$segment.track(EVENTS.CLICKED_LOGIN);
+	@Component({
+	    components: {
+	        HeaderlessInput,
+	        Button
+	    }
+	})
+	export default class Login extends Vue {
+	    public forgotPasswordRouterPath: string = ROUTES.FORGOT_PASSWORD.path;
+	    private email: string = '';
+	    private password: string = '';
+	    private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
+	    private loadingLogoClassName: string = LOADING_CLASSES.LOADING_LOGO;
+	    private emailError: string = '';
+	    private passwordError: string = '';
 
-            if (!self.validateFields()) {
-                return;
-            }
+	    public onLogoClick(): void {
+	        location.reload();
+	    }
 
-            let loginResponse = await getTokenRequest(this.$data.email, this.$data.password);
-            if (!loginResponse.isSuccess) {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, loginResponse.errorMessage);
+	    public setEmail(value: string): void {
+	        this.email = value;
+	        this.emailError = '';
+	    }
 
-                return;
-            }
+	    public setPassword(value: string): void {
+	        this.password = value;
+	        this.passwordError = '';
+	    }
 
-            (this as any).activateLoadingOverlay();
+	    public onSignUpClick(): void {
+	        this.$router.push(ROUTES.REGISTER.path);
+	    }
 
-            setTimeout(() => {
-                setToken(loginResponse.data);
-                this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
-                this.$router.push(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
-            }, 2000);
-        },
-        validateFields: function (): boolean {
-            let isNoErrors = true;
+	    public async onLogin(): Promise<void> {
+	        let self = this;
+	        this.$segment.track(EVENTS.CLICKED_LOGIN);
 
-            if (!validateEmail(this.$data.email.trim())) {
-                this.$data.emailError = 'Invalid Email';
-                isNoErrors = false;
-            }
+	        if (!self.validateFields()) {
+	            return;
+	        }
 
-            if (!validatePassword(this.$data.password)) {
-                this.$data.passwordError = 'Invalid Password';
-                isNoErrors = false;
-            }
+	        let loginResponse = await getTokenRequest(this.email, this.password);
+	        if (!loginResponse.isSuccess) {
+	            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, loginResponse.errorMessage);
 
-            return isNoErrors;
-        },
-        onSignUpClick: function (): void {
-            this.$router.push(ROUTES.REGISTER.path);
-        },
-    },
-    components: {
-        HeaderlessInput,
-        Button
-    }
-})
+	            return;
+	        }
 
-export default class Login extends Vue {
-}
+	        this.activateLoadingOverlay();
+
+	        setTimeout(() => {
+	            setToken(loginResponse.data);
+	            this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADING);
+	            this.$router.push(ROUTES.PROJECT_OVERVIEW.path + '/' + ROUTES.PROJECT_DETAILS.path);
+	        }, 2000);
+	    }
+
+	    private validateFields(): boolean {
+	        let isNoErrors = true;
+
+	        if (!validateEmail(this.email.trim())) {
+	            this.emailError = 'Invalid Email';
+	            isNoErrors = false;
+	        }
+
+	        if (!validatePassword(this.password)) {
+	            this.passwordError = 'Invalid Password';
+	            isNoErrors = false;
+	        }
+
+	        return isNoErrors;
+	    }
+
+	    private activateLoadingOverlay(): void {
+	        this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY_ACTIVE;
+	        this.loadingLogoClassName = LOADING_CLASSES.LOADING_LOGO_ACTIVE;
+	    }
+	}
 </script>
 
 <style src="./login.scss" scoped lang="scss"></style>

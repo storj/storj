@@ -23,33 +23,24 @@
     import { Component, Vue } from 'vue-property-decorator';
     import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+    import { RequestResponse } from '@/types/response';
 
-    @Component({
-        data: function () {
-            return {
-                sortByEnum: ProjectMemberSortByEnum,
-            };
-        },
-        props: {
-            onClose: {
-                type: Function
-            }
-        },
-        methods: {
-            onCloseClick: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-            },
-            onSortUsersClick: async function (sortBy: ProjectMemberSortByEnum) {
-                this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-                const response = await this.$store.dispatch(PM_ACTIONS.FETCH);
-                if (response.isSuccess) return;
-                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
-            }
-        },
-    })
+    @Component
+    export default class SortDropdown extends Vue {
+        public sortByEnum: any = ProjectMemberSortByEnum;
 
-    export default class SortDropdown extends Vue {}
+        public onCloseClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+        }
+
+        public async onSortUsersClick(sortBy: ProjectMemberSortByEnum) {
+            this.$store.dispatch(PM_ACTIONS.SET_SORT_BY, sortBy);
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+            const response: RequestResponse<object> = await this.$store.dispatch(PM_ACTIONS.FETCH);
+            if (response.isSuccess) return;
+            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch project members');
+        }
+    }
 </script>
 
 <style scoped lang="scss">

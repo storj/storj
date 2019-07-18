@@ -3,19 +3,13 @@
 
 import { PROJECTS_MUTATIONS } from '../mutationConstants';
 import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updateProjectRequest } from '@/api/projects';
-
-let defaultSelectedProject: Project = {
-    name: '',
-    id: '',
-    description: '',
-    createdAt: '',
-    isSelected: true,
-};
+import { RequestResponse } from '@/types/response';
+import { CreateProjectModel, Project, UpdateProjectModel } from '@/types/projects';
 
 export const projectsModule = {
     state: {
         projects: [],
-        selectedProject: defaultSelectedProject
+        selectedProject: new Project(true),
     },
     mutations: {
         [PROJECTS_MUTATIONS.CREATE](state: any, createdProject: Project): void {
@@ -24,20 +18,25 @@ export const projectsModule = {
         [PROJECTS_MUTATIONS.FETCH](state: any, projects: Project[]): void {
             state.projects = projects;
 
-            if (state.selectedProject.id) {
-                let projectsCount = state.projects.length;
+            if (!state.selectedProject.id) {
+                return;
+            }
 
-                for (let i = 0; i < projectsCount; i++) {
-                    let project = state.projects[i];
+            let projectsCount = state.projects.length;
 
-                    if (project.id === state.selectedProject.id) {
-                        state.selectedProject = project;
-                        return;
-                    }
+            for (let i = 0; i < projectsCount; i++) {
+                let project = state.projects[i];
+
+                if (project.id !== state.selectedProject.id) {
+                    continue;
                 }
 
-                state.selectedProject = defaultSelectedProject
+                state.selectedProject = project;
+
+                return;
             }
+
+            state.selectedProject = new Project(true);
         },
         [PROJECTS_MUTATIONS.SELECT](state: any, projectID: string): void {
             const selected = state.projects.find((project: any) => project.id === projectID);
@@ -60,12 +59,12 @@ export const projectsModule = {
             state.projects = state.projects.filter(proj => proj.id !== projectID);
 
             if (state.selectedProject.id === projectID) {
-                state.selectedProject = defaultSelectedProject;
+                state.selectedProject = new Project(true);
             }
         },
         [PROJECTS_MUTATIONS.CLEAR](state: any): void {
             state.projects = [];
-            state.selectedProject = defaultSelectedProject;
+            state.selectedProject = new Project(true);
         },
     },
     actions: {
@@ -87,7 +86,7 @@ export const projectsModule = {
 
             return response;
         },
-        selectProject: function ({commit}: any, projectID: string) {
+        selectProject: function ({commit}: any, projectID: string): void {
             commit(PROJECTS_MUTATIONS.SELECT, projectID);
         },
         updateProject: async function ({commit}: any, updateProjectModel: UpdateProjectModel): Promise<RequestResponse<null>> {
@@ -108,12 +107,12 @@ export const projectsModule = {
 
             return response;
         },
-        clearProjects: function({commit}: any) {
+        clearProjects: function({commit}: any): void {
             commit(PROJECTS_MUTATIONS.CLEAR);
         }
     },
     getters: {
-        projects: (state: any) => {
+        projects: (state: any): Project[] => {
             return state.projects.map((project: any) => {
                 if (project.id === state.selectedProject.id) {
                     project.isSelected = true;
@@ -122,6 +121,6 @@ export const projectsModule = {
                 return project;
             });
         },
-        selectedProject: (state: any) => state.selectedProject,
+        selectedProject: (state: any): Project => state.selectedProject,
     },
 };
