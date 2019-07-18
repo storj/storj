@@ -24,18 +24,18 @@ import (
 	"storj.io/storj/satellite/metainfo"
 )
 
+// TestMetainfoLoop does the following
+// * upload 5 remote files with 1 segment
+// * (TODO) upload 3 remote files with 2 segments
+// * upload 2 inline files
+// * connect two observers to the metainfo loop
+// * run the metainfo loop
+// * expect that each observer has seen
+//    - 5 remote files
+//    - 5 remote segments
+//    - 2 inline files/segments
+//    - 7 unique path items
 func TestMetainfoLoop(t *testing.T) {
-	// upload 5 remote files with 1 segment
-	// (TODO) upload 3 remote files with 2 segments
-	// upload 2 inline files
-	// connect two observers to the metainfo loop
-	// run the metainfo loop
-	// expect that each observer has seen
-	//     5 remote files
-	//     5 remote segments
-	//     2 inline files/segments
-	//     7 unique path items
-
 	// TODO: figure out how to configure testplanet so we can upload 2*segmentSize to get two segments
 	segmentSize := 8 * memory.KiB
 
@@ -71,7 +71,7 @@ func TestMetainfoLoop(t *testing.T) {
 
 		// upload 2 inline files
 		for i := 0; i < 2; i++ {
-			testData := testrand.Bytes(1 * memory.KiB)
+			testData := testrand.Bytes(segmentSize / 8)
 			path := "/some/inline/path/" + string(i)
 			err := ul.Upload(ctx, satellite, "bucket", path, testData)
 			require.NoError(t, err)
@@ -104,15 +104,15 @@ func TestMetainfoLoop(t *testing.T) {
 	})
 }
 
+// TestMetainfoLoopObserverCancel does the following:
+// * upload 3 remote segments
+// * hook three observers up to metainfo loop
+// * let observer 1 run normally
+// * let observer 2 return an error from one of its handlers
+// * let observer 3's context be canceled
+// * expect observer 1 to see all segments
+// * expect observers 2 and 3 to finish with errors
 func TestMetainfoLoopObserverCancel(t *testing.T) {
-	// upload 3 remote segments
-	// hook three observers up to metainfo loop
-	// let observer 1 run normally
-	// let observer 2 return an error from one of its handlers
-	// let observer 3's context be canceled
-	// expect observer 1 to see all segments
-	// expect observers 2 and 3 to finish with errors
-
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
@@ -161,12 +161,14 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 		}()
 		go func() {
 			err := metaLoop.Join(ctx, obs2)
-			assert.EqualError(t, err, "test error")
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "test error")
 			wg.Done()
 		}()
 		go func() {
 			err := metaLoop.Join(obs3Ctx, obs3)
-			assert.EqualError(t, err, "context canceled")
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
 
@@ -179,12 +181,12 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 	})
 }
 
+// TestMetainfoLoopCancel does the following:
+// * upload 3 remote segments
+// * hook two observers up to metainfo loop
+// * cancel loop context partway through
+// * expect both observers to exit with an error and see fewer than 3 remote segments
 func TestMetainfoLoopCancel(t *testing.T) {
-	// upload 3 remote segments
-	// hook two observers up to metainfo loop
-	// cancel loop context partway through
-	// expect both observers to exit with an error and see fewer than 3 remote segments
-
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
@@ -221,21 +223,26 @@ func TestMetainfoLoopCancel(t *testing.T) {
 			return nil
 		})
 
+		var wg sync.WaitGroup
+		wg.Add(3)
+
 		// start loop with cancelable context
 		go func() {
-			metaLoop.Run(loopCtx)
+			err := metaLoop.Run(loopCtx)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "context canceled")
+			wg.Done()
 		}()
-
-		var wg sync.WaitGroup
-		wg.Add(2)
 		go func() {
 			err := metaLoop.Join(ctx, obs1)
-			assert.EqualError(t, err, "context canceled")
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
 		go func() {
 			err := metaLoop.Join(ctx, obs2)
-			assert.EqualError(t, err, "context canceled")
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
 
