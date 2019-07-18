@@ -54,7 +54,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		)
 		_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
-			pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, []byte(pendingAudit.Path))
+			pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, pendingAudit.Path)
 		if err != nil {
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
