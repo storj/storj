@@ -331,13 +331,14 @@ func TestMetainfoLoopClose(t *testing.T) {
 
 		// iterate over first segment, then close loop
 		loopSync <- struct{}{}
-		metaLoop.Close()
+		err := metaLoop.Close()
+		assert.NoError(t, err)
 		close(loopSync)
 
 		wg.Wait()
 
 		obs3 := newTestObserver(t, nil)
-		err := metaLoop.Join(ctx, obs3)
+		err = metaLoop.Join(ctx, obs3)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "loop closed")
 
