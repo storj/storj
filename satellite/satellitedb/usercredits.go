@@ -63,6 +63,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		return errs.New("user credit is already expired")
 	}
 
+	//TODO: add null check for WHERE clause
 	switch t := c.db.Driver().(type) {
 	case *sqlite3.SQLiteDriver:
 		statement = `

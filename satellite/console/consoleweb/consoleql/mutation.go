@@ -100,6 +100,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						partnerInput  string
 						referrerInput string
 						reward        rewards.OfferInfo
+						referredBy    *uuid.UUID
 					)
 					if p.Args[FieldPartnerID] != nil {
 						partnerInput = p.Args[FieldPartnerID].(string)
@@ -131,11 +132,11 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					}
 
 					if len(partnerInput) > 1 {
-						partnerID, err := uuid.Parse(partnerInput)
+						referredBy, err = uuid.Parse(partnerInput)
 						if err != nil {
 							return nil, err
 						}
-						createUser.PartnerID = *partnerID
+						createUser.PartnerID = *referredBy
 					}
 
 					user, err := service.CreateUser(p.Context, createUser, secret)
@@ -147,9 +148,8 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					var referrerID *uuid.UUID
 					if len(referrerInput) > 1 {
-						referrerID, err = uuid.Parse(referrerInput)
+						referredBy, err = uuid.Parse(referrerInput)
 						if err != nil {
 							log.Error("register: failed to parse referrer ID",
 								zap.String("rawReferralID", referrerInput),
@@ -163,7 +163,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					newCredit := console.UserCredit{
 						UserID:        user.ID,
 						OfferID:       reward.ID,
-						ReferredBy:    referrerID,
+						ReferredBy:    referredBy,
 						CreditsEarned: currency.Cents(0),
 						ExpiresAt:     time.Now().UTC().AddDate(0, 0, reward.InviteeCreditDurationDays),
 					}
