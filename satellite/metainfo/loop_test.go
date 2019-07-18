@@ -83,8 +83,8 @@ func TestMetainfoLoop(t *testing.T) {
 		}
 
 		// create 2 observers
-		obs1 := newTestObserver(t, nil)
-		obs2 := newTestObserver(t, nil)
+		obs1 := newTestObserver(nil)
+		obs2 := newTestObserver(nil)
 
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -143,19 +143,20 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 		}
 
 		// create 1 "good" observer
-		obs1 := newTestObserver(t, nil)
+		obs1 := newTestObserver(nil)
 
 		// create observer that will return an error from RemoteSegment
-		obs2 := newTestObserver(t, func() error {
+		obs2 := newTestObserver(func(ctx context.Context) error {
 			return errors.New("test error")
 		})
 
 		// create observer that will cancel its own context from RemoteSegment
 		obs3Ctx, cancel := context.WithCancel(ctx)
 		var once int64
-		obs3 := newTestObserver(t, func() error {
+		obs3 := newTestObserver(func(ctx context.Context) error {
 			if atomic.AddInt64(&once, 1) == 1 {
 				cancel()
+				<-obs3Ctx.Done() // ensure we wait for cancellation to propagate
 			} else {
 				panic("multiple calls to observer after loop cancel")
 			}
@@ -227,15 +228,16 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		loopCtx, cancel := context.WithCancel(ctx)
 
 		// create 1 normal observer
-		obs1 := newTestObserver(t, nil)
+		obs1 := newTestObserver(nil)
 
 		var once int64
 		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
-		obs2 := newTestObserver(t, func() error {
+		obs2 := newTestObserver(func(ctx context.Context) error {
 			// cancel context during call to obs2.RemoteSegment inside loop
 			fmt.Println("WE ARE CANCELING THE Context")
 			if atomic.AddInt64(&once, 1) == 1 {
 				cancel()
+				<-ctx.Done() // ensure we wait for cancellation to propagate
 			} else {
 				panic("multiple calls to observer after loop cancel")
 			}
@@ -270,7 +272,7 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		err := group.Wait()
 		require.NoError(t, err)
 
-		obs3 := newTestObserver(t, nil)
+		obs3 := newTestObserver(nil)
 		err = metaLoop.Join(ctx, obs3)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "loop closed")
@@ -287,10 +289,10 @@ type testObserver struct {
 	remoteFileCount int
 	inlineSegCount  int
 	uniquePaths     map[string]struct{}
-	onSegment       func() error // if set, run this during RemoteSegment()
+	onSegment       func(context.Context) error // if set, run this during RemoteSegment()
 }
 
-func newTestObserver(t *testing.T, onSegment func() error) *testObserver {
+func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	return &testObserver{
 		remoteSegCount:  0,
 		remoteFileCount: 0,
@@ -304,12 +306,13 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, poi
 	obs.remoteSegCount++
 
 	if _, ok := obs.uniquePaths[path]; ok {
-		return errors.New("Expected unique path in observer.RemoteSegment")
+		// TODO: collect the errors and check in test
+		panic("Expected unique path in observer.RemoteSegment")
 	}
 	obs.uniquePaths[path] = struct{}{}
 
 	if obs.onSegment != nil {
-		return obs.onSegment()
+		return obs.onSegment(ctx)
 	}
 
 	return nil
@@ -323,7 +326,8 @@ func (obs *testObserver) RemoteObject(ctx context.Context, path storj.Path, poin
 func (obs *testObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
 	obs.inlineSegCount++
 	if _, ok := obs.uniquePaths[path]; ok {
-		return errors.New("Expected unique path in observer.InlineSegment")
+		// TODO: collect the errors and check in test
+		panic("Expected unique path in observer.InlineSegment")
 	}
 	obs.uniquePaths[path] = struct{}{}
 	return nil

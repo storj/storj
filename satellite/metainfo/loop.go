@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -121,14 +120,12 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
-	fmt.Printf("%p: RUN ONCE\n", loop)
 	defer func() {
 		for _, observer := range observers {
 			observer.Finish()
 		}
 	}()
 
-	fmt.Printf("%p: wait for first\n", loop)
 	// wait for the first observer, or exit because context is canceled
 	select {
 	case observer := <-loop.join:
@@ -137,7 +134,6 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 		return ctx.Err()
 	}
 
-	fmt.Printf("%p: wait for coalesce\n", loop)
 	// after the first observer is found, set timer for CoalesceDuration and add any observers that try to join before the timer is up
 	timer := time.NewTimer(loop.config.CoalesceDuration)
 waitformore:
@@ -156,7 +152,6 @@ waitformore:
 		}
 	}
 
-	fmt.Printf("%p: iterate, %v\n", loop, observers)
 	err = loop.metainfo.Iterate(ctx, "", "", true, false,
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
@@ -164,7 +159,6 @@ waitformore:
 			// iterate over every segment in metainfo
 			for it.Next(ctx, &item) {
 				pointer := &pb.Pointer{}
-				fmt.Printf("%p: got item\n", loop)
 
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
@@ -179,17 +173,13 @@ waitformore:
 
 				nextObservers := observers[:0]
 
-				fmt.Printf("%p: observers %v\n", loop, observers)
-
 				for _, observer := range observers {
-					fmt.Printf("%p: observer %p\n", loop, observer)
-
+					// TODO: move single observer handling into a separate func
 					remote := pointer.GetRemote()
 					if remote != nil {
 						if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
 							continue
 						}
-
 						if isLastSeg {
 							if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
 								continue
@@ -211,8 +201,6 @@ waitformore:
 				}
 
 				observers = nextObservers
-				fmt.Printf("%p: nexts %v\n", loop, nextObservers)
-
 				if len(observers) == 0 {
 					return nil
 				}
@@ -220,14 +208,13 @@ waitformore:
 				// if context has been canceled, send the error to observers and exit. Otherwise, continue
 				select {
 				case <-ctx.Done():
-					fmt.Printf("%p: context is done\n", loop)
 					for _, observer := range observers {
 						observer.HandleError(ctx.Err())
 					}
+					// clear observers slice so they aren't double closed
 					observers = nil
 					return ctx.Err()
 				default:
-					fmt.Printf("%p: continuing iteration\n", loop)
 				}
 			}
 			return nil
