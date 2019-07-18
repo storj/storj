@@ -148,7 +148,7 @@ waitformore:
 		}
 	}
 
-	return loop.metainfo.Iterate(ctx, "", "", true, false,
+	err = loop.metainfo.Iterate(ctx, "", "", true, false,
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
@@ -215,6 +215,14 @@ waitformore:
 			}
 			return nil
 		})
+
+	if err != nil {
+		for _, observer := range observers {
+			observer.HandleError(err)
+		}
+		return err
+	}
+	return nil
 }
 
 // Close halts the metainfo loop.
