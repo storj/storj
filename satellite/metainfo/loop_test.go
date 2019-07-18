@@ -231,33 +231,36 @@ func TestMetainfoLoopCancel(t *testing.T) {
 			return nil
 		})
 
-		var wg sync.WaitGroup
-		wg.Add(3)
+		var group errgroup.Group
 
 		// start loop with cancelable context
-		go func() {
+		group.Go(func() error {
 			err := metaLoop.Run(loopCtx)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "context canceled")
-			wg.Done()
-		}()
-		go func() {
+			if !errs2.IsCanceled(err) {
+				return errors.New("expected context canceled")
+			}
+			return nil
+		})
+		group.Go(func() error {
 			err := metaLoop.Join(ctx, obs1)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "context canceled")
-			wg.Done()
-		}()
-		go func() {
+			if !errs2.IsCanceled(err) {
+				return errors.New("expected context canceled")
+			}
+			return nil
+		})
+		group.Go(func() error {
 			err := metaLoop.Join(ctx, obs2)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "context canceled")
-			wg.Done()
-		}()
+			if !errs2.IsCanceled(err) {
+				return errors.New("expected context canceled")
+			}
+			return nil
+		})
 
-		wg.Wait()
+		err := group.Wait()
+		require.NoError(t, err)
 
 		obs3 := newTestObserver(t, nil)
-		err := metaLoop.Join(ctx, obs3)
+		err = metaLoop.Join(ctx, obs3)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "loop closed")
 
