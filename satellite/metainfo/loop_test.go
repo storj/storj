@@ -186,6 +186,7 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 // * hook two observers up to metainfo loop
 // * cancel loop context partway through
 // * expect both observers to exit with an error and see fewer than 3 remote segments
+// * expect that a new observer attempting to join at this point receives a loop closed error
 func TestMetainfoLoopCancel(t *testing.T) {
 	segmentSize := 8 * memory.KiB
 
@@ -252,6 +253,11 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		close(loopContextCancel)
 
 		wg.Wait()
+
+		obs3 := newTestObserver(t, nil)
+		err := metaLoop.Join(ctx, obs3)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "loop closed")
 
 		// expect that obs1 and obs2 each saw one remote segment
 		assert.True(t, obs1.remoteSegCount < 3)

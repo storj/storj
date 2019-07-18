@@ -101,7 +101,7 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 
 	select {
 	case <-loop.done:
-		return context.Canceled
+		return LoopError.New("loop closed")
 	case loop.join <- obsContext:
 	case <-ctx.Done():
 		return ctx.Err()
