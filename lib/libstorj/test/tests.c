@@ -387,9 +387,8 @@ void check_file_info(uv_work_t *work_req, int status)
 int create_test_upload_file(char *filepath)
 {
     // TODO: make `total` an argument;
-    int64_t total = 4096000;
+    int64_t total = 800 * 1024;
     int64_t subtotal = 0;
-    size_t page_size = 1024000;
 
     FILE *fp;
     fp = fopen(filepath, "w");
@@ -399,22 +398,12 @@ int create_test_upload_file(char *filepath)
         exit(0);
     }
 
-//    int shard_size = 409600;
-//    char *bytes = "abcdefghijklmn";
-//    for (int i = 0; i < strlen(bytes); i++) {
-//        char *page = calloc(shard_size + 1, sizeof(char));
-//        memset(page, bytes[i], shard_size);
-//        fputs(page, fp);
-//        free(page);
-//    }
-    while (subtotal < total) {
-        char *page = malloc(page_size);
-        memset(page, 65, page_size);
-        fputs(page, fp);
-        subtotal += page_size;
-        free(page);
+    char *symbols = "abcdefghij";
+    for (int i = 0; subtotal < total; i++) {
+        fputc(symbols[i%10], fp);
+        subtotal ++;
     }
-    fputs("\n", fp);
+//    fputs("\n", fp);
 
     fclose(fp);
     return 0;

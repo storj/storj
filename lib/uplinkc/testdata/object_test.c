@@ -40,7 +40,9 @@ void handle_project(ProjectRef project) {
 
 
     for(int i = 0; i < num_of_objects; i++) {
-        size_t data_len = 1024 * (i + 1) * (i + 1);
+//        size_t data_len = 1024 * (i + 1) * (i + 1);
+        size_t data_len = 800 * 1024;
+//        size_t data_len = 1024 * 1024;
         uint8_t *data = malloc(data_len);
         fill_random_data(data, data_len);
 
@@ -56,6 +58,11 @@ void handle_project(ProjectRef project) {
             size_t uploaded_total = 0;
             while (uploaded_total < data_len) {
                 size_t size_to_write = (data_len - uploaded_total > 256) ? 256 : data_len - uploaded_total;
+
+                if (size_to_write == 0) {
+                    break;
+                }
+
                 size_t write_size = upload_write(uploader, (uint8_t *)data+uploaded_total, size_to_write, err);
                 require_noerror(*err);
 

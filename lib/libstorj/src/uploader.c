@@ -92,7 +92,7 @@ static void store_file(uv_work_t *work)
         size_t read_size = fread(buf, sizeof(char), buf_len, state->original_file);
         // TODO: what if read_size != buf_len?
 
-        int written_size = upload_write(state->uploader_ref, buf, buf_len, STORJ_LAST_ERROR);
+        int written_size = upload_write(state->uploader_ref, buf, read_size, STORJ_LAST_ERROR);
         STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;
         if (written_size != buf_len) {
             free(buf);
@@ -101,7 +101,7 @@ static void store_file(uv_work_t *work)
 
         // TODO: use uv_async_init/uv_async_send instead of calling cb directly?
         state->uploaded_bytes += written_size;
-        double progress = state->uploaded_bytes / state->file_size;
+        double progress = (double)state->uploaded_bytes / state->file_size;
         state->progress_cb(progress, state->uploaded_bytes,
                            state->file_size, state->handle);
         free(buf);
