@@ -5,7 +5,6 @@ package linksharing
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,7 +52,7 @@ func NewHandler(config HandlerConfig) (*Handler, error) {
 	}
 
 	if config.Uplink == nil {
-		return nil, errors.New("uplink is required")
+		return nil, errs.New("uplink is required")
 	}
 
 	urlBase, err := parseURLBase(config.URLBase)
@@ -86,7 +85,7 @@ func (handler *Handler) serveHTTP(w http.ResponseWriter, r *http.Request) (err e
 		locationOnly = true
 	case http.MethodGet:
 	default:
-		err = errors.New("method not allowed")
+		err = errs.New("method not allowed")
 		http.Error(w, err.Error(), http.StatusMethodNotAllowed)
 		return err
 	}
@@ -162,11 +161,11 @@ func parseRequestPath(p string) (*uplink.Scope, string, string, error) {
 	switch len(segments) {
 	case 1:
 		if segments[0] == "" {
-			return nil, "", "", errors.New("missing scope")
+			return nil, "", "", errs.New("missing scope")
 		}
-		return nil, "", "", errors.New("missing bucket")
+		return nil, "", "", errs.New("missing bucket")
 	case 2:
-		return nil, "", "", errors.New("missing bucket path")
+		return nil, "", "", errs.New("missing bucket path")
 	}
 	scopeb58 := segments[0]
 	bucket := segments[1]
