@@ -514,19 +514,19 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 // RemoveFailedPieces removes lost pieces from a pointer
 func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if len(failedNodes) == 0 {
+		return nil
+	}
 	remoteSegment := pointer.GetRemote()
 	newRemotePieces := remoteSegment.RemotePieces[:0]
+OUTER:
 	for _, piece := range remoteSegment.RemotePieces {
 		for _, failedNode := range failedNodes {
-			isFailed := false
 			if piece.NodeId == failedNode {
-				isFailed = true
-				break
-			}
-			if !isFailed {
-				newRemotePieces = append(newRemotePieces, piece)
+				continue OUTER
 			}
 		}
+		newRemotePieces = append(newRemotePieces, piece)
 	}
 	remoteSegment.RemotePieces = newRemotePieces
 
