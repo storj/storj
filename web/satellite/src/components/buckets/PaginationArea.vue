@@ -12,7 +12,7 @@
                 <div v-html="arrowRight" v-on:click="nextPage" class="pagination-container__button"></div>
             </div>
             <div class="pagination-container__counter">
-                <p>Showing <span>{{firstEdge}}</span> to <span>{{lastEdge}}</span> of <span>{{totalCount}}</span> entries.</p>
+                <p>Showing <span>{{edge}}</span> of <span>{{totalCount}}</span> entries.</p>
             </div>
         </div>
     </div>
@@ -28,6 +28,7 @@
         // TODO: use svg loader
         public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
         public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+        public readonly totalCount: number = this.$store.state.bucketUsageModule.page.totalCount;
     
         public get pages(): number[] {
             return new Array(this.$store.state.bucketUsageModule.page.pageCount);
@@ -37,19 +38,8 @@
             return this.$store.state.bucketUsageModule.page.currentPage;
         }
         
-        public get firstEdge(): number {
-            return this.$store.state.bucketUsageModule.page.offset + 1;
-        }
-        
-        public get lastEdge(): number {
-            let offset = this.$store.state.bucketUsageModule.page.offset;
-            let bucketsLength = this.$store.state.bucketUsageModule.page.bucketUsages.length;
-        
-            return offset + bucketsLength;
-        }
-        
-        public get totalCount(): number {
-            return this.$store.state.bucketUsageModule.page.totalCount;
+        public get edge(): number {
+            return this.$store.state.bucketUsageModule.page.bucketUsages.length;
         }
         
         public get isFirstPage(): boolean {

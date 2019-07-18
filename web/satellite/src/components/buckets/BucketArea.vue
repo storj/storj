@@ -3,12 +3,12 @@
 
 <template>
     <div>
-        <div class="buckets-overflow" v-if="pages !== 0">
+        <div class="buckets-overflow" v-if="pages >= 0">
             <div class="buckets-header">
                 <p>Buckets</p>
                 <SearchArea/>
             </div>
-            <div v-if="buckets.length > 0" class="buckets-container">
+            <div v-if="buckets.length >= 0" class="buckets-container">
                 <table>
                     <SortingHeader />
                     <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
@@ -103,6 +103,10 @@
             width:98.5%;
             margin-top:20px;
         }
+    }
+
+    .empty-container {
+        margin-top: 0;
     }
     
     @media screen and (max-height: 880px) {
