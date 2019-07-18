@@ -256,8 +256,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
 			peer.Transport,
-			peer.Kademlia.Service,
 			peer.DB.Orders(),
+			peer.Storage2.Trust,
 			config.Storage2.Sender,
 		)
 	}
@@ -272,7 +272,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
 		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, interval, buffer)
 	}
 

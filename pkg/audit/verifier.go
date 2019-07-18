@@ -105,7 +105,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		}, err
 	}
 
-	err = verifier.checkIfSegmentDeleted(ctx, stripe)
+	_, err = verifier.checkIfSegmentDeleted(ctx, stripe.SegmentPath, stripe.Segment)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
@@ -175,6 +175,11 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
+	}
+	// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+	err = verifier.removeFailedPieces(ctx, stripe.SegmentPath, stripe.Segment, failedNodes)
+	if err != nil {
+		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Error(err))
 	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
@@ -366,35 +371,54 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				if errs2.IsRPC(err, codes.NotFound) {
+					// Get the original segment pointer in the metainfo
+					oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, stripe.Segment)
+					if err != nil {
+						ch <- result{nodeID: piece.NodeId, status: success}
+						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+						return
+					}
+					// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+					err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+					if err != nil {
+						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+					}
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
 					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				if errs2.IsRPC(err, codes.DeadlineExceeded) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 					verifier.log.Debug("Reverify: download timeout (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				// unknown error
 				ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 				verifier.log.Debug("Reverify: unknown error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				return
 			}
-
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
 				ch <- result{nodeID: piece.NodeId, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.Stringer("Node ID", piece.NodeId))
 			} else {
-				ch <- result{nodeID: piece.NodeId, status: failed}
+				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, nil)
+				if err != nil {
+					ch <- result{nodeID: piece.NodeId, status: success}
+					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+					return
+				}
+				// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+				err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+				if err != nil {
+					verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+				}
 				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.Stringer("Node ID", piece.NodeId),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
+				ch <- result{nodeID: piece.NodeId, status: failed}
 			}
 		}(pending, piece)
 	}
@@ -487,23 +511,46 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	}, nil
 }
 
+// removeFailedPieces removes lost pieces from a pointer
+func (verifier *Verifier) removeFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(failedNodes) == 0 {
+		return nil
+	}
+	remoteSegment := pointer.GetRemote()
+	newRemotePieces := remoteSegment.RemotePieces[:0]
+OUTER:
+	for _, piece := range remoteSegment.RemotePieces {
+		for _, failedNode := range failedNodes {
+			if piece.NodeId == failedNode {
+				continue OUTER
+			}
+		}
+		newRemotePieces = append(newRemotePieces, piece)
+	}
+	remoteSegment.RemotePieces = newRemotePieces
+
+	// Update the segment pointer in the metainfo
+	//TODO:  update in a safe manner - https://storjlabs.atlassian.net/browse/V3-2088
+	return verifier.metainfo.Put(ctx, path, pointer)
+}
+
 // checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.
-func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, stripe *Stripe) (err error) {
+func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, err := verifier.metainfo.Get(ctx, stripe.SegmentPath)
+	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return ErrSegmentDeleted.New(stripe.SegmentPath)
+			return nil, ErrSegmentDeleted.New(segmentPath)
 		}
-		return err
+		return nil, err
 	}
 
-	if !pointer.CreationDate.Equal(stripe.Segment.CreationDate) {
-		return ErrSegmentDeleted.New(stripe.SegmentPath)
+	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
+		return nil, ErrSegmentDeleted.New(segmentPath)
 	}
-
-	return nil
+	return newPointer, nil
 }
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
@@ -632,6 +679,7 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 			StripeIndex:       stripe.Index,
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share),
+			Path:              stripe.SegmentPath,
 		})
 	}
 

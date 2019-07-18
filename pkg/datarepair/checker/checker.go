@@ -251,30 +251,32 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
-// IrreparableProcess picks items from irreparabledb and add them to the repair
-// worker queue if they, now, can be repaired.
+// IrreparableProcess iterates over all items in the irreparabledb. If an item can
+// now be repaired then it is added to a worker queue.
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	limit := 1
-	var offset int64
+	const limit = 1000
+	lastSeenSegmentPath := []byte{}
 
 	for {
-		seg, err := checker.irrdb.GetLimited(ctx, limit, offset)
+		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentPath)
 		if err != nil {
 			return Error.New("error reading segment from the queue %s", err)
 		}
 
 		// zero segments returned with nil err
-		if len(seg) == 0 {
+		if len(segments) == 0 {
 			break
 		}
 
-		err = checker.updateSegmentStatus(ctx, seg[0].GetSegmentDetail(), string(seg[0].GetPath()), &durabilityStats{})
-		if err != nil {
-			checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
+		lastSeenSegmentPath = segments[len(segments)-1].Path
+
+		for _, segment := range segments {
+			err = checker.updateSegmentStatus(ctx, segment.GetSegmentDetail(), string(segment.GetPath()), &durabilityStats{})
+			if err != nil {
+				checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
+			}
 		}
-		offset++
 	}
 
 	return nil
