@@ -15,7 +15,6 @@ import (
 // Otherwise in most cases DialNode should be used for communicating with nodes since it is secure.
 func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	options := append([]grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),

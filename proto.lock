@@ -772,8 +772,8 @@
               },
               {
                 "id": 2,
-                "name": "offset",
-                "type": "int32"
+                "name": "last_seen_segment_path",
+                "type": "bytes"
               }
             ]
           },
