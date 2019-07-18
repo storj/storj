@@ -23,7 +23,7 @@ func RunPlanet(t *testing.T, run func(ctx *testcontext.Context, planet *testplan
 	defer ctx.Cleanup()
 
 	planet, err := testplanet.NewCustom(
-		zaptest.NewLogger(t, zaptest.Level(zapcore.WarnLevel)),
+		zaptest.NewLogger(t, zaptest.Level(zapcore.DebugLevel)),
 		testplanet.Config{
 			SatelliteCount:   1,
 			StorageNodeCount: 6,

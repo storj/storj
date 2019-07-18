@@ -40,7 +40,10 @@ void handle_project(ProjectRef project) {
 
 
     for(int i = 0; i < num_of_objects; i++) {
-        size_t data_len = 1024 * (i + 1) * (i + 1);
+// DOESN'T WORK --v
+        size_t data_len = 1024 * 1024;
+// WORKS --v
+//        size_t data_len = 1024 * 1000;
         uint8_t *data = malloc(data_len);
         fill_random_data(data, data_len);
 
