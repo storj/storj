@@ -87,8 +87,7 @@ func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFi
 		"enc.key-filepath": encryptionKeyFilepath,
 	}
 
-	err := process.SaveConfigWithAllDefaults(
-		cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	err := process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename), override)
 	if err != nil {
 		return err
 	}
@@ -132,8 +131,7 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilep
 		"enc.key-filepath": encryptionKeyFilepath,
 	}
 
-	err = process.SaveConfigWithAllDefaults(
-		cmd.Flags(), filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	err = process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename), override)
 	if err != nil {
 		return nil
 	}

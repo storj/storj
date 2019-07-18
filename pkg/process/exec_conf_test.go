@@ -67,7 +67,7 @@ func TestHidden(t *testing.T) {
 	overrides := map[string]interface{}{}
 
 	// Test that only the configs that are not hidden show up in config file
-	err := SaveConfigWithAllDefaults(cmd.Flags(), testConfigFile, overrides)
+	err := SaveConfig(cmd, testConfigFile, overrides)
 	require.NoError(t, err)
 
 	actualConfigFile, err := ioutil.ReadFile(testConfigFile)

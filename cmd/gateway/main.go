@@ -309,7 +309,7 @@ func (flags GatewayFlags) interactive(
 	overrides["api-key"] = apiKey
 	overrides["enc.key-filepath"] = encryptionKeyFilepath
 
-	err = process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {
 		return nil
 	}
@@ -346,7 +346,7 @@ func (flags GatewayFlags) nonInteractive(
 		}
 	}
 
-	err := process.SaveConfigWithAllDefaults(cmd.Flags(), filepath.Join(setupDir, "config.yaml"), overrides)
+	err := process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {
 		return Error.Wrap(err)
 	}
