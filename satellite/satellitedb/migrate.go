@@ -1024,7 +1024,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Version:     46,
 				Action: migrate.SQL{
 					`DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
-					`ALTER TABLE pending_audits ADD COLUMN path text NOT NULL;`,
+					`ALTER TABLE pending_audits ADD COLUMN path bytea NOT NULL;`,
 					`UPDATE nodes SET contained = false;`,
 				},
 			},

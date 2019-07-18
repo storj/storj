@@ -54,7 +54,7 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		)
 		_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
-			pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, pendingAudit.Path)
+			pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, byte[](pendingAudit.Path))
 		if err != nil {
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -136,7 +136,7 @@ func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.Pe
 		ShareSize:         int32(info.ShareSize),
 		ExpectedShareHash: info.ExpectedShareHash,
 		ReverifyCount:     int32(info.ReverifyCount),
-		Path:              info.Path,
+		Path:              string(info.Path),
 	}
 	return pending, nil
 }
