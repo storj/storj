@@ -161,13 +161,13 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 		}()
 		go func() {
 			err := metaLoop.Join(ctx, obs2)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "test error")
 			wg.Done()
 		}()
 		go func() {
 			err := metaLoop.Join(obs3Ctx, obs3)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
@@ -230,19 +230,19 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		// start loop with cancelable context
 		go func() {
 			err := metaLoop.Run(loopCtx)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
 		go func() {
 			err := metaLoop.Join(ctx, obs1)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
 		go func() {
 			err := metaLoop.Join(ctx, obs2)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Contains(t, err.Error(), "context canceled")
 			wg.Done()
 		}()
@@ -256,7 +256,7 @@ func TestMetainfoLoopCancel(t *testing.T) {
 
 		obs3 := newTestObserver(t, nil)
 		err := metaLoop.Join(ctx, obs3)
-		assert.Error(t, err)
+		require.Error(t, err)
 		assert.Contains(t, err.Error(), "loop closed")
 
 		// expect that obs1 and obs2 each saw one remote segment
