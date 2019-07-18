@@ -165,7 +165,13 @@ func (p *Project) OpenBucket(ctx context.Context, bucketName string, access *Enc
 			return nil, err
 		}
 
+		partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
 		// update the bucket metainfo table with corresponding partner info
+		bucketInfo.PartnerID = *partnerID
 		bucketInfo, err = p.updateBucket(ctx, bucketInfo)
 		if err != nil {
 			return nil, err
@@ -252,14 +258,9 @@ func (p *Project) checkBucketAttribution(ctx context.Context, bucketName string)
 func (p *Project) updateBucket(ctx context.Context, bucketInfo storj.Bucket) (bucket storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	partnerID, err := uuid.Parse(p.uplinkCfg.Volatile.PartnerID)
-	if err != nil {
-		return bucket, err
-	}
-
 	bucket = storj.Bucket{
 		Name:                        bucketInfo.Name,
-		PartnerID:                   *partnerID,
+		PartnerID:                   bucketInfo.PartnerID,
 		PathCipher:                  bucketInfo.PathCipher,
 		DefaultEncryptionParameters: bucketInfo.DefaultEncryptionParameters,
 		DefaultRedundancyScheme:     bucketInfo.DefaultRedundancyScheme,
