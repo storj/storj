@@ -1028,8 +1028,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						invitee_credit_duration_days = 14
 						WHERE type=2 AND status=1 AND id=1`,
 					`UPDATE offers SET
-						award_credit_duration_days = 14,
-						invitee_credit_duration_days = NULL
+						invitee_credit_duration_days = 14,
+						award_credit_duration_days = NULL,
+						award_credit_in_cents = 0,
+						invitee_credit_in_cents = 300
 						WHERE type=1 AND status=1 AND id=2;`,
 				},
 			},
