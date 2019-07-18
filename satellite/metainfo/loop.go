@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	// LoopError is a standard error class for this component
+	// LoopError is a standard error class for this component.
 	LoopError = errs.Class("metainfo loop error")
 )
 
-// Observer is an interface defining an observer that can subscribe to the metainfo loop
+// Observer is an interface defining an observer that can subscribe to the metainfo loop.
 type Observer interface {
 	RemoteSegment(context.Context, storj.Path, *pb.Pointer) error
 	RemoteObject(context.Context, storj.Path, *pb.Pointer) error
@@ -50,12 +50,12 @@ func (observer *observerContext) Wait() error {
 	return <-observer.done
 }
 
-// LoopConfig contains configurable values for the metainfo loop
+// LoopConfig contains configurable values for the metainfo loop.
 type LoopConfig struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
 }
 
-// Loop is a metainfo loop service
+// Loop is a metainfo loop service.
 type Loop struct {
 	config   LoopConfig
 	metainfo *Service
@@ -63,7 +63,7 @@ type Loop struct {
 	done     chan struct{}
 }
 
-// NewLoop creates a new metainfo loop service
+// NewLoop creates a new metainfo loop service.
 func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 	return &Loop{
 		metainfo: metainfo,
@@ -73,7 +73,7 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 	}
 }
 
-// Run starts the looping service
+// Run starts the looping service.
 func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -208,7 +208,7 @@ waitformore:
 		})
 }
 
-// Close halts the metainfo loop
+// Close halts the metainfo loop.
 func (loop *Loop) Close() error {
 	return nil
 }
