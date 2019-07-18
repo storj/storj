@@ -175,7 +175,9 @@ waitformore:
 
 				nextObservers := observers[:0]
 
+				fmt.Println(observers)
 				// send segment info to every observer
+
 				for _, observer := range observers {
 					remote := pointer.GetRemote()
 					if remote != nil {
@@ -211,14 +213,14 @@ waitformore:
 				// if context has been canceled, send the error to observers and exit. Otherwise, continue
 				select {
 				case <-ctx.Done():
-					fmt.Println("context is done")
+					fmt.Printf("context is done: %p\n", loop)
 					for _, observer := range observers {
 						observer.HandleError(ctx.Err())
 					}
 					observers = nil
 					return ctx.Err()
 				default:
-					fmt.Println("continuing iteration")
+					fmt.Printf("continuing iteration: %p\n", loop)
 				}
 			}
 			return nil

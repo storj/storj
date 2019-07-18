@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -151,8 +152,13 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 
 		// create observer that will cancel its own context from RemoteSegment
 		obs3Ctx, cancel := context.WithCancel(ctx)
+		var once int64
 		obs3 := newTestObserver(t, func() error {
-			cancel()
+			if atomic.AddInt64(&once, 1) == 0 {
+				cancel()
+			} else {
+				panic("multiple calls to observer after loop cancel")
+			}
 			return nil
 		})
 
@@ -223,11 +229,16 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		// create 1 normal observer
 		obs1 := newTestObserver(t, nil)
 
+		var once int64
 		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
 		obs2 := newTestObserver(t, func() error {
 			// cancel context during call to obs2.RemoteSegment inside loop
 			fmt.Println("WE ARE CANCELING THE Context")
-			cancel()
+			if atomic.AddInt64(&once, 1) == 0 {
+				cancel()
+			} else {
+				panic("multiple calls to observer after loop cancel")
+			}
 			return nil
 		})
 
