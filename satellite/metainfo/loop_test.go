@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
@@ -153,27 +156,30 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 			return nil
 		})
 
-		var wg sync.WaitGroup
-		wg.Add(3)
-		go func() {
-			err := metaLoop.Join(ctx, obs1)
-			assert.NoError(t, err)
-			wg.Done()
-		}()
-		go func() {
+		var group errgroup.Group
+		group.Go(func() error {
+			return metaLoop.Join(ctx, obs1)
+		})
+		group.Go(func() error {
 			err := metaLoop.Join(ctx, obs2)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "test error")
-			wg.Done()
-		}()
-		go func() {
+			if err == nil {
+				return errors.New("got no error")
+			}
+			if !strings.Contains(err.Error(), "test error") {
+				return errors.New("expected to find error")
+			}
+			return nil
+		})
+		group.Go(func() error {
 			err := metaLoop.Join(obs3Ctx, obs3)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "context canceled")
-			wg.Done()
-		}()
+			if !errs2.IsCanceled(err) {
+				return errors.New("expected canceled")
+			}
+			return nil
+		})
 
-		wg.Wait()
+		err := group.Wait()
+		require.NoError(t, err)
 
 		// expect that obs1 saw all three segments, but obs2 and obs3 only saw the first one
 		assert.EqualValues(t, 3, obs1.remoteSegCount)
