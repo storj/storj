@@ -1,3 +1,6 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 // APIKeyInfo describing api key model in the database
 export class ApiKey {
     public id: string;
