@@ -41,31 +41,35 @@ func TestIrreparable(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		{ // GetLimited limit 1, offset 0
-			segs, err := irrdb.GetLimited(ctx, 1, 0)
+		{ // GetLimited limit 1, starting from the beginning
+			lastSeenSegmentPath := []byte{}
+			segs, err := irrdb.GetLimited(ctx, 1, lastSeenSegmentPath)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(segs))
 			require.Empty(t, cmp.Diff(segments[0], segs[0], cmp.Comparer(pb.Equal)))
 		}
 
-		{ // GetLimited limit 1, offset 1
-			segs, err := irrdb.GetLimited(ctx, 1, 1)
+		{ // GetLimited limit 1, starting after the first item
+			lastSeenSegmentPath := []byte(strconv.Itoa(0))
+			segs, err := irrdb.GetLimited(ctx, 1, lastSeenSegmentPath)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(segs))
 			require.Empty(t, cmp.Diff(segments[1], segs[0], cmp.Comparer(pb.Equal)))
 
 		}
 
-		{ // GetLimited limit 2, offset 0
-			segs, err := irrdb.GetLimited(ctx, 2, 0)
+		{ // GetLimited limit 2, starting from the beginning
+			lastSeenSegmentPath := []byte{}
+			segs, err := irrdb.GetLimited(ctx, 2, lastSeenSegmentPath)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(segs))
 			require.Empty(t, cmp.Diff(segments[0], segs[0], cmp.Comparer(pb.Equal)))
 			require.Empty(t, cmp.Diff(segments[1], segs[1], cmp.Comparer(pb.Equal)))
 		}
 
-		{ // GetLimited limit 2, offset 1
-			segs, err := irrdb.GetLimited(ctx, 2, 1)
+		{ // GetLimited limit 2, starting after the first item
+			lastSeenSegmentPath := []byte(strconv.Itoa(0))
+			segs, err := irrdb.GetLimited(ctx, 2, lastSeenSegmentPath)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(segs))
 			require.Empty(t, cmp.Diff(segments[1], segs[0], cmp.Comparer(pb.Equal)))
@@ -73,8 +77,9 @@ func TestIrreparable(t *testing.T) {
 
 		}
 
-		{ // GetLimited limit 3, offset 1
-			segs, err := irrdb.GetLimited(ctx, 3, 1)
+		{ // GetLimited limit 3, starting after the first item
+			lastSeenSegmentPath := []byte(strconv.Itoa(0))
+			segs, err := irrdb.GetLimited(ctx, 3, lastSeenSegmentPath)
 			require.NoError(t, err)
 			require.Equal(t, 2, len(segs))
 			require.Empty(t, cmp.Diff(segments[1], segs[0], cmp.Comparer(pb.Equal)))
