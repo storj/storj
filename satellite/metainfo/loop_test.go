@@ -154,7 +154,7 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 		obs3Ctx, cancel := context.WithCancel(ctx)
 		var once int64
 		obs3 := newTestObserver(t, func() error {
-			if atomic.AddInt64(&once, 1) == 0 {
+			if atomic.AddInt64(&once, 1) == 1 {
 				cancel()
 			} else {
 				panic("multiple calls to observer after loop cancel")
@@ -234,7 +234,7 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		obs2 := newTestObserver(t, func() error {
 			// cancel context during call to obs2.RemoteSegment inside loop
 			fmt.Println("WE ARE CANCELING THE Context")
-			if atomic.AddInt64(&once, 1) == 0 {
+			if atomic.AddInt64(&once, 1) == 1 {
 				cancel()
 			} else {
 				panic("multiple calls to observer after loop cancel")
