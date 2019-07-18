@@ -5,6 +5,7 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
+	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/satellite/console"
 )
@@ -26,8 +27,8 @@ const (
 	FieldShortName = "shortName"
 	// FieldCreatedAt is a field name for created at timestamp
 	FieldCreatedAt = "createdAt"
-	// FieldPartnerID is a field name for partner ID
-	FieldPartnerID = "partnerID"
+	// FieldPartnerID is a field name for partnerID
+	FieldPartnerID = "partnerId"
 )
 
 // base graphql config for user
@@ -80,6 +81,9 @@ func graphqlUserInput() *graphql.InputObject {
 			FieldPassword: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
+			FieldPartnerID: &graphql.InputObjectFieldConfig{
+				Type: graphql.String,
+			},
 		},
 	})
 }
@@ -89,6 +93,7 @@ func fromMapUserInfo(args map[string]interface{}) (user console.UserInfo) {
 	user.Email, _ = args[FieldEmail].(string)
 	user.FullName, _ = args[FieldFullName].(string)
 	user.ShortName, _ = args[FieldShortName].(string)
+	user.PartnerID, _ = args[FieldPartnerID].(string)
 	return
 }
 
@@ -104,6 +109,9 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 		Email:     user.Email,
 		FullName:  user.FullName,
 		ShortName: user.ShortName,
+	}
+	if !user.PartnerID.IsZero() {
+		info.PartnerID = user.PartnerID.String()
 	}
 
 	for fieldName, fieldValue := range args {
@@ -122,6 +130,12 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 		case FieldShortName:
 			info.ShortName = value
 			user.ShortName = value
+		case FieldPartnerID:
+			info.PartnerID = value
+			partnerID, err := uuid.Parse(value)
+			if err == nil {
+				user.PartnerID = *partnerID
+			}
 		}
 	}
 

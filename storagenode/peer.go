@@ -216,8 +216,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup storage
-		trustAllSatellites := !config.Storage.SatelliteIDRestriction
-		peer.Storage2.Trust, err = trust.NewPool(peer.Kademlia.Service, trustAllSatellites, config.Storage.WhitelistedSatellites)
+		peer.Storage2.Trust, err = trust.NewPool(peer.Transport, config.Storage.WhitelistedSatellites)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -273,7 +272,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
 		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, interval, buffer)
 	}
 

@@ -8,7 +8,7 @@
         </div>
         <div v-if="!isEmpty" class="api-keys-container">
             <div class="api-keys-container__content">
-                <div v-for="apiKey in apiKeys" v-on:click="toggleSelection(apiKey.id)">
+                <div v-for="apiKey in apiKeyList" v-on:click="toggleSelection(apiKey.id)">
                     <ApiKeysItem
                         v-bind:class="[apiKey.isSelected ? 'selected': null]"
                         :apiKey="apiKey" />
@@ -23,7 +23,7 @@
             additional-text="<p>API keys give access to the project allowing you to create buckets, upload files, and read them. Once you’ve created an API key, you’re ready to interact with the network through our Uplink CLI.</p>"
             :imageSource="emptyImage"
             buttonLabel="Create an API Key"
-            isButtonShown />
+            isButtonShown="true" />
         <AddAPIKeyPopup v-if="isPopupShown"/>
     </div>
 </template>
@@ -37,48 +37,48 @@
     import AddAPIKeyPopup from '@/components/apiKeys/AddApiKeyPopup.vue';
     import Footer from '@/components/apiKeys/footerArea/Footer.vue';
     import { API_KEYS_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { ApiKey } from '../../types/apiKeys';
 
     @Component({
-        mounted: function() {
-            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
-        },
-        data: function () {
-            return {
-                emptyImage: EMPTY_STATE_IMAGES.API_KEY,
-            };
-        },
-        methods: {
-            toggleSelection: function(id: string): void {
-                this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
-            },
-            togglePopup: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
-            },
-        },
-        computed: {
-            apiKeys: function (): any {
-                return this.$store.state.apiKeysModule.apiKeys;
-            },
-            isEmpty: function (): boolean {
-                return this.$store.state.apiKeysModule.apiKeys.length === 0;
-            },
-            isSelected: function (): boolean {
-                return this.$store.getters.selectedAPIKeys.length > 0;
-            },
-            isPopupShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
-            }
-        },
         components: {
             EmptyState,
             HeaderArea,
             ApiKeysItem,
             AddAPIKeyPopup,
-            Footer
+            Footer,
         },
     })
+    export default class ApiKeysArea extends Vue {
+        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
-    export default class ApiKeysArea extends Vue {}
+        public mounted(): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.FETCH);
+        }
+
+        public toggleSelection(id: string): void {
+            this.$store.dispatch(API_KEYS_ACTIONS.TOGGLE_SELECTION, id);
+        }
+
+        public togglePopup(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_API_KEY);
+        }
+
+        public get apiKeyList(): ApiKey[] {
+            return this.$store.state.apiKeysModule.apiKeys;
+        }
+
+        public get isEmpty(): boolean {
+            return this.$store.state.apiKeysModule.apiKeys.length === 0;
+        }
+
+        public get isSelected(): boolean {
+            return this.$store.getters.selectedAPIKeys.length > 0;
+        }
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isNewAPIKeyPopupShown;
+        }
+    }
 </script>
 
 <style scoped lang="scss">
@@ -98,7 +98,7 @@
         max-height: 84vh;
         height: 84vh;
         position: relative;
- 
+
         &__content {
             display: grid;
             grid-template-columns: 190px 190px 190px 190px 190px 190px 190px;

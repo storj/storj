@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/currency"
 	"storj.io/storj/internal/post"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/pkg/auth"
@@ -26,7 +25,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/payments/localpayments"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -77,6 +75,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				FullName:  "John Roll",
 				ShortName: "Roll",
 				Email:     "test@mail.test",
+				PartnerID: "310bc643-684f-44b7-ac9f-3380373b45a1",
 			},
 			Password: "123a123",
 		}
@@ -86,6 +85,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
+		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
 		activationToken, err := service.GenerateActivationToken(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
@@ -107,6 +107,7 @@ func TestGrapqhlMutation(t *testing.T) {
 					FullName:  "Green Mickey",
 					ShortName: "Green",
 					Email:     "u1@mail.test",
+					PartnerID: "e1b3e8a6-b9a2-4fd0-bb87-3ae87828264c",
 				},
 				Password: "123a123",
 			}
@@ -114,25 +115,14 @@ func TestGrapqhlMutation(t *testing.T) {
 			regTokenTest, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
 
-			currentReward := rewards.OfferInfo{
-				ID:                        1,
-				InviteeCredit:             currency.Cents(10),
-				InviteeCreditDurationDays: 13,
-				RedeemableCap:             10,
-				ExpiresAt:                 time.Now().UTC(),
-			}
 			query := fmt.Sprintf(
-				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\"}, secret: \"%s\", currentReward: {id: %d, inviteeCreditInCents: %d, inviteeCreditDurationDays: %d, redeemableCap: %d, expiresAt: \"%s\"}){id,shortName,fullName,email,createdAt}}",
+				"mutation {createUser(input:{email:\"%s\",password:\"%s\", fullName:\"%s\", shortName:\"%s\", partnerId:\"%s\"}, secret: \"%s\"){id,shortName,fullName,email,partnerId,createdAt}}",
 				newUser.Email,
 				newUser.Password,
 				newUser.FullName,
 				newUser.ShortName,
+				newUser.PartnerID,
 				regTokenTest.Secret,
-				currentReward.ID,
-				currentReward.InviteeCredit.Cents(),
-				currentReward.InviteeCreditDurationDays,
-				currentReward.RedeemableCap,
-				currentReward.ExpiresAt,
 			)
 
 			result := graphql.Do(graphql.Params{
@@ -159,6 +149,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, newUser.FullName, user.FullName)
 			assert.Equal(t, newUser.ShortName, user.ShortName)
+			assert.Equal(t, newUser.PartnerID, user.PartnerID.String())
 		})
 
 		testQuery := func(t *testing.T, query string) interface{} {
@@ -447,7 +438,7 @@ func TestGrapqhlMutation(t *testing.T) {
 		t.Run("Create api key mutation", func(t *testing.T) {
 			keyName := "key1"
 			query := fmt.Sprintf(
-				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID}}}",
+				"mutation {createAPIKey(projectID:\"%s\",name:\"%s\"){key,keyInfo{id,name,projectID,partnerId}}}",
 				project.ID.String(),
 				keyName,
 			)
@@ -464,6 +455,7 @@ func TestGrapqhlMutation(t *testing.T) {
 
 			assert.Equal(t, keyName, keyInfo[consoleql.FieldName])
 			assert.Equal(t, project.ID.String(), keyInfo[consoleql.FieldProjectID])
+			assert.Equal(t, rootUser.PartnerID.String(), keyInfo[consoleql.FieldPartnerID])
 
 			keyID = keyInfo[consoleql.FieldID].(string)
 		})
