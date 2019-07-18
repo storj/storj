@@ -26,7 +26,6 @@
             AccountButton,
         },
     })
-
     export default class DashboardHeader extends Vue {}
 </script>
 

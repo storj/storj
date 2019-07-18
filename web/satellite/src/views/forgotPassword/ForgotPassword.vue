@@ -13,60 +13,57 @@
     import { validateEmail } from '@/utils/validation';
     import EVENTS from '@/utils/constants/analyticsEventNames';
 
-    @Component(
-        {
-            data: function () {
-                return {
-                    loadingClassName: LOADING_CLASSES.LOADING_OVERLAY,
-                    email: '',
-                    emailError: '',
-                };
-            },
-            components: {
-                HeaderlessInput,
-            },
-            methods: {
-                setEmail: function (value: string): void {
-                    this.$data.email = value;
-                    this.$data.emailError = '';
-                },
-                onSendConfigurations: async function (): Promise<any> {
-                    let self = this as any;
-
-                    if (!self.validateFields()) {
-                        return;
-                    }
-
-                    let passwordRecoveryResponse = await forgotPasswordRequest(this.$data.email);
-                    if (!passwordRecoveryResponse.isSuccess) {
-                        this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, passwordRecoveryResponse.errorMessage);
-
-                        return;
-                    }
-
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
-                },
-                onBackToLoginClick: function() {
-                    this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
-                    this.$router.push(ROUTES.LOGIN.path);
-                },
-                onLogoClick: function () {
-                    this.$segment.track(EVENTS.CLICKED_LOGO);
-                    location.reload();
-                },
-                validateFields: function (): boolean {
-                    const isEmailValid = validateEmail(this.$data.email.trim());
-
-                    if (!isEmailValid) {
-                        this.$data.emailError = 'Invalid Email';
-                    }
-
-                    return isEmailValid;
-                }
-            },
-        })
-
+    @Component({
+        components: {
+            HeaderlessInput,
+        },
+    })
     export default class ForgotPassword extends Vue {
+        public loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
+        private email: string = '';
+        private emailError: string = '';
+
+        public setEmail(value: string): void {
+            this.email = value;
+            this.emailError = '';
+        }
+
+        public async onSendConfigurations(): Promise<void> {
+            let self = this;
+
+            if (!self.validateFields()) {
+                return;
+            }
+
+            let passwordRecoveryResponse = await forgotPasswordRequest(this.email);
+            if (!passwordRecoveryResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, passwordRecoveryResponse.errorMessage);
+
+                return;
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
+        }
+
+        public onBackToLoginClick(): void {
+            this.$segment.track(EVENTS.CLICKED_BACK_TO_LOGIN);
+            this.$router.push(ROUTES.LOGIN.path);
+        }
+
+        public onLogoClick(): void {
+            this.$segment.track(EVENTS.CLICKED_LOGO);
+            location.reload();
+        }
+
+        private validateFields(): boolean {
+            const isEmailValid = validateEmail(this.email.trim());
+
+            if (!isEmailValid) {
+                this.emailError = 'Invalid Email';
+            }
+
+            return isEmailValid;
+        }
     }
 </script>
 

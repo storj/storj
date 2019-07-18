@@ -18,16 +18,12 @@
     import { Component, Vue } from 'vue-property-decorator';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-    @Component({
-        data: function() {
-            return {
-                arrowLeft: EMPTY_STATE_IMAGES.ARROW_LEFT,
-                arrowRight: EMPTY_STATE_IMAGES.ARROW_RIGHT,
-            };
-        },
-    })
-
-    export default class PaginationArea extends Vue {}
+    @Component
+    export default class PaginationArea extends Vue {
+        // TODO: use svg loader in future
+        public arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
+        public arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
+    }
 </script>
 
 <style scoped lang="scss">

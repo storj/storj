@@ -3,13 +3,11 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { ApiKey } from '@/types/apiKeys';
+import { RequestResponse } from '@/types/response';
 
-export async function fetchAPIKeys(projectID: string) {
-    let result: RequestResponse<any[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: []
-    };
+export async function fetchAPIKeys(projectID: string): Promise<RequestResponse<ApiKey[]>> {
+    let result: RequestResponse<ApiKey[]> = new RequestResponse<ApiKey[]>();
 
     let response: any = await apollo.query({
         query: gql(
@@ -33,18 +31,14 @@ export async function fetchAPIKeys(projectID: string) {
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = response.data.project.apiKeys;
+        result.data = getApiKeysList(response.data.project.apiKeys);
     }
 
     return result;
 }
 
-export async function createAPIKey(projectID: string, name: string) {
-    let result: RequestResponse<any> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+export async function createAPIKey(projectID: string, name: string): Promise<RequestResponse<ApiKey>> {
+    let result: RequestResponse<ApiKey> = new RequestResponse<ApiKey>();
 
     let response: any = await apollo.mutate({
         mutation: gql(
@@ -70,21 +64,18 @@ export async function createAPIKey(projectID: string, name: string) {
         result.errorMessage = response.errors[0].message;
     } else {
         result.isSuccess = true;
-        result.data = {
-            key: response.data.createAPIKey.key,
-            keyInfo: response.data.createAPIKey.keyInfo
-        };
+        let key: any = response.data.createAPIKey.keyInfo;
+        let secret: string = response.data.createAPIKey.key;
+
+        result.data = new ApiKey(key.id, key.name, key.createdAt, secret);
     }
 
     return result;
 }
 
-export async function deleteAPIKeys(ids: string[]) {
-    let result: RequestResponse<any> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+export async function deleteAPIKeys(ids: string[]): Promise<RequestResponse<null>> {
+    // TODO: find needed type instead of any
+    let result: RequestResponse<any> = new RequestResponse<any>();
 
     let response: any = await apollo.mutate({
         mutation: gql(
@@ -116,4 +107,12 @@ function prepareIdList(ids: string[]): string {
     });
 
     return idString;
+}
+
+function getApiKeysList(apiKeys: ApiKey[]): ApiKey[] {
+    if (!apiKeys) {
+        return [];
+    }
+
+    return apiKeys.map(key => new ApiKey(key.id, key.name, key.createdAt, ''));
 }
