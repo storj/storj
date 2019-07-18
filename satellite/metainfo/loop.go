@@ -74,13 +74,13 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 }
 
 // Run starts the looping service
-func (service *Loop) Run(ctx context.Context) (err error) {
+func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	defer close(service.done)
+	defer close(loop.done)
 
 	for {
-		err := service.runOnce(ctx)
+		err := loop.runOnce(ctx)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func (service *Loop) Run(ctx context.Context) (err error) {
 // Join will join the looper for one full cycle until completion and then returns.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
-func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
+func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obsContext := &observerContext{
@@ -100,9 +100,9 @@ func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	}
 
 	select {
-	case <-service.done:
+	case <-loop.done:
 		return context.Canceled
-	case service.join <- obsContext:
+	case loop.join <- obsContext:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -110,7 +110,7 @@ func (service *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	return obsContext.Wait()
 }
 
-func (service *Loop) runOnce(ctx context.Context) (err error) {
+func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
@@ -122,17 +122,17 @@ func (service *Loop) runOnce(ctx context.Context) (err error) {
 	}()
 
 	select {
-	case observer := <-service.join:
+	case observer := <-loop.join:
 		observers = append(observers, observer)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 
-	timer := time.NewTimer(service.config.CoalesceDuration)
+	timer := time.NewTimer(loop.config.CoalesceDuration)
 waitformore:
 	for {
 		select {
-		case observer := <-service.join:
+		case observer := <-loop.join:
 			observers = append(observers, observer)
 		case <-timer.C:
 			break waitformore
@@ -141,7 +141,7 @@ waitformore:
 		}
 	}
 
-	return service.metainfo.Iterate(ctx, "", "", true, false,
+	return loop.metainfo.Iterate(ctx, "", "", true, false,
 		func(ctx context.Context, it storage.Iterator) error {
 			var item storage.ListItem
 
@@ -209,6 +209,6 @@ waitformore:
 }
 
 // Close halts the metainfo loop
-func (service *Loop) Close() error {
+func (loop *Loop) Close() error {
 	return nil
 }
