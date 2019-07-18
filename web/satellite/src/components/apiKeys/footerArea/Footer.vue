@@ -21,6 +21,5 @@
             ApproveDeleteApiKeysArea,
         }
     })
-
     export default class APIFooter extends Vue {}
 </script>
