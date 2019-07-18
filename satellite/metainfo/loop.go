@@ -36,7 +36,7 @@ type observerContext struct {
 func (observer *observerContext) HandleError(err error) bool {
 	if err != nil {
 		observer.done <- err
-		close(observer.done)
+		observer.Finish()
 		return true
 	}
 	return false

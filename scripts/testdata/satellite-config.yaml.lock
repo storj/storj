@@ -172,6 +172,9 @@ kademlia.operator.wallet: ""
 # the database connection string to use
 # metainfo.database-url: "postgres://"
 
+# how long to wait for new observers before starting iteration
+# metainfo.loop.coalesce-duration: 5s
+
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 8.0 KB
 
@@ -204,12 +207,6 @@ kademlia.operator.wallet: ""
 
 # validate redundancy scheme configuration
 # metainfo.rs.validate: true
-
-# how long to wait for new observers before starting iteration
-# metainfoloop.coalesce-duration: 5s
-
-# how long to wait between metainfo iterations
-# metainfoloop.interval: 30s
 
 # address to send telemetry to
 # metrics.addr: "collectora.storj.io:9000"
