@@ -62,10 +62,8 @@ type Loop struct {
 	config   LoopConfig
 	metainfo *Service
 	join     chan *observerContext
-	// "done" is closed when loop.Run completely exits
-	done chan struct{}
-	// "close" is closed when loop.Close() is called
-	close chan struct{}
+	done     chan struct{}
+	cancel   func()
 }
 
 // NewLoop creates a new metainfo loop service.
@@ -75,7 +73,6 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 		config:   config,
 		join:     make(chan *observerContext),
 		done:     make(chan struct{}),
-		close:    make(chan struct{}),
 	}
 }
 
@@ -95,7 +92,7 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	case loop.join <- obsContext:
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-loop.close:
+	case <-loop.done:
 		return LoopClosedError
 	}
 
@@ -106,6 +103,8 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	ctx, cancel := context.WithCancel(ctx)
+	loop.cancel = cancel
 	defer close(loop.done)
 
 	for {
@@ -134,8 +133,6 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 		observers = append(observers, observer)
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-loop.close:
-		return LoopClosedError
 	}
 
 	// after the first observer is found, set timer for CoalesceDuration and add any observers that try to join before the timer is up
@@ -153,12 +150,6 @@ waitformore:
 			}
 			observers = nil
 			return ctx.Err()
-		case <-loop.close:
-			for _, observer := range observers {
-				observer.HandleError(LoopClosedError)
-			}
-			observers = nil
-			return LoopClosedError
 		}
 	}
 
@@ -224,12 +215,6 @@ waitformore:
 					}
 					observers = nil
 					return ctx.Err()
-				case <-loop.close:
-					for _, observer := range observers {
-						observer.HandleError(LoopClosedError)
-					}
-					observers = nil
-					return LoopClosedError
 				default:
 				}
 			}
@@ -247,6 +232,7 @@ waitformore:
 
 // Close halts the metainfo loop.
 func (loop *Loop) Close() error {
-	close(loop.close)
+	loop.cancel()
+	<-loop.done
 	return nil
 }
