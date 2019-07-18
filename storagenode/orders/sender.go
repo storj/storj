@@ -14,7 +14,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -81,7 +80,6 @@ type Sender struct {
 	config SenderConfig
 
 	transport transport.Client
-	kademlia  *kademlia.Kademlia
 	orders    DB
 	trust     *trust.Pool
 
@@ -89,11 +87,10 @@ type Sender struct {
 }
 
 // NewSender creates an order sender.
-func NewSender(log *zap.Logger, transport transport.Client, kademlia *kademlia.Kademlia, orders DB, trust *trust.Pool, config SenderConfig) *Sender {
+func NewSender(log *zap.Logger, transport transport.Client, orders DB, trust *trust.Pool, config SenderConfig) *Sender {
 	return &Sender{
 		log:       log,
 		transport: transport,
-		kademlia:  kademlia,
 		orders:    orders,
 		config:    config,
 		trust:     trust,
