@@ -66,6 +66,7 @@ read one (
 
 read limitoffset (
 	select irreparabledb
+	where irreparabledb.segmentpath > ?
 	orderby asc irreparabledb.segmentpath
 )
 

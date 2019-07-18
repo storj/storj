@@ -6272,14 +6272,15 @@ func (obj *postgresImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+func (obj *postgresImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
 	rows []*Irreparabledb, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values)
+	__values = append(__values, irreparabledb_segmentpath_greater.value())
 
 	__values = append(__values, limit, offset)
 
@@ -10014,14 +10015,15 @@ func (obj *sqlite3Impl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+func (obj *sqlite3Impl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
 	rows []*Irreparabledb, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT irreparabledbs.segmentpath, irreparabledbs.segmentdetail, irreparabledbs.pieces_lost_count, irreparabledbs.seg_damaged_unix_sec, irreparabledbs.repair_attempt_count FROM irreparabledbs WHERE irreparabledbs.segmentpath > ? ORDER BY irreparabledbs.segmentpath LIMIT ? OFFSET ?")
 
 	var __values []interface{}
-	__values = append(__values)
+	__values = append(__values, irreparabledb_segmentpath_greater.value())
 
 	__values = append(__values, limit, offset)
 
@@ -14519,14 +14521,15 @@ func (rx *Rx) Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_Roll
 	return tx.Limited_BucketUsage_By_BucketId_And_RollupEndTime_Greater_And_RollupEndTime_LessOrEqual_OrderBy_Desc_RollupEndTime(ctx, bucket_usage_bucket_id, bucket_usage_rollup_end_time_greater, bucket_usage_rollup_end_time_less_or_equal, limit, offset)
 }
 
-func (rx *Rx) Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+func (rx *Rx) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
+	irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 	limit int, offset int64) (
 	rows []*Irreparabledb, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx, limit, offset)
+	return tx.Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx, irreparabledb_segmentpath_greater, limit, offset)
 }
 
 func (rx *Rx) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context.Context,
@@ -15183,7 +15186,8 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*BucketUsage, err error)
 
-	Limited_Irreparabledb_OrderBy_Asc_Segmentpath(ctx context.Context,
+	Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Segmentpath(ctx context.Context,
+		irreparabledb_segmentpath_greater Irreparabledb_Segmentpath_Field,
 		limit int, offset int64) (
 		rows []*Irreparabledb, err error)
 
