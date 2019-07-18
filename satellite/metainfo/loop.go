@@ -73,20 +73,6 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 	}
 }
 
-// Run starts the looping service.
-func (loop *Loop) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	defer close(loop.done)
-
-	for {
-		err := loop.runOnce(ctx)
-		if err != nil {
-			return err
-		}
-	}
-}
-
 // Join will join the looper for one full cycle until completion and then returns.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
@@ -110,6 +96,21 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	return obsContext.Wait()
 }
 
+// Run starts the looping service.
+func (loop *Loop) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	defer close(loop.done)
+
+	for {
+		err := loop.runOnce(ctx)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+// runOnce goes through metainfo one time and sends information to observers
 func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -121,6 +122,7 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 		}
 	}()
 
+	// wait for the first observer, or exit because context is canceled
 	select {
 	case observer := <-loop.join:
 		observers = append(observers, observer)
@@ -128,6 +130,7 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 		return ctx.Err()
 	}
 
+	// after the first observer is found, set timer for CoalesceDuration and add any observers that try to join before the timer is up
 	timer := time.NewTimer(loop.config.CoalesceDuration)
 waitformore:
 	for {
@@ -137,6 +140,10 @@ waitformore:
 		case <-timer.C:
 			break waitformore
 		case <-ctx.Done():
+			for _, observer := range observers {
+				observer.HandleError(ctx.Err())
+			}
+			observers = nil
 			return ctx.Err()
 		}
 	}
@@ -186,6 +193,7 @@ waitformore:
 					default:
 					}
 
+					// for the next segment, only iterate over observers that did not have an error or canceled context
 					nextObservers = append(nextObservers, observer)
 				}
 
@@ -194,6 +202,7 @@ waitformore:
 					return nil
 				}
 
+				// if context has been canceled, send the error to observers and exit. Otherwise, continue
 				select {
 				case <-ctx.Done():
 					for _, observer := range observers {
@@ -210,5 +219,6 @@ waitformore:
 
 // Close halts the metainfo loop.
 func (loop *Loop) Close() error {
+	// TODO not implemented yet
 	return nil
 }
