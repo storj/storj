@@ -4,19 +4,12 @@
 package consoleql
 
 import (
-	"time"
-
 	"github.com/graphql-go/graphql"
-
-	"storj.io/storj/internal/currency"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
 	// RewardType is a graphql type for reward
 	RewardType = "reward"
-	// RedeemRewardType is a graphql type for reward used for redemption of credits
-	RedeemRewardType = "redeemReward"
 	// FieldAwardCreditInCent is a field name for award credit amount for referrers
 	FieldAwardCreditInCent = "awardCreditInCent"
 	// FieldInviteeCreditInCents is a field name for credit amount rewarded to invitees
@@ -64,70 +57,6 @@ func graphqlReward() *graphql.Object {
 				Type: graphql.Int,
 			},
 			FieldExpiresAt: &graphql.Field{
-				Type: graphql.String,
-			},
-		},
-	})
-}
-
-func fromMapRewardInfo(args map[string]interface{}) (reward rewards.OfferInfo, err error) {
-	reward.ID = args[FieldID].(int)
-	if args[FieldInviteeCreditInCents] != nil {
-		reward.InviteeCredit = currency.Cents(args[FieldInviteeCreditInCents].(int))
-	}
-	if args[FieldInviteeCreditDurationDays] != nil {
-		reward.InviteeCreditDurationDays = args[FieldInviteeCreditDurationDays].(int)
-	}
-	if args[FieldAwardCreditInCent] != nil {
-		reward.AwardCredit = currency.Cents(args[FieldAwardCreditInCent].(int))
-	}
-	if args[FieldAwardCreditDurationDays] != nil {
-		reward.AwardCreditDurationDays = args[FieldAwardCreditDurationDays].(int)
-	}
-	reward.RedeemableCap = args[FieldRedeemableCap].(int)
-	if args[FieldType] != nil {
-		reward.Type = args[FieldType].(rewards.OfferType)
-	}
-	if args[FieldStatus] != nil {
-		reward.Status = args[FieldStatus].(rewards.OfferStatus)
-	}
-	expiresAt, err := time.Parse("2006-01-02 15:04:05 -0700 UTC", args[FieldExpiresAt].(string))
-	if err != nil {
-		return reward, err
-	}
-	reward.ExpiresAt = expiresAt
-	return
-}
-
-func graphqlRedeemReward() *graphql.InputObject {
-	return graphql.NewInputObject(graphql.InputObjectConfig{
-		Name: RedeemRewardType,
-		Fields: graphql.InputObjectConfigFieldMap{
-			FieldID: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldAwardCreditInCent: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldInviteeCreditInCents: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldRedeemableCap: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldAwardCreditDurationDays: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldInviteeCreditDurationDays: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldType: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldStatus: &graphql.InputObjectFieldConfig{
-				Type: graphql.Int,
-			},
-			FieldExpiresAt: &graphql.InputObjectFieldConfig{
 				Type: graphql.String,
 			},
 		},

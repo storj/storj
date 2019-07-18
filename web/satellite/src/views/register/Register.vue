@@ -97,7 +97,7 @@ import { setUserId } from '@/utils/consoleLocalStorage';
                 let referrerId = this.$data.referrerId;
                 let currentReward = this.$store.state.currentReward;
 
-                let response = await createUserRequest(user, this.$data.password, this.$data.secret, referrerId, currentReward);
+                let response = await createUserRequest(user, this.$data.password, this.$data.secret);
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                     this.$data.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;

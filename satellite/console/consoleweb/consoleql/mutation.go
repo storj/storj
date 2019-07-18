@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -55,16 +54,12 @@ const (
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
-	// CurrentReward is a field name for current reward offer
-	CurrentReward = "currentReward"
 	// FieldProjectID is field name for projectID
 	FieldProjectID = "projectID"
 	// FieldNewPassword is a field name for new password
 	FieldNewPassword = "newPassword"
 	// Secret is a field name for registration token for user creation during Vanguard release
 	Secret = "secret"
-	// ReferrerID is a field name for referrer user ID
-	ReferrerID = "referrerID"
 )
 
 // rootMutation creates mutation for graphql populated by AccountsClient
@@ -81,13 +76,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					Secret: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					CurrentReward: &graphql.ArgumentConfig{
-						Type: types.rewardInput,
-					},
 					FieldPartnerID: &graphql.ArgumentConfig{
-						Type: graphql.String,
-					},
-					ReferrerID: &graphql.ArgumentConfig{
 						Type: graphql.String,
 					},
 				},
@@ -97,27 +86,11 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					secretInput, _ := p.Args[Secret].(string)
 
 					var (
-						partnerInput  string
-						referrerInput string
-						reward        rewards.OfferInfo
-						referredBy    *uuid.UUID
+						partnerInput string
+						referredBy   *uuid.UUID
 					)
 					if p.Args[FieldPartnerID] != nil {
 						partnerInput = p.Args[FieldPartnerID].(string)
-					}
-					if p.Args[ReferrerID] != nil {
-						referrerInput = p.Args[ReferrerID].(string)
-					}
-					if p.Args[CurrentReward] != nil {
-						var err error
-						rewardInput := p.Args[CurrentReward].(map[string]interface{})
-						reward, err = fromMapRewardInfo(rewardInput)
-						if err != nil {
-							log.Error("register: failed to parse current reward",
-								zap.Error(err))
-
-							return nil, err
-						}
 					}
 
 					createUser := fromMapCreateUser(input)
@@ -131,7 +104,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					if len(partnerInput) > 1 {
+					if partnerInput != "" {
 						referredBy, err = uuid.Parse(partnerInput)
 						if err != nil {
 							return nil, err
@@ -146,17 +119,6 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							zap.Error(err))
 
 						return nil, err
-					}
-
-					if len(referrerInput) > 1 {
-						referredBy, err = uuid.Parse(referrerInput)
-						if err != nil {
-							log.Error("register: failed to parse referrer ID",
-								zap.String("rawReferralID", referrerInput),
-								zap.Error(err))
-
-							return nil, err
-						}
 					}
 
 					// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration

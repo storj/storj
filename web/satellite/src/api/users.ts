@@ -111,7 +111,7 @@ export async function forgotPasswordRequest(email: string): Promise<RequestRespo
 }
 
 // Performs Create user graqhQL request.
-export async function createUserRequest(user: User, password: string, secret: string, referrerId: string, reward: Reward): Promise<RequestResponse<string>> {
+export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<string>> {
     let result: RequestResponse<string> = {
         errorMessage: '',
         isSuccess: false,
@@ -128,17 +128,9 @@ export async function createUserRequest(user: User, password: string, secret: st
                         password: "${password}",
                         fullName: "${user.fullName}",
                         shortName: "${user.shortName}",
+                        partnerID: "${user.partnerId}",
                     },
-                    secret: "${secret}",
-                    currentReward: {
-                        id: ${reward.id},
-                        inviteeCreditInCents: ${reward.inviteeCreditInCents},
-                        inviteeCreditDurationDays: ${reward.inviteeCreditDurationDays},
-                        redeemableCap: ${reward.redeemableCap},
-                        expiresAt: "${reward.expiresAt}",
-                    },
-                    partnerID: "${user.partnerId}",
-                    referrerID: "${referrerId}",
+                    secret: "${secret}",,
                 ){email, id}
             }`
             ),
