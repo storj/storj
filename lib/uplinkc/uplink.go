@@ -6,7 +6,11 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 
-import "storj.io/storj/lib/uplink"
+import (
+	"fmt"
+
+	"storj.io/storj/lib/uplink"
+)
 
 // Uplink is a scoped uplink.Uplink.
 type Uplink struct {
@@ -27,7 +31,7 @@ func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.UplinkRef {
 
 	lib, err := uplink.NewUplink(scope.ctx, libcfg)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.UplinkRef{}
 	}
 
@@ -46,7 +50,7 @@ func close_uplink(uplinkHandle C.UplinkRef, cerr **C.char) {
 	defer uplink.cancel()
 
 	if err := uplink.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }

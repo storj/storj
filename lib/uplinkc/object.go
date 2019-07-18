@@ -7,6 +7,7 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"io"
 	"time"
 	"unsafe"
@@ -34,7 +35,7 @@ func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.
 
 	object, err := bucket.OpenObject(scope.ctx, C.GoString(objectPath))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.ObjectRef{}
 	}
 
@@ -54,7 +55,7 @@ func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 	defer object.cancel()
 
 	if err := object.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }
@@ -117,7 +118,7 @@ func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.
 
 	writeCloser, err := bucket.NewWriter(scope.ctx, C.GoString(path), opts)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return C.UploaderRef{}
 	}
 
@@ -145,7 +146,7 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 
 	n, err := upload.wc.Write(buf)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 	}
 	return C.size_t(n)
 }
@@ -163,7 +164,7 @@ func upload_commit(uploader C.UploaderRef, cErr **C.char) {
 
 	err := upload.wc.Close()
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }
@@ -204,7 +205,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 
 	objectList, err := bucket.ListObjects(scope.ctx, opts)
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return cObjList
 	}
 	objListLen := len(objectList.Items)
@@ -251,7 +252,7 @@ func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRe
 
 	rc, err := bucket.NewReader(scope.ctx, C.GoString(path))
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return C.DownloaderRef{}
 	}
 
@@ -273,7 +274,7 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 
 	n, err := download.rc.Read(buf)
 	if err != nil && err != io.EOF {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 	}
 	return C.size_t(n)
 }
@@ -290,7 +291,7 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 
 	err := download.rc.Close()
 	if err != nil {
-		*cErr = C.CString(err.Error())
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }

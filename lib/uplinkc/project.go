@@ -6,6 +6,8 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
+	"fmt"
+
 	libuplink "storj.io/storj/lib/uplink"
 )
 
@@ -34,7 +36,7 @@ func open_project(uplinkHandle C.UplinkRef, satelliteAddr *C.char, apikeyHandle 
 
 	project, err := uplink.OpenProject(scope.ctx, C.GoString(satelliteAddr), apikey)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.ProjectRef{}
 	}
 
@@ -53,7 +55,7 @@ func close_project(projectHandle C.ProjectRef, cerr **C.char) {
 	defer project.cancel()
 
 	if err := project.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }

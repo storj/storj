@@ -7,6 +7,7 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"unsafe"
 
 	"storj.io/storj/lib/uplink"
@@ -49,7 +50,7 @@ func create_bucket(projectHandle C.ProjectRef, name *C.char, bucketConfig *C.Buc
 
 	bucket, err := project.CreateBucket(project.scope.ctx, C.GoString(name), config)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketInfo{}
 	}
 
@@ -67,7 +68,7 @@ func get_bucket_info(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.ch
 
 	bucket, _, err := project.GetBucketInfo(project.scope.ctx, C.GoString(bucketName))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketInfo{}
 	}
 
@@ -85,7 +86,7 @@ func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess *C.c
 
 	access, err := uplink.ParseEncryptionAccess(C.GoString(encryptionAccess))
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketRef{}
 	}
 
@@ -93,7 +94,7 @@ func open_bucket(projectHandle C.ProjectRef, name *C.char, encryptionAccess *C.c
 
 	bucket, err := project.OpenBucket(scope.ctx, C.GoString(name), access)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketRef{}
 	}
 
@@ -120,7 +121,7 @@ func list_buckets(projectHandle C.ProjectRef, bucketListOptions *C.BucketListOpt
 
 	bucketList, err := project.ListBuckets(project.scope.ctx, opts)
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.BucketList{}
 	}
 
@@ -152,7 +153,7 @@ func delete_bucket(projectHandle C.ProjectRef, bucketName *C.char, cerr **C.char
 	}
 
 	if err := project.DeleteBucket(project.scope.ctx, C.GoString(bucketName)); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }
@@ -170,7 +171,7 @@ func close_bucket(bucketHandle C.BucketRef, cerr **C.char) {
 	defer bucket.cancel()
 
 	if err := bucket.Close(); err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
 }

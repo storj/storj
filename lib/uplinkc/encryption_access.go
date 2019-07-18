@@ -6,6 +6,7 @@ package main
 // #include "uplink_definitions.h"
 import "C"
 import (
+	"fmt"
 	"unsafe"
 
 	"storj.io/storj/lib/uplink"
@@ -57,7 +58,7 @@ func serialize_encryption_access(encAccessRef C.EncryptionAccessRef, cerr **C.ch
 
 	encAccessStr, err := encAccess.Serialize()
 	if err != nil {
-		*cerr = C.CString(err.Error())
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
 		return C.CString("")
 	}
 
