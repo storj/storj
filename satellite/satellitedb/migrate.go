@@ -975,9 +975,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						name,
 						description,
 						award_credit_in_cents,
-						award_credit_duration_days,
 						invitee_credit_in_cents,
-						invitee_credit_duration_days,
 						expires_at,
 						created_at,
 						status,
@@ -986,9 +984,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						'Default referral offer',
 						'Is active when no other active referral offer',
 						300,
-						365,
 						600,
-						14,
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',
 						1,
@@ -997,10 +993,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					(
 						'Default free credit offer',
 						'Is active when no active free credit offer',
-						0,
-						0,
 						300,
-						14,
+						0,
 						'2119-03-14 08:28:24.636949+00',
 						'2019-07-14 08:28:24.636949+00',
 						1,
@@ -1023,6 +1017,20 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN partner_id BYTEA`,
 					`ALTER TABLE api_keys ADD COLUMN partner_id BYTEA`,
 					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
+				},
+			},
+			{
+				Description: "Modify default offers configuration",
+				Version:     46,
+				Action: migrate.SQL{
+					`UPDATE offers SET
+						award_credit_duration_days = 365,
+						invitee_credit_duration_days = 14
+						WHERE type=2 AND status=1 AND id=1`,
+					`UPDATE offers SET
+						award_credit_duration_days = 14,
+						invitee_credit_duration_days = NULL
+						WHERE type=1 AND status=1 AND id=2;`,
 				},
 			},
 		},
