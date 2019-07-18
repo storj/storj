@@ -105,6 +105,10 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
+					if createUser.PartnerID != "" {
+						offerType = rewards.Partner
+					}
+
 					//TODO: Create a current offer cache to replace database call
 					currentReward, err := service.GetCurrentRewardByType(p.Context, offerType)
 					if err != nil {
