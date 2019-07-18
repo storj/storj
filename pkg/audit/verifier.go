@@ -518,9 +518,13 @@ func (verifier *Verifier) RemoveFailedPieces(ctx context.Context, path string, p
 	newRemotePieces := remoteSegment.RemotePieces[:0]
 	for _, piece := range remoteSegment.RemotePieces {
 		for _, failedNode := range failedNodes {
+			isFailed := false
 			if piece.NodeId == failedNode {
-				newRemotePieces = append(newRemotePieces, piece)
+				isFailed = true
 				break
+			}
+			if !isFailed {
+				newRemotePieces = append(newRemotePieces, piece)
 			}
 		}
 	}
