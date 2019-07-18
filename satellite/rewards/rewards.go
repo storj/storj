@@ -155,3 +155,14 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
 	return offerSet
 }
+
+func (o Offer) CreditDurationOnRegister() int {
+	switch o.Type {
+	case Referral:
+		return o.InviteeCreditDurationDays
+	case FreeCredit:
+		return o.AwardCreditDurationDays
+	default:
+		return 0
+	}
+}

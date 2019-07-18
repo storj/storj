@@ -133,7 +133,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 							OfferID:       currentReward.ID,
 							ReferredBy:    referredBy,
 							CreditsEarned: currency.Cents(0),
-							ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
+							ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.CreditDurationOnRegister()),
 						}
 
 						err = service.CreateCredit(p.Context, newCredit)
