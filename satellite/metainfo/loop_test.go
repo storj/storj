@@ -271,118 +271,34 @@ func TestMetainfoLoopCancel(t *testing.T) {
 	})
 }
 
-// TestMetainfoLoopClose does the following:
-// * upload 3 remote segments
-// * hook two observers up to metainfo loop
-// * close loop partway through
-// * expect both observers to exit with an error and see fewer than 3 remote segments
-// * expect that a new observer attempting to join at this point receives a loop closed error
-func TestMetainfoLoopClose(t *testing.T) {
-	segmentSize := 8 * memory.KiB
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 4,
-		UplinkCount:      1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		ul := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
-
-		// upload 3 remote files with 1 segment
-		for i := 0; i < 3; i++ {
-			testData := testrand.Bytes(segmentSize)
-			path := "/some/remote/path/" + string(i)
-			err := ul.Upload(ctx, satellite, "bucket", path, testData)
-			require.NoError(t, err)
-		}
-
-		// create a new metainfo loop
-		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
-			CoalesceDuration: 1 * time.Second,
-		}, satellite.Metainfo.Service)
-		// create a channel that allows us to sync closing the loop with loop iteration
-		loopSync := make(chan struct{})
-
-		// create 1 normal observer
-		obs1 := newTestObserver(t, nil)
-
-		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
-		obs2 := newTestObserver(t, func() error {
-			<-loopSync
-			return nil
-		})
-
-		var wg sync.WaitGroup
-		wg.Add(3)
-
-		// start loop
-		go func() {
-			err := metaLoop.Run(ctx)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "loop closed")
-			wg.Done()
-		}()
-		go func() {
-			err := metaLoop.Join(ctx, obs1)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "loop closed")
-			wg.Done()
-		}()
-		go func() {
-			err := metaLoop.Join(ctx, obs2)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "loop closed")
-			wg.Done()
-		}()
-
-		// iterate over first segment, then close loop
-		loopSync <- struct{}{}
-		err := metaLoop.Close()
-		assert.NoError(t, err)
-		close(loopSync)
-
-		wg.Wait()
-
-		obs3 := newTestObserver(t, nil)
-		err = metaLoop.Join(ctx, obs3)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "loop closed")
-
-		// expect that obs1 and obs2 each saw fewer than three remote segments
-		assert.True(t, obs1.remoteSegCount < 3)
-		assert.True(t, obs2.remoteSegCount < 3)
-	})
-}
-
 type testObserver struct {
 	remoteSegCount  int
 	remoteFileCount int
 	inlineSegCount  int
 	uniquePaths     map[string]struct{}
-	t               *testing.T
-	mockRemoteFunc  func() error // if set, run this during RemoteSegment()
+	onSegment       func() error // if set, run this during RemoteSegment()
 }
 
-func newTestObserver(t *testing.T, mockRemoteFunc func() error) *testObserver {
+func newTestObserver(t *testing.T, onSegment func() error) *testObserver {
 	return &testObserver{
 		remoteSegCount:  0,
 		remoteFileCount: 0,
 		inlineSegCount:  0,
 		uniquePaths:     make(map[string]struct{}),
-		t:               t,
-		mockRemoteFunc:  mockRemoteFunc,
+		onSegment:       onSegment,
 	}
 }
 
 func (obs *testObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
 	obs.remoteSegCount++
+
 	if _, ok := obs.uniquePaths[path]; ok {
-		obs.t.Error("Expected unique path in observer.RemoteSegment")
+		return errors.New("Expected unique path in observer.RemoteSegment")
 	}
 	obs.uniquePaths[path] = struct{}{}
 
-	if obs.mockRemoteFunc != nil {
-		return obs.mockRemoteFunc()
+	if obs.onSegment != nil {
+		return obs.onSegment()
 	}
 
 	return nil
@@ -396,7 +312,7 @@ func (obs *testObserver) RemoteObject(ctx context.Context, path storj.Path, poin
 func (obs *testObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) error {
 	obs.inlineSegCount++
 	if _, ok := obs.uniquePaths[path]; ok {
-		obs.t.Error("Expected unique path in observer.InlineSegment")
+		return errors.New("Expected unique path in observer.InlineSegment")
 	}
 	obs.uniquePaths[path] = struct{}{}
 	return nil

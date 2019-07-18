@@ -233,9 +233,7 @@ waitformore:
 	return nil
 }
 
-// Close halts the metainfo loop.
-func (loop *Loop) Close() error {
-	loop.cancel()
+// Wait waits for run to be finished.
+func (loop *Loop) Wait() {
 	<-loop.done
-	return nil
 }
