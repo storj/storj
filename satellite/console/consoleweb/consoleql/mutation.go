@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/internal/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -89,6 +90,8 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						partnerInput string
 						referredBy   *uuid.UUID
 					)
+
+					offerType := rewards.FreeCredit
 					if p.Args[FieldPartnerID] != nil {
 						partnerInput = p.Args[FieldPartnerID].(string)
 					}
@@ -121,13 +124,23 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
+					//TODO: Create a current offer cache to replace database call
+					currentReward, err := service.GetCurrentRewardByType(p.Context, offerType)
+					if err != nil {
+						log.Error("register: failed to get current offer",
+							zap.String("rawSecret", secretInput),
+							zap.Error(err))
+
+						return nil, err
+					}
+
 					// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
 					newCredit := console.UserCredit{
 						UserID:        user.ID,
-						OfferID:       reward.ID,
+						OfferID:       currentReward.ID,
 						ReferredBy:    referredBy,
 						CreditsEarned: currency.Cents(0),
-						ExpiresAt:     time.Now().UTC().AddDate(0, 0, reward.InviteeCreditDurationDays),
+						ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
 					}
 
 					err = service.CreateCredit(p.Context, newCredit)
