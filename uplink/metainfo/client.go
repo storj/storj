@@ -312,7 +312,6 @@ func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketList
 
 func convertBucketToProtoRequest(bucket storj.Bucket) (bucketReq pb.BucketCreateRequest, err error) {
 	rs := bucket.DefaultRedundancyScheme
-	//TODO @ASK handle err
 	partnerID, err := bucket.PartnerID.MarshalJSON()
 	if err != nil {
 		return bucketReq, Error.Wrap(err)
@@ -342,7 +341,6 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) 
 	defaultEP := pbBucket.GetDefaultEncryptionParameters()
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(pbBucket.GetPartnerId())
-	// partnerID not ie zero, is not error)
 	if err != nil && !partnerID.IsZero() {
 		return bucket, errs.New("Invalid uuid")
 	}

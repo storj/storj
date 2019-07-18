@@ -714,17 +714,23 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, err.Error())
 		}
+
+		// partnerID not set
+		if partnerID.IsZero() {
+			return resp, status.Errorf(codes.AlreadyExists, "Bucket already exists")
+		}
+
 		//update the bucket
 		bucket.PartnerID = partnerID
 		bucket, err = endpoint.metainfo.UpdateBucket(ctx, bucket)
 
-		convBucket, err := convertBucketToProto(ctx, bucket)
+		pbBucket, err := convertBucketToProto(ctx, bucket)
 		if err != nil {
-			return resp, err
+			return resp, status.Errorf(codes.Internal, err.Error())
 		}
 
 		return &pb.BucketCreateResponse{
-			Bucket: convBucket,
+			Bucket: pbBucket,
 		}, nil
 	}
 
@@ -852,7 +858,6 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
 
-	// partnerID not set(ie nil) is not error)
 	if err != nil && !partnerID.IsZero() {
 		return bucket, errs.New("Invalid uuid")
 	}
@@ -883,7 +888,7 @@ func convertBucketToProto(ctx context.Context, bucket storj.Bucket) (pbBucket *p
 	rs := bucket.DefaultRedundancyScheme
 	partnerID, err := bucket.PartnerID.MarshalJSON()
 	if err != nil {
-		return pbBucket, err
+		return pbBucket, status.Errorf(codes.Internal, "UUID marshal error")
 	}
 	return &pb.Bucket{
 		Name:               []byte(bucket.Name),

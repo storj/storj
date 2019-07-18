@@ -86,6 +86,9 @@ func TestPartnerBucketAttrs(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.True(t, bucketInfo.PartnerID.IsZero())
+
+			_, err = project.CreateBucket(ctx, bucketName, nil)
+			require.Error(t, err)
 		})
 
 		t.Run("open with partner id", func(t *testing.T) {
