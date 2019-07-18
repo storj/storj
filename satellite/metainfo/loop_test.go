@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo"
 )
 
 func TestMetainfoLoop(t *testing.T) {
@@ -104,6 +105,7 @@ func TestMetainfoLoop(t *testing.T) {
 }
 
 func TestMetainfoLoopObserverCancel(t *testing.T) {
+	// upload 3 remote segments
 	// hook three observers up to metainfo loop
 	// let observer 1 run normally
 	// let observer 2 return an error from one of its handlers
@@ -111,7 +113,6 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 	// expect observer 1 to see all segments
 	// expect observers 2 and 3 to finish with errors
 
-	// TODO: figure out how to configure testplanet so we can upload 2*segmentSize to get two segments
 	segmentSize := 8 * memory.KiB
 
 	testplanet.Run(t, testplanet.Config{
@@ -175,6 +176,79 @@ func TestMetainfoLoopObserverCancel(t *testing.T) {
 		assert.EqualValues(t, 3, obs1.remoteSegCount)
 		assert.EqualValues(t, 1, obs2.remoteSegCount)
 		assert.EqualValues(t, 1, obs3.remoteSegCount)
+	})
+}
+
+func TestMetainfoLoopCancel(t *testing.T) {
+	// upload 3 remote segments
+	// hook two observers up to metainfo loop
+	// cancel loop context partway through
+	// expect both observers to exit with an error and see fewer than 3 remote segments
+
+	segmentSize := 8 * memory.KiB
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		ul := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+
+		// upload 3 remote files with 1 segment
+		for i := 0; i < 3; i++ {
+			testData := testrand.Bytes(segmentSize)
+			path := "/some/remote/path/" + string(i)
+			err := ul.Upload(ctx, satellite, "bucket", path, testData)
+			require.NoError(t, err)
+		}
+
+		// create a new metainfo loop
+		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
+			CoalesceDuration: 1 * time.Second,
+		}, satellite.Metainfo.Service)
+		// create a cancelable context to pass into metaLoop.Run
+		loopCtx, cancel := context.WithCancel(ctx)
+		// create a channel that allows us to sync cancelling the loop context with loop iteration
+		loopContextCancel := make(chan struct{})
+
+		// create 1 normal observer
+		obs1 := newTestObserver(t, nil)
+
+		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
+		obs2 := newTestObserver(t, func() error {
+			<-loopContextCancel
+			return nil
+		})
+
+		// start loop with cancelable context
+		go func() {
+			metaLoop.Run(loopCtx)
+		}()
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			err := metaLoop.Join(ctx, obs1)
+			assert.EqualError(t, err, "context canceled")
+			wg.Done()
+		}()
+		go func() {
+			err := metaLoop.Join(ctx, obs2)
+			assert.EqualError(t, err, "context canceled")
+			wg.Done()
+		}()
+
+		// iterate over first segment, then cancel context
+		loopContextCancel <- struct{}{}
+		cancel()
+		close(loopContextCancel)
+
+		wg.Wait()
+
+		// expect that obs1 and obs2 each saw one remote segment
+		assert.True(t, obs1.remoteSegCount < 3)
+		assert.True(t, obs2.remoteSegCount < 3)
 	})
 }
 
