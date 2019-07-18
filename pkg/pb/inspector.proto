@@ -59,7 +59,7 @@ service HealthInspector {
 // ListSegments
 message ListIrreparableSegmentsRequest {
   int32 limit = 1;
-  int32 offset = 2;
+  bytes last_seen_segment_path = 2;
 }
 
 message IrreparableSegment {
