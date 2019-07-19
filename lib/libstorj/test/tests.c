@@ -6,6 +6,7 @@ int test_status = 0;
 const char *test_bucket_name = "test-bucket";
 const char *test_upload_file_name = "test-upload-file";
 const char *test_download_file_name = "test-download-file";
+const char *test_key_passphrase = "It's dangerous to go alone, take this!";
 char *test_download_path;
 char *test_upload_path;
 
@@ -652,7 +653,9 @@ int main(void)
     require_no_last_error;
     require(env != NULL);
 
-    uint8_t *salted_key = project_salted_key_from_passphrase(env->project_ref, bridge_options.apikey, STORJ_LAST_ERROR);
+    uint8_t *salted_key = project_salted_key_from_passphrase(env->project_ref,
+                                                             strdup(test_key_passphrase),
+                                                             STORJ_LAST_ERROR);
     require_no_last_error;
 
     EncryptionAccessRef encryption_access = new_encryption_access_with_default_key(salted_key);
