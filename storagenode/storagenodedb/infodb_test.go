@@ -19,7 +19,7 @@ func Run(t *testing.T, test func(t *testing.T, ctx context.Context, db *DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := NewInMemory(log, ctx.Dir("storage"))
+	db, err := NewTest(log, ctx.Dir("storage"))
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 

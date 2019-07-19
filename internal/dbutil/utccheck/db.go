@@ -11,25 +11,27 @@ import (
 	"github.com/zeebo/errs"
 )
 
+// TODO: implement this in terms of a driver rather than as a wrapper for DB.
+
 // DB wraps a sql.DB and checks all of the arguments to queries to ensure they are in UTC.
 type DB struct {
-	db *sql.DB
+	*sql.DB
 }
 
 // New creates a new database that checks that all time arguments are UTC.
 func New(db *sql.DB) *DB {
-	return &DB{db: db}
+	return &DB{DB: db}
 }
 
 // Close closes the database.
-func (db DB) Close() error { return db.db.Close() }
+func (db DB) Close() error { return db.DB.Close() }
 
 // Query executes Query after checking all of the arguments.
 func (db DB) Query(sql string, args ...interface{}) (*sql.Rows, error) {
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return db.db.Query(sql, args...)
+	return db.DB.Query(sql, args...)
 }
 
 // QueryRow executes QueryRow after checking all of the arguments.
@@ -39,7 +41,7 @@ func (db DB) QueryRow(sql string, args ...interface{}) *sql.Row {
 	if err := utcCheckArgs(args); err != nil {
 		panic(err)
 	}
-	return db.db.QueryRow(sql, args...)
+	return db.DB.QueryRow(sql, args...)
 }
 
 // QueryContext executes QueryContext after checking all of the arguments.
@@ -47,7 +49,7 @@ func (db DB) QueryContext(ctx context.Context, sql string, args ...interface{}) 
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return db.db.QueryContext(ctx, sql, args...)
+	return db.DB.QueryContext(ctx, sql, args...)
 }
 
 // QueryRowContext executes QueryRowContext after checking all of the arguments.
@@ -57,7 +59,7 @@ func (db DB) QueryRowContext(ctx context.Context, sql string, args ...interface{
 	if err := utcCheckArgs(args); err != nil {
 		panic(err)
 	}
-	return db.db.QueryRowContext(ctx, sql, args...)
+	return db.DB.QueryRowContext(ctx, sql, args...)
 }
 
 // Exec executes Exec after checking all of the arguments.
@@ -65,7 +67,7 @@ func (db DB) Exec(sql string, args ...interface{}) (sql.Result, error) {
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return db.db.Exec(sql, args...)
+	return db.DB.Exec(sql, args...)
 }
 
 // ExecContext executes ExecContext after checking all of the arguments.
@@ -73,7 +75,7 @@ func (db DB) ExecContext(ctx context.Context, sql string, args ...interface{}) (
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return db.db.ExecContext(ctx, sql, args...)
+	return db.DB.ExecContext(ctx, sql, args...)
 }
 
 // utcCheckArgs checks the arguments for time.Time values that are not in the UTC location.
