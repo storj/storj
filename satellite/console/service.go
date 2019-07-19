@@ -257,6 +257,49 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 	return pp, nil
 }
 
+func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMethodID []byte, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	authorization, err := GetAuth(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.store.BeginTx(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = withTx(tx, func(tx DBTx) error {
+		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
+		if err != nil && err != sql.ErrNoRows {
+			return err
+		}
+
+		if projectPayment != nil {
+			projectPayment.IsDefault = false
+
+			err = tx.ProjectPayments().Update(ctx, *projectPayment)
+			if err != nil {
+				return err
+			}
+		}
+
+		projectPaymentInfo := ProjectPayment{
+			ProjectID:       projectID,
+			PayerID:         authorization.User.ID,
+			PaymentMethodID: paymentMethodID,
+			CreatedAt:       time.Now(),
+			IsDefault:       true,
+		}
+
+		_, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
+		return err
+	})
+
+	return err
+}
+
 // SetDefaultPaymentMethod set default payment method for given project
 func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -296,7 +339,7 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 }
 
 // DeleteProjectPaymentMethod deletes selected payment method
-func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment uuid.UUID) (err error) {
+func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = GetAuth(ctx)
@@ -304,7 +347,7 @@ func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment
 		return err
 	}
 
-	return s.store.ProjectPayments().Delete(ctx, projectPayment)
+	return s.store.ProjectPayments().Delete(ctx, projectPaymentID)
 }
 
 // GetProjectPaymentMethods retrieves project payment methods
@@ -352,7 +395,7 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 	return projectPayments, nil
 }
 
-func (s *Service) GetUserPaymentMethods(ctx context.Context)(_ []payments.PaymentMethod, err error){
+func (s *Service) GetUserPaymentMethods(ctx context.Context) (_ []payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	authorization, err := GetAuth(ctx)

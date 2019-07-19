@@ -5,8 +5,10 @@ import { PROJECT_PAYMENT_METHODS_MUTATIONS, USER_PAYMENT_METHODS_MUTATIONS } fro
 import { PROJECT_PAYMENT_METHODS_ACTIONS, USER_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 import {
     addProjectPaymentMethodRequest,
+    attachUserPaymentMethod,
     deletePaymentMethodRequest,
-    fetchProjectPaymentMethods, fetchUserPaymentMethods,
+    fetchProjectPaymentMethods,
+    fetchUserPaymentMethods,
     setDefaultPaymentMethodRequest
 } from '@/api/paymentMethods';
 import { RequestResponse } from '@/types/response';
@@ -50,8 +52,13 @@ export const projectPaymentsMethodsModule = {
 
             return await setDefaultPaymentMethodRequest(projectID, projectPaymentID);
         },
-        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({commit}, projectPaymentID: string) {
+        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({}, projectPaymentID: string) {
             return await deletePaymentMethodRequest(projectPaymentID);
+        },
+        [PROJECT_PAYMENT_METHODS_ACTIONS.ATTACH]: async function ({rootGetters}, paymentMethodID: string) {
+            const projectID = rootGetters.selectedProject.id;
+
+            return await attachUserPaymentMethod(paymentMethodID, projectID);
         }
     },
 };
@@ -61,12 +68,12 @@ export const userPaymentsMethodsModule = {
         userPaymentMethods: [] as PaymentMethod[],
     },
     mutations: {
-        [USER_PAYMENT_METHODS_MUTATIONS.FETCH](state: any, paymentMethods: PaymentMethod[]){
-           state.userPaymentMethods = paymentMethods;
+        [USER_PAYMENT_METHODS_MUTATIONS.FETCH](state: any, paymentMethods: PaymentMethod[]) {
+            state.userPaymentMethods = paymentMethods;
         },
     },
     actions: {
-        [USER_PAYMENT_METHODS_ACTIONS.FETCH]:async function({commit}): Promise<RequestResponse<PaymentMethod[]>> {
+        [USER_PAYMENT_METHODS_ACTIONS.FETCH]: async function ({commit}): Promise<RequestResponse<PaymentMethod[]>> {
             let result = await fetchUserPaymentMethods();
             if (result.isSuccess) {
                 commit(USER_PAYMENT_METHODS_MUTATIONS.FETCH, result.data);

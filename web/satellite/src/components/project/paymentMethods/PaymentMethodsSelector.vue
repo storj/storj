@@ -10,27 +10,28 @@
                     fullName="Shawn Wilkinson"
                     expireLabel="Storj Labs"
                     expireDate="12/2020" />
-            <Button
-                    label="Default"
-                    width="91px"
-                    height="36px"
-                    isDisabled />
-            <div class="chosen-card-container__expand-container">
-                <h3>{{dropdownTitle}}</h3>
-                <img :src="showHideImageSource"/>
-                <!--<img src="../../../../static/images/payments/circle.svg"/>-->
+            <div class="chosen-card-container__button-area">
+                <Button
+                        label="Default"
+                        width="91px"
+                        height="36px"
+                        isDisabled />
+                <div class="chosen-card-container__expand-container" v-if="userPaymentMethods.length > 0">
+                    <h3>{{dropdownTitle}}</h3>
+                    <!--<img :src="showHideImageSource"/>-->
+                    <img src="../../../../static/images/payments/circle.svg"/>
+                </div>
             </div>
-
         </div>
         <div class="border"></div>
         <div class="expanded-area">
-            <div v-for="method in userPaymentMethods">
+            <div class="expanded-area__item" v-for="method in userPaymentMethods">
                 <Card
-                        isChosen
-                        lastDigits="0000"
-                        fullName="Shawn Wilkinson"
-                        expireLabel="Storj Labs"
-                        expireDate="12/2020" />
+                        class="option"
+                        :lastDigits="method.lastFour"
+                        fullName=holderName
+                        expireLabel="Expires:"
+                        :expireDate="method.expMonth + '/' +method.expYear" />
 
                 <Button
                         label="Choose"
@@ -64,8 +65,8 @@
             }
         },
         computed: {
-            userPaymentMethods: function () {
-                return [{}, {}];
+            userPaymentMethods: function (): PaymentMethod[] {
+                return this.$store.state.userPaymentsMethodsModule.userPaymentMethods;
             }
         },
         components: {
@@ -95,8 +96,14 @@
          width: 100%;
          margin-top: 60px;
 
+    &__button-area {
+        display: flex;
+        align-items: center;
+     }
+
     &__expand-container {
          display: flex;
+        margin-left: 10px;
      }
     }
 
@@ -111,6 +118,21 @@
          width: 100%;
          height: 200px;
          overflow-y: auto;
+        display: flex;
+        background-color: #F5F6FA;
+    flex-direction: column;
+
+        &__item {
+             display: flex;
+        padding-right: 28px;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 20px;
+        }
      }
+
+    .option {
+        width: 100%;
+    }
 
 </style>

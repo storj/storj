@@ -30,7 +30,6 @@
                     width="100%"
                     @setData="setProjectDescription">
                 </HeaderedInput>
-                <Button label="+ New Card" :onPress="onNewCardClick"/>
                 <div class="new-project-popup__form-container__button-container">
                     <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true"/>
                     <Button label="Next" width="205px" height="48px" :onPress="createProjectClick"/>

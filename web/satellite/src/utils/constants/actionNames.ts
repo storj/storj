@@ -87,6 +87,7 @@ export const BUCKET_USAGE_ACTIONS = {
 export const PROJECT_PAYMENT_METHODS_ACTIONS = {
     ADD: 'addProjectPaymentMethod',
     FETCH: 'fetchProjectPaymentMethods',
+    ATTACH: 'attachProjectPaymentMethod',
     CLEAR: 'clearProjectPaymentMethods',
     SET_DEFAULT: 'setDefaultPaymentMethod',
     DELETE: 'deletePaymentMethod'

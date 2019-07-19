@@ -157,3 +157,35 @@ export async function fetchUserPaymentMethods(): Promise<RequestResponse<Payment
 
     return result;
 }
+
+export async function attachUserPaymentMethod(paymentMethodID: string, projectID: string): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
+
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+                mutation {
+                    setDefaultPaymentMethod(
+                        projectID: "${projectID}",
+                        id: "${paymentMethodID}"
+                    )
+                }
+           `),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
+}
+

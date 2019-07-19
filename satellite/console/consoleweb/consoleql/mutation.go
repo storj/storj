@@ -4,6 +4,7 @@
 package consoleql
 
 import (
+	"encoding/base64"
 	"time"
 
 	"github.com/graphql-go/graphql"
@@ -52,6 +53,8 @@ const (
 	DeletePaymentMethodMutation = "deletePaymentMethod"
 	// SetDefaultPaymentMethodMutation is mutation name setting payment method as default payment method
 	SetDefaultPaymentMethodMutation = "setDefaultPaymentMethod"
+	// AttachPaymentMethodMutation is a mutation name for attaching payment method to project
+	AttachPaymentMethodMutation = "attachPaymentMethod"
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
@@ -550,6 +553,35 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					}
 
 					return true, nil
+				},
+			},
+			AttachPaymentMethodMutation: &graphql.Field{
+				Type:graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					FieldProjectID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+					FieldID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					fieldProjectID, _ := p.Args[FieldProjectID].(string)
+					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
+
+					decodedPaymentID, err := base64.URLEncoding.DecodeString(fieldProjectPaymentID)
+					if err != nil {
+						return false, err
+					}
+
+					projectID, err := uuid.Parse(fieldProjectID)
+					if err != nil {
+						return false, err
+					}
+
+					err = service.AttachPaymentMethodToProject(p.Context, decodedPaymentID, *projectID)
+
+					return err == nil, err
 				},
 			},
 		},
