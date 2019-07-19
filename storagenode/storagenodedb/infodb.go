@@ -26,10 +26,11 @@ import (
 // ErrInfo is the default error class for InfoDB
 var ErrInfo = errs.Class("infodb")
 
-// sqlDB defines interface that matches *sql.DB
+// SQLDB defines interface that matches *sql.DB
 // this is such that we can use utccheck.DB for the backend
+//
 // TODO: wrap the connector instead of *sql.DB
-type sqlDB interface {
+type SQLDB interface {
 	Begin() (*sql.Tx, error)
 	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
 	Close() error
@@ -52,7 +53,7 @@ type sqlDB interface {
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db          sqlDB
+	db          SQLDB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
 	location    string
@@ -98,7 +99,7 @@ func NewInfoTest() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	infoDb := &InfoDB{db: &utccheck.DB{db}}
+	infoDb := &InfoDB{db: utccheck.New(db)}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 
@@ -117,7 +118,7 @@ func (db *InfoDB) CreateTables(log *zap.Logger) error {
 }
 
 // RawDB returns access to the raw database, only for migration tests.
-func (db *InfoDB) RawDB() sqlDB { return db.db }
+func (db *InfoDB) RawDB() SQLDB { return db.db }
 
 // Begin begins transaction
 func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.Begin() }
