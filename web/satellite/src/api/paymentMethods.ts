@@ -122,3 +122,34 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
 
     return result;
 }
+
+export async function redeemCredits(referrerID: string, currentReward: Reward): Promise<RequestResponse<null>> {
+    let result: RequestResponse<null> = {
+        errorMessage: '',
+        isSuccess: false,
+        data: null
+    };
+
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+                mutation {
+                    redeemCredits(
+                        id: "${referrerID}",
+                        currentReward: "${currentReward}"
+                    )
+                }
+           `),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
+}

@@ -1028,6 +1028,30 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`UPDATE nodes SET contained = false;`,
 				},
 			},
+			{
+				Description: "Modify default offers configuration",
+				Version:     47,
+				Action: migrate.SQL{
+					`UPDATE offers SET
+						award_credit_duration_days = 365,
+						invitee_credit_duration_days = 14
+						WHERE type=2 AND status=1 AND id=1`,
+					`UPDATE offers SET
+						invitee_credit_duration_days = 14,
+						award_credit_duration_days = NULL,
+						award_credit_in_cents = 0,
+						invitee_credit_in_cents = 300
+						WHERE type=1 AND status=1 AND id=2;`,
+				},
+			},
+			{
+				Description: "Create partial index for user_credits table",
+				Version:     48,
+				Action: migrate.SQL{
+					`CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits (id, offer_id)
+						WHERE credits_earned_in_cents=0;`,
+				},
+			},
 		},
 	}
 }

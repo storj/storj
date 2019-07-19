@@ -92,7 +92,6 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 
 	if o.Status == rewards.Default {
 		o.ExpiresAt = time.Now().UTC().AddDate(100, 0, 0)
-		o.RedeemableCap = 1
 	}
 
 	tx, err := db.db.Open(ctx)

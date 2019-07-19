@@ -596,6 +596,12 @@ func (m *lockedUserCredits) UpdateAvailableCredits(ctx context.Context, creditsT
 	return m.db.UpdateAvailableCredits(ctx, creditsToCharge, id, billingStartDate)
 }
 
+func (m *lockedUserCredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateEarnedCredits(ctx, userID)
+}
+
 // UserPayments is a getter for UserPayments repository
 func (m *lockedConsole) UserPayments() console.UserPayments {
 	m.Lock()

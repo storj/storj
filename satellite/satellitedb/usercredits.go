@@ -68,13 +68,13 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
 				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, time('now'))) AS v
-					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
 		`
 	case *pq.Driver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
 				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), now())) AS v
-					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ? AND redeemable_cap > 0), TRUE);
 		`
 	default:
 		return errs.New("Unsupported database %t", t)
@@ -97,6 +97,35 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 
 	if rows != 1 {
 		return errs.New(rewards.MaxRedemptionErr)
+	}
+
+	return nil
+}
+
+// UpdateEarnedCredits updates user credits after
+func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID) error {
+	var statement string
+
+	switch t := c.db.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		statement = `
+			UPDATE user_credits
+			SET credits_earned_in_cents = 
+				(SELECT invitee_credit_in_cents FROM offers WHERE id = offer_id)
+				WHERE user_id = ? AND credits_earned_in_cents = 0`
+	case *pq.Driver:
+		statement = `
+			UPDATE user_credits SET credits_earned_in_cents = offers.invitee_credit_in_cents
+				FROM offers
+				WHERE user_id = ? AND credits_earned_in_cents = 0 AND offer_id = offers.id
+		`
+	default:
+		return errs.New("Unsupported database %t", t)
+	}
+
+	_, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userID[:])
+	if err != nil {
+		return err
 	}
 
 	return nil
