@@ -1,93 +1,85 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedb
+package utccheck
 
 import (
 	"context"
 	"database/sql"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 )
 
-// utcChecks controls if the time zone checks are enabled. They are by default
-// enabled only during tests.
-var utcChecks = len(os.Args) > 0 && strings.HasSuffix(os.Args[0], ".test")
+// TODO: implement this in terms of a driver rather than as a wrapper for DB.
 
-// EnableUTCChecks turns on tracking for timestamps being passed to the database being in
-// the UTC location. They cannot be turned off once turned on, and should be turned on
-// before any database calls are made.
-func EnableUTCChecks() { utcChecks = true }
+// DB wraps a sql.DB and checks all of the arguments to queries to ensure they are in UTC.
+type DB struct {
+	*sql.DB
+}
 
-// utcDB wraps a sql.DB and checks all of the arguments to queries to ensure they are in UTC.
-type utcDB struct {
-	db *sql.DB
+// New creates a new database that checks that all time arguments are UTC.
+func New(db *sql.DB) *DB {
+	return &DB{DB: db}
 }
 
 // Close closes the database.
-func (u utcDB) Close() error { return u.db.Close() }
+func (db DB) Close() error { return db.DB.Close() }
 
 // Query executes Query after checking all of the arguments.
-func (u utcDB) Query(sql string, args ...interface{}) (*sql.Rows, error) {
+func (db DB) Query(sql string, args ...interface{}) (*sql.Rows, error) {
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return u.db.Query(sql, args...)
+	return db.DB.Query(sql, args...)
 }
 
 // QueryRow executes QueryRow after checking all of the arguments.
-func (u utcDB) QueryRow(sql string, args ...interface{}) *sql.Row {
+func (db DB) QueryRow(sql string, args ...interface{}) *sql.Row {
 	// TODO(jeff): figure out a way to return an errored *sql.Row so we can consider
 	// enabling all of these checks in production.
 	if err := utcCheckArgs(args); err != nil {
 		panic(err)
 	}
-	return u.db.QueryRow(sql, args...)
+	return db.DB.QueryRow(sql, args...)
 }
 
 // QueryContext executes QueryContext after checking all of the arguments.
-func (u utcDB) QueryContext(ctx context.Context, sql string, args ...interface{}) (*sql.Rows, error) {
+func (db DB) QueryContext(ctx context.Context, sql string, args ...interface{}) (*sql.Rows, error) {
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return u.db.QueryContext(ctx, sql, args...)
+	return db.DB.QueryContext(ctx, sql, args...)
 }
 
 // QueryRowContext executes QueryRowContext after checking all of the arguments.
-func (u utcDB) QueryRowContext(ctx context.Context, sql string, args ...interface{}) *sql.Row {
+func (db DB) QueryRowContext(ctx context.Context, sql string, args ...interface{}) *sql.Row {
 	// TODO(jeff): figure out a way to return an errored *sql.Row so we can consider
 	// enabling all of these checks in production.
 	if err := utcCheckArgs(args); err != nil {
 		panic(err)
 	}
-	return u.db.QueryRowContext(ctx, sql, args...)
+	return db.DB.QueryRowContext(ctx, sql, args...)
 }
 
 // Exec executes Exec after checking all of the arguments.
-func (u utcDB) Exec(sql string, args ...interface{}) (sql.Result, error) {
+func (db DB) Exec(sql string, args ...interface{}) (sql.Result, error) {
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return u.db.Exec(sql, args...)
+	return db.DB.Exec(sql, args...)
 }
 
 // ExecContext executes ExecContext after checking all of the arguments.
-func (u utcDB) ExecContext(ctx context.Context, sql string, args ...interface{}) (sql.Result, error) {
+func (db DB) ExecContext(ctx context.Context, sql string, args ...interface{}) (sql.Result, error) {
 	if err := utcCheckArgs(args); err != nil {
 		return nil, err
 	}
-	return u.db.ExecContext(ctx, sql, args...)
+	return db.DB.ExecContext(ctx, sql, args...)
 }
 
 // utcCheckArgs checks the arguments for time.Time values that are not in the UTC location.
 func utcCheckArgs(args []interface{}) error {
-	if !utcChecks {
-		return nil
-	}
-
 	for n, arg := range args {
 		var t time.Time
 		var ok bool
@@ -108,6 +100,5 @@ func utcCheckArgs(args []interface{}) error {
 			return errs.New("invalid timezone on argument %d: %v", n, loc)
 		}
 	}
-
 	return nil
 }

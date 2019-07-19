@@ -37,7 +37,7 @@ func TestBandwidthRollup(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 	if err != nil {
 		t.Fatal(err)
 	}
