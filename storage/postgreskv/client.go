@@ -4,6 +4,7 @@
 package postgreskv
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -316,4 +317,68 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 	}()
 
 	return fn(ctx, opi)
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue
+func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.CompareAndSwapPath(ctx, storage.Key(defaultBucket), key, oldValue, newValue)
+}
+
+// CompareAndSwapPath atomically compares and swaps oldValue with newValue in the given bucket
+func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	tx, err := client.pgConn.BeginTx(ctx, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA FOR UPDATE"
+	row := tx.QueryRow(q, []byte(bucket), []byte(key))
+	var val []byte
+	err = row.Scan(&val)
+	if err == sql.ErrNoRows {
+		if oldValue != nil {
+			return errs.Combine(storage.ErrKeyNotFound.New(key.String()), tx.Rollback())
+		}
+
+		if newValue == nil {
+			return Error.Wrap(tx.Commit())
+		}
+
+		q := `INSERT INTO pathdata (bucket, fullpath, metadata) VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)`
+		_, err = tx.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+		return Error.Wrap(tx.Commit())
+	}
+	if err != nil {
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	if !bytes.Equal(val, oldValue) {
+		return errs.Combine(storage.ErrValueChanged.New(key.String()), tx.Rollback())
+	}
+
+	if newValue == nil {
+		q := "DELETE FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
+		_, err := tx.Exec(q, []byte(bucket), []byte(key))
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+		return Error.Wrap(tx.Commit())
+	}
+
+	q = `UPDATE pathdata SET metadata = $3::BYTEA WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA`
+	_, err = tx.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
+	if err != nil {
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	return Error.Wrap(tx.Commit())
 }

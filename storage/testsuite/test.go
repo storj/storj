@@ -4,6 +4,7 @@
 package testsuite
 
 import (
+	"bytes"
 	"strconv"
 	"sync"
 	"testing"
@@ -83,6 +84,70 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		_, err = store.List(ctx, nil, storage.LookupLimit+1)
 		if err != nil || len(keys) != storage.LookupLimit {
 			t.Fatalf("List LookupLimit+1 shouldn't fail: %v / got %d", err, len(keys))
+		}
+	})
+
+	t.Run("CompareAndSwap Empty Key", func(t *testing.T) {
+		var key storage.Key
+		var val storage.Value
+
+		err := store.CompareAndSwap(ctx, key, val, val)
+		if err == nil {
+			t.Fatal("putting empty key should fail")
+		}
+	})
+
+	t.Run("CompareAndSwap Empty Old Value", func(t *testing.T) {
+		key := storage.Key("test-key")
+		val := storage.Value("test-value")
+		defer func() { _ = store.Delete(ctx, key) }()
+
+		err := store.CompareAndSwap(ctx, key, nil, val)
+		if err != nil {
+			t.Fatalf("failed to update %q: %v -> %v: %v", key, nil, val, err)
+		}
+
+		value, err := store.Get(ctx, key)
+		if err != nil {
+			t.Fatalf("failed to get %q = %v: %v", key, val, err)
+		}
+		if !bytes.Equal(value, val) {
+			t.Fatalf("invalid value for %q = %v: got %v", key, val, value)
+		}
+	})
+
+	t.Run("CompareAndSwap Empty New Value", func(t *testing.T) {
+		key := storage.Key("test-key")
+		val := storage.Value("test-value")
+		defer func() { _ = store.Delete(ctx, key) }()
+
+		err := store.Put(ctx, key, val)
+		if err != nil {
+			t.Fatalf("failed to put %q = %v: %v", key, val, err)
+		}
+
+		err = store.CompareAndSwap(ctx, key, val, nil)
+		if err != nil {
+			t.Fatalf("failed to update %q: %v -> %v: %v", key, val, nil, err)
+		}
+
+		value, err := store.Get(ctx, key)
+		if err == nil {
+			t.Fatalf("got deleted value %q = %v", key, value)
+		}
+	})
+
+	t.Run("CompareAndSwap Empty Both Empty Values", func(t *testing.T) {
+		key := storage.Key("test-key")
+
+		err := store.CompareAndSwap(ctx, key, nil, nil)
+		if err != nil {
+			t.Fatalf("failed to update %q: %v -> %v: %v", key, nil, nil, err)
+		}
+
+		value, err := store.Get(ctx, key)
+		if err == nil {
+			t.Fatalf("got unexpected value %q = %v", key, value)
 		}
 	})
 }
