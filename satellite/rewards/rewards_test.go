@@ -88,7 +88,7 @@ func TestOffer_Database(t *testing.T) {
 				InviteeCredit:             currency.Cents(50),
 				AwardCreditDurationDays:   60,
 				InviteeCreditDurationDays: 30,
-				RedeemableCap:             50,
+				RedeemableCap:             0,
 				ExpiresAt:                 time.Now().UTC().Add(time.Hour * -1),
 				Status:                    rewards.Default,
 				Type:                      rewards.Referral,

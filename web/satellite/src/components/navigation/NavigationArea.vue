@@ -5,38 +5,37 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { mapState } from 'vuex';
     import NAVIGATION_ITEMS from '@/utils/constants/navigationLinks';
     import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     import AddUserPopup from '@/components/team/AddUserPopup.vue';
 
     @Component({
-        data: function () {
-            return {
-                navigation: NAVIGATION_ITEMS,
-                isPopupShown: false,
-            };
-        },
         components: {
             AddUserPopup,
-        },
-        methods: {
-            togglePopup: function(): void {
-                if (!this.$store.getters.selectedProject.id) return;
-
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
-            },
-            onLogoClick: function (): void {
-                location.reload();
-            }
-        },
-        computed: mapState({
-            isAddTeamMembersPopupShown: (state: any) => state.appStateModule.appState.isAddTeamMembersPopupShown,
-            isProjectNotSelected: (state: any) => state.projectsModule.selectedProject.id === '',
-        }),
+        }
     })
+    export default class NavigationArea extends Vue {
+        // TODO: create types for navigation items
+        public readonly navigation: any = NAVIGATION_ITEMS;
 
-    export default class NavigationArea extends Vue {}
+        public togglePopup(): void {
+            if (!this.$store.getters.selectedProject.id) return;
+
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_TEAM_MEMBERS);
+        }
+
+        public onLogoClick(): void {
+            location.reload();
+        }
+
+        public get isAddTeamMembersPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAddTeamMembersPopupShown;
+        }
+
+        public get isProjectNotSelected(): boolean {
+            return this.$store.state.projectsModule.selectedProject.id === '';
+        }
+    }
 </script>
 
 <style src="./navigationArea.scss" lang="scss"></style>

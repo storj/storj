@@ -29,8 +29,8 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 
 	_, err = db.db.Exec(`
 		INSERT INTO
-			used_serial(satellite_id, serial_number, expiration)
-		VALUES(?, ?, ?)`, satelliteID, serialNumber, expiration)
+			used_serial_(satellite_id, serial_number, expiration)
+		VALUES(?, ?, ?)`, satelliteID, serialNumber, expiration.UTC())
 
 	return ErrInfo.Wrap(err)
 }
@@ -39,7 +39,7 @@ func (db *usedSerials) Add(ctx context.Context, satelliteID storj.NodeID, serial
 func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.Exec(`DELETE FROM used_serial WHERE datetime(expiration) < datetime(?)`, now)
+	_, err = db.db.Exec(`DELETE FROM used_serial_ WHERE expiration < ?`, now.UTC())
 	return ErrInfo.Wrap(err)
 }
 
@@ -48,7 +48,7 @@ func (db *usedSerials) DeleteExpired(ctx context.Context, now time.Time) (err er
 func (db *usedSerials) IterateAll(ctx context.Context, fn piecestore.SerialNumberFn) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := db.db.Query(`SELECT satellite_id, serial_number, expiration FROM used_serial`)
+	rows, err := db.db.Query(`SELECT satellite_id, serial_number, expiration FROM used_serial_`)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}

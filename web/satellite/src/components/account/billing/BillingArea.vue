@@ -25,11 +25,6 @@
     import SortingHeader from '@/components/account/billing/SortingHeader.vue';
 
     @Component({
-        data: function () {
-            return {
-                billing: 1,
-            };
-        },
         components: {
             EmptyState,
             SortingHeader,
@@ -37,8 +32,9 @@
             PaginationArea,
         }
     })
-
-    export default class BillingArea extends Vue {}
+    export default class BillingArea extends Vue {
+        public billing: number = 1;
+    }
 </script>
 
 <style scoped lang="scss">

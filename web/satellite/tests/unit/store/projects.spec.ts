@@ -7,6 +7,8 @@ import { createProjectRequest, deleteProjectRequest, fetchProjectsRequest, updat
 import { PROJECTS_MUTATIONS } from '@/store/mutationConstants';
 import { createLocalVue } from '@vue/test-utils';
 import Vuex from 'vuex';
+import { RequestResponse } from '@/types/response';
+import { Project } from '@/types/projects';
 
 const mutations = projectsModule.mutations;
 
@@ -304,12 +306,12 @@ describe('getters', () => {
 
     it('getter projects', () => {
         const state = {
-            projects: [{
+            projects: [
+                {
                 name: '1',
                 id: '1',
                 companyName: '1',
                 description: '1',
-                isTermsAccepted: true,
                 createdAt: '1',
             }],
             selectedProject: {
@@ -325,7 +327,6 @@ describe('getters', () => {
         expect(firstProject.name).toBe('1');
         expect(firstProject.id).toBe('1');
         expect(firstProject.description).toBe('1');
-        expect(firstProject.isTermsAccepted).toBe(true);
         expect(firstProject.createdAt).toBe('1');
     });
 
@@ -352,7 +353,6 @@ describe('getters', () => {
         expect(firstProject.name).toBe('1');
         expect(firstProject.id).toBe('1');
         expect(firstProject.description).toBe('1');
-        expect(firstProject.isTermsAccepted).toBe(true);
         expect(firstProject.createdAt).toBe('1');
     });
 
@@ -371,7 +371,6 @@ describe('getters', () => {
         expect(selectedProjectGetterObject.name).toBe('1');
         expect(selectedProjectGetterObject.id).toBe('1');
         expect(selectedProjectGetterObject.description).toBe('1');
-        expect(selectedProjectGetterObject.isTermsAccepted).toBe(true);
         expect(selectedProjectGetterObject.createdAt).toBe('1');
     });
 });
