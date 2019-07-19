@@ -182,7 +182,7 @@ func (db *bandwidthdb) Rollup(ctx context.Context) (err error) {
 		SELECT datetime(strftime('%Y-%m-%dT%H:00:00', created_at)) created_hr, satellite_id, action, SUM(amount)
 			FROM bandwidth_usage
 		WHERE datetime(created_at) < datetime(?)
-		AND datetime(created_at) >= (SELECT datetime(MAX(interval_start), '+1 hour') FROM bandwidth_usage_rollups)
+		AND datetime(created_at) >= coalesce((SELECT datetime(MAX(interval_start), '+1 hour') FROM bandwidth_usage_rollups), datetime(0, 'unixepoch'))
 		GROUP BY created_hr, satellite_id, action;
 
 		DELETE FROM bandwidth_usage WHERE datetime(created_at) < datetime(?);
