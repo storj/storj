@@ -11,32 +11,20 @@
                 <path d="M10.7756 14.334C10.4108 14.334 10.1226 14.6283 10.1226 15.0007C10.1226 15.3731 10.4108 15.6673 10.7756 15.6673C11.1404 15.6673 11.4287 15.3731 11.4287 15.0007C11.4287 14.6283 11.1404 14.334 10.7756 14.334Z" fill="#2683FF"/>
             </svg>
         </div>
-        <p class="apikey-item-container__name">{{ apiKeyName }}</p>
-        <p class="apikey-item-container__date">{{ new Date(apiKey.createdAt).toLocaleDateString() }}</p>
+        <p class="apikey-item-container__name">{{ this.apiKey.formattedName() }}</p>
+        <p class="apikey-item-container__date">{{ this.apiKey.getDate() }}</p>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import { ApiKey } from '../../types/apiKeys';
 
-    @Component({
-        props: {
-            apiKey: Object,
-        },
-        computed: {
-            apiKeyName: function (): string {
-                let name = this.$props.apiKey.name;
-
-                if (name.length < 12) {
-                    return name;
-                }
-
-                return name.slice(0, 12) + '...';
-            }
-        }
-    })
-
-    export default class ApiKeysItem extends Vue {}
+    @Component
+    export default class ApiKeysItem extends Vue {
+        @Prop({default: new ApiKey('', '', '', '')})
+        public apiKey: ApiKey;
+    }
 </script>
 
 <style scoped lang="scss">

@@ -144,6 +144,9 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
 					Validate:         false,
 				},
+				Loop: metainfo.LoopConfig{
+					CoalesceDuration: 5 * time.Second,
+				},
 			},
 			Orders: orders.Config{
 				Expiration: 7 * 24 * time.Hour,

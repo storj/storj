@@ -1,9 +1,10 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS} from '@/store/mutationConstants';
-import {BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS} from '@/utils/constants/actionNames';
+import { BUCKET_USAGE_MUTATIONS, PROJECT_USAGE_MUTATIONS, CREDIT_USAGE_MUTATIONS } from '@/store/mutationConstants';
+import { BUCKET_USAGE_ACTIONS, PROJECT_USAGE_ACTIONS, CREDIT_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 import { fetchBucketUsages, fetchProjectUsage, fetchCreditUsage } from '@/api/usage';
+import { RequestResponse } from '@/types/response';
 
 export const usageModule = {
     state: {
@@ -15,6 +16,7 @@ export const usageModule = {
         [PROJECT_USAGE_MUTATIONS.FETCH](state: any, projectUsage: ProjectUsage) {
            state.projectUsage = projectUsage;
         },
+        // TODO: create type here instead of {startDate, endDate}
         [PROJECT_USAGE_MUTATIONS.SET_DATE](state: any, {startDate, endDate}: any) {
             state.startDate = startDate as Date;
             state.endDate = endDate as Date;
@@ -29,7 +31,7 @@ export const usageModule = {
         [PROJECT_USAGE_ACTIONS.FETCH]: async function({commit, rootGetters}: any, {startDate, endDate}: any): Promise<RequestResponse<ProjectUsage>> {
             const projectID = rootGetters.selectedProject.id;
 
-            let result = await fetchProjectUsage(projectID, startDate, endDate);
+            let result: RequestResponse<ProjectUsage> = await fetchProjectUsage(projectID, startDate, endDate);
 
             if (result.isSuccess) {
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, {startDate, endDate});
@@ -39,12 +41,12 @@ export const usageModule = {
             return result;
         },
         [PROJECT_USAGE_ACTIONS.FETCH_CURRENT_ROLLUP]: async function({commit, rootGetters}: any): Promise<RequestResponse<ProjectUsage>> {
-            const projectID = rootGetters.selectedProject.id;
+            const projectID: string = rootGetters.selectedProject.id;
 
             const endDate = new Date();
             const startDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), 1));
 
-            let result = await fetchProjectUsage(projectID, startDate, endDate);
+            let result: RequestResponse<ProjectUsage> = await fetchProjectUsage(projectID, startDate, endDate);
 
             if (result.isSuccess) {
                 commit(PROJECT_USAGE_MUTATIONS.SET_DATE, {startDate, endDate});
@@ -70,7 +72,7 @@ export const usageModule = {
             return result;
         },
         [PROJECT_USAGE_ACTIONS.CLEAR]: function({commit}): void {
-           commit(PROJECT_USAGE_MUTATIONS.CLEAR);
+            commit(PROJECT_USAGE_MUTATIONS.CLEAR);
         }
     }
 };
@@ -82,10 +84,15 @@ export const bucketUsageModule = {
     state: {
         cursor: { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor,
         page: { bucketUsages: [] as BucketUsage[] } as BucketUsagePage,
+        totalCount: 0,
     },
     mutations: {
         [BUCKET_USAGE_MUTATIONS.FETCH](state: any, page: BucketUsagePage) {
             state.page = page;
+
+            if (page.totalCount > 0) {
+                state.totalCount = page.totalCount;
+            }
         },
         [BUCKET_USAGE_MUTATIONS.SET_PAGE](state: any, page: number) {
            state.cursor.page = page;
@@ -96,6 +103,7 @@ export const bucketUsageModule = {
         [BUCKET_USAGE_MUTATIONS.CLEAR](state: any) {
             state.cursor = { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor;
             state.page = { bucketUsages: [] as BucketUsage[] } as BucketUsagePage;
+            state.totalCount = 0;
         }
     },
     actions: {
@@ -142,4 +150,4 @@ export const creditUsageModule = {
             return result;
         },
     }
-}
+};

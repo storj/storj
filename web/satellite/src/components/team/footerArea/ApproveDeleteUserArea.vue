@@ -16,7 +16,7 @@
                     width="140px" 
                     height="48px"
                     :onPress="onCancelButtonClick" 
-                    isWhite />
+                    isWhite="true" />
                 <Button 
                     label="Delete" 
                     width="140px" 
@@ -36,9 +36,7 @@
             Button
         }
     })
-
-    export default class ApproveDeleteUserArea extends Vue {
-    }
+    export default class ApproveDeleteUserArea extends Vue {}
 </script>
 
 <style scoped lang="scss">

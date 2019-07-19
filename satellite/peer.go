@@ -111,9 +111,8 @@ type Config struct {
 	Overlay   overlay.Config
 	Discovery discovery.Config
 
-	Metainfo     metainfo.Config
-	Metainfoloop metainfo.LoopConfig
-	Orders       orders.Config
+	Metainfo metainfo.Config
+	Orders   orders.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config
@@ -168,10 +167,7 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
-	}
-
-	Metainfoloop struct {
-		Service *metainfo.LoopService
+		Loop      *metainfo.Loop
 	}
 
 	Inspector struct {
@@ -412,6 +408,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
+		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -427,12 +424,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)
-	}
-
-	{ // setup metainfoloop
-		log.Debug("Setting up metainfoloop")
-		metaloop := metainfo.NewLoop(config.Metainfoloop, peer.Metainfo.Service)
-		peer.Metainfoloop.Service = metaloop
 	}
 
 	{ // setup datarepair
@@ -663,7 +654,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfoloop.Service.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))

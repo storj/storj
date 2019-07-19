@@ -40,18 +40,18 @@ func NewDir(path string) (*Dir, error) {
 	}
 
 	return dir, errs.Combine(
-		os.MkdirAll(dir.blobdir(), dirPermission),
+		os.MkdirAll(dir.blobsdir(), dirPermission),
 		os.MkdirAll(dir.tempdir(), dirPermission),
-		os.MkdirAll(dir.trashdir(), dirPermission),
+		os.MkdirAll(dir.garbagedir(), dirPermission),
 	)
 }
 
 // Path returns the directory path
 func (dir *Dir) Path() string { return dir.path }
 
-func (dir *Dir) blobdir() string  { return filepath.Join(dir.path, "blob") }
-func (dir *Dir) tempdir() string  { return filepath.Join(dir.path, "tmp") }
-func (dir *Dir) trashdir() string { return filepath.Join(dir.path, "trash") }
+func (dir *Dir) blobsdir() string   { return filepath.Join(dir.path, "blobs") }
+func (dir *Dir) tempdir() string    { return filepath.Join(dir.path, "temp") }
+func (dir *Dir) garbagedir() string { return filepath.Join(dir.path, "garbage") }
 
 // CreateTemporaryFile creates a preallocated temporary file in the temp directory
 // prealloc preallocates file to make writing faster
@@ -93,16 +93,16 @@ func (dir *Dir) blobToPath(ref storage.BlobRef) (string, error) {
 		// ensure we always have at least
 		key = "11" + key
 	}
-	return filepath.Join(dir.blobdir(), namespace, key[:2], key[2:]), nil
+	return filepath.Join(dir.blobsdir(), namespace, key[:2], key[2:]), nil
 }
 
 // blobToTrashPath converts blob reference to a filepath in transient storage
 // the files in trash are deleted in an interval (in case the initial deletion didn't work for some reason)
 func (dir *Dir) blobToTrashPath(ref storage.BlobRef) string {
-	name := []byte{}
+	var name []byte
 	name = append(name, ref.Namespace...)
 	name = append(name, ref.Key...)
-	return filepath.Join(dir.trashdir(), pathEncoding.EncodeToString(name))
+	return filepath.Join(dir.garbagedir(), pathEncoding.EncodeToString(name))
 }
 
 // Commit commits temporary file to the permanent storage
@@ -234,7 +234,7 @@ func (dir *Dir) GarbageCollect(ctx context.Context) (err error) {
 	}
 
 	// remove anything left in the trashdir
-	_ = removeAllContent(ctx, dir.trashdir())
+	_ = removeAllContent(ctx, dir.garbagedir())
 	return nil
 }
 

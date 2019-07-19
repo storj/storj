@@ -14,10 +14,10 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -80,20 +80,20 @@ type Sender struct {
 	config SenderConfig
 
 	transport transport.Client
-	kademlia  *kademlia.Kademlia
 	orders    DB
+	trust     *trust.Pool
 
 	Loop sync2.Cycle
 }
 
 // NewSender creates an order sender.
-func NewSender(log *zap.Logger, transport transport.Client, kademlia *kademlia.Kademlia, orders DB, config SenderConfig) *Sender {
+func NewSender(log *zap.Logger, transport transport.Client, orders DB, trust *trust.Pool, config SenderConfig) *Sender {
 	return &Sender{
 		log:       log,
 		transport: transport,
-		kademlia:  kademlia,
 		orders:    orders,
 		config:    config,
+		trust:     trust,
 
 		Loop: *sync2.NewCycle(config.Interval),
 	}
@@ -151,9 +151,16 @@ func (sender *Sender) settle(ctx context.Context, log *zap.Logger, satelliteID s
 	log.Info("sending", zap.Int("count", len(orders)))
 	defer log.Info("finished")
 
-	satellite, err := sender.kademlia.FindNode(ctx, satelliteID)
+	address, err := sender.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
-		return OrderError.New("unable to find satellite on the network: %v", err)
+		return OrderError.New("unable to get satellite address: %v", err)
+	}
+	satellite := pb.Node{
+		Id: satelliteID,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address:   address,
+		},
 	}
 
 	conn, err := sender.transport.DialNode(ctx, &satellite)
