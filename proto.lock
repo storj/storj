@@ -1638,6 +1638,11 @@
                 "id": 6,
                 "name": "default_encryption_parameters",
                 "type": "encryption.EncryptionParameters"
+              },
+              {
+                "id": 7,
+                "name": "partner_id",
+                "type": "bytes"
               }
             ]
           },
@@ -1693,6 +1698,11 @@
                 "id": 5,
                 "name": "default_encryption_parameters",
                 "type": "encryption.EncryptionParameters"
+              },
+              {
+                "id": 6,
+                "name": "partner_id",
+                "type": "bytes"
               }
             ]
           },
