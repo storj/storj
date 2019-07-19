@@ -84,6 +84,7 @@ export const bucketUsageModule = {
     state: {
         cursor: { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor,
         page: { bucketUsages: [] as BucketUsage[] } as BucketUsagePage,
+        totalCount: 0,
     },
     mutations: {
         [BUCKET_USAGE_MUTATIONS.FETCH](state: any, page: BucketUsagePage) {
@@ -98,6 +99,7 @@ export const bucketUsageModule = {
         [BUCKET_USAGE_MUTATIONS.CLEAR](state: any) {
             state.cursor = { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor;
             state.page = { bucketUsages: [] as BucketUsage[] } as BucketUsagePage;
+            state.totalCount = 0;
         }
     },
     actions: {
@@ -111,6 +113,10 @@ export const bucketUsageModule = {
             let result = await fetchBucketUsages(projectID, before, state.cursor);
             if (result.isSuccess) {
                 commit(BUCKET_USAGE_MUTATIONS.FETCH, result.data);
+
+                if (result.data.totalCount > 0) {
+                    state.totalCount = result.data.totalCount;
+                }
             }
 
             return result;
