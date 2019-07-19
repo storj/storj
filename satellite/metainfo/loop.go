@@ -120,7 +120,6 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
-
 	defer func() {
 		for _, observer := range observers {
 			observer.Finish()
@@ -174,15 +173,13 @@ waitformore:
 
 				nextObservers := observers[:0]
 
-				// send segment info to every observer
-
 				for _, observer := range observers {
+					// TODO: move single observer handling into a separate func
 					remote := pointer.GetRemote()
 					if remote != nil {
 						if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
 							continue
 						}
-
 						if isLastSeg {
 							if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
 								continue
@@ -214,6 +211,7 @@ waitformore:
 					for _, observer := range observers {
 						observer.HandleError(ctx.Err())
 					}
+					// clear observers slice so they aren't double closed
 					observers = nil
 					return ctx.Err()
 				default:
