@@ -88,7 +88,7 @@ func TestUploadDownload(t *testing.T) {
 
 			written, err := upload.Write(data[:write])
 			require.NoError(t, err)
-			data = data[:written]
+			data = data[written:]
 		}
 
 		require.NoError(t, upload.Close())
