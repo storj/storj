@@ -7,8 +7,10 @@ package main
 import "C"
 import (
 	"fmt"
+	"unsafe"
 
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
 )
 
 // Project is a scoped uplink.Project
@@ -41,6 +43,28 @@ func open_project(uplinkHandle C.UplinkRef, satelliteAddr *C.char, apikeyHandle 
 	}
 
 	return C.ProjectRef{universe.Add(&Project{scope, project})}
+}
+
+//export project_salted_key_from_passphrase
+// project_salted_key_from_passphrase returns a key generated from the given passphrase
+// using a stable, project-specific salt
+func project_salted_key_from_passphrase(projectHandle C.ProjectRef, passphrase *C.char, cerr **C.char) *C.uint8_t {
+	project, ok := universe.Get(projectHandle._handle).(*Project)
+	if !ok {
+		*cerr = C.CString("invalid project")
+		return nil
+	}
+
+	saltedKey, err := project.SaltedKeyFromPassphrase(project.ctx, C.GoString(passphrase))
+	if err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return nil
+	}
+
+	ptr := C.malloc(storj.KeySize)
+	key := (*storj.Key)(unsafe.Pointer(ptr))
+	copy(key[:], saltedKey[:])
+	return (*C.uint8_t)(ptr)
 }
 
 //export close_project

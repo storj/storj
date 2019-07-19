@@ -557,16 +557,8 @@ static void reset_test_download()
     test_download_total_bytes = 0;
 }
 
-int test_api()
+int test_api(storj_env_t *env)
 {
-    // initialize environment
-    storj_env_t *env = storj_init_env(&bridge_options,
-                                      &encrypt_options,
-                                      NULL,
-                                      &log_options);
-    require_no_last_error;
-    require(env != NULL);
-
     int status;
 
     // create bucket
@@ -652,7 +644,18 @@ int main(void)
     bridge_options.addr = getenv("SATELLITE_0_ADDR");
     bridge_options.apikey = getenv("GATEWAY_0_API_KEY");
 
-    EncryptionAccessRef encryption_access = new_encryption_access_with_default_key(bridge_options.apikey);
+    // initialize environment
+    storj_env_t *env = storj_init_env(&bridge_options,
+                                      &encrypt_options,
+                                      NULL,
+                                      &log_options);
+    require_no_last_error;
+    require(env != NULL);
+
+    uint8_t *salted_key = project_salted_key_from_passphrase(env->project_ref, bridge_options.apikey, STORJ_LAST_ERROR);
+    require_no_last_error;
+
+    EncryptionAccessRef encryption_access = new_encryption_access_with_default_key(salted_key);
     test_encryption_access = serialize_encryption_access(encryption_access, STORJ_LAST_ERROR);
     require_no_last_error;
     require(test_encryption_access && strcmp("", test_encryption_access) != 0);
@@ -685,7 +688,7 @@ int main(void)
     create_test_upload_file(strdup(test_upload_path));
 
     printf("Test Suite: API\n");
-    test_api();
+    test_api(env);
 
     free(test_upload_path);
     free(test_download_path);
