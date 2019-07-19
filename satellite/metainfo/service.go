@@ -182,6 +182,12 @@ func (s *Service) GetBucket(ctx context.Context, bucketName []byte, projectID uu
 	return s.bucketsDB.GetBucket(ctx, bucketName, projectID)
 }
 
+// UpdateBucket returns an updated bucket in the buckets db
+func (s *Service) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.bucketsDB.UpdateBucket(ctx, bucket)
+}
+
 // DeleteBucket deletes a bucket from the bucekts db
 func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)

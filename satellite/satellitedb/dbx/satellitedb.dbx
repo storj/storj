@@ -767,7 +767,7 @@ model bucket_metainfo (
 	field id             blob
 	field project_id     project.id restrict
 	field name           blob
-	field partner_id     blob   (nullable)
+	field partner_id     blob   (nullable, updatable)
 
 	field path_cipher    int
 
@@ -787,6 +787,10 @@ model bucket_metainfo (
 )
 
 create bucket_metainfo ()
+update bucket_metainfo (
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
 
 read one (
 	select bucket_metainfo
