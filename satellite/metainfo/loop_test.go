@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -85,20 +84,17 @@ func TestMetainfoLoop(t *testing.T) {
 		obs1 := newTestObserver(nil)
 		obs2 := newTestObserver(nil)
 
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() {
-			err := metaLoop.Join(ctx, obs1)
-			assert.NoError(t, err)
-			wg.Done()
-		}()
-		go func() {
-			err := metaLoop.Join(ctx, obs2)
-			assert.NoError(t, err)
-			wg.Done()
-		}()
+		var group errgroup.Group
+		group.Go(func() error {
+			return metaLoop.Join(ctx, obs1)
+		})
+		group.Go(func() error {
+			return metaLoop.Join(ctx, obs2)
+		})
 
-		wg.Wait()
+		err := group.Wait()
+		require.NoError(t, err)
+
 		for _, obs := range []*testObserver{obs1, obs2} {
 			assert.EqualValues(t, 5, obs.remoteSegCount)
 			assert.EqualValues(t, 5, obs.remoteFileCount)

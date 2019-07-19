@@ -63,7 +63,6 @@ type Loop struct {
 	metainfo *Service
 	join     chan *observerContext
 	done     chan struct{}
-	cancel   func()
 }
 
 // NewLoop creates a new metainfo loop service.
@@ -79,6 +78,7 @@ func NewLoop(config LoopConfig, metainfo *Service) *Loop {
 // Join will join the looper for one full cycle until completion and then returns.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
+// Safe to be called concurrently.
 func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -100,11 +100,10 @@ func (loop *Loop) Join(ctx context.Context, observer Observer) (err error) {
 }
 
 // Run starts the looping service.
+// It can only be called once, otherwise a panic will occur.
 func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	ctx, cancel := context.WithCancel(ctx)
-	loop.cancel = cancel
 	defer close(loop.done)
 
 	for {
@@ -115,7 +114,7 @@ func (loop *Loop) Run(ctx context.Context) (err error) {
 	}
 }
 
-// runOnce goes through metainfo one time and sends information to observers
+// runOnce goes through metainfo one time and sends information to observers.
 func (loop *Loop) runOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -147,6 +146,7 @@ waitformore:
 			for _, observer := range observers {
 				observer.HandleError(ctx.Err())
 			}
+			// clear observers slice so they aren't double closed
 			observers = nil
 			return ctx.Err()
 		}
@@ -162,9 +162,7 @@ waitformore:
 
 				err = proto.Unmarshal(item.Value, pointer)
 				if err != nil {
-					// TODO: figure out what to do
-					// return LoopError.New("error unmarshalling pointer %s", err)
-					continue
+					return LoopError.New("unexpected error unmarshalling pointer %s", err)
 				}
 
 				path := item.Key.String()
@@ -174,7 +172,6 @@ waitformore:
 				nextObservers := observers[:0]
 
 				for _, observer := range observers {
-					// TODO: move single observer handling into a separate func
 					remote := pointer.GetRemote()
 					if remote != nil {
 						if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
@@ -205,14 +202,9 @@ waitformore:
 					return nil
 				}
 
-				// if context has been canceled, send the error to observers and exit. Otherwise, continue
+				// if context has been canceled exit. Otherwise, continue
 				select {
 				case <-ctx.Done():
-					for _, observer := range observers {
-						observer.HandleError(ctx.Err())
-					}
-					// clear observers slice so they aren't double closed
-					observers = nil
 					return ctx.Err()
 				default:
 				}
@@ -220,16 +212,20 @@ waitformore:
 			return nil
 		})
 
+	// if there is an error, send it to all observers before returning
 	if err != nil {
 		for _, observer := range observers {
-			observer.HandleError(err)
+			observer.HandleError(ctx.Err())
 		}
+		// clear observers slice so they aren't double closed
+		observers = nil
 		return err
 	}
 	return nil
 }
 
 // Wait waits for run to be finished.
+// Safe to be called concurrently.
 func (loop *Loop) Wait() {
 	<-loop.done
 }
