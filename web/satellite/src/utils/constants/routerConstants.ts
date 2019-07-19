@@ -57,7 +57,11 @@ const ROUTES = {
     PROFILE: {
         path: 'profile',
         name: 'Profile'
-    }
+    },
+    REFERRAL: {
+        path: '/ref/:ids',
+        name: 'Referral'
+    },
 };
 
 export default ROUTES;
