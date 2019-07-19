@@ -42,7 +42,7 @@
     import HeaderlessInput from './HeaderlessInput.vue';
 
     // Custom input component with labeled header
-    @Component({})
+    @Component
     export default class HeaderedInput extends HeaderlessInput {
         @Prop({default: ''})
         private readonly initValue: string;

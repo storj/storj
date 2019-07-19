@@ -67,7 +67,6 @@
         @Prop({default: false})
         private readonly isWhite: boolean;
 
-
         public constructor() {
             super();
 
@@ -80,7 +79,7 @@
         }
 
         // triggers on input
-        public onInput({ type, target }): void {
+        public onInput({ target }): void {
             if (target.value.length > this.maxSymbols) {
                 this.value = target.value.slice(0, this.maxSymbols);
             } else {
