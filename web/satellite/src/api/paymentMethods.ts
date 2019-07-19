@@ -3,13 +3,10 @@
 
 import apollo from '@/utils/apolloManager';
 import gql from 'graphql-tag';
+import { RequestResponse } from '@/types/response';
 
 export async function addProjectPaymentMethodRequest(projectID: string, cardToken: string, makeDefault: boolean): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
@@ -37,11 +34,7 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
 }
 
 export async function setDefaultPaymentMethodRequest(projectID: string, paymentID: string): Promise<RequestResponse<null>> {
-   let result: RequestResponse<null> = {
-       errorMessage: '',
-       isSuccess: false,
-       data: null
-   };
+   let result: RequestResponse<null> = new RequestResponse<null>();
 
    let response: any = await apollo.mutate(
        {
@@ -68,11 +61,7 @@ export async function setDefaultPaymentMethodRequest(projectID: string, paymentI
 }
 
 export async function deletePaymentMethodRequest(paymentID: string):Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
@@ -99,11 +88,7 @@ export async function deletePaymentMethodRequest(paymentID: string):Promise<Requ
 
 // fetchProjectInvoices retrieves project invoices
 export async function fetchProjectPaymentMethods(projectID: string): Promise<RequestResponse<PaymentMethod[]>> {
-    let result: RequestResponse<PaymentMethod[]> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: [] as PaymentMethod[]
-    };
+    let result: RequestResponse<PaymentMethod[]> = new RequestResponse<PaymentMethod[]>();
 
     let response: any = await apollo.query(
         {

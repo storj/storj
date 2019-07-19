@@ -19,19 +19,16 @@
     import NewPaymentMethodPopup from '@/components/project/paymentMethods/NewPaymentMethodComponent.vue';
 
     @Component({
-        methods: {},
-        computed: {
-            paymentMethods: function (): PaymentMethod[] {
-                return this.$store.state.projectPaymentsMethodsModule.paymentMethods;
-            }
-        },
         components: {
             NewPaymentMethodPopup,
-            CardComponent
+            CardComponent,
         }
     })
-
-    export default class ProjectPaymentMethods extends Vue {}
+    export default class ProjectPaymentMethods extends Vue {
+        public get paymentMethods(): PaymentMethod[] {
+            return this.$store.state.projectPaymentsMethodsModule.paymentMethods;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

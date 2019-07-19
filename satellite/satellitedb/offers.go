@@ -26,7 +26,7 @@ type offersDB struct {
 
 // ListAll returns all offersDB from the db
 func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
-	offersDbx, err := db.db.All_Offer(ctx)
+	offersDbx, err := db.db.All_Offer_OrderBy_Asc_Id(ctx)
 	if err != nil {
 		return nil, offerErr.Wrap(err)
 	}
@@ -37,10 +37,10 @@ func (db *offersDB) ListAll(ctx context.Context) (rewards.Offers, error) {
 // GetCurrent returns an offer that has not expired based on offer type
 func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.OfferType) (*rewards.Offer, error) {
 	var statement string
-	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, num_redeemed, expires_at, created_at, status, type"
+	const columns = "id, name, description, award_credit_in_cents, invitee_credit_in_cents, award_credit_duration_days, invitee_credit_duration_days, redeemable_cap, expires_at, created_at, status, type"
 	statement = `
 		WITH o AS (
-			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>? AND num_redeemed < redeemable_cap
+			SELECT ` + columns + ` FROM offers WHERE status=? AND type=? AND expires_at>? 
 		)
 		SELECT ` + columns + ` FROM o
 		UNION ALL
@@ -52,9 +52,16 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 
 	rows := db.db.DB.QueryRowContext(ctx, db.db.Rebind(statement), rewards.Active, offerType, time.Now().UTC(), offerType, rewards.Default)
 
-	var awardCreditInCents, inviteeCreditInCents int
+	var (
+		awardCreditInCents        int
+		inviteeCreditInCents      int
+		awardCreditDurationDays   sql.NullInt64
+		inviteeCreditDurationDays sql.NullInt64
+		redeemableCap             sql.NullInt64
+	)
+
 	o := rewards.Offer{}
-	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &o.AwardCreditDurationDays, &o.InviteeCreditDurationDays, &o.RedeemableCap, &o.NumRedeemed, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
+	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
 		return nil, offerErr.New("no current offer")
 	}
@@ -63,6 +70,15 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	}
 	o.AwardCredit = currency.Cents(awardCreditInCents)
 	o.InviteeCredit = currency.Cents(inviteeCreditInCents)
+	if redeemableCap.Valid {
+		o.RedeemableCap = int(redeemableCap.Int64)
+	}
+	if awardCreditDurationDays.Valid {
+		o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
+	}
+	if inviteeCreditDurationDays.Valid {
+		o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
+	}
 
 	return &o, nil
 }
@@ -99,12 +115,14 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 		dbx.Offer_Description(o.Description),
 		dbx.Offer_AwardCreditInCents(o.AwardCredit.Cents()),
 		dbx.Offer_InviteeCreditInCents(o.InviteeCredit.Cents()),
-		dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
-		dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
-		dbx.Offer_RedeemableCap(o.RedeemableCap),
 		dbx.Offer_ExpiresAt(o.ExpiresAt),
 		dbx.Offer_Status(int(o.Status)),
 		dbx.Offer_Type(int(o.Type)),
+		dbx.Offer_Create_Fields{
+			AwardCreditDurationDays:   dbx.Offer_AwardCreditDurationDays(o.AwardCreditDurationDays),
+			InviteeCreditDurationDays: dbx.Offer_InviteeCreditDurationDays(o.InviteeCreditDurationDays),
+			RedeemableCap:             dbx.Offer_RedeemableCap(o.RedeemableCap),
+		},
 	)
 	if err != nil {
 		return nil, offerErr.Wrap(errs.Combine(err, tx.Rollback()))
@@ -116,24 +134,6 @@ func (db *offersDB) Create(ctx context.Context, o *rewards.NewOffer) (*rewards.O
 	}
 
 	return newOffer, offerErr.Wrap(tx.Commit())
-}
-
-// Redeem adds 1 to the amount of offers redeemed based on offer id
-func (db *offersDB) Redeem(ctx context.Context, oID int, isDefault bool) error {
-	if isDefault {
-		return nil
-	}
-
-	statement := db.db.Rebind(
-		`UPDATE offers SET num_redeemed = num_redeemed + 1 where id = ? AND status = ? AND num_redeemed < redeemable_cap`,
-	)
-
-	_, err := db.db.DB.ExecContext(ctx, statement, oID, rewards.Active)
-	if err != nil {
-		return offerErr.Wrap(err)
-	}
-
-	return nil
 }
 
 // Finish changes the offer status to be Done and its expiration date to be now based on offer id
@@ -175,17 +175,27 @@ func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 		return nil, offerErr.New("offerDbx parameter is nil")
 	}
 
+	var redeemableCap, awardCreditDurationDays, inviteeCreditDurationDays int
+	if offerDbx.RedeemableCap != nil {
+		redeemableCap = *offerDbx.RedeemableCap
+	}
+	if offerDbx.AwardCreditDurationDays != nil {
+		awardCreditDurationDays = *offerDbx.AwardCreditDurationDays
+	}
+	if offerDbx.InviteeCreditDurationDays != nil {
+		inviteeCreditDurationDays = *offerDbx.InviteeCreditDurationDays
+	}
+
 	o := rewards.Offer{
 		ID:                        offerDbx.Id,
 		Name:                      offerDbx.Name,
 		Description:               offerDbx.Description,
 		AwardCredit:               currency.Cents(offerDbx.AwardCreditInCents),
 		InviteeCredit:             currency.Cents(offerDbx.InviteeCreditInCents),
-		RedeemableCap:             offerDbx.RedeemableCap,
-		NumRedeemed:               offerDbx.NumRedeemed,
+		RedeemableCap:             redeemableCap,
 		ExpiresAt:                 offerDbx.ExpiresAt,
-		AwardCreditDurationDays:   offerDbx.AwardCreditDurationDays,
-		InviteeCreditDurationDays: offerDbx.InviteeCreditDurationDays,
+		AwardCreditDurationDays:   awardCreditDurationDays,
+		InviteeCreditDurationDays: inviteeCreditDurationDays,
 		CreatedAt:                 offerDbx.CreatedAt,
 		Status:                    rewards.OfferStatus(offerDbx.Status),
 		Type:                      rewards.OfferType(offerDbx.Type),

@@ -38,6 +38,7 @@ func (db *ordersdb) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 		return ErrInfo.Wrap(err)
 	}
 
+	// TODO: remove uplink_cert_id
 	_, err = db.db.Exec(`
 		INSERT INTO unsent_order(
 			satellite_id, serial_number,
@@ -149,7 +150,7 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 	defer mon.Task()(&ctx)(&err)
 
 	result, err := db.db.Exec(`
-		INSERT INTO order_archive (
+		INSERT INTO order_archive_ (
 			satellite_id, serial_number,
 			order_limit_serialized, order_serialized,
 			uplink_cert_id,
@@ -164,7 +165,7 @@ func (db *ordersdb) Archive(ctx context.Context, satellite storj.NodeID, serial 
 
 		DELETE FROM unsent_order
 		WHERE satellite_id = ? AND serial_number = ?;
-	`, int(status), time.Now(), satellite, serial, satellite, serial)
+	`, int(status), time.Now().UTC(), satellite, serial, satellite, serial)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}
@@ -186,7 +187,7 @@ func (db *ordersdb) ListArchived(ctx context.Context, limit int) (_ []*orders.Ar
 
 	rows, err := db.db.Query(`
 		SELECT order_limit_serialized, order_serialized, status, archived_at
-		FROM order_archive
+		FROM order_archive_
 		LIMIT ?
 	`, limit)
 	if err != nil {

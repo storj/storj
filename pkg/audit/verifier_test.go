@@ -53,10 +53,10 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -97,7 +97,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
@@ -105,7 +105,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err = stopStorageNode(ctx, planet, stoppedNodeID)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -153,10 +153,10 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		stripe.Segment.GetRemote().RootPieceId = storj.NewPieceID()
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -227,10 +227,10 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			5*time.Second)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
-		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -292,14 +292,14 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			150*time.Millisecond)
 
 		shareSize := stripe.Segment.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, planet.Satellites[0].Identity.PeerIdentity(), bucketID, stripe.Segment, nil)
+		limits, privateKey, err := planet.Satellites[0].Orders.Service.CreateAuditOrderLimits(ctx, bucketID, stripe.Segment, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
 
-		shares, err := verifier.DownloadShares(ctx, limits, stripe.Index, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, stripe.Index, shareSize)
 		require.NoError(t, err)
 
 		require.Len(t, shares, 1)
@@ -388,6 +388,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		require.NoError(t, err)
 
 		// delete the piece from the first node
+		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
 		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
 		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		node := getStorageNode(planet, piece.NodeId)
@@ -397,7 +398,7 @@ func TestVerifierMissingPiece(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, stripe, nil)
 		require.NoError(t, err)
 
-		assert.Len(t, report.Successes, len(stripe.Segment.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, report.Successes, origNumPieces-1)
 		assert.Len(t, report.Fails, 1)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
@@ -512,5 +513,60 @@ func TestVerifierModifiedSegment(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, stripe, nil)
 		require.True(t, audit.ErrSegmentDeleted.Has(err))
 		assert.Empty(t, report)
+	})
+}
+
+func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		audits := planet.Satellites[0].Audit.Service
+		err := audits.Close()
+		require.NoError(t, err)
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err = ul.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		stripe, _, err := audits.Cursor.NextStripe(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, stripe)
+
+		// delete the piece from the first node
+		origNumPieces := len(stripe.Segment.GetRemote().GetRemotePieces())
+		piece := stripe.Segment.GetRemote().GetRemotePieces()[0]
+		pieceID := stripe.Segment.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+		node := getStorageNode(planet, piece.NodeId)
+		err = node.Storage2.Store.Delete(ctx, planet.Satellites[0].ID(), pieceID)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Verify(ctx, stripe, nil)
+		require.NoError(t, err)
+
+		assert.Len(t, report.Successes, origNumPieces-1)
+		assert.Len(t, report.Fails, 1)
+		assert.Equal(t, report.Fails[0], piece.NodeId)
+		assert.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+
+		//refetch the stripe
+		stripe, _, err = audits.Cursor.NextStripe(ctx)
+		assert.NoError(t, err)
+		require.NotNil(t, stripe)
+
+		report, err = audits.Verifier.Verify(ctx, stripe, nil)
+		require.NoError(t, err)
+
+		//verify no failures because that segment is gone
+		assert.Len(t, report.Successes, origNumPieces-1)
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 0)
+		require.Len(t, report.PendingAudits, 0)
+
+		for _, newPiece := range stripe.Segment.GetRemote().GetRemotePieces() {
+			assert.NotEqual(t, newPiece.NodeId, piece.NodeId)
+		}
 	})
 }

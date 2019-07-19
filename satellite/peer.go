@@ -377,20 +377,20 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Orders.Endpoint = orders.NewEndpoint(
 			peer.Log.Named("orders:endpoint"),
 			satelliteSignee,
-			peer.DB.Orders(),
 			peer.DB.CertDB(),
+			peer.DB.Orders(),
 		)
 		peer.Orders.Service = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
-			peer.DB.CertDB(),
 			peer.DB.Orders(),
 			config.Orders.Expiration,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Kademlia.ExternalAddress,
 			},
+			config.Repairer.MaxExcessRateOptimalThreshold,
 		)
 		pb.RegisterOrdersServer(peer.Server.GRPC(), peer.Orders.Endpoint)
 	}
@@ -418,6 +418,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.DB.Console().APIKeys(),
 			peer.Accounting.ProjectUsage,
 			config.Metainfo.RS,
+			signing.SignerFromFullIdentity(peer.Identity),
 		)
 
 		pb.RegisterMetainfoServer(peer.Server.GRPC(), peer.Metainfo.Endpoint2)

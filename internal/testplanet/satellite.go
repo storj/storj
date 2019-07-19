@@ -124,9 +124,10 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval: 1 * time.Second,
-				RefreshInterval:   1 * time.Second,
-				RefreshLimit:      100,
+				DiscoveryInterval:  1 * time.Second,
+				RefreshInterval:    1 * time.Second,
+				RefreshLimit:       100,
+				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
@@ -153,10 +154,11 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				ReliabilityCacheStaleness: 5 * time.Minute,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:    10,
-				Interval:     time.Hour,
-				Timeout:      1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
-				MaxBufferMem: 4 * memory.MiB,
+				MaxRepair:                     10,
+				Interval:                      time.Hour,
+				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				MaxBufferMem:                  4 * memory.MiB,
+				MaxExcessRateOptimalThreshold: 0.05,
 			},
 			Audit: audit.Config{
 				MaxRetriesStatDB:   0,

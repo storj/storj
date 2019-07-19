@@ -7,6 +7,8 @@ import * as api from '@/api/projectMembers';
 import { addProjectMembersRequest } from '@/api/projectMembers';
 import { PROJECT_MEMBER_MUTATIONS } from '@/store/mutationConstants';
 import Vuex from 'vuex';
+import { TeamMember } from '@/types/teamMembers';
+import { RequestResponse } from '@/types/response';
 
 const mutations = projectMembersModule.mutations;
 
@@ -199,17 +201,9 @@ describe('actions', () => {
             }
         };
         const commit = jest.fn();
-        const projectMemberMockModel: TeamMemberModel = {
-            user: {
-                id: '1',
-                email: '1',
-                firstName: '1',
-                lastName: '1'
-            },
-            joinedAt: '1'
-        };
+        const projectMemberMockModel: TeamMember = new TeamMember('1', '1', '1', '1', '1');
         jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<TeamMemberModel[]>>{
+            Promise.resolve(<RequestResponse<TeamMember[]>>{
                 isSuccess: true,
                 data: [projectMemberMockModel]
             }));
@@ -241,7 +235,7 @@ describe('actions', () => {
         };
         const commit = jest.fn();
         jest.spyOn(api, 'fetchProjectMembersRequest').mockReturnValue(
-            Promise.resolve(<RequestResponse<TeamMemberModel[]>>{
+            Promise.resolve(<RequestResponse<TeamMember[]>>{
                 isSuccess: false,
             })
         );

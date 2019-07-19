@@ -105,30 +105,20 @@ func (s *Service) GetUsedBandwidthTotal(ctx context.Context) (_ *BandwidthInfo, 
 	return FromUsage(usage, s.allocatedBandwidth.Int64())
 }
 
-// GetDailyTotal returns slice of daily bandwidth usage for provided time range,
+// GetDailyTotalBandwidthUsed returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order
-func (s *Service) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []BandwidthUsed, err error) {
+func (s *Service) GetDailyTotalBandwidthUsed(ctx context.Context, from, to time.Time) (_ []BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usage, err := s.consoleDB.Bandwidth().GetDailyTotal(ctx, from, to)
-	if err != nil {
-		return nil, err
-	}
-
-	return usage, nil
+	return s.consoleDB.Bandwidth().GetDailyTotal(ctx, from, to)
 }
 
-// GetDaily returns slice of daily bandwidth usage for provided time range,
+// GetDailyBandwidthUsed returns slice of daily bandwidth usage for provided time range,
 // sorted in ascending order for particular satellite
-func (s *Service) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []BandwidthUsed, err error) {
+func (s *Service) GetDailyBandwidthUsed(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []BandwidthUsed, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usage, err := s.consoleDB.Bandwidth().GetDaily(ctx, satelliteID, from, to)
-	if err != nil {
-		return nil, err
-	}
-
-	return usage, nil
+	return s.consoleDB.Bandwidth().GetDaily(ctx, satelliteID, from, to)
 }
 
 // GetBandwidthBySatellite returns all info about storage node bandwidth usage by satellite

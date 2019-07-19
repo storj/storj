@@ -17,7 +17,6 @@ import (
 
 	"storj.io/storj/internal/errs2"
 	"storj.io/storj/internal/memory"
-	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/identity"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
@@ -88,7 +87,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, err := verifier.orders.CreateAuditOrderLimits(ctx, verifier.auditor, bucketID, pointer, skip)
+	orderLimits, privateKey, err := verifier.orders.CreateAuditOrderLimits(ctx, bucketID, pointer, skip)
 	if err != nil {
 		return nil, err
 	}
@@ -99,14 +98,14 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)", zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
-	shares, err := verifier.DownloadShares(ctx, orderLimits, stripe.Index, shareSize)
+	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, stripe.Index, shareSize)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
 		}, err
 	}
 
-	err = verifier.checkIfSegmentDeleted(ctx, stripe)
+	_, err = verifier.checkIfSegmentDeleted(ctx, stripe.SegmentPath, stripe.Segment)
 	if err != nil {
 		return &Report{
 			Offlines: offlineNodes,
@@ -177,6 +176,11 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 	for _, pieceNum := range pieceNums {
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
+	// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+	err = verifier.removeFailedPieces(ctx, stripe.SegmentPath, stripe.Segment, failedNodes)
+	if err != nil {
+		verifier.log.Warn("Verify: failed to delete failed pieces", zap.Error(err))
+	}
 
 	successNodes := getSuccessNodes(ctx, shares, failedNodes, offlineNodes, containedNodes)
 
@@ -235,7 +239,7 @@ func (verifier *Verifier) Verify(ctx context.Context, stripe *Stripe, skip map[s
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located
-func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
+func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32) (shares map[int]Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	shares = make(map[int]Share, len(limits))
@@ -248,7 +252,7 @@ func (verifier *Verifier) DownloadShares(ctx context.Context, limits []*pb.Addre
 		}
 
 		go func(i int, limit *pb.AddressedOrderLimit) {
-			share, err := verifier.GetShare(ctx, limit, stripeIndex, shareSize, i)
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, stripeIndex, shareSize, i)
 			if err != nil {
 				share = Share{
 					Error:    err,
@@ -310,7 +314,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 		containedInSegment++
 
 		go func(pending *PendingAudit, piece *pb.RemotePiece) {
-			limit, err := verifier.orders.CreateAuditOrderLimit(ctx, verifier.auditor, createBucketID(stripe.SegmentPath), pending.NodeID, piece.PieceNum, pending.PieceID, pending.ShareSize)
+			limit, piecePrivateKey, err := verifier.orders.CreateAuditOrderLimit(ctx, createBucketID(stripe.SegmentPath), pending.NodeID, piece.PieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					_, errDelete := verifier.containment.Delete(ctx, piece.NodeId)
@@ -332,7 +336,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 				return
 			}
 
-			share, err := verifier.GetShare(ctx, limit, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
+			share, err := verifier.GetShare(ctx, limit, piecePrivateKey, pending.StripeIndex, pending.ShareSize, int(piece.PieceNum))
 
 			// check if the pending audit was deleted while downloading the share
 			_, getErr := verifier.containment.Get(ctx, piece.NodeId)
@@ -367,35 +371,54 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 					verifier.log.Debug("Reverify: unknown transport error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				if errs2.IsRPC(err, codes.NotFound) {
+					// Get the original segment pointer in the metainfo
+					oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, stripe.Segment)
+					if err != nil {
+						ch <- result{nodeID: piece.NodeId, status: success}
+						verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+						return
+					}
+					// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+					err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+					if err != nil {
+						verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+					}
 					// missing share
 					ch <- result{nodeID: piece.NodeId, status: failed}
 					verifier.log.Debug("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				if errs2.IsRPC(err, codes.DeadlineExceeded) {
 					// dial successful, but download timed out
 					ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 					verifier.log.Debug("Reverify: download timeout (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 					return
 				}
-
 				// unknown error
 				ch <- result{nodeID: piece.NodeId, status: contained, pendingAudit: pending}
 				verifier.log.Debug("Reverify: unknown error (contained)", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
 				return
 			}
-
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
 				ch <- result{nodeID: piece.NodeId, status: success}
 				verifier.log.Debug("Reverify: hashes match (audit success)", zap.Stringer("Node ID", piece.NodeId))
 			} else {
-				ch <- result{nodeID: piece.NodeId, status: failed}
+				oldPtr, err := verifier.checkIfSegmentDeleted(ctx, pending.Path, nil)
+				if err != nil {
+					ch <- result{nodeID: piece.NodeId, status: success}
+					verifier.log.Debug("Reverify: audit source deleted before reverification", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+					return
+				}
+				// remove failed audit pieces from the pointer so as to only penalize once for failed audits
+				err = verifier.removeFailedPieces(ctx, pending.Path, oldPtr, storj.NodeIDList{pending.NodeID})
+				if err != nil {
+					verifier.log.Warn("Reverify: failed to delete failed pieces", zap.Stringer("Node ID", piece.NodeId), zap.Error(err))
+				}
 				verifier.log.Debug("Reverify: hashes mismatch (audit failed)", zap.Stringer("Node ID", piece.NodeId),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
+				ch <- result{nodeID: piece.NodeId, status: failed}
 			}
 		}(pending, piece)
 	}
@@ -434,7 +457,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, stripe *Stripe) (report 
 }
 
 // GetShare use piece store client to download shares from nodes
-func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
+func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, stripeIndex int64, shareSize int32, pieceNum int) (share Share, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bandwidthMsgSize := shareSize
@@ -454,9 +477,8 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	storageNodeID := limit.GetLimit().StorageNodeId
 	log := verifier.log.Named(storageNodeID.String())
 	target := &pb.Node{Id: storageNodeID, Address: limit.GetStorageNodeAddress()}
-	signer := signing.SignerFromFullIdentity(verifier.transport.Identity())
 
-	ps, err := piecestore.Dial(timedCtx, verifier.transport, target, log, signer, piecestore.DefaultConfig)
+	ps, err := piecestore.Dial(timedCtx, verifier.transport, target, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Share{}, Error.Wrap(err)
 	}
@@ -469,7 +491,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 
 	offset := int64(shareSize) * stripeIndex
 
-	downloader, err := ps.Download(timedCtx, limit.GetLimit(), offset, int64(shareSize))
+	downloader, err := ps.Download(timedCtx, limit.GetLimit(), piecePrivateKey, offset, int64(shareSize))
 	if err != nil {
 		return Share{}, err
 	}
@@ -489,23 +511,46 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 	}, nil
 }
 
+// removeFailedPieces removes lost pieces from a pointer
+func (verifier *Verifier) removeFailedPieces(ctx context.Context, path string, pointer *pb.Pointer, failedNodes storj.NodeIDList) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if len(failedNodes) == 0 {
+		return nil
+	}
+	remoteSegment := pointer.GetRemote()
+	newRemotePieces := remoteSegment.RemotePieces[:0]
+OUTER:
+	for _, piece := range remoteSegment.RemotePieces {
+		for _, failedNode := range failedNodes {
+			if piece.NodeId == failedNode {
+				continue OUTER
+			}
+		}
+		newRemotePieces = append(newRemotePieces, piece)
+	}
+	remoteSegment.RemotePieces = newRemotePieces
+
+	// Update the segment pointer in the metainfo
+	//TODO:  update in a safe manner - https://storjlabs.atlassian.net/browse/V3-2088
+	return verifier.metainfo.Put(ctx, path, pointer)
+}
+
 // checkIfSegmentDeleted checks if stripe's pointer has been deleted since stripe was selected.
-func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, stripe *Stripe) (err error) {
+func (verifier *Verifier) checkIfSegmentDeleted(ctx context.Context, segmentPath string, oldPointer *pb.Pointer) (newPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	pointer, err := verifier.metainfo.Get(ctx, stripe.SegmentPath)
+	newPointer, err = verifier.metainfo.Get(ctx, segmentPath)
 	if err != nil {
 		if storage.ErrKeyNotFound.Has(err) {
-			return ErrSegmentDeleted.New(stripe.SegmentPath)
+			return nil, ErrSegmentDeleted.New(segmentPath)
 		}
-		return err
+		return nil, err
 	}
 
-	if !pointer.CreationDate.Equal(stripe.Segment.CreationDate) {
-		return ErrSegmentDeleted.New(stripe.SegmentPath)
+	if oldPointer != nil && oldPointer.CreationDate != newPointer.CreationDate {
+		return nil, ErrSegmentDeleted.New(segmentPath)
 	}
-
-	return nil
+	return newPointer, nil
 }
 
 // auditShares takes the downloaded shares and uses infectious's Correct function to check that they
@@ -634,6 +679,7 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 			StripeIndex:       stripe.Index,
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share),
+			Path:              stripe.SegmentPath,
 		})
 	}
 

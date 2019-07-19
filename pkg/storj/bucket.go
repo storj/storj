@@ -26,7 +26,7 @@ type Bucket struct {
 	ID                          uuid.UUID
 	Name                        string
 	ProjectID                   uuid.UUID
-	Attribution                 string
+	PartnerID                   uuid.UUID
 	Created                     time.Time
 	PathCipher                  CipherSuite
 	DefaultSegmentsSize         int64

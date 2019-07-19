@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"context"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -44,7 +45,7 @@ func TestInvalidAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 1, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -55,7 +56,7 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+		_, _, _, err = client.CreateSegment(ctx, "hello", "world", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, false)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
@@ -64,10 +65,10 @@ func TestInvalidAPIKey(t *testing.T) {
 		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
-		_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, false)
 
 		_, _, err = client.ListSegments(ctx, "testbucket", "", "", "", true, 1, 0)
@@ -79,7 +80,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 1, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -169,7 +170,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(client.Close)
 
-		_, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
+		_, _, _, err = client.CreateSegment(ctx, "testbucket", "testpath", 1, &pb.RedundancyScheme{}, 123, time.Now().Add(time.Hour))
 		assertUnauthenticated(t, err, test.CreateSegmentAllowed)
 
 		_, err = client.CommitSegment(ctx, "testbucket", "testpath", 0, &pb.Pointer{}, nil)
@@ -178,16 +179,16 @@ func TestRestrictedAPIKey(t *testing.T) {
 		_, err = client.SegmentInfo(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.SegmentInfoAllowed)
 
-		_, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.ReadSegmentAllowed)
 
-		_, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
+		_, _, err = client.DeleteSegment(ctx, "testbucket", "testpath", 0)
 		assertUnauthenticated(t, err, test.DeleteSegmentAllowed)
 
 		_, _, err = client.ListSegments(ctx, "testbucket", "testpath", "", "", true, 1, 0)
 		assertUnauthenticated(t, err, test.ListSegmentsAllowed)
 
-		_, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
+		_, _, _, err = client.ReadSegment(ctx, "testbucket", "", -1)
 		assertUnauthenticated(t, err, test.ReadBucketAllowed)
 	}
 }
@@ -208,7 +209,7 @@ func TestServiceList(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 6, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -287,7 +288,7 @@ func TestServiceList(t *testing.T) {
 
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -310,7 +311,7 @@ func TestCommitSegment(t *testing.T) {
 				ErasureShareSize: 256,
 			}
 			expirationDate := time.Now().Add(time.Hour)
-			addresedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
+			addresedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, redundancy, 1000, expirationDate)
 			require.NoError(t, err)
 
 			// create number of pieces below repair threshold
@@ -441,7 +442,7 @@ func TestCreateSegment(t *testing.T) {
 				fail: false,
 			},
 		} {
-			_, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
+			_, _, _, err := metainfo.CreateSegment(ctx, "bucket", "path", -1, r.rs, 1000, time.Now().Add(time.Hour))
 			if r.fail {
 				require.Error(t, err)
 			} else {
@@ -453,14 +454,21 @@ func TestCreateSegment(t *testing.T) {
 
 func TestExpirationTimeSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
-		pointer := createTestPointer(t)
+		rs := &pb.RedundancyScheme{
+			MinReq:           1,
+			RepairThreshold:  1,
+			SuccessThreshold: 1,
+			Total:            1,
+			ErasureShareSize: 1024,
+			Type:             pb.RedundancyScheme_RS,
+		}
 
 		for _, r := range []struct {
 			expirationDate time.Time
@@ -484,7 +492,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 
-			_, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
+			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, rs, memory.MiB.Int64(), r.expirationDate)
 			if err != nil {
 				assert.True(t, r.errFlag)
 			} else {
@@ -496,7 +504,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 
 func TestDoubleCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -607,7 +615,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 	}
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -628,7 +636,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 func TestSetAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
@@ -678,7 +686,7 @@ func TestSetAttribution(t *testing.T) {
 
 func TestGetProjectInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
@@ -705,7 +713,7 @@ func TestGetProjectInfo(t *testing.T) {
 func runCreateSegment(ctx context.Context, t *testing.T, metainfo *metainfo.Client) (*pb.Pointer, []*pb.OrderLimit) {
 	pointer := createTestPointer(t)
 
-	addressedLimits, rootPieceID, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
+	addressedLimits, rootPieceID, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), pointer.ExpirationDate)
 	require.NoError(t, err)
 
 	pointer.Remote.RootPieceId = rootPieceID
@@ -794,7 +802,7 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-63-0123456789012345678901234567890123456789012345abc",
 		}
 		for _, name := range validNames {
-			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.NoError(t, err, "bucket name: %v", name)
 		}
 
@@ -808,8 +816,108 @@ func TestBucketNameValidation(t *testing.T) {
 			"testbucket-64-0123456789012345678901234567890123456789012345abcd",
 		}
 		for _, name := range invalidNames {
-			_, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
+			_, _, _, err = metainfo.CreateSegment(ctx, name, "", -1, rs, 1, time.Now().Add(time.Hour))
 			require.Error(t, err, "bucket name: %v", name)
 		}
+	})
+}
+
+func TestBeginCommitObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfoService := planet.Satellites[0].Metainfo.Service
+
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		projectID := projects[0].ID
+
+		bucket := storj.Bucket{
+			Name:       "initial-bucket",
+			ProjectID:  projectID,
+			PathCipher: config.GetEncryptionParameters().CipherSuite,
+		}
+		_, err = metainfoService.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		streamID, err := metainfo.BeginObject(
+			ctx,
+			[]byte(bucket.Name),
+			[]byte("encrypted-path"),
+			1,
+			storj.RedundancyScheme{},
+			storj.EncryptionParameters{},
+			time.Time{},
+			testrand.Nonce(),
+			testrand.Bytes(memory.KiB),
+		)
+		require.NoError(t, err)
+
+		err = metainfo.CommitObject(ctx, streamID)
+		require.NoError(t, err)
+	})
+}
+
+func TestBeginFinishDeleteObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		streamID, err := metainfo.BeginDeleteObject(
+			ctx,
+			[]byte("initial-bucket"),
+			[]byte("encrypted-path"),
+			1,
+		)
+		require.NoError(t, err)
+
+		err = metainfo.FinishDeleteObject(ctx, streamID)
+		require.NoError(t, err)
+	})
+}
+
+func TestListObjects(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		files := make([]string, 10)
+		data := testrand.Bytes(1 * memory.KiB)
+		for i := 0; i < len(files); i++ {
+			files[i] = "path" + strconv.Itoa(i)
+			err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", files[i], data)
+			require.NoError(t, err)
+		}
+
+		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfo.Close)
+
+		items, _, err := metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 0)
+		require.NoError(t, err)
+		require.Equal(t, len(files), len(items))
+		for _, item := range items {
+			require.NotEmpty(t, item.EncryptedPath)
+			require.True(t, item.CreatedAt.Before(time.Now()))
+		}
+
+		items, _, err = metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 3)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(items))
 	})
 }

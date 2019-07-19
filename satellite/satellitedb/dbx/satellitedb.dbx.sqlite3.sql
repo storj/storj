@@ -62,7 +62,7 @@ CREATE TABLE certRecords (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE injuredsegments (
-	path TEXT NOT NULL,
+	path BLOB NOT NULL,
 	data BLOB NOT NULL,
 	attempted TIMESTAMP,
 	PRIMARY KEY ( path )
@@ -114,10 +114,9 @@ CREATE TABLE offers (
 	description TEXT NOT NULL,
 	award_credit_in_cents INTEGER NOT NULL,
 	invitee_credit_in_cents INTEGER NOT NULL,
-	award_credit_duration_days INTEGER NOT NULL,
-	invitee_credit_duration_days INTEGER NOT NULL,
-	redeemable_cap INTEGER NOT NULL,
-	num_redeemed INTEGER NOT NULL,
+	award_credit_duration_days INTEGER,
+	invitee_credit_duration_days INTEGER,
+	redeemable_cap INTEGER,
 	expires_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	status INTEGER NOT NULL,
@@ -131,6 +130,7 @@ CREATE TABLE pending_audits (
 	share_size INTEGER NOT NULL,
 	expected_share_hash BLOB NOT NULL,
 	reverify_count INTEGER NOT NULL,
+	path BLOB NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
@@ -138,6 +138,7 @@ CREATE TABLE projects (
 	name TEXT NOT NULL,
 	description TEXT NOT NULL,
 	usage_limit INTEGER NOT NULL,
+	partner_id BLOB,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -186,6 +187,7 @@ CREATE TABLE users (
 	short_name TEXT,
 	password_hash BLOB NOT NULL,
 	status INTEGER NOT NULL,
+	partner_id BLOB,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id )
 );
@@ -202,6 +204,7 @@ CREATE TABLE api_keys (
 	head BLOB NOT NULL,
 	name TEXT NOT NULL,
 	secret BLOB NOT NULL,
+	partner_id BLOB,
 	created_at TIMESTAMP NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( head ),
@@ -211,6 +214,7 @@ CREATE TABLE bucket_metainfos (
 	id BLOB NOT NULL,
 	project_id BLOB NOT NULL REFERENCES projects( id ),
 	name BLOB NOT NULL,
+	partner_id BLOB,
 	path_cipher INTEGER NOT NULL,
 	created_at TIMESTAMP NOT NULL,
 	default_segment_size INTEGER NOT NULL,
@@ -274,6 +278,7 @@ CREATE TABLE project_payments (
 );
 CREATE INDEX bucket_name_project_id_interval_start_interval_seconds ON bucket_bandwidth_rollups ( bucket_name, project_id, interval_start, interval_seconds );
 CREATE UNIQUE INDEX bucket_id_rollup ON bucket_usages ( bucket_id, rollup_end_time );
+CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE UNIQUE INDEX serial_number ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );

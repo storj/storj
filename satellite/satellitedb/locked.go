@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/pkg/certdb"
 	"storj.io/storj/pkg/datarepair/irreparable"
 	"storj.io/storj/pkg/datarepair/queue"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/overlay"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -110,7 +111,7 @@ func (m *lockedBuckets) GetBucket(ctx context.Context, bucketName []byte, projec
 }
 
 // List returns all buckets for a project
-func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets map[string]struct{}) (bucketList storj.BucketList, err error) {
+func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts storj.BucketListOptions, allowedBuckets macaroon.AllowedBuckets) (bucketList storj.BucketList, err error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
@@ -570,7 +571,7 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
@@ -740,11 +741,11 @@ func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.Ir
 	return m.db.Get(ctx, segmentPath)
 }
 
-// GetLimited number of segments from offset
-func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) ([]*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetLimited(ctx, limit, offset)
+	return m.db.GetLimited(ctx, limit, lastSeenSegmentPath)
 }
 
 // IncrementRepairAttempts increments the repair attempts.
@@ -883,6 +884,13 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Paginate(ctx, offset, limit)
+}
+
+// PaginateQualified will page through the qualified nodes
+func (m *lockedOverlayCache) PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.PaginateQualified(ctx, offset, limit)
 }
 
 // Reliable returns all nodes that are reliable
@@ -1058,12 +1066,6 @@ func (m *lockedRewards) ListAll(ctx context.Context) (rewards.Offers, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.ListAll(ctx)
-}
-
-func (m *lockedRewards) Redeem(ctx context.Context, offerID int, isDefault bool) error {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.Redeem(ctx, offerID, isDefault)
 }
 
 // StoragenodeAccounting returns database for storing information about storagenode use

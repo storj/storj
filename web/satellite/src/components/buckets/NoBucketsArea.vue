@@ -47,7 +47,6 @@
             Button,
         },
     })
-
     export default class NoBucketArea extends Vue {}
 </script>
 

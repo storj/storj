@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -34,7 +35,7 @@ func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 		},
 		DefaultEncryptionParameters: storj.EncryptionParameters{
 			CipherSuite: storj.EncAESGCM,
-			BlockSize:   32,
+			BlockSize:   9 * 10,
 		},
 	}
 }
@@ -96,7 +97,9 @@ func TestListBucketsAllAllowed(t *testing.T) {
 
 		bucketsDB := db.Buckets()
 
-		var allowedPaths = map[string]struct{}{}
+		allowedBuckets := macaroon.AllowedBuckets{
+			Buckets: map[string]struct{}{},
+		}
 		{ // setup some test buckets
 			var testBucketNames = []string{"aaa", "bbb", "mmm", "qqq", "zzz",
 				"test.bucket", "123", "0test", "999", "test-bucket.thing",
@@ -104,7 +107,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 			for _, bucket := range testBucketNames {
 				testBucket := newTestBucket(bucket, project.ID)
 				_, err := bucketsDB.CreateBucket(ctx, testBucket)
-				allowedPaths[bucket] = struct{}{}
+				allowedBuckets.Buckets[bucket] = struct{}{}
 				if err != nil {
 					require.NoError(t, err)
 				}
@@ -114,13 +117,13 @@ func TestListBucketsAllAllowed(t *testing.T) {
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
 			t.Run(tt.name, func(t *testing.T) {
-				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID, storj.BucketListOptions{
+
+				listOpts := storj.BucketListOptions{
 					Cursor:    tt.cursor,
 					Direction: storj.Forward,
 					Limit:     tt.limit,
-				},
-					allowedPaths,
-				)
+				}
+				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID, listOpts, allowedBuckets)
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedItems, len(bucketList.Items))
 				require.Equal(t, tt.expectedMore, bucketList.More)
@@ -131,18 +134,21 @@ func TestListBucketsAllAllowed(t *testing.T) {
 
 func TestListBucketsNotAllowed(t *testing.T) {
 	testCases := []struct {
-		name          string
-		cursor        string
-		limit         int
-		expectedItems int
-		expectedMore  bool
-		allowedPaths  map[string]struct{}
-		expectedNames []string
+		name           string
+		cursor         string
+		limit          int
+		expectedItems  int
+		expectedMore   bool
+		allowAll       bool
+		allowedBuckets map[string]struct{}
+		expectedNames  []string
 	}{
-		{"empty string cursor, 2 allowed", "", 10, 1, false, map[string]struct{}{"aaa": {}, "ddd": {}}, []string{"aaa"}},
-		{"empty string cursor, more", "", 2, 2, true, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb"}},
-		{"empty string cursor, 3 allowed", "", 4, 3, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb", "zzz"}},
-		{"last bucket cursor", "zzz", 2, 1, false, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
+		{"empty string cursor, 2 allowed", "", 10, 1, false, false, map[string]struct{}{"aaa": {}, "ddd": {}}, []string{"aaa"}},
+		{"empty string cursor, more", "", 2, 2, true, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb"}},
+		{"empty string cursor, 3 allowed", "", 4, 3, false, false, map[string]struct{}{"aaa": {}, "bbb": {}, "zzz": {}}, []string{"aaa", "bbb", "zzz"}},
+		{"last bucket cursor", "zzz", 2, 1, false, false, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
+		{"last bucket cursor, allow all", "zzz", 2, 1, false, true, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
+		{"empty string cursor, allow all, more", "", 5, 5, true, true, map[string]struct{}{"": {}}, []string{"123", "0test", "999", "aaa", "bbb"}},
 	}
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
@@ -174,9 +180,14 @@ func TestListBucketsNotAllowed(t *testing.T) {
 				Limit:     tt.limit,
 			}
 			t.Run(tt.name, func(t *testing.T) {
-				bucketList, err := bucketsDB.ListBuckets(ctx, project.ID,
+				allowed := macaroon.AllowedBuckets{
+					Buckets: tt.allowedBuckets,
+					All:     tt.allowAll,
+				}
+				bucketList, err := bucketsDB.ListBuckets(ctx,
+					project.ID,
 					listOpts,
-					tt.allowedPaths,
+					allowed,
 				)
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedItems, len(bucketList.Items))
