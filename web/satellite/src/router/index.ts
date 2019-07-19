@@ -168,7 +168,7 @@ router.beforeEach((to, from, next) => {
 
 // isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
 function isUnavailablePageWithoutProject(pageName: string): boolean {
-    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name];
+    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name, ROUTES.BUCKETS.name];
     const state = store.state as any;
 
     let isProjectSelected = state.projectsModule.selectedProject.id !== '';

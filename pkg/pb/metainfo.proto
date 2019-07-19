@@ -48,6 +48,7 @@ message Bucket {
     int64                           default_segment_size = 4;
     pointerdb.RedundancyScheme      default_redundancy_scheme = 5;
     encryption.EncryptionParameters default_encryption_parameters = 6;
+    bytes                           partner_id = 7;
 }
 
 message BucketListItem {
@@ -63,6 +64,7 @@ message BucketCreateRequest {
     int64                           default_segment_size = 3;
     pointerdb.RedundancyScheme      default_redundancy_scheme = 4;
     encryption.EncryptionParameters default_encryption_parameters = 5;
+    bytes                           partner_id = 6;
 }
 
 message BucketCreateResponse {

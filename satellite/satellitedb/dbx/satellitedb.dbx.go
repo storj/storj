@@ -402,6 +402,7 @@ CREATE TABLE pending_audits (
 	share_size bigint NOT NULL,
 	expected_share_hash bytea NOT NULL,
 	reverify_count bigint NOT NULL,
+	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
@@ -747,6 +748,7 @@ CREATE TABLE pending_audits (
 	share_size INTEGER NOT NULL,
 	expected_share_hash BLOB NOT NULL,
 	reverify_count INTEGER NOT NULL,
+	path BLOB NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (
@@ -3040,6 +3042,7 @@ type PendingAudits struct {
 	ShareSize         int64
 	ExpectedShareHash []byte
 	ReverifyCount     int64
+	Path              []byte
 }
 
 func (PendingAudits) _Table() string { return "pending_audits" }
@@ -3161,6 +3164,25 @@ func (f PendingAudits_ReverifyCount_Field) value() interface{} {
 }
 
 func (PendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
+
+type PendingAudits_Path_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func PendingAudits_Path(v []byte) PendingAudits_Path_Field {
+	return PendingAudits_Path_Field{_set: true, _value: v}
+}
+
+func (f PendingAudits_Path_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (PendingAudits_Path_Field) _Column() string { return "path" }
 
 type Project struct {
 	Id          []byte
@@ -4276,6 +4298,7 @@ type BucketMetainfo_Create_Fields struct {
 }
 
 type BucketMetainfo_Update_Fields struct {
+	PartnerId                       BucketMetainfo_PartnerId_Field
 	DefaultSegmentSize              BucketMetainfo_DefaultSegmentSize_Field
 	DefaultEncryptionCipherSuite    BucketMetainfo_DefaultEncryptionCipherSuite_Field
 	DefaultEncryptionBlockSize      BucketMetainfo_DefaultEncryptionBlockSize_Field
@@ -5470,7 +5493,8 @@ func (obj *postgresImpl) Create_PendingAudits(ctx context.Context,
 	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
 	pending_audits_share_size PendingAudits_ShareSize_Field,
 	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
-	pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+	pending_audits_reverify_count PendingAudits_ReverifyCount_Field,
+	pending_audits_path PendingAudits_Path_Field) (
 	pending_audits *PendingAudits, err error) {
 	__node_id_val := pending_audits_node_id.value()
 	__piece_id_val := pending_audits_piece_id.value()
@@ -5478,14 +5502,15 @@ func (obj *postgresImpl) Create_PendingAudits(ctx context.Context,
 	__share_size_val := pending_audits_share_size.value()
 	__expected_share_hash_val := pending_audits_expected_share_hash.value()
 	__reverify_count_val := pending_audits_reverify_count.value()
+	__path_val := pending_audits_path.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, path ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val)
+	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	err = obj.driver.QueryRow(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -6210,7 +6235,7 @@ func (obj *postgresImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, pending_audits_node_id.value())
@@ -6219,7 +6244,7 @@ func (obj *postgresImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -7754,7 +7779,7 @@ func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits *PendingAudits, err error) {
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE pending_audits SET "), __sets, __sqlbundle_Literal(" WHERE pending_audits.node_id = ? RETURNING pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE pending_audits SET "), __sets, __sqlbundle_Literal(" WHERE pending_audits.node_id = ? RETURNING pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -7778,7 +7803,7 @@ func (obj *postgresImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -8398,6 +8423,92 @@ func (obj *postgresImpl) Update_Offer_By_Id(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return offer, nil
+}
+
+func (obj *postgresImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? RETURNING bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.PartnerId._set {
+		__values = append(__values, update.PartnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
+	}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCipherSuite._set {
+		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
 }
 
 func (obj *postgresImpl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
@@ -9142,7 +9253,8 @@ func (obj *sqlite3Impl) Create_PendingAudits(ctx context.Context,
 	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
 	pending_audits_share_size PendingAudits_ShareSize_Field,
 	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
-	pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+	pending_audits_reverify_count PendingAudits_ReverifyCount_Field,
+	pending_audits_path PendingAudits_Path_Field) (
 	pending_audits *PendingAudits, err error) {
 	__node_id_val := pending_audits_node_id.value()
 	__piece_id_val := pending_audits_piece_id.value()
@@ -9150,13 +9262,14 @@ func (obj *sqlite3Impl) Create_PendingAudits(ctx context.Context,
 	__share_size_val := pending_audits_share_size.value()
 	__expected_share_hash_val := pending_audits_expected_share_hash.value()
 	__reverify_count_val := pending_audits_reverify_count.value()
+	__path_val := pending_audits_path.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count ) VALUES ( ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO pending_audits ( node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, path ) VALUES ( ?, ?, ?, ?, ?, ?, ? )")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val)
+	obj.logStmt(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
 
-	__res, err := obj.driver.Exec(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val)
+	__res, err := obj.driver.Exec(__stmt, __node_id_val, __piece_id_val, __stripe_index_val, __share_size_val, __expected_share_hash_val, __reverify_count_val, __path_val)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9951,7 +10064,7 @@ func (obj *sqlite3Impl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	pending_audits_node_id PendingAudits_NodeId_Field) (
 	pending_audits *PendingAudits, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, pending_audits_node_id.value())
@@ -9960,7 +10073,7 @@ func (obj *sqlite3Impl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	err = obj.driver.QueryRow(__stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -11524,12 +11637,12 @@ func (obj *sqlite3Impl) Update_PendingAudits_By_NodeId(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE pending_audits.node_id = ?")
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE pending_audits.node_id = ?")
 
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
 
-	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -12251,6 +12364,102 @@ func (obj *sqlite3Impl) Update_Offer_By_Id(ctx context.Context,
 	return offer, nil
 }
 
+func (obj *sqlite3Impl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE bucket_metainfos SET "), __sets, __sqlbundle_Literal(" WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.PartnerId._set {
+		__values = append(__values, update.PartnerId.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("partner_id = ?"))
+	}
+
+	if update.DefaultSegmentSize._set {
+		__values = append(__values, update.DefaultSegmentSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_segment_size = ?"))
+	}
+
+	if update.DefaultEncryptionCipherSuite._set {
+		__values = append(__values, update.DefaultEncryptionCipherSuite.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_cipher_suite = ?"))
+	}
+
+	if update.DefaultEncryptionBlockSize._set {
+		__values = append(__values, update.DefaultEncryptionBlockSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_encryption_block_size = ?"))
+	}
+
+	if update.DefaultRedundancyAlgorithm._set {
+		__values = append(__values, update.DefaultRedundancyAlgorithm.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_algorithm = ?"))
+	}
+
+	if update.DefaultRedundancyShareSize._set {
+		__values = append(__values, update.DefaultRedundancyShareSize.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_share_size = ?"))
+	}
+
+	if update.DefaultRedundancyRequiredShares._set {
+		__values = append(__values, update.DefaultRedundancyRequiredShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_required_shares = ?"))
+	}
+
+	if update.DefaultRedundancyRepairShares._set {
+		__values = append(__values, update.DefaultRedundancyRepairShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_repair_shares = ?"))
+	}
+
+	if update.DefaultRedundancyOptimalShares._set {
+		__values = append(__values, update.DefaultRedundancyOptimalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_optimal_shares = ?"))
+	}
+
+	if update.DefaultRedundancyTotalShares._set {
+		__values = append(__values, update.DefaultRedundancyTotalShares.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("default_redundancy_total_shares = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	bucket_metainfo = &BucketMetainfo{}
+	_, err = obj.driver.Exec(__stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRow(__stmt_get, __args...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return bucket_metainfo, nil
+}
+
 func (obj *sqlite3Impl) Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 	value_attribution_project_id ValueAttribution_ProjectId_Field,
 	value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -12692,13 +12901,13 @@ func (obj *sqlite3Impl) getLastPendingAudits(ctx context.Context,
 	pk int64) (
 	pending_audits *PendingAudits, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count FROM pending_audits WHERE _rowid_ = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT pending_audits.node_id, pending_audits.piece_id, pending_audits.stripe_index, pending_audits.share_size, pending_audits.expected_share_hash, pending_audits.reverify_count, pending_audits.path FROM pending_audits WHERE _rowid_ = ?")
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, pk)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRow(__stmt, pk).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount)
+	err = obj.driver.QueryRow(__stmt, pk).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -13807,13 +14016,14 @@ func (rx *Rx) Create_PendingAudits(ctx context.Context,
 	pending_audits_stripe_index PendingAudits_StripeIndex_Field,
 	pending_audits_share_size PendingAudits_ShareSize_Field,
 	pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
-	pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+	pending_audits_reverify_count PendingAudits_ReverifyCount_Field,
+	pending_audits_path PendingAudits_Path_Field) (
 	pending_audits *PendingAudits, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_PendingAudits(ctx, pending_audits_node_id, pending_audits_piece_id, pending_audits_stripe_index, pending_audits_share_size, pending_audits_expected_share_hash, pending_audits_reverify_count)
+	return tx.Create_PendingAudits(ctx, pending_audits_node_id, pending_audits_piece_id, pending_audits_stripe_index, pending_audits_share_size, pending_audits_expected_share_hash, pending_audits_reverify_count, pending_audits_path)
 
 }
 
@@ -14560,6 +14770,18 @@ func (rx *Rx) Update_ApiKey_By_Id(ctx context.Context,
 	return tx.Update_ApiKey_By_Id(ctx, api_key_id, update)
 }
 
+func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field,
+	update BucketMetainfo_Update_Fields) (
+	bucket_metainfo *BucketMetainfo, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name, update)
+}
+
 func (rx *Rx) Update_CertRecord_By_Id(ctx context.Context,
 	certRecord_id CertRecord_Id_Field,
 	update CertRecord_Update_Fields) (
@@ -14858,7 +15080,8 @@ type Methods interface {
 		pending_audits_stripe_index PendingAudits_StripeIndex_Field,
 		pending_audits_share_size PendingAudits_ShareSize_Field,
 		pending_audits_expected_share_hash PendingAudits_ExpectedShareHash_Field,
-		pending_audits_reverify_count PendingAudits_ReverifyCount_Field) (
+		pending_audits_reverify_count PendingAudits_ReverifyCount_Field,
+		pending_audits_path PendingAudits_Path_Field) (
 		pending_audits *PendingAudits, err error)
 
 	Create_Project(ctx context.Context,
@@ -15187,6 +15410,12 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field,
 		update ApiKey_Update_Fields) (
 		api_key *ApiKey, err error)
+
+	Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field,
+		update BucketMetainfo_Update_Fields) (
+		bucket_metainfo *BucketMetainfo, err error)
 
 	Update_CertRecord_By_Id(ctx context.Context,
 		certRecord_id CertRecord_Id_Field,

@@ -1020,8 +1020,17 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				Description: "Modify default offers configuration",
+				Description: "Add pending audit path",
 				Version:     46,
+				Action: migrate.SQL{
+					`DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
+					`ALTER TABLE pending_audits ADD COLUMN path bytea NOT NULL;`,
+					`UPDATE nodes SET contained = false;`,
+				},
+			},
+			{
+				Description: "Modify default offers configuration",
+				Version:     47,
 				Action: migrate.SQL{
 					`UPDATE offers SET
 						award_credit_duration_days = 365,

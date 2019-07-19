@@ -55,8 +55,8 @@ A node that is allowed to enter routing tables is considered vetted and lookups 
       Put(context.Context, *pb.Voucher) error
       // GetExpiring retrieves all vouchers that are expired or about to expire
       GetExpiring(context.Context) ([]storj.NodeID, error)
-      // GetValid returns one valid voucher from the list of approved satellites
-      GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
+      // GetAll returns all vouchers from the table
+      GetAll(context.Context) ([]*pb.Voucher, error)
    }
 ```
 
