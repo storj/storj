@@ -404,14 +404,28 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return errs.New(activationTokenIsExpiredErrMsg)
 	}
 
-	user.Status = Active
-
-	err = s.store.Users().Update(ctx, user)
+	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return errs.New(internalErrMsg)
+		return err
 	}
 
-	return nil
+	err = withTx(tx, func(tx DBTx) error {
+		user.Status = Active
+
+		err = s.store.Users().Update(ctx, user)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		return nil
+	})
+
+	return err
 }
 
 // ResetPassword - is a method for reseting user password
