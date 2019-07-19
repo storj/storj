@@ -132,14 +132,6 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 			cacheStatsErr.Add(NodeStatsServiceErr.Wrap(err))
 			continue
 		}
-
-		s.log.Info(fmt.Sprintf("CacheStats %s: %v", satellite, stats))
-
-		satStats, err := s.consoleDB.Stats().Get(ctx, satellite)
-		if err != nil {
-			s.log.Error(fmt.Sprintf("SAT %s err: %v", satellite, err))
-		}
-		s.log.Info(fmt.Sprintf("CacheStats QUERY SAT %s: %v", satellite, satStats))
 	}
 
 	return cacheStatsErr.Err()
@@ -171,31 +163,6 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 			cacheSpaceErr.Add(NodeStatsServiceErr.Wrap(err))
 			continue
 		}
-
-		s.log.Info(fmt.Sprintf("CacheSpace %s: %v", satellite, spaceUsages))
-
-		perSat, err := s.consoleDB.DiskSpaceUsages().GetDaily(ctx, satellite, startDate, endDate)
-		if err != nil {
-			s.log.Error(fmt.Sprintf("SAT %s err: %v", satellite, err))
-		}
-
-		for _, ps := range perSat {
-			s.log.Info(fmt.Sprintf("CacheSpace QUERY SAT %s", satellite))
-			s.log.Info(fmt.Sprintf("CacheSpace QUERY rollupID: %d", ps.RollupID))
-			s.log.Info(fmt.Sprintf("CacheSpace QUERY atRest: %f", ps.AtRestTotal))
-			s.log.Info(fmt.Sprintf("CacheSpace QUERY timestamp: %s", ps.Timestamp))
-		}
-	}
-
-	totals, err := s.consoleDB.DiskSpaceUsages().GetDailyTotal(ctx, startDate, endDate)
-	if err != nil {
-		s.log.Error(fmt.Sprintf("TOTAL err: %v", err))
-	}
-
-	s.log.Info(fmt.Sprintf("CacheSpace QUERY TOTAL %v", totals))
-	for _, t := range totals {
-		s.log.Info(fmt.Sprintf("CacheSpace QUERY atRest: %f", t.AtRestTotal))
-		s.log.Info(fmt.Sprintf("CacheSpace QUERY timestamp: %s", t.Timestamp))
 	}
 
 	return cacheSpaceErr.Err()
