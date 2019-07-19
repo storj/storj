@@ -28,9 +28,13 @@ var (
 
 // DB exposes methods for managing SNO dashboard related data.
 type DB interface {
+	// Satellites is a getter for Satellites db
 	Satellites() Satellites
+	// Bandwidth is a getter for Bandwidth db
 	Bandwidth() Bandwidth
+	// DiskSpaceUsages is a getter for DiskSpaceUsages db
 	DiskSpaceUsages() DiskSpaceUsages
+	// Stats is a getter for Stats db
 	Stats() Stats
 }
 
