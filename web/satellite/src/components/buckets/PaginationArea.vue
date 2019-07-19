@@ -31,7 +31,7 @@
 
         public get totalCount(): number {
             return this.$store.state.bucketUsageModule.page.totalCount;
-        };
+        }
     
         public get pages(): number[] {
             return new Array(this.$store.state.bucketUsageModule.page.pageCount);

@@ -9,7 +9,7 @@
                 <p>Buckets</p>
                 <SearchArea/>
             </div>
-            <div v-if="buckets.length > 0" class="buckets-container">
+            <div v-if="buckets.length" class="buckets-container">
                 <table>
                     <SortingHeader />
                     <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
@@ -18,7 +18,7 @@
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="pages === 0 && search && search.length > 0"
+                v-if="pages === 0 && search"
                 mainTitle="Nothing found :("
                 :imageSource="emptyImage" />
         </div>
@@ -54,7 +54,6 @@
         }
 
         public get totalCountOfBuckets(): number {
-            console.log('total', this.$store.state.bucketUsageModule.totalCount);
             return this.$store.state.bucketUsageModule.totalCount;
         }
 
