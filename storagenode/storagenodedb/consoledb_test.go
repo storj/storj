@@ -8,11 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"storj.io/storj/storagenode/console"
-
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/storagenode/console"
 )
 
 func TestConsoledb_Trivial(t *testing.T) {
