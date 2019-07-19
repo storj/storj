@@ -707,6 +707,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
+	// checks if bucket exists before updates it or makes a new entry
 	bucket, err := endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err == nil {
 		var partnerID uuid.UUID
@@ -858,6 +859,8 @@ func convertProtoToBucket(req *pb.BucketCreateRequest, projectID uuid.UUID) (buc
 	var partnerID uuid.UUID
 	err = partnerID.UnmarshalJSON(req.GetPartnerId())
 
+	// bucket's partnerID should never be set
+	// it is always read back from buckets DB
 	if err != nil && !partnerID.IsZero() {
 		return bucket, errs.New("Invalid uuid")
 	}
