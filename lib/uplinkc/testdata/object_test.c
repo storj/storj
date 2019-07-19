@@ -19,7 +19,15 @@ void handle_project(ProjectRef project) {
     char **err = &_err;
 
     char *bucket_name = "test-bucket";
-    char *enc_ctx = "12VtN2sbbn9PvaEvNbNUBiSKnRcSUNxBADwDWGsPY7UV85e82tT6u";
+
+    uint8_t *salted_key = project_salted_key_from_passphrase(project,
+                                                             "It's dangerous to go alone, take this!",
+                                                             err);
+    require_noerror(*err);
+
+    EncryptionAccessRef encryption_access = new_encryption_access_with_default_key(salted_key);
+    char *enc_ctx = serialize_encryption_access(encryption_access, err);
+    require_noerror(*err);
 
     char *object_paths[] = {"test-object1","test-object2","test-object3","test-object4"};
     int num_of_objects = 4;
@@ -147,4 +155,6 @@ void handle_project(ProjectRef project) {
 
     close_bucket(bucket, err);
     require_noerror(*err);
+
+    free_encryption_access(encryption_access);
 }

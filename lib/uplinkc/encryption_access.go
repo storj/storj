@@ -64,3 +64,9 @@ func serialize_encryption_access(encAccessRef C.EncryptionAccessRef, cerr **C.ch
 
 	return C.CString(encAccessStr)
 }
+
+//export free_encryption_access
+// free_encryption_access
+func free_encryption_access(encAccessRef C.EncryptionAccessRef) {
+	universe.Del(encAccessRef._handle)
+}
