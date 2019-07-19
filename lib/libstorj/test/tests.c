@@ -695,6 +695,7 @@ int main(void)
 
     free(test_upload_path);
     free(test_download_path);
+    free_encryption_access(encryption_access);
 
     int num_failed = tests_ran - test_status;
     printf(KGRN "\nPASSED: %i" RESET, test_status);
