@@ -192,6 +192,7 @@ func (rt *RoutingTable) DumpNodes(ctx context.Context) (_ []*pb.Node, err error)
 // returns all Nodes (excluding self) closest via XOR to the provided nodeID up to the provided limit
 func (rt *RoutingTable) FindNear(ctx context.Context, target storj.NodeID, limit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	closestNodes := make([]*pb.Node, 0, limit+1)
 	err = rt.iterateNodes(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
 		newPos := len(closestNodes)

@@ -6,7 +6,6 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -72,44 +71,35 @@ func (db *vouchersdb) NeedVoucher(ctx context.Context, satelliteID storj.NodeID,
 	return false, nil
 }
 
-// GetValid returns one valid voucher from the list of approved satellites
-func (db *vouchersdb) GetValid(ctx context.Context, satellites []storj.NodeID) (_ *pb.Voucher, err error) {
+// GetAll returns all vouchers in the table
+func (db *vouchersdb) GetAll(ctx context.Context) (vouchers []*pb.Voucher, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(satellites) == 0 {
-		return nil, errs.New("at least one satellite required")
-	}
-
-	idCondition := `satellite_id IN (?` + strings.Repeat(", ?", len(satellites)-1) + `)`
-
-	var args []interface{}
-	for _, id := range satellites {
-		args = append(args, id)
-	}
-	args = append(args, time.Now().UTC())
-
-	row := db.db.QueryRow(db.InfoDB.Rebind(`
+	rows, err := db.db.Query(`
 		SELECT voucher_serialized
 		FROM vouchers
-		WHERE `+idCondition+`
-			AND expiration > ?
-		LIMIT 1
-	`), args...)
-
-	var bytes []byte
-	err = row.Scan(&bytes)
+	`)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, ErrInfo.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	voucher := &pb.Voucher{}
-	err = proto.Unmarshal(bytes, voucher)
-	if err != nil {
-		return nil, ErrInfo.Wrap(err)
+	for rows.Next() {
+		var voucherSerialized []byte
+		err := rows.Scan(&voucherSerialized)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
+		}
+		voucher := &pb.Voucher{}
+		err = proto.Unmarshal(voucherSerialized, voucher)
+		if err != nil {
+			return nil, ErrInfo.Wrap(err)
+		}
+		vouchers = append(vouchers, voucher)
 	}
 
-	return voucher, nil
+	return vouchers, nil
 }

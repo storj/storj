@@ -84,10 +84,15 @@ export const bucketUsageModule = {
     state: {
         cursor: { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor,
         page: { bucketUsages: [] as BucketUsage[] } as BucketUsagePage,
+        totalCount: 0,
     },
     mutations: {
         [BUCKET_USAGE_MUTATIONS.FETCH](state: any, page: BucketUsagePage) {
             state.page = page;
+
+            if (page.totalCount > 0) {
+                state.totalCount = page.totalCount;
+            }
         },
         [BUCKET_USAGE_MUTATIONS.SET_PAGE](state: any, page: number) {
            state.cursor.page = page;
@@ -98,6 +103,7 @@ export const bucketUsageModule = {
         [BUCKET_USAGE_MUTATIONS.CLEAR](state: any) {
             state.cursor = { limit: bucketPageLimit, search: '', page: firstPage } as BucketUsageCursor;
             state.page = { bucketUsages: [] as BucketUsage[] } as BucketUsagePage;
+            state.totalCount = 0;
         }
     },
     actions: {
