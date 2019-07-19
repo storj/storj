@@ -78,7 +78,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 
 	//remove the latest day (which we cannot know is complete), then push to DB
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
-	delete(rollupStats, latestTally)
+	//delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
 		r.logger.Info("RollupStats is empty")
 		return nil

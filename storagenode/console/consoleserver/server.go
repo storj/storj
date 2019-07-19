@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
-	"storj.io/storj/storagenode/nodestats"
 )
 
 const (
@@ -49,18 +48,18 @@ type DashboardResponse struct {
 
 // DashboardData stores all needed information about storagenode
 type DashboardData struct {
-	Bandwidth          console.BandwidthInfo       `json:"bandwidth"`
-	DiskSpace          console.DiskSpaceInfo       `json:"diskSpace"`
-	WalletAddress      string                      `json:"walletAddress"`
-	VersionInfo        version.Info                `json:"versionInfo"`
-	IsLastVersion      bool                        `json:"isLastVersion"`
-	Uptime             time.Duration               `json:"uptime"`
-	NodeID             string                      `json:"nodeId"`
-	Satellites         storj.NodeIDList            `json:"satellites"`
-	UptimeCheck        nodestats.ReputationStats   `json:"uptimeCheck"`
-	AuditCheck         nodestats.ReputationStats   `json:"auditCheck"`
-	BandwidthChartData []console.BandwidthUsed     `json:"bandwidthChartData"`
-	DiskSpaceChartData []nodestats.SpaceUsageStamp `json:"diskSpaceChartData"`
+	Bandwidth          console.BandwidthInfo    `json:"bandwidth"`
+	DiskSpace          console.DiskSpaceInfo    `json:"diskSpace"`
+	WalletAddress      string                   `json:"walletAddress"`
+	VersionInfo        version.Info             `json:"versionInfo"`
+	IsLastVersion      bool                     `json:"isLastVersion"`
+	Uptime             time.Duration            `json:"uptime"`
+	NodeID             string                   `json:"nodeId"`
+	Satellites         storj.NodeIDList         `json:"satellites"`
+	UptimeCheck        console.ReputationStats  `json:"uptimeCheck"`
+	AuditCheck         console.ReputationStats  `json:"auditCheck"`
+	BandwidthChartData []console.BandwidthUsed  `json:"bandwidthChartData"`
+	DiskSpaceChartData []console.DiskSpaceUsage `json:"diskSpaceChartData"`
 }
 
 // Server represents storagenode console web server
