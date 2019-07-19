@@ -3184,7 +3184,7 @@
                   },
                   {
                     "id": 3,
-                    "name": "time_stamp",
+                    "name": "timestamp",
                     "type": "google.protobuf.Timestamp",
                     "options": [
                       {
