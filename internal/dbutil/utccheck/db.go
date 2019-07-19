@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedb
+package utccheck
 
 import (
 	"context"
@@ -16,9 +16,9 @@ type DB struct {
 	db *sql.DB
 }
 
-// New creates a new database that checks for utc arguments.
+// New creates a new database that checks that all time arguments are UTC.
 func New(db *sql.DB) *DB {
-	return &DB{db}
+	return &DB{db: db}
 }
 
 // Close closes the database.
@@ -78,10 +78,6 @@ func (db DB) ExecContext(ctx context.Context, sql string, args ...interface{}) (
 
 // utcCheckArgs checks the arguments for time.Time values that are not in the UTC location.
 func utcCheckArgs(args []interface{}) error {
-	if !utcChecks {
-		return nil
-	}
-
 	for n, arg := range args {
 		var t time.Time
 		var ok bool
@@ -102,6 +98,5 @@ func utcCheckArgs(args []interface{}) error {
 			return errs.New("invalid timezone on argument %d: %v", n, loc)
 		}
 	}
-
 	return nil
 }
