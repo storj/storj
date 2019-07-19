@@ -47,7 +47,7 @@ func (db *nodeStats) Create(ctx context.Context, stats console.NodeStats) (_ *co
 		stats.AuditCheck.ReputationAlpha,
 		stats.AuditCheck.ReputationBeta,
 		stats.AuditCheck.ReputationScore,
-		stats.UpdatedAt,
+		stats.UpdatedAt.UTC(),
 	)
 	if err != nil {
 		return nil, err
@@ -85,7 +85,7 @@ func (db *nodeStats) Update(ctx context.Context, stats console.NodeStats) (err e
 		stats.AuditCheck.ReputationAlpha,
 		stats.AuditCheck.ReputationBeta,
 		stats.AuditCheck.ReputationScore,
-		stats.UpdatedAt,
+		stats.UpdatedAt.UTC(),
 		stats.SatelliteID,
 	)
 	if err != nil {

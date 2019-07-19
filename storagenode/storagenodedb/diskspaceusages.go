@@ -38,7 +38,7 @@ func (db *diskSpaceUsage) Store(ctx context.Context, stamps []console.DiskSpaceU
 		}
 
 		for _, stamp := range stamps {
-			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp)
+			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
 
 			if err != nil {
 				return err
@@ -66,7 +66,7 @@ func (db *diskSpaceUsage) GetDaily(ctx context.Context, satelliteID storj.NodeID
 					GROUP BY DATE(timestamp)
 				)`
 
-	rows, err := db.db.QueryContext(ctx, query, satelliteID, from, to)
+	rows, err := db.db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (db *diskSpaceUsage) GetDailyTotal(ctx context.Context, from, to time.Time)
 					GROUP BY DATE(timestamp), satellite_id
 				) GROUP BY DATE(timestamp)`
 
-	rows, err := db.db.QueryContext(ctx, query, from, to)
+	rows, err := db.db.QueryContext(ctx, query, from.UTC(), to.UTC())
 	if err != nil {
 		return nil, err
 	}
