@@ -235,7 +235,7 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 			return nil, Error.Wrap(err)
 		}
 
-		// skip first entry is we can not extract hours
+		// skip first entry as we can not extract hours
 		// properly without storagenode storage tallies
 		// which formed this value
 		if !prevStartTime.Valid {
