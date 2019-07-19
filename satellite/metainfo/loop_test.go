@@ -233,7 +233,6 @@ func TestMetainfoLoopCancel(t *testing.T) {
 		// create another normal observer that will wait before returning during RemoteSegment so we can sync with context cancelation
 		obs2 := newTestObserver(t, func() error {
 			// cancel context during call to obs2.RemoteSegment inside loop
-			fmt.Println("WE ARE CANCELING THE Context")
 			if atomic.AddInt64(&once, 1) == 0 {
 				cancel()
 			} else {

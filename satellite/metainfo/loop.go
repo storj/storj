@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -175,7 +174,6 @@ waitformore:
 
 				nextObservers := observers[:0]
 
-				fmt.Println(observers)
 				// send segment info to every observer
 
 				for _, observer := range observers {
@@ -213,14 +211,12 @@ waitformore:
 				// if context has been canceled, send the error to observers and exit. Otherwise, continue
 				select {
 				case <-ctx.Done():
-					fmt.Printf("context is done: %p\n", loop)
 					for _, observer := range observers {
 						observer.HandleError(ctx.Err())
 					}
 					observers = nil
 					return ctx.Err()
 				default:
-					fmt.Printf("continuing iteration: %p\n", loop)
 				}
 			}
 			return nil
