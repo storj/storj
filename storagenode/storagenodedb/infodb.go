@@ -25,7 +25,7 @@ var ErrInfo = errs.Class("infodb")
 
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db          utcDB
+	db          *sql.DB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
 	location    string
@@ -44,7 +44,7 @@ func newInfo(path string) (*InfoDB, error) {
 
 	dbutil.Configure(db, mon)
 
-	infoDb := &InfoDB{db: utcDB{db}}
+	infoDb := &InfoDB{db: db}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 	infoDb.location = path
@@ -71,7 +71,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	infoDb := &InfoDB{db: utcDB{db}}
+	infoDb := &InfoDB{db: db}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 
@@ -90,10 +90,10 @@ func (db *InfoDB) CreateTables(log *zap.Logger) error {
 }
 
 // RawDB returns access to the raw database, only for migration tests.
-func (db *InfoDB) RawDB() *sql.DB { return db.db.db }
+func (db *InfoDB) RawDB() *sql.DB { return db.db }
 
 // Begin begins transaction
-func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.db.Begin() }
+func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.Begin() }
 
 // Rebind rebind parameters
 func (db *InfoDB) Rebind(s string) string { return s }

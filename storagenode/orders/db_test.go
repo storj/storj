@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestOrders(t *testing.T) {
+func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -126,5 +126,46 @@ func TestOrders(t *testing.T) {
 			},
 		}, archived, cmp.Comparer(pb.Equal)))
 
+	})
+}
+
+func TestDB_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
+
+		{ // Ensure Enqueue works at all
+			err := db.Orders().Enqueue(ctx, &orders.Info{
+				Order: &pb.Order{},
+				Limit: &pb.OrderLimit{
+					SatelliteId:     satelliteID,
+					SerialNumber:    serial,
+					OrderExpiration: time.Now(),
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListUnsent works at all
+			_, err := db.Orders().ListUnsent(ctx, 1)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListUnsentBySatellite works at all
+			_, err := db.Orders().ListUnsentBySatellite(ctx)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure Archive works at all
+			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListArchived works at all
+			_, err := db.Orders().ListArchived(ctx, 1)
+			require.NoError(t, err)
+		}
 	})
 }
