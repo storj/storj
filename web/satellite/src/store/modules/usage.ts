@@ -89,6 +89,10 @@ export const bucketUsageModule = {
     mutations: {
         [BUCKET_USAGE_MUTATIONS.FETCH](state: any, page: BucketUsagePage) {
             state.page = page;
+
+            if (page.totalCount > 0) {
+                state.totalCount = page.totalCount;
+            }
         },
         [BUCKET_USAGE_MUTATIONS.SET_PAGE](state: any, page: number) {
            state.cursor.page = page;
@@ -113,10 +117,6 @@ export const bucketUsageModule = {
             let result = await fetchBucketUsages(projectID, before, state.cursor);
             if (result.isSuccess) {
                 commit(BUCKET_USAGE_MUTATIONS.FETCH, result.data);
-
-                if (result.data.totalCount > 0) {
-                    state.totalCount = result.data.totalCount;
-                }
             }
 
             return result;

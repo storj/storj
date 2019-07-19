@@ -18,7 +18,7 @@
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="pages === 0 && search"
+                v-if="!pages && search"
                 mainTitle="Nothing found :("
                 :imageSource="emptyImage" />
         </div>
