@@ -35,7 +35,6 @@
                     @setData="onChangeName"
                     label="Name"
                     :error="errorMessage"
-                    additionalLabel="Up To 20 Characters"
                     placeholder="Enter API Key Name"
                     class="full-input"
                     width="100%" />

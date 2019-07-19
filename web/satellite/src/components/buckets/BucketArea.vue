@@ -3,12 +3,13 @@
 
 <template>
     <div>
-        <div class="buckets-overflow" v-if="pages >= 0">
+        <NoBucketArea v-if="!totalCountOfBuckets && !search" />
+        <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p>Buckets</p>
                 <SearchArea/>
             </div>
-            <div v-if="buckets.length >= 0" class="buckets-container">
+            <div v-if="buckets.length" class="buckets-container">
                 <table>
                     <SortingHeader />
                     <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
@@ -17,11 +18,10 @@
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="pages === 0 && search && search.length > 0"
+                v-if="!pages && search"
                 mainTitle="Nothing found :("
                 :imageSource="emptyImage" />
         </div>
-        <NoBucketArea v-if="pages === 0 && !search" />
     </div>
 </template>
 
@@ -51,6 +51,10 @@
 
         public mounted(): void {
             this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+        }
+
+        public get totalCountOfBuckets(): number {
+            return this.$store.state.bucketUsageModule.totalCount;
         }
 
         public get buckets(): BucketUsage[] {
@@ -103,10 +107,6 @@
             width:98.5%;
             margin-top:20px;
         }
-    }
-
-    .empty-container {
-        margin-top: 0;
     }
     
     @media screen and (max-height: 880px) {
