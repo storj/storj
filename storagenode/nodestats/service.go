@@ -55,8 +55,8 @@ type Service struct {
 func NewService(log *zap.Logger, transport transport.Client, consoleDB console.DB, kademlia *kademlia.Kademlia) *Service {
 	return &Service{
 		log:         log,
-		statsTicker: time.NewTicker(time.Second * 30),
-		spaceTicker: time.NewTicker(time.Second * 60),
+		statsTicker: time.NewTicker(time.Hour * 4),
+		spaceTicker: time.NewTicker(time.Hour * 12),
 		transport:   transport,
 		consoleDB:   consoleDB,
 		kademlia:    kademlia,
@@ -66,6 +66,16 @@ func NewService(log *zap.Logger, transport transport.Client, consoleDB console.D
 // Run runs loop
 func (s *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = s.CacheStatsFromSatellites(ctx)
+	if err != nil {
+		s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+	}
+
+	err = s.CacheSpaceUsageFromSatellites(ctx)
+	if err != nil {
+		s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
+	}
 
 	for {
 		select {
