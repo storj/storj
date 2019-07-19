@@ -6,6 +6,7 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
 )
