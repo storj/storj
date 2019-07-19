@@ -117,6 +117,13 @@ func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, li
 	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
 }
 
+// UpdateBucket updates an existing bucket
+func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucket(ctx, bucket)
+}
+
 // CertDB returns database for storing uplink's public key & ID
 func (m *locked) CertDB() certdb.DB {
 	m.Lock()
