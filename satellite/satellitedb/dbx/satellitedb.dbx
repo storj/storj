@@ -32,6 +32,7 @@ model pending_audits (
 	field share_size          int64
 	field expected_share_hash blob
 	field reverify_count      int64 ( updatable )
+	field path                blob
 )
 
 create pending_audits ( )
