@@ -27,7 +27,7 @@ func TestProjectListBuckets(t *testing.T) {
 			cfg := uplink.Config{}
 			cfg.Volatile.TLS.SkipPeerCAWhitelist = true
 
-			satelliteAddr := planet.Satellites[0].Local().Address.Address
+			satelliteAddr := planet.Satellites[0].Addr()
 			apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 			ul, err := uplink.NewUplink(ctx, &cfg)
