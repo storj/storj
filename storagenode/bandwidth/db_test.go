@@ -11,6 +11,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
@@ -141,5 +142,32 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 		cached, err = bandwidthdb.MonthSummary(ctx)
 		require.NoError(t, err)
 		require.Equal(t, totalAmount, cached)
+	})
+}
+
+func TestDB_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		{ // Ensure Add works at all
+			err := db.Bandwidth().Add(ctx, testrand.NodeID(), pb.PieceAction_GET, 0, time.Now())
+			require.NoError(t, err)
+		}
+
+		{ // Ensure MonthSummary works at all
+			_, err := db.Bandwidth().MonthSummary(ctx)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure Summary works at all
+			_, err := db.Bandwidth().Summary(ctx, time.Now(), time.Now())
+			require.NoError(t, err)
+		}
+
+		{ // Ensure SummaryBySatellite works at all
+			_, err := db.Bandwidth().SummaryBySatellite(ctx, time.Now(), time.Now())
+			require.NoError(t, err)
+		}
 	})
 }
