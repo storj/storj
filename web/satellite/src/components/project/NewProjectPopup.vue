@@ -15,6 +15,7 @@
                     placeholder="Enter Project Name"
                     class="full-input"
                     width="100%"
+                    maxSymbols="20"
                     :error="nameError"
                     @setData="setProjectName">
                 </HeaderedInput>
