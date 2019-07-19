@@ -12,7 +12,6 @@ import (
 
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
 )
 
 func TestVouchers_Trivial(t *testing.T) {
@@ -33,7 +32,7 @@ func TestVouchers_Trivial(t *testing.T) {
 		}
 
 		{ // Ensure GetValid works at all
-			_, err := db.Vouchers().GetValid(ctx, []storj.NodeID{satelliteID})
+			_, err := db.Vouchers().GetAll(ctx)
 			require.NoError(t, err)
 		}
 	})

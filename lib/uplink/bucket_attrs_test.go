@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
@@ -50,6 +51,89 @@ func testPlanetWithLibUplink(t *testing.T, cfg testConfig,
 		defer ctx.Check(proj.Close)
 
 		testFunc(t, ctx, planet, proj)
+	})
+}
+
+// check that partner bucket attributes are stored and retrieved correctly.
+func TestPartnerBucketAttrs(t *testing.T) {
+	var (
+		access     = uplink.NewEncryptionAccessWithDefaultKey(storj.Key{0, 1, 2, 3, 4})
+		bucketName = "mightynein"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		apikey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[satellite.ID()])
+		require.NoError(t, err)
+
+		partnerID := testrand.UUID()
+
+		t.Run("without partner id", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucketInfo, err := project.CreateBucket(ctx, bucketName, nil)
+			require.NoError(t, err)
+
+			assert.True(t, bucketInfo.PartnerID.IsZero())
+
+			_, err = project.CreateBucket(ctx, bucketName, nil)
+			require.Error(t, err)
+		})
+
+		t.Run("open with partner id", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			config.Volatile.PartnerID = partnerID.String()
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucket, err := project.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			assert.Equal(t, bucketInfo.PartnerID.String(), config.Volatile.PartnerID)
+		})
+
+		t.Run("open with different partner id", func(t *testing.T) {
+			config := uplink.Config{}
+			config.Volatile.TLS.SkipPeerCAWhitelist = true
+			config.Volatile.PartnerID = testrand.UUID().String()
+
+			up, err := uplink.NewUplink(ctx, &config)
+			require.NoError(t, err)
+			defer ctx.Check(up.Close)
+
+			project, err := up.OpenProject(ctx, satellite.Addr(), apikey)
+			require.NoError(t, err)
+			defer ctx.Check(project.Close)
+
+			bucket, err := project.OpenBucket(ctx, bucketName, access)
+			require.NoError(t, err)
+			defer ctx.Check(bucket.Close)
+
+			bucketInfo, _, err := project.GetBucketInfo(ctx, bucketName)
+			require.NoError(t, err)
+			assert.NotEqual(t, bucketInfo.PartnerID.String(), config.Volatile.PartnerID)
+		})
 	})
 }
 
