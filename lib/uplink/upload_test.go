@@ -77,18 +77,18 @@ func TestUploadDownload(t *testing.T) {
 
 		upload, err := bucket.NewWriter(ctx, "a", uploadOptions)
 		require.NoError(t, err)
-		defer ctx.Check(upload.Close)
 
 		data := testrand.Bytes(1024 * 1024)
-		for len(data) > 0 {
-			write := len(data)
+		uploading := data
+		for len(uploading) > 0 {
+			write := len(uploading)
 			if write > 256 {
 				write = 256
 			}
 
-			written, err := upload.Write(data[:write])
+			written, err := upload.Write(uploading[:write])
 			require.NoError(t, err)
-			data = data[written:]
+			uploading = uploading[written:]
 		}
 
 		require.NoError(t, upload.Close())
