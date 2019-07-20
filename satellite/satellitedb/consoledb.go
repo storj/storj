@@ -63,7 +63,7 @@ func (db *ConsoleDB) UsageRollups() console.UsageRollups {
 
 // UserCredits is a getter for console.UserCredits repository
 func (db *ConsoleDB) UserCredits() console.UserCredits {
-	return &usercredits{db: db.db}
+	return &usercredits{db.db, db.tx}
 }
 
 // UserPayments is a getter for console.UserPayments repository
@@ -94,6 +94,7 @@ func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 
 	return &DBTx{
 		ConsoleDB: &ConsoleDB{
+			db:      db.db,
 			tx:      tx,
 			methods: tx,
 		},

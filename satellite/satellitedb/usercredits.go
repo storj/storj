@@ -21,6 +21,7 @@ import (
 
 type usercredits struct {
 	db *dbx.DB
+	tx *dbx.Tx
 }
 
 // GetCreditUsage returns the total amount of referral a user has made based on user id, total available credits, and total used credits based on user id
@@ -86,7 +87,13 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		referrerID = userCredit.ReferredBy[:]
 	}
 
-	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
+	var result sql.Result
+	var err error
+	if c.tx != nil {
+		result, err = c.tx.Tx.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
+	} else {
+		result, err = c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userCredit.UserID[:], userCredit.OfferID, userCredit.CreditsEarned.Cents(), userCredit.ExpiresAt, referrerID, new([]byte), userCredit.OfferID, userCredit.OfferID)
+	}
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -134,7 +141,7 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 		return err
 	}
 	if affected != 1 {
-		return errs.New("update earned credit failed")
+		return errs.New(console.NoCreditForUpdateErr)
 	}
 
 	return nil
