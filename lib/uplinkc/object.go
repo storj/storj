@@ -313,6 +313,20 @@ func download_cancel(downloader C.DownloaderRef, cErr **C.char) {
 	download.cancel()
 }
 
+//export delete_object
+func delete_object(bucketRef C.BucketRef, path *C.char, cerr **C.char) {
+	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
+	if !ok {
+		*cerr = C.CString("invalid downloader")
+		return
+	}
+
+	if err := bucket.DeleteObject(bucket.ctx, C.GoString(path)); err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return
+	}
+}
+
 //export free_upload_ref
 func free_upload_ref(uploader C.UploaderRef) {
 	universe.Del(uploader._handle)

@@ -153,6 +153,13 @@ void handle_project(ProjectRef project) {
         free_list_objects(&objects_list);
     }
 
+    { // Delete objects
+        for (int i = 0; i < num_of_objects; i++) {
+            delete_object(bucket, object_paths[i], err);
+            require_noerror(*err);
+        }
+    }
+
     close_bucket(bucket, err);
     require_noerror(*err);
 
