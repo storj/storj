@@ -511,6 +511,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					if err != nil {
 						return false, err
 					}
+
 					err = service.DeleteProjectPaymentMethod(p.Context, *paymentID)
 					if err != nil {
 						return false, err

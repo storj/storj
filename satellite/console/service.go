@@ -415,7 +415,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return errs.New(internalErrMsg)
 	}
 
-	return err
+	return nil
 }
 
 // ResetPassword - is a method for reseting user password
