@@ -1,4 +1,4 @@
-#include "downloader.h"
+#include "storj.h"
 
 static void free_download_state(storj_download_state_t *state)
 {

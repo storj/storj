@@ -1,17 +1,9 @@
-#include "uploader.h"
+#include "storj.h"
 
 static uv_work_t *uv_work_new()
 {
     uv_work_t *work = malloc(sizeof(uv_work_t));
     return work;
-}
-
-static void cleanup_upload_work(uv_work_t *work)
-{
-    storj_upload_state_t *state = work->data;
-
-    cleanup_state(state);
-    free(work);
 }
 
 static void cleanup_state(storj_upload_state_t *state)
@@ -23,6 +15,14 @@ static void cleanup_state(storj_upload_state_t *state)
     state->finished_cb(state->error_status, state->info, state->handle);
 
     free(state);
+}
+
+static void cleanup_upload_work(uv_work_t *work)
+{
+    storj_upload_state_t *state = work->data;
+
+    cleanup_state(state);
+    free(work);
 }
 
 static void after_get_file_info(uv_work_t *work, int status)
