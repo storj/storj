@@ -14,8 +14,9 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/currency"
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -94,6 +95,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 
 // CreateUser gets password hash value and creates new inactive User
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+	offerType := rewards.FreeCredit
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
@@ -119,6 +121,15 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
+		return nil, errs.New(internalErrMsg)
+	}
+	if user.PartnerID != "" {
+		offerType = rewards.Partner
+	}
+
+	//TODO: Create a current offer cache to replace database call
+	currentReward, err := s.rewards.GetCurrentByType(ctx, offerType)
+	if err != nil && err.Error() != rewards.NoCurrentOfferErr {
 		return nil, errs.New(internalErrMsg)
 	}
 
@@ -155,6 +166,21 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
+		if currentReward != nil {
+			// User can only earn credits after activating their account. Therefore, we set the credits to 0 on registration
+			newCredit := UserCredit{
+				UserID:        u.ID,
+				OfferID:       currentReward.ID,
+				ReferredBy:    nil,
+				CreditsEarned: currency.Cents(0),
+				ExpiresAt:     time.Now().UTC().AddDate(0, 0, currentReward.InviteeCreditDurationDays),
+			}
+
+			err = tx.UserCredits().Create(ctx, newCredit)
+			if err != nil {
+				return err
+			}
+		}
 		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
 			Email: email,
 			Name:  user.FullName,
@@ -411,7 +437,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
-	if err != nil {
+	if err != nil && err.Error() != NoCreditForUpdateErr {
 		return errs.New(internalErrMsg)
 	}
 
