@@ -684,22 +684,6 @@ func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsag
 	return usage, nil
 }
 
-// CreateCredit creates a new record in database when new user earns new credits
-func (s *Service) CreateCredit(ctx context.Context, newCredit UserCredit) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	err = s.store.UserCredits().Create(ctx, newCredit)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
-}
-
 // CreateProject is a method for creating new project
 func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p *Project, err error) {
 	defer mon.Task()(&ctx)(&err)
