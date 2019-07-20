@@ -270,6 +270,12 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
+	select {
+	case <-download.ctx.Done():
+		return C.size_t(0)
+	default:
+	}
+
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
 
 	n, err := download.rc.Read(buf)
@@ -294,6 +300,17 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return
 	}
+}
+
+//export download_cancel
+func download_cancel(downloader C.DownloaderRef, cErr **C.char) {
+	download, ok := universe.Get(downloader._handle).(*Download)
+	if !ok {
+		*cErr = C.CString("invalid downloader")
+		return
+	}
+
+	download.cancel()
 }
 
 //export free_upload_ref

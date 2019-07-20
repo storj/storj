@@ -27,15 +27,20 @@ static void cleanup_state(storj_upload_state_t *state)
 
 static void after_get_file_info(uv_work_t *work, int status)
 {
-    if (status) {
-        // TODO: should finished_cb be called here?
-        free(work);
-        return;
-    }
+    get_file_info_request_t *req = NULL;
+    uv_work_t *upload_work;
+    storj_upload_state_t *state;
 
-    get_file_info_request_t *req = work->data;
-    uv_work_t *upload_work = req->handle;
-    storj_upload_state_t *state = upload_work->data;
+    // NB: hack
+    if (status) {
+        upload_work = work;
+        work = NULL;
+        state = upload_work->data;
+    } else {
+        req = work->data;
+        upload_work = req->handle;
+        state = upload_work->data;
+    }
 
     if (state->error_status) {
         /* Currently, if status == 0 && state->error_status != 0,
@@ -56,14 +61,17 @@ static void after_get_file_info(uv_work_t *work, int status)
 
 cleanup:
     cleanup_upload_work(upload_work);
-    storj_free_get_file_info_request(req);
-    free(work);
+    if (req) {
+        storj_free_get_file_info_request(req);
+    }
+    if (work) {
+        free(work);
+    }
 }
 
 static void queue_get_file_info(uv_work_t *work, int status)
 {
     storj_upload_state_t *state = work->data;
-    STORJ_RETURN_SET_STATE_ERROR_IF_LAST_ERROR;
     if (state->error_status) {
         after_get_file_info(work, state->error_status);
         return;

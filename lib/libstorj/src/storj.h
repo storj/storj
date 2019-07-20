@@ -62,7 +62,8 @@ extern "C" {
 #define STORJ_LOW_SPEED_TIME 20L
 #define STORJ_HTTP_TIMEOUT 60L
 
-#define STORJ_DEFAULT_UPLOAD_BUFFER_SIZE (size_t)(1024 * 32 * sizeof(char))
+#define STORJ_DEFAULT_UPLOAD_BUFFER_SIZE (size_t)(32 * 1024 * sizeof(char))
+#define STORJ_DEFAULT_DOWNLOAD_BUFFER_SIZE (size_t)(32 * 1024 * sizeof(char))
 
 #define STORJ_RETURN_IF_LAST_ERROR(value) \
 if (strcmp("", *STORJ_LAST_ERROR) != 0) { \

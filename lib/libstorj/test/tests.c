@@ -251,12 +251,32 @@ void check_resolve_file(int status, FILE *fd, void *handle)
 
 void check_resolve_file_cancel(int status, FILE *fd, void *handle)
 {
+    // TODO: assertions about `fd`?
     fclose(fd);
     require(handle == NULL);
     if (status == STORJ_TRANSFER_CANCELED) {
         pass("storj_bridge_resolve_file_cancel");
     } else {
         fail("storj_bridge_resolve_file_cancel");
+    }
+}
+
+void check_resolve_file_progress_cancel(double progress,
+                               uint64_t downloaded_bytes,
+                               uint64_t total_bytes,
+                               void *handle)
+{
+    require_no_last_error;
+
+    require(!(progress > test_download_progress));
+    require(!(downloaded_bytes > test_downloaded_bytes));
+
+    test_download_progress = progress;
+    test_downloaded_bytes = downloaded_bytes;
+
+    require(handle == NULL);
+    if (progress != (double)1) {
+        pass("storj_bridge_resolve_file_cancel (progress incomplete)");
     }
 }
 
@@ -332,7 +352,6 @@ void check_store_file(int error_code, storj_file_meta_t *info, void *handle)
 
 void check_store_file_cancel(int error_code, storj_file_meta_t *file, void *handle)
 {
-    // TODO: currently this should never be called. Not sure if that's the correct behavior.
     require(handle == NULL);
     if (error_code == STORJ_TRANSFER_CANCELED) {
         pass("storj_bridge_store_file_cancel");
@@ -439,10 +458,6 @@ int test_upload_cancel(storj_env_t *env)
     require(state != NULL);
     require_no_last_error_if(state->error_status);
 
-    // run all queued events
-//    require_no_last_error_if(uv_run(env->loop, UV_RUN_DEFAULT));
-//    uv_run(env->loop, UV_RUN_ONCE);
-
     storj_bridge_store_file_cancel(state);
     require_no_last_error_if(uv_run(env->loop, UV_RUN_DEFAULT));
 
@@ -466,77 +481,38 @@ int test_download(storj_env_t *env)
                                                               check_resolve_file_progress,
                                                               check_resolve_file);
 
-    if (!state || state->error_status != 0) {
-        return 1;
-    }
-
-    if (uv_run(env->loop, UV_RUN_DEFAULT)) {
-        return 1;
-    }
+    require(state != NULL);
+    require_no_last_error_if(state->error_status);
+    require_no_last_error_if(uv_run(env->loop, UV_RUN_DEFAULT));
 
     return 0;
 }
 
-//int test_download_cancel()
-//{
-//
-//    // initialize event loop and environment
-//    storj_env_t *env = storj_init_env(&bridge_options,
-//                                      &encrypt_options,
-//                                      &http_options,
-//                                      &log_options);
-//    require(env != NULL);
-//
-//    // resolve file
-//    char *download_file = calloc(strlen(folder) + 33 + 1, sizeof(char));
-//    strcpy(download_file, folder);
-//    strcat(download_file, "storj-test-download-canceled.data");
-//    FILE *download_fp = fopen(download_file, "w+");
-//
-//    char *bucket_id = "368be0816766b28fd5f43af5";
-//    char *file_id = "998960317b6725a3f8080c2b";
-//
-//    storj_download_state_t *state = storj_bridge_resolve_file(env,
-//                                                              bucket_id,
-//                                                              file_id,
-//                                                              download_fp,
-//                                                              NULL,
-//                                                              check_resolve_file_progress,
-//                                                              check_resolve_file_cancel);
-//
-//    if (!state || state->error_status != 0) {
-//        return 1;
-//    }
-//
-//    // process the loop one at a time so that we can do other things while
-//    // the loop is processing, such as cancel the download
-//    int count = 0;
-//    bool more;
-//    int status = 0;
-//    do {
-//        more = uv_run(env->loop, UV_RUN_ONCE);
-//        if (more == false) {
-//            more = uv_loop_alive(env->loop);
-//            if (uv_run(env->loop, UV_RUN_NOWAIT) != 0) {
-//                more = true;
-//            }
-//        }
-//
-//        count++;
-//
-//        if (count == 100) {
-//            status = storj_bridge_resolve_file_cancel(state);
-//            require(status == 0);
-//        }
-//
-//    } while (more == true);
-//
-//
-//    free(download_file);
-//    storj_destroy_env(env);
-//
-//    return 0;
-//}
+int test_download_cancel(storj_env_t *env)
+{
+    // resolve file
+    FILE *file = fopen(test_download_path, "w+");
+
+    storj_download_state_t *state = storj_bridge_resolve_file(env,
+                                                              test_bucket_name,
+                                                              test_upload_file_name,
+                                                              file,
+                                                              test_encryption_access,
+                                                              0,
+                                                              NULL,
+                                                              check_resolve_file_progress_cancel,
+                                                              check_resolve_file_cancel);
+
+    require(state != NULL);
+    require_no_last_error_if(state->error_status);
+
+    storj_bridge_resolve_file_cancel(state);
+    require_no_last_error_if(uv_run(env->loop, UV_RUN_DEFAULT));
+
+    // TODO: test a longer-running download and cancel after calling `uv_run`?
+
+    return 0;
+}
 
 static void reset_test_upload()
 {
@@ -596,6 +572,8 @@ int test_api(storj_env_t *env)
 
     reset_test_download();
     test_download(env);
+    reset_test_download();
+    test_download_cancel(env);
     // TODO: download cancel
 
     // list files

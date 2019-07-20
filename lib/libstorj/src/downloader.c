@@ -303,9 +303,6 @@ static void resolve_file(uv_work_t *work)
     uv_work_t *download_work = req->handle;
     storj_download_state_t *state = download_work->data;
 
-    // Load progress bar
-    state->progress_cb(0, 0, 0, state->handle);
-
     BucketRef bucket_ref = open_bucket(state->env->project_ref,
                                      strdup(state->bucket_id),
                                      strdup(state->encryption_access),
@@ -365,6 +362,11 @@ static void queue_resolve_file(uv_work_t *work, int status)
     uv_work_t *download_work = req->handle;
     storj_download_state_t *state = download_work->data;
 
+    if (state->canceled) {
+        cleanup_work(work, state->error_status);
+        return;
+    }
+
     // TODO: need to copy?
     state->info = req->file;
     state->total_bytes = req->file->size;
@@ -372,27 +374,23 @@ static void queue_resolve_file(uv_work_t *work, int status)
     uv_queue_work(state->env->loop, work, resolve_file, cleanup_work);
 }
 
-//STORJ_API int storj_bridge_resolve_file_cancel(storj_download_state_t *state)
-//{
-//    if (state->canceled) {
-//        return 0;
-//    }
-//
-//    state->canceled = true;
-//    state->error_status = STORJ_TRANSFER_CANCELED;
-//
-//    // loop over all pointers, and cancel any that are queued to be downloaded
-//    // any downloads that are in-progress will monitor the state->canceled
-//    // status and exit when set to true
-//    for (int i = 0; i < state->total_pointers; i++) {
-//        storj_pointer_t *pointer = &state->pointers[i];
-//        if (pointer->status == POINTER_BEING_DOWNLOADED) {
-//            uv_cancel((uv_req_t *)pointer->work);
-//        }
-//    }
-//
-//    return 0;
-//}
+STORJ_API int storj_bridge_resolve_file_cancel(storj_download_state_t *state)
+{
+    if (state->canceled) {
+        return 0;
+    }
+
+    state->canceled = true;
+    state->error_status = STORJ_TRANSFER_CANCELED;
+
+    if (state->downloader_ref._handle) {
+        download_cancel(state->downloader_ref, STORJ_LAST_ERROR);
+        STORJ_RETURN_IF_LAST_ERROR(state->error_status);
+    }
+
+    return 0;
+
+}
 
 STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
                                                             const char *bucket_id,
@@ -410,7 +408,7 @@ STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
     }
 
     state->buffer_size = (buffer_size == 0) ?
-        STORJ_DEFAULT_UPLOAD_BUFFER_SIZE : buffer_size;
+        STORJ_DEFAULT_DOWNLOAD_BUFFER_SIZE : buffer_size;
 
     // setup download state
     state->encryption_access = strdup(encryption_access);
@@ -422,10 +420,13 @@ STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
     state->destination = destination;
     state->progress_cb = progress_cb;
     state->finished_cb = finished_cb;
+    state->canceled = false;
     state->finished = false;
     state->error_status = STORJ_TRANSFER_OK;
     state->log = env->log;
     state->handle = handle;
+
+    state->progress_cb(0, 0, 0, state->handle);
 
     uv_work_t *work = uv_work_new();
     work->data = state;
@@ -433,8 +434,6 @@ STORJ_API storj_download_state_t *storj_bridge_resolve_file(storj_env_t *env,
     int status = storj_bridge_get_file_info(state->env, state->bucket_id, state->file_id,
                                             strdup(encryption_access), work,
                                             queue_resolve_file);
-//    int status = uv_queue_work(env->loop, (uv_work_t*) work,
-//                               resolve_file, queue_get_file_info);
     if (status) {
         state->error_status = STORJ_QUEUE_ERROR;
     }
