@@ -36,11 +36,19 @@
         private isTermsAccepted: boolean = false;
         private isTermsAcceptedError: boolean = false;
         private secret: string = '';
+        private partnerId: string = '';
         private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
 
         mounted(): void {
             if (this.$route.query.token) {
                 this.secret = this.$route.query.token.toString();
+            }
+
+            let { ids } = this.$route.params;
+            let referralIds = ids ? JSON.parse(atob(ids)) : undefined;
+            if (referralIds) {
+                this.$data.partnerId = referralIds.partnerId;
+                this.$data.referrerId = referralIds.userId;
             }
         }
 
@@ -118,7 +126,7 @@
             return isNoErrors;
         }
         private async createUser(): Promise<void> {
-            let user = new User(this.fullName.trim(), this.shortName.trim(), this.email.trim());
+            let user = new User(this.fullName.trim(), this.shortName.trim(), this.email.trim(), this.partnerId);
             let response = await createUserRequest(user, this.password, this.secret);
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
