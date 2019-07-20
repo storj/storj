@@ -94,6 +94,7 @@ func (db *ConsoleDB) BeginTx(ctx context.Context) (console.DBTx, error) {
 
 	return &DBTx{
 		ConsoleDB: &ConsoleDB{
+			// Need to expose dbx.DB for when database methods need access to check database driver type
 			db:      db.db,
 			tx:      tx,
 			methods: tx,
