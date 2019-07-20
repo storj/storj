@@ -574,7 +574,6 @@ int test_api(storj_env_t *env)
     test_download(env);
     reset_test_download();
     test_download_cancel(env);
-    // TODO: download cancel
 
     // list files
     status = storj_bridge_list_files(env, test_bucket_name,

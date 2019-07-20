@@ -219,7 +219,7 @@ static get_file_info_request_t *get_file_info_request_new(
     }
 
     req->bucket_ref = bucket_ref;
-    req->bucket_id = bucket_id;
+    req->bucket_id = strdup(bucket_id);
     req->path = strdup(path);
     req->response = NULL;
     req->file = NULL;
