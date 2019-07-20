@@ -120,6 +120,12 @@ func (loop *Loop) runOnce(ctx context.Context) (err error) {
 
 	var observers []*observerContext
 	defer func() {
+		if err != nil {
+			for _, observer := range observers {
+				observer.HandleError(err)
+			}
+			return
+		}
 		for _, observer := range observers {
 			observer.Finish()
 		}
@@ -143,11 +149,6 @@ waitformore:
 		case <-timer.C:
 			break waitformore
 		case <-ctx.Done():
-			for _, observer := range observers {
-				observer.HandleError(ctx.Err())
-			}
-			// clear observers slice so they aren't double closed
-			observers = nil
 			return ctx.Err()
 		}
 	}
@@ -212,16 +213,7 @@ waitformore:
 			return nil
 		})
 
-	// if there is an error, send it to all observers before returning
-	if err != nil {
-		for _, observer := range observers {
-			observer.HandleError(ctx.Err())
-		}
-		// clear observers slice so they aren't double closed
-		observers = nil
-		return err
-	}
-	return nil
+	return err
 }
 
 // Wait waits for run to be finished.
