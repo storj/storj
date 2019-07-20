@@ -68,13 +68,13 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
 				SELECT * FROM (VALUES (?, ?, ?, 0, ?, ?, time('now'))) AS v
-					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?), TRUE);
 		`
 	case *pq.Driver:
 		statement = `
 			INSERT INTO user_credits (user_id, offer_id, credits_earned_in_cents, credits_used_in_cents, expires_at, referred_by, created_at)
 				SELECT * FROM (VALUES (?::bytea, ?::int, ?::int, 0, ?::timestamp, NULLIF(?::bytea, ?::bytea), now())) AS v
-					WHERE (SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?);
+					WHERE COALESCE((SELECT COUNT(offer_id) FROM user_credits WHERE offer_id = ? ) < (SELECT redeemable_cap FROM offers WHERE id = ?), TRUE);
 		`
 	default:
 		return errs.New("Unsupported database %t", t)

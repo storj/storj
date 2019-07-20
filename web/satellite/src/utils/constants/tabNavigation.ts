@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// TODO: remove global objects
 export const PROJECT_ROUTES = {
     DETAILS: {
         path: '/project-overview/details',

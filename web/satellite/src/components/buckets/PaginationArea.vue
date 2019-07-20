@@ -12,7 +12,7 @@
                 <div v-html="arrowRight" v-on:click="nextPage" class="pagination-container__button"></div>
             </div>
             <div class="pagination-container__counter">
-                <p>Showing <span>{{firstEdge}}</span> to <span>{{lastEdge}}</span> of <span>{{totalCount}}</span> entries.</p>
+                <p>Showing <span>{{edge}}</span> of <span>{{totalCount}}</span> entries.</p>
             </div>
         </div>
     </div>
@@ -23,76 +23,73 @@
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { BUCKET_USAGE_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
 
-    @Component({
-        data: function() {
-            return {
-                arrowLeft: EMPTY_STATE_IMAGES.ARROW_LEFT,
-                arrowRight: EMPTY_STATE_IMAGES.ARROW_RIGHT,
-            };
-        },
-        methods: {
-            onPageClick: async function (event: any, page: number) {
-                const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, page);
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
-                }
-            },
-            isSelected: function (page: number): string {
-                return page === (this as any).currentPage ? "selected" : "";
-            },
-            nextPage: async function() {
-                if ((this as any).isLastPage) {
-                    return
-				}
+    @Component
+    export default class PaginationArea extends Vue {
+        // TODO: use svg loader
+        public readonly arrowLeft: string = EMPTY_STATE_IMAGES.ARROW_LEFT;
+        public readonly arrowRight: string = EMPTY_STATE_IMAGES.ARROW_RIGHT;
 
-                const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, (this as any).currentPage + 1);
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
-                }
-            },
-            prevPage: async function() {
-                if ((this as any).isFirstPage) {
-                    return
-                }
-
-                const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, (this as any).currentPage - 1);
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
-                }
-            }
-        },
-        computed: {
-            pages: function(): number[] {
-                return new Array(this.$store.state.bucketUsageModule.page.pageCount);
-            },
-            currentPage: function (): number {
-                return this.$store.state.bucketUsageModule.page.currentPage;
-            },
-            firstEdge: function (): number {
-                return this.$store.state.bucketUsageModule.page.offset + 1;
-            },
-            lastEdge: function (): number {
-                let offset = this.$store.state.bucketUsageModule.page.offset;
-                let bucketsLength = this.$store.state.bucketUsageModule.page.bucketUsages.length;
-
-                return offset + bucketsLength;
-            },
-            totalCount: function (): number {
-                return this.$store.state.bucketUsageModule.page.totalCount;
-            },
-            isFirstPage: function() {
-				return this.$store.state.bucketUsageModule.page.currentPage === 1;
-            },
-            isLastPage: function (): boolean {
-                let currentPage = this.$store.state.bucketUsageModule.page.currentPage;
-                let pageCount = this.$store.state.bucketUsageModule.page.pageCount;
-
-                return currentPage === pageCount;
+        public get totalCount(): number {
+            return this.$store.state.bucketUsageModule.page.totalCount;
+        }
+    
+        public get pages(): number[] {
+            return new Array(this.$store.state.bucketUsageModule.page.pageCount);
+        }
+        
+        public get currentPage(): number {
+            return this.$store.state.bucketUsageModule.page.currentPage;
+        }
+        
+        public get edge(): number {
+            return this.$store.state.bucketUsageModule.page.bucketUsages.length;
+        }
+        
+        public get isFirstPage(): boolean {
+            return this.$store.state.bucketUsageModule.page.currentPage === 1;
+        }
+        
+        public get isLastPage(): boolean {
+            let currentPage = this.$store.state.bucketUsageModule.page.currentPage;
+            let pageCount = this.$store.state.bucketUsageModule.page.pageCount;
+        
+            return currentPage === pageCount;
+        }
+    
+    
+        public async onPageClick(event: any, page: number): Promise<void> {
+            const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, page);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
             }
         }
-    })
-
-    export default class PaginationArea extends Vue {}
+    
+        public isSelected(page: number): string {
+            return page === this.currentPage ? 'selected' : '';
+        }
+    
+        public async nextPage(): Promise<void> {
+            if (this.isLastPage) {
+                return;
+            }
+        
+            const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, this.currentPage + 1);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
+            }
+        }
+    
+        public async prevPage(): Promise<void> {
+            if (this.isFirstPage) {
+                return;
+            }
+        
+            const response = await this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, this.currentPage - 1);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch buckets: ' + response.errorMessage);
+            }
+        }
+    }
 </script>
 
 <style scoped lang="scss">

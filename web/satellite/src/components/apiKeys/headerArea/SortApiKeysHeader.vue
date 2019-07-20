@@ -45,16 +45,12 @@
     import { Component, Vue } from 'vue-property-decorator';
     import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
 
-    @Component({
-        data: function() {
-            return {
-                arrowUp: EMPTY_STATE_IMAGES.ARROW_UP,
-                arrowDown: EMPTY_STATE_IMAGES.ARROW_DOWN,
-            };
-        }
-    })
+    @Component
 
-    export default class SortApiKeysHeader extends Vue {}
+    export default class SortApiKeysHeader extends Vue {
+        public arrowUp: string = EMPTY_STATE_IMAGES.ARROW_UP;
+        public arrowDown: string = EMPTY_STATE_IMAGES.ARROW_DOWN;
+    }
 </script>
 
 <style scoped lang="scss">

@@ -40,6 +40,11 @@ let router = new Router({
             component: Register
         },
         {
+            path: ROUTES.REFERRAL.path,
+            name: ROUTES.REFERRAL.name,
+            component: Register
+        },
+        {
             path: ROUTES.FORGOT_PASSWORD.path,
             name: ROUTES.FORGOT_PASSWORD.name,
             component: ForgotPassword
@@ -163,7 +168,7 @@ router.beforeEach((to, from, next) => {
 
 // isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
 function isUnavailablePageWithoutProject(pageName: string): boolean {
-    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name];
+    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name, ROUTES.BUCKETS.name];
     const state = store.state as any;
 
     let isProjectSelected = state.projectsModule.selectedProject.id !== '';

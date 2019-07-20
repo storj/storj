@@ -4,7 +4,9 @@
 package storagenodedb
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"fmt"
 	"math/rand"
 	"os"
@@ -16,6 +18,7 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/dbutil"
+	"storj.io/storj/internal/dbutil/utccheck"
 	"storj.io/storj/internal/migrate"
 	"storj.io/storj/internal/sync2"
 )
@@ -23,9 +26,34 @@ import (
 // ErrInfo is the default error class for InfoDB
 var ErrInfo = errs.Class("infodb")
 
+// SQLDB defines interface that matches *sql.DB
+// this is such that we can use utccheck.DB for the backend
+//
+// TODO: wrap the connector instead of *sql.DB
+type SQLDB interface {
+	Begin() (*sql.Tx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	Close() error
+	Conn(ctx context.Context) (*sql.Conn, error)
+	Driver() driver.Driver
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+	Ping() error
+	PingContext(ctx context.Context) error
+	Prepare(query string) (*sql.Stmt, error)
+	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	SetConnMaxLifetime(d time.Duration)
+	SetMaxIdleConns(n int)
+	SetMaxOpenConns(n int)
+}
+
 // InfoDB implements information database for piecestore.
 type InfoDB struct {
-	db          utcDB
+	db          SQLDB
 	bandwidthdb bandwidthdb
 	pieceinfo   pieceinfo
 	location    string
@@ -44,7 +72,7 @@ func newInfo(path string) (*InfoDB, error) {
 
 	dbutil.Configure(db, mon)
 
-	infoDb := &InfoDB{db: utcDB{db}}
+	infoDb := &InfoDB{db: db}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 	infoDb.location = path
@@ -52,8 +80,8 @@ func newInfo(path string) (*InfoDB, error) {
 	return infoDb, nil
 }
 
-// NewInfoInMemory creates a new inmemory InfoDB.
-func NewInfoInMemory() (*InfoDB, error) {
+// NewInfoTest creates a new inmemory InfoDB.
+func NewInfoTest() (*InfoDB, error) {
 	// create memory DB with a shared cache and a unique name to avoid collisions
 	db, err := sql.Open("sqlite3", fmt.Sprintf("file:memdb%d?mode=memory&cache=shared", rand.Int63()))
 	if err != nil {
@@ -71,7 +99,7 @@ func NewInfoInMemory() (*InfoDB, error) {
 			monkit.StatSourceFromStruct(db.Stats()).Stats(cb)
 		}))
 
-	infoDb := &InfoDB{db: utcDB{db}}
+	infoDb := &InfoDB{db: utccheck.New(db)}
 	infoDb.pieceinfo = pieceinfo{InfoDB: infoDb}
 	infoDb.bandwidthdb = bandwidthdb{InfoDB: infoDb, loop: sync2.NewCycle(time.Hour)}
 
@@ -90,10 +118,10 @@ func (db *InfoDB) CreateTables(log *zap.Logger) error {
 }
 
 // RawDB returns access to the raw database, only for migration tests.
-func (db *InfoDB) RawDB() *sql.DB { return db.db.db }
+func (db *InfoDB) RawDB() SQLDB { return db.db }
 
 // Begin begins transaction
-func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.db.Begin() }
+func (db *InfoDB) Begin() (*sql.Tx, error) { return db.db.Begin() }
 
 // Rebind rebind parameters
 func (db *InfoDB) Rebind(s string) string { return s }

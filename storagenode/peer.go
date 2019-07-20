@@ -256,8 +256,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.Storage2.Sender = orders.NewSender(
 			log.Named("piecestore:orderssender"),
 			peer.Transport,
-			peer.Kademlia.Service,
 			peer.DB.Orders(),
+			peer.Storage2.Trust,
 			config.Storage2.Sender,
 		)
 	}
@@ -272,7 +272,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	{ // setup vouchers
 		interval := config.Vouchers.Interval
 		buffer := interval + time.Hour
-		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Kademlia.Service, peer.Transport, peer.DB.Vouchers(),
+		peer.Vouchers = vouchers.NewService(peer.Log.Named("vouchers"), peer.Transport, peer.DB.Vouchers(),
 			peer.Storage2.Trust, interval, buffer)
 	}
 
@@ -354,9 +354,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
-	})
+	//group.Go(func() error {
+	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
+	//})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -387,9 +387,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	if peer.DB.Bandwidth() != nil {
-		errlist.Add(peer.DB.Bandwidth().Close())
-	}
+	//if peer.DB.Bandwidth() != nil {
+	//	errlist.Add(peer.DB.Bandwidth().Close())
+	//}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}

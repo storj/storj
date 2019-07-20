@@ -55,14 +55,15 @@ func (cursor *Cursor) NextStripe(ctx context.Context) (stripe *Stripe, more bool
 	if err != nil {
 		return nil, more, err
 	}
-
 	// keep track of last path listed
 	if !more {
 		cursor.lastPath = ""
 	} else {
 		cursor.lastPath = pointerItems[len(pointerItems)-1].Path
 	}
-
+	if len(pointerItems) == 0 {
+		return nil, more, nil
+	}
 	pointer, path, err := cursor.getRandomValidPointer(ctx, pointerItems)
 	if err != nil {
 		return nil, more, err

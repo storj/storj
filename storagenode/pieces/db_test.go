@@ -13,10 +13,12 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -167,5 +169,46 @@ func TestPieceInfo(t *testing.T) {
 		require.Error(t, err)
 		_, err = pieceinfos.Get(ctx, info1.SatelliteID, info1.PieceID)
 		require.Error(t, err)
+	})
+}
+
+func TestPieceInfo_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
+
+		{ // Ensure Enqueue works at all
+			err := db.Orders().Enqueue(ctx, &orders.Info{
+				Order: &pb.Order{},
+				Limit: &pb.OrderLimit{
+					SatelliteId:     satelliteID,
+					SerialNumber:    serial,
+					OrderExpiration: time.Now(),
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListUnsent works at all
+			_, err := db.Orders().ListUnsent(ctx, 1)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListUnsentBySatellite works at all
+			_, err := db.Orders().ListUnsentBySatellite(ctx)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure Archive works at all
+			err := db.Orders().Archive(ctx, satelliteID, serial, orders.StatusAccepted)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure ListArchived works at all
+			_, err := db.Orders().ListArchived(ctx, 1)
+			require.NoError(t, err)
+		}
 	})
 }
