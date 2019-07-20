@@ -404,26 +404,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return errs.New(activationTokenIsExpiredErrMsg)
 	}
 
-	tx, err := s.store.BeginTx(ctx)
+	user.Status = Active
+	err = s.store.Users().Update(ctx, user)
 	if err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 
-	err = withTx(tx, func(tx DBTx) error {
-		user.Status = Active
-
-		err = s.store.Users().Update(ctx, user)
-		if err != nil {
-			return errs.New(internalErrMsg)
-		}
-
-		err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
-		if err != nil {
-			return errs.New(internalErrMsg)
-		}
-
-		return nil
-	})
+	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
 
 	return err
 }
