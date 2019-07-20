@@ -32,6 +32,7 @@ func (c *usercredits) GetCreditUsage(ctx context.Context, userID uuid.UUID, expi
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	defer func() { err = errs.Combine(err, usageRows.Close()) }()
 
 	usage := console.UserCreditUsage{}
 
@@ -123,9 +124,17 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 		return errs.New("Unsupported database %t", t)
 	}
 
-	_, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userID[:])
+	result, err := c.db.DB.ExecContext(ctx, c.db.Rebind(statement), userID[:])
 	if err != nil {
 		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected != 1 {
+		return errs.New("update earned credit failed")
 	}
 
 	return nil

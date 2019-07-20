@@ -207,8 +207,10 @@ func TestUsercredits(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = consoleDB.UserCredits().UpdateEarnedCredits(ctx, vc.userCredit.UserID)
-			require.NoError(t, err)
+			if vc.userCredit.CreditsEarned.Cents() == 0 {
+				err = consoleDB.UserCredits().UpdateEarnedCredits(ctx, vc.userCredit.UserID)
+				require.NoError(t, err)
+			}
 
 			{
 				remainingCharge, err := consoleDB.UserCredits().UpdateAvailableCredits(ctx, vc.chargedCredits, vc.userCredit.UserID, time.Now().UTC())
