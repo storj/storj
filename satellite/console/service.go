@@ -93,7 +93,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 }
 
 // CreateUser gets password hash value and creates new inactive User
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
 		return nil, err
@@ -120,6 +120,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.passwordCost)
 	if err != nil {
 		return nil, errs.New(internalErrMsg)
+	}
+
+	var offerType rewards.OfferType
+	if refUserID != "" {
+		offerType = rewards.Referral
 	}
 
 	// store data
