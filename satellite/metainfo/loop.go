@@ -159,6 +159,7 @@ waitformore:
 
 			// iterate over every segment in metainfo
 			for it.Next(ctx, &item) {
+				path := item.Key.String()
 				pointer := &pb.Pointer{}
 
 				err = proto.Unmarshal(item.Value, pointer)
@@ -166,36 +167,13 @@ waitformore:
 					return LoopError.New("unexpected error unmarshalling pointer %s", err)
 				}
 
-				path := item.Key.String()
-				pathElements := storj.SplitPath(path)
-				isLastSeg := len(pathElements) >= 2 && pathElements[1] == "l"
-
 				nextObservers := observers[:0]
 
 				for _, observer := range observers {
-					remote := pointer.GetRemote()
-					if remote != nil {
-						if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
-							continue
-						}
-						if isLastSeg {
-							if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
-								continue
-							}
-						}
-					} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
-						continue
+					keepObserver := handlePointer(ctx, observer, path, pointer)
+					if keepObserver {
+						nextObservers = append(nextObservers, observer)
 					}
-
-					select {
-					case <-observer.ctx.Done():
-						observer.HandleError(observer.ctx.Err())
-						continue
-					default:
-					}
-
-					// for the next segment, only iterate over observers that did not have an error or canceled context
-					nextObservers = append(nextObservers, observer)
 				}
 
 				observers = nextObservers
@@ -214,6 +192,36 @@ waitformore:
 		})
 
 	return err
+}
+
+// handlePointer deals with a pointer for a single observer
+// if there is some error on the observer, handle the error and return false. Otherwise, return true
+func handlePointer(ctx context.Context, observer *observerContext, path storj.Path, pointer *pb.Pointer) bool {
+	pathElements := storj.SplitPath(path)
+	isLastSeg := len(pathElements) >= 2 && pathElements[1] == "l"
+	remote := pointer.GetRemote()
+
+	if remote != nil {
+		if observer.HandleError(observer.RemoteSegment(ctx, path, pointer)) {
+			return false
+		}
+		if isLastSeg {
+			if observer.HandleError(observer.RemoteObject(ctx, path, pointer)) {
+				return false
+			}
+		}
+	} else if observer.HandleError(observer.InlineSegment(ctx, path, pointer)) {
+		return false
+	}
+
+	select {
+	case <-observer.ctx.Done():
+		observer.HandleError(observer.ctx.Err())
+		return false
+	default:
+	}
+
+	return true
 }
 
 // Wait waits for run to be finished.
