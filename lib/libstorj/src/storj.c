@@ -174,6 +174,22 @@ static void get_file_info_request_worker(uv_work_t *work)
     req->file->decrypted = true;
 }
 
+static void delete_file_request_worker(uv_work_t *work)
+{
+    delete_file_request_t *req = work->data;
+
+    BucketRef bucket_ref = open_bucket(req->project_ref, strdup(req->bucket_id),
+                                       strdup(req->encryption_access),
+                                       STORJ_LAST_ERROR);
+    STORJ_RETURN_SET_REQ_ERROR_IF_LAST_ERROR;
+
+    delete_object(bucket_ref, strdup(req->path), STORJ_LAST_ERROR);
+    STORJ_RETURN_SET_REQ_ERROR_IF_LAST_ERROR;
+
+    // NB: http generic success status code.
+    req->status_code = 200;
+}
+
 static uv_work_t *uv_work_new()
 {
     uv_work_t *work = malloc(sizeof(uv_work_t));
@@ -347,6 +363,30 @@ static get_file_id_request_t *get_file_id_request_new(
     req->file_name = strdup(file_name);
     req->response = NULL;
     req->file_id = strdup(file_name);
+    req->error_code = 0;
+    req->status_code = 0;
+    req->handle = handle;
+
+    return req;
+}
+
+static delete_file_request_t *delete_file_request_new(
+    ProjectRef project_ref,
+    const char *bucket_id,
+    const char *path,
+    const char *encryption_access,
+    void *handle)
+{
+    delete_file_request_t *req = malloc(sizeof(delete_file_request_t));
+    if (!req) {
+        return NULL;
+    }
+
+    req->project_ref = project_ref;
+    req->bucket_id = strdup(bucket_id);
+    req->path = strdup(path);
+    req->encryption_access = strdup(encryption_access);
+    req->response = NULL;
     req->error_code = 0;
     req->status_code = 0;
     req->handle = handle;
@@ -706,25 +746,26 @@ STORJ_API void storj_free_file_meta(storj_file_meta_t *file_meta)
     free(file_meta);
 }
 
-//STORJ_API int storj_bridge_delete_file(storj_env_t *env,
-//                             const char *bucket_id,
-//                             const char *file_id,
-//                             void *handle,
-//                             uv_after_work_cb cb)
-//{
-//    char *path = str_concat_many(4, "/buckets/", bucket_id, "/files/", file_id);
-//    if (!path) {
-//        return STORJ_MEMORY_ERROR;
-//    }
-//
-//    uv_work_t *work = json_request_work_new(env, "DELETE", path, NULL,
-//                                            true, handle);
-//    if (!work) {
-//        return STORJ_MEMORY_ERROR;
-//    }
-//
-//    return uv_queue_work(env->loop, (uv_work_t*) work, json_request_worker, cb);
-//}
+STORJ_API int storj_bridge_delete_file(storj_env_t *env,
+                             const char *bucket_id,
+                             const char *path,
+                             const char *encryption_access,
+                             void *handle,
+                             uv_after_work_cb cb)
+{
+    uv_work_t *work = uv_work_new();
+    if (!work) {
+        return STORJ_MEMORY_ERROR;
+    }
+
+    work->data = delete_file_request_new(env->project_ref, bucket_id,
+                                         path, encryption_access, handle);
+    if (!work->data) {
+        return STORJ_MEMORY_ERROR;
+    }
+
+    return uv_queue_work(env->loop, (uv_work_t*) work, delete_file_request_worker, cb);
+}
 
 STORJ_API int storj_bridge_get_file_info(storj_env_t *env,
                                          const char *bucket_id,
@@ -778,5 +819,17 @@ STORJ_API void storj_free_get_file_info_request(get_file_info_request_t *req)
     if (req->file) {
         storj_free_file_meta(req->file);
     }
+    free(req);
+}
+
+STORJ_API void storj_free_delete_file_request(delete_file_request_t *req)
+{
+    if (req->response) {
+        json_object_put(req->response);
+    }
+
+    free((char *)req->encryption_access);
+    free((char *)req->bucket_id);
+    free((char *)req->path);
     free(req);
 }

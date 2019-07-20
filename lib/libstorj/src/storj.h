@@ -305,6 +305,19 @@ typedef struct {
     void *handle;
 } get_file_id_request_t;
 
+/** @brief A structure for queueing delete file request work
+ */
+typedef struct {
+    ProjectRef project_ref;
+    const char *bucket_id;
+    const char *path;
+    const char *encryption_access;
+    struct json_object *response;
+    int error_code;
+    int status_code;
+    void *handle;
+} delete_file_request_t;
+
 typedef enum {
     BUCKET_PUSH,
     BUCKET_PULL
@@ -725,6 +738,7 @@ STORJ_API int storj_bridge_get_file_pointers(storj_env_t *env,
 STORJ_API int storj_bridge_delete_file(storj_env_t *env,
                                        const char *bucket_id,
                                        const char *file_id,
+                                       const char *encryption_access,
                                        void *handle,
                                        uv_after_work_cb cb);
 
@@ -803,6 +817,13 @@ STORJ_API int storj_bridge_get_file_info(storj_env_t *env,
  * @param[in] req - The work request from storj_bridge_get_file_info callback
  */
 STORJ_API void storj_free_get_file_info_request(get_file_info_request_t *req);
+
+/**
+ * @brief Will free all structs for delete file request
+ *
+ * @param[in] req - The work request from storj_bridge_delete_file callback
+ */
+STORJ_API void storj_free_delete_file_request(delete_file_request_t *req);
 
 /**
  * @brief Get the file id by name.

@@ -363,20 +363,24 @@ void check_store_file_cancel(int error_code, storj_file_meta_t *file, void *hand
     storj_free_uploaded_file_info(file);
 }
 
-//void check_delete_file(uv_work_t *work_req, int status)
-//{
-//    require(status == 0);
-//    json_request_t *req = work_req->data;
-//    require(req->handle == NULL);
-//    require(req->response == NULL);
-//    require(req->status_code == 200);
-//
-//    pass("storj_bridge_delete_file");
-//
-//    free(req->path);
-//    free(req);
-//    free(work_req);
-//}
+void check_delete_file(uv_work_t *work, int status)
+{
+    require_no_last_error;
+
+    require(status == 0);
+    delete_file_request_t *req = work->data;
+    require(!req->handle);
+    require(!req->response);
+    // NB: 200 for backwards compatibility
+    require(req->status_code == 200);
+
+    // TODO: check that the file was actuallly deleted!
+
+    pass("storj_bridge_delete_file");
+
+    storj_free_delete_file_request(req);
+    free(work);
+}
 
 void check_file_info(uv_work_t *work_req, int status)
 {
@@ -597,14 +601,15 @@ int test_api(storj_env_t *env)
     require_no_last_error_if(uv_run(env->loop, UV_RUN_ONCE));
 
 
-//    // delete a file in a bucket
-//    status = storj_bridge_delete_file(env,
-//                                      bucket_id,
-//                                      file_id,
-//                                      NULL,
-//                                      check_delete_file);
-//    require(status == 0);
-//
+    // delete a file in a bucket
+    status = storj_bridge_delete_file(env,
+                                      test_bucket_name,
+                                      test_upload_file_name,
+                                      test_encryption_access,
+                                      NULL,
+                                      check_delete_file);
+    require_no_last_error_if(status);
+    require_no_last_error_if(uv_run(env->loop, UV_RUN_ONCE));
 
     // delete bucket
     status = storj_bridge_delete_bucket(env, test_bucket_name,
