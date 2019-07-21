@@ -119,14 +119,14 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		upl := planet.Uplinks[0]
+		uplinkPeer := planet.Uplinks[0]
 
 		err := satellitePeer.Audit.Service.Close()
 		require.NoError(t, err)
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err = upl.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
+		err = uplinkPeer.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
 		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
@@ -135,7 +135,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
-		encParameters := upl.GetConfig(satellitePeer).GetEncryptionParameters()
+		encParameters := uplinkPeer.GetConfig(satellitePeer).GetEncryptionParameters()
 		cipherSuite := encParameters.CipherSuite
 		store := encryption.NewStore()
 		store.SetDefaultKey(new(storj.Key))
@@ -148,7 +148,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode)
 
-		limits, _, err := satellite.Orders.Service.CreateGetOrderLimits(ctx, bucketID, pointer)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucketID, pointer)
 		require.NoError(t, err)
 		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
 

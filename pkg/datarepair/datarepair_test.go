@@ -62,7 +62,7 @@ func TestDataRepair(t *testing.T) {
 			minThreshold     = 3
 			successThreshold = 7
 		)
-		err := ul.UploadWithConfig(ctx, satellite, &uplink.RSConfig{
+		err := uplinkPeer.UploadWithConfig(ctx, satellitePeer, &uplink.RSConfig{
 			MinThreshold:     minThreshold,
 			RepairThreshold:  5,
 			SuccessThreshold: successThreshold,
@@ -70,7 +70,7 @@ func TestDataRepair(t *testing.T) {
 		}, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		pointer, path := getRemoteSegment(t, ctx, satellite)
+		pointer, path := getRemoteSegment(t, ctx, satellitePeer)
 
 		// calculate how many storagenodes to kill
 		redundancy := pointer.GetRemote().GetRedundancy()
@@ -134,8 +134,8 @@ func TestDataRepair(t *testing.T) {
 		satellitePeer.Repair.Repairer.Limiter.Wait()
 
 		// repaired segment should not contain any piece in the killed and DQ nodes
-		metainfo := satellite.Metainfo.Service
-		pointer, err = metainfo.Get(ctx, path)
+		metainfoService := satellitePeer.Metainfo.Service
+		pointer, err = metainfoService.Get(ctx, path)
 		require.NoError(t, err)
 
 		nodesToKillForMinThreshold := len(remotePieces) - minThreshold
