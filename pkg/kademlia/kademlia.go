@@ -27,6 +27,8 @@ import (
 var (
 	// NodeErr is the class for all errors pertaining to node operations
 	NodeErr = errs.Class("node error")
+	// BootstrapErr is the class for all errors pertaining to bootstrapping a node
+	BootstrapErr = errs.Class("bootstrap node error")
 	// NodeNotFound is returned when a lookup can not produce the requested node
 	NodeNotFound = errs.Class("node not found")
 	// TODO: shouldn't default to TCP but not sure what to do yet
@@ -172,7 +174,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
-				errGroup.Add(err)
+				errGroup.Add(BootstrapErr.Wrap(err))
 				continue
 			}
 
@@ -195,7 +197,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		}
 
 		if !foundOnlineBootstrap {
-			errGroup.Add(Error.New("no bootstrap node found online"))
+			errGroup.Add(BootstrapErr.New("no bootstrap node found online"))
 			continue
 		}
 
@@ -205,7 +207,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		k.routingTable.mutex.Unlock()
 		_, err := k.lookup(ctx, id)
 		if err != nil {
-			errGroup.Add(err)
+			errGroup.Add(BootstrapErr.Wrap(err))
 			continue
 		}
 		return nil
@@ -217,7 +219,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		// ```
 	}
 
-	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %s", waitInterval))
+	errGroup.Add(BootstrapErr.New("unable to start bootstrap after final wait time of %s", waitInterval))
 	return errGroup.Err()
 }
 
