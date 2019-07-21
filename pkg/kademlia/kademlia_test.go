@@ -126,18 +126,18 @@ func TestBootstrap(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	bn, s, clean := testNode(ctx, t, []pb.Node{})
+	bn, s, clean := testNode(ctx, "1", t, []pb.Node{})
 	defer clean()
 	defer s.GracefulStop()
 
-	n1, s1, clean1 := testNode(ctx, t, []pb.Node{bn.routingTable.self.Node})
+	n1, s1, clean1 := testNode(ctx, "2", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean1()
 	defer s1.GracefulStop()
 
 	err := n1.Bootstrap(ctx)
 	require.NoError(t, err)
 
-	n2, s2, clean2 := testNode(ctx, t, []pb.Node{bn.routingTable.self.Node})
+	n2, s2, clean2 := testNode(ctx, "3", t, []pb.Node{bn.routingTable.self.Node})
 	defer clean2()
 	defer s2.GracefulStop()
 
@@ -149,10 +149,10 @@ func TestBootstrap(t *testing.T) {
 	assert.Len(t, nodeIDs, 3)
 }
 
-func testNode(ctx *testcontext.Context, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
+func testNode(ctx *testcontext.Context, name string, t *testing.T, bn []pb.Node) (*Kademlia, *grpc.Server, func()) {
 	// new address
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	require.NoErrorf(t, err, "node: %s", name)
 	// new config
 	// new identity
 	fid, err := testidentity.NewTestIdentity(ctx)
@@ -192,7 +192,7 @@ func TestRefresh(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	k, s, clean := testNode(ctx, t, []pb.Node{})
+	k, s, clean := testNode(ctx, "refresh", t, []pb.Node{})
 	defer clean()
 	defer s.GracefulStop()
 	//turn back time for only bucket
@@ -257,7 +257,7 @@ func TestFindNear(t *testing.T) {
 		require.NoError(t, err)
 		return *n
 	}
-	var nodeIDA = newNode("AAAAA", 1, 4)
+	nodeIDA := newNode("AAAAA", 1, 4)
 	newNode("BBBBB", 2, 3)
 	newNode("CCCCC", 3, 2)
 	newNode("DDDDD", 4, 1)

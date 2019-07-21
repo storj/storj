@@ -116,8 +116,8 @@ func ParseNodeURLs(s string) (NodeURLs, error) {
 // String converts NodeURLs to a string
 func (urls NodeURLs) String() string {
 	var xs []string
-	for _, nodeURL := range urls {
-		xs = append(xs, nodeURL.String())
+	for _, u := range urls {
+		xs = append(xs, u.String())
 	}
 	return strings.Join(xs, ",")
 }

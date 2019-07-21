@@ -40,7 +40,7 @@ func New(config Config) (*DB, error) {
 }
 
 // NewInMemory creates new in-memory master database for storage node
-// TODO: still stores data on disk, pass in storageDir string when updated
+// TODO: still stores data on disk
 func NewInMemory() (*DB, error) {
 	return &DB{
 		kdb: teststore.New(),

@@ -267,7 +267,7 @@ func TestRandomizedSelection(t *testing.T) {
 
 		belowThreshold := 0
 
-		var table []int
+		table := []int{}
 
 		// expect that each node has been selected at least minSelectCount times
 		for _, id := range allIDs {
@@ -301,12 +301,12 @@ func TestIsVetted(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var err error
-		sat := planet.Satellites[0]
-		sat.Audit.Service.Loop.Pause()
-		sat.Repair.Checker.Loop.Pause()
-		service := sat.Overlay.Service
+		satellitePeer := planet.Satellites[0]
+		satellitePeer.Audit.Service.Loop.Pause()
+		satellitePeer.Repair.Checker.Loop.Pause()
+		service := satellitePeer.Overlay.Service
 
-		_, err = sat.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -319,7 +319,7 @@ func TestIsVetted(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = sat.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: true,
@@ -344,8 +344,8 @@ func TestIsVetted(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, reputable)
 
-		// test dqing for bad uptime
-		_, err = sat.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		// test dq-ing for bad uptime
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[0].ID(),
 			IsUp:         false,
 			AuditSuccess: true,
@@ -358,8 +358,8 @@ func TestIsVetted(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// test dqing for bad audit
-		_, err = sat.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
+		// test dq-ing for bad audit
+		_, err = satellitePeer.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       planet.StorageNodes[1].ID(),
 			IsUp:         true,
 			AuditSuccess: false,
