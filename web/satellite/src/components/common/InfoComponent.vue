@@ -32,46 +32,46 @@
 </script>
 
 <style scoped lang="scss">
-	.info {
-		position: relative;
+    .info {
+        position: relative;
 
-		&__message-box {
-			position: absolute;
-			left: 40%;
-			bottom: 110%;
-			transform: translate(-50%);
-			height: auto;
-			width: auto;
-			min-width: 180px;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			text-align: center;
-			background-image: url('../../../static/images/Message.png');
-			background-size:100% 100%;
-			z-index: 101;
-			padding: 11px 18px 20px 18px;
+        &__message-box {
+            position: absolute;
+            left: 40%;
+            bottom: 110%;
+            transform: translate(-50%);
+            height: auto;
+            width: auto;
+            min-width: 180px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-image: url('../../../static/images/Message.png');
+            background-size:100% 100%;
+            z-index: 101;
+            padding: 11px 18px 20px 18px;
 
-			&__text {
-				align-items: center;
-				justify-content: center;
-				font-size: 12px;
-				line-height: 16px;
+            &__text {
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                line-height: 16px;
 
-				&__bold-text {
-					color: #586C86;
-					font-family: 'font_bold';
-					margin-block-start: 0;
-					margin-block-end: 0;
-				}
+                &__bold-text {
+                    color: #586C86;
+                    font-family: 'font_bold';
+                    margin-block-start: 0;
+                    margin-block-end: 0;
+                }
 
-				&__regular-text {
-					color: #5A6E87;
-					font-family: 'font_regular';
-					margin-block-start: 0;
-					margin-block-end: 0;
-				}
-			}
-		}
-	}
+                &__regular-text {
+                    color: #5A6E87;
+                    font-family: 'font_regular';
+                    margin-block-start: 0;
+                    margin-block-end: 0;
+                }
+            }
+        }
+    }
 </style>
