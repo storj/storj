@@ -216,7 +216,6 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 
 					return err
 				}
-				return nil
 			})
 		}
 		err := group.Wait()
