@@ -137,6 +137,7 @@ func contains(a []string, x string) bool {
 }
 
 func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, pointer *pb.Pointer, path string) (err error) {
+	// TODO figure out how to reduce duplicate code between here and checkerObs.RemoteSegment
 	defer mon.Task()(&ctx)(&err)
 	remote := pointer.GetRemote()
 	if remote == nil {
