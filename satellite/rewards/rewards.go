@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/storj/internal/currency"
-	"storj.io/storj/satellite/partners"
 )
 
 // MaxRedemptionErr is the error message used when an offer has reached its redemption capacity
@@ -176,7 +175,7 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 // CreatePartnerSet generates a PartnerSet from the config file.
 func CreatePartnerSet() PartnerSet {
-	partners := partners.LoadPartners()
+	partners := LoadPartnerInfos()
 	var ps PartnerSet
 	for _, partner := range partners {
 		ps = append(ps, OpenSourcePartner{
@@ -188,8 +187,8 @@ func CreatePartnerSet() PartnerSet {
 	return ps
 }
 
-// MatchOffersToPartnerSet assigns offers to the partner they belong to.
-func MatchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
+// matchOffersToPartnerSet assigns offers to the partner they belong to.
+func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
 	for _, o := range offers {
 		for index, p := range partnerSet {
 			if o.Name == p.ID+"-"+p.Name {
@@ -209,6 +208,6 @@ func MatchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
 // whos offers have been organized by status, type, and
 // assigned to the correct partner.
 func OrganizePartnerData(offers Offers) PartnerSet {
-	partnerData := MatchOffersToPartnerSet(offers, CreatePartnerSet())
+	partnerData := matchOffersToPartnerSet(offers, CreatePartnerSet())
 	return partnerData
 }
