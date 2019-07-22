@@ -89,12 +89,14 @@ func (client *Client) GetPath(ctx context.Context, bucket, key storage.Key) (_ s
 	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
 	var val []byte
 	err = row.Scan(&val)
-	if err == sql.ErrNoRows {
-		return nil, storage.ErrKeyNotFound.New(key.String())
-	}
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return nil, storage.ErrKeyNotFound.New(key.String())
+		}
+
+		return nil, Error.Wrap(err)
 	}
+
 	return val, nil
 }
 
