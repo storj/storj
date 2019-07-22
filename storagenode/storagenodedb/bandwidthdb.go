@@ -11,7 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/bandwidth"
@@ -24,8 +23,6 @@ type bandwidthdb struct {
 	usedSince time.Time
 
 	*InfoDB
-
-	loop *sync2.Cycle
 }
 
 // Bandwidth returns table for storing bandwidth usage.
@@ -33,18 +30,6 @@ func (db *DB) Bandwidth() bandwidth.DB { return db.info.Bandwidth() }
 
 // Bandwidth returns table for storing bandwidth usage.
 func (db *InfoDB) Bandwidth() bandwidth.DB { return &db.bandwidthdb }
-
-// Run starts the background process for rollups of bandwidth usage
-func (db *bandwidthdb) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return db.loop.Run(ctx, db.Bandwidth().Rollup)
-}
-
-// Close stops the background process for rollups of bandwidth usage
-func (db *bandwidthdb) Close() (err error) {
-	db.loop.Close()
-	return nil
-}
 
 // Add adds bandwidth usage to the table
 func (db *bandwidthdb) Add(ctx context.Context, satelliteID storj.NodeID, action pb.PieceAction, amount int64, created time.Time) (err error) {
