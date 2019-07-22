@@ -118,7 +118,7 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 	case *sqlite3.SQLiteDriver:
 		statement = `
 			UPDATE user_credits
-			SET credits_earned_in_cents = 
+			SET credits_earned_in_cents =
 				(SELECT invitee_credit_in_cents FROM offers WHERE id = offer_id)
 				WHERE user_id = ? AND credits_earned_in_cents = 0`
 	case *pq.Driver:
@@ -141,7 +141,7 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 		return err
 	}
 	if affected != 1 {
-		return errs.New(console.NoCreditForUpdateErr)
+		return console.NoCreditForUpdateErr.New()
 	}
 
 	return nil

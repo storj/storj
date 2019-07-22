@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/currency"
 )
 
 // NoCreditForUpdateErr is a error message used when no credits are found for update when new users sign up
-var NoCreditForUpdateErr = "no credit entry found for update"
+var NoCreditForUpdateErr = errs.New("no credit entry found for update")
 
 // UserCredits holds information to interact with database
 type UserCredits interface {

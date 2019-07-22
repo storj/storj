@@ -13,7 +13,7 @@ import (
 // MaxRedemptionErr is the error message used when an offer has reached its redemption capacity
 var (
 	MaxRedemptionErr  = "This offer redemption has reached its capacity"
-	NoCurrentOfferErr = "no current offer"
+	NoCurrentOfferErr = errs.New("no current offer")
 )
 
 // DB holds information about offer
