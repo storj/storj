@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -118,6 +119,8 @@ type Config struct {
 	Repairer repairer.Config
 	Audit    audit.Config
 
+	GarbageCollection gc.Config
+
 	Tally          tally.Config
 	Rollup         rollup.Config
 	LiveAccounting live.Config
@@ -186,6 +189,10 @@ type Peer struct {
 	}
 	Audit struct {
 		Service *audit.Service
+	}
+
+	GarbageCollection struct {
+		Service *gc.Service
 	}
 
 	Accounting struct {
@@ -468,6 +475,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+	}
+
+	{ // setup garbage collection
+		log.Debug("Setting up garbage collection")
+
+		peer.GarbageCollection.Service = gc.NewService(peer.Log.Named("garbage collection"),
+			peer.Transport,
+			peer.DB.OverlayCache(),
+			peer.Metainfo.Loop,
+			config.GarbageCollection,
+		)
 	}
 
 	{ // setup accounting

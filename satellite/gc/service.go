@@ -5,6 +5,7 @@ package gc
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,19 +36,20 @@ type Config struct {
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a filter" releaseDefault:"0.1" devDefault:"0.1"`
+	ConcurrentSends   int64   `help:"the number of nodes to concurrently send bloom filters to" releaseDefault:"1" devDefault:"1"`
 }
 
 // Service implements the garbage collection service
 type Service struct {
-	log             *zap.Logger
-	loop            *sync2.Cycle
-	metainfoloop    *metainfo.Loop
-	pieceCounts     map[storj.NodeID]int
-	transport       transport.Client
-	overlay         overlay.DB
-	lastSendTime    time.Time
-	lastPieceCounts atomic.Value
-	config          Config
+	log              *zap.Logger
+	loop             *sync2.Cycle
+	metainfoloop     *metainfo.Loop
+	transport        transport.Client
+	overlay          overlay.DB
+	lastSendTime     time.Time
+	lastPieceCounts  atomic.Value
+	config           Config
+	pieceCountsMutex sync.Mutex
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -103,14 +105,17 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 	service.lastSendTime = time.Now().UTC()
 	newPieceCounts := make(map[storj.NodeID]int)
 
-	// TODO: add a sync limiter so we can send multiple bloom filters concurrently
+	limiter := sync2.NewLimiter(int(service.config.ConcurrentSends))
 	var errList errs.Group
 	for id, retainInfo := range obs.retainInfos {
-		err := service.sendRetainRequest(ctx, id, retainInfo, newPieceCounts)
-		if err != nil {
-			errList.Add(err)
-		}
+		limiter.Go(ctx, func() {
+			err := service.sendRetainRequest(ctx, id, retainInfo, newPieceCounts)
+			if err != nil {
+				errList.Add(err)
+			}
+		})
 	}
+	limiter.Wait()
 	if errList.Err() != nil {
 		service.log.Error("error sending retain infos", zap.Error(errList.Err()))
 	}
@@ -146,7 +151,9 @@ func (service *Service) sendRetainRequest(
 	}()
 
 	// TODO add piece count to overlay (when there is a column for them)
+	service.pieceCountsMutex.Lock()
 	newPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
+	service.pieceCountsMutex.Unlock()
 	mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
 
 	filterBytes := retainInfo.Filter.Bytes()
