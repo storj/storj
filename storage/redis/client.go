@@ -7,7 +7,8 @@ import (
 	"bytes"
 	"context"
 	"net/url"
-	"runtime/debug"
+	"os"
+	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -281,8 +282,8 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 	err = client.db.Watch(txf, key.String())
 	if err == redis.TxFailedErr {
 		return storage.ErrValueChanged.New(key.String())
-	} else {
-		debug.PrintStack()
+	} else if err != nil {
+		printStack()
 	}
 	return Error.Wrap(err)
 }
@@ -315,4 +316,19 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 		return Error.New("delete error: %v", err)
 	}
 	return errs.Wrap(err)
+}
+
+func printStack() {
+	os.Stderr.Write(stack())
+}
+
+func stack() []byte {
+	buf := make([]byte, 1024)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			return buf[:n]
+		}
+		buf = make([]byte, 2*len(buf))
+	}
 }
