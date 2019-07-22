@@ -28,7 +28,7 @@
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
-    import { removeToken } from '@/utils/tokenManager';
+    import { AuthToken } from '@/utils/authToken';
     import ROUTES from '@/utils/constants/routerConstants';
     import {
         APP_STATE_ACTIONS,
@@ -52,7 +52,7 @@
         }
 
         public onLogoutClick(): void {
-            removeToken();
+            AuthToken.remove();
 
             this.$router.push(ROUTES.LOGIN.path);
             this.$store.dispatch(PM_ACTIONS.CLEAR);

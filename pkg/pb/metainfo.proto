@@ -28,6 +28,14 @@ service Metainfo {
     rpc BeginDeleteObject(ObjectBeginDeleteRequest) returns (ObjectBeginDeleteResponse);
     rpc FinishDeleteObject(ObjectFinishDeleteRequest) returns (ObjectFinishDeleteResponse);
 
+    rpc BeginSegment(SegmentBeginRequest) returns (SegmentBeginResponse);
+    rpc CommitSegment(SegmentCommitRequest) returns (SegmentCommitResponse);
+    rpc MakeInlineSegment(SegmentMakeInlineRequest) returns (SegmentMakeInlineResponse);
+    rpc BeginDeleteSegment(SegmentBeginDeleteRequest) returns (SegmentBeginDeleteResponse);
+    rpc FinishDeleteSegment(SegmentFinishDeleteRequest) returns (SegmentFinishDeleteResponse);
+    rpc ListSegments(SegmentListRequest) returns (SegmentListResponse);
+    rpc DownloadSegment(SegmentDownloadRequest) returns (SegmentDownloadResponse);
+
     rpc CreateSegmentOld(SegmentWriteRequestOld) returns (SegmentWriteResponseOld);
     rpc CommitSegmentOld(SegmentCommitRequestOld) returns (SegmentCommitResponseOld);
     rpc SegmentInfoOld(SegmentInfoRequestOld) returns (SegmentInfoResponseOld);
@@ -206,6 +214,10 @@ message ProjectInfoResponse {
     bytes project_salt = 1;
 }
 
+//---------------------------
+// Object
+//---------------------------
+
 message Object {
     enum Status {
         INVALID    = 0;
@@ -330,4 +342,140 @@ message SatStreamID {
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
     bytes satellite_signature = 7;
+}
+
+//---------------------------
+// Segment
+//---------------------------
+
+message Segment {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    SegmentPosition position = 2;
+
+    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 4;
+
+    int64 size_encrypted_data = 5; // refers to segment size not piece size
+
+    bytes encrypted_inline_data = 6;
+    repeated Piece pieces = 7;
+}
+
+message Piece {
+    int32 piece_num = 1;
+    bytes node = 2[(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SegmentPosition {
+    int32 part_number = 1;
+    int32 index = 2;
+}
+
+message SegmentBeginRequest {
+    bytes           stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    SegmentPosition position = 2;
+
+    int64 max_order_limit = 3;
+}
+
+message SegmentBeginResponse {
+    bytes    segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit addressed_limits = 2;
+    bytes private_key = 3 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
+}
+
+message SegmentCommitRequest {
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+
+    bytes encrypted_key_nonce = 2 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 3;
+
+    int64 size_encrypted_data = 4; // refers to segment size not piece size
+
+    repeated SegmentPieceUploadResult upload_result = 5;
+}
+
+message SegmentPieceUploadResult {
+    int32               piece_num = 1;
+    bytes               node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    orders.PieceHash    hash = 3;
+}
+
+// only for satellite use
+message SatSegmentID {
+    SatStreamID stream_id = 1;
+    int32    part_number = 2;
+    int32    index = 3;
+
+    // TODO we have redundancy in SatStreamID, do we need it here?
+    // pointerdb.RedundancyScheme redundancy = 4;
+    bytes root_piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit original_order_limits = 6;
+    google.protobuf.Timestamp creation_date = 7  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    bytes satellite_signature = 8;
+}
+
+message SegmentCommitResponse {}
+
+message SegmentMakeInlineRequest {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    SegmentPosition position = 2;
+
+    bytes encrypted_key_nonce = 3 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 4;
+
+    bytes encrypted_inline_data = 5;
+}
+
+message SegmentMakeInlineResponse {}
+
+message SegmentBeginDeleteRequest {
+    bytes stream_id = 1;
+    SegmentPosition position = 2;
+}
+
+message SegmentBeginDeleteResponse {
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit addressed_limits = 2;
+}
+
+message SegmentFinishDeleteRequest {
+    bytes segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated SegmentPieceDeleteResult results = 2;
+}
+
+message SegmentPieceDeleteResult {
+    int32               piece_num = 1;
+    bytes               node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    orders.PieceHash    hash = 3;
+}
+
+message SegmentFinishDeleteResponse {}
+
+message SegmentListRequest {
+    bytes stream_id                 = 1;
+    SegmentPosition cursor_position = 2;
+    int32 limit                     = 3;
+}
+
+message SegmentListResponse {
+    repeated SegmentListItem    items = 1;
+    bool                        more = 2;
+}
+
+message SegmentListItem {
+    SegmentPosition position = 1;
+}
+
+message SegmentDownloadRequest {
+    bytes stream_id = 1 [(gogoproto.customtype) = "StreamID", (gogoproto.nullable) = false];
+    SegmentPosition cursor_position = 2;
+}
+
+message SegmentDownloadResponse {
+    bytes                        segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
+    repeated AddressedOrderLimit addressed_limits = 2;
+    bytes                        encrypted_inline_data = 3;
+    SegmentPosition              next = 4; // can be nil
 }

@@ -57,6 +57,8 @@ const (
 	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
 	Referral = OfferType(2)
+	// Partner is a type of offers used for Open Source Partner Program
+	Partner = OfferType(3)
 )
 
 // OfferStatus represents the different stage an offer can have in its life-cycle.

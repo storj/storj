@@ -354,9 +354,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Vouchers.Run(ctx))
 	})
 
-	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
-	})
+	//group.Go(func() error {
+	//	return errs2.IgnoreCanceled(peer.DB.Bandwidth().Run(ctx))
+	//})
 
 	group.Go(func() error {
 		// TODO: move the message into Server instead
@@ -387,9 +387,9 @@ func (peer *Peer) Close() error {
 
 	// close services in reverse initialization order
 
-	if peer.DB.Bandwidth() != nil {
-		errlist.Add(peer.DB.Bandwidth().Close())
-	}
+	//if peer.DB.Bandwidth() != nil {
+	//	errlist.Add(peer.DB.Bandwidth().Close())
+	//}
 	if peer.Vouchers != nil {
 		errlist.Add(peer.Vouchers.Close())
 	}
