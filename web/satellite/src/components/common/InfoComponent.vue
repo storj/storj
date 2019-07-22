@@ -21,9 +21,9 @@
         private isVisible: boolean = false;
 
         @Prop({default: ''})
-        text: String;
+        private readonly text: String;
         @Prop({default: ''})
-        boldText: String;
+        private readonly boldText: String;
 
         public toggleVisibility(): void {
             this.isVisible = !this.isVisible;
