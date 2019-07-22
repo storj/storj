@@ -8,6 +8,11 @@ type PartnerInfo struct {
 	ID, Name string
 }
 
+// FormattedName returns formatted partner name
+func (p *PartnerInfo) FormattedName() string {
+	return p.ID + "-" + p.Name
+}
+
 // Partners contains a list of partners.
 type Partners []PartnerInfo
 

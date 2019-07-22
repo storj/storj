@@ -114,9 +114,7 @@ type OrganizedOffers struct {
 
 // OpenSourcePartner contains all data for an Open Source Partner.
 type OpenSourcePartner struct {
-	Name          string
-	ID            string
-	Offers        Offers
+	PartnerInfo
 	PartnerOffers OrganizedOffers
 }
 
@@ -179,9 +177,10 @@ func CreatePartnerSet() PartnerSet {
 	var ps PartnerSet
 	for _, partner := range partners {
 		ps = append(ps, OpenSourcePartner{
-			Name:   partner.Name,
-			ID:     partner.ID,
-			Offers: Offers{},
+			PartnerInfo: PartnerInfo{
+				Name: partner.Name,
+				ID:   partner.ID,
+			},
 		})
 	}
 	return ps
@@ -189,23 +188,23 @@ func CreatePartnerSet() PartnerSet {
 
 // matchOffersToPartnerSet assigns offers to the partner they belong to.
 func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
-	for _, o := range offers {
-		for index, p := range partnerSet {
-			if o.Name == p.ID+"-"+p.Name {
-				p.Offers = append(p.Offers, o)
-				partnerSet[index].Offers = append(partnerSet[index].Offers, o)
+	for i := range partnerSet {
+		var partnerOffersByName Offers
+
+		for _, o := range offers {
+			if o.Name == partnerSet[i].PartnerInfo.FormattedName() {
+				partnerOffersByName = append(partnerOffersByName, o)
 			}
 		}
+
+		partnerSet[i].PartnerOffers = partnerOffersByName.OrganizeOffersByStatus()
 	}
 
-	for index, partner := range partnerSet {
-		partnerSet[index].PartnerOffers = partner.Offers.OrganizeOffersByStatus()
-	}
 	return partnerSet
 }
 
 // OrganizePartnerData returns a list of Open Source Partners
-// whos offers have been organized by status, type, and
+// whose offers have been organized by status, type, and
 // assigned to the correct partner.
 func OrganizePartnerData(offers Offers) PartnerSet {
 	partnerData := matchOffersToPartnerSet(offers, CreatePartnerSet())
