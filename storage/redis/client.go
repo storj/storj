@@ -293,7 +293,7 @@ func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage
 	if err != nil && err != redis.TxFailedErr {
 		return nil, Error.New("get error: %v", err)
 	}
-	return value, err
+	return value, errs.Wrap(err)
 }
 
 func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value storage.Value, ttl time.Duration) (err error) {
@@ -302,7 +302,7 @@ func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value stor
 	if err != nil && err != redis.TxFailedErr {
 		return Error.New("put error: %v", err)
 	}
-	return err
+	return errs.Wrap(err)
 }
 
 func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err error) {
@@ -311,5 +311,5 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 	if err != nil && err != redis.TxFailedErr {
 		return Error.New("delete error: %v", err)
 	}
-	return err
+	return errs.Wrap(err)
 }
