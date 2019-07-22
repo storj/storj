@@ -4,6 +4,8 @@
 package testsuite
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 	"strconv"
 	"sync"
@@ -172,4 +174,81 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 			assert.True(t, storage.ErrValueChanged.Has(err), "%s: unexpected error: %+v", errTag, err)
 		}
 	})
+
+	t.Run("CompareAndSwap Concurrent", func(t *testing.T) {
+		const count = 100
+
+		key := storage.Key("test-key")
+		defer func() { _ = store.Delete(ctx, key) }()
+
+		// Add concurrently all numbers from 1 to `count` in a set under test-key
+		var wg sync.WaitGroup
+		for i := 0; i < count; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				retry := true
+				for retry {
+					retry = false
+					set := make(map[int]bool)
+
+					oldValue, err := store.Get(ctx, key)
+					if !storage.ErrKeyNotFound.Has(err) {
+						require.NoError(t, err)
+						set, err = decodeSet(oldValue)
+						require.NoError(t, err, len(oldValue))
+					}
+
+					set[i] = true
+					newValue, err := encodeSet(set)
+					require.NoError(t, err)
+
+					err = store.CompareAndSwap(ctx, key, oldValue, storage.Value(newValue))
+					if storage.ErrValueChanged.Has(err) {
+						// Another goroutine was faster. Repeat the attempt.
+						retry = true
+					} else {
+						require.NoError(t, err)
+					}
+				}
+			}(i)
+		}
+		wg.Wait()
+
+		// Check that all numbers were added in the set
+		value, err := store.Get(ctx, key)
+		require.NoError(t, err)
+
+		set, err := decodeSet(value)
+		require.NoError(t, err)
+
+		for i := 0; i < count; i++ {
+			assert.Contains(t, set, i)
+		}
+	})
+}
+
+func encodeSet(set map[int]bool) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+
+	err := enc.Encode(set)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func decodeSet(b []byte) (map[int]bool, error) {
+	buf := bytes.NewBuffer(b)
+	dec := gob.NewDecoder(buf)
+
+	var set map[int]bool
+	err := dec.Decode(&set)
+	if err != nil {
+		return nil, err
+	}
+
+	return set, nil
 }

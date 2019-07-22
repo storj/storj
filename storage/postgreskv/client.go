@@ -342,20 +342,25 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 	var val []byte
 	err = row.Scan(&val)
 	if err == sql.ErrNoRows {
+		// no row selected, so no need for transaction
+		txErr := Error.Wrap(tx.Commit())
+
 		if oldValue != nil {
-			return errs.Combine(storage.ErrKeyNotFound.New(key.String()), tx.Rollback())
+			return errs.Combine(storage.ErrKeyNotFound.New(key.String()), txErr)
 		}
 
 		if newValue == nil {
-			return Error.Wrap(tx.Commit())
+			return txErr
 		}
 
 		q := `INSERT INTO pathdata (bucket, fullpath, metadata) VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)`
-		_, err = tx.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
-		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		_, err = client.pgConn.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
+		if err, ok := err.(*pq.Error); ok {
+			if err.Code == "23505" { // unique_violation
+				return errs.Combine(storage.ErrValueChanged.New(key.String()), txErr)
+			}
 		}
-		return Error.Wrap(tx.Commit())
+		return txErr
 	}
 	if err != nil {
 		return Error.Wrap(errs.Combine(err, tx.Rollback()))
