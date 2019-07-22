@@ -194,7 +194,7 @@ func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char
 	var opts *uplink.ListOptions
 	if unsafe.Pointer(cListOpts) != nil {
 		opts = &uplink.ListOptions{
-			Prefix:    C.GoString(cListOpts.cursor),
+			Prefix:    C.GoString(cListOpts.prefix),
 			Cursor:    C.GoString(cListOpts.cursor),
 			Delimiter: rune(cListOpts.delimiter),
 			Recursive: bool(cListOpts.recursive),
