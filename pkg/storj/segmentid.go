@@ -29,6 +29,7 @@ func SegmentIDFromString(s string) (SegmentID, error) {
 
 // SegmentIDFromBytes converts a byte slice into a segment ID
 func SegmentIDFromBytes(b []byte) (SegmentID, error) {
+	// return error will be used in future implementation
 	id := make([]byte, len(b))
 	copy(id, b)
 	return id, nil
