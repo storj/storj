@@ -1039,7 +1039,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
-		EncryptedPath: []byte{},
+		EncryptedPath: req.EncryptedPath,
 		Time:          time.Now(),
 	})
 	if err != nil {
