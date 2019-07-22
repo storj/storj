@@ -49,7 +49,8 @@ type Service struct {
 	lastSendTime     time.Time
 	lastPieceCounts  atomic.Value
 	config           Config
-	pieceCountsMutex sync.Mutex
+	errGroupMutex    *sync.Mutex
+	pieceCountsMutex *sync.Mutex
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -66,13 +67,15 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 	lastPieceCounts.Store(map[storj.NodeID]int{})
 
 	return &Service{
-		log:             log,
-		Loop:            sync2.NewCycle(config.Interval),
-		metainfoloop:    loop,
-		transport:       transport,
-		overlay:         overlay,
-		lastPieceCounts: lastPieceCounts,
-		config:          config,
+		log:              log,
+		Loop:             sync2.NewCycle(config.Interval),
+		metainfoloop:     loop,
+		transport:        transport,
+		overlay:          overlay,
+		lastPieceCounts:  lastPieceCounts,
+		config:           config,
+		errGroupMutex:    &sync.Mutex{},
+		pieceCountsMutex: &sync.Mutex{},
 	}
 }
 
@@ -108,12 +111,7 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 	limiter := sync2.NewLimiter(int(service.config.ConcurrentSends))
 	var errList errs.Group
 	for id, retainInfo := range obs.retainInfos {
-		limiter.Go(ctx, func() {
-			err := service.sendRetainRequest(ctx, id, retainInfo, newPieceCounts)
-			if err != nil {
-				errList.Add(err)
-			}
-		})
+		service.sendRetainFromLimiter(ctx, id, retainInfo, newPieceCounts, limiter, errList)
 	}
 	limiter.Wait()
 	if errList.Err() != nil {
@@ -122,6 +120,17 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 	service.lastPieceCounts.Store(newPieceCounts)
 
 	return nil
+}
+
+func (service *Service) sendRetainFromLimiter(ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, newPieceCounts map[storj.NodeID]int, limiter *sync2.Limiter, errList errs.Group) {
+	limiter.Go(ctx, func() {
+		err := service.sendRetainRequest(ctx, id, retainInfo, newPieceCounts)
+		if err != nil {
+			service.errGroupMutex.Lock()
+			errList.Add(err)
+			service.errGroupMutex.Unlock()
+		}
+	})
 }
 
 func (service *Service) sendRetainRequest(
