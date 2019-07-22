@@ -191,6 +191,23 @@ func TestBandwidthRollup(t *testing.T) {
 		err = db.Bandwidth().Rollup(ctx)
 		require.NoError(t, err)
 
+		// add some data that has already been rolled up to test the date range in the rollup select
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_PUT, 5, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET, 6, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET_AUDIT, 7, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+
+		// Rollup again
+		err = db.Bandwidth().Rollup(ctx)
+		require.NoError(t, err)
+
+		// Make sure get the same results as above
+		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		require.NoError(t, err)
+		require.Equal(t, int64(27), usage.Total())
+
 		// After rollup, the totals should still be the same
 		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
 		require.NoError(t, err)
