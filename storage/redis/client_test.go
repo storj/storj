@@ -5,6 +5,7 @@ package redis
 
 import (
 	"testing"
+	"time"
 
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testsuite"
@@ -17,7 +18,7 @@ func TestSuite(t *testing.T) {
 	}
 	defer cleanup()
 
-	client, err := NewClient(addr, "", 1)
+	client, err := NewClientWithReadTimeout(addr, "", 1, 1*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

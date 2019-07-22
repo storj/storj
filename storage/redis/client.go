@@ -75,6 +75,26 @@ func NewClientFrom(address string) (*Client, error) {
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
 
+// NewClientWithReadTimeout returns a configured Client instance with custom read timeout, verifying a successful connection to redis
+func NewClientWithReadTimeout(address, password string, db int, readTimeout time.Duration) (*Client, error) {
+	client := &Client{
+		db: redis.NewClient(&redis.Options{
+			Addr:        address,
+			Password:    password,
+			DB:          db,
+			ReadTimeout: readTimeout,
+		}),
+		TTL: defaultNodeExpiration,
+	}
+
+	// ping here to verify we are able to connect to redis with the initialized client.
+	if err := client.db.Ping().Err(); err != nil {
+		return nil, Error.New("ping failed: %v", err)
+	}
+
+	return client, nil
+}
+
 // Get looks up the provided key from redis returning either an error or the result.
 func (client *Client) Get(ctx context.Context, key storage.Key) (_ storage.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
