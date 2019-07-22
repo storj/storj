@@ -238,14 +238,22 @@ func (planetUplink *Uplink) Download(ctx context.Context, satellite *satellite.P
 }
 
 // DownloadStream returns stream for downloading data
-func (planetUplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (libuplink.ReadSeekCloser, error) {
+func (planetUplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ libuplink.ReadSeekCloser, cleanup func() error, err error) {
 	project, bucket, err := planetUplink.GetProjectAndBucket(ctx, satellite, bucketName, planetUplink.GetConfig(satellite))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer func() { err = errs.Combine(err, project.Close(), bucket.Close()) }()
 
-	return bucket.NewReader(ctx, path)
+	cleanup = func() error {
+		err = errs.Combine(err,
+			project.Close(),
+			bucket.Close(),
+		)
+		return err
+	}
+
+	downloader, err := bucket.NewReader(ctx, path)
+	return downloader, cleanup, err
 }
 
 // Delete deletes an object at the path in a bucket
@@ -351,6 +359,7 @@ func (planetUplink *Uplink) GetProject(ctx context.Context, satellite *satellite
 	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errs.Combine(err, testLibuplink.Close()) }()
 	planetUplinkAPIKey := planetUplink.APIKey[satellite.ID()]
 	key, err := libuplink.ParseAPIKey(planetUplinkAPIKey)
 	if err != nil {
@@ -359,9 +368,7 @@ func (planetUplink *Uplink) GetProject(ctx context.Context, satellite *satellite
 
 	project, err := testLibuplink.OpenProject(ctx, satellite.Addr(), key)
 	if err != nil {
-		if err := testLibuplink.Close(); err != nil {
-			fmt.Printf("error closing uplink: %+v\n", err)
-		}
+		return nil, errs.Combine(err, testLibuplink.Close())
 	}
 	return project, nil
 }
@@ -375,7 +382,7 @@ func (planetUplink *Uplink) GetProjectAndBucket(ctx context.Context, satellite *
 
 	access, err := setup.LoadEncryptionAccess(ctx, planetUplinkCfg.Enc)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errs.Combine(err, project.Close())
 	}
 
 	// Check if the bucket exists, if not then create it
@@ -384,16 +391,16 @@ func (planetUplink *Uplink) GetProjectAndBucket(ctx context.Context, satellite *
 		if storj.ErrBucketNotFound.Has(err) {
 			err := createBucket(ctx, planetUplinkCfg, *project, bucketName)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, errs.Combine(err, project.Close())
 			}
 		} else {
-			return nil, nil, err
+			return nil, nil, errs.Combine(err, project.Close())
 		}
 	}
 
 	bucket, err := project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errs.Combine(err, project.Close())
 	}
 
 	return project, bucket, nil
