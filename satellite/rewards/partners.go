@@ -9,7 +9,7 @@ type PartnerInfo struct {
 }
 
 // FormattedName returns formatted partner name
-func (p *PartnerInfo) FormattedName() string {
+func (p PartnerInfo) FormattedName() string {
 	return p.ID + "-" + p.Name
 }
 
