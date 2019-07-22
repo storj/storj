@@ -17,20 +17,17 @@
     import { ACCOUNT_ROUTES } from '@/utils/constants/tabNavigation';
 
     @Component({
-    	mounted() {
-    		this.$router.push(ACCOUNT_ROUTES.PROFILE.path);
-    	},
-    	data: function () {
-    		return {
-    			navigation: ACCOUNT_ROUTES,
-    		};
-    	},
-    	components: {
-    		TabNavigation,
-    	},
+        components: {
+            TabNavigation,
+        },
     })
+    export default class AccountArea extends Vue {
+        public navigation: object = ACCOUNT_ROUTES;
 
-    export default class AccountArea extends Vue {}
+        public mounted(): void {
+            this.$router.push(ACCOUNT_ROUTES.PROFILE.path);
+        }
+    }
 </script>
 
 <style scoped lang="scss">

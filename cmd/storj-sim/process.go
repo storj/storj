@@ -174,6 +174,24 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	defer process.Status.Started.Release()
 	defer process.Status.Exited.Release()
 
+	// wait for dependencies to start
+	for _, fence := range process.Wait {
+		fence.Wait()
+	}
+
+	// in case we have an explicit delay then sleep
+	if process.Delay > 0 {
+		if !sync2.Sleep(ctx, process.Delay) {
+			return ctx.Err()
+		}
+	}
+
+	if exec, ok := process.ExecBefore[command]; ok {
+		if err := exec(process); err != nil {
+			return err
+		}
+	}
+
 	cmd := exec.CommandContext(ctx, process.Executable, process.Arguments[command]...)
 	cmd.Dir = process.processes.Directory
 	cmd.Env = append(os.Environ(), "STORJ_LOG_NOTIME=1")
@@ -203,29 +221,11 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	// ensure that it is part of this process group
 	processgroup.Setup(cmd)
 
-	// wait for dependencies to start
-	for _, fence := range process.Wait {
-		fence.Wait()
-	}
-
-	// in case we have an explicit delay then sleep
-	if process.Delay > 0 {
-		if !sync2.Sleep(ctx, process.Delay) {
-			return ctx.Err()
-		}
-	}
-
 	if printCommands {
 		fmt.Fprintf(process.processes.Output, "%s running: %v\n", process.Name, strings.Join(cmd.Args, " "))
 		defer func() {
 			fmt.Fprintf(process.processes.Output, "%s exited: %v\n", process.Name, err)
 		}()
-	}
-
-	if exec, ok := process.ExecBefore[command]; ok {
-		if err := exec(process); err != nil {
-			return err
-		}
 	}
 
 	// start the process

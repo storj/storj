@@ -13,7 +13,6 @@ import (
 	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
@@ -31,8 +30,8 @@ var (
 type DB interface {
 	// Put inserts or updates a voucher from a satellite
 	Put(context.Context, *pb.Voucher) error
-	// GetValid returns one valid voucher from the list of approved satellites
-	GetValid(context.Context, []storj.NodeID) (*pb.Voucher, error)
+	// GetAll returns all vouchers in the table
+	GetAll(context.Context) ([]*pb.Voucher, error)
 	// NeedVoucher returns true if a voucher from a particular satellite is expired, about to expire, or does not exist
 	NeedVoucher(context.Context, storj.NodeID, time.Duration) (bool, error)
 }
@@ -46,7 +45,6 @@ type Config struct {
 type Service struct {
 	log *zap.Logger
 
-	kademlia  *kademlia.Kademlia
 	transport transport.Client
 
 	vouchersdb DB
@@ -58,10 +56,9 @@ type Service struct {
 }
 
 // NewService creates a new voucher service
-func NewService(log *zap.Logger, kad *kademlia.Kademlia, transport transport.Client, vouchersdb DB, trust *trust.Pool, interval, expirationBuffer time.Duration) *Service {
+func NewService(log *zap.Logger, transport transport.Client, vouchersdb DB, trust *trust.Pool, interval, expirationBuffer time.Duration) *Service {
 	return &Service{
 		log:              log,
-		kademlia:         kad,
 		transport:        transport,
 		vouchersdb:       vouchersdb,
 		trust:            trust,
@@ -122,12 +119,17 @@ func (service *Service) Request(ctx context.Context, satelliteID storj.NodeID) {
 func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellite, err := service.kademlia.FindNode(ctx, satelliteID)
+	address, err := service.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
-		return VoucherError.New("unable to find satellite on the network: %v", err)
+		return err
 	}
-
-	conn, err := service.transport.DialNode(ctx, &satellite)
+	conn, err := service.transport.DialNode(ctx, &pb.Node{
+		Id: satelliteID,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address:   address,
+		},
+	})
 	if err != nil {
 		return VoucherError.New("unable to connect to the satellite: %v", err)
 	}
@@ -142,7 +144,6 @@ func (service *Service) request(ctx context.Context, satelliteID storj.NodeID) (
 		return VoucherError.New("failed to start request: %v", err)
 	}
 
-	// TODO: separate status for disqualified nodes?
 	switch resp.GetStatus() {
 	case pb.VoucherResponse_REJECTED:
 		service.log.Info("Voucher request denied. Vetting process not yet complete")
