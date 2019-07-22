@@ -25,26 +25,23 @@ import (
 // * Set up a network with one storagenode
 // * Upload two objects
 // * Delete one object from the metainfo service on the satellite
-// * Trigger a bloom filter generation
+// * Wait for bloom filter generation
 // * Check that pieces of the deleted object are deleted on the storagenode
 // * Check that pieces of the kept object are not deleted on the storagenode
 func TestGarbageCollection(t *testing.T) {
-	t.Skip("needs to be updated to test against gc loop")
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				// config.GarbageCollection.FalsePositiveRate = 0.0001
-				// config.GarbageCollection.Interval = 0
+				config.GarbageCollection.FalsePositiveRate = 0.001
+				config.GarbageCollection.Interval = 500 * time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		upl := planet.Uplinks[0]
 		targetNode := planet.StorageNodes[0]
-
-		checker := satellite.Repair.Checker
-		checker.Loop.Stop()
+		gcService := satellite.GarbageCollection.Service
 
 		// Upload two objects
 		testData1 := testrand.Bytes(8 * memory.KiB)
@@ -74,7 +71,7 @@ func TestGarbageCollection(t *testing.T) {
 		}
 		require.NotZero(t, keptPieceID)
 
-		// Delete object from metainfo service on satellite
+		// Delete one object from metainfo service on satellite
 		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
 		require.NoError(t, err)
 
@@ -90,13 +87,8 @@ func TestGarbageCollection(t *testing.T) {
 		// for a second.
 		time.Sleep(1 * time.Second)
 
-		// Trigger bloom filter generation by running checker
-		// We trigger it twice because the first piece tracker was created before the upload
-		for i := 0; i < 2; i++ {
-			err = checker.IdentifyInjuredSegments(ctx)
-			require.NoError(t, err)
-			// checker.WaitForGCSend()
-		}
+		// Wait for next iteration of garbage collection to finish
+		gcService.Loop.TriggerWait()
 
 		// Check that piece of the deleted object is not on the storagenode
 		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)

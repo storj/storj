@@ -42,7 +42,7 @@ type Config struct {
 // Service implements the garbage collection service
 type Service struct {
 	log              *zap.Logger
-	loop             *sync2.Cycle
+	Loop             *sync2.Cycle
 	metainfoloop     *metainfo.Loop
 	transport        transport.Client
 	overlay          overlay.DB
@@ -67,7 +67,7 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 
 	return &Service{
 		log:             log,
-		loop:            sync2.NewCycle(config.Interval),
+		Loop:            sync2.NewCycle(config.Interval),
 		metainfoloop:    loop,
 		transport:       transport,
 		overlay:         overlay,
@@ -80,7 +80,7 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.loop.Run(ctx, func(ctx context.Context) error {
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		pieceCounts := service.lastPieceCountsValue()
 		obs := NewObserver(service.log.Named("gc observer"), pieceCounts, service.config)
 

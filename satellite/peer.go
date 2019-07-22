@@ -687,6 +687,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Audit.Service.Run(ctx))
 	})
 	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.GarbageCollection.Service.Run(ctx))
+	})
+	group.Go(func() error {
 		// TODO: move the message into Server instead
 		// Don't change the format of this comment, it is used to figure out the node id.
 		peer.Log.Sugar().Infof("Node %s started", peer.Identity.ID)
