@@ -2712,6 +2712,583 @@
                 "type": "bytes"
               }
             ]
+          },
+          {
+            "name": "Segment",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "position",
+                "type": "SegmentPosition"
+              },
+              {
+                "id": 3,
+                "name": "encrypted_key_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "size_encrypted_data",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "encrypted_inline_data",
+                "type": "bytes"
+              },
+              {
+                "id": 7,
+                "name": "pieces",
+                "type": "Piece",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "Piece",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_num",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "node",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SegmentPosition",
+            "fields": [
+              {
+                "id": 1,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "index",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "SegmentBeginRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "position",
+                "type": "SegmentPosition"
+              },
+              {
+                "id": 3,
+                "name": "max_order_limit",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "SegmentBeginResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "private_key",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PiecePrivateKey"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SegmentCommitRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "encrypted_key_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "size_encrypted_data",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "upload_result",
+                "type": "SegmentPieceUploadResult",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentPieceUploadResult",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_num",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "orders.PieceHash"
+              }
+            ]
+          },
+          {
+            "name": "SatSegmentID",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "SatStreamID"
+              },
+              {
+                "id": 2,
+                "name": "part_number",
+                "type": "int32"
+              },
+              {
+                "id": 3,
+                "name": "index",
+                "type": "int32"
+              },
+              {
+                "id": 5,
+                "name": "root_piece_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "PieceID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 6,
+                "name": "original_order_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              },
+              {
+                "id": 7,
+                "name": "creation_date",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 8,
+                "name": "satellite_signature",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SegmentCommitResponse"
+          },
+          {
+            "name": "SegmentMakeInlineRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "position",
+                "type": "SegmentPosition"
+              },
+              {
+                "id": 3,
+                "name": "encrypted_key_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 4,
+                "name": "encrypted_key",
+                "type": "bytes"
+              },
+              {
+                "id": 5,
+                "name": "encrypted_inline_data",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "SegmentMakeInlineResponse"
+          },
+          {
+            "name": "SegmentBeginDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "position",
+                "type": "SegmentPosition"
+              }
+            ]
+          },
+          {
+            "name": "SegmentBeginDeleteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentFinishDeleteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "results",
+                "type": "SegmentPieceDeleteResult",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "SegmentPieceDeleteResult",
+            "fields": [
+              {
+                "id": 1,
+                "name": "piece_num",
+                "type": "int32"
+              },
+              {
+                "id": 2,
+                "name": "node_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 3,
+                "name": "hash",
+                "type": "orders.PieceHash"
+              }
+            ]
+          },
+          {
+            "name": "SegmentFinishDeleteResponse"
+          },
+          {
+            "name": "SegmentListRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "cursor_position",
+                "type": "SegmentPosition"
+              },
+              {
+                "id": 3,
+                "name": "limit",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "SegmentListResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "items",
+                "type": "SegmentListItem",
+                "is_repeated": true
+              },
+              {
+                "id": 2,
+                "name": "more",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "SegmentListItem",
+            "fields": [
+              {
+                "id": 1,
+                "name": "position",
+                "type": "SegmentPosition"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDownloadRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "stream_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "StreamID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "cursor_position",
+                "type": "SegmentPosition"
+              }
+            ]
+          },
+          {
+            "name": "SegmentDownloadResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "segment_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "SegmentID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 2,
+                "name": "addressed_limits",
+                "type": "AddressedOrderLimit",
+                "is_repeated": true
+              },
+              {
+                "id": 3,
+                "name": "encrypted_inline_data",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
+                "name": "next",
+                "type": "SegmentPosition"
+              }
+            ]
           }
         ],
         "services": [
@@ -2767,6 +3344,41 @@
                 "name": "FinishDeleteObject",
                 "in_type": "ObjectFinishDeleteRequest",
                 "out_type": "ObjectFinishDeleteResponse"
+              },
+              {
+                "name": "BeginSegment",
+                "in_type": "SegmentBeginRequest",
+                "out_type": "SegmentBeginResponse"
+              },
+              {
+                "name": "CommitSegment",
+                "in_type": "SegmentCommitRequest",
+                "out_type": "SegmentCommitResponse"
+              },
+              {
+                "name": "MakeInlineSegment",
+                "in_type": "SegmentMakeInlineRequest",
+                "out_type": "SegmentMakeInlineResponse"
+              },
+              {
+                "name": "BeginDeleteSegment",
+                "in_type": "SegmentBeginDeleteRequest",
+                "out_type": "SegmentBeginDeleteResponse"
+              },
+              {
+                "name": "FinishDeleteSegment",
+                "in_type": "SegmentFinishDeleteRequest",
+                "out_type": "SegmentFinishDeleteResponse"
+              },
+              {
+                "name": "ListSegments",
+                "in_type": "SegmentListRequest",
+                "out_type": "SegmentListResponse"
+              },
+              {
+                "name": "DownloadSegment",
+                "in_type": "SegmentDownloadRequest",
+                "out_type": "SegmentDownloadResponse"
               },
               {
                 "name": "CreateSegmentOld",
