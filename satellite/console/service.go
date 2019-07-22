@@ -437,7 +437,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
-	if err != nil && NoCreditForUpdateErr.Has(err) {
+	if err != nil && !NoCreditForUpdateErr.Has(err) {
 		return errs.New(internalErrMsg)
 	}
 
