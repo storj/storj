@@ -113,7 +113,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
 		err := service.process(ctx)
 		if err != nil {
-			zap.L().Error("process", zap.Error(err))
+			zap.L().Error("process", zap.Error(Error.Wrap(err)))
 		}
 		return nil
 	})
