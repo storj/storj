@@ -7,8 +7,6 @@ import (
 	"bytes"
 	"context"
 	"net/url"
-	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"time"
@@ -75,28 +73,6 @@ func NewClientFrom(address string) (*Client, error) {
 	}
 
 	return NewClient(redisurl.Host, q.Get("password"), db)
-}
-
-// NewClientWithTimeout returns a configured Client instance with custom timeouts, verifying a successful connection to redis
-func NewClientWithTimeout(address, password string, db int, timeout time.Duration) (*Client, error) {
-	client := &Client{
-		db: redis.NewClient(&redis.Options{
-			Addr:         address,
-			Password:     password,
-			DB:           db,
-			DialTimeout:  timeout,
-			ReadTimeout:  timeout,
-			WriteTimeout: timeout,
-		}),
-		TTL: defaultNodeExpiration,
-	}
-
-	// ping here to verify we are able to connect to redis with the initialized client.
-	if err := client.db.Ping().Err(); err != nil {
-		return nil, Error.New("ping failed: %v", err)
-	}
-
-	return client, nil
 }
 
 // Get looks up the provided key from redis returning either an error or the result.
@@ -282,8 +258,6 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 	err = client.db.Watch(txf, key.String())
 	if err == redis.TxFailedErr {
 		return storage.ErrValueChanged.New(key.String())
-	} else if err != nil {
-		printStack()
 	}
 	return Error.Wrap(err)
 }
@@ -316,19 +290,4 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 		return Error.New("delete error: %v", err)
 	}
 	return errs.Wrap(err)
-}
-
-func printStack() {
-	os.Stderr.Write(stack())
-}
-
-func stack() []byte {
-	buf := make([]byte, 1024)
-	for {
-		n := runtime.Stack(buf, true)
-		if n < len(buf) {
-			return buf[:n]
-		}
-		buf = make([]byte, 2*len(buf))
-	}
 }

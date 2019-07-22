@@ -177,7 +177,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 	})
 
 	t.Run("CompareAndSwap Concurrent", func(t *testing.T) {
-		const count = 10
+		const count = 100
 
 		key := storage.Key("test-key")
 		defer func() { _ = store.Delete(ctx, key) }()
