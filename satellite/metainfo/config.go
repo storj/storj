@@ -38,6 +38,7 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig    `help:"redundancy scheme configuration"`
+	Loop                 LoopConfig  `help:"metainfo loop configuration"`
 }
 
 // NewStore returns database for storing pointer data

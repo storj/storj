@@ -59,7 +59,7 @@
                 width="210px"
                 height="56px"
                 :onPress="toggleDeleteAccountPopup"
-                isDeletion/>
+                isDeletion="true"/>
         </div>
         <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
         <EditProfilePopup v-if="isEditProfilePopupShown"/>
@@ -74,43 +74,9 @@
     import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
     import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
     import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
+    import { User } from '../../types/users';
 
     @Component({
-        mounted: function () {
-            this.$store.dispatch(USER_ACTIONS.GET);
-        },
-        methods: {
-            toggleDeleteAccountPopup: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
-            },
-            toggleChangePasswordPopup: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
-            },
-            toggleEditProfilePopup: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-            },
-        },
-        computed: {
-            user: function () {
-                return {
-                    fullName: this.$store.getters.user.fullName,
-                    shortName: this.$store.getters.user.shortName,
-                    email: this.$store.getters.user.email,
-                };
-            },
-            isEditProfilePopupShown: function () {
-                return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
-            },
-            isChangePasswordPopupShown: function () {
-                return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
-            },
-            isDeleteAccountPopupShown: function () {
-                return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
-            },
-            avatarLetter: function (): string {
-                return this.$store.getters.userName.slice(0, 1).toUpperCase();
-            },
-        },
         components: {
             Button,
             DeleteAccountPopup,
@@ -118,8 +84,37 @@
             EditProfilePopup,
         },
     })
+    export default class Profile extends Vue {
+        public mounted(): void {
+            this.$store.dispatch(USER_ACTIONS.GET);
+        }
 
-    export default class Profile extends Vue {}
+        public toggleDeleteAccountPopup(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);
+        }
+        public toggleChangePasswordPopup(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+        }
+        public toggleEditProfilePopup(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        }
+
+        public get user(): User {
+            return this.$store.getters.user;
+        }
+        public get isEditProfilePopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isEditProfilePopupShown;
+        }
+        public get isChangePasswordPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isChangePasswordPopupShown;
+        }
+        public get isDeleteAccountPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
+        }
+        public get avatarLetter(): string {
+            return this.$store.getters.userName.slice(0, 1).toUpperCase();
+        }
+    }
 </script>
 
 <style scoped lang="scss">

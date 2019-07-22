@@ -24,7 +24,7 @@ var (
 func (service *Service) VerifyVoucher(ctx context.Context, satellite storj.NodeID, voucher *pb.Voucher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if self := service.kademlia.Local().Id; voucher.StorageNodeId != self {
+	if self := service.transport.Identity().ID; voucher.StorageNodeId != self {
 		return ErrVerify.New("Storage node ID does not match expected: (%v) (%v)", voucher.StorageNodeId, self)
 	}
 

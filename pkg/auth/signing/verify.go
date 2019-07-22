@@ -82,3 +82,25 @@ func VerifyVoucher(ctx context.Context, satellite Signee, signed *pb.Voucher) (e
 
 	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
 }
+
+// VerifyStreamID verifies that the signature inside stream ID belongs to the satellite
+func VerifyStreamID(ctx context.Context, satellite Signee, signed *pb.SatStreamID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeStreamID(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
+}
+
+// VerifySegmentID verifies that the signature inside segment ID belongs to the satellite
+func VerifySegmentID(ctx context.Context, satellite Signee, signed *pb.SatSegmentID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeSegmentID(ctx, signed)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
+}

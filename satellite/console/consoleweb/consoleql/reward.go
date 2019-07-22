@@ -13,7 +13,7 @@ const (
 	// FieldAwardCreditInCent is a field name for award credit amount for referrers
 	FieldAwardCreditInCent = "awardCreditInCent"
 	// FieldInviteeCreditInCents is a field name for credit amount rewarded to invitees
-	FieldInviteeCreditInCents = "referred"
+	FieldInviteeCreditInCents = "inviteeCreditInCents"
 	// FieldRedeemableCap is a field name for the total redeemable amount of the reward offer
 	FieldRedeemableCap = "redeemableCap"
 	// FieldAwardCreditDurationDays is a field name for the valid time frame of current award credit
@@ -24,17 +24,16 @@ const (
 	FieldExpiresAt = "expiresAt"
 	// FieldType is a field name for the type of reward offers
 	FieldType = "type"
+	// FieldStatus is a field name for the status of reward offers
+	FieldStatus = "status"
 )
 
 func graphqlReward() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: RewardType,
 		Fields: graphql.Fields{
-			FieldName: &graphql.Field{
-				Type: graphql.String,
-			},
-			FieldDescription: &graphql.Field{
-				Type: graphql.String,
+			FieldID: &graphql.Field{
+				Type: graphql.Int,
 			},
 			FieldAwardCreditInCent: &graphql.Field{
 				Type: graphql.Int,
@@ -51,8 +50,14 @@ func graphqlReward() *graphql.Object {
 			FieldInviteeCreditDurationDays: &graphql.Field{
 				Type: graphql.Int,
 			},
+			FieldType: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldStatus: &graphql.Field{
+				Type: graphql.Int,
+			},
 			FieldExpiresAt: &graphql.Field{
-				Type: graphql.DateTime,
+				Type: graphql.String,
 			},
 		},
 	})

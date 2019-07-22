@@ -4,7 +4,17 @@
 <template>
     <div class="no-buckets-area">
         <div class="no-buckets-header">
-            <img src="../../../static/images/buckets/foldericon.svg">
+            <svg width="78" height="78" viewBox="0 0 78 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M39 74C58.335 74 74 58.3243 74 38.9877C74 19.6511 58.335 4 39 4C19.665 4 4 19.6757 4 39.0123C4 58.3489 19.665 74 39 74Z" fill="#E8EAF2"/>
+                <path d="M38.842 25.8065V25.2764C38.842 24.4101 38.1258 23.7119 37.2438 23.7119H20.5455C19.6635 23.7119 18.9473 24.4101 18.9473 25.2699V53.4107H58.7367V27.358C58.7367 26.4982 58.0205 25.8 57.1385 25.8H38.842V25.8065Z" fill="#B0B6C9"/>
+                <path d="M57.3376 28.0498H20.7114V53.6952H57.3376V28.0498Z" fill="white"/>
+                <path d="M38.2717 31.2568L37.6815 32.8536H20.5455C19.6635 32.8536 18.9473 33.5518 18.9473 34.4181V54.2906C18.9473 55.1504 19.6635 55.8486 20.5455 55.8486H57.1319C58.0139 55.8486 58.7301 55.1504 58.7301 54.2906V31.7934C58.7301 30.9336 58.0139 30.2354 57.1319 30.2354H39.7837C39.1073 30.229 38.5038 30.6427 38.2717 31.2568Z" fill="#B0B6C9"/>
+                <path d="M58.7367 54.2834V41.3281C47.6819 51.8139 28.5167 54.6131 19.3916 55.363C19.6834 55.6604 20.0945 55.8478 20.5455 55.8478H57.1319C58.0205 55.8478 58.7367 55.1496 58.7367 54.2834Z" fill="#8F96AD"/>
+                <path d="M35.1082 34.1133H21.5798C20.8636 34.1133 20.2866 34.6757 20.2866 35.3739V38.1666C22.5613 36.641 27.6941 34.7274 35.1082 34.1133Z" fill="#B0B6C9"/>
+                <defs>
+                    <rect width="39.7895" height="32.136" fill="white" transform="translate(18.9473 23.7119)"/>
+                </defs>
+            </svg>
             <h1 class="no-buckets-header__title">Buckets</h1>
         </div>
         <h3 class="no-buckets-header-info">To create a bucket, please use the following CLI documentation. We will soon enable client-side encryption through the browser, at which time you will be able to create buckets and upload objects directly from this dashboard.</h3>
@@ -47,7 +57,6 @@
             Button,
         },
     })
-
     export default class NoBucketArea extends Vue {}
 </script>
 
@@ -104,7 +113,7 @@
         justify-content: flex-start;
         align-items: center;
 
-        img {
+        svg {
             margin-right: 22px;
         }
     }
