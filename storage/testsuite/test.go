@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/storage"
 )
@@ -182,11 +183,10 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		defer func() { _ = store.Delete(ctx, key) }()
 
 		// Add concurrently all numbers from 1 to `count` in a set under test-key
-		var wg sync.WaitGroup
+		var group errgroup.Group
 		for i := 0; i < count; i++ {
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
+			i := i
+			group.Go(func() error {
 				retry := true
 				for retry {
 					retry = false
@@ -194,26 +194,36 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 
 					oldValue, err := store.Get(ctx, key)
 					if !storage.ErrKeyNotFound.Has(err) {
-						require.NoError(t, err)
+						if err != nil {
+							return err
+						}
+
 						set, err = decodeSet(oldValue)
-						require.NoError(t, err, len(oldValue))
+						if err != nil {
+							return err
+						}
 					}
 
 					set[i] = true
 					newValue, err := encodeSet(set)
-					require.NoError(t, err)
+					if err != nil {
+						return err
+					}
 
 					err = store.CompareAndSwap(ctx, key, oldValue, storage.Value(newValue))
 					if storage.ErrValueChanged.Has(err) {
 						// Another goroutine was faster. Repeat the attempt.
 						retry = true
-					} else {
-						require.NoError(t, err)
+						continue
 					}
+
+					return err
 				}
-			}(i)
+				return nil
+			})
 		}
-		wg.Wait()
+		err := group.Wait()
+		require.NoError(t, err)
 
 		// Check that all numbers were added in the set
 		value, err := store.Get(ctx, key)
