@@ -19,6 +19,7 @@
             EmptyState,
         }
     })
+
     export default class DashboardArea extends Vue {
         public emptyImage: string = EMPTY_STATE_IMAGES.PROJECT;
     }

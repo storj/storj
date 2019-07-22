@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="add-payment-popup-overflow" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
+    <div class="add-payment-popup-overflow" v-if="isAddPaymentPopupShown" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
         <div class="add-payment-popup-container">
             <h1 class="add-payment-popup-container__title">Add Payment Method</h1>
             <PaymentMethodsSelector/>
@@ -58,8 +58,12 @@
     })
 
     export default class AddPaymentMethodPopup extends Vue {
-        private showHideImageSource: string = '../../../../static/images/payments/circle.svg';
-        private dropdownTitle: string = 'hide'
+        private dropdownTitle: string = 'hide';
+
+        public get isAddPaymentPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAddPaymentMethodPopupShown;
+        }
+
     }
 </script>
 

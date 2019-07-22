@@ -24,7 +24,6 @@
                     placeholder="Enter Project Description"
                     additional-label="Optional"
                     class="full-input"
-                    isMultiline
                     isMultiline="true"
                     height="100px"
                     width="100%"
@@ -51,8 +50,8 @@
     import Button from '@/components/common/Button.vue';
     import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
-    import { TeamMember } from '../../types/teamMembers';
-    import { RequestResponse } from '../../types/response';
+    import { TeamMember } from '@/types/teamMembers';
+    import { RequestResponse } from '@/types/response';
     import { CreateProjectModel, Project } from '@/types/projects';
 
     @Component({
@@ -62,6 +61,7 @@
             Button,
         }
     })
+
     export default class NewProjectPopup extends Vue {
         private projectName: string = '';
         private description: string = '';
@@ -112,6 +112,8 @@
             this.checkIfsFirstProject();
 
             this.isLoading = false;
+
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_PAYMENT_METHOD_POPUP);
         }
 
         private validateProjectName(): boolean {
@@ -157,11 +159,12 @@
         }
 
         private checkIfsFirstProject(): void {
-            let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
-
-            isFirstProject
-                ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
-                : this.notifySuccess('Project created successfully!');
+            // let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
+            //
+            // isFirstProject
+            //     ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
+            //     : this.notifySuccess('Project created successfully!');
+            this.notifySuccess('Project created successfully!');
         }
 
         private async fetchProjectMembers(): Promise<any> {
