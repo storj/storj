@@ -844,24 +844,23 @@ func TestBeginCommitObject(t *testing.T) {
 		_, err = metainfoService.CreateBucket(ctx, bucket)
 		require.NoError(t, err)
 
-		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
+		defer ctx.Check(metainfoClient.Close)
 
-		streamID, err := metainfo.BeginObject(
-			ctx,
-			[]byte(bucket.Name),
-			[]byte("encrypted-path"),
-			1,
-			storj.RedundancyScheme{},
-			storj.EncryptionParameters{},
-			time.Time{},
-			testrand.Nonce(),
-			testrand.Bytes(memory.KiB),
-		)
+		streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
+			Bucket:                 []byte(bucket.Name),
+			EncryptedPath:          []byte("encrypted-path"),
+			Version:                1,
+			Redundancy:             storj.RedundancyScheme{},
+			EncryptionParameters:   storj.EncryptionParameters{},
+			ExpiresAt:              time.Time{},
+			EncryptedMetadataNonce: testrand.Nonce(),
+			EncryptedMetadata:      testrand.Bytes(memory.KiB),
+		})
 		require.NoError(t, err)
 
-		err = metainfo.CommitObject(ctx, streamID)
+		err = metainfoClient.CommitObject(ctx, streamID)
 		require.NoError(t, err)
 	})
 }
@@ -872,19 +871,18 @@ func TestBeginFinishDeleteObject(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
-		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
+		defer ctx.Check(metainfoClient.Close)
 
-		streamID, err := metainfo.BeginDeleteObject(
-			ctx,
-			[]byte("initial-bucket"),
-			[]byte("encrypted-path"),
-			1,
-		)
+		streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+			Bucket:        []byte("initial-bucket"),
+			EncryptedPath: []byte("encrypted-path"),
+			Version:       -1,
+		})
 		require.NoError(t, err)
 
-		err = metainfo.FinishDeleteObject(ctx, streamID)
+		err = metainfoClient.FinishDeleteObject(ctx, streamID)
 		require.NoError(t, err)
 	})
 }
@@ -904,11 +902,13 @@ func TestListObjects(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
-		defer ctx.Check(metainfo.Close)
+		defer ctx.Check(metainfoClient.Close)
 
-		items, _, err := metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 0)
+		items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("testbucket"),
+		})
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
 		for _, item := range items {
@@ -916,8 +916,173 @@ func TestListObjects(t *testing.T) {
 			require.True(t, item.CreatedAt.Before(time.Now()))
 		}
 
-		items, _, err = metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 3)
+		items, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("testbucket"),
+			Limit:  3,
+		})
 		require.NoError(t, err)
 		require.Equal(t, 3, len(items))
+	})
+}
+
+func TestBeginCommitListSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfoService := planet.Satellites[0].Metainfo.Service
+
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		projectID := projects[0].ID
+
+		bucket := storj.Bucket{
+			Name:       "initial-bucket",
+			ProjectID:  projectID,
+			PathCipher: config.GetEncryptionParameters().CipherSuite,
+		}
+		_, err = metainfoService.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		params := metainfo.BeginObjectParams{
+			Bucket:        []byte(bucket.Name),
+			EncryptedPath: []byte("encrypted-path"),
+			Version:       1,
+			Redundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      256,
+				RequiredShares: 1,
+				RepairShares:   1,
+				OptimalShares:  3,
+				TotalShares:    4,
+			},
+			EncryptionParameters:   storj.EncryptionParameters{},
+			ExpiresAt:              time.Now().UTC().Add(24 * time.Hour),
+			EncryptedMetadataNonce: testrand.Nonce(),
+			EncryptedMetadata:      testrand.Bytes(memory.KiB),
+		}
+		streamID, err := metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
+			StreamID:     streamID,
+			Index:        -1,
+			MaxOderLimit: memory.MiB.Int64(),
+		})
+		require.NoError(t, err)
+
+		makeResult := func(num int32) *pb.SegmentPieceUploadResult {
+			return &pb.SegmentPieceUploadResult{
+				PieceNum: num,
+				NodeId:   limits[num].Limit.StorageNodeId,
+				Hash: &pb.PieceHash{
+					PieceId:   limits[num].Limit.PieceId,
+					PieceSize: 1048832,
+					Timestamp: time.Now(),
+					// TODO we still not verifying signature in metainfo
+				},
+			}
+		}
+		err = metainfoClient.CommitSegment2(ctx, metainfo.CommitSegmentParams{
+			SegmentID:         segmentID,
+			SizeEncryptedData: memory.MiB.Int64(),
+			UploadResult: []*pb.SegmentPieceUploadResult{
+				makeResult(0),
+				makeResult(1),
+			},
+		})
+		require.NoError(t, err)
+
+		err = metainfoClient.CommitObject(ctx, streamID)
+		require.NoError(t, err)
+
+		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte(bucket.Name),
+		})
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
+		require.Equal(t, params.EncryptedMetadata, objects[0].EncryptedMetadata)
+		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+
+		// TODO how list object segments ??
+	})
+}
+
+func TestMakeInlineListSegment(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		uplink := planet.Uplinks[0]
+
+		config := uplink.GetConfig(planet.Satellites[0])
+		metainfoService := planet.Satellites[0].Metainfo.Service
+
+		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		projectID := projects[0].ID
+
+		bucket := storj.Bucket{
+			Name:       "initial-bucket",
+			ProjectID:  projectID,
+			PathCipher: config.GetEncryptionParameters().CipherSuite,
+		}
+		_, err = metainfoService.CreateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		params := metainfo.BeginObjectParams{
+			Bucket:        []byte(bucket.Name),
+			EncryptedPath: []byte("encrypted-path"),
+			Version:       1,
+			Redundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      256,
+				RequiredShares: 1,
+				RepairShares:   1,
+				OptimalShares:  3,
+				TotalShares:    4,
+			},
+			EncryptionParameters:   storj.EncryptionParameters{},
+			ExpiresAt:              time.Now().UTC().Add(24 * time.Hour),
+			EncryptedMetadataNonce: testrand.Nonce(),
+			EncryptedMetadata:      testrand.Bytes(memory.KiB),
+		}
+		streamID, err := metainfoClient.BeginObject(ctx, params)
+		require.NoError(t, err)
+
+		err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
+			StreamID:            streamID,
+			Index:               -1,
+			EncryptedInlineData: testrand.Bytes(memory.KiB),
+		})
+		require.NoError(t, err)
+
+		err = metainfoClient.CommitObject(ctx, streamID)
+		require.NoError(t, err)
+
+		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte(bucket.Name),
+		})
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
+		require.Equal(t, params.EncryptedMetadata, objects[0].EncryptedMetadata)
+		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
+
+		// TODO how list object segments ??
 	})
 }

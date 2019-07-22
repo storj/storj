@@ -365,30 +365,40 @@ func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) 
 	}, nil
 }
 
+// BeginObjectParams parmaters for BeginObject method
+type BeginObjectParams struct {
+	Bucket                 []byte
+	EncryptedPath          []byte
+	Version                int32
+	Redundancy             storj.RedundancyScheme
+	EncryptionParameters   storj.EncryptionParameters
+	ExpiresAt              time.Time
+	EncryptedMetadataNonce storj.Nonce
+	EncryptedMetadata      []byte
+}
+
 // BeginObject begins object creation
-func (client *Client) BeginObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32,
-	rs storj.RedundancyScheme, ep storj.EncryptionParameters, expiresAt time.Time, nonce storj.Nonce, encryptedMetadata []byte) (_ storj.StreamID, err error) {
+func (client *Client) BeginObject(ctx context.Context, params BeginObjectParams) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO do proper algorithm conversion
 	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
-		Bucket:                 bucket,
-		EncryptedPath:          encryptedPath,
-		Version:                version,
-		ExpiresAt:              expiresAt,
-		EncryptedMetadataNonce: nonce,
-		EncryptedMetadata:      encryptedMetadata,
+		Bucket:                 params.Bucket,
+		EncryptedPath:          params.EncryptedPath,
+		Version:                params.Version,
+		ExpiresAt:              params.ExpiresAt,
+		EncryptedMetadataNonce: params.EncryptedMetadataNonce,
+		EncryptedMetadata:      params.EncryptedMetadata,
 		RedundancyScheme: &pb.RedundancyScheme{
-			Type:             pb.RedundancyScheme_RS,
-			ErasureShareSize: rs.ShareSize,
-			MinReq:           int32(rs.RequiredShares),
-			RepairThreshold:  int32(rs.RepairShares),
-			SuccessThreshold: int32(rs.OptimalShares),
-			Total:            int32(rs.TotalShares),
+			Type:             pb.RedundancyScheme_SchemeType(params.Redundancy.Algorithm),
+			ErasureShareSize: params.Redundancy.ShareSize,
+			MinReq:           int32(params.Redundancy.RequiredShares),
+			RepairThreshold:  int32(params.Redundancy.RepairShares),
+			SuccessThreshold: int32(params.Redundancy.OptimalShares),
+			Total:            int32(params.Redundancy.TotalShares),
 		},
 		EncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(ep.CipherSuite),
-			BlockSize:   int64(ep.BlockSize),
+			CipherSuite: pb.CipherSuite(params.EncryptionParameters.CipherSuite),
+			BlockSize:   int64(params.EncryptionParameters.BlockSize),
 		},
 	})
 	if err != nil {
@@ -408,14 +418,21 @@ func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID)
 	return Error.Wrap(err)
 }
 
+// BeginDeleteObjectParams parameters for BeginDeleteObject method
+type BeginDeleteObjectParams struct {
+	Bucket        []byte
+	EncryptedPath []byte
+	Version       int32
+}
+
 // BeginDeleteObject begins object deletion process
-func (client *Client) BeginDeleteObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.StreamID, err error) {
+func (client *Client) BeginDeleteObject(ctx context.Context, params BeginDeleteObjectParams) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.BeginDeleteObject(ctx, &pb.ObjectBeginDeleteRequest{
-		Bucket:        bucket,
-		EncryptedPath: encryptedPath,
-		Version:       version,
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
 	})
 	if err != nil {
 		return storj.StreamID{}, Error.Wrap(err)
@@ -434,15 +451,27 @@ func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.Str
 	return Error.Wrap(err)
 }
 
+// ListObjectsParams parameters for ListObjects method
+type ListObjectsParams struct {
+	Bucket          []byte
+	EncryptedPrefix []byte
+	EncryptedCursor []byte
+	Limit           int32
+	IncludeMetadata bool
+}
+
 // ListObjects lists objects according to specific parameters
-func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedPrefix []byte, encryptedCursor []byte, limit int32) (_ []storj.ObjectListItem, more bool, err error) {
+func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams) (_ []storj.ObjectListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListObjects(ctx, &pb.ObjectListRequest{
-		Bucket:          bucket,
-		EncryptedPrefix: encryptedPrefix,
-		EncryptedCursor: encryptedCursor,
-		Limit:           limit,
+		Bucket:          params.Bucket,
+		EncryptedPrefix: params.EncryptedPrefix,
+		EncryptedCursor: params.EncryptedCursor,
+		Limit:           params.Limit,
+		ObjectIncludes: &pb.ObjectListItemIncludes{
+			Metadata: params.IncludeMetadata,
+		},
 	})
 	if err != nil {
 		return []storj.ObjectListItem{}, false, Error.Wrap(err)
@@ -463,4 +492,181 @@ func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedP
 	}
 
 	return objects, response.More, Error.Wrap(err)
+}
+
+// BeginSegmentParams parameters for BeginSegment method
+type BeginSegmentParams struct {
+	StreamID     storj.StreamID
+	PartNumber   int32
+	Index        int32
+	MaxOderLimit int64
+}
+
+// BeginSegment begins segment upload
+func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginSegment(ctx, &pb.SegmentBeginRequest{
+		StreamId: params.StreamID,
+		Position: &pb.SegmentPosition{
+			PartNumber: params.PartNumber,
+			Index:      params.Index,
+		},
+		MaxOrderLimit: params.MaxOderLimit,
+	})
+	if err != nil {
+		return storj.SegmentID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return response.SegmentId, response.AddressedLimits, response.PrivateKey, nil
+}
+
+// CommitSegmentParams parameters for CommitSegment method
+type CommitSegmentParams struct {
+	SegmentID         storj.SegmentID
+	EncryptedKeyNonce storj.Nonce
+	EncryptedKey      []byte
+	SizeEncryptedData int64
+	// TODO find better way for this
+	UploadResult []*pb.SegmentPieceUploadResult
+}
+
+// CommitSegment2 commits segment after upload
+func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
+		SegmentId:         params.SegmentID,
+		EncryptedKeyNonce: params.EncryptedKeyNonce,
+		EncryptedKey:      params.EncryptedKey,
+		SizeEncryptedData: params.SizeEncryptedData,
+		UploadResult:      params.UploadResult,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// MakeInlineSegmentParams parameters for MakeInlineSegment method
+type MakeInlineSegmentParams struct {
+	StreamID storj.StreamID
+	// TODO make separate struct for that two?
+	PartNumber          int32
+	Index               int32
+	EncryptedKeyNonce   storj.Nonce
+	EncryptedKey        []byte
+	EncryptedInlineData []byte
+}
+
+// MakeInlineSegment commits segment after upload
+func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.MakeInlineSegment(ctx, &pb.SegmentMakeInlineRequest{
+		StreamId: params.StreamID,
+		Position: &pb.SegmentPosition{
+			PartNumber: params.PartNumber,
+			Index:      params.Index,
+		},
+		EncryptedKeyNonce:   params.EncryptedKeyNonce,
+		EncryptedKey:        params.EncryptedKey,
+		EncryptedInlineData: params.EncryptedInlineData,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// BeginDeleteSegmentParams parameters for BeginDeleteSegment method
+type BeginDeleteSegmentParams struct {
+	StreamID storj.StreamID
+	// TODO make separate struct for that two?
+	PartNumber int32
+	Index      int32
+}
+
+// BeginDeleteSegment TODO
+func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginDeleteSegment(ctx, &pb.SegmentBeginDeleteRequest{
+		StreamId: params.StreamID,
+		Position: &pb.SegmentPosition{
+			PartNumber: params.PartNumber,
+			Index:      params.Index,
+		},
+	})
+	if err != nil {
+		return storj.SegmentID{}, nil, Error.Wrap(err)
+	}
+
+	return response.SegmentId, response.AddressedLimits, nil
+}
+
+// FinishDeleteSegmentParams parameters for FinishDeleteSegment method
+type FinishDeleteSegmentParams struct {
+	SegmentID storj.SegmentID
+	// TODO find better way to pass this
+	DeleteResults []*pb.SegmentPieceDeleteResult
+}
+
+// FinishDeleteSegment TODO
+func (client *Client) FinishDeleteSegment(ctx context.Context, params FinishDeleteSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.FinishDeleteSegment(ctx, &pb.SegmentFinishDeleteRequest{
+		SegmentId: params.SegmentID,
+		Results:   params.DeleteResults,
+	})
+	return Error.Wrap(err)
+}
+
+// DownloadSegmentParams parameters for DownloadSegment method
+type DownloadSegmentParams struct {
+	StreamID storj.StreamID
+	// TODO make separate struct for that two?
+	PartNumber int32
+	Index      int32
+}
+
+// DownloadSegment TODO
+func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+		StreamId: params.StreamID,
+		CursorPosition: &pb.SegmentPosition{
+			PartNumber: params.PartNumber,
+			Index:      params.Index,
+		},
+	})
+	return Error.Wrap(err)
+}
+
+// ListSegmentsParams parameters for ListSegment method
+type ListSegmentsParams struct {
+	StreamID storj.StreamID
+	// TODO make separate struct for that two?
+	PartNumber int32
+	Index      int32
+	Limit      int32
+}
+
+// ListSegments2 TODO
+func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.ListSegments(ctx, &pb.SegmentListRequest{
+		StreamId: params.StreamID,
+		CursorPosition: &pb.SegmentPosition{
+			PartNumber: params.PartNumber,
+			Index:      params.Index,
+		},
+		Limit: params.Limit,
+	})
+	return Error.Wrap(err)
 }

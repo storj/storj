@@ -36,6 +36,7 @@ import (
 const (
 	pieceHashExpiration = 2 * time.Hour
 	satIDExpiration     = 24 * time.Hour
+	lastSegment         = -1
 )
 
 var (
@@ -488,15 +489,8 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 		allSizesValid := true
 		lastPieceSize := int64(0)
 		for _, piece := range remote.RemotePieces {
-			// TODO enable verification
 
-			// err := auth.VerifyMsg(piece.Hash, piece.NodeId)
-			// if err == nil {
-			// 	remotePieces = append(remotePieces, piece)
-			// } else {
-			// 	// TODO satellite should send Delete request for piece that failed
-			// 	s.logger.Warn("unable to verify piece hash: %v", zap.Error(err))
-			// }
+			// TODO enable piece hash signature verification
 
 			err = endpoint.validatePieceHash(ctx, piece, limits)
 			if err != nil {
@@ -701,6 +695,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
+
+	// TODO set default Redundancy if not set
 
 	err = endpoint.validateRedundancy(ctx, req.GetDefaultRedundancyScheme())
 	if err != nil {
@@ -965,12 +961,14 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	satStreamID := &pb.SatStreamID{
-		Bucket:         req.Bucket,
-		EncryptedPath:  req.EncryptedPath,
-		Version:        req.Version,
-		Redundancy:     pbRS,
-		CreationDate:   time.Now(),
-		ExpirationDate: req.ExpiresAt,
+		Bucket:                 req.Bucket,
+		EncryptedPath:          req.EncryptedPath,
+		Version:                req.Version,
+		Redundancy:             pbRS,
+		CreationDate:           time.Now(),
+		ExpirationDate:         req.ExpiresAt,
+		EncryptedMetadataNonce: req.EncryptedMetadataNonce,
+		EncryptedMetadata:      req.EncryptedMetadata,
 	}
 
 	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
@@ -1067,9 +1065,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	items := make([]*pb.ObjectListItem, len(segments))
 	for i, segment := range segments {
 		items[i] = &pb.ObjectListItem{
-			EncryptedPath: []byte(segment.Path),
-			CreatedAt:     segment.Pointer.CreationDate,
-			ExpiresAt:     segment.Pointer.ExpirationDate,
+			EncryptedPath:     []byte(segment.Path),
+			EncryptedMetadata: segment.Pointer.Metadata,
+			CreatedAt:         segment.Pointer.CreationDate,
+			ExpiresAt:         segment.Pointer.ExpirationDate,
 		}
 	}
 
@@ -1168,7 +1167,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1178,9 +1177,69 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// TODO implement logic
+	// no need to validate streamID fields because it was validated during BeginObject
 
-	return &pb.SegmentBeginResponse{}, status.Error(codes.Unimplemented, "not implemented")
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
+	if err != nil {
+		endpoint.log.Error("retrieving project storage totals", zap.Error(err))
+	}
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s",
+			limit, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
+	if err != nil {
+		return nil, err
+	}
+
+	maxPieceSize := eestream.CalcPieceSize(req.MaxOrderLimit, redundancy)
+
+	request := overlay.FindStorageNodesRequest{
+		RequestedCount: redundancy.TotalCount(),
+		FreeBandwidth:  maxPieceSize,
+		FreeDisk:       maxPieceSize,
+	}
+	nodes, err := endpoint.cache.FindStorageNodes(ctx, request)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
+	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucketID, nodes, streamID.ExpirationDate, maxPieceSize)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	satSegmentID := &pb.SatSegmentID{
+		StreamId:            streamID,
+		OriginalOrderLimits: addressedLimits,
+		RootPieceId:         rootPieceID,
+		Index:               req.Position.Index,
+		CreationDate:        time.Now(),
+	}
+	satSegmentID, err = signing.SignSegmentID(ctx, endpoint.satellite, satSegmentID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	encodedSegmentID, err := proto.Marshal(satSegmentID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.SegmentBeginResponse{
+		SegmentId:       segmentID,
+		AddressedLimits: addressedLimits,
+		PrivateKey:      piecePrivateKey,
+	}, nil
 }
 
 // CommitSegment commits segment after uploading
@@ -1194,7 +1253,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	streamID := segmentID.StreamId
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1204,9 +1263,93 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// TODO implement logic
+	if len(segmentID.OriginalOrderLimits) < len(req.UploadResult) {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid number of upload results: wanted max %d got %d",
+			len(segmentID.OriginalOrderLimits), len(req.UploadResult))
+	}
 
-	return &pb.SegmentCommitResponse{}, status.Error(codes.Unimplemented, "not implemented")
+	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
+	for i, result := range req.UploadResult {
+		pieces[i] = &pb.RemotePiece{
+			PieceNum: result.PieceNum,
+			NodeId:   result.NodeId,
+			Hash:     result.Hash,
+		}
+	}
+	remote := &pb.RemoteSegment{
+		Redundancy:   streamID.Redundancy,
+		RootPieceId:  segmentID.RootPieceId,
+		RemotePieces: pieces,
+	}
+
+	pointer := &pb.Pointer{
+		Type:        pb.Pointer_REMOTE,
+		Remote:      remote,
+		SegmentSize: req.SizeEncryptedData,
+
+		CreationDate:   streamID.CreationDate,
+		ExpirationDate: streamID.ExpirationDate,
+	}
+
+	if segmentID.Index == lastSegment {
+		pointer.Metadata = streamID.EncryptedMetadata
+	}
+
+	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
+	for i, orderLimit := range segmentID.OriginalOrderLimits {
+		orderLimits[i] = orderLimit.Limit
+	}
+
+	err = endpoint.validatePointer(ctx, pointer, orderLimits)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
+			limit, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	inlineUsed, remoteUsed := calculateSpaceUsed(pointer)
+
+	// ToDo: Replace with hash & signature validation
+	// Ensure neither uplink or storage nodes are cheating on us
+	if pointer.Type == pb.Pointer_REMOTE {
+		//We cannot have more redundancy than total/min
+		if float64(remoteUsed) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
+			endpoint.log.Sugar().Debugf("data size mismatch, got segment: %d, pieces: %d, RS Min, Total: %d,%d", pointer.SegmentSize, remoteUsed, pointer.Remote.Redundancy.MinReq, pointer.Remote.Redundancy.Total)
+			return nil, status.Errorf(codes.InvalidArgument, "mismatched segment size and piece usage")
+		}
+	}
+
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, remoteUsed); err != nil {
+		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
+		// that will be affected is our per-project bandwidth and storage limits.
+	}
+
+	err = endpoint.metainfo.Put(ctx, path, pointer)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.SegmentCommitResponse{}, nil
 }
 
 // MakeInlineSegment makes inline segment on satellite
@@ -1218,7 +1361,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1228,9 +1371,58 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// TODO implement logic
+	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
 
-	return &pb.SegmentMakeInlineResponse{}, status.Error(codes.Unimplemented, "not implemented")
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	if exceeded {
+		endpoint.log.Sugar().Errorf("monthly project limits are %s of storage and bandwidth usage. This limit has been exceeded for storage for projectID %s.",
+			limit, keyInfo.ProjectID,
+		)
+		return nil, status.Errorf(codes.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	inlineUsed := int64(len(req.EncryptedInlineData))
+
+	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed, 0); err != nil {
+		endpoint.log.Sugar().Errorf("Could not track new storage usage by project %v: %v", keyInfo.ProjectID, err)
+		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
+		// that will be affected is our per-project bandwidth and storage limits.
+	}
+
+	pointer := &pb.Pointer{
+		Type:           pb.Pointer_INLINE,
+		SegmentSize:    inlineUsed,
+		CreationDate:   streamID.CreationDate,
+		ExpirationDate: streamID.ExpirationDate,
+		InlineSegment:  req.EncryptedInlineData,
+	}
+
+	if req.Position.Index == lastSegment {
+		pointer.Metadata = streamID.EncryptedMetadata
+	}
+
+	err = endpoint.metainfo.Put(ctx, path, pointer)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	err = endpoint.orders.UpdatePutInlineOrder(ctx, keyInfo.ProjectID, streamID.Bucket, inlineUsed)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	pointer, err = endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.SegmentMakeInlineResponse{}, nil
 }
 
 // BeginDeleteSegment begins segment deletion process
@@ -1242,7 +1434,7 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1252,9 +1444,60 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// TODO implement logic
+	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
 
-	return &pb.SegmentBeginDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	if pointer.Type != pb.Pointer_REMOTE || pointer.Remote == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "to delete inline segment use FinishDeleteSegment")
+	}
+	// for _, piece := range pointer.GetRemote().GetRemotePieces() {
+	// 	_, err := endpoint.containment.Delete(ctx, piece.NodeId)
+	// 	if err != nil {
+	// 		return nil, status.Errorf(codes.Internal, err.Error())
+	// 	}
+	// }
+
+	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
+	limits, _, err := endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	satSegmentID := &pb.SatSegmentID{
+		StreamId:            streamID,
+		OriginalOrderLimits: limits,
+		Index:               req.Position.Index,
+		CreationDate:        time.Now(),
+	}
+	satSegmentID, err = signing.SignSegmentID(ctx, endpoint.satellite, satSegmentID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	encodedSegmentID, err := proto.Marshal(satSegmentID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.SegmentBeginDeleteResponse{
+		SegmentId:       segmentID,
+		AddressedLimits: limits,
+	}, nil
 }
 
 // FinishDeleteSegment finishes segment deletion process
@@ -1268,7 +1511,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 
 	streamID := segmentID.StreamId
 
-	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
@@ -1278,9 +1521,32 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 		return nil, status.Errorf(codes.Unauthenticated, err.Error())
 	}
 
-	// TODO implement logic
+	path, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
 
-	return &pb.SegmentFinishDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		_, err := endpoint.containment.Delete(ctx, piece.NodeId)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+	}
+
+	err = endpoint.metainfo.Delete(ctx, path)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	return &pb.SegmentFinishDeleteResponse{}, nil
 }
 
 // ListSegments list segments
