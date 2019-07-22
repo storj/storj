@@ -253,6 +253,25 @@ func (checker *Checker) updateSegmentStatus(ctx context.Context, pointer *pb.Poi
 	return nil
 }
 
+// checkerObserver implements the metainfo loop Observer interface
+type checkerObserver struct {
+}
+
+func (*checkerObserver) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil
+}
+
+func (*checkerObserver) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil
+}
+
+func (*checkerObserver) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil
+}
+
 // IrreparableProcess iterates over all items in the irreparabledb. If an item can
 // now be repaired then it is added to a worker queue.
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
