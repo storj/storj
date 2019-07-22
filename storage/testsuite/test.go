@@ -4,10 +4,13 @@
 package testsuite
 
 import (
-	"bytes"
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/storage"
 )
@@ -92,9 +95,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		var val storage.Value
 
 		err := store.CompareAndSwap(ctx, key, val, val)
-		if err == nil {
-			t.Fatal("putting empty key should fail")
-		}
+		require.Error(t, err, "putting empty key should fail")
 	})
 
 	t.Run("CompareAndSwap Empty Old Value", func(t *testing.T) {
@@ -103,17 +104,11 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		defer func() { _ = store.Delete(ctx, key) }()
 
 		err := store.CompareAndSwap(ctx, key, nil, val)
-		if err != nil {
-			t.Fatalf("failed to update %q: %v -> %v: %v", key, nil, val, err)
-		}
+		require.NoError(t, err, "failed to update %q: %v -> %v: %+v", key, nil, val, err)
 
 		value, err := store.Get(ctx, key)
-		if err != nil {
-			t.Fatalf("failed to get %q = %v: %v", key, val, err)
-		}
-		if !bytes.Equal(value, val) {
-			t.Fatalf("invalid value for %q = %v: got %v", key, val, value)
-		}
+		require.NoError(t, err, "failed to get %q = %v: %+v", key, val, err)
+		require.Equal(t, value, val, "invalid value for %q = %v: got %v", key, val, value)
 	})
 
 	t.Run("CompareAndSwap Empty New Value", func(t *testing.T) {
@@ -122,32 +117,59 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		defer func() { _ = store.Delete(ctx, key) }()
 
 		err := store.Put(ctx, key, val)
-		if err != nil {
-			t.Fatalf("failed to put %q = %v: %v", key, val, err)
-		}
+		require.NoError(t, err, "failed to put %q = %v: %+v", key, val, err)
 
 		err = store.CompareAndSwap(ctx, key, val, nil)
-		if err != nil {
-			t.Fatalf("failed to update %q: %v -> %v: %v", key, val, nil, err)
-		}
+		require.NoError(t, err, "failed to update %q: %v -> %v: %+v", key, val, nil, err)
 
 		value, err := store.Get(ctx, key)
-		if err == nil {
-			t.Fatalf("got deleted value %q = %v", key, value)
-		}
+		require.Error(t, err, "got deleted value %q = %v", key, value)
 	})
 
 	t.Run("CompareAndSwap Empty Both Empty Values", func(t *testing.T) {
 		key := storage.Key("test-key")
 
 		err := store.CompareAndSwap(ctx, key, nil, nil)
-		if err != nil {
-			t.Fatalf("failed to update %q: %v -> %v: %v", key, nil, nil, err)
-		}
+		require.NoError(t, err, "failed to update %q: %v -> %v: %+v", key, nil, nil, err)
 
 		value, err := store.Get(ctx, key)
-		if err == nil {
-			t.Fatalf("got unexpected value %q = %v", key, value)
+		require.Error(t, err, "got unexpected value %q = %v", key, value)
+	})
+
+	t.Run("CompareAndSwap Missing Key", func(t *testing.T) {
+		for i, tt := range []struct {
+			old, new storage.Value
+		}{
+			{storage.Value("old-value"), nil},
+			{storage.Value("old-value"), storage.Value("new-value")},
+		} {
+			errTag := fmt.Sprintf("%d. %+v", i, tt)
+			key := storage.Key("test-key")
+
+			err := store.CompareAndSwap(ctx, key, tt.old, tt.new)
+			assert.True(t, storage.ErrKeyNotFound.Has(err), "%s: unexpected error: %+v", errTag, err)
+		}
+	})
+
+	t.Run("CompareAndSwap Value Changed", func(t *testing.T) {
+		for i, tt := range []struct {
+			old, new storage.Value
+		}{
+			{nil, nil},
+			{nil, storage.Value("new-value")},
+			{storage.Value("old-value"), nil},
+			{storage.Value("old-value"), storage.Value("new-value")},
+		} {
+			errTag := fmt.Sprintf("%d. %+v", i, tt)
+			key := storage.Key("test-key")
+			val := storage.Value("test-value")
+			defer func() { _ = store.Delete(ctx, key) }()
+
+			err := store.Put(ctx, key, val)
+			require.NoError(t, err, errTag)
+
+			err = store.CompareAndSwap(ctx, key, tt.old, tt.new)
+			assert.True(t, storage.ErrValueChanged.Has(err), "%s: unexpected error: %+v", errTag, err)
 		}
 	})
 }
