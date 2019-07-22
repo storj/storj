@@ -172,6 +172,9 @@ kademlia.operator.wallet: ""
 # the database connection string to use
 # metainfo.database-url: "postgres://"
 
+# how long to wait for new observers before starting iteration
+# metainfo.loop.coalesce-duration: 5s
+
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 8.0 KB
 
