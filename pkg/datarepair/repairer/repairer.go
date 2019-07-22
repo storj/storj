@@ -135,7 +135,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 		service.Limiter.Go(ctx, func() {
 			err := service.worker(ctx, seg)
 			if err != nil {
-				zap.L().Error("repair failed:", zap.Error(err))
+				zap.L().Error("repair worker failed:", zap.Error(err))
 			}
 		})
 	}
@@ -149,12 +149,13 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 	zap.L().Info("Limiter running repair on segment", zap.Binary("segment", seg.GetPath()))
 	err = service.repairer.Repair(ctx, string(seg.GetPath()))
 	if err != nil {
-		return Error.New("repair failed: %v", err)
+		return Error.New("repairing injured segment: %v", err)
 	}
+
 	zap.L().Info("Deleting segment from repair queue", zap.Binary("segment", seg.GetPath()))
 	err = service.queue.Delete(ctx, seg)
 	if err != nil {
-		return Error.New("repair delete failed: %v", err)
+		return Error.New("deleting repaired segment from the queue: %v", err)
 	}
 
 	repairedTime := time.Now().UTC()
