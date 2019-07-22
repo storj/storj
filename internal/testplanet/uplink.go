@@ -215,7 +215,7 @@ func (planetUplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, s
 	// Check if the bucket exists, if not then create it
 	_, _, err = project.GetBucketInfo(ctx, bucketName)
 	if err != nil {
-		if !storj.ErrBucketNotFound.Has(err) {
+		if storj.ErrBucketNotFound.Has(err) {
 			err := createBucket(ctx, config, *project, bucketName)
 			if err != nil {
 				return err
@@ -264,19 +264,36 @@ func (planetUplink *Uplink) DownloadStream(ctx context.Context, satellite *satel
 }
 
 // Download data from specific satellite
-func (planetUplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path) ([]byte, error) {
-	download, cleanup, err := planetUplink.DownloadStream(ctx, satellite, bucket, path)
+func (planetUplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) ([]byte, error) {
+	project, err := planetUplink.GetProject(ctx, satellite)
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err,
-			download.Close(),
-			cleanup(),
-		)
-	}()
+	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	data, err := ioutil.ReadAll(download)
+	access, err := setup.LoadEncryptionAccess(ctx, planetUplink.GetConfig(satellite).Enc)
+	if err != nil {
+		return nil, err
+	}
+
+	bucket, err := project.OpenBucket(ctx, bucketName, access)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, bucket.Close()) }()
+
+	object, err := bucket.OpenObject(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rc.Close()) }()
+
+	data, err := ioutil.ReadAll(rc)
 	if err != nil {
 		return []byte{}, err
 	}
