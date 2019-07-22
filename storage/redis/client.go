@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"net/url"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"time"
@@ -280,6 +281,8 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 	err = client.db.Watch(txf, key.String())
 	if err == redis.TxFailedErr {
 		return storage.ErrValueChanged.New(key.String())
+	} else {
+		debug.PrintStack()
 	}
 	return Error.Wrap(err)
 }
