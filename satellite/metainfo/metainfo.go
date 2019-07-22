@@ -1158,3 +1158,213 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 
 	return &pb.ObjectFinishDeleteResponse{}, nil
 }
+
+// BeginSegment begins segment uploading
+func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentBeginResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// CommitSegment commits segment after uploading
+func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	streamID := segmentID.StreamId
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentCommitResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// MakeInlineSegment makes inline segment on satellite
+func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentMakeInlineResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// BeginDeleteSegment begins segment deletion process
+func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.SegmentBeginDeleteRequest) (resp *pb.SegmentBeginDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentBeginDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// FinishDeleteSegment finishes segment deletion process
+func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.SegmentFinishDeleteRequest) (resp *pb.SegmentFinishDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	streamID := segmentID.StreamId
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentFinishDeleteResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// ListSegments list segments
+func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentListResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+// DownloadSegment returns data necessary to download segment
+func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	// TODO implement logic
+
+	return &pb.SegmentDownloadResponse{}, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (*pb.SatStreamID, error) {
+	satStreamID := &pb.SatStreamID{}
+	err := proto.Unmarshal(streamID, satStreamID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = signing.VerifyStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, err
+	}
+
+	if satStreamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, errs.New("stream ID expired")
+	}
+
+	return satStreamID, nil
+}
+
+func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (*pb.SatSegmentID, error) {
+	satSegmentID := &pb.SatSegmentID{}
+	err := proto.Unmarshal(segmentID, satSegmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = signing.VerifySegmentID(ctx, endpoint.satellite, satSegmentID)
+	if err != nil {
+		return nil, err
+	}
+
+	if satSegmentID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
+		return nil, errs.New("segment ID expired")
+	}
+
+	return satSegmentID, nil
+}
