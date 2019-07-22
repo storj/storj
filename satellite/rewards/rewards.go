@@ -40,6 +40,19 @@ type NewOffer struct {
 	Type   OfferType
 }
 
+// FormatPartnerName formats partner's name into combination of its partnerID and name
+func (o NewOffer) FormatPartnerName() string {
+	if o.Type != Partner {
+		return o.Name
+	}
+
+	partnerInfo := PartnerInfo{
+		ID:   LoadPartnerInfos()[o.Name].ID,
+		Name: o.Name,
+	}
+	return partnerInfo.FormattedName()
+}
+
 // UpdateOffer holds fields needed for update an offer
 type UpdateOffer struct {
 	ID        int
@@ -167,12 +180,12 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
-	offerSet.PartnerTables = OrganizePartnerData(p)
+	offerSet.PartnerTables = organizePartnerData(p)
 	return offerSet
 }
 
-// CreatePartnerSet generates a PartnerSet from the config file.
-func CreatePartnerSet() PartnerSet {
+// createPartnerSet generates a PartnerSet from the config file.
+func createPartnerSet() PartnerSet {
 	partners := LoadPartnerInfos()
 	var ps PartnerSet
 	for _, partner := range partners {
@@ -203,10 +216,10 @@ func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
 	return partnerSet
 }
 
-// OrganizePartnerData returns a list of Open Source Partners
+// organizePartnerData returns a list of Open Source Partners
 // whose offers have been organized by status, type, and
 // assigned to the correct partner.
-func OrganizePartnerData(offers Offers) PartnerSet {
-	partnerData := matchOffersToPartnerSet(offers, CreatePartnerSet())
+func organizePartnerData(offers Offers) PartnerSet {
+	partnerData := matchOffersToPartnerSet(offers, createPartnerSet())
 	return partnerData
 }
