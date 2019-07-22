@@ -187,9 +187,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 		for i := 0; i < count; i++ {
 			i := i
 			group.Go(func() error {
-				retry := true
-				for retry {
-					retry = false
+				for {
 					set := make(map[int]bool)
 
 					oldValue, err := store.Get(ctx, key)
@@ -212,8 +210,7 @@ func testConstraints(t *testing.T, store storage.KeyValueStore) {
 
 					err = store.CompareAndSwap(ctx, key, oldValue, storage.Value(newValue))
 					if storage.ErrValueChanged.Has(err) {
-						// Another goroutine was faster. Repeat the attempt.
-						retry = true
+						// Another goroutine was faster. Make a new attempt.
 						continue
 					}
 
