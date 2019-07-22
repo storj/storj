@@ -122,11 +122,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, errs.New(internalErrMsg)
 	}
 
-	var offerType rewards.OfferType
-	if refUserID != "" {
-		offerType = rewards.Referral
-	}
-
 	// store data
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {

@@ -87,7 +87,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					input, _ := p.Args[InputArg].(map[string]interface{})
 					secretInput, _ := p.Args[Secret].(string)
-					refUserIDInput, _ := p.Args[ReferrerUserID].(string)
+					refUserID, _ := p.Args[ReferrerUserID].(string)
 
 					offerType := rewards.FreeCredit
 
