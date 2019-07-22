@@ -45,7 +45,8 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, po
 		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
 		err = observer.add(ctx, piece.NodeId, pieceID)
 		if err != nil {
-			observer.log.Debug("error adding piece to retain info", zap.Stringer("NodeID", piece.NodeId), zap.Stringer("PieceID", pieceID), zap.Error(err))
+			// return so we do not risk sending incomplete bloom filters
+			return Error.New("error adding piece to retain info. NodeID: %s PieceID: %s Error: %v", piece.NodeId.String(), pieceID.String(), zap.Error(err))
 		}
 	}
 	return nil

@@ -41,7 +41,7 @@ type Config struct {
 type Service struct {
 	log             *zap.Logger
 	loop            *sync2.Cycle
-	metainfoloop    *metainfo.LoopService
+	metainfoloop    *metainfo.Loop
 	retainInfos     map[storj.NodeID]*RetainInfo
 	pieceCounts     map[storj.NodeID]int
 	transport       transport.Client
@@ -60,7 +60,7 @@ type RetainInfo struct {
 }
 
 // NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB, loop *metainfo.LoopService, config Config) *Service {
+func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop, config Config) *Service {
 	var lastPieceCounts atomic.Value
 	lastPieceCounts.Store(map[storj.NodeID]int{})
 
