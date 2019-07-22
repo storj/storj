@@ -43,11 +43,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, po
 
 	for _, piece := range pieces {
 		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		err = observer.add(ctx, piece.NodeId, pieceID)
-		if err != nil {
-			// return so we do not risk sending incomplete bloom filters
-			return Error.New("error adding piece to retain info. NodeID: %s PieceID: %s Error: %v", piece.NodeId.String(), pieceID.String(), zap.Error(err))
-		}
+		observer.add(ctx, piece.NodeId, pieceID)
 	}
 	return nil
 }
@@ -65,9 +61,7 @@ func (observer *Observer) InlineSegment(ctx context.Context, path storj.Path, po
 }
 
 // adds a pieceID to the relevant node's RetainInfo
-func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
+func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
 	var filter *bloomfilter.Filter
 
 	if _, ok := observer.retainInfos[nodeID]; !ok {
@@ -85,5 +79,4 @@ func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID 
 
 	observer.retainInfos[nodeID].Filter.Add(pieceID)
 	observer.retainInfos[nodeID].count++
-	return nil
 }

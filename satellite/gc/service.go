@@ -42,7 +42,6 @@ type Service struct {
 	log             *zap.Logger
 	loop            *sync2.Cycle
 	metainfoloop    *metainfo.Loop
-	retainInfos     map[storj.NodeID]*RetainInfo
 	pieceCounts     map[storj.NodeID]int
 	transport       transport.Client
 	overlay         overlay.DB
@@ -55,12 +54,12 @@ type Service struct {
 type RetainInfo struct {
 	Filter       *bloomfilter.Filter
 	CreationDate time.Time
-	address      *pb.NodeAddress
 	count        int
 }
 
 // NewService creates a new instance of the gc service
 func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop, config Config) *Service {
+	// TODO retrieve piece counts from overlay (when there is a column for them)
 	var lastPieceCounts atomic.Value
 	lastPieceCounts.Store(map[storj.NodeID]int{})
 
@@ -146,7 +145,7 @@ func (service *Service) sendRetainRequest(
 		err = errs.Combine(err, Error.Wrap(err2))
 	}()
 
-	// todo add piece count to overlay (when there is a column for them)
+	// TODO add piece count to overlay (when there is a column for them)
 	newPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
 	mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
 
