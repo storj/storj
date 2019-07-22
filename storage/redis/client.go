@@ -75,14 +75,16 @@ func NewClientFrom(address string) (*Client, error) {
 	return NewClient(redisurl.Host, q.Get("password"), db)
 }
 
-// NewClientWithReadTimeout returns a configured Client instance with custom read timeout, verifying a successful connection to redis
-func NewClientWithReadTimeout(address, password string, db int, readTimeout time.Duration) (*Client, error) {
+// NewClientWithTimeout returns a configured Client instance with custom timeouts, verifying a successful connection to redis
+func NewClientWithTimeout(address, password string, db int, timeout time.Duration) (*Client, error) {
 	client := &Client{
 		db: redis.NewClient(&redis.Options{
-			Addr:        address,
-			Password:    password,
-			DB:          db,
-			ReadTimeout: readTimeout,
+			Addr:         address,
+			Password:     password,
+			DB:           db,
+			DialTimeout:  timeout,
+			ReadTimeout:  timeout,
+			WriteTimeout: timeout,
 		}),
 		TTL: defaultNodeExpiration,
 	}
