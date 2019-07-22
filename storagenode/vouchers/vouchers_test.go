@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/overlay"
@@ -25,42 +26,45 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestVouchersDB(t *testing.T) {
+func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
 		vdb := db.Vouchers()
 
-		satellite := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
-		storagenode := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		satellite0 := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
+		satellite1 := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
+		storagenode := testidentity.MustPregeneratedSignedIdentity(2, storj.LatestIDVersion())
 
 		voucher := &pb.Voucher{
-			SatelliteId:   satellite.ID,
+			SatelliteId:   satellite0.ID,
 			StorageNodeId: storagenode.ID,
 			Expiration:    time.Now().Add(24 * time.Hour),
 		}
 
-		// Test GetValid returns nil result and nil error when result is not found
-		result, err := vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
+		// Test GetAll returns nil result and nil error when table is empty
+		results, err := vdb.GetAll(ctx)
 		require.NoError(t, err)
-		assert.Nil(t, result)
+		assert.Nil(t, results)
 
 		// Test Put returns no error
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
 
-		// Test GetValid returns accurate voucher
-		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
+		// Test GetAll returns accurate voucher
+		results, err = vdb.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, voucher.SatelliteId, result.SatelliteId)
-		require.Equal(t, voucher.StorageNodeId, result.StorageNodeId)
-		require.True(t, voucher.Expiration.Equal(result.Expiration))
+		for _, res := range results {
+			require.Equal(t, voucher.SatelliteId, res.SatelliteId)
+			require.Equal(t, voucher.StorageNodeId, res.StorageNodeId)
+			require.True(t, voucher.Expiration.Equal(res.Expiration))
+		}
 
 		// test NeedVoucher returns true if voucher expiration falls within expirationBuffer period
 		// voucher expiration is 24 hours from now
 		expirationBuffer := 48 * time.Hour
-		need, err := vdb.NeedVoucher(ctx, satellite.ID, expirationBuffer)
+		need, err := vdb.NeedVoucher(ctx, satellite0.ID, expirationBuffer)
 		require.NoError(t, err)
 		require.True(t, need)
 
@@ -72,7 +76,7 @@ func TestVouchersDB(t *testing.T) {
 		// test NeedVoucher returns false if satellite ID exists and expiration does not fall within expirationBuffer period
 		// voucher expiration is 24 hours from now
 		expirationBuffer = 1 * time.Hour
-		need, err = vdb.NeedVoucher(ctx, satellite.ID, expirationBuffer)
+		need, err = vdb.NeedVoucher(ctx, satellite0.ID, expirationBuffer)
 		require.NoError(t, err)
 		require.False(t, need)
 
@@ -82,10 +86,25 @@ func TestVouchersDB(t *testing.T) {
 		err = vdb.Put(ctx, voucher)
 		require.NoError(t, err)
 
-		result, err = vdb.GetValid(ctx, []storj.NodeID{satellite.ID})
+		results, err = vdb.GetAll(ctx)
 		require.NoError(t, err)
 
-		require.True(t, voucher.Expiration.Equal(result.Expiration))
+		for _, res := range results {
+			require.True(t, voucher.Expiration.Equal(res.Expiration))
+		}
+
+		// test GetAll returns more than one
+		voucher = &pb.Voucher{
+			SatelliteId:   satellite1.ID,
+			StorageNodeId: storagenode.ID,
+			Expiration:    time.Now().Add(24 * time.Hour),
+		}
+		err = vdb.Put(ctx, voucher)
+		require.NoError(t, err)
+
+		results, err = vdb.GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
 	})
 }
 
@@ -113,11 +132,9 @@ func TestVouchersService(t *testing.T) {
 		err := node.Vouchers.RunOnce(ctx)
 		require.NoError(t, err)
 
-		for _, sat := range planet.Satellites {
-			voucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{sat.ID()})
-			require.NoError(t, err)
-			assert.Nil(t, voucher)
-		}
+		vouchers, err := node.DB.Vouchers().GetAll(ctx)
+		require.NoError(t, err)
+		assert.Nil(t, vouchers)
 
 		// update node's audit count above reputable threshold on each satellite
 		for _, sat := range planet.Satellites {
@@ -139,25 +156,22 @@ func TestVouchersService(t *testing.T) {
 		err = node.Vouchers.RunOnce(ctx)
 		require.NoError(t, err)
 
-		for _, sat := range planet.Satellites {
-			voucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{sat.ID()})
-			require.NoError(t, err)
-			assert.NotNil(t, voucher)
-		}
+		vouchers, err = node.DB.Vouchers().GetAll(ctx)
+		require.NoError(t, err)
+		assert.Len(t, vouchers, len(planet.Satellites))
 
 		// Check expiration is updated
-		oldVoucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{planet.Satellites[0].ID()})
-		require.NoError(t, err)
+		oldVoucher := vouchers[0]
 
 		// Run service and get new voucher with new expiration
 		err = node.Vouchers.RunOnce(ctx)
 		require.NoError(t, err)
 
-		newVoucher, err := node.DB.Vouchers().GetValid(ctx, []storj.NodeID{planet.Satellites[0].ID()})
+		newVouchers, err := node.DB.Vouchers().GetAll(ctx)
 		require.NoError(t, err)
 
 		// assert old expiration is before new expiration
-		assert.True(t, oldVoucher.Expiration.Before(newVoucher.Expiration))
+		assert.True(t, oldVoucher.Expiration.Before(newVouchers[0].Expiration))
 	})
 }
 
@@ -237,6 +251,33 @@ func TestVerifyVoucher(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		}
+	})
+}
+
+func TestDB_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID := testrand.NodeID()
+
+		{ // Ensure Put works at all
+			err := db.Vouchers().Put(ctx, &pb.Voucher{
+				SatelliteId: satelliteID,
+				Expiration:  time.Now(),
+			})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure NeedVoucher works at all
+			_, err := db.Vouchers().NeedVoucher(ctx, satelliteID, time.Hour)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure GetValid works at all
+			_, err := db.Vouchers().GetAll(ctx)
+			require.NoError(t, err)
 		}
 	})
 }

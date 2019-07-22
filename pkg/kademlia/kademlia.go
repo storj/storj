@@ -36,7 +36,7 @@ var (
 	mon              = monkit.Package()
 )
 
-// Kademlia is an implementation of kademlia adhering to the DHT interface.
+// Kademlia is an implementation of kademlia network.
 type Kademlia struct {
 	log            *zap.Logger
 	alpha          int // alpha is a system wide concurrency parameter

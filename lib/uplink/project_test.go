@@ -32,6 +32,7 @@ func TestProjectListBuckets(t *testing.T) {
 
 			ul, err := uplink.NewUplink(ctx, &cfg)
 			require.NoError(t, err)
+			defer ctx.Check(ul.Close)
 
 			key, err := uplink.ParseAPIKey(apiKey)
 			require.NoError(t, err)
@@ -93,6 +94,7 @@ func TestProjectListBuckets(t *testing.T) {
 
 			p, err = ul.OpenProject(ctx, satelliteAddr, key)
 			require.NoError(t, err)
+			defer ctx.Check(p.Close)
 
 			list = uplink.BucketListOptions{
 				Direction: storj.Forward,
