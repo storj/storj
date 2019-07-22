@@ -474,5 +474,6 @@ message SegmentDownloadRequest {
 message SegmentDownloadResponse {
     bytes                        segment_id = 1 [(gogoproto.customtype) = "SegmentID", (gogoproto.nullable) = false];
     repeated AddressedOrderLimit addressed_limits = 2;
-    SegmentPosition              next = 3; // can be nil
+    bytes                        encrypted_inline_data = 3;
+    SegmentPosition              next = 4; // can be nil
 }

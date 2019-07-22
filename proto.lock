@@ -3270,6 +3270,11 @@
               },
               {
                 "id": 3,
+                "name": "encrypted_inline_data",
+                "type": "bytes"
+              },
+              {
+                "id": 4,
                 "name": "next",
                 "type": "SegmentPosition"
               }
