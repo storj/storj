@@ -63,7 +63,7 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	o := rewards.Offer{}
 	err := rows.Scan(&o.ID, &o.Name, &o.Description, &awardCreditInCents, &inviteeCreditInCents, &awardCreditDurationDays, &inviteeCreditDurationDays, &redeemableCap, &o.ExpiresAt, &o.CreatedAt, &o.Status, &o.Type)
 	if err == sql.ErrNoRows {
-		return nil, rewards.NoCurrentOfferErr.Wrap(err)
+		return nil, rewards.NoCurrentOfferErr.New("offerType=%d", offerType)
 	}
 	if err != nil {
 		return nil, offerErr.Wrap(err)

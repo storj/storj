@@ -129,7 +129,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	//TODO: Create a current offer cache to replace database call
 	currentReward, err := s.rewards.GetCurrentByType(ctx, offerType)
-	if err != nil && !err.Has(rewards.NoCurrentOfferErr) {
+	if err != nil && !rewards.NoCurrentOfferErr.Has(err) {
 		return nil, errs.New(internalErrMsg)
 	}
 
@@ -437,7 +437,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 	}
 
 	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
-	if err != nil && err.Error() != NoCreditForUpdateErr {
+	if err != nil && NoCreditForUpdateErr.Has(err) {
 		return errs.New(internalErrMsg)
 	}
 

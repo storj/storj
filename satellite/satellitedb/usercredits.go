@@ -104,7 +104,7 @@ func (c *usercredits) Create(ctx context.Context, userCredit console.UserCredit)
 	}
 
 	if rows != 1 {
-		return errs.New(rewards.MaxRedemptionErr)
+		return rewards.MaxRedemptionErr.New("create credit failed")
 	}
 
 	return nil
@@ -141,7 +141,7 @@ func (c *usercredits) UpdateEarnedCredits(ctx context.Context, userID uuid.UUID)
 		return err
 	}
 	if affected != 1 {
-		return console.NoCreditForUpdateErr.New()
+		return console.NoCreditForUpdateErr.New("row affected: %d", affected)
 	}
 
 	return nil

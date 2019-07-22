@@ -14,7 +14,7 @@ import (
 )
 
 // NoCreditForUpdateErr is a error message used when no credits are found for update when new users sign up
-var NoCreditForUpdateErr = errs.New("no credit entry found for update")
+var NoCreditForUpdateErr = errs.Class("no credit found to update")
 
 // UserCredits holds information to interact with database
 type UserCredits interface {
