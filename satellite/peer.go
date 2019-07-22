@@ -432,8 +432,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Metainfo.Service,
 			peer.DB.RepairQueue(),
-			peer.Overlay.Service, peer.DB.Irreparable(),
-			0, peer.Log.Named("checker"),
+			peer.Overlay.Service,
+			peer.DB.Irreparable(),
+			0,
+			peer.Metainfo.Loop,
+			peer.Log.Named("checker"),
 			config.Checker)
 
 		peer.Repair.Repairer = repairer.NewService(
@@ -651,10 +654,10 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 		return errs2.IgnoreCanceled(peer.Discovery.Service.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
 	})
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
+		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))

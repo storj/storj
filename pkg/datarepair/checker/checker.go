@@ -57,10 +57,11 @@ type Checker struct {
 	Loop            sync2.Cycle
 	IrreparableLoop sync2.Cycle
 	monStats        durabilityStats
+	metaLoop        *metainfo.Loop
 }
 
 // NewChecker creates a new instance of checker
-func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, logger *zap.Logger, config Config) *Checker {
+func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overlay *overlay.Cache, irrdb irreparable.DB, limit int, metaLoop *metainfo.Loop, logger *zap.Logger, config Config) *Checker {
 	// TODO: reorder arguments
 	return &Checker{
 		metainfo:        metainfo,
@@ -72,6 +73,7 @@ func NewChecker(metainfo *metainfo.Service, repairQueue queue.RepairQueue, overl
 		Loop:            *sync2.NewCycle(config.Interval),
 		IrreparableLoop: *sync2.NewCycle(config.IrreparableInterval),
 		monStats:        durabilityStats{},
+		metaLoop:        metaLoop,
 	}
 }
 
