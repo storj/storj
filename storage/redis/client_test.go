@@ -18,7 +18,7 @@ func TestSuite(t *testing.T) {
 	}
 	defer cleanup()
 
-	client, err := NewClientWithTimeout(addr, "", 1, 10*time.Minute)
+	client, err := NewClientWithTimeout(addr, "", 1, 1*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
