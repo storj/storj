@@ -18,6 +18,13 @@ typedef enum RedundancyAlgorithm {
     STORJ_REED_SOLOMON                 = 1
 } RedundancyAlgorithm;
 
+typedef enum ListDirection {
+    STORJ_BEFORE = -2,
+    STORJ_BACKWARD = -1,
+    STORJ_FORWARD = 1,
+    STORJ_AFTER = 2
+} ListDirection;
+
 typedef struct APIKey           { long _handle; } APIKeyRef;
 typedef struct Uplink           { long _handle; } UplinkRef;
 typedef struct Project          { long _handle; } ProjectRef;
@@ -102,12 +109,12 @@ typedef struct UploadOptions {
 } UploadOptions;
 
 typedef struct ListOptions {
-    char    *prefix;
-    char    *cursor;
-    char    delimiter;
-    bool    recursive;
-    int8_t  direction;
-    int64_t limit;
+    char           *prefix;
+    char           *cursor;
+    char           delimiter;
+    bool           recursive;
+    ListDirection  direction;
+    int64_t        limit;
 } ListOptions;
 
 typedef struct ObjectMeta {
