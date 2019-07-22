@@ -2,15 +2,15 @@
 // See LICENSE for copying information.
 
 <template>
-	<div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-		<slot></slot>
-		<div class="info__message-box" v-if="isVisible">
-			<div class="info__message-box__text">
-				<p class="info__message-box__text__regular-text">{{text}}</p>
-				<p class="info__message-box__text__bold-text">{{boldText}}</p>
-			</div>
-		</div>
-	</div>
+    <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
+        <slot></slot>
+        <div class="info__message-box" v-if="isVisible">
+            <div class="info__message-box__text">
+                <p class="info__message-box__text__regular-text">{{text}}</p>
+                <p class="info__message-box__text__bold-text">{{boldText}}</p>
+            </div>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
