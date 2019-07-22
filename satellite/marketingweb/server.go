@@ -130,7 +130,7 @@ func (s *Server) parseTemplates() (err error) {
 	)
 
 	s.templates.home, err = template.New("landingPage").Funcs(template.FuncMap{
-		"isEmpty": rewards.Offer.IsEmpty,
+		"referralLink": rewards.GeneratePartnerLink,
 	}).ParseFiles(homeFiles...)
 	if err != nil {
 		return Error.Wrap(err)

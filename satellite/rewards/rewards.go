@@ -40,6 +40,19 @@ type NewOffer struct {
 	Type   OfferType
 }
 
+// FormatPartnerName formats partner's name into combination of its partnerID and name
+func (o NewOffer) FormatPartnerName() string {
+	if o.Type != Partner {
+		return o.Name
+	}
+
+	partnerInfo := PartnerInfo{
+		ID:   LoadPartnerInfos()[o.Name].ID,
+		Name: o.Name,
+	}
+	return partnerInfo.FormattedName()
+}
+
 // UpdateOffer holds fields needed for update an offer
 type UpdateOffer struct {
 	ID        int
@@ -57,7 +70,7 @@ const (
 	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
 	Referral = OfferType(2)
-	// Partner is a type of offers used for Open Source Partner Program
+	// Partner is an OfferType used be the Open Source Partner Program
 	Partner = OfferType(3)
 )
 
@@ -104,56 +117,3 @@ func (o Offer) IsEmpty() bool {
 
 // Offers contains a slice of offers.
 type Offers []Offer
-
-// OrganizedOffers contains a list of offers organized by status.
-type OrganizedOffers struct {
-	Active  Offer
-	Default Offer
-	Done    Offers
-}
-
-// OfferSet provides a separation of marketing offers by type.
-type OfferSet struct {
-	ReferralOffers OrganizedOffers
-	FreeCredits    OrganizedOffers
-}
-
-// OrganizeOffersByStatus organizes offers by OfferStatus.
-func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
-	var oo OrganizedOffers
-
-	for _, offer := range offers {
-		switch offer.Status {
-		case Active:
-			oo.Active = offer
-		case Default:
-			oo.Default = offer
-		case Done:
-			oo.Done = append(oo.Done, offer)
-		}
-	}
-	return oo
-}
-
-// OrganizeOffersByType organizes offers by OfferType.
-func (offers Offers) OrganizeOffersByType() OfferSet {
-	var (
-		fc, ro   Offers
-		offerSet OfferSet
-	)
-
-	for _, offer := range offers {
-		switch offer.Type {
-		case FreeCredit:
-			fc = append(fc, offer)
-		case Referral:
-			ro = append(ro, offer)
-		default:
-			continue
-		}
-	}
-
-	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
-	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
-	return offerSet
-}
