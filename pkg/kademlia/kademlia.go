@@ -213,7 +213,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		k.routingTable.mutex.Lock()
 		id := k.routingTable.self.Id
 		k.routingTable.mutex.Unlock()
-		_, err := k.lookup(ctx, id)
+		_, err := k.lookup(ctx, id, 0)
 		if err != nil {
 			errGroup.Add(BootstrapErr.Wrap(err))
 			continue
@@ -283,16 +283,23 @@ func (k *Kademlia) FetchInfo(ctx context.Context, node pb.Node) (_ *pb.InfoRespo
 	return info, nil
 }
 
-// FindNode looks up the provided NodeID first in the local Node, and if it is not found
-// begins searching the network for the NodeID. Returns and error if node was not found
+// FindNode wraps a call to FindNodeWithAntechamber with 0 antechamber nodes
 func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return k.FindNodeWithAntechamber(ctx, nodeID, 0)
+}
+
+// FindNodeWithAntechamber looks up the provided NodeID first in the local Node, and if it is not found
+// begins searching the network for the NodeID. It will request each queried node to return a number of antechamber nodes
+// so that they may be added to the overlay cache. Returns an error if node was not found
+func (k *Kademlia) FindNodeWithAntechamber(ctx context.Context, nodeID storj.NodeID, antechamberLimit int) (_ pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return pb.Node{}, context.Canceled
 	}
 	defer k.lookups.Done()
 
-	results, err := k.lookup(ctx, nodeID)
+	results, err := k.lookup(ctx, nodeID, antechamberLimit)
 	if err != nil {
 		return pb.Node{}, err
 	}
@@ -303,7 +310,7 @@ func (k *Kademlia) FindNode(ctx context.Context, nodeID storj.NodeID) (_ pb.Node
 }
 
 //lookup initiates a kadmelia node lookup
-func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID) (_ []*pb.Node, err error) {
+func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID, antechamberLimit int) (_ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !k.lookups.Start() {
 		return nil, context.Canceled
@@ -316,7 +323,7 @@ func (k *Kademlia) lookup(ctx context.Context, nodeID storj.NodeID) (_ []*pb.Nod
 	}
 
 	self := k.routingTable.Local().Node
-	lookup := newPeerDiscovery(k.log, k.dialer, nodeID, nodes, k.routingTable.K(), 0, k.alpha, &self)
+	lookup := newPeerDiscovery(k.log, k.dialer, nodeID, nodes, k.routingTable.K(), antechamberLimit, k.alpha, &self)
 	results, err := lookup.Run(ctx)
 	if err != nil {
 		return nil, err
