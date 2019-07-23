@@ -346,12 +346,16 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 	}
 
 	if oldValue == nil {
-		q := `INSERT INTO pathdata (bucket, fullpath, metadata) VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)`
-		_, err = client.pgConn.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
-		if err, ok := err.(*pq.Error); ok {
-			if err.Code == "23505" { // unique_violation
-				return storage.ErrValueChanged.New(key.String())
-			}
+		q := `
+		INSERT INTO pathdata (bucket, fullpath, metadata) VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)
+			ON CONFLICT DO NOTHING
+			RETURNING 1
+		`
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(newValue))
+		var val []byte
+		err = row.Scan(&val)
+		if err == sql.ErrNoRows {
+			return storage.ErrValueChanged.New(key.String())
 		}
 		return Error.Wrap(err)
 	}
