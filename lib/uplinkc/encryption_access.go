@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"storj.io/storj/lib/uplink"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -17,7 +17,7 @@ import (
 // new_encryption_access creates an encryption access context
 func new_encryption_access(cerr **C.char) C.EncryptionAccessRef {
 	return C.EncryptionAccessRef {
-		_handle:  universe.Add(uplink.NewEncryptionAccess()),
+		_handle:  universe.Add(libuplink.NewEncryptionAccess()),
 	}
 }
 
@@ -28,14 +28,14 @@ func new_encryption_access_with_default_key(key *C.uint8_t) C.EncryptionAccessRe
 	copy(goKey[:], cKey[:])
 
 	return C.EncryptionAccessRef {
-		_handle:  universe.Add(uplink.NewEncryptionAccessWithDefaultKey(goKey)),
+		_handle:  universe.Add(libuplink.NewEncryptionAccessWithDefaultKey(goKey)),
 	}
 }
 
 //export set_default_key
 // set_default_key sets the default key for the encryption access context.
 func set_default_key(encAccessRef C.EncryptionAccessRef, key *C.uint8_t, cerr **C.char) {
-	encAccess, ok := universe.Get(encAccessRef._handle).(*uplink.EncryptionAccess)
+	encAccess, ok := universe.Get(encAccessRef._handle).(*libuplink.EncryptionAccess)
 	if !ok {
 		*cerr = C.CString("invalid encryption access")
 		return
@@ -50,7 +50,7 @@ func set_default_key(encAccessRef C.EncryptionAccessRef, key *C.uint8_t, cerr **
 //export serialize_encryption_access
 // serialize_encryption_access turns an encryption access into base58.
 func serialize_encryption_access(encAccessRef C.EncryptionAccessRef, cerr **C.char) *C.char {
-	encAccess, ok := universe.Get(encAccessRef._handle).(*uplink.EncryptionAccess)
+	encAccess, ok := universe.Get(encAccessRef._handle).(*libuplink.EncryptionAccess)
 	if !ok {
 		*cerr = C.CString("invalid encryption access")
 		return C.CString("")
