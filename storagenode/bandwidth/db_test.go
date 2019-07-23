@@ -8,17 +8,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
-	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -149,25 +146,17 @@ func TestCachedBandwidthMonthRollover(t *testing.T) {
 }
 
 func TestBandwidthRollup(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
 
-	log := zaptest.NewLogger(t)
-
-	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ctx.Check(db.Close)
-
-	t.Run("Sqlite", func(t *testing.T) {
 		err := db.CreateTables()
 		if err != nil {
 			t.Fatal(err)
 		}
-		testID1 := teststorj.NodeIDFromString("testId1")
-		testID2 := teststorj.NodeIDFromString("testId2")
-		testID3 := teststorj.NodeIDFromString("testId3")
+		testID1 := storj.NodeID{1}
+		testID2 := storj.NodeID{2}
+		testID3 := storj.NodeID{3}
 
 		now := time.Now()
 
