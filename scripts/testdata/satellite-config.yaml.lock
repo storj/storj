@@ -77,7 +77,7 @@ defaults: "release"
 # garbage-collection.concurrent-sends: 1
 
 # set if garbage collection is enabled or not
-# garbage-collection.enabled: true
+# garbage-collection.enabled: false
 
 # the false positive rate used for creating a filter
 # garbage-collection.false-positive-rate: 0.1
