@@ -263,20 +263,36 @@ func TestFindNear(t *testing.T) {
 	newNode("DDDDD", 4, 1)
 	require.Len(t, nodes, 4)
 
+	// add antechamber nodes
+	var acNodes []*pb.Node
+	newACNode := func(id string, bw, disk int64) pb.Node {
+		nodeID := teststorj.NodeIDFromString(id)
+		n := &pb.Node{Id: nodeID}
+		acNodes = append(acNodes, n)
+		err = k.routingTable.antechamberAddNode(ctx, n)
+		require.NoError(t, err)
+		return *n
+	}
+	newACNode("EEEEE", 2, 3)
+	newACNode("FFFFF", 3, 2)
+	newACNode("GGGGG", 4, 1)
+	require.Len(t, acNodes, 3)
+
 	cases := []struct {
 		testID       string
 		target       storj.NodeID
-		limit        int
+		rtLimit      int
+		acLimit      int
 		restrictions []pb.Restriction
 		expected     []*pb.Node
 	}{
-		{testID: "three", target: nodeIDA.Id, limit: 4, expected: nodes, restrictions: []pb.Restriction{}},
+		{testID: "three", target: nodeIDA.Id, rtLimit: 4, acLimit: 3, expected: append(nodes, acNodes...), restrictions: []pb.Restriction{}},
 	}
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
 
-			ns, err := k.FindNear(ctx, testCase.target, testCase.limit)
+			ns, err := k.FindNear(ctx, testCase.target, testCase.rtLimit, testCase.acLimit)
 			require.NoError(t, err)
 			assert.Equal(t, len(testCase.expected), len(ns))
 			for _, e := range testCase.expected {
