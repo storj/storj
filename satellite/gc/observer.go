@@ -17,20 +17,22 @@ import (
 // Observer implements the observer interface for gc
 type Observer struct {
 	log          *zap.Logger
-	pieceCounts  map[storj.NodeID]int
-	retainInfos  map[storj.NodeID]*RetainInfo
 	config       Config
 	creationDate time.Time
+	pieceCounts  map[storj.NodeID]int
+
+	retainInfos map[storj.NodeID]*RetainInfo
 }
 
 // NewObserver instantiates a gc Observer
 func NewObserver(log *zap.Logger, pieceCounts map[storj.NodeID]int, config Config) *Observer {
 	return &Observer{
 		log:          log,
-		pieceCounts:  pieceCounts,
-		retainInfos:  make(map[storj.NodeID]*RetainInfo),
 		config:       config,
 		creationDate: time.Now().UTC(),
+		pieceCounts:  pieceCounts,
+
+		retainInfos: make(map[storj.NodeID]*RetainInfo),
 	}
 }
 

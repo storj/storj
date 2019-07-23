@@ -39,12 +39,13 @@ type Config struct {
 
 // Service implements the garbage collection service
 type Service struct {
-	log          *zap.Logger
-	Loop         *sync2.Cycle
-	metainfoloop *metainfo.Loop
+	log    *zap.Logger
+	config Config
+	Loop   sync2.Cycle
+
 	transport    transport.Client
 	overlay      overlay.DB
-	config       Config
+	metainfoloop *metainfo.Loop
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -60,12 +61,13 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 	// var lastPieceCounts atomic.Value
 	// lastPieceCounts.Store(map[storj.NodeID]int{})
 	return &Service{
-		log:          log,
-		Loop:         sync2.NewCycle(config.Interval),
-		metainfoloop: loop,
+		log:    log,
+		config: config,
+		Loop:   *sync2.NewCycle(config.Interval),
+
 		transport:    transport,
 		overlay:      overlay,
-		config:       config,
+		metainfoloop: loop,
 	}
 }
 
