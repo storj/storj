@@ -224,7 +224,6 @@ func (peer *Peer) Run(ctx context.Context) error {
 // Close closes all the resources.
 func (peer *Peer) Close() error {
 	var errlist errs.Group
-
 	// TODO: ensure that Close can be called on nil-s that way this code won't need the checks.
 
 	// close servers, to avoid new connections to closing subsystems

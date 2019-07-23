@@ -887,7 +887,7 @@ func TestBeginFinishDeleteObject(t *testing.T) {
 	})
 }
 
-func TestListObjects(t *testing.T) {
+func TestListGetObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -906,18 +906,25 @@ func TestListObjects(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
+		expectedBucketName := "testbucket"
 		items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
-			Bucket: []byte("testbucket"),
+			Bucket: []byte(expectedBucketName),
 		})
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
 		for _, item := range items {
 			require.NotEmpty(t, item.EncryptedPath)
 			require.True(t, item.CreatedAt.Before(time.Now()))
+
+			object, streamID, err := metainfoClient.GetObject(ctx, []byte(expectedBucketName), item.EncryptedPath, -1)
+			require.NoError(t, err)
+			require.Equal(t, item.EncryptedPath, []byte(object.Path))
+
+			require.NotEmpty(t, streamID)
 		}
 
 		items, _, err = metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
-			Bucket: []byte("testbucket"),
+			Bucket: []byte(expectedBucketName),
 			Limit:  3,
 		})
 		require.NoError(t, err)

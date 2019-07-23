@@ -24,6 +24,7 @@ service Metainfo {
     // Object
     rpc BeginObject(ObjectBeginRequest) returns (ObjectBeginResponse);
     rpc CommitObject(ObjectCommitRequest) returns (ObjectCommitResponse);
+    rpc GetObject(ObjectGetRequest) returns (ObjectGetResponse);
     rpc ListObjects(ObjectListRequest) returns (ObjectListResponse);
     rpc BeginDeleteObject(ObjectBeginDeleteRequest) returns (ObjectBeginDeleteResponse);
     rpc FinishDeleteObject(ObjectFinishDeleteRequest) returns (ObjectFinishDeleteResponse);
@@ -280,6 +281,16 @@ message ObjectCommitRequest {
 }
 
 message ObjectCommitResponse {
+}
+
+message ObjectGetRequest {
+    bytes  bucket = 1;
+    bytes  encrypted_path = 2;
+    int32  version = 3;
+}
+
+message ObjectGetResponse {
+    Object object = 1;
 }
 
 message ObjectListRequest {
