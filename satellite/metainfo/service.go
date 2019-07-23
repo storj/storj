@@ -40,14 +40,14 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 
 	pointerBytes, err := proto.Marshal(pointer)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
 	// In such case we should delete the pieces of the old segment if it was
 	// a remote one.
 	if err = s.DB.Put(ctx, []byte(path), pointerBytes); err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	return nil

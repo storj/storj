@@ -66,7 +66,7 @@ func NewSegmentRepairer(
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
@@ -216,19 +216,20 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
 	// if partial repair, include "unhealthy" pieces that are not duplicates
+	revisedPointerPieces := healthyPieces
 	if healthyLength < pointer.Remote.Redundancy.SuccessThreshold {
 		for _, p := range unhealthyPieces {
 			if _, ok := healthyMap[p.GetPieceNum()]; !ok {
-				healthyPieces = append(healthyPieces, p)
+				revisedPointerPieces = append(revisedPointerPieces, p)
 			}
 		}
 	}
 
 	// Update the remote pieces in the pointer
-	pointer.GetRemote().RemotePieces = healthyPieces
+	pointer.GetRemote().RemotePieces = revisedPointerPieces
 
 	// Update the segment pointer in the metainfo
-	return repairer.metainfo.Put(ctx, path, pointer)
+	return Error.Wrap(repairer.metainfo.Put(ctx, path, pointer))
 }
 
 // sliceToSet converts the given slice to a set
