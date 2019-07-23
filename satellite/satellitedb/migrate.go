@@ -18,8 +18,10 @@ import (
 	"storj.io/storj/satellite/satellitedb/pbold"
 )
 
-// ErrMigrate is for tracking migration errors
-var ErrMigrate = errs.Class("migrate")
+var (
+	// ErrMigrate is for tracking migration errors
+	ErrMigrate = errs.Class("migrate")
+)
 
 // CreateTables is a method for creating all tables for database
 func (db *DB) CreateTables() error {
