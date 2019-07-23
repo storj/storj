@@ -87,17 +87,14 @@ func (client *Client) GetPath(ctx context.Context, bucket, key storage.Key) (_ s
 
 	q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
 	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
+
 	var val []byte
 	err = row.Scan(&val)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, storage.ErrKeyNotFound.New(key.String())
-		}
-
-		return nil, Error.Wrap(err)
+	if err == sql.ErrNoRows {
+		return nil, storage.ErrKeyNotFound.New(key.String())
 	}
 
-	return val, nil
+	return val, Error.Wrap(err)
 }
 
 // Delete deletes the given key and its associated value.
