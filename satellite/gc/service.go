@@ -5,7 +5,6 @@ package gc
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -46,18 +45,13 @@ type Service struct {
 	transport    transport.Client
 	overlay      overlay.DB
 	config       Config
-
-	lastPieceCounts map[storj.NodeID]int
-
-	pieceCountsMutex sync.Mutex
-	pieceCounts      map[storj.NodeID]int
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
 type RetainInfo struct {
 	Filter       *bloomfilter.Filter
 	CreationDate time.Time
-	count        int
+	Count        int
 }
 
 // NewService creates a new instance of the gc service
@@ -65,17 +59,13 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 	// TODO retrieve piece counts from overlay (when there is a column for them)
 	// var lastPieceCounts atomic.Value
 	// lastPieceCounts.Store(map[storj.NodeID]int{})
-	lastPieceCounts := make(map[storj.NodeID]int)
-
 	return &Service{
-		log:              log,
-		Loop:             sync2.NewCycle(config.Interval),
-		metainfoloop:     loop,
-		transport:        transport,
-		overlay:          overlay,
-		lastPieceCounts:  lastPieceCounts,
-		config:           config,
-		pieceCountsMutex: sync.Mutex{},
+		log:          log,
+		Loop:         sync2.NewCycle(config.Interval),
+		metainfoloop: loop,
+		transport:    transport,
+		overlay:      overlay,
+		config:       config,
 	}
 }
 
@@ -83,50 +73,48 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		obs := NewObserver(service.log.Named("gc observer"), service.lastPieceCounts, service.config)
+	lastPieceCounts := make(map[storj.NodeID]int)
 
+	return service.Loop.Run(ctx, func(ctx context.Context) error {
+		obs := NewObserver(service.log.Named("gc observer"), lastPieceCounts, service.config)
+
+		// collect things to retain
 		err := service.metainfoloop.Join(ctx, obs)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		err = service.Send(ctx, obs)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		return nil
-	})
-}
-
-// Send sends the piece retain requests to all storage nodes
-func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	service.pieceCounts = make(map[storj.NodeID]int)
-
-	limiter := sync2.NewLimiter(service.config.ConcurrentSends)
-	for id, retainInfo := range obs.retainInfos {
-		func(id storj.NodeID, retainInfo *RetainInfo) {
+		// send retain requests
+		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
+		for id, info := range obs.retainInfos {
+			id, info := id, info
 			limiter.Go(ctx, func() {
-				err := service.sendRetainRequest(ctx, id, retainInfo)
+				err := service.sendRetainRequest(ctx, id, info)
 				if err != nil {
 					service.log.Error("error sending retain info", zap.Error(err))
 				}
 			})
-		}(id, retainInfo)
-	}
-	limiter.Wait()
+		}
+		limiter.Wait()
 
-	service.lastPieceCounts = service.pieceCounts
+		// save piece counts for next iteration
+		for id := range lastPieceCounts {
+			delete(lastPieceCounts, id)
+		}
+		for id, info := range obs.retainInfos {
+			lastPieceCounts[id] = info.Count
+		}
 
-	return nil
+		// monitor information
+		for id, info := range obs.retainInfos {
+			mon.IntVal("node_piece_count").Observe(int64(info.Count))
+			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
+		}
+		return nil
+	})
 }
 
-func (service *Service) sendRetainRequest(
-	ctx context.Context, id storj.NodeID, retainInfo *RetainInfo,
-) (err error) {
+func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, info *RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log := service.log.Named(id.String())
@@ -141,31 +129,18 @@ func (service *Service) sendRetainRequest(
 		Address: dossier.Address,
 	}
 
-	ps, err := piecestore.Dial(ctx, service.transport, target, log, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, service.transport, target, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	defer func() {
-		err2 := ps.Close()
-		err = errs.Combine(err, Error.Wrap(err2))
+		closeErr := Error.Wrap(client.Close())
+		err = errs.Combine(err, closeErr)
 	}()
 
-	// TODO add piece count to overlay (when there is a column for them)
-	service.pieceCountsMutex.Lock()
-	service.pieceCounts[id] = retainInfo.count // save count for next bloom filter generation
-	service.pieceCountsMutex.Unlock()
-	mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
-
-	filterBytes := retainInfo.Filter.Bytes()
-	mon.IntVal("retain_filter_size_bytes").Observe(int64(len(filterBytes)))
-
-	retainReq := &pb.RetainRequest{
-		CreationDate: retainInfo.CreationDate,
-		Filter:       filterBytes,
-	}
-	err = ps.Retain(ctx, retainReq)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	return nil
+	err = client.Retain(ctx, &pb.RetainRequest{
+		CreationDate: info.CreationDate,
+		Filter:       info.Filter.Bytes(),
+	})
+	return Error.Wrap(err)
 }
