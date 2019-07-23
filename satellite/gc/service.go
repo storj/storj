@@ -6,7 +6,6 @@ package gc
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -41,16 +40,17 @@ type Config struct {
 
 // Service implements the garbage collection service
 type Service struct {
-	log              *zap.Logger
-	Loop             *sync2.Cycle
-	metainfoloop     *metainfo.Loop
-	transport        transport.Client
-	overlay          overlay.DB
-	lastSendTime     time.Time
-	lastPieceCounts  atomic.Value
-	config           Config
-	errGroupMutex    *sync.Mutex
-	pieceCountsMutex *sync.Mutex
+	log          *zap.Logger
+	Loop         *sync2.Cycle
+	metainfoloop *metainfo.Loop
+	transport    transport.Client
+	overlay      overlay.DB
+	config       Config
+
+	lastPieceCounts map[storj.NodeID]int
+
+	pieceCountsMutex sync.Mutex
+	pieceCounts      map[storj.NodeID]int
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -63,8 +63,9 @@ type RetainInfo struct {
 // NewService creates a new instance of the gc service
 func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop, config Config) *Service {
 	// TODO retrieve piece counts from overlay (when there is a column for them)
-	var lastPieceCounts atomic.Value
-	lastPieceCounts.Store(map[storj.NodeID]int{})
+	// var lastPieceCounts atomic.Value
+	// lastPieceCounts.Store(map[storj.NodeID]int{})
+	lastPieceCounts := make(map[storj.NodeID]int)
 
 	return &Service{
 		log:              log,
@@ -74,8 +75,7 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 		overlay:          overlay,
 		lastPieceCounts:  lastPieceCounts,
 		config:           config,
-		errGroupMutex:    &sync.Mutex{},
-		pieceCountsMutex: &sync.Mutex{},
+		pieceCountsMutex: sync.Mutex{},
 	}
 }
 
@@ -84,8 +84,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		pieceCounts := service.lastPieceCountsValue()
-		obs := NewObserver(service.log.Named("gc observer"), pieceCounts, service.config)
+		obs := NewObserver(service.log.Named("gc observer"), service.lastPieceCounts, service.config)
 
 		err := service.metainfoloop.Join(ctx, obs)
 		if err != nil {
@@ -105,36 +104,30 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	service.lastSendTime = time.Now().UTC()
-	newPieceCounts := make(map[storj.NodeID]int)
+	service.pieceCounts = make(map[storj.NodeID]int)
 
 	limiter := sync2.NewLimiter(int(service.config.ConcurrentSends))
-	var errList errs.Group
 	for id, retainInfo := range obs.retainInfos {
-		service.sendRetainFromLimiter(ctx, id, retainInfo, newPieceCounts, limiter, errList)
+		service.sendRetainFromLimiter(ctx, id, retainInfo, limiter)
 	}
 	limiter.Wait()
-	if errList.Err() != nil {
-		service.log.Error("error sending retain infos", zap.Error(errList.Err()))
-	}
-	service.lastPieceCounts.Store(newPieceCounts)
+
+	service.lastPieceCounts = service.pieceCounts
 
 	return nil
 }
 
-func (service *Service) sendRetainFromLimiter(ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, newPieceCounts map[storj.NodeID]int, limiter *sync2.Limiter, errList errs.Group) {
+func (service *Service) sendRetainFromLimiter(ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, limiter *sync2.Limiter) {
 	limiter.Go(ctx, func() {
-		err := service.sendRetainRequest(ctx, id, retainInfo, newPieceCounts)
+		err := service.sendRetainRequest(ctx, id, retainInfo)
 		if err != nil {
-			service.errGroupMutex.Lock()
-			errList.Add(err)
-			service.errGroupMutex.Unlock()
+			service.log.Error("error sending retain info", zap.Error(err))
 		}
 	})
 }
 
 func (service *Service) sendRetainRequest(
-	ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, newPieceCounts map[storj.NodeID]int,
+	ctx context.Context, id storj.NodeID, retainInfo *RetainInfo,
 ) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -161,7 +154,7 @@ func (service *Service) sendRetainRequest(
 
 	// TODO add piece count to overlay (when there is a column for them)
 	service.pieceCountsMutex.Lock()
-	newPieceCounts[id] = retainInfo.count // save count for next bloom filter generation
+	service.pieceCounts[id] = retainInfo.count // save count for next bloom filter generation
 	service.pieceCountsMutex.Unlock()
 	mon.IntVal("node_piece_count").Observe(int64(retainInfo.count))
 
@@ -177,22 +170,4 @@ func (service *Service) sendRetainRequest(
 		return Error.Wrap(err)
 	}
 	return nil
-}
-
-func (service *Service) lastPieceCountsValue() map[storj.NodeID]int {
-	m := service.lastPieceCounts.Load()
-	if m == nil {
-		return nil
-	}
-
-	return m.(map[storj.NodeID]int)
-}
-
-func (service *Service) lastPieceCountsNumNodes() int {
-	m := service.lastPieceCounts.Load()
-	if m == nil {
-		return 0
-	}
-
-	return len(m.(map[storj.NodeID]int))
 }
