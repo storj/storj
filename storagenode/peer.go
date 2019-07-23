@@ -80,6 +80,8 @@ type Config struct {
 	Console consoleserver.Config
 
 	Version version.Config
+
+	Bandwidth bandwidth.Config
 }
 
 // Verify verifies whether configuration is consistent and acceptable.
@@ -323,7 +325,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.DB.PieceInfo(), peer.DB.UsedSerials(), config.Collector)
 
-	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth())
+	peer.Bandwidth = bandwidth.NewService(peer.Log.Named("bandwidth"), peer.DB.Bandwidth(), config.Bandwidth)
 
 	return peer, nil
 }

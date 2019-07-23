@@ -16,6 +16,11 @@ import (
 
 var mon = monkit.Package()
 
+// Config defines parameters for storage node Collector.
+type Config struct {
+	Interval time.Duration `help:"how frequently bandwidth usage rollups are calculated" default:"1h0m0s"`
+}
+
 // Service implements
 type Service struct {
 	log  *zap.Logger
@@ -24,11 +29,11 @@ type Service struct {
 }
 
 // NewService creates a new bandwidth service.
-func NewService(log *zap.Logger, db DB) *Service {
+func NewService(log *zap.Logger, db DB, config Config) *Service {
 	return &Service{
 		log:  log,
 		db:   db,
-		Loop: *sync2.NewCycle(time.Hour * 1),
+		Loop: *sync2.NewCycle(config.Interval),
 	}
 }
 
