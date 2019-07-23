@@ -76,17 +76,17 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	lastPieceCounts := make(map[storj.NodeID]int)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		obs := NewObserver(service.log.Named("gc observer"), service.config, lastPieceCounts)
+		pt := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
 
 		// collect things to retain
-		err := service.metainfoloop.Join(ctx, obs)
+		err := service.metainfoloop.Join(ctx, pt)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
 		// send retain requests
 		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
-		for id, info := range obs.retainInfos {
+		for id, info := range pt.retainInfos {
 			id, info := id, info
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, id, info)
@@ -101,12 +101,12 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
-		for id, info := range obs.retainInfos {
+		for id, info := range pt.retainInfos {
 			lastPieceCounts[id] = info.Count
 		}
 
 		// monitor information
-		for _, info := range obs.retainInfos {
+		for _, info := range pt.retainInfos {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
 			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
 		}

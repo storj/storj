@@ -15,8 +15,8 @@ import (
 	"storj.io/storj/pkg/storj"
 )
 
-// Observer implements the observer interface for gc
-type Observer struct {
+// PieceTracker implements the metainfo loop observer interface for garbage collection
+type PieceTracker struct {
 	log          *zap.Logger
 	config       Config
 	creationDate time.Time
@@ -25,9 +25,9 @@ type Observer struct {
 	retainInfos map[storj.NodeID]*RetainInfo
 }
 
-// NewObserver instantiates a gc Observer
-func NewObserver(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int) *Observer {
-	return &Observer{
+// NewPieceTracker instantiates a new gc piece tracker to be subscribed to the metainfo loop
+func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int) *PieceTracker {
+	return &PieceTracker{
 		log:          log,
 		config:       config,
 		creationDate: time.Now().UTC(),
@@ -38,7 +38,7 @@ func NewObserver(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]in
 }
 
 // RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters
-func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pt *PieceTracker) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	remote := pointer.GetRemote()
@@ -46,41 +46,41 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path storj.Path, po
 
 	for _, piece := range pieces {
 		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		observer.add(ctx, piece.NodeId, pieceID)
+		pt.add(ctx, piece.NodeId, pieceID)
 	}
 	return nil
 }
 
 // RemoteObject returns nil because gc does not interact with remote objects
-func (observer *Observer) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pt *PieceTracker) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 // InlineSegment returns nil because we're only doing gc for storage nodes for now
-func (observer *Observer) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pt *PieceTracker) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 // adds a pieceID to the relevant node's RetainInfo
-func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
+func (pt *PieceTracker) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
 	var filter *bloomfilter.Filter
 
-	if _, ok := observer.retainInfos[nodeID]; !ok {
+	if _, ok := pt.retainInfos[nodeID]; !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
-		numPieces := observer.config.InitialPieces
-		if observer.pieceCounts[nodeID] > 0 {
-			numPieces = observer.pieceCounts[nodeID]
+		numPieces := pt.config.InitialPieces
+		if pt.pieceCounts[nodeID] > 0 {
+			numPieces = pt.pieceCounts[nodeID]
 		}
 		// limit size of bloom filter to ensure we are under the limit for GRPC
-		filter = bloomfilter.NewOptimalMaxSize(numPieces, observer.config.FalsePositiveRate, 2*memory.MiB)
-		observer.retainInfos[nodeID] = &RetainInfo{
+		filter = bloomfilter.NewOptimalMaxSize(numPieces, pt.config.FalsePositiveRate, 2*memory.MiB)
+		pt.retainInfos[nodeID] = &RetainInfo{
 			Filter:       filter,
-			CreationDate: observer.creationDate,
+			CreationDate: pt.creationDate,
 		}
 	}
 
-	observer.retainInfos[nodeID].Filter.Add(pieceID)
-	observer.retainInfos[nodeID].Count++
+	pt.retainInfos[nodeID].Filter.Add(pieceID)
+	pt.retainInfos[nodeID].Count++
 }
