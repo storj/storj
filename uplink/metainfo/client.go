@@ -408,6 +408,32 @@ func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID)
 	return Error.Wrap(err)
 }
 
+// GetObject gets single object
+func (client *Client) GetObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.Object, _ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
+		Version:       version,
+	})
+	if err != nil {
+		return storj.Object{}, storj.StreamID{}, Error.Wrap(err)
+	}
+
+	object := storj.Object{
+		Bucket: storj.Bucket{
+			Name: string(response.Object.Bucket),
+		},
+		Path:    storj.Path(response.Object.EncryptedPath),
+		Created: response.Object.CreatedAt,
+		Expires: response.Object.ExpiresAt,
+		// TODO custom type for response object or modify storj.Object
+	}
+
+	return object, response.Object.StreamId, nil
+}
+
 // BeginDeleteObject begins object deletion process
 func (client *Client) BeginDeleteObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
