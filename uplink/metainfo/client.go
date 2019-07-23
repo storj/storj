@@ -425,7 +425,7 @@ func (client *Client) GetObject(ctx context.Context, bucket []byte, encryptedPat
 		Bucket: storj.Bucket{
 			Name: string(response.Object.Bucket),
 		},
-		Path:    string(response.Object.EncryptedPath),
+		Path:    storj.Path(response.Object.EncryptedPath),
 		Created: response.Object.CreatedAt,
 		Expires: response.Object.ExpiresAt,
 		// TODO custom type for response object or modify storj.Object
