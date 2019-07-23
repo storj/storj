@@ -56,10 +56,7 @@ type RetainInfo struct {
 }
 
 // NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop, config Config) *Service {
-	// TODO retrieve piece counts from overlay (when there is a column for them)
-	// var lastPieceCounts atomic.Value
-	// lastPieceCounts.Store(map[storj.NodeID]int{})
+func NewService(log *zap.Logger, config Config, transport transport.Client, overlay overlay.DB, loop *metainfo.Loop) *Service {
 	return &Service{
 		log:    log,
 		config: config,
@@ -75,10 +72,11 @@ func NewService(log *zap.Logger, transport transport.Client, overlay overlay.DB,
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO retrieve piece counts from overlay (when there is a column for them)
 	lastPieceCounts := make(map[storj.NodeID]int)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		obs := NewObserver(service.log.Named("gc observer"), lastPieceCounts, service.config)
+		obs := NewObserver(service.log.Named("gc observer"), service.config, lastPieceCounts)
 
 		// collect things to retain
 		err := service.metainfoloop.Join(ctx, obs)
@@ -108,7 +106,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 
 		// monitor information
-		for id, info := range obs.retainInfos {
+		for _, info := range obs.retainInfos {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
 			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
 		}

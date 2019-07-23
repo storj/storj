@@ -25,7 +25,7 @@ type Observer struct {
 }
 
 // NewObserver instantiates a gc Observer
-func NewObserver(log *zap.Logger, pieceCounts map[storj.NodeID]int, config Config) *Observer {
+func NewObserver(log *zap.Logger, config Config, pieceCounts map[storj.NodeID]int) *Observer {
 	return &Observer{
 		log:          log,
 		config:       config,
@@ -80,5 +80,5 @@ func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID 
 	}
 
 	observer.retainInfos[nodeID].Filter.Add(pieceID)
-	observer.retainInfos[nodeID].count++
+	observer.retainInfos[nodeID].Count++
 }

@@ -147,5 +147,5 @@ func (filter *Filter) Bytes() []byte {
 
 // Size returns the size of Bytes call.
 func (filter *Filter) Size() int64 {
-	return 1 + 1 + 1 + len(filter.table)
+	return int64(1 + 1 + 1 + len(filter.table))
 }

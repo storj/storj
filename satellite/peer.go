@@ -480,11 +480,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 	{ // setup garbage collection
 		log.Debug("Setting up garbage collection")
 
-		peer.GarbageCollection.Service = gc.NewService(peer.Log.Named("garbage collection"),
+		peer.GarbageCollection.Service = gc.NewService(
+			peer.Log.Named("garbage collection"),
+			config.GarbageCollection,
 			peer.Transport,
 			peer.DB.OverlayCache(),
 			peer.Metainfo.Loop,
-			config.GarbageCollection,
 		)
 	}
 
