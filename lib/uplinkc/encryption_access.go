@@ -65,8 +65,18 @@ func serialize_encryption_access(encAccessRef C.EncryptionAccessRef, cerr **C.ch
 	return C.CString(encAccessStr)
 }
 
+//export parse_encryption_access
+// parse_encryption_access parses a base58 serialized encryption access into a working one.
+func parse_encryption_access(encAccessStr *C.char, cerr **C.char) C.EncryptionAccessRef {
+	encAccess, err := libuplink.ParseEncryptionAccess(C.GoString(encAccessStr))
+	if err != nil {
+		*cerr = C.CString(fmt.Sprintf("%+v", err))
+		return C.EncryptionAccessRef{}
+	}
+	return C.EncryptionAccessRef{_handle: universe.Add(encAccess)}
+}
+
 //export free_encryption_access
-// free_encryption_access
 func free_encryption_access(encAccessRef C.EncryptionAccessRef) {
 	universe.Del(encAccessRef._handle)
 }
