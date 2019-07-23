@@ -45,7 +45,7 @@ type Service struct {
 
 	transport    transport.Client
 	overlay      overlay.DB
-	metainfoloop *metainfo.Loop
+	metainfoLoop *metainfo.Loop
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data
@@ -64,7 +64,7 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 
 		transport:    transport,
 		overlay:      overlay,
-		metainfoloop: loop,
+		metainfoLoop: loop,
 	}
 }
 
@@ -76,22 +76,22 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	lastPieceCounts := make(map[storj.NodeID]int)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		pt := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
+		pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
 
 		// collect things to retain
-		err := service.metainfoloop.Join(ctx, pt)
+		err := service.metainfoLoop.Join(ctx, pieceTracker)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
 		// send retain requests
 		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
-		for id, info := range pt.retainInfos {
+		for id, info := range pieceTracker.retainInfos {
 			id, info := id, info
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, id, info)
 				if err != nil {
-					service.log.Error("error sending retain info", zap.Error(err))
+					service.log.Sugar().Errorf("error sending retain info to node ID %s: %v", id.String(), zap.Error(err))
 				}
 			})
 		}
@@ -101,12 +101,12 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
-		for id, info := range pt.retainInfos {
+		for id, info := range pieceTracker.retainInfos {
 			lastPieceCounts[id] = info.Count
 		}
 
 		// monitor information
-		for _, info := range pt.retainInfos {
+		for _, info := range pieceTracker.retainInfos {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
 			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
 		}
@@ -124,18 +124,12 @@ func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, 
 		return Error.Wrap(err)
 	}
 
-	target := &pb.Node{
-		Id:      id,
-		Address: dossier.Address,
-	}
-
-	client, err := piecestore.Dial(ctx, service.transport, target, log, piecestore.DefaultConfig)
+	client, err := piecestore.Dial(ctx, service.transport, &dossier.Node, log, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	defer func() {
-		closeErr := Error.Wrap(client.Close())
-		err = errs.Combine(err, closeErr)
+		err = errs.Combine(err, Error.Wrap(client.Close()))
 	}()
 
 	err = client.Retain(ctx, &pb.RetainRequest{

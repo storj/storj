@@ -38,7 +38,7 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 }
 
 // RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters
-func (pt *PieceTracker) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	remote := pointer.GetRemote()
@@ -46,41 +46,41 @@ func (pt *PieceTracker) RemoteSegment(ctx context.Context, path storj.Path, poin
 
 	for _, piece := range pieces {
 		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		pt.add(ctx, piece.NodeId, pieceID)
+		pieceTracker.add(ctx, piece.NodeId, pieceID)
 	}
 	return nil
 }
 
 // RemoteObject returns nil because gc does not interact with remote objects
-func (pt *PieceTracker) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 // InlineSegment returns nil because we're only doing gc for storage nodes for now
-func (pt *PieceTracker) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 // adds a pieceID to the relevant node's RetainInfo
-func (pt *PieceTracker) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
+func (pieceTracker *PieceTracker) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
 	var filter *bloomfilter.Filter
 
-	if _, ok := pt.retainInfos[nodeID]; !ok {
+	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
-		numPieces := pt.config.InitialPieces
-		if pt.pieceCounts[nodeID] > 0 {
-			numPieces = pt.pieceCounts[nodeID]
+		numPieces := pieceTracker.config.InitialPieces
+		if pieceTracker.pieceCounts[nodeID] > 0 {
+			numPieces = pieceTracker.pieceCounts[nodeID]
 		}
 		// limit size of bloom filter to ensure we are under the limit for GRPC
-		filter = bloomfilter.NewOptimalMaxSize(numPieces, pt.config.FalsePositiveRate, 2*memory.MiB)
-		pt.retainInfos[nodeID] = &RetainInfo{
+		filter = bloomfilter.NewOpieceTrackerimalMaxSize(numPieces, pieceTracker.config.FalsePositiveRate, 2*memory.MiB)
+		pieceTracker.retainInfos[nodeID] = &RetainInfo{
 			Filter:       filter,
-			CreationDate: pt.creationDate,
+			CreationDate: pieceTracker.creationDate,
 		}
 	}
 
-	pt.retainInfos[nodeID].Filter.Add(pieceID)
-	pt.retainInfos[nodeID].Count++
+	pieceTracker.retainInfos[nodeID].Filter.Add(pieceID)
+	pieceTracker.retainInfos[nodeID].Count++
 }
