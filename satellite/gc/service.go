@@ -108,22 +108,20 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 
 	limiter := sync2.NewLimiter(service.config.ConcurrentSends)
 	for id, retainInfo := range obs.retainInfos {
-		service.sendRetainFromLimiter(ctx, id, retainInfo, limiter)
+		func(id storj.NodeID, retainInfo *RetainInfo) {
+			limiter.Go(ctx, func() {
+				err := service.sendRetainRequest(ctx, id, retainInfo)
+				if err != nil {
+					service.log.Error("error sending retain info", zap.Error(err))
+				}
+			})
+		}(id, retainInfo)
 	}
 	limiter.Wait()
 
 	service.lastPieceCounts = service.pieceCounts
 
 	return nil
-}
-
-func (service *Service) sendRetainFromLimiter(ctx context.Context, id storj.NodeID, retainInfo *RetainInfo, limiter *sync2.Limiter) {
-	limiter.Go(ctx, func() {
-		err := service.sendRetainRequest(ctx, id, retainInfo)
-		if err != nil {
-			service.log.Error("error sending retain info", zap.Error(err))
-		}
-	})
 }
 
 func (service *Service) sendRetainRequest(
