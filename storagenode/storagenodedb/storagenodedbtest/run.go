@@ -25,7 +25,7 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 
 		log := zaptest.NewLogger(t)
 
-		db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+		db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 		if err != nil {
 			t.Fatal(err)
 		}

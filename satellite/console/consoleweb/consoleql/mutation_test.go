@@ -79,11 +79,12 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 			Password: "123a123",
 		}
+		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
 		require.NoError(t, err)
 		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
@@ -350,7 +351,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Email:    "u1@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser1.Secret)
+		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -376,7 +377,7 @@ func TestGrapqhlMutation(t *testing.T) {
 				Email:    "u2@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser2.Secret)
+		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {

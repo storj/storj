@@ -66,7 +66,7 @@
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Button from '@/components/common/Button.vue';
-    import { removeToken } from '@/utils/tokenManager';
+    import { AuthToken } from '@/utils/authToken';
     import { APP_STATE_ACTIONS, USER_ACTIONS, NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
     import { RequestResponse } from '@/types/response';
 
@@ -102,7 +102,7 @@
             }
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account was successfully deleted');
-            removeToken();
+            AuthToken.remove();
 
             this.isLoading = false;
             this.$router.push('/login');

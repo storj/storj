@@ -14,5 +14,4 @@
 /pkg/datarepair/ @jenlij
 
 # kademlia
-/pkg/dht/ @jenlij
 /pkg/kademlia/ @jenlij

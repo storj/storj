@@ -36,7 +36,7 @@ func TestAuditSegment(t *testing.T) {
 		// change limit in library to 5 in
 		// list api call, default is  0 == 1000 listing
 		//populate metainfo with 10 non-expired pointers of test data
-		tests, cursor, metainfo := populateTestData(t, planet, time.Now().Add(3*time.Second))
+		tests, cursor, metainfoSvc := populateTestData(t, planet, time.Now().Add(3*time.Second))
 
 		t.Run("NextStripe", func(t *testing.T) {
 			for _, tt := range tests {
@@ -54,7 +54,7 @@ func TestAuditSegment(t *testing.T) {
 
 		// test to see how random paths are
 		t.Run("probabilisticTest", func(t *testing.T) {
-			list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
+			list, _, err := metainfoSvc.List(ctx, "", "", "", true, 10, meta.None)
 			require.NoError(t, err)
 			require.Len(t, list, 10)
 
@@ -112,9 +112,9 @@ func TestDeleteExpired(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		//populate metainfo with 10 expired pointers of test data
-		_, cursor, metainfo := populateTestData(t, planet, time.Now().Add(-time.Second*1))
+		_, cursor, metainfoSvc := populateTestData(t, planet, time.Now().Add(-time.Second*1))
 		//make sure it they're in there
-		list, _, err := metainfo.List(ctx, "", "", "", true, 10, meta.None)
+		list, _, err := metainfoSvc.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 10)
 		// make sure an error and no pointer is returned
@@ -124,7 +124,7 @@ func TestDeleteExpired(t *testing.T) {
 			require.Nil(t, stripe)
 		})
 		//make sure it they're not in there anymore
-		list, _, err = metainfo.List(ctx, "", "", "", true, 10, meta.None)
+		list, _, err = metainfoSvc.List(ctx, "", "", "", true, 10, meta.None)
 		require.NoError(t, err)
 		require.Len(t, list, 0)
 	})
@@ -149,23 +149,23 @@ func populateTestData(t *testing.T, planet *testplanet.Planet, expiration time.T
 		{bm: "success-9", path: "Pictures/Animals/Dogs/dogs.png"},
 		{bm: "success-10", path: "Nada/ビデオ/😶"},
 	}
-	metainfo := planet.Satellites[0].Metainfo.Service
-	cursor := audit.NewCursor(metainfo)
+	metainfoSvc := planet.Satellites[0].Metainfo.Service
+	cursor := audit.NewCursor(metainfoSvc)
 
-	// put 10 pointers in db with expirations
+	// put 10 pointers in db with expiration
 	t.Run("putToDB", func(t *testing.T) {
 		for _, tt := range tests {
 			test := tt
 			t.Run(test.bm, func(t *testing.T) {
-				pointer := makePointer(test.path, expiration)
-				require.NoError(t, metainfo.Put(ctx, test.path, pointer))
+				pointer := makePointer(expiration)
+				require.NoError(t, metainfoSvc.Put(ctx, test.path, pointer))
 			})
 		}
 	})
-	return tests, cursor, metainfo
+	return tests, cursor, metainfoSvc
 }
 
-func makePointer(path storj.Path, expiration time.Time) *pb.Pointer {
+func makePointer(expiration time.Time) *pb.Pointer {
 	var rps []*pb.RemotePiece
 	rps = append(rps, &pb.RemotePiece{
 		PieceNum: 1,

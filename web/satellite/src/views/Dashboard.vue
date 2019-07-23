@@ -24,7 +24,7 @@ import {AppState} from "../utils/constants/appStateEnum";
     import { Component, Vue } from 'vue-property-decorator';
     import DashboardHeader from '@/components/header/Header.vue';
     import NavigationArea from '@/components/navigation/NavigationArea.vue';
-    import { removeToken } from '@/utils/tokenManager';
+    import { AuthToken } from '@/utils/authToken';
     import {
         API_KEYS_ACTIONS,
         APP_STATE_ACTIONS,
@@ -50,7 +50,7 @@ import {AppState} from "../utils/constants/appStateEnum";
                 this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                 this.$router.push(ROUTES.LOGIN);
-                removeToken();
+                AuthToken.remove();
 
                 return;
             }

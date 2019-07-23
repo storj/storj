@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testplanet"
+	"storj.io/storj/internal/testrand"
 	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/overlay"
@@ -25,7 +26,7 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
-func TestVouchersDB(t *testing.T) {
+func TestDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -250,6 +251,33 @@ func TestVerifyVoucher(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		}
+	})
+}
+
+func TestDB_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID := testrand.NodeID()
+
+		{ // Ensure Put works at all
+			err := db.Vouchers().Put(ctx, &pb.Voucher{
+				SatelliteId: satelliteID,
+				Expiration:  time.Now(),
+			})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure NeedVoucher works at all
+			_, err := db.Vouchers().NeedVoucher(ctx, satelliteID, time.Hour)
+			require.NoError(t, err)
+		}
+
+		{ // Ensure GetValid works at all
+			_, err := db.Vouchers().GetAll(ctx)
+			require.NoError(t, err)
 		}
 	})
 }
