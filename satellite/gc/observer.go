@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/bloomfilter"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -72,7 +73,8 @@ func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID 
 		if observer.pieceCounts[nodeID] > 0 {
 			numPieces = observer.pieceCounts[nodeID]
 		}
-		filter = bloomfilter.NewOptimal(numPieces, observer.config.FalsePositiveRate)
+		// limit size of bloom filter to ensure we are under the limit for GRPC
+		filter = bloomfilter.NewOptimalMaxSize(numPieces, observer.config.FalsePositiveRate, 2*memory.MiB)
 		observer.retainInfos[nodeID] = &RetainInfo{
 			Filter:       filter,
 			CreationDate: observer.creationDate,
