@@ -16,8 +16,8 @@ import (
 //export new_encryption_access
 // new_encryption_access creates an encryption access context
 func new_encryption_access(cerr **C.char) C.EncryptionAccessRef {
-	return C.EncryptionAccessRef {
-		_handle:  universe.Add(libuplink.NewEncryptionAccess()),
+	return C.EncryptionAccessRef{
+		_handle: universe.Add(libuplink.NewEncryptionAccess()),
 	}
 }
 
