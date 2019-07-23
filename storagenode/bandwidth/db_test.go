@@ -220,7 +220,7 @@ func TestBandwidthRollup(t *testing.T) {
 		// Make sure get the same results as above
 		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-24), now)
 		require.NoError(t, err)
-		require.Equal(t, int64(27), usage.Total())
+		require.Equal(t, int64(45), usage.Total())
 
 		// Add more data to test the Summary calculates the bandwidth across both tables.
 		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_PUT, 8, now.Add(time.Hour*-2))
@@ -232,16 +232,16 @@ func TestBandwidthRollup(t *testing.T) {
 
 		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-24), now)
 		require.NoError(t, err)
-		require.Equal(t, int64(54), usage.Total())
+		require.Equal(t, int64(72), usage.Total())
 
-		usageBySatellite, err := db.Bandwidth().SummaryBySatellite(ctx, now.Add(time.Hour*-48), now)
+		usageBySatellite, err := db.Bandwidth().SummaryBySatellite(ctx, now.Add(time.Hour*-49), now)
 		require.NoError(t, err)
 		for k := range usageBySatellite {
 			switch k {
 			case testID1:
-				require.Equal(t, int64(9), usageBySatellite[testID1].Total())
+				require.Equal(t, int64(15), usageBySatellite[testID1].Total())
 			case testID2:
-				require.Equal(t, int64(18), usageBySatellite[testID2].Total())
+				require.Equal(t, int64(36), usageBySatellite[testID2].Total())
 			case testID3:
 				require.Equal(t, int64(27), usageBySatellite[testID3].Total())
 			default:
