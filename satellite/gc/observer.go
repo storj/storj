@@ -66,7 +66,7 @@ func (observer *Observer) add(ctx context.Context, nodeID storj.NodeID, pieceID 
 
 	if _, ok := observer.retainInfos[nodeID]; !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
-		numPieces := int(observer.config.InitialPieces)
+		numPieces := observer.config.InitialPieces
 		if observer.pieceCounts[nodeID] > 0 {
 			numPieces = observer.pieceCounts[nodeID]
 		}

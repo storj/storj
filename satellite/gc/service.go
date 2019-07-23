@@ -33,9 +33,9 @@ type Config struct {
 	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"168h" devDefault:"10m"`
 	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 	// value for InitialPieces currently based on average pieces per node
-	InitialPieces     int64   `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
+	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64 `help:"the false positive rate used for creating a filter" releaseDefault:"0.1" devDefault:"0.1"`
-	ConcurrentSends   int64   `help:"the number of nodes to concurrently send bloom filters to" releaseDefault:"1" devDefault:"1"`
+	ConcurrentSends   int     `help:"the number of nodes to concurrently send bloom filters to" releaseDefault:"1" devDefault:"1"`
 }
 
 // Service implements the garbage collection service
@@ -106,7 +106,7 @@ func (service *Service) Send(ctx context.Context, obs *Observer) (err error) {
 
 	service.pieceCounts = make(map[storj.NodeID]int)
 
-	limiter := sync2.NewLimiter(int(service.config.ConcurrentSends))
+	limiter := sync2.NewLimiter(service.config.ConcurrentSends)
 	for id, retainInfo := range obs.retainInfos {
 		service.sendRetainFromLimiter(ctx, id, retainInfo, limiter)
 	}
