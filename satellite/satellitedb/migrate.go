@@ -1019,6 +1019,31 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_metainfos ADD COLUMN partner_id BYTEA`,
 				},
 			},
+			{
+				Description: "Add pending audit path",
+				Version:     46,
+				Action: migrate.SQL{
+					`DELETE FROM pending_audits;`, // clearing pending_audits is the least-bad choice to deal with the added 'path' column
+					`ALTER TABLE pending_audits ADD COLUMN path bytea NOT NULL;`,
+					`UPDATE nodes SET contained = false;`,
+				},
+			},
+			{
+				Description: "Modify default offers configuration",
+				Version:     47,
+				Action: migrate.SQL{
+					`UPDATE offers SET
+						award_credit_duration_days = 365,
+						invitee_credit_duration_days = 14
+						WHERE type=2 AND status=1 AND id=1`,
+					`UPDATE offers SET
+						invitee_credit_duration_days = 14,
+						award_credit_duration_days = NULL,
+						award_credit_in_cents = 0,
+						invitee_credit_in_cents = 300
+						WHERE type=1 AND status=1 AND id=2;`,
+				},
+			},
 		},
 	}
 }

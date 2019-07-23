@@ -117,6 +117,13 @@ func (m *lockedBuckets) ListBuckets(ctx context.Context, projectID uuid.UUID, li
 	return m.db.ListBuckets(ctx, projectID, listOpts, allowedBuckets)
 }
 
+// UpdateBucket updates an existing bucket
+func (m *lockedBuckets) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateBucket(ctx, bucket)
+}
+
 // CertDB returns database for storing uplink's public key & ID
 func (m *locked) CertDB() certdb.DB {
 	m.Lock()
@@ -571,7 +578,7 @@ type lockedUserCredits struct {
 	db console.UserCredits
 }
 
-func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) (*console.UserCredit, error) {
+func (m *lockedUserCredits) Create(ctx context.Context, userCredit console.UserCredit) error {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.Create(ctx, userCredit)
@@ -741,11 +748,11 @@ func (m *lockedIrreparable) Get(ctx context.Context, segmentPath []byte) (*pb.Ir
 	return m.db.Get(ctx, segmentPath)
 }
 
-// GetLimited number of segments from offset
-func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, offset int64) ([]*pb.IrreparableSegment, error) {
+// GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved
+func (m *lockedIrreparable) GetLimited(ctx context.Context, limit int, lastSeenSegmentPath []byte) ([]*pb.IrreparableSegment, error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.GetLimited(ctx, limit, offset)
+	return m.db.GetLimited(ctx, limit, lastSeenSegmentPath)
 }
 
 // IncrementRepairAttempts increments the repair attempts.
@@ -886,7 +893,7 @@ func (m *lockedOverlayCache) Paginate(ctx context.Context, offset int64, limit i
 	return m.db.Paginate(ctx, offset, limit)
 }
 
-// Paginate will page through the database nodes
+// PaginateQualified will page through the qualified nodes
 func (m *lockedOverlayCache) PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error) {
 	m.Lock()
 	defer m.Unlock()

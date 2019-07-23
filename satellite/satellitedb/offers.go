@@ -70,9 +70,15 @@ func (db *offersDB) GetCurrentByType(ctx context.Context, offerType rewards.Offe
 	}
 	o.AwardCredit = currency.Cents(awardCreditInCents)
 	o.InviteeCredit = currency.Cents(inviteeCreditInCents)
-	o.RedeemableCap = int(redeemableCap.Int64)
-	o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
-	o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
+	if redeemableCap.Valid {
+		o.RedeemableCap = int(redeemableCap.Int64)
+	}
+	if awardCreditDurationDays.Valid {
+		o.AwardCreditDurationDays = int(awardCreditDurationDays.Int64)
+	}
+	if inviteeCreditDurationDays.Valid {
+		o.InviteeCreditDurationDays = int(inviteeCreditDurationDays.Int64)
+	}
 
 	return &o, nil
 }
@@ -163,6 +169,7 @@ func offersFromDBX(offersDbx []*dbx.Offer) (rewards.Offers, error) {
 
 	return offers, errList.Err()
 }
+
 func convertDBOffer(offerDbx *dbx.Offer) (*rewards.Offer, error) {
 	if offerDbx == nil {
 		return nil, offerErr.New("offerDbx parameter is nil")

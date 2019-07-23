@@ -109,3 +109,39 @@ func SignVoucher(ctx context.Context, signer Signer, unsigned *pb.Voucher) (_ *p
 
 	return &signed, nil
 }
+
+// SignStreamID signs the stream ID using the specified signer
+// Signer is a satellite
+func SignStreamID(ctx context.Context, signer Signer, unsigned *pb.SatStreamID) (_ *pb.SatStreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeStreamID(ctx, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.SatelliteSignature, err = signer.HashAndSign(ctx, bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &signed, nil
+}
+
+// SignSegmentID signs the segment ID using the specified signer
+// Signer is a satellite
+func SignSegmentID(ctx context.Context, signer Signer, unsigned *pb.SatSegmentID) (_ *pb.SatSegmentID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	bytes, err := EncodeSegmentID(ctx, unsigned)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	signed := *unsigned
+	signed.SatelliteSignature, err = signer.HashAndSign(ctx, bytes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return &signed, nil
+}

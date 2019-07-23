@@ -11,9 +11,10 @@
         <input
             :class="{'inputError' : error}"
             @input="onInput"
-            :placeholder="placeholder"
+            @change="onInput"
             v-model="value"
-            :type="[isPassword ? passwordType : textType]"
+            :placeholder="placeholder"
+            :type="type"
             :style="style.inputStyle"/>
         <!--2 conditions of eye image (crossed or not) -->
         <svg v-if="isPassword && !isPasswordShown" v-on:click="changeVision()" width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,75 +36,81 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
 
     // Custom input component for login page
-    @Component({
-        data: () => {
-            return {
-                value: '',
-                textType: 'text',
-                passwordType: 'password',
-                isPasswordShown: false
-            };
-        },
-        methods: {
-            // Emits data to parent component
-            onInput: function(): void {
-                this.$emit('setData', this.$data.value);
-            },
-            // Change condition of password visibility
-            changeVision: function(): void {
-                this.$data.isPasswordShown = !this.$data.isPasswordShown;
-                if (this.$props.isPassword) this.$data.passwordType = this.$data.passwordType == 'password' ? 'text' : 'password';
-            },
-            setValue(value: string) {
-                this.$data.value = value;
+    @Component
+    export default class HeaderlessInput extends Vue {
+        private readonly textType: string = 'text';
+        private readonly passwordType: string = 'password';
+
+        private type: string = this.textType;
+        private isPasswordShown: boolean = false;
+
+        protected value: string = '';
+
+        @Prop({default: ''})
+        protected readonly label: string;
+        @Prop({default: 'default'})
+        protected readonly placeholder: string;
+        @Prop({default: false})
+        protected readonly isPassword: boolean;
+        @Prop({default: '48px'})
+        protected readonly height: string;
+        @Prop({default: '100%'})
+        protected readonly width: string;
+        @Prop({default: ''})
+        protected readonly error: string;
+        @Prop({default: Number.MAX_SAFE_INTEGER})
+        protected readonly maxSymbols: number;
+
+        @Prop({default: false})
+        private readonly isWhite: boolean;
+
+        public constructor() {
+            super();
+
+            this.type = this.isPassword ? this.passwordType : this.textType;
+        }
+
+        // Used to set default value from parent component
+        public setValue(value: string): void {
+            this.value = value;
+        }
+
+        // triggers on input
+        public onInput({ target }): void {
+            if (target.value.length > this.maxSymbols) {
+                this.value = target.value.slice(0, this.maxSymbols);
+            } else {
+                this.value = target.value;
             }
-        },
-        props: {
-            placeholder: {
-                type: String,
-                default: 'default'
-            },
-            isPassword: {
-                type: Boolean,
-                default: false
-            },
-            height: {
-                type: String,
-                default: '48px'
-            },
-            width: {
-                type: String,
-                default: '100%'
-            },
-            isWhite: {
-                type: Boolean,
-                default: false
-            },
-            label: String,
-            error: String
-        },
-        computed: {
-            style: function () {
-                return {
-                    inputStyle: {
-                        width: this.$props.width,
-                        height: this.$props.height
-                    },
-                    labelStyle: {
-                        color: this.$props.isWhite ? 'white' : '#354049'
-                    },
-                    errorStyle: {
-                        color: this.$props.isWhite ? 'white' : '#FF5560'
-                    },
-                };
+
+            this.$emit('setData', this.value);
+        }
+
+        private changeVision(): void {
+            this.isPasswordShown = !this.isPasswordShown;
+            if (this.isPasswordShown) {
+                this.type = this.type == this.passwordType ? this.textType : this.passwordType;
             }
         }
-    })
 
-    export default class HeaderlessInput extends Vue {}
+        protected get style(): object {
+            return {
+                inputStyle: {
+                    width: this.width,
+                    height: this.height
+                },
+                labelStyle: {
+                    color: this.isWhite ? 'white' : '#354049'
+                },
+                errorStyle: {
+                    color: this.isWhite ? 'white' : '#FF5560'
+                },
+            };
+        }
+    }
 </script>
 
 <style scoped lang="scss">
@@ -172,7 +179,7 @@
     
         svg {
             position: absolute;
-            right: 15px;
+            right: 25px;
             bottom: 5px;
             transform: translateY(-50%);
             z-index: 20;

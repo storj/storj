@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/internal/teststorj"
 	"storj.io/storj/pkg/auth/signing"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -27,6 +28,83 @@ import (
 
 func TestDatabase(t *testing.T) {
 	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+	})
+}
+
+func TestBandwidthRollup(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ctx.Check(db.Close)
+
+	t.Run("Sqlite", func(t *testing.T) {
+		err := db.CreateTables()
+		if err != nil {
+			t.Fatal(err)
+		}
+		testID1 := teststorj.NodeIDFromString("testId1")
+		testID2 := teststorj.NodeIDFromString("testId2")
+		testID3 := teststorj.NodeIDFromString("testId3")
+
+		// Create data for an hour ago so we can rollup
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_PUT, 2, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET, 3, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET_AUDIT, 4, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_PUT, 5, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET, 6, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET_AUDIT, 7, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+
+		usage, err := db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		require.NoError(t, err)
+		require.Equal(t, int64(27), usage.Total())
+
+		//err = db.Bandwidth().Rollup(ctx)
+		//require.NoError(t, err)
+
+		// After rollup, the totals should still be the same
+		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		require.NoError(t, err)
+		require.Equal(t, int64(27), usage.Total())
+
+		// Add more data to test the Summary calculates the bandwidth across both tables.
+		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_PUT, 8, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_GET, 9, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_GET_AUDIT, 10, time.Now().Add(time.Hour*-2))
+		require.NoError(t, err)
+
+		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		require.NoError(t, err)
+		require.Equal(t, int64(54), usage.Total())
+
+		usageBySatellite, err := db.Bandwidth().SummaryBySatellite(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		require.NoError(t, err)
+		for k := range usageBySatellite {
+			switch k {
+			case testID1:
+				require.Equal(t, int64(9), usageBySatellite[testID1].Total())
+			case testID2:
+				require.Equal(t, int64(18), usageBySatellite[testID2].Total())
+			case testID3:
+				require.Equal(t, int64(27), usageBySatellite[testID3].Total())
+			default:
+				require.Fail(t, "Found satellite usage when that shouldn't be there.")
+			}
+		}
 	})
 }
 
@@ -55,7 +133,7 @@ func TestInMemoryConcurrency(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.NewInMemory(log, ctx.Dir("storage"))
+	db, err := storagenodedb.NewTest(log, ctx.Dir("storage"))
 	if err != nil {
 		t.Fatal(err)
 	}

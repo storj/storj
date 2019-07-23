@@ -21,7 +21,7 @@ const (
 )
 
 // rootQuery creates query for graphql
-func rootQuery(service *bootstrapweb.Service, types Types) *graphql.Object {
+func rootQuery(service *bootstrapweb.Service) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: Query,
 		Fields: graphql.Fields{

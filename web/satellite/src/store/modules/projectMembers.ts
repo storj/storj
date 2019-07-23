@@ -8,6 +8,8 @@ import {
     fetchProjectMembersRequest
 } from '@/api/projectMembers';
 import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+import { TeamMember } from '@/types/teamMembers';
+import { RequestResponse } from '@/types/response';
 
 export const projectMembersModule = {
     state: {
@@ -95,9 +97,9 @@ export const projectMembersModule = {
         clearProjectMemberSelection: function ({commit}: any) {
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR_SELECTION);
         },
-        fetchProjectMembers: async function ({commit, state, rootGetters}: any): Promise<RequestResponse<TeamMemberModel[]>> {
+        fetchProjectMembers: async function ({commit, state, rootGetters}: any): Promise<RequestResponse<TeamMember[]>> {
             const projectId = rootGetters.selectedProject.id;
-            const response: RequestResponse<TeamMemberModel[]> = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
+            const response: RequestResponse<TeamMember[]> = await fetchProjectMembersRequest(projectId, state.pagination.limit, state.pagination.offset,
                 state.searchParameters.sortBy, state.searchParameters.searchQuery);
 
             if (response.isSuccess) {
@@ -115,21 +117,21 @@ export const projectMembersModule = {
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
         },
-        setProjectMembersSearchQuery: function ({commit, dispatch}, searchQuery: string) {
+        setProjectMembersSearchQuery: function ({commit, dispatch}, searchQuery: string): void {
             commit(PROJECT_MEMBER_MUTATIONS.SET_SEARCH_QUERY, searchQuery);
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
         },
-        clearProjectMembers: function ({commit}: any) {
+        clearProjectMembers: function ({commit}: any): void {
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR);
         },
-        clearProjectMembersOffset: function ({commit}) {
+        clearProjectMembersOffset: function ({commit}): void {
             commit(PROJECT_MEMBER_MUTATIONS.CLEAR_OFFSET);
         }
     },
     getters: {
-        projectMembers: (state: any) => state.projectMembers,
-        projectMembersCountGetter: (state: any) => state.projectMembersCount,
-        selectedProjectMembers: (state: any) => state.projectMembers.filter((member: any) => member.isSelected),
+        projectMembers: (state: any): TeamMember[] => state.projectMembers,
+        projectMembersCount: (state: any): number => state.projectMembersCount,
+        selectedProjectMembers: (state: any): TeamMember[] => state.projectMembers.filter((member: TeamMember) => member.isSelected),
     },
 };
