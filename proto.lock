@@ -4543,6 +4543,11 @@
                 "name": "vouchers",
                 "type": "vouchers.Voucher",
                 "is_repeated": true
+              },
+              {
+                "id": 6,
+                "name": "antechamber_limit",
+                "type": "int64"
               }
             ]
           },

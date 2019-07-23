@@ -22,6 +22,7 @@ message QueryRequest {
     int64 limit = 3;
     bool pingback = 4;
     repeated vouchers.Voucher vouchers = 5;
+    int64 antechamber_limit = 6;
 }
 
 message QueryResponse {
