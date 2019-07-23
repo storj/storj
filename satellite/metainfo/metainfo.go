@@ -961,7 +961,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		pbEP.BlockSize = int64(bucket.DefaultEncryptionParameters.BlockSize)
 	}
 
-	satStreamID := &pb.SatStreamID{
+	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
 		Bucket:                 req.Bucket,
 		EncryptedPath:          req.EncryptedPath,
 		Version:                req.Version,
@@ -970,19 +970,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		ExpirationDate:         req.ExpiresAt,
 		EncryptedMetadataNonce: req.EncryptedMetadataNonce,
 		EncryptedMetadata:      req.EncryptedMetadata,
-	}
-
-	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	encodedStreamID, err := proto.Marshal(satStreamID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -1063,24 +1051,12 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	satStreamID := &pb.SatStreamID{
+	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
 		Bucket:        req.Bucket,
 		EncryptedPath: req.EncryptedPath,
 		Version:       req.Version,
 		CreationDate:  time.Now(),
-	}
-
-	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	encodedStreamID, err := proto.Marshal(satStreamID)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-
-	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+	})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -1611,6 +1587,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	index := int64(req.CursorPosition.Index)
 	more := false
 	segmentItems := make([]*pb.SegmentListItem, 0)
+	// TODO think about better implementation
 	for {
 		path, err := CreatePath(ctx, keyInfo.ProjectID, index, streamID.Bucket, streamID.EncryptedPath)
 		if err != nil {
@@ -1721,7 +1698,29 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	return &pb.SegmentDownloadResponse{}, status.Errorf(codes.Internal, "invalid type of pointer")
 }
 
-func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.SatSegmentID) (storj.SegmentID, error) {
+func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatStreamID) (streamID storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signedStreamID, err := signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	encodedStreamID, err := proto.Marshal(signedStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	streamID, err = storj.StreamIDFromBytes(encodedStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+	return streamID, nil
+}
+
+func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.SatSegmentID) (segmentID storj.SegmentID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	signedSegmentID, err := signing.SignSegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {
 		return nil, err
@@ -1732,16 +1731,18 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.Sa
 		return nil, err
 	}
 
-	segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+	segmentID, err = storj.SegmentIDFromBytes(encodedSegmentID)
 	if err != nil {
 		return nil, err
 	}
 	return segmentID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (*pb.SatStreamID, error) {
+func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (_ *pb.SatStreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	satStreamID := &pb.SatStreamID{}
-	err := proto.Unmarshal(streamID, satStreamID)
+	err = proto.Unmarshal(streamID, satStreamID)
 	if err != nil {
 		return nil, err
 	}
@@ -1758,9 +1759,11 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	return satStreamID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (*pb.SatSegmentID, error) {
+func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *pb.SatSegmentID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	satSegmentID := &pb.SatSegmentID{}
-	err := proto.Unmarshal(segmentID, satSegmentID)
+	err = proto.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
 		return nil, err
 	}
