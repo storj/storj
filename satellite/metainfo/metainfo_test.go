@@ -233,17 +233,17 @@ func TestServiceList(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, planet.Uplinks[0].Log.Named("metainfo"), config, planet.Uplinks[0].Identity)
-	require.NoError(t, err)
-	defer ctx.Check(cleanup)
-
 	type Test struct {
 		Request  storj.ListOptions
 		Expected storj.ObjectList // objects are partial
 	}
 
-	list, err := metainfo.ListObjects(ctx, "testbucket", storj.ListOptions{Recursive: true, Direction: storj.After})
+	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+	project, bucket, err := planet.Uplinks[0].GetProjectAndBucket(ctx, planet.Satellites[0], "testbucket", config)
+	require.NoError(t, err)
+	defer ctx.Check(bucket.Close)
+	defer ctx.Check(project.Close)
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Recursive: true, Direction: storj.After})
 	require.NoError(t, err)
 
 	expected := []storj.Object{
@@ -265,7 +265,7 @@ func TestServiceList(t *testing.T) {
 		require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
 	}
 
-	list, err = metainfo.ListObjects(ctx, "testbucket", storj.ListOptions{Recursive: false, Direction: storj.After})
+	list, err = bucket.ListObjects(ctx, &storj.ListOptions{Recursive: false, Direction: storj.After})
 	require.NoError(t, err)
 
 	expected = []storj.Object{
@@ -641,12 +641,7 @@ func TestSetAttribution(t *testing.T) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
 
-		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
-		require.NoError(t, err)
-		defer ctx.Check(cleanup)
-
-		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionParameters().CipherSuite})
+		err := uplink.CreateBucket(ctx, planet.Satellites[0], "alpha")
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
