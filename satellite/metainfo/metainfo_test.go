@@ -239,8 +239,10 @@ func TestServiceList(t *testing.T) {
 	}
 
 	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	_, bucket, err := planet.Uplinks[0].GetProjectAndBucket(ctx, planet.Satellites[0], "testbucket", config)
+	project, bucket, err := planet.Uplinks[0].GetProjectAndBucket(ctx, planet.Satellites[0], "testbucket", config)
 	require.NoError(t, err)
+	defer ctx.Check(bucket.Close)
+	defer ctx.Check(project.Close)
 	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Recursive: true, Direction: storj.After})
 	require.NoError(t, err)
 

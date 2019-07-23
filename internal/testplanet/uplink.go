@@ -15,7 +15,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/identity"
@@ -134,46 +133,46 @@ func (planet *Planet) newUplink(name string, storageNodeCount int) (*Uplink, err
 }
 
 // ID returns uplink id
-func (planetUplink *Uplink) ID() storj.NodeID { return planetUplink.Info.Id }
+func (client *Uplink) ID() storj.NodeID { return client.Info.Id }
 
 // Addr returns uplink address
-func (planetUplink *Uplink) Addr() string { return planetUplink.Info.Address.Address }
+func (client *Uplink) Addr() string { return client.Info.Address.Address }
 
 // Local returns uplink info
-func (planetUplink *Uplink) Local() pb.Node { return planetUplink.Info }
+func (client *Uplink) Local() pb.Node { return client.Info }
 
 // Shutdown shuts down all uplink dependencies
-func (planetUplink *Uplink) Shutdown() error { return nil }
+func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client
-func (planetUplink *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (*metainfo.Client, error) {
-	return metainfo.Dial(ctx, planetUplink.Transport, destination.Addr(), apikey)
+func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey string) (*metainfo.Client, error) {
+	return metainfo.Dial(ctx, client.Transport, destination.Addr(), apikey)
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
-func (planetUplink *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
+func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
 	node := destination.Local()
-	return piecestore.Dial(ctx, planetUplink.Transport, &node.Node, planetUplink.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, client.Transport, &node.Node, client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
 // Upload data to specific satellite
-func (planetUplink *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
-	return planetUplink.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
+func (client *Uplink) Upload(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte) error {
+	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpiration data to specific satellite and expiration time
-func (planetUplink *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte, expiration time.Time) error {
-	return planetUplink.UploadWithExpirationAndConfig(ctx, satellite, nil, bucket, path, data, expiration)
+func (client *Uplink) UploadWithExpiration(ctx context.Context, satellite *satellite.Peer, bucket string, path storj.Path, data []byte, expiration time.Time) error {
+	return client.UploadWithExpirationAndConfig(ctx, satellite, nil, bucket, path, data, expiration)
 }
 
 // UploadWithConfig uploads data to specific satellite with configured values
-func (planetUplink *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
-	return planetUplink.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
+func (client *Uplink) UploadWithConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucket string, path storj.Path, data []byte) error {
+	return client.UploadWithExpirationAndConfig(ctx, satellite, redundancy, bucket, path, data, time.Time{})
 }
 
 // UploadWithExpirationAndConfig uploads data to specific satellite with configured values and expiration time
-func (planetUplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
-	config := planetUplink.GetConfig(satellite)
+func (client *Uplink) UploadWithExpirationAndConfig(ctx context.Context, satellite *satellite.Peer, redundancy *uplink.RSConfig, bucketName string, path storj.Path, data []byte, expiration time.Time) (err error) {
+	config := client.GetConfig(satellite)
 	if redundancy != nil {
 		if redundancy.MinThreshold > 0 {
 			config.RS.MinThreshold = redundancy.MinThreshold
@@ -192,11 +191,11 @@ func (planetUplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, s
 		}
 	}
 
-	project, bucket, err := planetUplink.GetProjectAndBucket(ctx, satellite, bucketName, config)
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, config)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, project.Close(), bucket.Close()) }()
+	defer func() { err = errs.Combine(err, bucket.Close(), project.Close()) }()
 
 	opts := &libuplink.UploadOptions{}
 	opts.Expires = expiration
@@ -212,8 +211,8 @@ func (planetUplink *Uplink) UploadWithExpirationAndConfig(ctx context.Context, s
 }
 
 // Download data from specific satellite
-func (planetUplink *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) ([]byte, error) {
-	project, bucket, err := planetUplink.GetProjectAndBucket(ctx, satellite, bucketName, planetUplink.GetConfig(satellite))
+func (client *Uplink) Download(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) ([]byte, error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +237,8 @@ func (planetUplink *Uplink) Download(ctx context.Context, satellite *satellite.P
 }
 
 // DownloadStream returns stream for downloading data
-func (planetUplink *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ libuplink.ReadSeekCloser, cleanup func() error, err error) {
-	project, bucket, err := planetUplink.GetProjectAndBucket(ctx, satellite, bucketName, planetUplink.GetConfig(satellite))
+func (client *Uplink) DownloadStream(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) (_ libuplink.ReadSeekCloser, cleanup func() error, err error) {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -257,8 +256,8 @@ func (planetUplink *Uplink) DownloadStream(ctx context.Context, satellite *satel
 }
 
 // Delete deletes an object at the path in a bucket
-func (planetUplink *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) error {
-	project, bucket, err := planetUplink.GetProjectAndBucket(ctx, satellite, bucketName, planetUplink.GetConfig(satellite))
+func (client *Uplink) Delete(ctx context.Context, satellite *satellite.Peer, bucketName string, path storj.Path) error {
+	project, bucket, err := client.GetProjectAndBucket(ctx, satellite, bucketName, client.GetConfig(satellite))
 	if err != nil {
 		return err
 	}
@@ -272,24 +271,19 @@ func (planetUplink *Uplink) Delete(ctx context.Context, satellite *satellite.Pee
 }
 
 // CreateBucket creates a new bucket
-func (planetUplink *Uplink) CreateBucket(ctx context.Context, satellite *satellite.Peer, bucketName string) error {
-	project, err := planetUplink.GetProject(ctx, satellite)
+func (client *Uplink) CreateBucket(ctx context.Context, satellite *satellite.Peer, bucketName string) error {
+	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
 		return err
 	}
 	defer func() { err = errs.Combine(err, project.Close()) }()
 
-	planetUplinkCfg := planetUplink.GetConfig(satellite)
+	clientCfg := client.GetConfig(satellite)
 	bucketCfg := &libuplink.BucketConfig{}
-	bucketCfg.PathCipher = planetUplinkCfg.GetPathCipherSuite()
-	bucketCfg.EncryptionParameters = planetUplinkCfg.GetEncryptionParameters()
-	bucketCfg.Volatile = struct {
-		RedundancyScheme storj.RedundancyScheme
-		SegmentsSize     memory.Size
-	}{
-		RedundancyScheme: planetUplinkCfg.GetRedundancyScheme(),
-		SegmentsSize:     planetUplinkCfg.GetSegmentSize(),
-	}
+	bucketCfg.PathCipher = clientCfg.GetPathCipherSuite()
+	bucketCfg.EncryptionParameters = clientCfg.GetEncryptionParameters()
+	bucketCfg.Volatile.RedundancyScheme = clientCfg.GetRedundancyScheme()
+	bucketCfg.Volatile.SegmentsSize = clientCfg.GetSegmentSize()
 
 	_, err = project.CreateBucket(ctx, bucketName, bucketCfg)
 	if err != nil {
@@ -299,17 +293,17 @@ func (planetUplink *Uplink) CreateBucket(ctx context.Context, satellite *satelli
 }
 
 // GetConfig returns a default config for a given satellite.
-func (planetUplink *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
+func (client *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 	config := getDefaultConfig()
 	config.Client.SatelliteAddr = satellite.Addr()
-	config.Client.APIKey = planetUplink.APIKey[satellite.ID()]
+	config.Client.APIKey = client.APIKey[satellite.ID()]
 	config.Client.RequestTimeout = 10 * time.Second
 	config.Client.DialTimeout = 10 * time.Second
 
-	config.RS.MinThreshold = atLeastOne(planetUplink.StorageNodeCount * 1 / 5)     // 20% of storage nodes
-	config.RS.RepairThreshold = atLeastOne(planetUplink.StorageNodeCount * 2 / 5)  // 40% of storage nodes
-	config.RS.SuccessThreshold = atLeastOne(planetUplink.StorageNodeCount * 3 / 5) // 60% of storage nodes
-	config.RS.MaxThreshold = atLeastOne(planetUplink.StorageNodeCount * 4 / 5)     // 80% of storage nodes
+	config.RS.MinThreshold = atLeastOne(client.StorageNodeCount * 1 / 5)     // 20% of storage nodes
+	config.RS.RepairThreshold = atLeastOne(client.StorageNodeCount * 2 / 5)  // 40% of storage nodes
+	config.RS.SuccessThreshold = atLeastOne(client.StorageNodeCount * 3 / 5) // 60% of storage nodes
+	config.RS.MaxThreshold = atLeastOne(client.StorageNodeCount * 4 / 5)     // 80% of storage nodes
 
 	config.TLS.UsePeerCAWhitelist = false
 	config.TLS.Extensions.Revocation = false
@@ -333,20 +327,14 @@ func atLeastOne(value int) int {
 }
 
 // NewLibuplink creates a libuplink.Uplink object with the testplanet Uplink config
-func (planetUplink *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, error) {
+func (client *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink, error) {
 	config := getDefaultConfig()
 	libuplinkCfg := &libuplink.Config{}
 	libuplinkCfg.Volatile.MaxInlineSize = config.Client.MaxInlineSize
 	libuplinkCfg.Volatile.MaxMemory = config.RS.MaxBufferMem
 	libuplinkCfg.Volatile.PeerIDVersion = config.TLS.PeerIDVersions
-	libuplinkCfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: !config.TLS.UsePeerCAWhitelist,
-		PeerCAWhitelistPath: config.TLS.PeerCAWhitelistPath,
-	}
-
+	libuplinkCfg.Volatile.TLS.SkipPeerCAWhitelist = !config.TLS.UsePeerCAWhitelist
+	libuplinkCfg.Volatile.TLS.PeerCAWhitelistPath = config.TLS.PeerCAWhitelistPath
 	libuplinkCfg.Volatile.DialTimeout = config.Client.DialTimeout
 	libuplinkCfg.Volatile.RequestTimeout = config.Client.RequestTimeout
 
@@ -354,53 +342,60 @@ func (planetUplink *Uplink) NewLibuplink(ctx context.Context) (*libuplink.Uplink
 }
 
 // GetProject returns a libuplink.Project which allows interactions with a specific project
-func (planetUplink *Uplink) GetProject(ctx context.Context, satellite *satellite.Peer) (*libuplink.Project, error) {
-	testLibuplink, err := planetUplink.NewLibuplink(ctx)
+func (client *Uplink) GetProject(ctx context.Context, satellite *satellite.Peer) (*libuplink.Project, error) {
+	testLibuplink, err := client.NewLibuplink(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, testLibuplink.Close()) }()
-	planetUplinkAPIKey := planetUplink.APIKey[satellite.ID()]
-	key, err := libuplink.ParseAPIKey(planetUplinkAPIKey)
+
+	clientAPIKey := client.APIKey[satellite.ID()]
+	key, err := libuplink.ParseAPIKey(clientAPIKey)
 	if err != nil {
 		return nil, err
 	}
 
 	project, err := testLibuplink.OpenProject(ctx, satellite.Addr(), key)
 	if err != nil {
-		return nil, errs.Combine(err, testLibuplink.Close())
+		return nil, err
 	}
 	return project, nil
 }
 
 // GetProjectAndBucket returns a libuplink.Project and Bucket which allows interactions with a specific project and its buckets
-func (planetUplink *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satellite.Peer, bucketName string, planetUplinkCfg uplink.Config) (*libuplink.Project, *libuplink.Bucket, error) {
-	project, err := planetUplink.GetProject(ctx, satellite)
+func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satellite.Peer, bucketName string, clientCfg uplink.Config) (_ *libuplink.Project, _ *libuplink.Bucket, err error) {
+	project, err := client.GetProject(ctx, satellite)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, planetUplinkCfg.Enc)
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, project.Close())
+		}
+	}()
+
+	access, err := setup.LoadEncryptionAccess(ctx, clientCfg.Enc)
 	if err != nil {
-		return nil, nil, errs.Combine(err, project.Close())
+		return nil, nil, err
 	}
 
 	// Check if the bucket exists, if not then create it
 	_, _, err = project.GetBucketInfo(ctx, bucketName)
 	if err != nil {
 		if storj.ErrBucketNotFound.Has(err) {
-			err := createBucket(ctx, planetUplinkCfg, *project, bucketName)
+			err := createBucket(ctx, clientCfg, *project, bucketName)
 			if err != nil {
-				return nil, nil, errs.Combine(err, project.Close())
+				return nil, nil, err
 			}
 		} else {
-			return nil, nil, errs.Combine(err, project.Close())
+			return nil, nil, err
 		}
 	}
 
 	bucket, err := project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
-		return nil, nil, errs.Combine(err, project.Close())
+		return nil, nil, err
 	}
 
 	return project, bucket, nil
@@ -410,13 +405,9 @@ func createBucket(ctx context.Context, config uplink.Config, project libuplink.P
 	bucketCfg := &libuplink.BucketConfig{}
 	bucketCfg.PathCipher = config.GetPathCipherSuite()
 	bucketCfg.EncryptionParameters = config.GetEncryptionParameters()
-	bucketCfg.Volatile = struct {
-		RedundancyScheme storj.RedundancyScheme
-		SegmentsSize     memory.Size
-	}{
-		RedundancyScheme: config.GetRedundancyScheme(),
-		SegmentsSize:     config.GetSegmentSize(),
-	}
+	bucketCfg.Volatile.RedundancyScheme = config.GetRedundancyScheme()
+	bucketCfg.Volatile.SegmentsSize = config.GetSegmentSize()
+
 	_, err := project.CreateBucket(ctx, bucketName, bucketCfg)
 	if err != nil {
 		return err
