@@ -228,7 +228,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	pointer.GetRemote().RemotePieces = healthyPieces
 
 	// Update the segment pointer in the metainfo
-	return repairer.metainfo.Put(ctx, path, pointer)
+	return Error.Wrap(repairer.metainfo.Put(ctx, path, pointer))
 }
 
 // sliceToSet converts the given slice to a set
