@@ -4,7 +4,6 @@
 package postgreskv
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -332,58 +331,85 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		return storage.ErrEmptyKey.New("")
 	}
 
-	tx, err := client.pgConn.BeginTx(ctx, nil)
-	if err != nil {
-		return Error.Wrap(err)
+	if oldValue == nil && newValue == nil {
+		q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key))
+		var val []byte
+		err = row.Scan(&val)
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		return storage.ErrValueChanged.New(key.String())
 	}
 
-	q := "SELECT metadata FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA FOR UPDATE"
-	row := tx.QueryRow(q, []byte(bucket), []byte(key))
-	var val []byte
-	err = row.Scan(&val)
-	if err == sql.ErrNoRows {
-		// no row selected, so no need for transaction
-		txErr := Error.Wrap(tx.Commit())
-
-		if oldValue != nil {
-			return errs.Combine(storage.ErrKeyNotFound.New(key.String()), txErr)
-		}
-
-		if newValue == nil {
-			return txErr
-		}
-
+	if oldValue == nil {
 		q := `INSERT INTO pathdata (bucket, fullpath, metadata) VALUES ($1::BYTEA, $2::BYTEA, $3::BYTEA)`
 		_, err = client.pgConn.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
 		if err, ok := err.(*pq.Error); ok {
 			if err.Code == "23505" { // unique_violation
-				return errs.Combine(storage.ErrValueChanged.New(key.String()), txErr)
+				return storage.ErrValueChanged.New(key.String())
 			}
 		}
-		return txErr
-	}
-	if err != nil {
-		return Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-
-	if !bytes.Equal(val, oldValue) {
-		return errs.Combine(storage.ErrValueChanged.New(key.String()), tx.Rollback())
+		return Error.Wrap(err)
 	}
 
 	if newValue == nil {
-		q := "DELETE FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA"
-		_, err := tx.Exec(q, []byte(bucket), []byte(key))
+		q := `
+		WITH matching_key AS (
+			SELECT * FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA
+		), updated AS (
+			DELETE FROM pathdata
+				USING matching_key mk
+				WHERE pathdata.metadata = $3::BYTEA
+					AND pathdata.bucket = mk.bucket
+					AND pathdata.fullpath = mk.fullpath
+				RETURNING 1
+		)
+		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated
+		`
+		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
+		var keyPresent, valueUpdated bool
+		err = row.Scan(&keyPresent, &valueUpdated)
 		if err != nil {
-			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+			return Error.Wrap(err)
 		}
-		return Error.Wrap(tx.Commit())
+		if !keyPresent {
+			return storage.ErrKeyNotFound.New(key.String())
+		}
+		if !valueUpdated {
+			return storage.ErrValueChanged.New(key.String())
+		}
+		return nil
 	}
 
-	q = `UPDATE pathdata SET metadata = $3::BYTEA WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA`
-	_, err = tx.Exec(q, []byte(bucket), []byte(key), []byte(newValue))
+	q := `
+	WITH matching_key AS (
+		SELECT * FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA
+	), updated AS (
+		UPDATE pathdata
+			SET metadata = $4::BYTEA
+			FROM matching_key mk
+			WHERE pathdata.metadata = $3::BYTEA
+				AND pathdata.bucket = mk.bucket
+				AND pathdata.fullpath = mk.fullpath
+			RETURNING 1
+	)
+	SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated;
+	`
+	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
+	var keyPresent, valueUpdated bool
+	err = row.Scan(&keyPresent, &valueUpdated)
 	if err != nil {
-		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		return Error.Wrap(err)
 	}
-
-	return Error.Wrap(tx.Commit())
+	if !keyPresent {
+		return storage.ErrKeyNotFound.New(key.String())
+	}
+	if !valueUpdated {
+		return storage.ErrValueChanged.New(key.String())
+	}
+	return nil
 }
