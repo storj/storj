@@ -83,7 +83,7 @@ func (lookup *peerDiscovery) Run(ctx context.Context) (_ []*pb.Node, err error) 
 				}
 				lookup.cond.L.Unlock()
 
-				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, lookup.target, lookup.k)
+				neighbors, err := lookup.dialer.Lookup(ctx, lookup.self, *next, lookup.target, lookup.k, lookup.antechamberLimit)
 				if err != nil {
 					lookup.queue.QueryFailure(next)
 					if !isDone(ctx) {
