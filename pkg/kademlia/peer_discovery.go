@@ -18,26 +18,28 @@ import (
 type peerDiscovery struct {
 	log *zap.Logger
 
-	dialer      *kademliaclient.Dialer
-	self        *pb.Node
-	target      storj.NodeID
-	k           int
-	concurrency int
+	dialer           *kademliaclient.Dialer
+	self             *pb.Node
+	target           storj.NodeID
+	k                int
+	antechamberLimit int
+	concurrency      int
 
 	cond  sync.Cond
 	queue discoveryQueue
 }
 
-func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target storj.NodeID, startingNodes []*pb.Node, k, alpha int, self *pb.Node) *peerDiscovery {
+func newPeerDiscovery(log *zap.Logger, dialer *kademliaclient.Dialer, target storj.NodeID, startingNodes []*pb.Node, k, antechamberLimit, alpha int, self *pb.Node) *peerDiscovery {
 	discovery := &peerDiscovery{
-		log:         log,
-		dialer:      dialer,
-		self:        self,
-		target:      target,
-		k:           k,
-		concurrency: alpha,
-		cond:        sync.Cond{L: &sync.Mutex{}},
-		queue:       *newDiscoveryQueue(target, k),
+		log:              log,
+		dialer:           dialer,
+		self:             self,
+		target:           target,
+		k:                k,
+		antechamberLimit: antechamberLimit,
+		concurrency:      alpha,
+		cond:             sync.Cond{L: &sync.Mutex{}},
+		queue:            *newDiscoveryQueue(target, k),
 	}
 	discovery.queue.Insert(startingNodes...)
 	return discovery
