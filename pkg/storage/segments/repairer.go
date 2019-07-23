@@ -216,16 +216,17 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
 	// if partial repair, include "unhealthy" pieces that are not duplicates
+	currentPointerPieces := healthyPieces
 	if healthyLength < pointer.Remote.Redundancy.SuccessThreshold {
 		for _, p := range unhealthyPieces {
 			if _, ok := healthyMap[p.GetPieceNum()]; !ok {
-				healthyPieces = append(healthyPieces, p)
+				currentPointerPieces = append(currentPointerPieces, p)
 			}
 		}
 	}
 
 	// Update the remote pieces in the pointer
-	pointer.GetRemote().RemotePieces = healthyPieces
+	pointer.GetRemote().RemotePieces = currentPointerPieces
 
 	// Update the segment pointer in the metainfo
 	return repairer.metainfo.Put(ctx, path, pointer)
