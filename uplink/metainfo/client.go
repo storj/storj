@@ -418,14 +418,21 @@ func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID)
 	return Error.Wrap(err)
 }
 
+// GetObjectParams parameters for GetObject method
+type GetObjectParams struct {
+	Bucket        []byte
+	EncryptedPath []byte
+	Version       int32
+}
+
 // GetObject gets single object
-func (client *Client) GetObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.Object, _ storj.StreamID, err error) {
+func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.Object, _ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
-		Bucket:        bucket,
-		EncryptedPath: encryptedPath,
-		Version:       version,
+		Bucket:        params.Bucket,
+		EncryptedPath: params.EncryptedPath,
+		Version:       params.Version,
 	})
 	if err != nil {
 		return storj.Object{}, storj.StreamID{}, Error.Wrap(err)
@@ -682,11 +689,12 @@ type ListSegmentsParams struct {
 	Limit      int32
 }
 
-// ListSegments2 TODO
-func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (err error) {
+// ListSegments2 lists object segments
+func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
+	// TODO method name will be changes when new methods will be fully integrated with client side
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.ListSegments(ctx, &pb.SegmentListRequest{
+	response, err := client.client.ListSegments(ctx, &pb.SegmentListRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
 			PartNumber: params.PartNumber,
@@ -694,5 +702,18 @@ func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsPara
 		},
 		Limit: params.Limit,
 	})
-	return Error.Wrap(err)
+	if err != nil {
+		return []storj.SegmentListItem{}, false, Error.Wrap(err)
+	}
+
+	items := make([]storj.SegmentListItem, len(response.Items))
+	for i, responseItem := range response.Items {
+		items[i] = storj.SegmentListItem{
+			Position: storj.SegmentPosition{
+				PartNumber: responseItem.Position.PartNumber,
+				Index:      responseItem.Position.Index,
+			},
+		}
+	}
+	return items, response.More, Error.Wrap(err)
 }

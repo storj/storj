@@ -916,7 +916,10 @@ func TestListGetObjects(t *testing.T) {
 			require.NotEmpty(t, item.EncryptedPath)
 			require.True(t, item.CreatedAt.Before(time.Now()))
 
-			object, streamID, err := metainfoClient.GetObject(ctx, []byte(expectedBucketName), item.EncryptedPath, -1)
+			object, streamID, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+				Bucket:        []byte(expectedBucketName),
+				EncryptedPath: item.EncryptedPath,
+			})
 			require.NoError(t, err)
 			require.Equal(t, item.EncryptedPath, []byte(object.Path))
 
@@ -1026,7 +1029,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 
 func TestMakeInlineListSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
@@ -1070,12 +1073,17 @@ func TestMakeInlineListSegment(t *testing.T) {
 		streamID, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
-		err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
-			StreamID:            streamID,
-			Index:               -1,
-			EncryptedInlineData: testrand.Bytes(memory.KiB),
-		})
-		require.NoError(t, err)
+		segments := []int32{0, 1, 2, 3, 4, 5, -1}
+		segmentsData := make([][]byte, len(segments))
+		for i, segment := range segments {
+			segmentsData[i] = testrand.Bytes(memory.KiB)
+			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
+				StreamID:            streamID,
+				Index:               segment,
+				EncryptedInlineData: segmentsData[i],
+			})
+			require.NoError(t, err)
+		}
 
 		err = metainfoClient.CommitObject(ctx, streamID)
 		require.NoError(t, err)
@@ -1090,6 +1098,32 @@ func TestMakeInlineListSegment(t *testing.T) {
 		require.Equal(t, params.EncryptedMetadata, objects[0].EncryptedMetadata)
 		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
 
-		// TODO how list object segments ??
+		_, streamID, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			Bucket:        params.Bucket,
+			EncryptedPath: params.EncryptedPath,
+		})
+		require.NoError(t, err)
+
+		for _, test := range []struct {
+			Index  int32
+			Limit  int
+			Result int
+			More   bool
+		}{
+			{Index: 0, Result: len(segments), More: false},
+			{Index: 2, Result: len(segments) - 2, More: false},
+			{Index: 0, Result: 3, More: true, Limit: 3},
+			{Index: 0, Result: len(segments), More: false, Limit: len(segments)},
+			{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
+		} {
+			items, more, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+				StreamID: streamID,
+				Index:    test.Index,
+				Limit:    int32(test.Limit),
+			})
+			require.NoError(t, err)
+			require.Equal(t, test.Result, len(items))
+			require.Equal(t, test.More, more)
+		}
 	})
 }
