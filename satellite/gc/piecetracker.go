@@ -39,14 +39,14 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 
 // RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters
 func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, path)(&err)
 
 	remote := pointer.GetRemote()
 	pieces := remote.GetRemotePieces()
 
 	for _, piece := range pieces {
 		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		pieceTracker.add(ctx, piece.NodeId, pieceID)
+		pieceTracker.add(piece.NodeId, pieceID)
 	}
 	return nil
 }
@@ -64,9 +64,7 @@ func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, path storj.
 }
 
 // adds a pieceID to the relevant node's RetainInfo
-func (pieceTracker *PieceTracker) add(ctx context.Context, nodeID storj.NodeID, pieceID storj.PieceID) {
-	var filter *bloomfilter.Filter
-
+func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID) {
 	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := pieceTracker.config.InitialPieces
@@ -74,7 +72,7 @@ func (pieceTracker *PieceTracker) add(ctx context.Context, nodeID storj.NodeID, 
 			numPieces = pieceTracker.pieceCounts[nodeID]
 		}
 		// limit size of bloom filter to ensure we are under the limit for GRPC
-		filter = bloomfilter.NewOptimalMaxSize(numPieces, pieceTracker.config.FalsePositiveRate, 2*memory.MiB)
+		filter := bloomfilter.NewOptimalMaxSize(numPieces, pieceTracker.config.FalsePositiveRate, 2*memory.MiB)
 		pieceTracker.retainInfos[nodeID] = &RetainInfo{
 			Filter:       filter,
 			CreationDate: pieceTracker.creationDate,

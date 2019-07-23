@@ -33,8 +33,8 @@ type Config struct {
 	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"false" devDefault:"true"`
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
-	FalsePositiveRate float64 `help:"the false positive rate used for creating a filter" releaseDefault:"0.1" devDefault:"0.1"`
-	ConcurrentSends   int     `help:"the number of nodes to concurrently send bloom filters to" releaseDefault:"1" devDefault:"1"`
+	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
+	ConcurrentSends   int     `help:"the number of nodes to concurrently send garbage collection bloom filters to" releaseDefault:"1" devDefault:"1"`
 }
 
 // Service implements the garbage collection service
@@ -119,7 +119,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 }
 
 func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, info *RetainInfo) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, id.String())(&err)
 
 	log := service.log.Named(id.String())
 
