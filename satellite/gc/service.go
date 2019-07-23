@@ -72,6 +72,10 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !service.config.Enabled {
+		return nil
+	}
+
 	// TODO retrieve piece counts from overlay (when there is a column for them)
 	lastPieceCounts := make(map[storj.NodeID]int)
 
