@@ -169,39 +169,59 @@ func TestBandwidthRollup(t *testing.T) {
 		testID2 := teststorj.NodeIDFromString("testId2")
 		testID3 := teststorj.NodeIDFromString("testId3")
 
+		now := time.Now()
+
+		// Create data for 48 hours ago
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_PUT, 1, now.Add(time.Hour*-48))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET, 2, now.Add(time.Hour*-48))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET_AUDIT, 3, now.Add(time.Hour*-48))
+		require.NoError(t, err)
+
 		// Create data for an hour ago so we can rollup
-		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_PUT, 2, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_PUT, 2, now.Add(time.Hour*-2))
 		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET, 3, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET, 3, now.Add(time.Hour*-2))
 		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET_AUDIT, 4, time.Now().Add(time.Hour*-2))
-		require.NoError(t, err)
-
-		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_PUT, 5, time.Now().Add(time.Hour*-2))
-		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET, 6, time.Now().Add(time.Hour*-2))
-		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET_AUDIT, 7, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID1, pb.PieceAction_GET_AUDIT, 4, now.Add(time.Hour*-2))
 		require.NoError(t, err)
 
-		usage, err := db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_PUT, 5, now.Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET, 6, now.Add(time.Hour*-2))
+		require.NoError(t, err)
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET_AUDIT, 7, now.Add(time.Hour*-2))
+		require.NoError(t, err)
+
+		// Test for the data 48 hrs old
+		usage, err := db.Bandwidth().Summary(ctx, now.Add(time.Hour*-49), now.Add(time.Hour*-24))
+		require.NoError(t, err)
+		require.Equal(t, int64(6), usage.Total())
+
+		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-24), now)
 		require.NoError(t, err)
 		require.Equal(t, int64(27), usage.Total())
 
 		err = db.Bandwidth().Rollup(ctx)
 		require.NoError(t, err)
 
+		// Test for the 48 hrs ago data again
+		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-49), now.Add(time.Hour*-24))
+		require.NoError(t, err)
+		require.Equal(t, int64(6), usage.Total())
+
 		// After rollup, the totals should still be the same
-		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-24), now)
 		require.NoError(t, err)
 		require.Equal(t, int64(27), usage.Total())
 
 		// add some data that has already been rolled up to test the date range in the rollup select
-		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_PUT, 5, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_PUT, 5, now.Add(time.Hour*-2))
 		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET, 6, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET, 6, now.Add(time.Hour*-2))
 		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET_AUDIT, 7, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID2, pb.PieceAction_GET_AUDIT, 7, now.Add(time.Hour*-2))
 		require.NoError(t, err)
 
 		// Rollup again
@@ -209,23 +229,23 @@ func TestBandwidthRollup(t *testing.T) {
 		require.NoError(t, err)
 
 		// Make sure get the same results as above
-		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-24), now)
 		require.NoError(t, err)
 		require.Equal(t, int64(27), usage.Total())
 
 		// Add more data to test the Summary calculates the bandwidth across both tables.
-		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_PUT, 8, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_PUT, 8, now.Add(time.Hour*-2))
 		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_GET, 9, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_GET, 9, now.Add(time.Hour*-2))
 		require.NoError(t, err)
-		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_GET_AUDIT, 10, time.Now().Add(time.Hour*-2))
+		err = db.Bandwidth().Add(ctx, testID3, pb.PieceAction_GET_AUDIT, 10, now.Add(time.Hour*-2))
 		require.NoError(t, err)
 
-		usage, err = db.Bandwidth().Summary(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		usage, err = db.Bandwidth().Summary(ctx, now.Add(time.Hour*-24), now)
 		require.NoError(t, err)
 		require.Equal(t, int64(54), usage.Total())
 
-		usageBySatellite, err := db.Bandwidth().SummaryBySatellite(ctx, time.Now().Add(time.Hour*-48), time.Now())
+		usageBySatellite, err := db.Bandwidth().SummaryBySatellite(ctx, now.Add(time.Hour*-48), now)
 		require.NoError(t, err)
 		for k := range usageBySatellite {
 			switch k {
