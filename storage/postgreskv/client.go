@@ -360,6 +360,7 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		return Error.Wrap(err)
 	}
 
+	var row *sql.Row
 	if newValue == nil {
 		q := `
 		WITH matching_key AS (
@@ -374,36 +375,25 @@ func (client *Client) CompareAndSwapPath(ctx context.Context, bucket, key storag
 		)
 		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated
 		`
-		row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
-		var keyPresent, valueUpdated bool
-		err = row.Scan(&keyPresent, &valueUpdated)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		if !keyPresent {
-			return storage.ErrKeyNotFound.New(key.String())
-		}
-		if !valueUpdated {
-			return storage.ErrValueChanged.New(key.String())
-		}
-		return nil
+		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue))
+	} else {
+		q := `
+		WITH matching_key AS (
+			SELECT * FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA
+		), updated AS (
+			UPDATE pathdata
+				SET metadata = $4::BYTEA
+				FROM matching_key mk
+				WHERE pathdata.metadata = $3::BYTEA
+					AND pathdata.bucket = mk.bucket
+					AND pathdata.fullpath = mk.fullpath
+				RETURNING 1
+		)
+		SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated;
+		`
+		row = client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
 	}
 
-	q := `
-	WITH matching_key AS (
-		SELECT * FROM pathdata WHERE bucket = $1::BYTEA AND fullpath = $2::BYTEA
-	), updated AS (
-		UPDATE pathdata
-			SET metadata = $4::BYTEA
-			FROM matching_key mk
-			WHERE pathdata.metadata = $3::BYTEA
-				AND pathdata.bucket = mk.bucket
-				AND pathdata.fullpath = mk.fullpath
-			RETURNING 1
-	)
-	SELECT EXISTS(SELECT 1 FROM matching_key) AS key_present, EXISTS(SELECT 1 FROM updated) AS value_updated;
-	`
-	row := client.pgConn.QueryRow(q, []byte(bucket), []byte(key), []byte(oldValue), []byte(newValue))
 	var keyPresent, valueUpdated bool
 	err = row.Scan(&keyPresent, &valueUpdated)
 	if err != nil {
