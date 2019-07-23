@@ -56,8 +56,8 @@ type Config struct {
 }
 
 type ScopeConfig struct {
-	Scopes map[string]string `secure:"true" internal:"true"`
-	Scope  string            `help:"the name of the scope to use" default:"default"`
+	Scopes map[string]string `internal:"true"`
+	Scope  string            `help:"the serialized scope, or name of the scope to use" default:""`
 
 	Legacy // Holds on to legacy configuration values
 }
@@ -66,7 +66,7 @@ type ScopeConfig struct {
 type Legacy struct {
 	Client struct {
 		APIKey        string `default:"" help:"the api key to use for the satellite (deprecated)" noprefix:"true" deprecated:"true"`
-		SatelliteAddr string `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite (deprecated)" noprefix:"true" deprecated:"true"`
+		SatelliteAddr string `releaseDefault:"127.0.0.1:7777" devDefault:"127.0.0.1:10000" help:"the address to use for the satellite (deprecated)" noprefix:"true"`
 	}
 	Enc struct {
 		EncryptionKey     string `help:"the root key for encrypting the data which will be stored in KeyFilePath (deprecated)" setup:"true" deprecated:"true"`
@@ -82,6 +82,11 @@ func (c ScopeConfig) GetScope() (_ *libuplink.Scope, err error) {
 	// if a scope exists for that name, try to load it.
 	if data, ok := c.Scopes[c.Scope]; ok && c.Scope != "" {
 		return libuplink.ParseScope(data)
+	}
+
+	// Otherwise, try to load the scope name as a serialized scope.
+	if scope, err := libuplink.ParseScope(c.Scope); err == nil {
+		return scope, nil
 	}
 
 	// fall back to trying to load the legacy values.

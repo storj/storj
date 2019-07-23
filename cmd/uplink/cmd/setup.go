@@ -14,9 +14,9 @@ import (
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
+	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
-	"storj.io/storj/uplink/setup"
 )
 
 var (
@@ -35,12 +35,6 @@ func init() {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
-	// Ensure use the default port if the user only specifies a host.
-	err = ApplyDefaultHostAndPortToAddrFlag(cmd, "satellite-addr")
-	if err != nil {
-		return err
-	}
-
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -56,99 +50,85 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	// override is required because the default value of Enc.KeyFilepath is ""
-	// and setting the value directly in setupCfg.Enc.KeyFiletpathon will set the
-	// value in the config file but commented out.
-	usedEncryptionKeyFilepath := setupCfg.Legacy.Enc.KeyFilepath
-	if usedEncryptionKeyFilepath == "" {
-		usedEncryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
-	}
-
 	if setupCfg.NonInteractive {
-		return cmdSetupNonInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
+		return cmdSetupNonInteractive(cmd, setupDir)
 	}
-
-	return cmdSetupInteractive(cmd, setupDir, usedEncryptionKeyFilepath)
+	return cmdSetupInteractive(cmd, setupDir)
 }
 
 // cmdSetupNonInteractive sets up uplink non-interactively.
-//
-// encryptionKeyFilepath should be set to the filepath indicated by the user or
-// or to a default path whose directory tree exists.
-func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
-	if setupCfg.Legacy.Enc.EncryptionKey != "" {
-		err := setup.SaveEncryptionKey(setupCfg.Legacy.Enc.EncryptionKey, encryptionKeyFilepath)
-		if err != nil {
-			return err
-		}
-	}
-
-	override := map[string]interface{}{
-		"enc.key-filepath": encryptionKeyFilepath,
-	}
-
-	err := process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename), override)
-	if err != nil {
-		return err
-	}
-
-	if setupCfg.Legacy.Enc.EncryptionKey != "" {
-		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
-	}
-
-	return nil
+func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
+	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename), nil))
 }
 
 // cmdSetupInteractive sets up uplink interactively.
-//
-// encryptionKeyFilepath should be set to the filepath indicated by the user or
-// or to a default path whose directory tree exists.
-func cmdSetupInteractive(cmd *cobra.Command, setupDir string, encryptionKeyFilepath string) error {
+func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
+	ctx := process.Ctx(cmd)
 
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	apiKey, err := wizard.PromptForAPIKey()
+	apiKeyString, err := wizard.PromptForAPIKey()
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	passphrase, err := wizard.PromptForEncryptionKey()
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
-	var override = map[string]interface{}{
-		"api-key":          apiKey,
-		"satellite-addr":   satelliteAddress,
-		"enc.key-filepath": encryptionKeyFilepath,
-	}
-
-	err = process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename), override)
+	uplink, err := libuplink.NewUplink(ctx, nil)
 	if err != nil {
-		return nil
+		return Error.Wrap(err)
+	}
+	defer uplink.Close()
+
+	project, err := uplink.OpenProject(ctx, satelliteAddress, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer project.Close()
+
+	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	scopeData, err := (&libuplink.Scope{
+		SatelliteAddr:    satelliteAddress,
+		APIKey:           apiKey,
+		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
+	}).Serialize()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO(jeff): add a "deletes" as well, or make overrides handle it with multiple string types
+	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), map[string]interface{}{
+		"scope": scopeData,
+	})
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// if there is an error with this we cannot do that much and the setup process
 	// has ended OK, so we ignore it.
-	_, _ = fmt.Printf(`
-Your encryption key is saved to: %s
-
+	fmt.Println(`
 Your Uplink CLI is configured and ready to use!
 
 Some things to try next:
 
 * Run 'uplink --help' to see the operations that can be performed
 
-* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands
-	`, encryptionKeyFilepath)
+* See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands`)
 
 	return nil
 }

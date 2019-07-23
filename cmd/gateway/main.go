@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
-	"storj.io/storj/uplink/setup"
 )
 
 // GatewayFlags configuration flags
@@ -107,7 +106,6 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-
 		overrides[accessKeyFlag.Name] = accessKey
 	}
 
@@ -117,24 +115,13 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		if err != nil {
 			return err
 		}
-
 		overrides[secretKeyFlag.Name] = secretKey
 	}
 
-	// override is required because the default value of Enc.KeyFilepath is ""
-	// and setting the value directly in setupCfg.Legacy.Enc.KeyFiletpath will set the
-	// value in the config file but commented out.
-	encryptionKeyFilepath := setupCfg.Legacy.Enc.KeyFilepath
-	if encryptionKeyFilepath == "" {
-		encryptionKeyFilepath = filepath.Join(setupDir, ".encryption.key")
-		overrides["enc.key-filepath"] = encryptionKeyFilepath
-	}
-
 	if setupCfg.NonInteractive {
-		return setupCfg.nonInteractive(cmd, setupDir, encryptionKeyFilepath, overrides)
+		return setupCfg.nonInteractive(cmd, setupDir, overrides)
 	}
-
-	return setupCfg.interactive(cmd, setupDir, encryptionKeyFilepath, overrides)
+	return setupCfg.interactive(cmd, setupDir, overrides)
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -233,7 +220,7 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	access, err := setup.LoadEncryptionAccess(ctx, flags.Legacy)
+	scope, err := flags.GetScope()
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +232,7 @@ func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err
 
 	return miniogw.NewStorjGateway(
 		project,
-		access,
+		scope.EncryptionAccess,
 		storj.CipherSuite(flags.Enc.PathType),
 		flags.GetEncryptionParameters(),
 		flags.GetRedundancyScheme(),
@@ -265,97 +252,95 @@ func (flags GatewayFlags) openProject(ctx context.Context) (*libuplink.Project, 
 	cfg.Volatile.MaxInlineSize = flags.Client.MaxInlineSize
 	cfg.Volatile.MaxMemory = flags.RS.MaxBufferMem
 
-	apiKey, err := libuplink.ParseAPIKey(flags.Legacy.Client.APIKey)
+	scope, err := flags.GetScope()
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
-
-	uplk, err := libuplink.NewUplink(ctx, &cfg)
+	// TODO(jeff): this leaks the uplink and project :(
+	uplink, err := libuplink.NewUplink(ctx, &cfg)
 	if err != nil {
-		return nil, err
+		return nil, Error.Wrap(err)
 	}
-
-	return uplk.OpenProject(ctx, flags.Legacy.Client.SatelliteAddr, apiKey)
+	project, err := uplink.OpenProject(ctx, scope.SatelliteAddr, scope.APIKey)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return project, nil
 }
 
 // interactive creates the configuration of the gateway interactively.
-//
-// encryptionKeyFilepath should be set to the filepath indicated by the user or
-// or to a default path whose directory tree exists.
-func (flags GatewayFlags) interactive(
-	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
-) error {
+func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
+	ctx := process.Ctx(cmd)
+
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	apiKey, err := wizard.PromptForAPIKey()
+	apiKeyString, err := wizard.PromptForAPIKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	humanReadableKey, err := wizard.PromptForEncryptionKey()
+	passphrase, err := wizard.PromptForEncryptionKey()
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = setup.SaveEncryptionKey(humanReadableKey, encryptionKeyFilepath)
+	apiKey, err := libuplink.ParseAPIKey(apiKeyString)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	overrides["satellite-addr"] = satelliteAddress
-	overrides["api-key"] = apiKey
-	overrides["enc.key-filepath"] = encryptionKeyFilepath
+	uplink, err := libuplink.NewUplink(ctx, nil)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer uplink.Close()
+
+	project, err := uplink.OpenProject(ctx, satelliteAddress, apiKey)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer project.Close()
+
+	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	scopeData, err := (&libuplink.Scope{
+		SatelliteAddr:    satelliteAddress,
+		APIKey:           apiKey,
+		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
+	}).Serialize()
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// TODO(jeff): add a "deletes" as well, or make overrides handle it with multiple string types
+	overrides["scope"] = scopeData
 
 	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
 	if err != nil {
-		return nil
+		return Error.Wrap(err)
 	}
 
-	_, err = fmt.Printf(`
-Your encryption key is saved to: %s
-
+	fmt.Println(`
 Your S3 Gateway is configured and ready to use!
 
 Some things to try next:
 
 * Run 'gateway --help' to see the operations that can be performed
 
-* See https://github.com/storj/docs/blob/master/S3-Gateway.md#using-the-aws-s3-commandline-interface for some example commands
-	`, encryptionKeyFilepath)
-	if err != nil {
-		return nil
-	}
+* See https://github.com/storj/docs/blob/master/S3-Gateway.md#using-the-aws-s3-commandline-interface for some example commands`)
 
 	return nil
 }
 
 // nonInteractive creates the configuration of the gateway non-interactively.
-//
-// encryptionKeyFilepath should be set to the filepath indicated by the user or
-// or to a default path whose directory tree exists.
-func (flags GatewayFlags) nonInteractive(
-	cmd *cobra.Command, setupDir string, encryptionKeyFilepath string, overrides map[string]interface{},
-) error {
-	if setupCfg.Legacy.Enc.EncryptionKey != "" {
-		err := setup.SaveEncryptionKey(setupCfg.Legacy.Enc.EncryptionKey, encryptionKeyFilepath)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	err := process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if setupCfg.Legacy.Enc.EncryptionKey != "" {
-		_, _ = fmt.Printf("Your encryption key is saved to: %s\n", encryptionKeyFilepath)
-	}
-
-	return nil
+func (flags GatewayFlags) nonInteractive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
+	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides))
 }
 
 func main() {

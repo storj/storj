@@ -4,6 +4,8 @@
 package process
 
 import (
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -42,19 +44,27 @@ func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interfa
 			}
 
 			fullKey := base + key
-			f := flags.Lookup(fullKey)
-			if f == nil {
+			_, overrideExists := overrides[fullKey]
+			changed, setup, hidden, user := false, false, false, false
+			if f := flags.Lookup(fullKey); f != nil {
+				changed = f.Changed
+				setup = readBoolAnnotation(f, "setup")
+				hidden = readBoolAnnotation(f, "hidden")
+				user = readBoolAnnotation(f, "user")
+			} else if f := flag.Lookup(fullKey); f != nil {
+				changed = f.Value.String() != f.DefValue
+			} else {
+				fmt.Println("+", fullKey, "skipped")
 				continue
 			}
 
-			switch _, overrideExists := overrides[fullKey]; {
-			case readBoolAnnotation(f, "setup"):
-			case readBoolAnnotation(f, "hidden"):
-			case !readBoolAnnotation(f, "user") && !f.Changed && !overrideExists:
-			default:
+			// in any of these cases, don't store the key in the file
+			if setup || hidden || (!user && !changed && !overrideExists) {
+				fmt.Println("-", fullKey, setup, hidden, user, changed, overrideExists)
+				delete(settings, key)
 				continue
 			}
-			delete(settings, key)
+			fmt.Println("+", fullKey, "valid")
 		}
 	}
 	filterSettings("", settings)
