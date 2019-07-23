@@ -851,7 +851,6 @@ func TestBeginCommitObject(t *testing.T) {
 		streamID, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 			Bucket:                 []byte(bucket.Name),
 			EncryptedPath:          []byte("encrypted-path"),
-			Version:                1,
 			Redundancy:             storj.RedundancyScheme{},
 			EncryptionParameters:   storj.EncryptionParameters{},
 			ExpiresAt:              time.Time{},
@@ -878,7 +877,6 @@ func TestBeginFinishDeleteObject(t *testing.T) {
 		streamID, err := metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
 			Bucket:        []byte("initial-bucket"),
 			EncryptedPath: []byte("encrypted-path"),
-			Version:       -1,
 		})
 		require.NoError(t, err)
 
@@ -964,7 +962,6 @@ func TestBeginCommitListSegment(t *testing.T) {
 		params := metainfo.BeginObjectParams{
 			Bucket:        []byte(bucket.Name),
 			EncryptedPath: []byte("encrypted-path"),
-			Version:       1,
 			Redundancy: storj.RedundancyScheme{
 				Algorithm:      storj.ReedSolomon,
 				ShareSize:      256,
@@ -1067,7 +1064,6 @@ func TestInlineSegment(t *testing.T) {
 		params := metainfo.BeginObjectParams{
 			Bucket:        []byte(bucket.Name),
 			EncryptedPath: []byte("encrypted-path"),
-			Version:       1,
 			Redundancy: storj.RedundancyScheme{
 				Algorithm:      storj.ReedSolomon,
 				ShareSize:      256,
