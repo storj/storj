@@ -13,3 +13,10 @@ type SegmentPosition struct {
 type SegmentListItem struct {
 	Position SegmentPosition
 }
+
+// SegmentDownloadInfo TODO
+type SegmentDownloadInfo struct {
+	SegmentID SegmentID
+	EncryptedInlineData  []byte
+	Next SegmentPosition
+}

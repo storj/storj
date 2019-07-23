@@ -566,6 +566,7 @@ type CommitSegmentParams struct {
 
 // CommitSegment2 commits segment after upload
 func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentParams) (err error) {
+	// TODO method name will be changes when new methods will be fully integrated with client side
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
@@ -586,8 +587,9 @@ func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentPa
 type MakeInlineSegmentParams struct {
 	StreamID storj.StreamID
 	// TODO make separate struct for that two?
-	PartNumber          int32
-	Index               int32
+	PartNumber int32
+	Index      int32
+
 	EncryptedKeyNonce   storj.Nonce
 	EncryptedKey        []byte
 	EncryptedInlineData []byte
@@ -666,18 +668,33 @@ type DownloadSegmentParams struct {
 	Index      int32
 }
 
-// DownloadSegment TODO
-func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (err error) {
+// DownloadSegment gets info for downloading remote segment or data from inline segment
+func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmentParams) (_ storj.SegmentDownloadInfo, _ []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+	response, err := client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
 			PartNumber: params.PartNumber,
 			Index:      params.Index,
 		},
 	})
-	return Error.Wrap(err)
+	if err != nil {
+		return storj.SegmentDownloadInfo{}, nil, Error.Wrap(err)
+	}
+
+	info := storj.SegmentDownloadInfo{
+		SegmentID:           response.SegmentId,
+		EncryptedInlineData: response.EncryptedInlineData,
+	}
+	if response.Next != nil {
+		info.Next = storj.SegmentPosition{
+			PartNumber: response.Next.PartNumber,
+			Index:      response.Next.Index,
+		}
+	}
+
+	return info, response.AddressedLimits, nil
 }
 
 // ListSegmentsParams parameters for ListSegment method

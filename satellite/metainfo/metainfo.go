@@ -1513,14 +1513,13 @@ func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.Segmen
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	if pointer.Type != pb.Pointer_REMOTE || pointer.Remote == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "to delete inline segment use FinishDeleteSegment")
-	}
-
-	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
-	limits, _, err := endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+	var limits []*pb.AddressedOrderLimit
+	if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
+		bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
+		limits, _, err = endpoint.orders.CreateDeleteOrderLimits(ctx, bucketID, pointer)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{
@@ -1585,7 +1584,7 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 	return &pb.SegmentFinishDeleteResponse{}, nil
 }
 
-// ListSegments list segments
+// ListSegments list object segments
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1620,6 +1619,9 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		_, err = endpoint.metainfo.Get(ctx, path)
 		if err != nil {
 			if storage.ErrKeyNotFound.Has(err) {
+				if index == lastSegment {
+					break
+				}
 				index = lastSegment
 				continue
 			}

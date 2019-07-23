@@ -1027,7 +1027,7 @@ func TestBeginCommitListSegment(t *testing.T) {
 	})
 }
 
-func TestMakeInlineListSegment(t *testing.T) {
+func TestInlineSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1040,6 +1040,17 @@ func TestMakeInlineListSegment(t *testing.T) {
 		projects, err := planet.Satellites[0].DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 		projectID := projects[0].ID
+
+		// TODO maybe split into separate cases
+		// Test:
+		// * create bucket
+		// * begin object
+		// * send several inline segments
+		// * commit object
+		// * list created object
+		// * list object segments
+		// * download segments
+		// * delete segments and object
 
 		bucket := storj.Bucket{
 			Name:       "initial-bucket",
@@ -1104,26 +1115,75 @@ func TestMakeInlineListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		for _, test := range []struct {
-			Index  int32
-			Limit  int
-			Result int
-			More   bool
-		}{
-			{Index: 0, Result: len(segments), More: false},
-			{Index: 2, Result: len(segments) - 2, More: false},
-			{Index: 0, Result: 3, More: true, Limit: 3},
-			{Index: 0, Result: len(segments), More: false, Limit: len(segments)},
-			{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
-		} {
-			items, more, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
-				StreamID: streamID,
-				Index:    test.Index,
-				Limit:    int32(test.Limit),
+		{ // test listing inline segments
+			for _, test := range []struct {
+				Index  int32
+				Limit  int
+				Result int
+				More   bool
+			}{
+				{Index: 0, Result: len(segments), More: false},
+				{Index: 2, Result: len(segments) - 2, More: false},
+				{Index: 0, Result: 3, More: true, Limit: 3},
+				{Index: 0, Result: len(segments), More: false, Limit: len(segments)},
+				{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
+			} {
+				items, more, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+					StreamID: streamID,
+					Index:    test.Index,
+					Limit:    int32(test.Limit),
+				})
+				require.NoError(t, err)
+				require.Equal(t, test.Result, len(items))
+				require.Equal(t, test.More, more)
+			}
+		}
+
+		{ // test download inline segments
+			for i, segment := range segments {
+				info, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+					StreamID: streamID,
+					Index:    segment,
+				})
+				require.NoError(t, err)
+				require.Nil(t, limits)
+				require.Equal(t, segmentsData[i], info.EncryptedInlineData)
+			}
+		}
+
+		{ // test deleting segments
+			streamID, err = metainfoClient.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{
+				Bucket:        params.Bucket,
+				EncryptedPath: params.EncryptedPath,
 			})
 			require.NoError(t, err)
-			require.Equal(t, test.Result, len(items))
-			require.Equal(t, test.More, more)
+
+			items, _, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+				StreamID: streamID,
+			})
+			require.NoError(t, err)
+			for _, item := range items {
+				segmentID, limits, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
+					StreamID: streamID,
+					Index:    item.Position.Index,
+				})
+				require.NoError(t, err)
+				require.Nil(t, limits)
+
+				metainfoClient.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
+					SegmentID: segmentID,
+				})
+				require.NoError(t, err)
+			}
+
+			items, _, err = metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
+				StreamID: streamID,
+			})
+			require.NoError(t, err)
+			require.Empty(t, items)
+
+			err = metainfoClient.FinishDeleteObject(ctx, streamID)
+			require.NoError(t, err)
 		}
 	})
 }
