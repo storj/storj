@@ -7,8 +7,6 @@ package main
 import "C"
 import (
 	"fmt"
-	"unsafe"
-
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/storj"
 )
@@ -62,7 +60,7 @@ func project_salted_key_from_passphrase(projectHandle C.ProjectRef, passphrase *
 	}
 
 	ptr := C.malloc(storj.KeySize)
-	key := (*storj.Key)(unsafe.Pointer(ptr))
+	key := (*storj.Key)(ptr)
 	copy(key[:], saltedKey[:])
 	return (*C.uint8_t)(ptr)
 }

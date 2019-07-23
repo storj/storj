@@ -137,9 +137,9 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 	}
 
 	select {
-		case <-upload.ctx.Done():
-			return C.size_t(0)
-		default:
+	case <-upload.ctx.Done():
+		return C.size_t(0)
+	default:
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
