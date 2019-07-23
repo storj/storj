@@ -1170,7 +1170,7 @@ func TestInlineSegment(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, limits)
 
-				metainfoClient.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
+				err = metainfoClient.FinishDeleteSegment(ctx, metainfo.FinishDeleteSegmentParams{
 					SegmentID: segmentID,
 				})
 				require.NoError(t, err)

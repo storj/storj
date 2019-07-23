@@ -16,7 +16,7 @@ type SegmentListItem struct {
 
 // SegmentDownloadInfo TODO
 type SegmentDownloadInfo struct {
-	SegmentID SegmentID
-	EncryptedInlineData  []byte
-	Next SegmentPosition
+	SegmentID           SegmentID
+	EncryptedInlineData []byte
+	Next                SegmentPosition
 }
