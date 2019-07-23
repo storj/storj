@@ -1032,6 +1032,75 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	return &pb.ObjectCommitResponse{}, nil
 }
 
+// GetObject gets single object
+func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, err.Error())
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	path, err := CreatePath(ctx, keyInfo.ProjectID, -1, req.Bucket, req.EncryptedPath)
+	if err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
+	}
+
+	pointer, err := endpoint.metainfo.Get(ctx, path)
+	if err != nil {
+		if storage.ErrKeyNotFound.Has(err) {
+			return nil, status.Errorf(codes.NotFound, err.Error())
+		}
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	satStreamID := &pb.SatStreamID{
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Version:       req.Version,
+		CreationDate:  time.Now(),
+	}
+
+	satStreamID, err = signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	encodedStreamID, err := proto.Marshal(satStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
+	}
+
+	object := &pb.Object{
+		Bucket:            req.Bucket,
+		EncryptedPath:     req.EncryptedPath,
+		Version:           -1,
+		StreamId:          streamID,
+		ExpiresAt:         pointer.ExpirationDate,
+		CreatedAt:         pointer.CreationDate,
+		EncryptedMetadata: pointer.Metadata,
+	}
+
+	return &pb.ObjectGetResponse{
+		Object: object,
+	}, nil
+}
+
 // ListObjects list objects according to specific parameters
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
