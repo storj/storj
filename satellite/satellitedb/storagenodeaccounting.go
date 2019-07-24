@@ -213,7 +213,7 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 		)
 		WINDOW win AS (ORDER BY ID)`
 
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start, end)
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
