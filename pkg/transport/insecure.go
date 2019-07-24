@@ -15,14 +15,13 @@ import (
 // Otherwise in most cases DialNode should be used for communicating with nodes since it is secure.
 func DialAddressInsecure(ctx context.Context, address string, opts ...grpc.DialOption) (conn *grpc.ClientConn, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	options := append([]grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 	}, opts...)
 
-	timedCtx, cf := context.WithTimeout(ctx, defaultDialTimeout)
+	timedCtx, cf := context.WithTimeout(ctx, defaultTransportDialTimeout)
 	defer cf()
 
 	conn, err = grpc.DialContext(timedCtx, address, options...)

@@ -16,46 +16,40 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import SortDropdown from './SortDropdown.vue';
-import { mapState } from 'vuex';
-import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import SortDropdown from './SortDropdown.vue';
+    import { ProjectMemberSortByEnum } from '@/utils/constants/ProjectMemberSortEnum';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
-        data: function () {
-            return {
-                userName: this.$store.getters.userName,
-            };
-        },
-        methods: {
-            toggleSelection: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-            }
-        },
-        computed: mapState({
-            sortOption: (state: any) => {
-                switch (state.projectMembersModule.searchParameters.sortBy) {
-                    case ProjectMemberSortByEnum.EMAIL:
-                        return 'email';
-
-                    case ProjectMemberSortByEnum.CREATED_AT:
-                        return 'date';
-                    default: // ProjectMemberSortByEnum.NAME
-                        return 'name';
-                }
-            },
-            isChoiceShown: (state: any) => state.appStateModule.appState.isSortProjectMembersByPopupShown
-        }),
+    @Component({
         components: {
             SortDropdown
         }
-    }
-)
+    })
+    export default class SortUsersDropdown extends Vue {
+        private userName: string = this.$store.getters.userName;
 
-export default class SortUsersDropdown extends Vue {
-}
+        public toggleSelection(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
+        }
+
+        public get sortOption(): string {
+            switch (this.$store.state.projectMembersModule.searchParameters.sortBy) {
+                case ProjectMemberSortByEnum.EMAIL:
+                    return 'email';
+
+                case ProjectMemberSortByEnum.CREATED_AT:
+                    return 'date';
+
+                default: // ProjectMemberSortByEnum.NAME
+                    return 'name';
+            }
+        }
+
+        public get isChoiceShown(): boolean {
+            return this.$store.state.appStateModule.appState.isSortProjectMembersByPopupShown;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

@@ -53,7 +53,7 @@ func testParallel(t *testing.T, store storage.KeyValueStore) {
 
 			// Update value
 			nextValue := storage.Value(string(item.Value) + "X")
-			err = store.Put(ctx, item.Key, nextValue)
+			err = store.CompareAndSwap(ctx, item.Key, item.Value, nextValue)
 			if err != nil {
 				t.Fatalf("failed to update %q = %v: %v", item.Key, nextValue, err)
 			}

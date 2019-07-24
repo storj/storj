@@ -51,7 +51,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		}
 
 		var db storagenode.DB
-		db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
+		db, err = storagenodedb.NewTest(log.Named("db"), storageDir)
 		if err != nil {
 			return nil, err
 		}
@@ -101,8 +101,6 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 				AllocatedDiskSpace:     1 * memory.GB,
 				AllocatedBandwidth:     memory.TB,
 				KBucketRefreshInterval: time.Hour,
-
-				SatelliteIDRestriction: true,
 				WhitelistedSatellites:  whitelistedSatellites,
 			},
 			Collector: collector.Config{

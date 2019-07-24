@@ -22,14 +22,14 @@
                     @setData="setFullName" />
                 <HeaderedInput
                     class="full-input"
-                    label="Short Name"
-                    placeholder="Enter Short Name"
+                    label="Nickname"
+                    placeholder="Enter Nickname"
                     width="100%"
                     ref="shortNameInput"
                     :initValue="originalShortName"
                     @setData="setShortName"/>
                 <div class="edit-profile-popup__form-container__button-container">
-                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite />
+                    <Button label="Cancel" width="205px" height="48px" :onPress="onCloseClick" isWhite="true" />
                     <Button label="Update" width="205px" height="48px" :onPress="onUpdateClick" />
                 </div>
             </div>
@@ -49,76 +49,74 @@
     import { USER_ACTIONS, NOTIFICATION_ACTIONS, APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-		data: function () {
-			return {
-				originalFullName: this.$store.getters.user.fullName,
-				originalShortName: this.$store.getters.user.shortName,
+        components: {
+            HeaderedInput,
+            Button,
+        }
+    })
+    export default class EditProfilePopup extends Vue {
+        private originalFullName: string = this.$store.getters.user.fullName;
+        private originalShortName: string = this.$store.getters.user.shortName;
+        private fullName: string = this.$store.getters.user.fullName;
+        private shortName: string = this.$store.getters.user.shortName;
+        private fullNameError: string = '';
 
-				fullName: this.$store.getters.user.fullName,
-				shortName: this.$store.getters.user.shortName,
+        public setFullName(value: string): void {
+            this.fullName = value.trim();
+            this.fullNameError = '';
+        }
 
-				fullNameError: '',
-			};
-		},
-		methods: {
-			setFullName: function (value: string) {
-				this.$data.fullName = value.trim();
-				this.$data.fullNameError = '';
-			},
-			setShortName: function (value: string) {
-				this.$data.shortName = value.trim();
-			},
-			cancel: function () {
-				this.$data.fullName = this.$data.originalFullName;
-				this.$data.fullNameError = '';
-				this.$data.shortName = this.$data.originalShortName;
+        public setShortName(value: string): void {
+            this.shortName = value.trim();
+        }
 
-				let fullNameInput: any = this.$refs['fullNameInput'];
-				fullNameInput.setValue(this.$data.originalFullName);
+        public cancel(): void {
+            this.fullName = this.originalFullName;
+            this.fullNameError = '';
+            this.shortName = this.originalShortName;
 
-				let shortNameInput: any = this.$refs['shortNameInput'];
-				shortNameInput.setValue(this.$data.originalShortName);
-			},
-			onUpdateClick: async function () {
-				if (!this.$data.fullName) {
-					this.$data.fullNameError = 'Full name expected';
-					return;
-				}
+            let fullNameInput: any = this.$refs['fullNameInput'];
+            fullNameInput.setValue(this.originalFullName);
 
-				let user = {
-					fullName: this.$data.fullName,
-					shortName: this.$data.shortName,
-				};
+            let shortNameInput: any = this.$refs['shortNameInput'];
+            shortNameInput.setValue(this.originalShortName);
+        }
 
-				let response = await this.$store.dispatch(USER_ACTIONS.UPDATE, user);
-				if (!response.isSuccess) {
-					this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-					return;
-				}
+        public async onUpdateClick(): Promise<void> {
+            if (!this.fullName) {
+                this.fullNameError = 'Full name expected';
 
-				this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
+                return;
+            }
 
-				this.$data.originalFullName = this.$store.getters.user.fullName;
-				this.$data.originalShortName = this.$store.getters.user.shortName;
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-			},
-			onCloseClick: function () {
-				(this as any).cancel();
-				this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
-			}
-		},
-		computed: {
-			avatarLetter: function (): string {
-				return this.$store.getters.userName.slice(0, 1).toUpperCase();
-			},
-		},
-		components: {
-			HeaderedInput,
-			Button,
-		}
-	})
+            let user = {
+                fullName: this.fullName,
+                shortName: this.shortName,
+            };
 
-    export default class EditProfilePopup extends Vue {}
+            let response = await this.$store.dispatch(USER_ACTIONS.UPDATE, user);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                return;
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Account info successfully updated!');
+
+            this.originalFullName = this.$store.getters.user.fullName;
+            this.originalShortName = this.$store.getters.user.shortName;
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        }
+
+        public onCloseClick(): void {
+            this.cancel();
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        }
+
+        public get avatarLetter(): string {
+            return this.$store.getters.userName.slice(0, 1).toUpperCase();
+        }
+    }
 </script>
 
 <style scoped lang="scss">
