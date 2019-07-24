@@ -221,12 +221,11 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// if partial repair, leave "unhealthy" pieces in the pointer that were not repaired
 	unhealthyPiecesToRemove := unhealthyPieces
 	if healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold {
-		for _, p := range unhealthyPiecesToRemove {
-			num := p.GetPieceNum()
-			if !repairedMap[num] {
+		for i, p := range unhealthyPiecesToRemove {
+			if !repairedMap[p.GetPieceNum()] {
 				// leave only repaired pieces in the slice, unrepaired
 				// unhealthy pieces are not removed from the pointer
-				unhealthyPiecesToRemove = append(unhealthyPiecesToRemove[:num], unhealthyPiecesToRemove[num+1:]...)
+				unhealthyPiecesToRemove = append(unhealthyPiecesToRemove[:i], unhealthyPiecesToRemove[i+1:]...)
 			}
 		}
 	}
