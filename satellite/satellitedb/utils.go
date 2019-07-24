@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"database/sql/driver"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
