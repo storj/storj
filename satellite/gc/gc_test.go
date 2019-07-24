@@ -33,7 +33,7 @@ func TestGarbageCollection(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GarbageCollection.FalsePositiveRate = 0.001
+				config.GarbageCollection.FalsePositiveRate = 0.000000001
 				config.GarbageCollection.Interval = 500 * time.Millisecond
 			},
 		},
