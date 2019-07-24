@@ -119,21 +119,21 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req *Report) (_ *Rep
 // recordAuditFailStatus updates nodeIDs in overlay with isup=true, auditsuccess=false
 func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var errlist errs.Group
-	for _, nodeID := range failedAuditNodeIDs {
-		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+
+	updateRequests := make([]*overlay.UpdateRequest, len(failedAuditNodeIDs))
+	for i, nodeID := range failedAuditNodeIDs {
+		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
 			AuditSuccess: false,
-		})
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
 		}
 	}
-	if len(failed) > 0 {
-		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), errlist.Err())
+
+	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+	if err != nil && len(failed) > 0 {
+		return failed, errs.Combine(Error.New("failed to record some audit fail statuses in overlay"), err)
 	}
+
 	return nil, nil
 }
 
@@ -151,6 +151,7 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), errlist.Err())
 	}
+
 	return nil, nil
 }
 
