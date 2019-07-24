@@ -86,7 +86,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		// collect things to retain
 		err = service.metainfoLoop.Join(ctx, pieceTracker)
 		if err != nil {
-			service.log.Error("error joining metainfoloop", zap.Error(Error.Wrap(err)))
+			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
 
@@ -111,7 +111,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, id, info)
 				if err != nil {
-					service.log.Error("error sending retain info to node", zap.String("node ID", id.String()), zap.Error(err))
+					service.log.Error("error sending retain info to node", zap.Stringer("node ID", id), zap.Error(err))
 				}
 			})
 		}
