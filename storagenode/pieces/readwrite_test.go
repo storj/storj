@@ -32,7 +32,7 @@ func BenchmarkReadWrite(b *testing.B) {
 
 	satelliteID := testrand.NodeID()
 
-	const blockSize = int(512 * memory.KiB)
+	const blockSize = int(256 * memory.KiB)
 
 	source := testrand.Bytes(30 * memory.MB)
 
