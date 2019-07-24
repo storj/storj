@@ -1238,7 +1238,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	maxPieceSize := eestream.CalcPieceSize(req.MaxOrderLimit, redundancy)
@@ -1256,7 +1256,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	bucketID := createBucketID(keyInfo.ProjectID, streamID.Bucket)
 	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucketID, nodes, streamID.ExpirationDate, maxPieceSize)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{
