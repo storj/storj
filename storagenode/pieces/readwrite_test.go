@@ -24,17 +24,24 @@ func BenchmarkReadWrite(b *testing.B) {
 
 	dir, err := filestore.NewDir(ctx.Dir("pieces"))
 	require.NoError(b, err)
-
 	blobs := filestore.New(dir)
 	defer ctx.Check(blobs.Close)
 
 	store := pieces.NewStore(zap.NewNop(), blobs)
 
-	satelliteID := testrand.NodeID()
-
+	// setup test parameters
 	const blockSize = int(256 * memory.KiB)
-
+	satelliteID := testrand.NodeID()
 	source := testrand.Bytes(30 * memory.MB)
+
+	testPieceID := storj.PieceID{1}
+	{ // write a test piece
+		writer, err := store.Writer(ctx, satelliteID, testPieceID)
+		require.NoError(b, err)
+		_, err = writer.Write(source)
+		require.NoError(b, err)
+		require.NoError(b, writer.Commit(ctx))
+	}
 
 	b.Run("Write", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
@@ -56,13 +63,6 @@ func BenchmarkReadWrite(b *testing.B) {
 			require.NoError(b, writer.Commit(ctx))
 		}
 	})
-
-	testPieceID := storj.PieceID{1}
-	writer, err := store.Writer(ctx, satelliteID, testPieceID)
-	require.NoError(b, err)
-	_, err = writer.Write(source)
-	require.NoError(b, err)
-	require.NoError(b, writer.Commit(ctx))
 
 	b.Run("Read", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
