@@ -36,7 +36,7 @@ var (
 	mon              = monkit.Package()
 )
 
-// Kademlia is an implementation of kademlia adhering to the DHT interface.
+// Kademlia is an implementation of kademlia network.
 type Kademlia struct {
 	log            *zap.Logger
 	alpha          int // alpha is a system wide concurrency parameter
@@ -174,7 +174,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 
 			ident, err := k.dialer.FetchPeerIdentityUnverified(ctx, node.Address.Address)
 			if err != nil {
-				errGroup.Add(err)
+				errGroup.Add(BootstrapErr.Wrap(err))
 				continue
 			}
 
@@ -197,7 +197,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		}
 
 		if !foundOnlineBootstrap {
-			errGroup.Add(Error.New("no bootstrap node found online"))
+			errGroup.Add(BootstrapErr.New("no bootstrap node found online"))
 			continue
 		}
 
@@ -207,7 +207,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		k.routingTable.mutex.Unlock()
 		_, err := k.lookup(ctx, id)
 		if err != nil {
-			errGroup.Add(err)
+			errGroup.Add(BootstrapErr.Wrap(err))
 			continue
 		}
 		return nil
@@ -219,7 +219,7 @@ func (k *Kademlia) Bootstrap(ctx context.Context) (err error) {
 		// ```
 	}
 
-	errGroup.Add(Error.New("unable to start bootstrap after final wait time of %s", waitInterval))
+	errGroup.Add(BootstrapErr.New("unable to start bootstrap after final wait time of %s", waitInterval))
 	return errGroup.Err()
 }
 

@@ -167,6 +167,7 @@ type Peer struct {
 		Database  storage.KeyValueStore // TODO: move into pointerDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
+		Loop      *metainfo.Loop
 	}
 
 	Inspector struct {
@@ -407,6 +408,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config *Config, ve
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 		)
+		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Service)
 
 		peer.Metainfo.Endpoint2 = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
@@ -650,6 +652,9 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Checker.Run(ctx))
+	})
+	group.Go(func() error {
+		return errs2.IgnoreCanceled(peer.Metainfo.Loop.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Repair.Repairer.Run(ctx))

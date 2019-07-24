@@ -136,9 +136,9 @@ func TestGetObjectStream(t *testing.T) {
 		_, err = db.GetObjectStream(ctx, bucket.Name, "non-existing-file")
 		assert.True(t, storj.ErrObjectNotFound.Has(err))
 
-		assertStream(ctx, t, db, streams, bucket, "empty-file", 0, []byte{})
-		assertStream(ctx, t, db, streams, bucket, "small-file", 4, []byte("test"))
-		assertStream(ctx, t, db, streams, bucket, "large-file", 32*memory.KiB.Int64(), data)
+		assertStream(ctx, t, db, streams, bucket, "empty-file", []byte{})
+		assertStream(ctx, t, db, streams, bucket, "small-file", []byte("test"))
+		assertStream(ctx, t, db, streams, bucket, "large-file", data)
 
 		/* TODO: Disable stopping due to flakiness.
 		// Stop randomly half of the storage nodes and remove them from satellite's overlay cache
@@ -174,7 +174,7 @@ func upload(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams stream
 	require.NoError(t, err)
 }
 
-func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, size int64, content []byte) {
+func assertStream(ctx context.Context, t *testing.T, db *kvmetainfo.DB, streams streams.Store, bucket storj.Bucket, path storj.Path, content []byte) {
 	readOnly, err := db.GetObjectStream(ctx, bucket.Name, path)
 	require.NoError(t, err)
 

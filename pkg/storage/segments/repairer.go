@@ -66,7 +66,7 @@ func NewSegmentRepairer(
 
 // Repair retrieves an at-risk segment and repairs and stores lost pieces on new nodes
 func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err error) {
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx, path)(&err)
 
 	// Read the segment pointer from the metainfo
 	pointer, err := repairer.metainfo.Get(ctx, path)
@@ -186,7 +186,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.Wrap(err)
 	}
 
-	// Add the successfully uploaded pieces to the repairedPieces
+	// Add the successfully uploaded pieces to repairedPieces
 	var repairedPieces []*pb.RemotePiece
 	repairedMap := make(map[int32]bool)
 	for i, node := range successfulNodes {
@@ -218,21 +218,21 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
-	// if partial repair, include "unhealthy" pieces that were not repaired
-	// only pieces that
+	// if partial repair, leave "unhealthy" pieces in the pointer that were not repaired
+	unhealthyPiecesToRemove := unhealthyPieces
 	if healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold {
-		for _, p := range unhealthyPieces {
+		for _, p := range unhealthyPiecesToRemove {
 			num := p.GetPieceNum()
 			if !repairedMap[num] {
-				// leave only repeaired pieces in the slice, unrepaired
+				// leave only repaired pieces in the slice, unrepaired
 				// unhealthy pieces are not removed from the pointer
-				unhealthyPieces = append(unhealthyPieces[:num], unhealthyPieces[num+1:]...)
+				unhealthyPiecesToRemove = append(unhealthyPiecesToRemove[:num], unhealthyPiecesToRemove[num+1:]...)
 			}
 		}
 	}
 
 	// Update the segment pointer in the metainfo
-	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, unhealthyPieces)
+	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, unhealthyPiecesToRemove)
 	return err
 }
 

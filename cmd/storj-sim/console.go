@@ -131,7 +131,7 @@ func addExampleProjectWithKey(key *string, createRegistrationTokenAddress, activ
 	}
 	{
 		createUserQuery := fmt.Sprintf(
-			"mutation {createUser(input:{email:\"%s\",password:\"%s\",fullName:\"%s\", shortName:\"\"}, secret:\"%s\" ){id,email,createdAt}}",
+			"mutation {createUser(input:{email:\"%s\",password:\"%s\",fullName:\"%s\", shortName:\"\", partnerId: \"\"}, secret:\"%s\" ){id,email,createdAt}}",
 			"alice@mail.test",
 			"123a123",
 			"Alice",

@@ -130,6 +130,7 @@ CREATE TABLE pending_audits (
 	share_size bigint NOT NULL,
 	expected_share_hash bytea NOT NULL,
 	reverify_count bigint NOT NULL,
+	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
 CREATE TABLE projects (

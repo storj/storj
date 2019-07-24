@@ -29,31 +29,31 @@
             return {
                 stats: {
                     referred: {
-                        title: "referrals made",
-                        description: "People you referred who signed up",
-                        symbol: "",
+                        title: 'referrals made',
+                        description: 'People you referred who signed up',
+                        symbol: '',
                         background: {
-                            backgroundColor: "#FFFFFF",
+                            backgroundColor: '#FFFFFF',
                         }
                     },
                     availableCredits: {
-                        title: "earned credits",
-                        description: "Free credits that will apply to your upcoming bill",
-                        symbol: "$",
+                        title: 'earned credits',
+                        description: 'Free credits that will apply to your upcoming bill',
+                        symbol: '$',
                         background: {
-                            backgroundColor: "rgba(217, 225, 236, 0.5)",
+                            backgroundColor: 'rgba(217, 225, 236, 0.5)',
                         }
                     },
                     usedCredits: {
-                        title: "applied credits",
-                        description: "Free credits that have already been applied to your bill",
-                        symbol: "$",
+                        title: 'applied credits',
+                        description: 'Free credits that have already been applied to your bill',
+                        symbol: '$',
                         background: {
-                            backgroundColor: "#D1D7E0",
+                            backgroundColor: '#D1D7E0',
                         }
                     },
                 }
-            }
+            };
         },
         methods: {
             fetch: async function() {
@@ -68,8 +68,9 @@
         },
         computed: {
             title() {
-                let name = this.$store.state.usersModule.fullName || "" ;
-                let text = "Here Are Your Referrals So Far";
+                let name = this.$store.state.usersModule.fullName || '' ;
+                let text = 'Here Are Your Referrals So Far';
+
                 return name.length > 0 ? `${name}, ${text}` : text;
             },
             usage() {
@@ -77,7 +78,6 @@
             }
         }
     })
-
     export default class ReferralStats extends Vue {}
 </script>
 

@@ -3,19 +3,13 @@
 
 import apolloManager from '../utils/apolloManager';
 import gql from 'graphql-tag';
+import { UpdatedUser, User } from '@/types/users';
+import { RequestResponse } from '@/types/response';
 
 // Performs update user info graphQL mutation request.
 // Returns User object if succeed, null otherwise
 export async function updateAccountRequest(user: UpdatedUser): Promise<RequestResponse<User>> {
-    let result: RequestResponse<User> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: {
-            fullName: '',
-            shortName: '',
-            email: '',
-        }
-    };
+    let result: RequestResponse<User> = new RequestResponse<User>();
 
     let response: any = await apolloManager.mutate(
         {
@@ -51,11 +45,7 @@ export async function updateAccountRequest(user: UpdatedUser): Promise<RequestRe
 // Performs change password graphQL mutation
 // Returns base user fields
 export async function changePasswordRequest(password: string, newPassword: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apolloManager.mutate(
         {
@@ -84,11 +74,7 @@ export async function changePasswordRequest(password: string, newPassword: strin
 }
 
 export async function forgotPasswordRequest(email: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apolloManager.query(
         {
@@ -111,12 +97,8 @@ export async function forgotPasswordRequest(email: string): Promise<RequestRespo
 }
 
 // Performs Create user graqhQL request.
-export async function createUserRequest(user: User, password: string, secret: string): Promise<RequestResponse<string>> {
-    let result: RequestResponse<string> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: ''
-    };
+export async function createUserRequest(user: User, password: string, secret: string, refUserId?: string): Promise<RequestResponse<string>> {
+    let result: RequestResponse<string> = new RequestResponse<string>();
 
     let response = await apolloManager.mutate(
         {
@@ -128,7 +110,9 @@ export async function createUserRequest(user: User, password: string, secret: st
                         password: "${password}",
                         fullName: "${user.fullName}",
                         shortName: "${user.shortName}",
+                        partnerId: "${user.partnerId}",
                     },
+                    refUserId: "${refUserId || ""}",
                     secret: "${secret}",
                 ){email, id}
             }`
@@ -153,11 +137,7 @@ export async function createUserRequest(user: User, password: string, secret: st
 // Performs graqhQL request.
 // Returns Token.
 export async function getTokenRequest(email: string, password: string): Promise<RequestResponse<string>> {
-    let result: RequestResponse<string> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: ''
-    };
+    let result: RequestResponse<string> = new RequestResponse<string>();
 
     let response: any = await apolloManager.query(
         {
@@ -187,15 +167,7 @@ export async function getTokenRequest(email: string, password: string): Promise<
 // Performs graqhQL request.
 // Returns User object.
 export async function getUserRequest(): Promise<RequestResponse<User>> {
-    let result: RequestResponse<User> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: {
-            fullName: '',
-            shortName: '',
-            email: '',
-        }
-    };
+    let result: RequestResponse<User> = new RequestResponse<User>();
 
     let response: any = await apolloManager.query(
         {
@@ -225,11 +197,7 @@ export async function getUserRequest(): Promise<RequestResponse<User>> {
 
 // Performs graqhQL request.
 export async function deleteAccountRequest(password: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response = await apolloManager.mutate(
         {
@@ -255,11 +223,7 @@ export async function deleteAccountRequest(password: string): Promise<RequestRes
 }
 
 export async function resendEmailRequest(userID: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response = await apolloManager.query(
         {

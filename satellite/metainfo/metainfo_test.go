@@ -45,7 +45,7 @@ func TestInvalidAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 1, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -80,7 +80,7 @@ func TestRestrictedAPIKey(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 1, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -209,7 +209,7 @@ func TestServiceList(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	planet, err := testplanet.New(t, 1, 6, 1)
+	planet, err := testplanet.New(t, 1, 0, 1)
 	require.NoError(t, err)
 	defer ctx.Check(planet.Shutdown)
 
@@ -233,17 +233,17 @@ func TestServiceList(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
-	metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, planet.Uplinks[0].Log.Named("metainfo"), config, planet.Uplinks[0].Identity)
-	require.NoError(t, err)
-	defer ctx.Check(cleanup)
-
 	type Test struct {
 		Request  storj.ListOptions
 		Expected storj.ObjectList // objects are partial
 	}
 
-	list, err := metainfo.ListObjects(ctx, "testbucket", storj.ListOptions{Recursive: true, Direction: storj.After})
+	config := planet.Uplinks[0].GetConfig(planet.Satellites[0])
+	project, bucket, err := planet.Uplinks[0].GetProjectAndBucket(ctx, planet.Satellites[0], "testbucket", config)
+	require.NoError(t, err)
+	defer ctx.Check(bucket.Close)
+	defer ctx.Check(project.Close)
+	list, err := bucket.ListObjects(ctx, &storj.ListOptions{Recursive: true, Direction: storj.After})
 	require.NoError(t, err)
 
 	expected := []storj.Object{
@@ -265,7 +265,7 @@ func TestServiceList(t *testing.T) {
 		require.Equal(t, item.IsPrefix, list.Items[i].IsPrefix)
 	}
 
-	list, err = metainfo.ListObjects(ctx, "testbucket", storj.ListOptions{Recursive: false, Direction: storj.After})
+	list, err = bucket.ListObjects(ctx, &storj.ListOptions{Recursive: false, Direction: storj.After})
 	require.NoError(t, err)
 
 	expected = []storj.Object{
@@ -288,7 +288,7 @@ func TestServiceList(t *testing.T) {
 
 func TestCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -454,14 +454,21 @@ func TestCreateSegment(t *testing.T) {
 
 func TestExpirationTimeSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
 		metainfo, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
-		pointer := createTestPointer(t)
+		rs := &pb.RedundancyScheme{
+			MinReq:           1,
+			RepairThreshold:  1,
+			SuccessThreshold: 1,
+			Total:            1,
+			ErasureShareSize: 1024,
+			Type:             pb.RedundancyScheme_RS,
+		}
 
 		for _, r := range []struct {
 			expirationDate time.Time
@@ -485,7 +492,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 			},
 		} {
 
-			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, pointer.Remote.Redundancy, memory.MiB.Int64(), r.expirationDate)
+			_, _, _, err := metainfo.CreateSegment(ctx, "my-bucket-name", "file/path", -1, rs, memory.MiB.Int64(), r.expirationDate)
 			if err != nil {
 				assert.True(t, r.errFlag)
 			} else {
@@ -497,7 +504,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 
 func TestDoubleCommitSegment(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -608,7 +615,7 @@ func TestCommitSegmentPointer(t *testing.T) {
 	}
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -629,17 +636,12 @@ func TestCommitSegmentPointer(t *testing.T) {
 
 func TestSetAttribution(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		uplink := planet.Uplinks[0]
 
-		config := uplink.GetConfig(planet.Satellites[0])
-		metainfo, _, cleanup, err := testplanet.DialMetainfo(ctx, uplink.Log.Named("metainfo"), config, uplink.Identity)
-		require.NoError(t, err)
-		defer ctx.Check(cleanup)
-
-		_, err = metainfo.CreateBucket(ctx, "alpha", &storj.Bucket{PathCipher: config.GetEncryptionParameters().CipherSuite})
+		err := uplink.CreateBucket(ctx, planet.Satellites[0], "alpha")
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -679,7 +681,7 @@ func TestSetAttribution(t *testing.T) {
 
 func TestGetProjectInfo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey0 := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		apiKey1 := planet.Uplinks[1].APIKey[planet.Satellites[0].ID()]
@@ -882,7 +884,7 @@ func TestBeginFinishDeleteObject(t *testing.T) {
 	})
 }
 
-func TestListObjects(t *testing.T) {
+func TestListGetObjects(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -901,15 +903,22 @@ func TestListObjects(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfo.Close)
 
-		items, _, err := metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 0)
+		expectedBucketName := []byte("testbucket")
+		items, _, err := metainfo.ListObjects(ctx, expectedBucketName, []byte(""), []byte(""), 0)
 		require.NoError(t, err)
 		require.Equal(t, len(files), len(items))
 		for _, item := range items {
 			require.NotEmpty(t, item.EncryptedPath)
 			require.True(t, item.CreatedAt.Before(time.Now()))
+
+			object, streamID, err := metainfo.GetObject(ctx, expectedBucketName, item.EncryptedPath, -1)
+			require.NoError(t, err)
+			require.Equal(t, item.EncryptedPath, []byte(object.Path))
+
+			require.NotEmpty(t, streamID)
 		}
 
-		items, _, err = metainfo.ListObjects(ctx, []byte("testbucket"), []byte(""), []byte(""), 3)
+		items, _, err = metainfo.ListObjects(ctx, expectedBucketName, []byte(""), []byte(""), 3)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(items))
 	})

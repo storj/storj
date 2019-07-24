@@ -66,7 +66,7 @@ func TestUploadAndPartialDownload(t *testing.T) {
 
 			download, cleanup, err := planet.Uplinks[0].DownloadStream(ctx, planet.Satellites[0], "testbucket", "test/path")
 			require.NoError(t, err)
-
+			defer ctx.Check(cleanup)
 			pos, err := download.Seek(tt.offset, io.SeekStart)
 			require.NoError(t, err)
 			assert.Equal(t, pos, tt.offset)
@@ -79,7 +79,6 @@ func TestUploadAndPartialDownload(t *testing.T) {
 			assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
 
 			require.NoError(t, download.Close())
-			require.NoError(t, cleanup())
 		}
 
 		var totalBandwidthUsage bandwidth.Usage
@@ -528,7 +527,7 @@ func TestRetain(t *testing.T) {
 			storj.NodeURL{ID: satellite1.ID},
 		}
 
-		trusted, err := trust.NewPool(nil, false, whitelisted)
+		trusted, err := trust.NewPool(nil, whitelisted)
 		require.NoError(t, err)
 
 		uplink := testidentity.MustPregeneratedSignedIdentity(3, storj.LatestIDVersion())

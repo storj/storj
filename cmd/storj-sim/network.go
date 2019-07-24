@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/internal/dbutil/pgutil"
 	"storj.io/storj/internal/fpath"
 	"storj.io/storj/internal/processgroup"
+	"storj.io/storj/pkg/identity"
 )
 
 const (
@@ -433,7 +434,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--server.extensions.revocation=false",
 				"--server.use-peer-ca-whitelist=false",
-				"--storage.satellite-id-restriction=false",
 
 				"--version.server-address", fmt.Sprintf("http://%s/", versioncontrol.Address),
 				"--debug.addr", net.JoinHostPort(host, port(storagenodePeer, i, debugHTTP)),
@@ -441,7 +441,27 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {},
 		})
 
+		process.ExecBefore["setup"] = func(process *Process) error {
+			whitelisted := []string{}
+			for _, satellite := range satellites {
+				peer, err := identity.PeerConfig{
+					CertPath: filepath.Join(satellite.Directory, "identity.cert"),
+				}.Load()
+				if err != nil {
+					return err
+				}
+
+				whitelisted = append(whitelisted, peer.ID.String()+"@"+satellite.Address)
+			}
+
+			process.Arguments["setup"] = append(process.Arguments["setup"],
+				"--storage.whitelisted-satellites", strings.Join(whitelisted, ","),
+			)
+			return nil
+		}
+
 		process.ExecBefore["run"] = func(process *Process) error {
+
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
 	}

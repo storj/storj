@@ -17,94 +17,48 @@
             v-if="isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
-            :style="style"
+            :style="style.inputStyle"
             :rows="5"
             :cols="40"
             wrap="hard"
-            v-model.lazy="value"
+            @input="onInput"
             @change="onInput"
-            @input="onInput">
+            v-model="value">
         </textarea>
         <input
             v-if="!isMultiline"
             :id="this.$props.label"
             :placeholder="this.$props.placeholder"
             v-bind:type="[isPassword ? 'password': 'text']"
-            v-model.lazy="value"
-            @change="onInput"
             @input="onInput"
-            :style="style"/>
+            @change="onInput"
+            v-model="value"
+            :style="style.inputStyle"/>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
+    import HeaderlessInput from './HeaderlessInput.vue';
 
-	// Custom input component with labeled header
-    @Component({
-        data: function () {
-            return {
-                value: this.$props.initValue ? this.$props.initValue : '',
-            };
-        },
-        methods: {
-            // Emits data to parent component
-            onInput() {
-                this.$emit('setData', this.$data.value);
-            },
-            setValue(value: string) {
-                this.$data.value = value;
-            }
-        },
-        props: {
-            initValue: {
-                type: String,
-            },
-            label: {
-                type: String,
-                default: ''
-            },
-            additionalLabel: {
-                type: String,
-                default: ''
-            },
-            error: {
-                type: String
-            },
-            placeholder: {
-                type: String,
-                default: 'default'
-            },
-            isOptional: {
-                type: Boolean,
-                default: false
-            },
-            isMultiline: {
-                type: Boolean,
-                default: false
-            },
-            isPassword: {
-                type: Boolean,
-                default: false
-            },
-            height: {
-                type: String,
-                default: '48px'
-            },
-            width: {
-                type: String,
-                default: '100%'
-            },
-        },
-        computed: {
-            style: function () {
-                return {width: this.$props.width, height: this.$props.height};
-            },
-        },
-    })
-
-    export default class HeaderedInput extends Vue {}
-
+    // Custom input component with labeled header
+    @Component
+    export default class HeaderedInput extends HeaderlessInput {
+        @Prop({default: ''})
+        private readonly initValue: string;
+        @Prop({default: ''})
+        private readonly additionalLabel: string;
+        @Prop({default: false})
+        private readonly isOptional: boolean;
+        @Prop({default: false})
+        private readonly isMultiline: boolean;
+        
+        public constructor() {
+            super();
+            
+            this.value = this.initValue;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

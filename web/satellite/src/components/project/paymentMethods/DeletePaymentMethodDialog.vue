@@ -7,7 +7,7 @@
             <h1>Confirm Delete Card</h1>
             <h2>Are you sure you want to remove your card?</h2>
             <div class="button-container">
-                <Button height="48px" width="128px" label="Cancel" isWhite :on-press="onCancelClick"/>
+                <Button height="48px" width="128px" label="Cancel" isWhite="true" :on-press="onCancelClick"/>
                 <Button class="delete-button" height="48px" width="128px" label="Delete" :on-press="onDeleteClick"/>
             </div>
         </div>

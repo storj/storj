@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
@@ -87,5 +88,21 @@ func TestUsers(t *testing.T) {
 			DefaultSegmentsSize: int64(100),
 		})
 		require.NoError(t, err)
+
+		// update a bucket with partnerID
+		bucket, err := db.Buckets().UpdateBucket(ctx, storj.Bucket{
+			ID:                  testrand.UUID(),
+			Name:                "testbucket",
+			ProjectID:           proj.ID,
+			PartnerID:           proj.ID,
+			Created:             time.Now(),
+			PathCipher:          storj.EncAESGCM,
+			DefaultSegmentsSize: int64(100),
+		})
+		require.NoError(t, err)
+		bucket, err = db.Buckets().GetBucket(ctx, []byte("testbucket"), proj.ID)
+		require.NoError(t, err)
+		flag := uuid.Equal(bucket.PartnerID, proj.ID)
+		require.True(t, flag)
 	})
 }

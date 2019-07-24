@@ -79,16 +79,15 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	}, nil
 }
 
-// NewInMemory creates new inmemory master database for storage node
-// TODO: still stores data on disk
-func NewInMemory(log *zap.Logger, storageDir string) (*DB, error) {
+// NewTest creates new test database for storage node.
+func NewTest(log *zap.Logger, storageDir string) (*DB, error) {
 	piecesDir, err := filestore.NewDir(storageDir)
 	if err != nil {
 		return nil, err
 	}
 	pieces := filestore.New(piecesDir)
 
-	infodb, err := NewInfoInMemory()
+	infodb, err := NewInfoTest()
 	if err != nil {
 		return nil, err
 	}
