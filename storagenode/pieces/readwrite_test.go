@@ -34,15 +34,6 @@ func BenchmarkReadWrite(b *testing.B) {
 	satelliteID := testrand.NodeID()
 	source := testrand.Bytes(30 * memory.MB)
 
-	testPieceID := storj.PieceID{1}
-	{ // write a test piece
-		writer, err := store.Writer(ctx, satelliteID, testPieceID)
-		require.NoError(b, err)
-		_, err = writer.Write(source)
-		require.NoError(b, err)
-		require.NoError(b, writer.Commit(ctx))
-	}
-
 	b.Run("Write", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			pieceID := testrand.PieceID()
@@ -63,6 +54,15 @@ func BenchmarkReadWrite(b *testing.B) {
 			require.NoError(b, writer.Commit(ctx))
 		}
 	})
+
+	testPieceID := storj.PieceID{1}
+	{ // write a test piece
+		writer, err := store.Writer(ctx, satelliteID, testPieceID)
+		require.NoError(b, err)
+		_, err = writer.Write(source)
+		require.NoError(b, err)
+		require.NoError(b, writer.Commit(ctx))
+	}
 
 	b.Run("Read", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
