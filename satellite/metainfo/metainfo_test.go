@@ -1081,10 +1081,8 @@ func TestInlineSegment(t *testing.T) {
 				OptimalShares:  3,
 				TotalShares:    4,
 			},
-			EncryptionParameters:   storj.EncryptionParameters{},
-			ExpiresAt:              time.Now().UTC().Add(24 * time.Hour),
-			EncryptedMetadataNonce: testrand.Nonce(),
-			EncryptedMetadata:      testrand.Bytes(memory.KiB),
+			EncryptionParameters: storj.EncryptionParameters{},
+			ExpiresAt:            time.Now().UTC().Add(24 * time.Hour),
 		}
 		streamID, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -1113,7 +1111,6 @@ func TestInlineSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.Equal(t, params.EncryptedMetadata, objects[0].EncryptedMetadata)
 		require.Equal(t, params.ExpiresAt, objects[0].ExpiresAt)
 
 		_, streamID, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{

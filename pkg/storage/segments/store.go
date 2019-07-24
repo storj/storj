@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vivint/infectious"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/eestream"
@@ -43,7 +44,9 @@ type ListItem struct {
 // Store for segments
 type Store interface {
 	Meta(ctx context.Context, path storj.Path) (meta Meta, err error)
-	Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
+	// Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error)
+	Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, encryption storj.SegmentEncryption, err error)
+	// Put(ctx context.Context, streamID storj.StreamID, encKey storj.EncryptedPrivateKey, encNonce storj.Nonce, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Put(ctx context.Context, data io.Reader, expiration time.Time, segmentInfo func() (storj.Path, []byte, error)) (meta Meta, err error)
 	Delete(ctx context.Context, path storj.Path) (err error)
 	List(ctx context.Context, prefix, startAfter, endBefore storj.Path, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error)
@@ -72,17 +75,25 @@ func NewSegmentStore(metainfo *metainfo.Client, ec ecclient.Client, rs eestream.
 func (s *segmentStore) Meta(ctx context.Context, path storj.Path) (meta Meta, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	bucket, objectPath, _, err := splitPathFragments(path)
 	if err != nil {
 		return Meta{}, err
 	}
 
-	pointer, err := s.metainfo.SegmentInfo(ctx, bucket, objectPath, segmentIndex)
+	object, _, err := s.metainfo.GetObject(ctx, metainfo.GetObjectParams{
+		Bucket:        []byte(bucket),
+		EncryptedPath: []byte(objectPath),
+	})
 	if err != nil {
 		return Meta{}, Error.Wrap(err)
 	}
 
-	return convertMeta(pointer), nil
+	return Meta{
+		Modified:   object.Modified,
+		Expiration: object.Expires,
+		// Size: ,
+		Data: object.Metadata,
+	}, nil
 }
 
 // Put uploads a segment to an erasure code client
@@ -122,6 +133,29 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 			ExpirationDate: expiration,
 			Metadata:       metadata,
 		}
+
+		// _, _, segmentIndex, err := splitPathFragments(path)
+		// if err != nil {
+		// 	return Meta{}, err
+		// }
+
+		// err = s.metainfo.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
+		// 	StreamID: streamID,
+		// 	Position: storj.SegmentPosition{
+		// 		Index: int32(segmentIndex),
+		// 	},
+		// 	EncryptedKeyNonce:   encNonce,
+		// 	EncryptedKey:        encKey,
+		// 	EncryptedInlineData: peekReader.thresholdBuf,
+		// })
+		// if err != nil {
+		// 	return Meta{}, err
+		// }
+		// return Meta{
+		// 	Expiration: expiration,
+		// 	Size:       int64(len(peekReader.thresholdBuf)),
+		// 	Data:       metadata,
+		// }, nil
 	} else {
 		// early call to get bucket name, rest of the path cannot be determine yet
 		p, _, err := segmentInfo()
@@ -177,24 +211,75 @@ func (s *segmentStore) Put(ctx context.Context, data io.Reader, expiration time.
 }
 
 // Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
-func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
+// func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Ranger, meta Meta, err error) {
+// 	defer mon.Task()(&ctx)(&err)
+
+// 	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+// 	if err != nil {
+// 		return nil, Meta{}, err
+// 	}
+
+// 	pointer, limits, piecePrivateKey, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
+// 	if err != nil {
+// 		return nil, Meta{}, Error.Wrap(err)
+// 	}
+
+// 	switch pointer.GetType() {
+// 	case pb.Pointer_INLINE:
+// 		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
+// 	case pb.Pointer_REMOTE:
+// 		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
+// 		selected := make([]*pb.AddressedOrderLimit, len(limits))
+
+// 		for _, i := range rand.Perm(len(limits)) {
+// 			limit := limits[i]
+// 			if limit == nil {
+// 				continue
+// 			}
+
+// 			selected[i] = limit
+
+// 			needed--
+// 			if needed <= 0 {
+// 				break
+// 			}
+// 		}
+
+// 		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+// 		if err != nil {
+// 			return nil, Meta{}, err
+// 		}
+
+// 		rr, err = s.ec.Get(ctx, selected, piecePrivateKey, redundancy, pointer.GetSegmentSize())
+// 		if err != nil {
+// 			return nil, Meta{}, Error.Wrap(err)
+// 		}
+
+// 		return rr, convertMeta(pointer), nil
+// 	default:
+// 		return nil, Meta{}, Error.New("unsupported pointer type: %d", pointer.GetType())
+// 	}
+// }
+
+// Get requests the satellite to read a segment and downloaded the pieces from the storage nodes
+func (s *segmentStore) Get(ctx context.Context, streamID storj.StreamID, segmentIndex int32, objectRS storj.RedundancyScheme) (rr ranger.Ranger, _ storj.SegmentEncryption, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bucket, objectPath, segmentIndex, err := splitPathFragments(path)
+	info, limits, err := s.metainfo.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+		StreamID: streamID,
+		Position: storj.SegmentPosition{
+			Index: segmentIndex,
+		},
+	})
 	if err != nil {
-		return nil, Meta{}, err
+		return nil, storj.SegmentEncryption{}, Error.Wrap(err)
 	}
 
-	pointer, limits, piecePrivateKey, err := s.metainfo.ReadSegment(ctx, bucket, objectPath, segmentIndex)
-	if err != nil {
-		return nil, Meta{}, Error.Wrap(err)
-	}
-
-	switch pointer.GetType() {
-	case pb.Pointer_INLINE:
-		return ranger.ByteRanger(pointer.InlineSegment), convertMeta(pointer), nil
-	case pb.Pointer_REMOTE:
-		needed := CalcNeededNodes(pointer.GetRemote().GetRedundancy())
+	switch {
+	case len(info.EncryptedInlineData) != 0:
+		return ranger.ByteRanger(info.EncryptedInlineData), storj.SegmentEncryption{}, nil
+	default:
+		needed := CalcNeededNodes2(objectRS)
 		selected := make([]*pb.AddressedOrderLimit, len(limits))
 
 		for _, i := range rand.Perm(len(limits)) {
@@ -211,19 +296,24 @@ func (s *segmentStore) Get(ctx context.Context, path storj.Path) (rr ranger.Rang
 			}
 		}
 
-		redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+		fc, err := infectious.NewFEC(int(objectRS.RequiredShares), int(objectRS.TotalShares))
 		if err != nil {
-			return nil, Meta{}, err
+			return nil, storj.SegmentEncryption{}, err
+		}
+		es := eestream.NewRSScheme(fc, int(objectRS.ShareSize))
+		redundancy, err := eestream.NewRedundancyStrategy(es, int(objectRS.RepairShares), int(objectRS.OptimalShares))
+		if err != nil {
+			return nil, storj.SegmentEncryption{}, err
 		}
 
-		rr, err = s.ec.Get(ctx, selected, piecePrivateKey, redundancy, pointer.GetSegmentSize())
+		rr, err = s.ec.Get(ctx, selected, info.PiecePrivateKey, redundancy, info.Size)
 		if err != nil {
-			return nil, Meta{}, Error.Wrap(err)
+			return nil, storj.SegmentEncryption{}, Error.Wrap(err)
 		}
 
-		return rr, convertMeta(pointer), nil
-	default:
-		return nil, Meta{}, Error.New("unsupported pointer type: %d", pointer.GetType())
+		return rr, info.SegmentEncryption, nil
+		// default:
+		// 	return nil, Meta{}, Error.New("unsupported pointer type: %d", pointer.GetType())
 	}
 }
 
@@ -339,6 +429,26 @@ func CalcNeededNodes(rs *pb.RedundancyScheme) int32 {
 
 	if needed > rs.GetTotal() {
 		needed = rs.GetTotal()
+	}
+
+	return needed
+}
+
+func CalcNeededNodes2(rs storj.RedundancyScheme) int32 {
+	extra := int32(1)
+
+	if rs.OptimalShares > 0 {
+		extra = int32(((rs.TotalShares - rs.OptimalShares) * rs.RequiredShares) / rs.OptimalShares)
+		if extra == 0 {
+			// ensure there is at least one extra node, so we can have error detection/correction
+			extra = 1
+		}
+	}
+
+	needed := int32(rs.RequiredShares) + extra
+
+	if needed > int32(rs.TotalShares) {
+		needed = int32(rs.TotalShares)
 	}
 
 	return needed

@@ -300,6 +300,9 @@ message ObjectListRequest {
     int32     limit = 4;
 
     ObjectListItemIncludes object_includes = 5;
+
+    // TODO show we support it at all, clarify with JT
+    bool recursive = 6;
 }
 
 message ObjectListResponse {
@@ -492,4 +495,9 @@ message SegmentDownloadResponse {
     repeated AddressedOrderLimit addressed_limits = 2;
     bytes                        encrypted_inline_data = 3;
     SegmentPosition              next = 4; // can be nil
+    bytes                        private_key = 5 [(gogoproto.customtype) = "PiecePrivateKey", (gogoproto.nullable) = false];
+    int64                        segment_size = 6;
+
+    bytes encrypted_key_nonce = 7 [(gogoproto.customtype) = "Nonce", (gogoproto.nullable) = false];
+    bytes encrypted_key = 8;
 }

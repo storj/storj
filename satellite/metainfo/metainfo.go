@@ -1071,6 +1071,10 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		EncryptedMetadata: pointer.Metadata,
 	}
 
+	if pointer.Remote != nil {
+		object.RedundancyScheme = pointer.Remote.Redundancy
+	}
+
 	return &pb.ObjectGetResponse{
 		Object: object,
 	}, nil
@@ -1103,7 +1107,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	metaflags := meta.All
 	// TODO use flags
 	// TODO find out how EncryptedCursor -> startAfter/endAfter
-	segments, more, err := endpoint.metainfo.List(ctx, prefix, "", "", false, req.Limit, metaflags)
+	segments, more, err := endpoint.metainfo.List(ctx, prefix, string(req.EncryptedCursor), "", req.Recursive, req.Limit, metaflags)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
@@ -1111,10 +1115,12 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	items := make([]*pb.ObjectListItem, len(segments))
 	for i, segment := range segments {
 		items[i] = &pb.ObjectListItem{
-			EncryptedPath:     []byte(segment.Path),
-			EncryptedMetadata: segment.Pointer.Metadata,
-			CreatedAt:         segment.Pointer.CreationDate,
-			ExpiresAt:         segment.Pointer.ExpirationDate,
+			EncryptedPath: []byte(segment.Path),
+		}
+		if segment.Pointer != nil {
+			items[i].EncryptedMetadata = segment.Pointer.Metadata
+			items[i].CreatedAt = segment.Pointer.CreationDate
+			items[i].ExpiresAt = segment.Pointer.ExpirationDate
 		}
 	}
 
@@ -1674,6 +1680,31 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{})
 
+	var encryptedKeyNonce storj.Nonce
+	var encryptedKey []byte
+	if len(pointer.Metadata) != 0 {
+		var segmentMeta *pb.SegmentMeta
+		if req.CursorPosition.Index == lastSegment {
+			streamMeta := &pb.StreamMeta{}
+			err = proto.Unmarshal(pointer.Metadata, streamMeta)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
+			segmentMeta = streamMeta.LastSegmentMeta
+		} else {
+			err = proto.Unmarshal(pointer.Metadata, segmentMeta)
+			if err != nil {
+				return nil, status.Errorf(codes.Internal, err.Error())
+			}
+		}
+		encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		encryptedKey = segmentMeta.EncryptedKey
+	}
+
 	if pointer.Type == pb.Pointer_INLINE {
 		err := endpoint.orders.UpdateGetInlineOrder(ctx, keyInfo.ProjectID, streamID.Bucket, int64(len(pointer.InlineSegment)))
 		if err != nil {
@@ -1681,21 +1712,56 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		}
 		return &pb.SegmentDownloadResponse{
 			SegmentId:           segmentID,
+			SegmentSize:         pointer.SegmentSize,
 			EncryptedInlineData: pointer.InlineSegment,
+
+			EncryptedKeyNonce: encryptedKeyNonce,
+			EncryptedKey:      encryptedKey,
 		}, nil
 	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, _, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucketID, pointer)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
+		}
+
+		limits = sortLimits(limits, pointer)
+
+		for i := range limits {
+			if limits[i] == nil {
+				limits[i] = &pb.AddressedOrderLimit{}
+			}
 		}
 
 		return &pb.SegmentDownloadResponse{
 			SegmentId:       segmentID,
 			AddressedLimits: limits,
+			PrivateKey:      privateKey,
+			SegmentSize:     pointer.SegmentSize,
+
+			EncryptedKeyNonce: encryptedKeyNonce,
+			EncryptedKey:      encryptedKey,
 		}, nil
 	}
 
 	return &pb.SegmentDownloadResponse{}, status.Errorf(codes.Internal, "invalid type of pointer")
+}
+
+// sortLimits sorts order limits and fill missing ones with nil values
+func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
+	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
+	for _, piece := range pointer.GetRemote().GetRemotePieces() {
+		sorted[piece.GetPieceNum()] = getLimitByStorageNodeID(limits, piece.NodeId)
+	}
+	return sorted
+}
+
+func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID storj.NodeID) *pb.AddressedOrderLimit {
+	for _, limit := range limits {
+		if limit.GetLimit().StorageNodeId == storageNodeID {
+			return limit
+		}
+	}
+	return nil
 }
 
 func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatStreamID) (streamID storj.StreamID, err error) {

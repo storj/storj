@@ -709,7 +709,7 @@ func initEnv(ctx context.Context, planet *testplanet.Planet) (minio.ObjectLayer,
 
 	blockSize := rs.StripeSize()
 	inlineThreshold := 4 * memory.KiB.Int()
-	strms, err := streams.NewStreamStore(segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
+	strms, err := streams.NewStreamStore(m, segments, 64*memory.MiB.Int64(), encStore, blockSize, storj.EncAESGCM, inlineThreshold)
 	if err != nil {
 		return nil, nil, nil, err
 	}

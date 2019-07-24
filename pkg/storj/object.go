@@ -34,6 +34,22 @@ type Object struct {
 	Stream
 }
 
+type Object2 struct {
+	Version  uint32
+	Bucket   Bucket
+	Path     Path
+	IsPrefix bool
+
+	Metadata []byte
+
+	ContentType string
+	Created     time.Time
+	Modified    time.Time
+	Expires     time.Time
+
+	Stream
+}
+
 // Stream is information about an object stream
 type Stream struct {
 	// Size is the total size of the stream in bytes

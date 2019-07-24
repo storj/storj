@@ -426,7 +426,7 @@ type GetObjectParams struct {
 }
 
 // GetObject gets single object
-func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.Object, _ storj.StreamID, err error) {
+func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ storj.Object2, _ storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
@@ -434,18 +434,39 @@ func (client *Client) GetObject(ctx context.Context, params GetObjectParams) (_ 
 		EncryptedPath: params.EncryptedPath,
 		Version:       params.Version,
 	})
+
 	if err != nil {
-		return storj.Object{}, storj.StreamID{}, Error.Wrap(err)
+		if status.Code(err) == codes.NotFound {
+			return storj.Object2{}, storj.StreamID{}, storage.ErrKeyNotFound.Wrap(err)
+		}
+		return storj.Object2{}, storj.StreamID{}, Error.Wrap(err)
 	}
 
-	object := storj.Object{
+	object := storj.Object2{
 		Bucket: storj.Bucket{
 			Name: string(response.Object.Bucket),
 		},
-		Path:    storj.Path(response.Object.EncryptedPath),
-		Created: response.Object.CreatedAt,
-		Expires: response.Object.ExpiresAt,
+		Path:     storj.Path(response.Object.EncryptedPath),
+		Created:  response.Object.CreatedAt,
+		Modified: response.Object.CreatedAt,
+		Expires:  response.Object.ExpiresAt,
+		Metadata: response.Object.EncryptedMetadata,
+		Stream: storj.Stream{
+			Size: response.Object.TotalSize,
+		},
 		// TODO custom type for response object or modify storj.Object
+	}
+
+	pbRS := response.Object.RedundancyScheme
+	if pbRS != nil {
+		object.Stream.RedundancyScheme = storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(pbRS.Type),
+			ShareSize:      pbRS.ErasureShareSize,
+			RequiredShares: int16(pbRS.MinReq),
+			RepairShares:   int16(pbRS.RepairThreshold),
+			OptimalShares:  int16(pbRS.SuccessThreshold),
+			TotalShares:    int16(pbRS.Total),
+		}
 	}
 
 	return object, response.Object.StreamId, nil
@@ -491,6 +512,7 @@ type ListObjectsParams struct {
 	EncryptedCursor []byte
 	Limit           int32
 	IncludeMetadata bool
+	Recursive       bool
 }
 
 // ListObjects lists objects according to specific parameters
@@ -505,6 +527,7 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 		ObjectIncludes: &pb.ObjectListItemIncludes{
 			Metadata: params.IncludeMetadata,
 		},
+		Recursive: params.Recursive,
 	})
 	if err != nil {
 		return []storj.ObjectListItem{}, false, Error.Wrap(err)
@@ -677,12 +700,24 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 
 	info := storj.SegmentDownloadInfo{
 		SegmentID:           response.SegmentId,
+		Size:                response.SegmentSize,
 		EncryptedInlineData: response.EncryptedInlineData,
+		PiecePrivateKey:     response.PrivateKey,
+		SegmentEncryption: storj.SegmentEncryption{
+			EncryptedKeyNonce: response.EncryptedKeyNonce,
+			EncryptedKey:      response.EncryptedKey,
+		},
 	}
 	if response.Next != nil {
 		info.Next = storj.SegmentPosition{
 			PartNumber: response.Next.PartNumber,
 			Index:      response.Next.Index,
+		}
+	}
+
+	for i := range response.AddressedLimits {
+		if response.AddressedLimits[i].Limit == nil {
+			response.AddressedLimits[i] = nil
 		}
 	}
 
