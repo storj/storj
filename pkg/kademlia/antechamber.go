@@ -4,6 +4,7 @@
 package kademlia
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/gogo/protobuf/proto"
@@ -86,7 +87,7 @@ func (rt *RoutingTable) antechamberFindNear(ctx context.Context, target storj.No
 	return closestNodes, Error.Wrap(err)
 }
 
-// findOutsiderNodes removes the nodes outside the rt node neighborhood
+// findOutsiderNodes returns the nodes outside the rt node neighborhood, to be removed
 func (rt *RoutingTable) findOutsiderNodes(ctx context.Context) (keys storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	rt.mutex.Lock()
@@ -102,17 +103,36 @@ func (rt *RoutingTable) findOutsiderNodes(ctx context.Context) (keys storj.NodeI
 		// node neighborhood has room, no trimming needed
 		return keys, nil
 	}
+	// get the furthest node
 	furthest := neighborhood[size-1]
+
 	// take xor of furthest node
-	err = rt.iterateAntechamber(ctx, storj.NodeID{}, func(ctx context.Context, newID storj.NodeID, protoNode []byte) error {
-		// compare values until we find the nodes farther than the furthest node newnodexor > furthestxor
-		// possibly iterate backwards furthestxor < newnodexor
-		// add values to a slice to delete
-	})
+	furthestXOR := xorNodeID(rt.self.Id, furthest.Id)
+
+	// iterate in reverse, adding the xors larger than furthestXOR to keys list
+	err = rt.antechamber.Iterate(ctx, storage.IterateOptions{First: storage.Key{}, Recurse: true, Reverse: true},
+		func(ctx context.Context, it storage.Iterator) error {
+			var item storage.ListItem
+			for it.Next(ctx, &item) {
+				nodeIDXor, err := storj.NodeIDFromBytes(item.Key)
+				if err != nil {
+					return err
+				}
+				comparison := bytes.Compare(furthestXOR.Bytes(), nodeIDXor.Bytes())
+				if comparison < 0 {
+					keys = append(keys, nodeIDXor)
+				}
+				if comparison >= 0 {
+					return nil
+				}
+			}
+			return nil
+		},
+	)
 	return keys, nil
 }
 
-// iterateAntechamber is a helper method that iterates through the whole antechamber table
+// iterateAntechamberReverse is a helper method that iterates through the whole antechamber table in reverse
 func (rt *RoutingTable) iterateAntechamber(ctx context.Context, start storj.NodeID, f func(context.Context, storj.NodeID, []byte) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return rt.antechamber.Iterate(ctx, storage.IterateOptions{First: storage.Key(start.Bytes()), Recurse: true},
