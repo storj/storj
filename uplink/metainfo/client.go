@@ -530,8 +530,7 @@ func (client *Client) ListObjects(ctx context.Context, params ListObjectsParams)
 // BeginSegmentParams parameters for BeginSegment method
 type BeginSegmentParams struct {
 	StreamID     storj.StreamID
-	PartNumber   int32
-	Index        int32
+	Position     storj.SegmentPosition
 	MaxOderLimit int64
 }
 
@@ -542,8 +541,8 @@ func (client *Client) BeginSegment(ctx context.Context, params BeginSegmentParam
 	response, err := client.client.BeginSegment(ctx, &pb.SegmentBeginRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
-			PartNumber: params.PartNumber,
-			Index:      params.Index,
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
 		},
 		MaxOrderLimit: params.MaxOderLimit,
 	})
@@ -566,7 +565,7 @@ type CommitSegmentParams struct {
 
 // CommitSegment2 commits segment after upload
 func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentParams) (err error) {
-	// TODO method name will be changes when new methods will be fully integrated with client side
+	// TODO method name will be changed when new methods will be fully integrated with client side
 	defer mon.Task()(&ctx)(&err)
 
 	_, err = client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
@@ -585,11 +584,8 @@ func (client *Client) CommitSegment2(ctx context.Context, params CommitSegmentPa
 
 // MakeInlineSegmentParams parameters for MakeInlineSegment method
 type MakeInlineSegmentParams struct {
-	StreamID storj.StreamID
-	// TODO make separate struct for that two?
-	PartNumber int32
-	Index      int32
-
+	StreamID            storj.StreamID
+	Position            storj.SegmentPosition
 	EncryptedKeyNonce   storj.Nonce
 	EncryptedKey        []byte
 	EncryptedInlineData []byte
@@ -602,8 +598,8 @@ func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSe
 	_, err = client.client.MakeInlineSegment(ctx, &pb.SegmentMakeInlineRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
-			PartNumber: params.PartNumber,
-			Index:      params.Index,
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
 		},
 		EncryptedKeyNonce:   params.EncryptedKeyNonce,
 		EncryptedKey:        params.EncryptedKey,
@@ -619,9 +615,7 @@ func (client *Client) MakeInlineSegment(ctx context.Context, params MakeInlineSe
 // BeginDeleteSegmentParams parameters for BeginDeleteSegment method
 type BeginDeleteSegmentParams struct {
 	StreamID storj.StreamID
-	// TODO make separate struct for that two?
-	PartNumber int32
-	Index      int32
+	Position storj.SegmentPosition
 }
 
 // BeginDeleteSegment TODO
@@ -631,8 +625,8 @@ func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDelete
 	response, err := client.client.BeginDeleteSegment(ctx, &pb.SegmentBeginDeleteRequest{
 		StreamId: params.StreamID,
 		Position: &pb.SegmentPosition{
-			PartNumber: params.PartNumber,
-			Index:      params.Index,
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
 		},
 	})
 	if err != nil {
@@ -663,9 +657,7 @@ func (client *Client) FinishDeleteSegment(ctx context.Context, params FinishDele
 // DownloadSegmentParams parameters for DownloadSegment method
 type DownloadSegmentParams struct {
 	StreamID storj.StreamID
-	// TODO make separate struct for that two?
-	PartNumber int32
-	Index      int32
+	Position storj.SegmentPosition
 }
 
 // DownloadSegment gets info for downloading remote segment or data from inline segment
@@ -675,8 +667,8 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 	response, err := client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
-			PartNumber: params.PartNumber,
-			Index:      params.Index,
+			PartNumber: params.Position.PartNumber,
+			Index:      params.Position.Index,
 		},
 	})
 	if err != nil {
@@ -699,23 +691,21 @@ func (client *Client) DownloadSegment(ctx context.Context, params DownloadSegmen
 
 // ListSegmentsParams parameters for ListSegment method
 type ListSegmentsParams struct {
-	StreamID storj.StreamID
-	// TODO make separate struct for that two?
-	PartNumber int32
-	Index      int32
-	Limit      int32
+	StreamID       storj.StreamID
+	CursorPosition storj.SegmentPosition
+	Limit          int32
 }
 
 // ListSegments2 lists object segments
 func (client *Client) ListSegments2(ctx context.Context, params ListSegmentsParams) (_ []storj.SegmentListItem, more bool, err error) {
-	// TODO method name will be changes when new methods will be fully integrated with client side
+	// TODO method name will be changed when new methods will be fully integrated with client side
 	defer mon.Task()(&ctx)(&err)
 
 	response, err := client.client.ListSegments(ctx, &pb.SegmentListRequest{
 		StreamId: params.StreamID,
 		CursorPosition: &pb.SegmentPosition{
-			PartNumber: params.PartNumber,
-			Index:      params.Index,
+			PartNumber: params.CursorPosition.PartNumber,
+			Index:      params.CursorPosition.Index,
 		},
 		Limit: params.Limit,
 	})

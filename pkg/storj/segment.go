@@ -14,7 +14,7 @@ type SegmentListItem struct {
 	Position SegmentPosition
 }
 
-// SegmentDownloadInfo TODO
+// SegmentDownloadInfo represents segment download information inline/remote
 type SegmentDownloadInfo struct {
 	SegmentID           SegmentID
 	EncryptedInlineData []byte
