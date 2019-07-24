@@ -273,9 +273,7 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 		case pointer.Remote.Redundancy == nil:
 			return Error.New("no redundancy scheme specified")
 		}
-	}
 
-	if pointer.Type == pb.Pointer_REMOTE {
 		remote := pointer.Remote
 
 		if len(originalLimits) == 0 {
