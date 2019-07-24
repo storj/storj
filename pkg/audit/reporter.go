@@ -5,7 +5,6 @@ package audit
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -179,7 +178,8 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
-	fmt.Printf("EEEE\n")
+
+	var updateRequests []*overlay.UpdateRequest
 	for _, pendingAudit := range pendingAudits {
 		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {
 			err := reporter.containment.IncrementPending(ctx, pendingAudit)
@@ -189,19 +189,29 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 			}
 		} else {
 			// record failure -- max reverify count reached
-			_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+			updateRequests = append(updateRequests, &overlay.UpdateRequest{
 				NodeID:       pendingAudit.NodeID,
 				IsUp:         true,
 				AuditSuccess: false,
 			})
-			if err != nil {
+		}
+	}
+
+	failedBatch, err := reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+	if err != nil {
+		errlist.Add(err)
+	}
+	for _, nodeID := range failedBatch {
+		for _, pendingAudit := range pendingAudits {
+			if nodeID == pendingAudit.NodeID {
 				failed = append(failed, pendingAudit)
-				errlist.Add(err)
 			}
 		}
 	}
+
 	if len(failed) > 0 {
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}
+
 	return nil, nil
 }
