@@ -618,7 +618,7 @@ type BeginDeleteSegmentParams struct {
 	Position storj.SegmentPosition
 }
 
-// BeginDeleteSegment TODO
+// BeginDeleteSegment begins segment upload process
 func (client *Client) BeginDeleteSegment(ctx context.Context, params BeginDeleteSegmentParams) (_ storj.SegmentID, limits []*pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -643,7 +643,7 @@ type FinishDeleteSegmentParams struct {
 	DeleteResults []*pb.SegmentPieceDeleteResult
 }
 
-// FinishDeleteSegment TODO
+// FinishDeleteSegment finishes segment upload process
 func (client *Client) FinishDeleteSegment(ctx context.Context, params FinishDeleteSegmentParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
