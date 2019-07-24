@@ -165,5 +165,6 @@ func (filter *Filter) Bytes() []byte {
 
 // Size returns the size of Bytes call.
 func (filter *Filter) Size() int64 {
+	// the first three bytes represent the version, seed, and hash count
 	return int64(1 + 1 + 1 + len(filter.table))
 }
