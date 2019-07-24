@@ -42,14 +42,9 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 		return Error.Wrap(err)
 	}
 
-	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
-	// In such case we should delete the pieces of the old segment if it was
-	// a remote one.
-	if err = s.DB.Put(ctx, []byte(path), pointerBytes); err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
+	// CompareAndSwap is used instead of Put to avoid overwriting existing pointers
+	err = s.DB.CompareAndSwap(ctx, []byte(path), nil, pointerBytes)
+	return Error.Wrap(err)
 }
 
 // UpdatePieces atomically adds toAdd pieces and removes toRemove pieces from
