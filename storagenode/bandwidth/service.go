@@ -40,7 +40,19 @@ func NewService(log *zap.Logger, db DB, config Config) *Service {
 // Run starts the background process for rollups of bandwidth usage
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.Loop.Run(ctx, service.db.Rollup)
+	return service.Loop.Run(ctx, service.Rollup)
+}
+
+// Rollup calls bandwidth DB Rollup method and logs any errors
+func (service *Service) Rollup(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	service.log.Info("Performing bandwidth usage rollups")
+	err = service.db.Rollup(ctx)
+	if err != nil {
+		service.log.Error("Could not rollup bandwidth usage", zap.Error(err))
+	}
+	return nil
 }
 
 // Close stops the background process for rollups of bandwidth usage
