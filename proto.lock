@@ -2450,6 +2450,36 @@
             "name": "ObjectCommitResponse"
           },
           {
+            "name": "ObjectGetRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "bucket",
+                "type": "bytes"
+              },
+              {
+                "id": 2,
+                "name": "encrypted_path",
+                "type": "bytes"
+              },
+              {
+                "id": 3,
+                "name": "version",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "ObjectGetResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "object",
+                "type": "Object"
+              }
+            ]
+          },
+          {
             "name": "ObjectListRequest",
             "fields": [
               {
@@ -3329,6 +3359,11 @@
                 "name": "CommitObject",
                 "in_type": "ObjectCommitRequest",
                 "out_type": "ObjectCommitResponse"
+              },
+              {
+                "name": "GetObject",
+                "in_type": "ObjectGetRequest",
+                "out_type": "ObjectGetResponse"
               },
               {
                 "name": "ListObjects",

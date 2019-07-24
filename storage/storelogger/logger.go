@@ -97,6 +97,15 @@ func (store *Logger) Close() error {
 	return store.store.Close()
 }
 
+// CompareAndSwap atomically compares and swaps oldValue with newValue
+func (store *Logger) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	store.log.Debug("CompareAndSwap", zap.ByteString("key", key),
+		zap.Int("old value length", len(oldValue)), zap.Int("new value length", len(newValue)),
+		zap.Binary("truncated old value", truncate(oldValue)), zap.Binary("truncated new value", truncate(newValue)))
+	return store.store.CompareAndSwap(ctx, key, oldValue, newValue)
+}
+
 func truncate(v storage.Value) (t []byte) {
 	if len(v)-1 < 10 {
 		t = []byte(v)

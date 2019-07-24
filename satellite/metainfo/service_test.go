@@ -24,21 +24,10 @@ func TestIterate(t *testing.T) {
 		saPeer := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
 
-		apiKey := uplinkPeer.APIKey[saPeer.ID()]
-		metainfoClient, err := uplinkPeer.DialMetainfo(ctx, saPeer, apiKey)
-		require.NoError(t, err)
-
-		projects, err := saPeer.DB.Console().Projects().GetAll(ctx)
-		require.NoError(t, err)
-		projectID := projects[0].ID
-
 		// Setup: create 2 test buckets
-		test1 := newTestBucket("test1", projectID)
-		_, err = metainfoClient.CreateBucket(ctx, test1)
+		err := uplinkPeer.CreateBucket(ctx, saPeer, "test1")
 		require.NoError(t, err)
-
-		test2 := newTestBucket("test2", projectID)
-		_, err = metainfoClient.CreateBucket(ctx, test2)
+		err = uplinkPeer.CreateBucket(ctx, saPeer, "test2")
 		require.NoError(t, err)
 
 		// Setup: upload an object in one of the buckets
