@@ -38,6 +38,7 @@ type Config struct {
 	MaxInlineSegmentSize memory.Size `default:"8000" help:"maximum inline segment size"`
 	Overlay              bool        `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig    `help:"redundancy scheme configuration"`
+	Loop                 LoopConfig  `help:"metainfo loop configuration"`
 }
 
 // NewStore returns database for storing pointer data
@@ -56,6 +57,10 @@ func NewStore(logger *zap.Logger, dbURLString string) (db storage.KeyValueStore,
 		err = Error.New("unsupported db scheme: %s", driver)
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	logger.Debug("Connected to:", zap.String("db source", source))
-	return db, err
+	return db, nil
 }

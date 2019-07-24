@@ -179,7 +179,7 @@
     
         svg {
             position: absolute;
-            right: 15px;
+            right: 25px;
             bottom: 5px;
             transform: translateY(-50%);
             z-index: 20;

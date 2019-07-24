@@ -22,7 +22,7 @@ type TypeCreator struct {
 // Create create types and check for error
 func (c *TypeCreator) Create(service *bootstrapweb.Service) error {
 	// root objects
-	c.query = rootQuery(service, c)
+	c.query = rootQuery(service)
 
 	err := c.query.Error()
 	if err != nil {
