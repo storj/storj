@@ -174,52 +174,9 @@ func (endpoint *Endpoint) validateCommitSegment(ctx context.Context, req *pb.Seg
 		return err
 	}
 
-	err = endpoint.validatePointer(ctx, req.Pointer)
+	err = endpoint.validatePointer(ctx, req.Pointer, req.OriginalLimits)
 	if err != nil {
 		return err
-	}
-
-	if req.Pointer.Type == pb.Pointer_REMOTE {
-		remote := req.Pointer.Remote
-
-		if len(req.OriginalLimits) == 0 {
-			return Error.New("no order limits")
-		}
-		if int32(len(req.OriginalLimits)) != remote.Redundancy.Total {
-			return Error.New("invalid no order limit for piece")
-		}
-
-		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.rsConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
-			CipherSuite: storj.EncAESGCM,
-			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
-		})
-		if err != nil {
-			return err
-		}
-
-		if req.Pointer.SegmentSize > maxAllowed || req.Pointer.SegmentSize < 0 {
-			return Error.New("segment size %v is out of range, maximum allowed is %v", req.Pointer.SegmentSize, maxAllowed)
-		}
-
-		for _, piece := range remote.RemotePieces {
-			limit := req.OriginalLimits[piece.PieceNum]
-
-			err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
-			if err != nil {
-				return err
-			}
-
-			if limit == nil {
-				return Error.New("empty order limit for piece")
-			}
-			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
-				return Error.New("invalid order limit piece id")
-			}
-			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
-				return Error.New("piece NodeID != order limit NodeID")
-			}
-		}
 	}
 
 	if len(req.OriginalLimits) > 0 {
@@ -296,7 +253,7 @@ func isDigit(r byte) bool {
 	return r >= '0' && r <= '9'
 }
 
-func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer) (err error) {
+func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if pointer == nil {
@@ -316,7 +273,50 @@ func (endpoint *Endpoint) validatePointer(ctx context.Context, pointer *pb.Point
 		case pointer.Remote.Redundancy == nil:
 			return Error.New("no redundancy scheme specified")
 		}
+
+		remote := pointer.Remote
+
+		if len(originalLimits) == 0 {
+			return Error.New("no order limits")
+		}
+		if int32(len(originalLimits)) != remote.Redundancy.Total {
+			return Error.New("invalid no order limit for piece")
+		}
+
+		maxAllowed, err := encryption.CalcEncryptedSize(endpoint.rsConfig.MaxSegmentSize.Int64(), storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   128, // intentionally low block size to allow maximum possible encryption overhead
+		})
+		if err != nil {
+			return err
+		}
+
+		if pointer.SegmentSize > maxAllowed || pointer.SegmentSize < 0 {
+			return Error.New("segment size %v is out of range, maximum allowed is %v", pointer.SegmentSize, maxAllowed)
+		}
+
+		for _, piece := range remote.RemotePieces {
+			limit := originalLimits[piece.PieceNum]
+
+			if limit == nil {
+				return Error.New("empty order limit for piece")
+			}
+
+			err := endpoint.orders.VerifyOrderLimitSignature(ctx, limit)
+			if err != nil {
+				return err
+			}
+
+			derivedPieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
+			if limit.PieceId.IsZero() || limit.PieceId != derivedPieceID {
+				return Error.New("invalid order limit piece id")
+			}
+			if bytes.Compare(piece.NodeId.Bytes(), limit.StorageNodeId.Bytes()) != 0 {
+				return Error.New("piece NodeID != order limit NodeID")
+			}
+		}
 	}
+
 	return nil
 }
 
