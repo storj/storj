@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/internal/errs2"
@@ -25,7 +24,7 @@ var (
 func (service *Service) VerifyVoucher(ctx context.Context, satellite storj.NodeID, voucher *pb.Voucher) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if self := service.kademlia.Local().Id; voucher.StorageNodeId != self {
+	if self := service.transport.Identity().ID; voucher.StorageNodeId != self {
 		return ErrVerify.New("Storage node ID does not match expected: (%v) (%v)", voucher.StorageNodeId, self)
 	}
 
@@ -33,12 +32,7 @@ func (service *Service) VerifyVoucher(ctx context.Context, satellite storj.NodeI
 		return ErrVerify.New("Satellite ID does not match expected: (%v) (%v)", voucher.SatelliteId, satellite)
 	}
 
-	expiration, err := ptypes.Timestamp(voucher.GetExpiration())
-	if err != nil {
-		return err
-	}
-
-	if expiration.Before(time.Now().UTC()) {
+	if voucher.Expiration.Before(time.Now()) {
 		return ErrVerify.New("Voucher is already expired")
 	}
 

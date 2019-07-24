@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
@@ -20,14 +21,13 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-const (
-	numBuckets     = 5
-	tallyIntervals = 10
-
-	tallyInterval = time.Hour
-)
-
 func TestUsageRollups(t *testing.T) {
+	const (
+		numBuckets     = 5
+		tallyIntervals = 10
+		tallyInterval  = time.Hour
+	)
+
 	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
@@ -61,76 +61,28 @@ func TestUsageRollups(t *testing.T) {
 			for _, action := range actions {
 				value := getValue(0, i, p1base)
 
-				err := db.Orders().UpdateBucketBandwidthAllocation(ctx,
-					project1,
-					[]byte(bucketName),
-					action,
-					value*6,
-					now,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, project1, []byte(bucketName), action, value*6, now)
+				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthSettle(ctx,
-					project1,
-					[]byte(bucketName),
-					action,
-					value*3,
-					now,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project1, []byte(bucketName), action, value*3, now)
+				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthInline(ctx,
-					project1,
-					[]byte(bucketName),
-					action,
-					value,
-					now,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = db.Orders().UpdateBucketBandwidthInline(ctx, project1, []byte(bucketName), action, value, now)
+				require.NoError(t, err)
 			}
 
 			// project 2
 			for _, action := range actions {
 				value := getValue(1, i, p2base)
 
-				err := db.Orders().UpdateBucketBandwidthAllocation(ctx,
-					project2,
-					[]byte(bucketName),
-					action,
-					value*6,
-					now,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, project2, []byte(bucketName), action, value*6, now)
+				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthSettle(ctx,
-					project2,
-					[]byte(bucketName),
-					action,
-					value*3,
-					now,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project2, []byte(bucketName), action, value*3, now)
+				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthInline(ctx,
-					project2,
-					[]byte(bucketName),
-					action,
-					value,
-					now,
-				)
-				if err != nil {
-					t.Fatal(err)
-				}
+				err = db.Orders().UpdateBucketBandwidthInline(ctx, project2, []byte(bucketName), action, value, now)
+				require.NoError(t, err)
 			}
 
 			buckets = append(buckets, bucketName)
@@ -181,12 +133,8 @@ func TestUsageRollups(t *testing.T) {
 			}
 
 			tallies, err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if len(tallies) != len(buckets)*2 {
-				t.Fatal()
-			}
+			require.NoError(t, err)
+			require.Equal(t, len(tallies), len(buckets)*2)
 		}
 
 		usageRollups := db.Console().UsageRollups()

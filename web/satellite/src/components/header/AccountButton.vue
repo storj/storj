@@ -21,37 +21,32 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import AccountDropdown from './AccountDropdown.vue';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import { Component, Vue } from 'vue-property-decorator';
+    import AccountDropdown from './AccountDropdown.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
-@Component(
-    {
-        computed: {
-            // May change later
-            avatarLetter: function (): string {
-                return this.$store.getters.userName.slice(0, 1).toUpperCase();
-            },
-            userName: function (): string {
-                return this.$store.getters.userName;
-            },
-            isDropdownShown: function (): boolean {
-                return this.$store.state.appStateModule.appState.isAccountDropdownShown;
-            },
-        },
-        methods: {
-            toggleSelection: function (): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
-            }
-        },
+    @Component({
         components: {
             AccountDropdown
         }
-    }
-)
+    })
+    export default class AccountButton extends Vue {
+        public toggleSelection(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ACCOUNT);
+        }
 
-export default class AccountButton extends Vue {
-}
+        public get avatarLetter(): string {
+            return this.$store.getters.userName.slice(0, 1).toUpperCase();
+        }
+
+        public get userName(): string {
+            return this.$store.getters.userName;
+        }
+
+        public get isDropdownShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAccountDropdownShown;
+        }
+    }
 </script>
 
 <style scoped lang="scss">
@@ -59,6 +54,7 @@ export default class AccountButton extends Vue {
         text-decoration: none;
         outline: none;
     }
+
     .account-button-container {
         position: relative;
         padding-left: 10px;
@@ -119,8 +115,8 @@ export default class AccountButton extends Vue {
     }
 
     @media screen and (max-width: 720px) {
-
         .account-button-toggle-container {
+
             &__user-name {
                 display: none;
             }

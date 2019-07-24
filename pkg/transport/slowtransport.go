@@ -47,6 +47,12 @@ func (client *slowTransport) DialAddress(ctx context.Context, address string, op
 	return client.client.DialAddress(ctx, address, append(client.network.DialOptions(), opts...)...)
 }
 
+// FetchPeerIdentity dials the node and fetches the identity.
+func (client *slowTransport) FetchPeerIdentity(ctx context.Context, node *pb.Node, opts ...grpc.DialOption) (_ *identity.PeerIdentity, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return client.client.FetchPeerIdentity(ctx, node, append(client.network.DialOptions(), opts...)...)
+}
+
 // Identity for slowTransport
 func (client *slowTransport) Identity() *identity.FullIdentity {
 	return client.client.Identity()

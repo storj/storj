@@ -21,7 +21,7 @@ import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
 import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
-import { getToken } from '@/utils/tokenManager';
+import { AuthToken } from '@/utils/authToken';
 import store from '@/store';
 
 Vue.use(Router);
@@ -37,6 +37,11 @@ let router = new Router({
         {
             path: ROUTES.REGISTER.path,
             name: ROUTES.REGISTER.name,
+            component: Register
+        },
+        {
+            path: ROUTES.REFERRAL.path,
+            name: ROUTES.REFERRAL.name,
             component: Register
         },
         {
@@ -151,7 +156,7 @@ router.beforeEach((to, from, next) => {
     }
 
     if (to.matched.some(route => route.meta.requiresAuth)) {
-        if (!getToken()) {
+        if (!AuthToken.get()) {
             next(ROUTES.LOGIN);
 
             return;
@@ -163,7 +168,7 @@ router.beforeEach((to, from, next) => {
 
 // isUnavailablePageWithoutProject checks if we are able to navigate to page without existing project
 function isUnavailablePageWithoutProject(pageName: string): boolean {
-    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name];
+    let unavailablePages: string[] = [ROUTES.TEAM.name, ROUTES.API_KEYS.name, ROUTES.BUCKETS.name];
     const state = store.state as any;
 
     let isProjectSelected = state.projectsModule.selectedProject.id !== '';

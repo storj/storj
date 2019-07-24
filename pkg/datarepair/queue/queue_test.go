@@ -26,7 +26,7 @@ func TestInsertSelect(t *testing.T) {
 		q := db.RepairQueue()
 
 		seg := &pb.InjuredSegment{
-			Path:       "abc",
+			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
 		err := q.Insert(ctx, seg)
@@ -47,7 +47,7 @@ func TestInsertDuplicate(t *testing.T) {
 		q := db.RepairQueue()
 
 		seg := &pb.InjuredSegment{
-			Path:       "abc",
+			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
 		err := q.Insert(ctx, seg)
@@ -81,7 +81,7 @@ func TestSequential(t *testing.T) {
 		var addSegs []*pb.InjuredSegment
 		for i := 0; i < N; i++ {
 			seg := &pb.InjuredSegment{
-				Path:       strconv.Itoa(i),
+				Path:       []byte(strconv.Itoa(i)),
 				LostPieces: []int32{int32(i)},
 			}
 			err := q.Insert(ctx, seg)
@@ -123,7 +123,7 @@ func TestParallel(t *testing.T) {
 			i := i
 			inserts.Go(func() error {
 				return q.Insert(ctx, &pb.InjuredSegment{
-					Path:       strconv.Itoa(i),
+					Path:       []byte(strconv.Itoa(i)),
 					LostPieces: []int32{int32(i)},
 				})
 			})

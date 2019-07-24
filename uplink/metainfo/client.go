@@ -7,14 +7,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth/grpcauth"
 	"storj.io/storj/pkg/pb"
@@ -77,37 +75,29 @@ func (client *Client) Close() error {
 }
 
 // CreateSegment requests the order limits for creating a new segment
-func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, err error) {
+func (client *Client) CreateSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, redundancy *pb.RedundancyScheme, maxEncryptedSegmentSize int64, expiration time.Time) (limits []*pb.AddressedOrderLimit, rootPieceID storj.PieceID, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var exp *timestamp.Timestamp
-	if !expiration.IsZero() {
-		exp, err = ptypes.TimestampProto(expiration)
-		if err != nil {
-			return nil, rootPieceID, err
-		}
-	}
-
-	response, err := client.client.CreateSegment(ctx, &pb.SegmentWriteRequest{
+	response, err := client.client.CreateSegmentOld(ctx, &pb.SegmentWriteRequestOld{
 		Bucket:                  []byte(bucket),
 		Path:                    []byte(path),
 		Segment:                 segmentIndex,
 		Redundancy:              redundancy,
 		MaxEncryptedSegmentSize: maxEncryptedSegmentSize,
-		Expiration:              exp,
+		Expiration:              expiration,
 	})
 	if err != nil {
-		return nil, rootPieceID, Error.Wrap(err)
+		return nil, rootPieceID, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetAddressedLimits(), response.RootPieceId, nil
+	return response.GetAddressedLimits(), response.RootPieceId, response.PrivateKey, nil
 }
 
 // CommitSegment requests to store the pointer for the segment
-func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit2) (savedPointer *pb.Pointer, err error) {
+func (client *Client) CommitSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (savedPointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.CommitSegment(ctx, &pb.SegmentCommitRequest{
+	response, err := client.client.CommitSegmentOld(ctx, &pb.SegmentCommitRequestOld{
 		Bucket:         []byte(bucket),
 		Path:           []byte(path),
 		Segment:        segmentIndex,
@@ -125,7 +115,7 @@ func (client *Client) CommitSegment(ctx context.Context, bucket string, path sto
 func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.SegmentInfo(ctx, &pb.SegmentInfoRequest{
+	response, err := client.client.SegmentInfoOld(ctx, &pb.SegmentInfoRequestOld{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
@@ -141,22 +131,22 @@ func (client *Client) SegmentInfo(ctx context.Context, bucket string, path storj
 }
 
 // ReadSegment requests the order limits for reading a segment
-func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) ReadSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (pointer *pb.Pointer, limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.DownloadSegment(ctx, &pb.SegmentDownloadRequest{
+	response, err := client.client.DownloadSegmentOld(ctx, &pb.SegmentDownloadRequestOld{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, nil, Error.Wrap(err)
+		return nil, nil, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), nil
+	return response.GetPointer(), sortLimits(response.GetAddressedLimits(), response.GetPointer()), response.PrivateKey, nil
 }
 
 // sortLimits sorts order limits and fill missing ones with nil values
@@ -178,29 +168,29 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 }
 
 // DeleteSegment requests the order limits for deleting a segment
-func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, err error) {
+func (client *Client) DeleteSegment(ctx context.Context, bucket string, path storj.Path, segmentIndex int64) (limits []*pb.AddressedOrderLimit, piecePrivateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.DeleteSegment(ctx, &pb.SegmentDeleteRequest{
+	response, err := client.client.DeleteSegmentOld(ctx, &pb.SegmentDeleteRequestOld{
 		Bucket:  []byte(bucket),
 		Path:    []byte(path),
 		Segment: segmentIndex,
 	})
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
-			return nil, storage.ErrKeyNotFound.Wrap(err)
+			return nil, piecePrivateKey, storage.ErrKeyNotFound.Wrap(err)
 		}
-		return nil, Error.Wrap(err)
+		return nil, piecePrivateKey, Error.Wrap(err)
 	}
 
-	return response.GetAddressedLimits(), nil
+	return response.GetAddressedLimits(), response.PrivateKey, nil
 }
 
 // ListSegments lists the available segments
 func (client *Client) ListSegments(ctx context.Context, bucket string, prefix, startAfter, endBefore storj.Path, recursive bool, limit int32, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	response, err := client.client.ListSegments(ctx, &pb.ListSegmentsRequest{
+	response, err := client.client.ListSegmentsOld(ctx, &pb.ListSegmentsRequestOld{
 		Bucket:     []byte(bucket),
 		Prefix:     []byte(prefix),
 		StartAfter: []byte(startAfter),
@@ -230,10 +220,273 @@ func (client *Client) ListSegments(ctx context.Context, bucket string, prefix, s
 func (client *Client) SetAttribution(ctx context.Context, bucket string, partnerID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = client.client.SetAttribution(ctx, &pb.SetAttributionRequest{
+	_, err = client.client.SetAttributionOld(ctx, &pb.SetAttributionRequestOld{
 		PartnerId:  partnerID[:], // TODO: implement storj.UUID that can be sent using pb
 		BucketName: []byte(bucket),
 	})
 
-	return err
+	return Error.Wrap(err)
+}
+
+// GetProjectInfo gets the ProjectInfo for the api key associated with the metainfo client.
+func (client *Client) GetProjectInfo(ctx context.Context) (resp *pb.ProjectInfoResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return client.client.ProjectInfo(ctx, &pb.ProjectInfoRequest{})
+}
+
+// CreateBucket creates a new bucket
+func (client *Client) CreateBucket(ctx context.Context, bucket storj.Bucket) (respBucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	req, err := convertBucketToProtoRequest(bucket)
+	if err != nil {
+		return respBucket, Error.Wrap(err)
+	}
+	resp, err := client.client.CreateBucket(ctx, &req)
+	if err != nil {
+		return storj.Bucket{}, Error.Wrap(err)
+	}
+
+	respBucket, err = convertProtoToBucket(resp.Bucket)
+	if err != nil {
+		return respBucket, Error.Wrap(err)
+	}
+	return respBucket, nil
+}
+
+// GetBucket returns a bucket
+func (client *Client) GetBucket(ctx context.Context, bucketName string) (respBucket storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+	resp, err := client.client.GetBucket(ctx, &pb.BucketGetRequest{Name: []byte(bucketName)})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
+		}
+		return storj.Bucket{}, Error.Wrap(err)
+	}
+
+	respBucket, err = convertProtoToBucket(resp.Bucket)
+	if err != nil {
+		return respBucket, Error.Wrap(err)
+	}
+	return respBucket, nil
+}
+
+// DeleteBucket deletes a bucket
+func (client *Client) DeleteBucket(ctx context.Context, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	_, err = client.client.DeleteBucket(ctx, &pb.BucketDeleteRequest{Name: []byte(bucketName)})
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return storj.ErrBucketNotFound.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+	return nil
+}
+
+// ListBuckets lists buckets
+func (client *Client) ListBuckets(ctx context.Context, listOpts storj.BucketListOptions) (_ storj.BucketList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	req := &pb.BucketListRequest{
+		Cursor:    []byte(listOpts.Cursor),
+		Limit:     int32(listOpts.Limit),
+		Direction: int32(listOpts.Direction),
+	}
+	resp, err := client.client.ListBuckets(ctx, req)
+	if err != nil {
+		return storj.BucketList{}, Error.Wrap(err)
+	}
+	resultBucketList := storj.BucketList{
+		More: resp.GetMore(),
+	}
+	resultBucketList.Items = make([]storj.Bucket, len(resp.GetItems()))
+	for i, item := range resp.GetItems() {
+		resultBucketList.Items[i] = storj.Bucket{
+			Name:    string(item.GetName()),
+			Created: item.GetCreatedAt(),
+		}
+	}
+	return resultBucketList, nil
+}
+
+func convertBucketToProtoRequest(bucket storj.Bucket) (bucketReq pb.BucketCreateRequest, err error) {
+	rs := bucket.DefaultRedundancyScheme
+	partnerID, err := bucket.PartnerID.MarshalJSON()
+	if err != nil {
+		return bucketReq, Error.Wrap(err)
+	}
+	return pb.BucketCreateRequest{
+		Name:               []byte(bucket.Name),
+		PathCipher:         pb.CipherSuite(bucket.PathCipher),
+		PartnerId:          partnerID,
+		DefaultSegmentSize: bucket.DefaultSegmentsSize,
+		DefaultRedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(rs.Algorithm),
+			MinReq:           int32(rs.RequiredShares),
+			Total:            int32(rs.TotalShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			ErasureShareSize: rs.ShareSize,
+		},
+		DefaultEncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(bucket.DefaultEncryptionParameters.CipherSuite),
+			BlockSize:   int64(bucket.DefaultEncryptionParameters.BlockSize),
+		},
+	}, nil
+}
+
+func convertProtoToBucket(pbBucket *pb.Bucket) (bucket storj.Bucket, err error) {
+	defaultRS := pbBucket.GetDefaultRedundancyScheme()
+	defaultEP := pbBucket.GetDefaultEncryptionParameters()
+	var partnerID uuid.UUID
+	err = partnerID.UnmarshalJSON(pbBucket.GetPartnerId())
+	if err != nil && !partnerID.IsZero() {
+		return bucket, errs.New("Invalid uuid")
+	}
+	return storj.Bucket{
+		Name:                string(pbBucket.GetName()),
+		PartnerID:           partnerID,
+		PathCipher:          storj.CipherSuite(pbBucket.GetPathCipher()),
+		Created:             pbBucket.GetCreatedAt(),
+		DefaultSegmentsSize: pbBucket.GetDefaultSegmentSize(),
+		DefaultRedundancyScheme: storj.RedundancyScheme{
+			Algorithm:      storj.RedundancyAlgorithm(defaultRS.GetType()),
+			ShareSize:      defaultRS.GetErasureShareSize(),
+			RequiredShares: int16(defaultRS.GetMinReq()),
+			RepairShares:   int16(defaultRS.GetRepairThreshold()),
+			OptimalShares:  int16(defaultRS.GetSuccessThreshold()),
+			TotalShares:    int16(defaultRS.GetTotal()),
+		},
+		DefaultEncryptionParameters: storj.EncryptionParameters{
+			CipherSuite: storj.CipherSuite(defaultEP.CipherSuite),
+			BlockSize:   int32(defaultEP.BlockSize),
+		},
+	}, nil
+}
+
+// BeginObject begins object creation
+func (client *Client) BeginObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32,
+	rs storj.RedundancyScheme, ep storj.EncryptionParameters, expiresAt time.Time, nonce storj.Nonce, encryptedMetadata []byte) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO do proper algorithm conversion
+	response, err := client.client.BeginObject(ctx, &pb.ObjectBeginRequest{
+		Bucket:                 bucket,
+		EncryptedPath:          encryptedPath,
+		Version:                version,
+		ExpiresAt:              expiresAt,
+		EncryptedMetadataNonce: nonce,
+		EncryptedMetadata:      encryptedMetadata,
+		RedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_RS,
+			ErasureShareSize: rs.ShareSize,
+			MinReq:           int32(rs.RequiredShares),
+			RepairThreshold:  int32(rs.RepairShares),
+			SuccessThreshold: int32(rs.OptimalShares),
+			Total:            int32(rs.TotalShares),
+		},
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(ep.CipherSuite),
+			BlockSize:   int64(ep.BlockSize),
+		},
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response.StreamId, nil
+}
+
+// CommitObject commits created object
+func (client *Client) CommitObject(ctx context.Context, streamID storj.StreamID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.CommitObject(ctx, &pb.ObjectCommitRequest{
+		StreamId: streamID,
+	})
+	return Error.Wrap(err)
+}
+
+// GetObject gets single object
+func (client *Client) GetObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.Object, _ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.GetObject(ctx, &pb.ObjectGetRequest{
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
+		Version:       version,
+	})
+	if err != nil {
+		return storj.Object{}, storj.StreamID{}, Error.Wrap(err)
+	}
+
+	object := storj.Object{
+		Bucket: storj.Bucket{
+			Name: string(response.Object.Bucket),
+		},
+		Path:    storj.Path(response.Object.EncryptedPath),
+		Created: response.Object.CreatedAt,
+		Expires: response.Object.ExpiresAt,
+		// TODO custom type for response object or modify storj.Object
+	}
+
+	return object, response.Object.StreamId, nil
+}
+
+// BeginDeleteObject begins object deletion process
+func (client *Client) BeginDeleteObject(ctx context.Context, bucket []byte, encryptedPath []byte, version int32) (_ storj.StreamID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.BeginDeleteObject(ctx, &pb.ObjectBeginDeleteRequest{
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
+		Version:       version,
+	})
+	if err != nil {
+		return storj.StreamID{}, Error.Wrap(err)
+	}
+
+	return response.StreamId, nil
+}
+
+// FinishDeleteObject finishes object deletion process
+func (client *Client) FinishDeleteObject(ctx context.Context, streamID storj.StreamID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = client.client.FinishDeleteObject(ctx, &pb.ObjectFinishDeleteRequest{
+		StreamId: streamID,
+	})
+	return Error.Wrap(err)
+}
+
+// ListObjects lists objects according to specific parameters
+func (client *Client) ListObjects(ctx context.Context, bucket []byte, encryptedPrefix []byte, encryptedCursor []byte, limit int32) (_ []storj.ObjectListItem, more bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	response, err := client.client.ListObjects(ctx, &pb.ObjectListRequest{
+		Bucket:          bucket,
+		EncryptedPrefix: encryptedPrefix,
+		EncryptedCursor: encryptedCursor,
+		Limit:           limit,
+	})
+	if err != nil {
+		return []storj.ObjectListItem{}, false, Error.Wrap(err)
+	}
+
+	objects := make([]storj.ObjectListItem, len(response.Items))
+	for i, object := range response.Items {
+		objects[i] = storj.ObjectListItem{
+			EncryptedPath:          object.EncryptedPath,
+			Version:                object.Version,
+			Status:                 int32(object.Status),
+			StatusAt:               object.StatusAt,
+			CreatedAt:              object.CreatedAt,
+			ExpiresAt:              object.ExpiresAt,
+			EncryptedMetadataNonce: object.EncryptedMetadataNonce,
+			EncryptedMetadata:      object.EncryptedMetadata,
+		}
+	}
+
+	return objects, response.More, Error.Wrap(err)
 }

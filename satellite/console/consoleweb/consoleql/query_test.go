@@ -35,6 +35,7 @@ func TestGraphqlQuery(t *testing.T) {
 			log,
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
+			db.Rewards(),
 			localpayments.NewService(nil),
 			console.TestPasswordCost,
 		)
@@ -66,11 +67,12 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 			Password: "123a123",
 		}
+		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -187,7 +189,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Email:     "muu1@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser1.Secret)
+		}, regTokenUser1.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -213,7 +215,7 @@ func TestGraphqlQuery(t *testing.T) {
 				Email:     "muu2@mail.test",
 			},
 			Password: "123a123",
-		}, regTokenUser2.Secret)
+		}, regTokenUser2.Secret, refUserID)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -425,7 +427,7 @@ func TestGraphqlQuery(t *testing.T) {
 					Email:     "user@mail.test",
 				},
 				Password: "123a123",
-			}, regToken.Secret)
+			}, regToken.Secret, refUserID)
 
 			require.NoError(t, err)
 
@@ -465,7 +467,7 @@ func TestGraphqlQuery(t *testing.T) {
 					Email:     "user1@mail.test",
 				},
 				Password: "123a123",
-			}, regToken.Secret)
+			}, regToken.Secret, refUserID)
 
 			require.NoError(t, err)
 

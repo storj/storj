@@ -6,14 +6,18 @@ package rewards
 import (
 	"context"
 	"time"
+
+	"storj.io/storj/internal/currency"
 )
+
+// MaxRedemptionErr is the error message used when an offer has reached its redemption capacity
+var MaxRedemptionErr = "This offer redemption has reached its capacity"
 
 // DB holds information about offer
 type DB interface {
-	ListAll(ctx context.Context) ([]Offer, error)
+	ListAll(ctx context.Context) (Offers, error)
 	GetCurrentByType(ctx context.Context, offerType OfferType) (*Offer, error)
 	Create(ctx context.Context, offer *NewOffer) (*Offer, error)
-	Redeem(ctx context.Context, offerID int, isDefault bool) error
 	Finish(ctx context.Context, offerID int) error
 }
 
@@ -22,8 +26,8 @@ type NewOffer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	RedeemableCap int
 
@@ -47,22 +51,29 @@ type UpdateOffer struct {
 type OfferType int
 
 const (
+	// Invalid is a default value for offers that don't have correct type associated with it
+	Invalid = OfferType(0)
 	// FreeCredit is a type of offers used for Free Credit Program
-	FreeCredit = OfferType(iota)
+	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
-	Referral
+	Referral = OfferType(2)
+	// Partner is a type of offers used for Open Source Partner Program
+	Partner = OfferType(3)
 )
 
-// OfferStatus indicates the status of an offer
+// OfferStatus represents the different stage an offer can have in its life-cycle.
 type OfferStatus int
 
 const (
-	// Done is a default offer status when an offer is not being used currently
+
+	// Done is the status of an offer that is no longer in use.
 	Done = OfferStatus(iota)
-	// Default is a offer status when an offer is used as a default offer
-	Default
-	// Active is a offer status when an offer is currently being used
+
+	// Active is the status of an offer that is currently in use.
 	Active
+
+	// Default is the status of an offer when there is no active offer.
+	Default
 )
 
 // Offer contains info needed for giving users free credits through different offer programs
@@ -71,18 +82,78 @@ type Offer struct {
 	Name        string
 	Description string
 
-	AwardCreditInCents   int
-	InviteeCreditInCents int
+	AwardCredit   currency.USD
+	InviteeCredit currency.USD
 
 	AwardCreditDurationDays   int
 	InviteeCreditDurationDays int
 
 	RedeemableCap int
-	NumRedeemed   int
 
 	ExpiresAt time.Time
 	CreatedAt time.Time
 
 	Status OfferStatus
 	Type   OfferType
+}
+
+// IsEmpty evaluates whether or not an on offer is empty
+func (o Offer) IsEmpty() bool {
+	return o.Name == ""
+}
+
+// Offers contains a slice of offers.
+type Offers []Offer
+
+// OrganizedOffers contains a list of offers organized by status.
+type OrganizedOffers struct {
+	Active  Offer
+	Default Offer
+	Done    Offers
+}
+
+// OfferSet provides a separation of marketing offers by type.
+type OfferSet struct {
+	ReferralOffers OrganizedOffers
+	FreeCredits    OrganizedOffers
+}
+
+// OrganizeOffersByStatus organizes offers by OfferStatus.
+func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
+	var oo OrganizedOffers
+
+	for _, offer := range offers {
+		switch offer.Status {
+		case Active:
+			oo.Active = offer
+		case Default:
+			oo.Default = offer
+		case Done:
+			oo.Done = append(oo.Done, offer)
+		}
+	}
+	return oo
+}
+
+// OrganizeOffersByType organizes offers by OfferType.
+func (offers Offers) OrganizeOffersByType() OfferSet {
+	var (
+		fc, ro   Offers
+		offerSet OfferSet
+	)
+
+	for _, offer := range offers {
+		switch offer.Type {
+		case FreeCredit:
+			fc = append(fc, offer)
+		case Referral:
+			ro = append(ro, offer)
+		default:
+			continue
+		}
+	}
+
+	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
+	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
+	return offerSet
 }

@@ -212,9 +212,9 @@ func runGateway(ctx context.Context, gwCfg config, uplinkCfg uplink.Config, log 
 
 	gw := miniogw.NewStorjGateway(
 		project,
-		&storj.Key{},
-		storj.Cipher(uplinkCfg.Enc.PathType).ToCipherSuite(),
-		uplinkCfg.GetEncryptionScheme().ToEncryptionParameters(),
+		libuplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
+		storj.CipherSuite(uplinkCfg.Enc.PathType),
+		uplinkCfg.GetEncryptionParameters(),
 		uplinkCfg.GetRedundancyScheme(),
 		uplinkCfg.Client.SegmentSize,
 	)

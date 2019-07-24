@@ -50,12 +50,11 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 	switch err {
 	case sql.ErrNoRows:
 		statement := containment.db.Rebind(
-			`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count)
-			VALUES (?, ?, ?, ?, ?, ?)`,
+			`INSERT INTO pending_audits (node_id, piece_id, stripe_index, share_size, expected_share_hash, reverify_count, path)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		)
-		_, err = tx.Tx.ExecContext(ctx, statement,
-			pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex, pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount,
-		)
+		_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
+			pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, []byte(pendingAudit.Path))
 		if err != nil {
 			return audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -100,7 +99,7 @@ func (containment *containment) Delete(ctx context.Context, id pb.NodeID) (_ boo
 
 	isDeleted, err := tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(id.Bytes()))
 	if err != nil {
-		return isDeleted, audit.ContainError.Wrap(errs.Combine(err, tx.Rollback()))
+		return isDeleted, audit.ContainError.Wrap(errs.Combine(audit.ErrContainDelete.Wrap(err), tx.Rollback()))
 	}
 
 	updateContained := dbx.Node_Update_Fields{
@@ -137,6 +136,7 @@ func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.Pe
 		ShareSize:         int32(info.ShareSize),
 		ExpectedShareHash: info.ExpectedShareHash,
 		ReverifyCount:     int32(info.ReverifyCount),
+		Path:              string(info.Path),
 	}
 	return pending, nil
 }

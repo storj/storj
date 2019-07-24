@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.12.5
+GO_VERSION ?= 1.12.7
 GOOS ?= linux
 GOARCH ?= amd64
 COMPOSE_PROJECT_NAME := ${TAG}-$(shell git rev-parse --abbrev-ref HEAD)
@@ -70,6 +70,13 @@ proto: ## Rebuild protobuf files
 	@echo "Running ${@}"
 	go run scripts/protobuf.go install
 	go run scripts/protobuf.go generate
+
+.PHONY: build-packages
+build-packages: build-packages-race build-packages-normal ## Test docker images locally
+build-packages-race:
+	go install -v ./...
+build-packages-normal:
+	go install -v -race ./...
 
 ##@ Simulator
 

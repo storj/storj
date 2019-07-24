@@ -104,7 +104,7 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					UptimeCount:       0,
 					AuditCount:        0,
 					NewNodePercentage: 0,
-					OnlineWindow:      time.Hour,
+					OnlineWindow:      0,
 					DistinctIP:        false,
 
 					AuditReputationRepairWeight:  1,
@@ -124,17 +124,18 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				},
 			},
 			Discovery: discovery.Config{
-				DiscoveryInterval: 1 * time.Second,
-				RefreshInterval:   1 * time.Second,
-				RefreshLimit:      100,
+				DiscoveryInterval:  1 * time.Second,
+				RefreshInterval:    1 * time.Second,
+				RefreshLimit:       100,
+				RefreshConcurrency: 2,
 			},
 			Metainfo: metainfo.Config{
 				DatabaseURL:          "bolt://" + filepath.Join(storageDir, "pointers.db"),
 				MinRemoteSegmentSize: 0, // TODO: fix tests to work with 1024
 				MaxInlineSegmentSize: 8000,
 				Overlay:              true,
-				BwExpiration:         45,
 				RS: metainfo.RSConfig{
+					MaxSegmentSize:   64 * memory.MiB,
 					MaxBufferMem:     memory.Size(256),
 					ErasureShareSize: memory.Size(256),
 					MinThreshold:     (planet.config.StorageNodeCount * 1 / 5),
@@ -143,24 +144,30 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 					MaxThreshold:     (planet.config.StorageNodeCount * 4 / 5),
 					Validate:         false,
 				},
+				Loop: metainfo.LoopConfig{
+					CoalesceDuration: 5 * time.Second,
+				},
 			},
 			Orders: orders.Config{
-				Expiration: 45 * 24 * time.Hour,
+				Expiration: 7 * 24 * time.Hour,
 			},
 			Checker: checker.Config{
-				Interval:            30 * time.Second,
-				IrreparableInterval: 15 * time.Second,
+				Interval:                  30 * time.Second,
+				IrreparableInterval:       15 * time.Second,
+				ReliabilityCacheStaleness: 5 * time.Minute,
 			},
 			Repairer: repairer.Config{
-				MaxRepair:    10,
-				Interval:     time.Hour,
-				Timeout:      10 * time.Second, // Repairs can take up to 4 seconds. Leaving room for outliers
-				MaxBufferMem: 4 * memory.MiB,
+				MaxRepair:                     10,
+				Interval:                      time.Hour,
+				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+				MaxBufferMem:                  4 * memory.MiB,
+				MaxExcessRateOptimalThreshold: 0.05,
 			},
 			Audit: audit.Config{
-				MaxRetriesStatDB:  0,
-				Interval:          30 * time.Second,
-				MinBytesPerSecond: 1 * memory.KB,
+				MaxRetriesStatDB:   0,
+				Interval:           30 * time.Second,
+				MinBytesPerSecond:  1 * memory.KB,
+				MinDownloadTimeout: 5 * time.Second,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,
