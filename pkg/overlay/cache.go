@@ -61,6 +61,8 @@ type DB interface {
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
 	// Update updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
+	// BatchUpdateStats updates multiple storagenode's stats in one transaction
+	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -326,6 +328,21 @@ func (cache *Cache) IsVetted(ctx context.Context, nodeID storj.NodeID) (reputabl
 		return false, err
 	}
 	return reputable, nil
+}
+
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (cache *Cache) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	for _, request := range requests {
+		request.AuditLambda = cache.preferences.AuditReputationLambda
+		request.AuditWeight = cache.preferences.AuditReputationWeight
+		request.AuditDQ = cache.preferences.AuditReputationDQ
+		request.UptimeLambda = cache.preferences.UptimeReputationLambda
+		request.UptimeWeight = cache.preferences.UptimeReputationWeight
+		request.UptimeDQ = cache.preferences.UptimeReputationDQ
+	}
+	return cache.db.BatchUpdateStats(ctx, requests)
 }
 
 // UpdateStats all parts of single storagenode's stats.

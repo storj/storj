@@ -671,23 +671,55 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 	return Error.Wrap(tx.Commit())
 }
 
+// BatchUpdateStats updates multiple storagenode's stats in one transaction
+func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest) (failed storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+	tx, err := cache.db.Open(ctx)
+	if err != nil {
+		return failed, Error.Wrap(err)
+	}
+	for _, updateReq := range updateRequests {
+		_, err := updateStats(ctx, updateReq, tx)
+		if err != nil {
+			// if 1 fails, they all fail
+			for _, nodeID := range updateRequests {
+				failed = append(failed, nodeID.NodeID)
+			}
+			return failed, errs.Combine(err, tx.Rollback())
+		}
+	}
+	return failed, Error.Wrap(tx.Commit())
+}
+
 // UpdateStats a single storagenode's stats in the db
 func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.UpdateRequest) (stats *overlay.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	nodeID := updateReq.NodeID
-
 	tx, err := cache.db.Open(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	nodeStats, err := updateStats(ctx, updateReq, tx)
+	if err != nil {
+		return nodeStats, errs.Combine(err, tx.Rollback())
+	}
+
+	return nodeStats, errs.Combine(err, tx.Commit())
+}
+
+// UpdateStats a single storagenode's stats in the db
+func updateStats(ctx context.Context, updateReq *overlay.UpdateRequest, tx *dbx.Tx) (stats *overlay.NodeStats, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodeID := updateReq.NodeID
+
 	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
 	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, Error.Wrap(err)
 	}
 	// do not update reputation if node is disqualified
 	if dbNode.Disqualified != nil {
-		return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+		return getNodeStats(dbNode), nil
 	}
 
 	auditAlpha, auditBeta, totalAuditCount := updateReputation(
@@ -749,23 +781,23 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 
 	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, Error.Wrap(err)
 	}
 
 	// Cleanup containment table too
 	_, err = tx.Delete_PendingAudits_By_NodeId(ctx, dbx.PendingAudits_NodeId(nodeID.Bytes()))
 	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+		return nil, Error.Wrap(err)
 	}
 
 	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
 	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
 	// but for now we're adding a nil check to prevent a panic.
 	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
+		return nil, Error.Wrap(errs.New("unable to get node by ID: %v", nodeID))
 	}
 
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+	return getNodeStats(dbNode), nil
 }
 
 // UpdateNodeInfo updates the email and wallet for a given node ID for satellite payments.

@@ -5,6 +5,7 @@ package audit
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -156,20 +157,19 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 // recordAuditSuccessStatus updates nodeIDs in overlay with isup=true, auditsuccess=true
 func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var errlist errs.Group
-	for _, nodeID := range successNodeIDs {
-		_, err := reporter.overlay.UpdateStats(ctx, &overlay.UpdateRequest{
+
+	updateRequests := make([]*overlay.UpdateRequest, len(successNodeIDs))
+	for i, nodeID := range successNodeIDs {
+		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			IsUp:         true,
 			AuditSuccess: true,
-		})
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
 		}
 	}
-	if len(failed) > 0 {
-		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), errlist.Err())
+
+	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+	if err != nil && len(failed) > 0 {
+		return failed, errs.Combine(Error.New("failed to record some audit success statuses in overlay"), err)
 	}
 	return nil, nil
 }
@@ -178,6 +178,7 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits []*PendingAudit) (failed []*PendingAudit, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var errlist errs.Group
+	fmt.Printf("EEEE\n")
 	for _, pendingAudit := range pendingAudits {
 		if pendingAudit.ReverifyCount < reporter.maxReverifyCount {
 			err := reporter.containment.IncrementPending(ctx, pendingAudit)
