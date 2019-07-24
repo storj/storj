@@ -61,6 +61,9 @@
 # determines which set of configuration defaults to use. can either be 'dev' or 'release'
 defaults: "release"
 
+# the maximum amount of antechamber nodes to request from each queried node during discovery
+# discovery.antechamber-limit: 20
+
 # the interval at which the satellite attempts to find new nodes via random node ID lookups
 # discovery.discovery-interval: 1s
 

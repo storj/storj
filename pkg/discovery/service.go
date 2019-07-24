@@ -32,6 +32,7 @@ type Config struct {
 	DiscoveryInterval  time.Duration `help:"the interval at which the satellite attempts to find new nodes via random node ID lookups" default:"1s"`
 	RefreshLimit       int           `help:"the amount of nodes read from the overlay cache in a single pagination call" default:"100"`
 	RefreshConcurrency int           `help:"the amount of nodes refreshed in parallel" default:"8"`
+	AntechamberLimit   int           `help:"the maximum amount of antechamber nodes to request from each queried node during discovery" default:"20"`
 }
 
 // Discovery struct loads on cache, kad
@@ -42,6 +43,7 @@ type Discovery struct {
 
 	refreshLimit       int
 	refreshConcurrency int
+	antechamberLimit   int
 
 	Refresh   sync2.Cycle
 	Discovery sync2.Cycle
@@ -56,6 +58,7 @@ func New(logger *zap.Logger, ol *overlay.Cache, kad *kademlia.Kademlia, config C
 
 		refreshLimit:       config.RefreshLimit,
 		refreshConcurrency: config.RefreshConcurrency,
+		antechamberLimit:   config.AntechamberLimit,
 	}
 
 	discovery.Refresh.SetInterval(config.RefreshInterval)
@@ -151,7 +154,7 @@ func (discovery *Discovery) discover(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	_, err = discovery.kad.FindNode(ctx, r)
+	_, err = discovery.kad.FindNodeWithAntechamber(ctx, r, discovery.antechamberLimit)
 	if err != nil && !kademlia.NodeNotFound.Has(err) {
 		return Error.Wrap(err)
 	}
