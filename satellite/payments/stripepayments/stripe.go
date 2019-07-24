@@ -54,12 +54,6 @@ func (s *service) CreateCustomer(ctx context.Context, params payments.CreateCust
 		Name:  stripe.String(params.Name),
 	}
 
-	// TODO: delete after migrating from test environment
-	err = cparams.SetSource("tok_visa")
-	if err != nil {
-		return nil, stripeErr.Wrap(err)
-	}
-
 	cus, err := s.client.Customers.New(cparams)
 	if err != nil {
 		return nil, stripeErr.Wrap(err)

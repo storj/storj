@@ -34,7 +34,11 @@
     import Button from '@/components/common/Button.vue';
     import Card from '@/components/project/CardChoiceItem.vue';
     import PaymentMethodsSelector from '@/components/project/paymentMethods/PaymentMethodsSelector.vue';
-    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+    import {
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS
+    } from '@/utils/constants/actionNames';
 
     @Component({
         components: {
@@ -50,11 +54,24 @@
             return this.$store.state.appStateModule.appState.isSelectPaymentMethodPopupShown;
         }
 
+        public get defaultPaymentMethod(): PaymentMethod {
+            return this.$store.state.userPaymentsMethodsModule.defaultPaymentMethod;
+        }
+
         public onCloseClick(): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
         }
 
-        public onDoneClick(): void {
+        public async onDoneClick(): Promise<void> {
+            const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ATTACH, this.defaultPaymentMethod.id);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                return;
+            }
+
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
         }
 

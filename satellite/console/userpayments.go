@@ -26,6 +26,7 @@ type UserPayment struct {
 	CreatedAt time.Time
 }
 
+// UserPaymentMethod represents user payment information
 type UserPaymentMethod struct {
 	UserID        uuid.UUID
 	paymentMethod payments.PaymentMethod

@@ -257,6 +257,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 	return pp, nil
 }
 
+// AddNewUserPaymentMethod creates new payment method at stripe
 func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToken string) (paymentMethod *UserPaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -302,11 +303,12 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 	}
 
 	return &UserPaymentMethod{
-		UserID:authorization.User.ID,
+		UserID:        authorization.User.ID,
 		paymentMethod: *pm,
 	}, nil
 }
 
+// AttachPaymentMethodToProject creates project payment method by payment method id
 func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMethodID []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -445,6 +447,7 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 	return projectPayments, nil
 }
 
+// GetUserPaymentMethods returns list of payment methods from stripe
 func (s *Service) GetUserPaymentMethods(ctx context.Context) (_ []payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
 

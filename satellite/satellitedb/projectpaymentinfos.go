@@ -20,11 +20,13 @@ type projectPayments struct {
 	methods dbx.Methods
 }
 
+// Delete deletes payment method record from database
 func (pp *projectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
 	_, err := pp.methods.Delete_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
 	return err
 }
 
+// GetByID retrieves project payment info by project projectPaymentID
 func (pp *projectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {
 	dbxInfo, err := pp.methods.Get_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
 	if err != nil {
@@ -34,6 +36,7 @@ func (pp *projectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UU
 	return fromDBXProjectPayment(ctx, dbxInfo)
 }
 
+// Update updates project payment method
 func (pp *projectPayments) Update(ctx context.Context, info console.ProjectPayment) error {
 	updateFields := dbx.ProjectPayment_Update_Fields{
 		IsDefault: dbx.ProjectPayment_IsDefault(info.IsDefault),
@@ -61,12 +64,10 @@ func (pp *projectPayments) Create(ctx context.Context, info console.ProjectPayme
 
 	dbxInfo, err := pp.methods.Create_ProjectPayment(ctx,
 		dbx.ProjectPayment_Id(id[:]),
+		dbx.ProjectPayment_ProjectId(info.ProjectID[:]),
 		dbx.ProjectPayment_PayerId(info.PayerID[:]),
 		dbx.ProjectPayment_PaymentMethodId(info.PaymentMethodID),
 		dbx.ProjectPayment_IsDefault(info.IsDefault),
-		struct {
-			ProjectId dbx.ProjectPayment_ProjectId_Field
-		}{ProjectId: dbx.ProjectPayment_ProjectId(info.ProjectID[:])},
 	)
 
 	if err != nil {

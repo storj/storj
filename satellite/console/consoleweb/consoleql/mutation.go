@@ -564,7 +564,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 				},
 			},
 			AttachPaymentMethodMutation: &graphql.Field{
-				Type:graphql.Boolean,
+				Type: graphql.Boolean,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
