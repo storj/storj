@@ -10,130 +10,123 @@
             :height="150"
             :min="chartData.min"
             :max="chartData.max"
-            :tooltipConstructor = "tooltip" />
+            :tooltipConstructor="bandwidthTooltip" />
     </div>
 </template>
 
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Chart from '@/components/Chart.vue';
-    import { formatBytes } from '@/utils/converter'
+    import { formatBytes } from '@/utils/converter';
 
     @Component ({
         components: {
             Chart,
         },
-        computed: {
-            chartData: function () {
-                let data = [0];
-
-                if (this.$store.state.nodeModule.bandwidthChartData.length) {
-                    data = this.$store.state.nodeModule.bandwidthChartData.map(elem => {
-                        return parseFloat(formatBytes(elem.summary));
-                    });
-                }
-
-                const min = Math.min(...data);
-                const max = (Math.max(...data) * 1.1) > 1 ? Math.max(...data) * 1.1 : 1;
-
-                const chartData = {
-                    data: {
-                        labels: (this as any).xAxeOption(),
-                        datasets: [{
-                            backgroundColor: '#F2F6FC',
-                            borderColor: '#1F49A3',
-                            borderWidth: 2,
-                            data,
-                        }],
-                    },
-                    min,
-                    max,
-                };
-
-                return chartData;
-            }
-        },
-        methods: {
-            tooltip: function (tooltipModel): void {
-                // Tooltip Element
-                let tooltipEl = document.getElementById('bandwidth-tooltip');
-                // Create element on first render
-                if (!tooltipEl) {
-                    tooltipEl = document.createElement('div');
-                    tooltipEl.id = 'bandwidth-tooltip';
-                    document.body.appendChild(tooltipEl);
-                }
-
-                // Hide if no tooltip
-                if (tooltipModel.opacity === 0) {
-                    tooltipEl.style.opacity = '0';
-
-                    return;
-                }
-
-                // Set Text
-                if (tooltipModel.body) {
-                    const dataIndex = tooltipModel.dataPoints[0].index;
-                    const dataPoint = this.$store.state.nodeModule.bandwidthChartData[dataIndex].getLabels();
-                    tooltipEl.innerHTML = `<div class='tooltip-header'>
-                                               <p>EGRESS</p>
-                                               <p class='tooltip-header__ingress'>INGRESS</p>
-                                           </div>
-                                           <div class='tooltip-body'>
-                                               <div class='tooltip-body__info'>
-                                                   <p>NORMAL</p>
-                                                   <p class='tooltip-body__info__egress-value'><b>${dataPoint.normalEgress}</b></p>
-                                                   <p class='tooltip-body__info__ingress-value'><b>${dataPoint.normalIngress}</b></p>
-                                               </div>
-                                               <div class='tooltip-body__info'>
-                                                   <p>REPAIR</p>
-                                                   <p class='tooltip-body__info__egress-value'><b>${dataPoint.repairEgress}</b></p>
-                                                   <p class='tooltip-body__info__ingress-value'><b>${dataPoint.repairIngress}</b></p>
-                                               </div>
-                                               <div class='tooltip-body__info'>
-                                                   <p>AUDIT</p>
-                                                   <p class='tooltip-body__info__egress-value'><b>${dataPoint.auditEgress}</b></p>
-                                               </div>
-                                           </div>
-                                           <div class='tooltip-footer'>
-                                               <p>${dataPoint.date}</p>
-                                           </div>`;
-                }
-
-                // `this` will be the overall tooltip
-                let bandwidthChart = document.getElementById('bandwidth-chart');
-                if(bandwidthChart) {
-                    let position = bandwidthChart.getBoundingClientRect();
-                    tooltipEl.style.opacity = '1';
-                    tooltipEl.style.position = 'absolute';
-                    tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
-                    tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-                }
-            },
-
-            xAxeOption: function () {
-                let dateNow = new Date().getDate();
-                let daysDisplayed = (dateNow === 1) ? Array(dateNow + 1).fill('') : Array(dateNow).fill('');
-
-                daysDisplayed[0] = 1;
-                daysDisplayed[dateNow - 1] = dateNow;
-                if (dateNow > 2) {
-                    daysDisplayed[Math.round(dateNow/2)] = Math.floor(dateNow/2);
-                }
-
-                return daysDisplayed;
-            }
-        }
     })
+    export default class BandwidthChart extends Vue {
+        public get chartData(): object {
+            let data = [0];
 
-    export default class BandwidthChart extends Vue {}
+            if (this.$store.state.nodeModule.bandwidthChartData.length) {
+                data = this.$store.state.nodeModule.bandwidthChartData.map(elem => {
+                    return parseFloat(formatBytes(elem.summary));
+                });
+            }
+
+            const min = Math.min(...data);
+            const max = (Math.max(...data) * 1.1) > 1 ? Math.max(...data) * 1.1 : 1;
+
+            return {
+                data: {
+                    labels: this.xAxeOption(),
+                    datasets: [{
+                        backgroundColor: '#F2F6FC',
+                        borderColor: '#1F49A3',
+                        borderWidth: 2,
+                        data,
+                    }],
+                },
+                min,
+                max,
+            };
+        }
+
+        public bandwidthTooltip(tooltipModel): void {
+            // Tooltip Element
+            let tooltipEl = document.getElementById('bandwidth-tooltip');
+            // Create element on first render
+            if (!tooltipEl) {
+                tooltipEl = document.createElement('div');
+                tooltipEl.id = 'bandwidth-tooltip';
+                document.body.appendChild(tooltipEl);
+            }
+
+            // Hide if no tooltip
+            if (tooltipModel.opacity === 0) {
+                document.body.removeChild(tooltipEl);
+
+                return;
+            }
+
+            // Set Text
+            if (tooltipModel.body) {
+                const dataIndex = tooltipModel.dataPoints[0].index;
+                const dataPoint = this.$store.state.nodeModule.bandwidthChartData[dataIndex].getLabels();
+                tooltipEl.innerHTML = `<div class='tooltip-header'>
+                                           <p>EGRESS</p>
+                                           <p class='tooltip-header__ingress'>INGRESS</p>
+                                       </div>
+                                       <div class='tooltip-body'>
+                                           <div class='tooltip-body__info'>
+                                               <p>NORMAL</p>
+                                               <p class='tooltip-body__info__egress-value'><b>${dataPoint.normalEgress}</b></p>
+                                               <p class='tooltip-body__info__ingress-value'><b>${dataPoint.normalIngress}</b></p>
+                                           </div>
+                                           <div class='tooltip-body__info'>
+                                               <p>REPAIR</p>
+                                               <p class='tooltip-body__info__egress-value'><b>${dataPoint.repairEgress}</b></p>
+                                               <p class='tooltip-body__info__ingress-value'><b>${dataPoint.repairIngress}</b></p>
+                                           </div>
+                                           <div class='tooltip-body__info'>
+                                               <p>AUDIT</p>
+                                               <p class='tooltip-body__info__egress-value'><b>${dataPoint.auditEgress}</b></p>
+                                           </div>
+                                       </div>
+                                       <div class='tooltip-footer'>
+                                           <p>${dataPoint.date}</p>
+                                       </div>`;
+            }
+
+            // `this` will be the overall tooltip
+            let bandwidthChart = document.getElementById('bandwidth-chart');
+            if (bandwidthChart) {
+                let position = bandwidthChart.getBoundingClientRect();
+                tooltipEl.style.opacity = '1';
+                tooltipEl.style.position = 'absolute';
+                tooltipEl.style.left = position.left + tooltipModel.caretX + 'px';
+                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+            }
+
+            return;
+        }
+
+        private xAxeOption(): number[] {
+            let dateNow = new Date().getDate();
+            let daysDisplayed = (dateNow === 1) ? Array(dateNow + 1).fill('') : Array(dateNow).fill('');
+
+            daysDisplayed[0] = 1;
+            daysDisplayed[dateNow - 1] = dateNow;
+            if (dateNow > 2) {
+                daysDisplayed[Math.round(dateNow / 2)] = Math.floor(dateNow / 2);
+            }
+
+            return daysDisplayed;
+        }
+    }
 </script>
 
 <style lang="scss">
-    .chart {
-        position: relative;
-    }
-
     #bandwidth-tooltip {
         background-color: #FFFFFF;
         width: auto;

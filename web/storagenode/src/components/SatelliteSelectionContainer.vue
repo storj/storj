@@ -12,36 +12,35 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
     import { APPSTATE_ACTIONS } from '@/utils/constants';
 
     @Component ({
-        props: {
-            label: String
-        },
-        methods: {
-            toggleDropDown: function (): void {
-                this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
-            },
-        },
         components: {
             SatelliteSelectionDropdown,
         },
-        computed: {
-            satellites: function () {
-                return this.$store.state.nodeModule.satellites;
-            },
-            selectedSatellite: function () {
-                return this.$store.state.nodeModule.selectedSatellite;
-            },
-            isPopupShown: function (): boolean {
-                return this.$store.state.appStateModule.isSatelliteSelectionShown;
-            }
-        }
     })
+    export default class SatelliteSelectionContainer extends Vue {
+        @Prop({default: ''})
+        private readonly label: string;
 
-    export default class SatelliteSelectionContainer extends Vue {}
+        public toggleDropDown(): void {
+            this.$store.dispatch(APPSTATE_ACTIONS.TOGGLE_SATELLITE_SELECTION);
+        }
+
+        public get satellites() {
+            return this.$store.state.nodeModule.satellites;
+        }
+
+        public get selectedSatellite() {
+            return this.$store.state.nodeModule.selectedSatellite;
+        }
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.isSatelliteSelectionShown;
+        }
+    }
 </script>
 
 <style lang="scss">

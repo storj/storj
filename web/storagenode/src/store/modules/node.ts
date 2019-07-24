@@ -1,7 +1,7 @@
 import { NODE_ACTIONS, NODE_MUTATIONS } from '@/utils/constants';
 import { httpGet } from '@/api/storagenode';
 import { formatBytes } from '@/utils/converter.ts';
-import { BandwidthChartDataFormatter } from '@/utils/chartModule'
+import { BandwidthChartDataFormatter } from '@/utils/chartModule';
 
 export const nodeModule = {
     state: {
@@ -60,6 +60,8 @@ export const nodeModule = {
             else {
                 state.selectedSatellite = null;
             }
+
+            return;
         },
     },
     actions: {

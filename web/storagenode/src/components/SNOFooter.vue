@@ -16,8 +16,8 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
 
-    export default class SNOFooter extends Vue {
-    }
+    @Component
+    export default class SNOFooter extends Vue {}
 </script>
 
 <style lang="scss">

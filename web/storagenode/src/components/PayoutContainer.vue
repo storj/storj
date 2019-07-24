@@ -18,16 +18,14 @@
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
 
-    @Component ({
-        props: {
-            label: String,
-            walletAddress: String,
-        },
-    })
-
+    @Component
     export default class PayoutContainer extends Vue {
+        @Prop({default: ''})
+        private readonly label: string;
+        @Prop({default: ''})
+        private readonly walletAddress: string;
     }
 </script>
 

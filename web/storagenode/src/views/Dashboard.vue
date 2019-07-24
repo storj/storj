@@ -1,12 +1,12 @@
 <template>
-	<div class="page">
-		<SNOHeader />
-		<div class="content">
-			<SNOContentTitle />
-			<SNOContentFilling />
-		</div>
-		<SNOFooter />
-	</div>
+    <div class="page">
+        <SNOHeader />
+        <div class="content">
+            <SNOContentTitle />
+            <SNOContentFilling />
+        </div>
+        <SNOFooter />
+    </div>
 </template>
 
 <script lang="ts">
@@ -20,30 +20,29 @@
     @Component ({
         components: {
             SNOHeader,
-	        SNOContentTitle,
+            SNOContentTitle,
             SNOContentFilling,
-			SNOFooter,
+            SNOFooter,
         },
-		mounted: async function () {
-			let info = await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, '/api/dashboard/');
-		}
     })
-
     export default class Dashboard extends Vue {
+        public async mounted() {
+            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO, '/api/dashboard/');
+        }
     }
 </script>
 
 <style lang="scss">
-	.page {
-		background-color: #F4F6F9;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-	}
+    .page {
+        background-color: #F4F6F9;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
 
-	.content {
-		width: 822px;
-		padding-top: 31px;
-	}
+    .content {
+        width: 822px;
+        padding-top: 31px;
+    }
 </style>

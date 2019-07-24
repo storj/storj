@@ -10,7 +10,7 @@
             :height="150"
             min="1"
             max="7.2"
-            :tooltipConstructor = "tooltip" />
+            :tooltipConstructor="diskSpaceTooltip" />
     </div>
 </template>
 
@@ -22,72 +22,69 @@
         components: {
             Chart,
         },
-
-        data: () => ({
-            diskSpaceUsed: {
-                labels: [
-                    "1",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "15",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "30"
-                ],
-                datasets: [{
-                    backgroundColor: '#F2F6FC',
-                    borderColor: '#1F49A3',
-                    borderWidth: 2,
-                    data: [4, 3, 5, 5, 4, 3, 3, 6, 5, 4, 5, 2],
-                }],
-            },
-        }),
-
-        methods: {
-            tooltip: function (tooltipModel): void {
-                // Tooltip Element
-                var tooltipEl = document.getElementById('disk-space-tooltip');
-                // Create element on first render
-                if (!tooltipEl) {
-                    tooltipEl = document.createElement('div');
-                    tooltipEl.id = 'disk-space-tooltip';
-                    document.body.appendChild(tooltipEl);
-                }
-
-                // Hide if no tooltip
-                if (tooltipModel.opacity === 0) {
-                    tooltipEl.style.opacity = '0';
-
-                    return;
-                }
-
-                // Set Text
-                if (tooltipModel.body) {
-                    tooltipEl.innerHTML = `<div class='tooltip-body'>
-                                               <p class='tooltip-body__data'><b>30GB</b></p>
-                                               <p class='tooltip-body__footer'>May 25, 2019</p>
-                                           </div>`;
-                }
-
-                let diskSpaceChart = document.getElementById('disk-space-chart');
-                if(diskSpaceChart) {
-                    let position = diskSpaceChart.getBoundingClientRect();
-
-                    tooltipEl.style.opacity = '1';
-                    tooltipEl.style.position = 'absolute';
-                    tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 20 + 'px';
-                    tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-                }
-            },
-        }
     })
+    export default class DiskSpaceChart extends Vue {
+        public diskSpaceUsed: object = {
+            labels: [
+                '1',
+                '',
+                '',
+                '',
+                '',
+                '',
+                '15',
+                '',
+                '',
+                '',
+                '',
+                '30'
+                ],
+            datasets: [{
+                backgroundColor: '#F2F6FC',
+                borderColor: '#1F49A3',
+                borderWidth: 2,
+                data: [4, 3, 5, 5, 4, 3, 3, 6, 5, 4, 5, 2],
+            }],
+        };
 
-    export default class DiskSpaceChart extends Vue {}
+        public diskSpaceTooltip(tooltipModel): void {
+            // Tooltip Element
+            let tooltipEl = document.getElementById('disk-space-tooltip');
+            // Create element on first render
+            if (!tooltipEl) {
+                tooltipEl = document.createElement('div');
+                tooltipEl.id = 'disk-space-tooltip';
+                document.body.appendChild(tooltipEl);
+            }
+
+            // Hide if no tooltip
+            if (tooltipModel.opacity === 0) {
+                document.body.removeChild(tooltipEl);
+
+                return;
+            }
+
+            // Set Text
+            if (tooltipModel.body) {
+                tooltipEl.innerHTML = `<div class='tooltip-body'>
+                                           <p class='tooltip-body__data'><b>30GB</b></p>
+                                           <p class='tooltip-body__footer'>May 25, 2019</p>
+                                       </div>`;
+            }
+
+            let diskSpaceChart = document.getElementById('disk-space-chart');
+
+            if (diskSpaceChart) {
+                let position = diskSpaceChart.getBoundingClientRect();
+                tooltipEl.style.opacity = '1';
+                tooltipEl.style.position = 'absolute';
+                tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 20 + 'px';
+                tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
+            }
+
+            return;
+        }
+    }
 </script>
 
 <style lang="scss">

@@ -106,5 +106,7 @@ export class BandwidthChartDataFormatter {
                 this.data.unshift(new EmptyBandwidthChartDataItem(i));
             }
         }
+
+        return;
     }
 }

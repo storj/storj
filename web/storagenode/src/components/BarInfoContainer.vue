@@ -7,40 +7,38 @@
         <p class="remaining-space-container__amount"><b>{{amount}}</b></p>
         <div class="remaining-space-container__bar">
             <InfoComponent :text="infoMessage">
-                <template>
-                    <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
-                </template>
+                <Bar :current="currentBarAmount" :max="maxBarAmount" color="#224CA5"/>
             </InfoComponent>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import Bar from '@/components/Bar.vue';
     import InfoComponent from '@/components/InfoComponent.vue';
 
     @Component ({
-        props: {
-            label: String,
-            amount: String,
-            infoText: String,
-            currentBarAmount: String,
-            maxBarAmount: String,
-        },
-        computed: {
-            infoMessage: function (): string {
-                return `${100 - Math.round((parseFloat(this.$props.currentBarAmount)/parseFloat(this.$props.maxBarAmount))*100)}% ${this.$props.infoText}`
-            }
-        },
-
         components: {
             Bar,
             InfoComponent,
         },
     })
-
     export default class BarInfoContainer extends Vue {
+        @Prop({default: ''})
+        private readonly label: string;
+        @Prop({default: ''})
+        private readonly amount: string;
+        @Prop({default: ''})
+        private readonly infoText: string;
+        @Prop({default: ''})
+        private readonly currentBarAmount: string;
+        @Prop({default: ''})
+        private readonly maxBarAmount: string;
+
+        public get infoMessage(): string {
+            return `${100 - Math.round((parseFloat(this.currentBarAmount) / parseFloat(this.maxBarAmount)) * 100)}% ${this.infoText}`;
+        }
     }
 </script>
 
