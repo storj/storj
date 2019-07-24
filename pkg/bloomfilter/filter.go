@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/memory"
 	"storj.io/storj/pkg/storj"
 )
 
@@ -39,18 +40,35 @@ func newExplicit(seed, hashCount byte, sizeInBytes int) *Filter {
 
 // NewOptimal returns a filter based on expected element count and false positive rate.
 func NewOptimal(expectedElements int, falsePositiveRate float64) *Filter {
+	hashCount, sizeInBytes := getHashCountAndSize(expectedElements, falsePositiveRate)
 	seed := byte(rand.Intn(255))
 
+	return newExplicit(seed, byte(hashCount), sizeInBytes)
+}
+
+// NewOptimalMaxSize returns a filter based on expected element count and false positive rate, capped at a maximum size in bytes
+func NewOptimalMaxSize(expectedElements int, falsePositiveRate float64, maxSize memory.Size) *Filter {
+	hashCount, sizeInBytes := getHashCountAndSize(expectedElements, falsePositiveRate)
+	seed := byte(rand.Intn(255))
+
+	if sizeInBytes > maxSize.Int() {
+		sizeInBytes = maxSize.Int()
+	}
+
+	return newExplicit(seed, byte(hashCount), sizeInBytes)
+}
+
+func getHashCountAndSize(expectedElements int, falsePositiveRate float64) (hashCount, size int) {
 	// calculation based on https://en.wikipedia.org/wiki/Bloom_filter#Optimal_number_of_hash_functions
 	bitsPerElement := -1.44 * math.Log2(falsePositiveRate)
-	hashCount := math.Ceil(bitsPerElement * math.Log(2))
+	hashCount = int(math.Ceil(bitsPerElement * math.Log(2)))
 	if hashCount > 32 {
 		// it will never be larger, but just in case to avoid overflow
 		hashCount = 32
 	}
-	sizeInBytes := int(math.Ceil(float64(expectedElements) * bitsPerElement / 8))
+	size = int(math.Ceil(float64(expectedElements) * bitsPerElement / 8))
 
-	return newExplicit(seed, byte(hashCount), sizeInBytes)
+	return hashCount, size
 }
 
 // Parameters returns filter parameters.
@@ -143,4 +161,10 @@ func (filter *Filter) Bytes() []byte {
 	bytes[2] = filter.hashCount
 	copy(bytes[3:], filter.table)
 	return bytes
+}
+
+// Size returns the size of Bytes call.
+func (filter *Filter) Size() int64 {
+	// the first three bytes represent the version, seed, and hash count
+	return int64(1 + 1 + 1 + len(filter.table))
 }
