@@ -73,6 +73,21 @@ defaults: "release"
 # the amount of nodes read from the overlay cache in a single pagination call
 # discovery.refresh-limit: 100
 
+# the number of nodes to concurrently send garbage collection bloom filters to
+# garbage-collection.concurrent-sends: 1
+
+# set if garbage collection is enabled or not
+# garbage-collection.enabled: false
+
+# the false positive rate used for creating a garbage collection bloom filter
+# garbage-collection.false-positive-rate: 0.1
+
+# the initial number of pieces expected for a storage node to have, used for creating a filter
+# garbage-collection.initial-pieces: 400000
+
+# the time between each send of garbage collection filters to storage nodes
+# garbage-collection.interval: 168h0m0s
+
 # help for setup
 # help: false
 
