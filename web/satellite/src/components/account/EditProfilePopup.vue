@@ -22,8 +22,8 @@
                     @setData="setFullName" />
                 <HeaderedInput
                     class="full-input"
-                    label="Short Name"
-                    placeholder="Enter Short Name"
+                    label="Nickname"
+                    placeholder="Enter Nickname"
                     width="100%"
                     ref="shortNameInput"
                     :initValue="originalShortName"
