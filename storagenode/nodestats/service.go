@@ -82,7 +82,7 @@ func (s *Service) Run(ctx context.Context) (err error) {
 		// handle cancellation signal first
 		case <-ctx.Done():
 			return ctx.Err()
-		// wait for the next cache interval to happen
+		// wait for the next stats interval to happen
 		case <-s.statsTicker.C:
 			err = s.CacheStatsFromSatellites(ctx)
 			if err != nil {
