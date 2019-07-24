@@ -773,7 +773,7 @@ func createTestPointer(t *testing.T) *pb.Pointer {
 
 func TestBucketNameValidation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 
@@ -976,8 +976,10 @@ func TestBeginCommitListSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
-			StreamID:     streamID,
-			Index:        -1,
+			StreamID: streamID,
+			Position: storj.SegmentPosition{
+				Index: -1,
+			},
 			MaxOderLimit: memory.MiB.Int64(),
 		})
 		require.NoError(t, err)
@@ -1092,8 +1094,10 @@ func TestInlineSegment(t *testing.T) {
 		for i, segment := range segments {
 			segmentsData[i] = testrand.Bytes(memory.KiB)
 			err = metainfoClient.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{
-				StreamID:            streamID,
-				Index:               segment,
+				StreamID: streamID,
+				Position: storj.SegmentPosition{
+					Index: segment,
+				},
 				EncryptedInlineData: segmentsData[i],
 			})
 			require.NoError(t, err)
@@ -1133,8 +1137,10 @@ func TestInlineSegment(t *testing.T) {
 			} {
 				items, more, err := metainfoClient.ListSegments2(ctx, metainfo.ListSegmentsParams{
 					StreamID: streamID,
-					Index:    test.Index,
-					Limit:    int32(test.Limit),
+					CursorPosition: storj.SegmentPosition{
+						Index: test.Index,
+					},
+					Limit: int32(test.Limit),
 				})
 				require.NoError(t, err)
 				require.Equal(t, test.Result, len(items))
@@ -1146,7 +1152,9 @@ func TestInlineSegment(t *testing.T) {
 			for i, segment := range segments {
 				info, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 					StreamID: streamID,
-					Index:    segment,
+					Position: storj.SegmentPosition{
+						Index: segment,
+					},
 				})
 				require.NoError(t, err)
 				require.Nil(t, limits)
@@ -1168,7 +1176,9 @@ func TestInlineSegment(t *testing.T) {
 			for _, item := range items {
 				segmentID, limits, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
 					StreamID: streamID,
-					Index:    item.Position.Index,
+					Position: storj.SegmentPosition{
+						Index: item.Position.Index,
+					},
 				})
 				require.NoError(t, err)
 				require.Nil(t, limits)
@@ -1231,7 +1241,9 @@ func TestRemoteSegment(t *testing.T) {
 
 			_, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 				StreamID: streamID,
-				Index:    segments[0].Position.Index,
+				Position: storj.SegmentPosition{
+					Index: segments[0].Position.Index,
+				},
 			})
 			require.NoError(t, err)
 			require.NotEmpty(t, limits)
@@ -1257,7 +1269,9 @@ func TestRemoteSegment(t *testing.T) {
 			for _, segment := range segments {
 				segmentID, limits, err := metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
 					StreamID: streamID,
-					Index:    segment.Position.Index,
+					Position: storj.SegmentPosition{
+						Index: segment.Position.Index,
+					},
 				})
 				require.NoError(t, err)
 				require.NotEmpty(t, limits)
