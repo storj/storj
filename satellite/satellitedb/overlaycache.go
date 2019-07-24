@@ -674,21 +674,52 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
 func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	tx, err := cache.db.Open(ctx)
-	if err != nil {
-		return failed, Error.Wrap(err)
+	if len(updateRequests) == 0 {
+		return failed, nil
 	}
-	for _, updateReq := range updateRequests {
-		_, err := updateStats(ctx, updateReq, tx)
-		if err != nil {
-			// if 1 fails, they all fail
-			for _, nodeID := range updateRequests {
-				failed = append(failed, nodeID.NodeID)
+
+	doUpdate := func(updateSlice []*overlay.UpdateRequest) (duf storj.NodeIDList, err error) {
+		appendAll := func() {
+			for _, ur := range updateRequests {
+				duf = append(duf, ur.NodeID)
 			}
-			return failed, errs.Combine(err, tx.Rollback())
+		}
+
+		tx, err := cache.db.Open(ctx)
+		if err != nil {
+			appendAll()
+			return duf, Error.Wrap(err)
+		}
+
+		for _, updateReq := range updateSlice {
+			_, err := updateStats(ctx, updateReq, tx)
+			if err != nil {
+				appendAll()
+				return duf, errs.Combine(err, tx.Rollback())
+			}
+		}
+		return duf, Error.Wrap(tx.Commit())
+	}
+
+	var errlist errs.Group
+	length := len(updateRequests)
+	// TODO: make configuration
+	limit := 100
+	for i := 0; i < length; i += limit {
+		end := i + limit
+		if end > length {
+			end = length
+		}
+
+		failedBatch, err := doUpdate(updateRequests[i:end])
+		if err != nil && len(failedBatch) > 0 {
+			for _, fb := range failedBatch {
+				errlist.Add(err)
+				failed = append(failed, fb)
+			}
 		}
 	}
-	return failed, Error.Wrap(tx.Commit())
+	return failed, errlist.Err()
 }
 
 // UpdateStats a single storagenode's stats in the db
