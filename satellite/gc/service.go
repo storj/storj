@@ -70,7 +70,6 @@ func NewService(log *zap.Logger, config Config, transport transport.Client, over
 
 // Run starts the gc loop service
 func (service *Service) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
 
 	if !service.config.Enabled {
 		return nil
@@ -79,11 +78,13 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	// TODO retrieve piece counts from overlay (when there is a column for them)
 	lastPieceCounts := make(map[storj.NodeID]int)
 
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
+	return service.Loop.Run(ctx, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+
 		pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
 
 		// collect things to retain
-		err := service.metainfoLoop.Join(ctx, pieceTracker)
+		err = service.metainfoLoop.Join(ctx, pieceTracker)
 		if err != nil {
 			service.log.Error("error joining metainfoloop", zap.Error(Error.Wrap(err)))
 			return nil

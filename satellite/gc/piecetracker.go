@@ -53,13 +53,11 @@ func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, path storj.
 
 // RemoteObject returns nil because gc does not interact with remote objects
 func (pieceTracker *PieceTracker) RemoteObject(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
 // InlineSegment returns nil because we're only doing gc for storage nodes for now
 func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, path storj.Path, pointer *pb.Pointer) (err error) {
-	defer mon.Task()(&ctx)(&err)
 	return nil
 }
 
