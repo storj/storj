@@ -122,7 +122,7 @@ func (client *Client) view(fn func(*bolt.Bucket) error) error {
 	}))
 }
 
-// Put adds a key/value to boltDB in a batch, where boltDB commits the batch to to disk every
+// Put adds a key/value to boltDB in a batch, where boltDB commits the batch to disk every
 // 1000 operations or 10ms, whichever is first. The MaxBatchDelay are using default settings.
 // Ref: https://github.com/boltdb/bolt/blob/master/db.go#L160
 // Note: when using this method, check if it need to be executed asynchronously
@@ -345,4 +345,37 @@ func (cursor backward) SkipPrefix(prefix storage.Key) (key, value []byte) {
 
 func (cursor backward) Advance() (key, value []byte) {
 	return cursor.Prev()
+}
+
+// CompareAndSwap atomically compares and swaps oldValue with newValue
+func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldValue, newValue storage.Value) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	if key.IsZero() {
+		return storage.ErrEmptyKey.New("")
+	}
+
+	return client.update(func(bucket *bolt.Bucket) error {
+		data := bucket.Get([]byte(key))
+		if len(data) == 0 {
+			if oldValue != nil {
+				return storage.ErrKeyNotFound.New(key.String())
+			}
+
+			if newValue == nil {
+				return nil
+			}
+
+			return Error.Wrap(bucket.Put(key, newValue))
+		}
+
+		if !bytes.Equal(storage.Value(data), oldValue) {
+			return storage.ErrValueChanged.New(key.String())
+		}
+
+		if newValue == nil {
+			return Error.Wrap(bucket.Delete(key))
+		}
+
+		return Error.Wrap(bucket.Put(key, newValue))
+	})
 }
