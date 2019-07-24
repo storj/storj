@@ -89,19 +89,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			return nil
 		}
 
-		// send retain requests
-		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
-		for id, info := range pieceTracker.retainInfos {
-			id, info := id, info
-			limiter.Go(ctx, func() {
-				err := service.sendRetainRequest(ctx, id, info)
-				if err != nil {
-					service.log.Sugar().Errorf("error sending retain info to node ID %s: %v", id.String(), zap.Error(err))
-				}
-			})
-		}
-		limiter.Wait()
-
 		// save piece counts for next iteration
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
@@ -115,6 +102,20 @@ func (service *Service) Run(ctx context.Context) (err error) {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
 			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
 		}
+
+		// send retain requests
+		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
+		for id, info := range pieceTracker.retainInfos {
+			id, info := id, info
+			limiter.Go(ctx, func() {
+				err := service.sendRetainRequest(ctx, id, info)
+				if err != nil {
+					service.log.Sugar().Errorf("error sending retain info to node ID %s: %v", id.String(), zap.Error(err))
+				}
+			})
+		}
+		limiter.Wait()
+
 		return nil
 	})
 }
