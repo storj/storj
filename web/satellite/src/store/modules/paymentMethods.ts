@@ -5,6 +5,7 @@ import { PROJECT_PAYMENT_METHODS_MUTATIONS, USER_PAYMENT_METHODS_MUTATIONS } fro
 import { PROJECT_PAYMENT_METHODS_ACTIONS, USER_PAYMENT_METHODS_ACTIONS } from '@/utils/constants/actionNames';
 import {
     addProjectPaymentMethodRequest,
+    addUserPaymentMethod,
     attachUserPaymentMethod,
     deletePaymentMethodRequest,
     fetchProjectPaymentMethods,
@@ -66,20 +67,35 @@ export const projectPaymentsMethodsModule = {
 export const userPaymentsMethodsModule = {
     state: {
         userPaymentMethods: [] as PaymentMethod[],
+        defaultPaymentMethod: {} as PaymentMethod,
     },
     mutations: {
         [USER_PAYMENT_METHODS_MUTATIONS.FETCH](state: any, paymentMethods: PaymentMethod[]) {
             state.userPaymentMethods = paymentMethods;
         },
+        [USER_PAYMENT_METHODS_MUTATIONS.SET_DEFAULT](state: any, paymentMethod: PaymentMethod) {
+            state.defaultPaymentMethod = paymentMethod;
+            state.defaultPaymentMethod.isDefault = true;
+        }
     },
     actions: {
         [USER_PAYMENT_METHODS_ACTIONS.FETCH]: async function ({commit}): Promise<RequestResponse<PaymentMethod[]>> {
             let result = await fetchUserPaymentMethods();
             if (result.isSuccess) {
                 commit(USER_PAYMENT_METHODS_MUTATIONS.FETCH, result.data);
+
+                if (result.data.length > 0) {
+                    commit(USER_PAYMENT_METHODS_MUTATIONS.SET_DEFAULT, result.data[0]);
+                }
             }
 
             return result;
+        },
+        [USER_PAYMENT_METHODS_ACTIONS.ADD]: async function ({}, cardToken: string): Promise<RequestResponse<boolean>> {
+            return await addUserPaymentMethod(cardToken);
+        },
+        [USER_PAYMENT_METHODS_ACTIONS.SET_DEFAULT]: function ({commit}, paymentMethod: PaymentMethod) {
+            commit(USER_PAYMENT_METHODS_MUTATIONS.SET_DEFAULT, paymentMethod);
         }
     }
 };

@@ -36,7 +36,7 @@ import {AppState} from "../utils/constants/appStateEnum";
         BUCKET_USAGE_ACTIONS,
         PROJECT_PAYMENT_METHODS_ACTIONS,
         USER_PAYMENT_METHODS_ACTIONS
-    } from "@/utils/constants/actionNames";
+    } from '@/utils/constants/actionNames';
     import ROUTES from '@/utils/constants/routerConstants';
     import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
     import { AppState } from '@/utils/constants/appStateEnum';

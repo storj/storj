@@ -22,8 +22,7 @@
         </div>
         <img v-if="props.logoPath" :src="props.logoPath" alt="card-logo" class="chosen-card-container__logo">
         <div class="chosen-card-container__credentials">
-            <p class="chosen-card-container__credentials__number">xxxx<span>{{props.lastDigits}}</span></p>
-            <p class="chosen-card-container__credentials__name">{{props.fullName}}</p>
+            <p class="chosen-card-container__credentials__number">xxxx <span>{{props.lastDigits}}</span></p>
         </div>
         <div class="chosen-card-container__border"></div>
         <div class="chosen-card-container__expire-container">
@@ -44,7 +43,7 @@
         @Prop({default: '0000'})
         private lastDigits: string;
 
-        @Prop({default: 'Shawn Wilkinson'})
+        @Prop({default: ''})
         private fullName: string;
 
         @Prop({default: 'Expires'})
@@ -84,13 +83,6 @@
                 margin: 0;
             }
             
-            &__name {
-                font-family: 'font_regular';
-                font-size: 16px;
-                line-height: 21px;
-                color: #61666B;
-                margin-left: 20px;
-            }
         }
         
         &__border {

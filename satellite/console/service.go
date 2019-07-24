@@ -178,8 +178,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
-// AddNewPaymentMethod adds new payment method for project
-func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
+// AddNewProjectPaymentMethod adds new payment method for project
+func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	authorization, err := GetAuth(ctx)
@@ -255,6 +255,56 @@ func (s *Service) AddNewPaymentMethod(ctx context.Context, paymentMethodToken st
 	})
 
 	return pp, nil
+}
+
+func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToken string) (paymentMethod *UserPaymentMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	authorization, err := GetAuth(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var customerID []byte
+	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+
+		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+			Email: authorization.User.Email,
+			Name:  authorization.User.FullName,
+		})
+		if err != nil {
+			return nil, err
+		}
+		customerID = cus.ID
+	}
+
+	if userPayments != nil {
+		customerID = userPayments.CustomerID
+	}
+
+	customer, err := s.pm.GetCustomer(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+
+	pp := payments.AddPaymentMethodParams{
+		CustomerID: string(customer.ID),
+		Token:      paymentMethodToken,
+	}
+
+	pm, err := s.pm.AddPaymentMethod(ctx, pp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserPaymentMethod{
+		UserID:authorization.User.ID,
+		paymentMethod: *pm,
+	}, nil
 }
 
 func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMethodID []byte, projectID uuid.UUID) (err error) {

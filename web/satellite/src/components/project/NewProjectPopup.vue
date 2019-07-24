@@ -69,6 +69,10 @@
         private createdProjectId: string = '';
         private isLoading: boolean = false;
 
+        public get userPaymentsCount(): number {
+            return this.$store.state.userPaymentsMethodsModule.userPaymentMethods.length;
+        }
+
         public setProjectName (value: string): void {
             this.projectName = value;
             this.nameError = '';
@@ -80,10 +84,6 @@
 
         public onCloseClick (): void {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
-
-        public onNewCardClick() {
-            console.log("new card click");
         }
 
         public async createProjectClick (): Promise<void> {
@@ -109,11 +109,17 @@
 
             this.fetchProjectMembers();
 
-            this.checkIfsFirstProject();
+            this.notifySuccess('Project created successfully!');
 
             this.isLoading = false;
 
-            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_PAYMENT_METHOD_POPUP);
+            if (this.userPaymentsCount > 0) {
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
+
+                return;
+            }
+
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
         }
 
         private validateProjectName(): boolean {
@@ -156,15 +162,6 @@
             this.$store.dispatch(PROJETS_ACTIONS.SELECT, this.createdProjectId);
 
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
-
-        private checkIfsFirstProject(): void {
-            // let isFirstProject = this.$store.state.projectsModule.projects.length === 1;
-            //
-            // isFirstProject
-            //     ? this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP)
-            //     : this.notifySuccess('Project created successfully!');
-            this.notifySuccess('Project created successfully!');
         }
 
         private async fetchProjectMembers(): Promise<any> {

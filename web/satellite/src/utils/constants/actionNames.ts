@@ -14,7 +14,9 @@ export const APP_STATE_ACTIONS = {
     TOGGLE_SUCCESSFUL_PROJECT_CREATION_POPUP: 'toggleSuccessfulProjectCreationPopup',
     TOGGLE_EDIT_PROFILE_POPUP: 'toggleEditProfilePopup',
     TOGGLE_CHANGE_PASSWORD_POPUP: 'toggleChangePasswordPopup',
-    TOGGLE_ADD_PAYMENT_METHOD_POPUP: 'toggleAddPaymentMethodPopup',
+    TOGGLE_SELECT_PAYMENT_METHOD_POPUP: 'toggleAddPaymentMethodPopup',
+    TOGGLE_ATTACH_STRIPE_CARD_POPUP: 'toggleAttachStripeCardPopup',
+    TOGGLE_ADD_USER_PAYMENT_POPUP: 'toggleAddUserPaymentPopup',
     SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'showSetDefaultPaymentMethodPopup',
     CLOSE_SET_DEFAULT_PAYMENT_METHOD_POPUP: 'closeSetDefaultPaymentMethodPopup',
     SHOW_DELETE_PAYMENT_METHOD_POPUP: 'showDeletePaymentMethodPopup',
@@ -96,6 +98,8 @@ export const PROJECT_PAYMENT_METHODS_ACTIONS = {
 
 export const USER_PAYMENT_METHODS_ACTIONS = {
     FETCH: 'fetchUserPaymentMethods',
+    ADD: 'addUserPaymentMethod',
+    SET_DEFAULT: 'setDefaultUserPaymentMethod'
 };
 
 export const CREDIT_USAGE_ACTIONS = {

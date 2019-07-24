@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="add-payment-popup-overflow" v-if="isAddPaymentPopupShown" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
+    <div class="add-payment-popup-overflow" v-if="isPopupShown" v-on:keyup.enter="onDoneClick" v-on:keyup.esc="onCloseClick">
         <div class="add-payment-popup-container">
             <h1 class="add-payment-popup-container__title">Add Payment Method</h1>
             <PaymentMethodsSelector/>
@@ -17,6 +17,7 @@
                 <Button
                         label="Done"
                         width="205px"
+                        :onPress="onDoneClick"
                         height="48px" />
             </div>
             <div class="cross" @click="onCloseClick">
@@ -31,25 +32,11 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import Card from '@/components/project/CardChoiceItem.vue'
+    import Card from '@/components/project/CardChoiceItem.vue';
     import PaymentMethodsSelector from '@/components/project/paymentMethods/PaymentMethodsSelector.vue';
+    import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
     @Component({
-        data: function () {
-            return {
-            };
-        },
-        methods: {
-            onDoneClick: function (): void {
-
-            },
-            onCloseClick: function (): void {
-
-            },
-            onNewCardClick: function (): void {
-                console.log("clicked new")
-            }
-        },
         components: {
             Button,
             Card,
@@ -57,13 +44,24 @@
         }
     })
 
-    export default class AddPaymentMethodPopup extends Vue {
-        private dropdownTitle: string = 'hide';
+    export default class SelectPaymentMethodPopup extends Vue {
 
-        public get isAddPaymentPopupShown(): boolean {
-            return this.$store.state.appStateModule.appState.isAddPaymentMethodPopupShown;
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isSelectPaymentMethodPopupShown;
         }
 
+        public onCloseClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
+        }
+
+        public onDoneClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
+        }
+
+        public onNewCardClick(): void {
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
+        }
     }
 </script>
 

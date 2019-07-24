@@ -6,38 +6,29 @@
         <div class="chosen-card-container">
             <Card
                     isChosen
-                    lastDigits="0000"
-                    fullName="Shawn Wilkinson"
-                    expireLabel="Storj Labs"
-                    expireDate="12/2020" />
+                    :lastDigits="defaultCard.lastFour"
+                    expireLabel="Expires:"
+                    :expireDate="defaultCard.expMonth + '/' + defaultCard.expYear"/>
             <div class="chosen-card-container__button-area">
                 <Button
                         label="Default"
                         width="91px"
                         height="36px"
-                        isDisabled />
-                <div class="chosen-card-container__expand-container" v-if="userPaymentMethods.length > 0">
-                    <h3>{{dropdownTitle}}</h3>
-                    <!--<img :src="showHideImageSource"/>-->
-                    <img src="../../../../static/images/payments/circle.svg"/>
+                        :onPress="stub"
+                        isDisabled="true"/>
+                <div @click="onToggleSelectionModeClick" class="chosen-card-container__expand-container"
+                     v-if="isPaymentSelectorEnabled">
+                    <h3>{{dropdownTitle}} </h3>
+                    <img src="@/../static/images/payments/circle.svg"/>
                 </div>
             </div>
         </div>
         <div class="border"></div>
-        <div class="expanded-area">
-            <div class="expanded-area__item" v-for="method in userPaymentMethods">
-                <Card
-                        class="option"
-                        :lastDigits="method.lastFour"
-                        fullName=holderName
-                        expireLabel="Expires:"
-                        :expireDate="method.expMonth + '/' +method.expYear" />
-
-                <Button
-                        label="Choose"
-                        width="91px"
-                        height="36px"/>
-
+        <div class="expanded-area" :class="{'empty': !isPaymentSelectorShown}" >
+            <div v-if="isPaymentSelectorShown" >
+                <div v-for="method in userPaymentMethods">
+                    <UserPaymentMethodCardComponent  :method="method" :key="method.id"/>
+                </div>
             </div>
         </div>
     </div>
@@ -46,90 +37,98 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import Button from '@/components/common/Button.vue';
-    import Card from '@/components/project/CardChoiceItem.vue'
+    import Card from '@/components/project/CardChoiceItem.vue';
+    import UserPaymentMethodCardComponent from '@/components/project/paymentMethods/UserPaymentMethodCardComponent.vue';
 
     @Component({
-        data: function () {
-            return {
-            };
-        },
-        methods: {
-            onDoneClick: function (): void {
-
-            },
-            onCloseClick: function (): void {
-
-            },
-            onNewCardClick: function (): void {
-
-            }
-        },
-        computed: {
-            userPaymentMethods: function (): PaymentMethod[] {
-                return this.$store.state.userPaymentsMethodsModule.userPaymentMethods;
-            }
-        },
         components: {
             Button,
             Card,
+            UserPaymentMethodCardComponent
         }
     })
 
     export default class PaymentMethodsSelector extends Vue {
-        private dropdownTitle: string = 'hide'
+        private isPaymentSelectorEnabled = this.userPaymentMethods.length > 1;
+
+        private isPaymentSelectorShown = false;
+
+        public get dropdownTitle(): string {
+            return this.isPaymentSelectorShown ? 'Hide' : 'Choose';
+        }
+
+        private get userPaymentMethods(): PaymentMethod[] {
+            return this.$store.state.userPaymentsMethodsModule.userPaymentMethods;
+        }
+
+        private onToggleSelectionModeClick(): void {
+            this.isPaymentSelectorShown = !this.isPaymentSelectorShown;
+        }
+
+        private get defaultCard(): PaymentMethod {
+            return this.$store.state.userPaymentsMethodsModule.defaultPaymentMethod;
+        }
     }
 </script>
 
 <style scoped lang="scss">
     h3 {
+        width: 72px;
         font-family: 'font_regular';
         font-size: 16px;
         line-height: 23px;
         color: #2683ff;
+        text-align: right;
         margin-right: 15px;
     }
 
     .chosen-card-container {
-         display: flex;
-         justify-content: space-between;
-         align-items: center;
-         width: 100%;
-         margin-top: 60px;
-
-    &__button-area {
         display: flex;
+        justify-content: space-between;
         align-items: center;
-     }
+        width: 100%;
+        margin-top: 60px;
 
-    &__expand-container {
-         display: flex;
-        margin-left: 10px;
-     }
+        &__button-area {
+            display: flex;
+            align-items: center;
+        }
+
+        &__expand-container {
+            display: flex;
+            margin-left: 10px;
+        }
+
     }
 
     .border {
-         margin-top: 20px;
-         width: 100%;
-         height: 1px;
-         background-color: rgba(169, 181, 193, 0.5);
-     }
+        margin-top: 20px;
+        width: 100%;
+        height: 1px;
+        background-color: rgba(169, 181, 193, 0.5);
+    }
+
+    .empty {
+        background-color: #ffffff !important;
+    }
 
     .expanded-area {
-         width: 100%;
-         height: 200px;
-         overflow-y: auto;
+        width: 100%;
+        height: 200px;
+        overflow-y: auto;
         display: flex;
         background-color: #F5F6FA;
-    flex-direction: column;
+        flex-direction: column;
 
         &__item {
-             display: flex;
-        padding-right: 28px;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: 20px;
+            display: flex;
+            padding-right: 28px;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 20px;
         }
-     }
+
+    }
 
     .option {
         width: 100%;

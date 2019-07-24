@@ -20,9 +20,11 @@ export const appStateModule = {
             isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationPopupShown: false,
             isSuccessfulProjectCreationPopupShown: false,
+            isAttachStripeCardPopupShown: false,
+            isAddUserPaymentMethodPopupShown: false,
+            isSelectPaymentMethodPopupShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
-            isAddPaymentMethodPopupShown: false,
             deletePaymentMethodID: '',
             setDefaultPaymentMethodID: '',
         },
@@ -78,8 +80,14 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: any): void {
             state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
         },
-        [APP_STATE_MUTATIONS.TOGGLE_ADD_PAYMENT_METHOD_POPUP](state: any): void {
-            state.appState.isAddPaymentMethodPopupShown = !state.appState.isAddPaymentMethodPopupShown;
+        [APP_STATE_MUTATIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP](state: any): void {
+            state.appState.isSelectPaymentMethodPopupShown = !state.appState.isSelectPaymentMethodPopupShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ADD_USER_PAYMENT_POPUP](state: any): void {
+            state.appState.isAddUserPaymentMethodPopupShown = !state.appState.isAddUserPaymentMethodPopupShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP](state: any): void {
+            state.appState.isAttachStripeCardPopupShown = !state.appState.isAttachStripeCardPopupShown;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: any, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;
@@ -192,12 +200,24 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.SHOW_DELETE_PAYMENT_METHOD_POPUP, methodID);
         },
-        [APP_STATE_ACTIONS.TOGGLE_ADD_PAYMENT_METHOD_POPUP]: function({commit, state}): void {
-           if (!state.isAddPaymentMethodPopupShown) {
+        [APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP]: function({commit, state}): void {
+           if (!state.isSelectPaymentMethodPopupShown) {
                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
            }
 
-           commit(APP_STATE_MUTATIONS.TOGGLE_ADD_PAYMENT_METHOD_POPUP);
+           commit(APP_STATE_MUTATIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP]: function({commit, state}): void {
+            if (!state.isAttachStripeCardPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+            commit(APP_STATE_MUTATIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_ADD_USER_PAYMENT_POPUP]: function({commit, state}): void {
+            if (!state.isAddUserPaymentMethodPopupShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+            commit(APP_STATE_MUTATIONS.TOGGLE_ADD_USER_PAYMENT_POPUP);
         },
         [APP_STATE_ACTIONS.CLOSE_POPUPS]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.CLOSE_ALL);

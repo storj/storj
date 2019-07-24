@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"storj.io/storj/satellite/payments"
+
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
@@ -22,4 +24,9 @@ type UserPayment struct {
 	CustomerID []byte
 
 	CreatedAt time.Time
+}
+
+type UserPaymentMethod struct {
+	UserID        uuid.UUID
+	paymentMethod payments.PaymentMethod
 }

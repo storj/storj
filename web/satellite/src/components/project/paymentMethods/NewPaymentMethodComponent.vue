@@ -35,117 +35,14 @@
     import Button from '@/components/common/Button.vue';
     import {
         NOTIFICATION_ACTIONS,
-        PROJECT_PAYMENT_METHODS_ACTIONS, USER_PAYMENT_METHODS_ACTIONS
-    } from "@/utils/constants/actionNames";
+        PROJECT_PAYMENT_METHODS_ACTIONS,
+        USER_PAYMENT_METHODS_ACTIONS
+    } from '@/utils/constants/actionNames';
     import Checkbox from '@/components/common/Checkbox.vue';
+    import { setupStripe } from '@/utils/stripeHelper';
 
     @Component(
         {
-            data: function () {
-                return {
-                    makeDefault: false,
-                };
-            },
-            mounted: function () {
-                if (!window['Stripe']) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Stripe library not loaded');
-
-                    return;
-                }
-
-                const stripe = window['Stripe'](process.env.VUE_APP_STRIPE_PUBLIC_KEY);
-                if (!stripe) {
-                    console.error('Unable to initialize stripe');
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to initialize stripe');
-
-                    return;
-                }
-
-                const elements = stripe.elements();
-                if (!elements) {
-                    console.error('Unable to instantiate elements');
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to instantiate elements');
-
-                    return;
-                }
-
-                const card = elements.create('card');
-                if (!card) {
-                    console.error('Unable to create card');
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to create card');
-
-                    return;
-                }
-
-                card.mount('#card-element');
-
-                card.addEventListener('change', function (event) {
-                    const displayError = document.getElementById('card-errors') as HTMLElement;
-                    if (event.error) {
-                        displayError.textContent = event.error.message;
-                    } else {
-                        displayError.textContent = '';
-                    }
-                });
-
-                const form = document.getElementById('payment-form') as HTMLElement;
-                let self = this;
-                form.addEventListener('submit', function (event) {
-                    event.preventDefault();
-                    stripe.createToken(card).then(async function (result: any) {
-                        if (result.token.card.funding == 'prepaid') {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Prepaid cards are not supported');
-
-                            return;
-                        }
-
-                        const input = {
-                            token: result.token.id,
-                            makeDefault: self.$data.makeDefault} as AddPaymentMethodInput;
-
-                        const response = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
-                        if (!response.isSuccess) {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
-
-                            return;
-                        }
-                        self.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
-
-                        const projectPaymentsResponse = await self.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-                        if (!projectPaymentsResponse.isSuccess) {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
-                        }
-
-                        const userPaymentMethodResponse = await self.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
-                        if (!userPaymentMethodResponse.isSuccess) {
-                            self.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
-                        }
-                        card.clear();
-                    });
-                });
-            },
-
-            computed: {
-                projectPaymentMethodsCount: function () {
-                    if (this.$store.state.projectPaymentsMethodsModule.paymentMethods) {
-                        return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;
-                    } else {
-                        return 0;
-                    }
-                }
-            },
-
-            methods: {
-                toggleMakeDefault: function (value: boolean) {
-                    this.$data.makeDefault = value;
-                },
-                onSaveClick: function () {
-                    const form = document.getElementById('payment-form') as HTMLElement;
-                    const saveEvent = new CustomEvent('submit', {'bubbles': true});
-                    form.dispatchEvent(saveEvent);
-                }
-            },
-
             components: {
                 Button,
                 Checkbox,
@@ -154,6 +51,51 @@
     )
 
     export default class AddNewPaymentMethodPopup extends Vue {
+        private makeDefault = false;
+
+        public mounted(): void {
+            setupStripe(this, async result => {
+                const input = {
+                    token: result.token.id,
+                    makeDefault: this.makeDefault} as AddPaymentMethodInput;
+
+                const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                    return;
+                }
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+
+                const projectPaymentsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+                if (!projectPaymentsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
+                }
+
+                const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
+                if (!userPaymentMethodResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+                }
+            });
+        }
+
+        public get projectPaymentMethodsCount(): number {
+            if (this.$store.state.projectPaymentsMethodsModule.paymentMethods) {
+                return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;
+            } else {
+                return 0;
+            }
+        }
+
+        public toggleMakeDefault(value: boolean): void {
+            this.makeDefault = value;
+        }
+
+        public onSaveClick(): void {
+            const form = document.getElementById('payment-form') as HTMLElement;
+            const saveEvent = new CustomEvent('submit', {'bubbles': true});
+            form.dispatchEvent(saveEvent);
+        }
     }
 </script>
 

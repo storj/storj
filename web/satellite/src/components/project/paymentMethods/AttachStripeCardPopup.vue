@@ -2,7 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="add-stripe-card-popup-container-overflow">
+    <div v-if="isPopupShown" class="add-stripe-card-popup-container-overflow">
+    <!--<div v-if="true" class="add-stripe-card-popup-container-overflow">-->
         <div class="add-stripe-card-popup-container">
             <div class="add-stripe-card-popup-container__title-container">
                <svg width="113" height="90" viewBox="0 0 113 90" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -44,12 +45,24 @@
             </div>
             <div class="add-stripe-card-popup-container__input-container">
                 <!--Stripe card input here-->
+                <div class="card-form-input">
+                    <form id="payment-form">
+                        <div class="form-row">
+                            <div id="card-element">
+                                <!-- A Stripe Element will be inserted here. -->
+                            </div>
+
+                            <!-- Used to display form errors. -->
+                            <div id="card-errors" role="alert"></div>
+                        </div>
+                    </form>
+                </div>
             </div>
             <div class="add-stripe-card-popup-container__checkbox-container">
-                <Checkbox />
+                <Checkbox @setData="toggleMakeDefault"/>
                 <h2>Make this card default payment method</h2>
             </div>
-            <Button label="Save Card" height="48px" width="100%"/>
+            <Button label="Save Card" height="48px" width="100%" :onPress="onSaveCardClick"/>
             <div class="add-stripe-card-popup-container__close-cross-container">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" >
                     <path d="M15.7071 1.70711C16.0976 1.31658 16.0976 0.683417 15.7071 0.292893C15.3166 -0.0976311 14.6834 -0.0976311 14.2929 0.292893L15.7071 1.70711ZM0.292893 14.2929C-0.0976311 14.6834 -0.0976311 15.3166 0.292893 15.7071C0.683417 16.0976 1.31658 16.0976 1.70711 15.7071L0.292893 14.2929ZM1.70711 0.292893C1.31658 -0.0976311 0.683417 -0.0976311 0.292893 0.292893C-0.0976311 0.683417 -0.0976311 1.31658 0.292893 1.70711L1.70711 0.292893ZM14.2929 15.7071C14.6834 16.0976 15.3166 16.0976 15.7071 15.7071C16.0976 15.3166 16.0976 14.6834 15.7071 14.2929L14.2929 15.7071ZM14.2929 0.292893L0.292893 14.2929L1.70711 15.7071L15.7071 1.70711L14.2929 0.292893ZM0.292893 1.70711L14.2929 15.7071L15.7071 14.2929L1.70711 0.292893L0.292893 1.70711Z" fill="#384B65"/>
@@ -63,15 +76,68 @@
     import { Component, Vue } from 'vue-property-decorator';
     import Checkbox from '@/components/common/Checkbox.vue';
     import Button from '@/components/common/Button.vue';
-    
+    import {
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS,
+        USER_PAYMENT_METHODS_ACTIONS
+    } from '@/utils/constants/actionNames';
+    import { setupStripe } from '@/utils/stripeHelper';
+
     @Component({
         components: {
             Checkbox,
             Button,
-        }
+        },
     })
-    
-    export default class AddStripeCardPopup extends Vue {}
+
+    export default class AttachStripeCardPopup extends Vue {
+        private makeDefault = false;
+
+        public get isPopupShown(): boolean {
+            return this.$store.state.appStateModule.appState.isAttachStripeCardPopupShown;
+        }
+
+        public updated(): void {
+            setupStripe(this,  async result => {
+
+                const input = {
+                    token: result.token.id,
+                    makeDefault: this.makeDefault} as AddPaymentMethodInput;
+
+                const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
+                if (!response.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+
+                    return;
+                }
+
+                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+
+                const projectPaymentsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+                if (!projectPaymentsResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
+                }
+
+                const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
+                if (!userPaymentMethodResponse.isSuccess) {
+                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+                }
+
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
+            });
+        }
+
+        public toggleMakeDefault(value: boolean): void {
+            this.makeDefault = value;
+        }
+
+        public onSaveCardClick(): void {
+            const form = document.getElementById('payment-form') as HTMLElement;
+            const saveEvent = new CustomEvent('submit', {'bubbles': true});
+            form.dispatchEvent(saveEvent);
+        }
+    }
 </script>
 
 <style scoped lang="scss">
@@ -89,7 +155,7 @@
         color: #384B65;
         margin-top: 17px;
     }
-    
+
     .add-stripe-card-popup-container-overflow {
         position: fixed;
         top: 0;
@@ -102,7 +168,7 @@
         justify-content: center;
         align-items: center;
     }
-	
+
 	.add-stripe-card-popup-container {
         width: 100%;
         max-width: 600px;
@@ -116,18 +182,18 @@
         justify-content: center;
         padding: 68px 45px;
 	}
-    
+
     .add-stripe-card-popup-container__title-container {
         display: flex;
         align-items: flex-start;
         justify-content: flex-start;
         width: 100%;
-        
+
         svg {
             margin-left: -21px;
         }
     }
-    
+
     .add-stripe-card-popup-container__input-container {
         width: 100%;
         height: 48px;
@@ -142,7 +208,7 @@
         width: 100%;
         margin-bottom: 40px;
     }
-    
+
     .add-stripe-card-popup-container__close-cross-container {
         display: flex;
         justify-content: center;
@@ -153,5 +219,41 @@
         height: 24px;
         width: 24px;
         cursor: pointer;
+    }
+    .StripeElement {
+        box-sizing: border-box;
+
+        width: 100%;
+
+        padding: 13px 12px;
+
+        border: 1px solid transparent;
+        border-radius: 4px;
+        background-color: white;
+
+        box-shadow: 0 1px 3px 0 #e6ebf1;
+        -webkit-transition: box-shadow 150ms ease;
+        transition: box-shadow 150ms ease;
+    }
+
+    .StripeElement--focus {
+        box-shadow: 0 1px 3px 0 #cfd7df;
+    }
+
+    .StripeElement--invalid {
+        border-color: #fa755a;
+    }
+
+    .StripeElement--webkit-autofill {
+        background-color: #fefde5 !important;
+    }
+
+    .card-form-input {
+        width: 100%;
+
+        form {
+            width: 100%;
+        }
+
     }
 </style>

@@ -29,8 +29,7 @@
     PROJECT_USAGE_ACTIONS,
     BUCKET_USAGE_ACTIONS,
     PROJECT_PAYMENT_METHODS_ACTIONS,
-    USER_PAYMENT_METHODS_ACTIONS
-} from "@/utils/constants/actionNames";
+} from '@/utils/constants/actionNames';
     import { Project } from '@/types/projects';
 
     @Component

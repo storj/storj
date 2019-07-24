@@ -47,14 +47,16 @@ const (
 	// DeleteAPIKeysMutation is a mutation name for api key deleting
 	DeleteAPIKeysMutation = "deleteAPIKeys"
 
-	// AddPaymentMethodMutation is mutation name for adding new payment method
-	AddPaymentMethodMutation = "addPaymentMethod"
+	// AddProjectPaymentMethodMutation is mutation name for adding new payment method
+	AddProjectPaymentMethodMutation = "addProjectPaymentMethod"
 	// DeletePaymentMethodMutation is mutation name for deleting payment method
 	DeletePaymentMethodMutation = "deletePaymentMethod"
 	// SetDefaultPaymentMethodMutation is mutation name setting payment method as default payment method
 	SetDefaultPaymentMethodMutation = "setDefaultPaymentMethod"
 	// AttachPaymentMethodMutation is a mutation name for attaching payment method to project
 	AttachPaymentMethodMutation = "attachPaymentMethod"
+	// AddUserPaymentMethodMutation is a mutation name for adding new payment method to stripe
+	AddUserPaymentMethodMutation = "addUserPaymentMethod"
 
 	// InputArg is argument name for all input types
 	InputArg = "input"
@@ -469,7 +471,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					return keys, nil
 				},
 			},
-			AddPaymentMethodMutation: &graphql.Field{
+			AddProjectPaymentMethodMutation: &graphql.Field{
 				Type: graphql.Boolean,
 				Args: graphql.FieldConfigArgument{
 					FieldProjectID: &graphql.ArgumentConfig{
@@ -492,7 +494,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return false, err
 					}
 
-					_, err = service.AddNewPaymentMethod(p.Context, cardToken, isDefault, *projID)
+					_, err = service.AddNewProjectPaymentMethod(p.Context, cardToken, isDefault, *projID)
 					if err != nil {
 						return false, err
 					}
@@ -580,6 +582,20 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					}
 
 					err = service.AttachPaymentMethodToProject(p.Context, decodedPaymentID, *projectID)
+
+					return err == nil, err
+				},
+			},
+			AddUserPaymentMethodMutation: &graphql.Field{
+				Type: graphql.Boolean,
+				Args: graphql.FieldConfigArgument{
+					FieldCardToken: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					cardToken, _ := p.Args[FieldCardToken].(string)
+					_, err := service.AddNewUserPaymentMethod(p.Context, cardToken)
 
 					return err == nil, err
 				},

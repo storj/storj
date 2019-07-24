@@ -12,7 +12,7 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
         {
             mutation: gql(`
                 mutation {
-                        addPaymentMethod(
+                        addProjectPaymentMethod(
                             projectID: "${projectID}",
                             cardToken: "${cardToken}",
                             isDefault: ${makeDefault}
@@ -23,7 +23,6 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
             errorPolicy: 'all'
         }
     );
-    console.log(response);
 
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
@@ -35,7 +34,7 @@ export async function addProjectPaymentMethodRequest(projectID: string, cardToke
 }
 
 export async function setDefaultPaymentMethodRequest(projectID: string, paymentID: string): Promise<RequestResponse<null>> {
-   let result: RequestResponse<null> = new RequestResponse<null>();
+    let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
         {
@@ -61,7 +60,7 @@ export async function setDefaultPaymentMethodRequest(projectID: string, paymentI
     return result;
 }
 
-export async function deletePaymentMethodRequest(paymentID: string):Promise<RequestResponse<null>> {
+export async function deletePaymentMethodRequest(paymentID: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
@@ -124,6 +123,32 @@ export async function fetchProjectPaymentMethods(projectID: string): Promise<Req
     return result;
 }
 
+export async function addUserPaymentMethod(cardToken: string): Promise<RequestResponse<boolean>> {
+    let result: RequestResponse<boolean> = new RequestResponse();
+
+    let response: any = await apollo.mutate(
+        {
+            mutation: gql(`
+                mutation {
+                    addUserPaymentMethod(
+                        cardToken: "${cardToken}"
+                    )
+                }
+           `),
+            fetchPolicy: 'no-cache',
+            errorPolicy: 'all'
+        }
+    );
+
+    if (response.errors) {
+        result.errorMessage = response.errors[0].message;
+    } else {
+        result.isSuccess = true;
+    }
+
+    return result;
+}
+
 export async function fetchUserPaymentMethods(): Promise<RequestResponse<PaymentMethod[]>> {
     let result: RequestResponse<PaymentMethod[]> = new RequestResponse();
 
@@ -147,7 +172,6 @@ export async function fetchUserPaymentMethods(): Promise<RequestResponse<Payment
         }
     );
 
-    console.log(response)
     if (response.errors) {
         result.errorMessage = response.errors[0].message;
     } else {

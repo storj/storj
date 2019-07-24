@@ -220,14 +220,15 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 				},
 			},
 			UserPaymentMethods: &graphql.Field{
-				Type:graphql.NewList(types.paymentMethod),
-				Resolve: func(p graphql.ResolveParams) ( interface{}, error) {
+				Type: graphql.NewList(types.paymentMethod),
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					methods, err := service.GetUserPaymentMethods(p.Context)
 					if err != nil {
 						return nil, err
 					}
 
-					var userPayments []struct{
+					var userPayments []struct {
+						ID         string
 						ExpYear    int64
 						ExpMonth   int64
 						CardBrand  string
@@ -236,7 +237,8 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						AddedAt    time.Time
 					}
 					for _, method := range methods {
-						userPayments = append(userPayments,struct{
+						userPayments = append(userPayments, struct {
+							ID         string
 							ExpYear    int64
 							ExpMonth   int64
 							CardBrand  string
@@ -244,13 +246,14 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 							HolderName string
 							AddedAt    time.Time
 						}{
-							ExpMonth:method.Card.ExpMonth,
-							ExpYear:method.Card.ExpYear,
-							CardBrand:method.Card.Brand,
-							LastFour:method.Card.LastFour,
-							HolderName:method.Card.Name,
-							AddedAt:method.CreatedAt,
-						},)
+							ID:         string(method.ID),
+							ExpMonth:   method.Card.ExpMonth,
+							ExpYear:    method.Card.ExpYear,
+							CardBrand:  method.Card.Brand,
+							LastFour:   method.Card.LastFour,
+							HolderName: method.Card.Name,
+							AddedAt:    method.CreatedAt,
+						})
 					}
 
 					return userPayments, nil
