@@ -5,7 +5,6 @@ package metainfo
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -21,10 +20,9 @@ import (
 
 // Service structure
 type Service struct {
-	logger             *zap.Logger
-	DB                 storage.KeyValueStore
-	bucketsDB          BucketsDB
-	pointerDBWriteLock sync.Mutex
+	logger    *zap.Logger
+	DB        storage.KeyValueStore
+	bucketsDB BucketsDB
 }
 
 // NewService creates new metainfo service
@@ -43,9 +41,6 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	s.pointerDBWriteLock.Lock()
-	defer s.pointerDBWriteLock.Unlock()
 
 	// TODO(kaloyan): make sure that we know we are overwriting the pointer!
 	// In such case we should delete the pieces of the old segment if it was
@@ -68,80 +63,80 @@ func (s *Service) Put(ctx context.Context, path string, pointer *pb.Pointer) (er
 func (s *Service) UpdatePieces(ctx context.Context, path string, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// lock the mutex to prevent Put and Delete to mess up with the pointer
-	// while it is updated here
-	s.pointerDBWriteLock.Lock()
-	defer s.pointerDBWriteLock.Unlock()
+	for {
+		// read the pointer
+		oldPointerBytes, err := s.DB.Get(ctx, []byte(path))
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 
-	// read the pointer
-	pointerBytes, err := s.DB.Get(ctx, []byte(path))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+		// unmarshal the pointer
+		pointer = &pb.Pointer{}
+		err = proto.Unmarshal(oldPointerBytes, pointer)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
 
-	// unmarshal the pointer
-	pointer = &pb.Pointer{}
-	err = proto.Unmarshal(pointerBytes, pointer)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+		// check if pointer has been replaced
+		if !pointer.GetCreationDate().Equal(ref.GetCreationDate()) {
+			return nil, Error.New("pointer has been replaced")
+		}
 
-	// check if pointer has been replaced
-	if !pointer.GetCreationDate().Equal(ref.GetCreationDate()) {
-		return nil, Error.New("pointer has been replaced")
-	}
+		// put all existing pieces to a map
+		pieceMap := make(map[int32]*pb.RemotePiece)
+		for _, piece := range pointer.GetRemote().GetRemotePieces() {
+			pieceMap[piece.PieceNum] = piece
+		}
 
-	// put all existing pieces to a map
-	pieceMap := make(map[int32]*pb.RemotePiece)
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		pieceMap[piece.PieceNum] = piece
-	}
+		// remove the toRemove pieces from the map
+		// only if all piece number, node id and hash match
+		for _, piece := range toRemove {
+			if piece == nil {
+				continue
+			}
+			existing := pieceMap[piece.PieceNum]
+			if existing != nil &&
+				existing.NodeId == piece.NodeId &&
+				existing.Hash == piece.Hash {
+				delete(pieceMap, piece.PieceNum)
+			}
+		}
 
-	// remove the toRemove pieces from the map
-	// only if all piece number, node id and hash match
-	for _, piece := range toRemove {
-		if piece == nil {
+		// add the toAdd pieces to the map
+		for _, piece := range toAdd {
+			if piece == nil {
+				continue
+			}
+			_, exists := pieceMap[piece.PieceNum]
+			if exists {
+				return nil, Error.New("piece to add already exists (piece no: %d)", piece.PieceNum)
+			}
+			pieceMap[piece.PieceNum] = piece
+		}
+
+		// copy the pieces from the map back to the pointer
+		var pieces []*pb.RemotePiece
+		for _, piece := range pieceMap {
+			pieces = append(pieces, piece)
+		}
+		pointer.GetRemote().RemotePieces = pieces
+
+		// marshal the pointer
+		newPointerBytes, err := proto.Marshal(pointer)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		// write the pointer using compare-and-swap
+		err = s.DB.CompareAndSwap(ctx, []byte(path), oldPointerBytes, newPointerBytes)
+		if storage.ErrValueChanged.Has(err) {
 			continue
 		}
-		existing := pieceMap[piece.PieceNum]
-		if existing != nil &&
-			existing.NodeId == piece.NodeId &&
-			existing.Hash == piece.Hash {
-			delete(pieceMap, piece.PieceNum)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
+		return pointer, nil
 	}
-
-	// add the toAdd pieces to the map
-	for _, piece := range toAdd {
-		if piece == nil {
-			continue
-		}
-		_, exists := pieceMap[piece.PieceNum]
-		if exists {
-			return nil, Error.New("piece to add already exists (piece no: %d)", piece.PieceNum)
-		}
-		pieceMap[piece.PieceNum] = piece
-	}
-
-	// copy the pieces from the map back to the pointer
-	var pieces []*pb.RemotePiece
-	for _, piece := range pieceMap {
-		pieces = append(pieces, piece)
-	}
-	pointer.GetRemote().RemotePieces = pieces
-
-	// marshal the pointer
-	pointerBytes, err = proto.Marshal(pointer)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// write the pointer
-	if err = s.DB.Put(ctx, []byte(path), pointerBytes); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return pointer, nil
 }
 
 // Get gets pointer from db
@@ -246,10 +241,6 @@ func (s *Service) setMetadata(item *pb.ListResponse_Item, data []byte, metaFlags
 // Delete deletes from item from db
 func (s *Service) Delete(ctx context.Context, path string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	s.pointerDBWriteLock.Lock()
-	defer s.pointerDBWriteLock.Unlock()
-
 	return s.DB.Delete(ctx, []byte(path))
 }
 
