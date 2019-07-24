@@ -85,7 +85,8 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		// collect things to retain
 		err := service.metainfoLoop.Join(ctx, pieceTracker)
 		if err != nil {
-			return Error.Wrap(err)
+			service.log.Sugar().Errorf("error joining metainfoloop: %v", Error.Wrap(err))
+			return nil
 		}
 
 		// send retain requests
