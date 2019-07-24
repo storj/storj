@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/internal/dbutil"
 	"storj.io/storj/pkg/accounting"
 	"storj.io/storj/pkg/storj"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
@@ -228,7 +229,7 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 		var atRestTotal float64
 		var startTime time.Time
 		var prevAtRestTotal sql.NullFloat64
-		var prevStartTime nullTime
+		var prevStartTime dbutil.NullTime
 
 		err = rows.Scan(&id, &atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
 		if err != nil {
