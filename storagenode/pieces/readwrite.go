@@ -34,7 +34,10 @@ func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.blob.Write(data)
 	w.size += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
-	return n, err
+	if err == io.EOF {
+		return n, err
+	}
+	return n, Error.Wrap(err)
 }
 
 // Size returns the amount of data written so far.
@@ -88,7 +91,10 @@ func NewReader(blob storage.BlobReader) (*Reader, error) {
 func (r *Reader) Read(data []byte) (int, error) {
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
-	return n, err
+	if err == io.EOF {
+		return n, err
+	}
+	return n, Error.Wrap(err)
 }
 
 // Seek seeks to the specified location.
@@ -99,13 +105,19 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
-	return pos, err
+	if err == io.EOF {
+		return pos, err
+	}
+	return pos, Error.Wrap(err)
 }
 
 // ReadAt reads data at the specified offset
 func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 	n, err := r.blob.ReadAt(data, offset)
-	return n, err
+	if err == io.EOF {
+		return n, err
+	}
+	return n, Error.Wrap(err)
 }
 
 // Size returns the amount of data written so far.
