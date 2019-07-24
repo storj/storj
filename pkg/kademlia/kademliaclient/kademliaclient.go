@@ -60,8 +60,8 @@ func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, fi
 	defer dialer.limit.Unlock()
 
 	req := pb.QueryRequest{
-		Limit:  int64(rtLimit),
-		Target: &pb.Node{Id: find}, // TODO: should not be a Node protobuf!
+		Limit:            int64(rtLimit),
+		Target:           &pb.Node{Id: find}, // TODO: should not be a Node protobuf!
 		AntechamberLimit: int64(acLimit),
 	}
 	if self != nil {
