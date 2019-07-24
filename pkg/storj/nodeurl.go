@@ -65,7 +65,7 @@ func ParseNodeURL(s string) (NodeURL, error) {
 	return node, nil
 }
 
-// IsZero returns whether tthe url is empty.
+// IsZero returns whether the url is empty.
 func (url NodeURL) IsZero() bool {
 	return url == NodeURL{}
 }
@@ -102,8 +102,8 @@ func ParseNodeURLs(s string) (NodeURLs, error) {
 		return nil, nil
 	}
 
-	for _, url := range strings.Split(s, ",") {
-		u, err := ParseNodeURL(url)
+	for _, s := range strings.Split(s, ",") {
+		u, err := ParseNodeURL(s)
 		if err != nil {
 			return nil, ErrNodeURL.Wrap(err)
 		}
@@ -116,8 +116,8 @@ func ParseNodeURLs(s string) (NodeURLs, error) {
 // String converts NodeURLs to a string
 func (urls NodeURLs) String() string {
 	var xs []string
-	for _, url := range urls {
-		xs = append(xs, url.String())
+	for _, u := range urls {
+		xs = append(xs, u.String())
 	}
 	return strings.Join(xs, ",")
 }
