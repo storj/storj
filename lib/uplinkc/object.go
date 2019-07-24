@@ -22,8 +22,8 @@ type Object struct {
 	*uplink.Object
 }
 
-// open_object returns an Object handle, if authorized.
 //export open_object
+// open_object returns an Object handle, if authorized.
 func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.ObjectRef {
 	bucket, ok := universe.Get(bucketHandle._handle).(*Bucket)
 	if !ok {
@@ -42,8 +42,8 @@ func open_object(bucketHandle C.BucketRef, objectPath *C.char, cerr **C.char) C.
 	return C.ObjectRef{universe.Add(&Object{scope, object})}
 }
 
-// close_object closes the object.
 //export close_object
+// close_object closes the object.
 func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 	object, ok := universe.Get(objectHandle._handle).(*Object)
 	if !ok {
@@ -60,8 +60,8 @@ func close_object(objectHandle C.ObjectRef, cerr **C.char) {
 	}
 }
 
-// get_object_meta returns the object meta which contains metadata about a specific Object.
 //export get_object_meta
+// get_object_meta returns the object meta which contains metadata about a specific Object.
 func get_object_meta(cObject C.ObjectRef, cErr **C.char) C.ObjectMeta {
 	object, ok := universe.Get(cObject._handle).(*Object)
 	if !ok {
@@ -94,8 +94,8 @@ type Upload struct {
 	wc io.WriteCloser // 🚽
 }
 
-// upload uploads a new object, if authorized.
 //export upload
+// upload uploads a new object, if authorized.
 func upload(cBucket C.BucketRef, path *C.char, cOpts *C.UploadOptions, cErr **C.char) C.UploaderRef {
 	bucket, ok := universe.Get(cBucket._handle).(*Bucket)
 	if !ok {
@@ -180,8 +180,8 @@ func upload_cancel(uploader C.UploaderRef, cErr **C.char) {
 	upload.cancel()
 }
 
-// list_objects lists objects a user is authorized to see.
 //export list_objects
+// list_objects lists objects a user is authorized to see.
 func list_objects(bucketRef C.BucketRef, cListOpts *C.ListOptions, cErr **C.char) (cObjList C.ObjectList) {
 	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {
@@ -338,8 +338,8 @@ func free_upload_opts(uploadOpts *C.UploadOptions) {
 	uploadOpts.content_type = nil
 }
 
-// free_object_meta frees the object meta
 //export free_object_meta
+// free_object_meta frees the object meta
 func free_object_meta(objectMeta *C.ObjectMeta) {
 	C.free(unsafe.Pointer(objectMeta.bucket))
 	objectMeta.bucket = nil
@@ -354,8 +354,8 @@ func free_object_meta(objectMeta *C.ObjectMeta) {
 	objectMeta.checksum_bytes = nil
 }
 
-// free_object_info frees the object info
 //export free_object_info
+// free_object_info frees the object info
 func free_object_info(objectInfo *C.ObjectInfo) {
 	bucketInfo := objectInfo.bucket
 	free_bucket_info(&bucketInfo)
@@ -367,8 +367,8 @@ func free_object_info(objectInfo *C.ObjectInfo) {
 	objectInfo.content_type = nil
 }
 
-// free_list_objects frees the list of objects
 //export free_list_objects
+// free_list_objects frees the list of objects
 func free_list_objects(objectList *C.ObjectList) {
 	C.free(unsafe.Pointer(objectList.bucket))
 	objectList.bucket = nil
