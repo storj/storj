@@ -24,16 +24,20 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/internal/fpath"
+	"storj.io/storj/internal/version"
 	libuplink "storj.io/storj/lib/uplink"
 	"storj.io/storj/pkg/cfgstruct"
 	"storj.io/storj/pkg/process"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
+	"storj.io/storj/uplink/setup"
 )
 
 // UplinkFlags test
 type UplinkFlags struct {
 	uplink.Config
+
+	Version version.Config
 }
 
 var (
@@ -91,7 +95,7 @@ func mountBucket(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("No bucket specified. Use format sj://bucket/")
 	}
 
-	access, err := loadEncryptionAccess(cfg.Enc.KeyFilepath)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
@@ -460,11 +464,60 @@ func (f *storjFile) closeWriter() {
 	}
 }
 
-// GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
-func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
-	project, err = c.GetProject(ctx)
+// NewUplink returns a pointer to a new Client with a Config and Uplink pointer on it and an error.
+func (cliCfg *UplinkFlags) NewUplink(ctx context.Context) (*libuplink.Uplink, error) {
+
+	// Transform the uplink cli config flags to the libuplink config object
+	libuplinkCfg := &libuplink.Config{}
+	libuplinkCfg.Volatile.MaxInlineSize = cliCfg.Client.MaxInlineSize
+	libuplinkCfg.Volatile.MaxMemory = cliCfg.RS.MaxBufferMem
+	libuplinkCfg.Volatile.PeerIDVersion = cliCfg.TLS.PeerIDVersions
+	libuplinkCfg.Volatile.TLS = struct {
+		SkipPeerCAWhitelist bool
+		PeerCAWhitelistPath string
+	}{
+		SkipPeerCAWhitelist: !cliCfg.TLS.UsePeerCAWhitelist,
+		PeerCAWhitelistPath: cliCfg.TLS.PeerCAWhitelistPath,
+	}
+
+	libuplinkCfg.Volatile.DialTimeout = cliCfg.Client.DialTimeout
+	libuplinkCfg.Volatile.RequestTimeout = cliCfg.Client.RequestTimeout
+
+	return libuplink.NewUplink(ctx, libuplinkCfg)
+}
+
+// GetProject returns a *libuplink.Project for interacting with a specific project
+func (cliCfg *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
+	err := version.CheckProcessVersion(ctx, cliCfg.Version, version.Build, "Uplink")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+
+	apiKey, err := libuplink.ParseAPIKey(cliCfg.Client.APIKey)
+	if err != nil {
+		return nil, err
+	}
+
+	uplk, err := cliCfg.NewUplink(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	project, err := uplk.OpenProject(ctx, cliCfg.Client.SatelliteAddr, apiKey)
+	if err != nil {
+		if err := uplk.Close(); err != nil {
+			fmt.Printf("error closing uplink: %+v\n", err)
+		}
+	}
+
+	return project, err
+}
+
+// GetProjectAndBucket returns a *libuplink.Bucket for interacting with a specific project's bucket
+func (cliCfg *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string, access *libuplink.EncryptionAccess) (project *libuplink.Project, bucket *libuplink.Bucket, err error) {
+	project, err = cliCfg.GetProject(ctx)
+	if err != nil {
+		return project, bucket, err
 	}
 
 	defer func() {
@@ -475,50 +528,12 @@ func (c *UplinkFlags) GetProjectAndBucket(ctx context.Context, bucketName string
 		}
 	}()
 
-	bucket, err = project.OpenBucket(ctx, bucketName, &access)
+	bucket, err = project.OpenBucket(ctx, bucketName, access)
 	if err != nil {
-		return nil, nil, err
+		return project, bucket, err
 	}
 
-	return project, bucket, nil
-}
-
-// GetProject returns a *libuplink.Project for interacting with a specific project
-func (c *UplinkFlags) GetProject(ctx context.Context) (*libuplink.Project, error) {
-	apiKey, err := libuplink.ParseAPIKey(c.Client.APIKey)
-	if err != nil {
-		return nil, err
-	}
-
-	satelliteAddr := c.Client.SatelliteAddr
-
-	cfg := &libuplink.Config{}
-
-	cfg.Volatile.TLS = struct {
-		SkipPeerCAWhitelist bool
-		PeerCAWhitelistPath string
-	}{
-		SkipPeerCAWhitelist: !c.TLS.UsePeerCAWhitelist,
-		PeerCAWhitelistPath: c.TLS.PeerCAWhitelistPath,
-	}
-
-	cfg.Volatile.MaxInlineSize = c.Client.MaxInlineSize
-	cfg.Volatile.MaxMemory = c.RS.MaxBufferMem
-
-	uplk, err := libuplink.NewUplink(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	project, err := uplk.OpenProject(ctx, satelliteAddr, apiKey)
-
-	if err != nil {
-		if err := uplk.Close(); err != nil {
-			fmt.Printf("error closing uplink: %+v\n", err)
-		}
-	}
-
-	return project, err
+	return project, bucket, err
 }
 
 func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket) {
@@ -529,35 +544,4 @@ func closeProjectAndBucket(project *libuplink.Project, bucket *libuplink.Bucket)
 	if err := project.Close(); err != nil {
 		fmt.Printf("error closing project: %+v\n", err)
 	}
-}
-
-// loadEncryptionAccess loads the encryption key stored in the file pointed by
-// filepath and creates an EncryptionAccess with it.
-func loadEncryptionAccess(filepath string) (libuplink.EncryptionAccess, error) {
-	key, err := uplink.LoadEncryptionKey(filepath)
-	if err != nil {
-		return libuplink.EncryptionAccess{}, err
-	}
-
-	return libuplink.EncryptionAccess{
-		Key: *key,
-	}, nil
-}
-
-// useOrLoadEncryptionAccess creates an encryption key from humanReadableKey
-// when it isn't empty otherwise try to load the key from the file pointed by
-// filepath and creates an EnryptionAccess with it.
-func useOrLoadEncryptionAccess(humanReadableKey string, filepath string) (libuplink.EncryptionAccess, error) {
-	if humanReadableKey != "" {
-		key, err := storj.NewKey([]byte(humanReadableKey))
-		if err != nil {
-			return libuplink.EncryptionAccess{}, err
-		}
-
-		return libuplink.EncryptionAccess{
-			Key: *key,
-		}, nil
-	}
-
-	return loadEncryptionAccess(filepath)
 }
