@@ -103,7 +103,7 @@ func (s *Service) Run(ctx context.Context) (err error) {
 func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellites, err := s.consoleDB.Satellites().GetIDs(ctx, time.Time{}, time.Now())
+	satellites, err := s.consoleDB.Satellites().GetIDs(ctx)
 	if err != nil {
 		return NodeStatsServiceErr.Wrap(err)
 	}
@@ -142,7 +142,7 @@ func (s *Service) CacheStatsFromSatellites(ctx context.Context) (err error) {
 func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellites, err := s.consoleDB.Satellites().GetIDs(ctx, time.Time{}, time.Now())
+	satellites, err := s.consoleDB.Satellites().GetIDs(ctx)
 	if err != nil {
 		return NodeStatsServiceErr.Wrap(err)
 	}

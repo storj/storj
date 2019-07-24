@@ -25,7 +25,7 @@ func TestDB_Trivial(t *testing.T) {
 		now := time.Now()
 
 		{ // Ensure Satellites GetIDs works at all
-			_, err := db.Console().Satellites().GetIDs(ctx, now, now)
+			_, err := db.Console().Satellites().GetIDs(ctx)
 			require.NoError(t, err)
 		}
 

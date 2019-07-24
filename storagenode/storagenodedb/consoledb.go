@@ -48,15 +48,14 @@ func (db *consoledb) Stats() console.Stats {
 
 // GetIDs returns list of satelliteIDs that storagenode has interacted with
 // at least once
-func (db *consoledb) GetIDs(ctx context.Context, from, to time.Time) (_ storj.NodeIDList, err error) {
+func (db *consoledb) GetIDs(ctx context.Context) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var satellites storj.NodeIDList
 
 	rows, err := db.db.QueryContext(ctx,
 		`SELECT DISTINCT satellite_id
-		FROM bandwidth_usage
-		WHERE ? <= created_at AND created_at <= ?`, from.UTC(), to.UTC())
+		FROM bandwidth_usage`)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

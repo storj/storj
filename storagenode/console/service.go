@@ -209,5 +209,5 @@ func (s *Service) CheckVersion(ctx context.Context) (err error) {
 // GetSatellites used to retrieve satellites list
 func (s *Service) GetSatellites(ctx context.Context) (_ storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return s.consoleDB.Satellites().GetIDs(ctx, time.Time{}, time.Now())
+	return s.consoleDB.Satellites().GetIDs(ctx)
 }

@@ -5,7 +5,6 @@ package console
 
 import (
 	"context"
-	"time"
 
 	"storj.io/storj/pkg/storj"
 )
@@ -14,5 +13,5 @@ import (
 type Satellites interface {
 	// GetIDs returns list of satelliteIDs that storagenode has interacted with
 	// at least once
-	GetIDs(ctx context.Context, from, to time.Time) (storj.NodeIDList, error)
+	GetIDs(ctx context.Context) (storj.NodeIDList, error)
 }
