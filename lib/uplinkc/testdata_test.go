@@ -97,7 +97,7 @@ func TestLibstorj(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -120,7 +120,7 @@ func TestLibstorj(t *testing.T) {
 	testFile := filepath.Join(currentdir, "..", "libstorj", "test", "tests.c")
 
 	includes := append([]testcontext.Include{
-		libuplink,
+		libuplink_include,
 		definition,
 		testcontext.CLibJSON,
 		testcontext.CLibUV,
@@ -142,7 +142,7 @@ func TestLibstorj(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-			"TMPDIR="+filepath.Dir(libuplink.Library),
+			"TMPDIR="+filepath.Dir(libuplink_include.Library),
 		)
 
 		out, err := cmd.CombinedOutput()

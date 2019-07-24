@@ -238,9 +238,9 @@ type Download struct {
 	}
 }
 
+//export download
 // download returns an Object's data. A length of -1 will mean
 // (Object.Size - offset).
-//export download
 func download(bucketRef C.BucketRef, path *C.char, cErr **C.char) C.DownloaderRef {
 	bucket, ok := universe.Get(bucketRef._handle).(*Bucket)
 	if !ok {

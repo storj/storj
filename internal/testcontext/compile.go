@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	//CLibJSON is the C, JSON API used by libstorj (see: https://github.com/json-c/json-c).
+	// CLibJSON is the C, JSON API used by libstorj (see: https://github.com/json-c/json-c).
 	CLibJSON = Include{Standard: true, Library: "json-c"}
-	//CLibUV is used for concurrency by libstorj (see: https://github.com/libuv/libuv).
+	// CLibUV is used for concurrency by libstorj (see: https://github.com/libuv/libuv).
 	CLibUV = Include{Standard: true, Library: "uv"}
 )
 
