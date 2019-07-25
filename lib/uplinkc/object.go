@@ -137,7 +137,6 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 	}
 
 	if err := upload.ctx.Err(); err != nil {
-		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return C.size_t(0)
 	}
 
@@ -270,7 +269,6 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 	}
 
 	if err := download.ctx.Err(); err != nil {
-		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return C.size_t(0)
 	}
 
