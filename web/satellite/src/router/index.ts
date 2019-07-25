@@ -21,7 +21,7 @@ import ProjectDetails from '@/components/project/ProjectDetails.vue';
 import ProjectBillingHistory from '@/components/project/billing/BillingArea.vue';
 import ProjectPaymentMethods from '@/components/project/ProjectPaymentMethods.vue';
 import BucketArea from '@/components/buckets/BucketArea.vue';
-import { getToken } from '@/utils/tokenManager';
+import { AuthToken } from '@/utils/authToken';
 import store from '@/store';
 
 Vue.use(Router);
@@ -156,7 +156,7 @@ router.beforeEach((to, from, next) => {
     }
 
     if (to.matched.some(route => route.meta.requiresAuth)) {
-        if (!getToken()) {
+        if (!AuthToken.get()) {
             next(ROUTES.LOGIN);
 
             return;

@@ -85,6 +85,12 @@ func (db *DB) CreateSchema(schema string) error {
 // should not be used outside of migration tests.
 func (db *DB) TestDBAccess() *dbx.DB { return db.db }
 
+// TestDBAccess for raw database access,
+// should not be used outside of tests.
+func (db *locked) TestDBAccess() *dbx.DB {
+	return db.db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
+}
+
 // DropSchema drops the named schema
 func (db *DB) DropSchema(schema string) error {
 	if db.driver == "postgres" {

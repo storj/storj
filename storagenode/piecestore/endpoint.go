@@ -447,7 +447,8 @@ func (endpoint *Endpoint) Download(stream pb.Piecestore_DownloadServer) (err err
 				return ErrInternal.Wrap(err)
 			}
 
-			_, err = pieceReader.Read(chunkData)
+			// ReadFull is required to ensure we are sending the right amount of data.
+			_, err = io.ReadFull(pieceReader, chunkData)
 			if err != nil {
 				return ErrInternal.Wrap(err)
 			}

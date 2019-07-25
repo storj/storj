@@ -6,7 +6,6 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import HeaderlessInput from '../../components/common/HeaderlessInput.vue';
-    import { EMPTY_STATE_IMAGES } from '../../utils/constants/emptyStatesImages';
     import RegistrationSuccessPopup from '../../components/common/RegistrationSuccessPopup.vue';
     import { validateEmail, validatePassword } from '../../utils/validation';
     import ROUTES from '../../utils/constants/routerConstants';
@@ -16,11 +15,13 @@
     import { createUserRequest } from '../../api/users';
     import { setUserId } from '@/utils/consoleLocalStorage';
     import { User } from '../../types/users';
+    import InfoComponent from '../../components/common/InfoComponent.vue';
 
     @Component({
         components: {
             HeaderlessInput,
-            RegistrationSuccessPopup
+            RegistrationSuccessPopup,
+            InfoComponent,
         },
     })
     export default class Register extends Vue {
@@ -37,6 +38,7 @@
         private isTermsAcceptedError: boolean = false;
         private secret: string = '';
         private partnerId: string = '';
+        private refUserId: string = '';
         private loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
 
         mounted(): void {
@@ -48,12 +50,8 @@
             let referralIds = ids ? JSON.parse(atob(ids)) : undefined;
             if (referralIds) {
                 this.$data.partnerId = referralIds.partnerId;
-                this.$data.referrerId = referralIds.userId;
+                this.$data.refUserId = referralIds.userId;
             }
-        }
-
-        public get infoImage(): string {
-            return EMPTY_STATE_IMAGES.INFO;
         }
 
         public onCreateClick(): void {
@@ -127,7 +125,7 @@
         }
         private async createUser(): Promise<void> {
             let user = new User(this.fullName.trim(), this.shortName.trim(), this.email.trim(), this.partnerId);
-            let response = await createUserRequest(user, this.password, this.secret);
+            let response = await createUserRequest(user, this.password, this.secret, this.refUserId);
             if (!response.isSuccess) {
                 this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
                 this.loadingClassName = LOADING_CLASSES.LOADING_OVERLAY;
