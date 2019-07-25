@@ -114,10 +114,9 @@ func printDashboard(data *pb.DashboardResponse) error {
 			time.Since(data.LastPinged).Truncate(time.Second))))
 	}
 
+	// TODO: use stdtime in protobuf
 	uptime, err := ptypes.Duration(data.GetUptime())
-	if err != nil {
-		fmt.Fprintf(w, "Uptime\t%s\n", color.RedString(uptime.Truncate(time.Second).String()))
-	} else {
+	if err == nil {
 		fmt.Fprintf(w, "Uptime\t%s\n", color.YellowString(uptime.Truncate(time.Second).String()))
 	}
 
