@@ -47,7 +47,6 @@ type Rollup struct {
 
 // NodeStorageUsage is node at rest space usage over a period of time
 type NodeStorageUsage struct {
-	RollupID    int64
 	NodeID      storj.NodeID
 	StorageUsed float64
 

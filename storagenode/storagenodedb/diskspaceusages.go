@@ -28,8 +28,8 @@ func (db *diskSpaceUsage) Store(ctx context.Context, stamps []console.DiskSpaceU
 		return nil
 	}
 
-	stmt := `INSERT OR REPLACE INTO rollup_disk_storage_usages(rollup_id, satellite_id, at_rest_total, timestamp) 
-			VALUES(?,?,?,?)`
+	stmt := `INSERT OR REPLACE INTO rollup_disk_storage_usages(satellite_id, at_rest_total, timestamp) 
+			VALUES(?,?,?)`
 
 	cb := func(tx *sql.Tx) error {
 		txStmt, err := tx.PrepareContext(ctx, stmt)
@@ -37,8 +37,12 @@ func (db *diskSpaceUsage) Store(ctx context.Context, stamps []console.DiskSpaceU
 			return err
 		}
 
+		defer func() {
+			err = errs.Combine(err, txStmt.Close())
+		}()
+
 		for _, stamp := range stamps {
-			_, err = txStmt.Exec(stamp.RollupID, stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
+			_, err = txStmt.Exec(stamp.SatelliteID, stamp.AtRestTotal, stamp.Timestamp.UTC())
 
 			if err != nil {
 				return err
@@ -77,18 +81,16 @@ func (db *diskSpaceUsage) GetDaily(ctx context.Context, satelliteID storj.NodeID
 
 	var stamps []console.DiskSpaceUsage
 	for rows.Next() {
-		var rollupID int64
 		var satellite storj.NodeID
 		var atRestTotal float64
 		var timeStamp time.Time
 
-		err = rows.Scan(&rollupID, &satellite, &atRestTotal, &timeStamp)
+		err = rows.Scan(&satellite, &atRestTotal, &timeStamp)
 		if err != nil {
 			return nil, err
 		}
 
 		stamps = append(stamps, console.DiskSpaceUsage{
-			RollupID:    rollupID,
 			SatelliteID: satellite,
 			AtRestTotal: atRestTotal,
 			Timestamp:   timeStamp,

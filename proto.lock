@@ -3831,16 +3831,11 @@
                 "fields": [
                   {
                     "id": 1,
-                    "name": "rollup_id",
-                    "type": "int64"
-                  },
-                  {
-                    "id": 2,
                     "name": "at_rest_total",
                     "type": "double"
                   },
                   {
-                    "id": 3,
+                    "id": 2,
                     "name": "timestamp",
                     "type": "google.protobuf.Timestamp",
                     "options": [

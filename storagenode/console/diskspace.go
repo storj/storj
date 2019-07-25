@@ -30,7 +30,6 @@ type DiskSpaceInfo struct {
 
 // DiskSpaceUsage is space usage for satellite at some point in time
 type DiskSpaceUsage struct {
-	RollupID    int64
 	SatelliteID storj.NodeID
 
 	AtRestTotal float64

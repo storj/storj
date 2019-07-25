@@ -200,7 +200,7 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeStorageUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT id, at_rest_total, start_time, 
+	query := `SELECT at_rest_total, start_time, 
 		LAG(at_rest_total) OVER win as prev_at_rest, 
 		LAG(start_time) OVER win as prev_start_time
 		FROM accounting_rollups
@@ -225,13 +225,12 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 
 	var nodeStorageUsages []accounting.NodeStorageUsage
 	for rows.Next() {
-		var id int64
 		var atRestTotal float64
 		var startTime time.Time
 		var prevAtRestTotal sql.NullFloat64
 		var prevStartTime dbutil.NullTime
 
-		err = rows.Scan(&id, &atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
+		err = rows.Scan(&atRestTotal, &startTime, &prevAtRestTotal, &prevStartTime)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -250,7 +249,6 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 		}
 
 		nodeStorageUsages = append(nodeStorageUsages, accounting.NodeStorageUsage{
-			RollupID:    id,
 			NodeID:      nodeID,
 			StorageUsed: atRest,
 			Timestamp:   startTime,

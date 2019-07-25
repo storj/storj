@@ -65,8 +65,6 @@ func NewService(log *zap.Logger, transport transport.Client, consoleDB console.D
 
 // Run runs loop
 func (s *Service) Run(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
 	err = s.CacheStatsFromSatellites(ctx)
 	if err != nil {
 		s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
@@ -259,7 +257,6 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 
 	for _, pbUsage := range resp.GetDailyStorageUsage() {
 		stamps = append(stamps, console.DiskSpaceUsage{
-			RollupID:    pbUsage.RollupId,
 			SatelliteID: satelliteID,
 			AtRestTotal: pbUsage.AtRestTotal,
 			Timestamp:   pbUsage.Timestamp,

@@ -425,7 +425,6 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						PRIMARY KEY (satellite_id)
 					)`,
 					`CREATE TABLE rollup_disk_storage_usages (
-						rollup_id INTEGER NOT NULL,
 						satellite_id BLOB NOT NULL,
 						at_rest_total REAL NOT NUll,
 						timestamp TIMESTAMP NOT NULL,
