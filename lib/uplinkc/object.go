@@ -302,7 +302,9 @@ func download_close(downloader C.DownloaderRef, cErr **C.char) {
 func download_cancel(downloader C.DownloaderRef, cErr **C.char) {
 	download, ok := universe.Get(downloader._handle).(*Download)
 	if !ok {
-		*cErr = C.CString("invalid downloader")
+		// TODO: should this be an error?
+		// NB: download already closed
+		//*cErr = C.CString("invalid downloader")
 		return
 	}
 
