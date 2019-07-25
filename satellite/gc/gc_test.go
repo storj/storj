@@ -70,6 +70,7 @@ func TestGarbageCollection(t *testing.T) {
 
 		encPathToKeep := storj.JoinPaths(prefix, list[1].GetPath())
 		pointerToKeep, err := satellite.Metainfo.Service.Get(ctx, encPathToKeep)
+		require.NoError(t, err)
 		var keptPieceID storj.PieceID
 		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
 			if p.NodeId == targetNode.ID() {
