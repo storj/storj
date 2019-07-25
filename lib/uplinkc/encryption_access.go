@@ -27,8 +27,8 @@ func new_encryption_access_with_default_key(key *C.uint8_t) C.EncryptionAccessRe
 	goKey, cKey := storj.Key{}, (*storj.Key)(unsafe.Pointer(key))
 	copy(goKey[:], cKey[:])
 
-	return C.EncryptionAccessRef {
-		_handle:  universe.Add(libuplink.NewEncryptionAccessWithDefaultKey(goKey)),
+	return C.EncryptionAccessRef{
+		_handle: universe.Add(libuplink.NewEncryptionAccessWithDefaultKey(goKey)),
 	}
 }
 
