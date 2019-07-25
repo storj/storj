@@ -235,6 +235,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 			_, err = tx.Pipelined(func(pipe redis.Pipeliner) error {
 				return put(ctx, pipe, key, newValue, client.TTL)
 			})
+			return err
 		}
 		if err != nil {
 			return err

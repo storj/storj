@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -450,6 +451,13 @@ type ListItem struct {
 	IsPrefix bool
 }
 
+// pathForKey removes the trailing `/` from the raw path, which is required so
+// the derived key matches the final list path (which also has the trailing
+// encrypted `/` part of the path removed)
+func pathForKey(raw string) paths.Unencrypted {
+	return paths.NewUnencrypted(strings.TrimSuffix(raw, "/"))
+}
+
 // List all the paths inside l/, stripping off the l/ prefix
 func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefore string, pathCipher storj.CipherSuite, recursive bool, limit int, metaFlags uint32) (items []ListItem, more bool, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -460,7 +468,7 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 		metaFlags |= meta.UserDefined
 	}
 
-	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), prefix.UnencryptedPath(), s.encStore)
+	prefixKey, err := encryption.DerivePathKey(prefix.Bucket(), pathForKey(prefix.UnencryptedPath().Raw()), s.encStore)
 	if err != nil {
 		return nil, false, err
 	}
@@ -468,6 +476,15 @@ func (s *streamStore) List(ctx context.Context, prefix Path, startAfter, endBefo
 	encPrefix, err := encryption.EncryptPath(prefix.Bucket(), prefix.UnencryptedPath(), pathCipher, s.encStore)
 	if err != nil {
 		return nil, false, err
+	}
+
+	// If the raw unencrypted path ends in a `/` we need to remove the final
+	// section of the encrypted path. For example, if we are listing the path
+	// `/bob/`, the encrypted path results in `enc("")/enc("bob")/enc("")`. This
+	// is an incorrect list prefix, what we really want is `enc("")/enc("bob")`
+	if strings.HasSuffix(prefix.UnencryptedPath().Raw(), "/") {
+		lastSlashIdx := strings.LastIndex(encPrefix.Raw(), "/")
+		encPrefix = paths.NewEncrypted(encPrefix.Raw()[:lastSlashIdx])
 	}
 
 	// We have to encrypt startAfter and endBefore but only if they don't contain a bucket.
