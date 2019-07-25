@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
@@ -168,6 +169,13 @@ func (planet *Planet) newSatellites(count int) ([]*satellite.Peer, error) {
 				Interval:           30 * time.Second,
 				MinBytesPerSecond:  1 * memory.KB,
 				MinDownloadTimeout: 5 * time.Second,
+			},
+			GarbageCollection: gc.Config{
+				Interval:          1 * time.Minute,
+				Enabled:           true,
+				InitialPieces:     10,
+				FalsePositiveRate: 0.1,
+				ConcurrentSends:   1,
 			},
 			Tally: tally.Config{
 				Interval: 30 * time.Second,

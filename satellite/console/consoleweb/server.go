@@ -267,6 +267,7 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		err := req.ParseForm()
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 
 		password := req.FormValue("password")
@@ -279,17 +280,21 @@ func (s *Server) passwordRecoveryHandler(w http.ResponseWriter, req *http.Reques
 		err = s.service.ResetPassword(ctx, recoveryToken, password)
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
+
 		http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "static", "resetPassword", "success.html"))
 	case http.MethodGet:
 		t, err := template.ParseFiles(filepath.Join(s.config.StaticDir, "static", "resetPassword", "resetPassword.html"))
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 
 		err = t.Execute(w, nil)
 		if err != nil {
 			s.serveError(w, req)
+			return
 		}
 	default:
 		s.serveError(w, req)
