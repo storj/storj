@@ -163,4 +163,5 @@ void handle_project(ProjectRef project) {
     require_noerror(*err);
 
     free_encryption_access(encryption_access);
+    free(salted_key);
 }

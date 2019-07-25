@@ -136,10 +136,9 @@ func upload_write(uploader C.UploaderRef, bytes *C.uint8_t, length C.size_t, cEr
 		return C.size_t(0)
 	}
 
-	select {
-	case <-upload.ctx.Done():
+	if err := upload.ctx.Err(); err != nil {
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return C.size_t(0)
-	default:
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
@@ -270,10 +269,9 @@ func download_read(downloader C.DownloaderRef, bytes *C.uint8_t, length C.size_t
 		return C.size_t(0)
 	}
 
-	select {
-	case <-download.ctx.Done():
+	if err := download.ctx.Err(); err != nil {
+		*cErr = C.CString(fmt.Sprintf("%+v", err))
 		return C.size_t(0)
-	default:
 	}
 
 	buf := (*[1 << 30]byte)(unsafe.Pointer(bytes))[:length]
