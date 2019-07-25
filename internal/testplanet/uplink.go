@@ -312,8 +312,7 @@ func (client *Uplink) GetConfig(satellite *satellite.Peer) uplink.Config {
 		panic(err)
 	}
 
-	config.Scopes = map[string]string{"default": scopeData}
-	config.Scope = "default"
+	config.Scope = scopeData
 
 	// Support some legacy stuff
 	config.Legacy.Client.APIKey = apiKey.Serialize()
