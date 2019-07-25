@@ -12,7 +12,6 @@ export async function setupStripe(context: any, resultCallback: (result: any) =>
 
     const stripe = window['Stripe'](process.env.VUE_APP_STRIPE_PUBLIC_KEY);
     if (!stripe) {
-        console.error('Unable to initialize stripe');
         context.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to initialize stripe');
 
         return;
@@ -20,7 +19,6 @@ export async function setupStripe(context: any, resultCallback: (result: any) =>
 
     const elements = stripe.elements();
     if (!elements) {
-        console.error('Unable to instantiate elements');
         context.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to instantiate elements');
 
         return;
@@ -28,7 +26,6 @@ export async function setupStripe(context: any, resultCallback: (result: any) =>
 
     const card = elements.create('card');
     if (!card) {
-        console.error('Unable to create card');
         context.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to create card');
 
         return;
@@ -60,4 +57,8 @@ export async function setupStripe(context: any, resultCallback: (result: any) =>
             card.clear();
         });
     });
+}
+
+function createCardCallback(context: any, result: any) {
+
 }

@@ -181,7 +181,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 // AddNewProjectPaymentMethod adds new payment method for project
 func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodToken string, isDefault bool, projectID uuid.UUID) (payment *ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	authorization, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -258,7 +257,6 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 // AddNewUserPaymentMethod creates new payment method at stripe
 func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToken string) (paymentMethod *UserPaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	authorization, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -307,7 +305,6 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 // AttachPaymentMethodToProject creates project payment method by payment method id
 func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMethodID []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	authorization, err := GetAuth(ctx)
 	if err != nil {
 		return err
@@ -351,7 +348,6 @@ func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMetho
 // SetDefaultPaymentMethod set default payment method for given project
 func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
@@ -389,7 +385,6 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 // DeleteProjectPaymentMethod deletes selected payment method
 func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
@@ -399,10 +394,8 @@ func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment
 }
 
 // GetProjectPaymentMethods retrieves project payment methods
-func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) ([]ProjectPayment, error) {
-	var err error
+func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.UUID) (projectPayments []ProjectPayment, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return nil, err
@@ -413,7 +406,6 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 		return nil, err
 	}
 
-	var projectPayments []ProjectPayment
 	for _, payment := range projectPaymentInfos {
 		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
 		if err != nil {
@@ -446,7 +438,6 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 // GetUserPaymentMethods returns list of payment methods from stripe
 func (s *Service) GetUserPaymentMethods(ctx context.Context) (_ []payments.PaymentMethod, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	authorization, err := GetAuth(ctx)
 	if err != nil {
 		return nil, err
