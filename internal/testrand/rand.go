@@ -98,6 +98,11 @@ func StreamID(size int) storj.StreamID {
 	return storj.StreamID(BytesInt(size))
 }
 
+// SegmentID creates a random segment ID
+func SegmentID(size int) storj.SegmentID {
+	return storj.SegmentID(BytesInt(size))
+}
+
 // UUID creates a random uuid.
 func UUID() uuid.UUID {
 	var uuid uuid.UUID
