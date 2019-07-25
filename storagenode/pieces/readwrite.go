@@ -6,10 +6,11 @@ package pieces
 import (
 	"bufio"
 	"context"
-	"github.com/gogo/protobuf/proto"
-	"github.com/zeebo/errs"
 	"hash"
 	"io"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
