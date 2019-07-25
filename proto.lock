@@ -2738,6 +2738,26 @@
               },
               {
                 "id": 7,
+                "name": "encrypted_metadata_nonce",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "Nonce"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              },
+              {
+                "id": 8,
+                "name": "encrypted_metadata",
+                "type": "bytes"
+              },
+              {
+                "id": 9,
                 "name": "satellite_signature",
                 "type": "bytes"
               }

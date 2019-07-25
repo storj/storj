@@ -101,14 +101,19 @@ func (db *pieceinfo) Get(ctx context.Context, satelliteID storj.NodeID, pieceID 
 
 	var orderLimit []byte
 	var uplinkPieceHash []byte
+	var pieceExpiration *time.Time
 
 	err = db.db.QueryRowContext(ctx, db.Rebind(`
 		SELECT piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash
 		FROM pieceinfo_
 		WHERE satellite_id = ? AND piece_id = ?
-	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &info.PieceExpiration, &orderLimit, &uplinkPieceHash)
+	`), satelliteID, pieceID).Scan(&info.PieceSize, &info.PieceCreation, &pieceExpiration, &orderLimit, &uplinkPieceHash)
 	if err != nil {
 		return nil, ErrInfo.Wrap(err)
+	}
+
+	if pieceExpiration != nil {
+		info.PieceExpiration = *pieceExpiration
 	}
 
 	info.OrderLimit = &pb.OrderLimit{}
