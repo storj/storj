@@ -117,9 +117,13 @@ func (s *service) AddPaymentMethod(ctx context.Context, params payments.AddPayme
 		},
 	}, nil
 }
+
 func extractStripeErrorMessage(inErr error) error {
-	stripeErr := inErr.(*stripe.Error)
-	return errs.New(stripeErr.Msg)
+	if stripeErr, ok := inErr.(*stripe.Error); ok {
+		return errs.New(stripeErr.Msg)
+	}
+
+	return stripeErr.Wrap(inErr)
 }
 
 // GetCustomerDefaultPaymentMethod retrieves customer default payment method from stripe network

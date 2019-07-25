@@ -58,7 +58,3 @@ export async function setupStripe(context: any, resultCallback: (result: any) =>
         });
     });
 }
-
-function createCardCallback(context: any, result: any) {
-
-}
