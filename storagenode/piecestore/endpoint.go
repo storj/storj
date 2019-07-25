@@ -59,9 +59,54 @@ type Config struct {
 	MaxConcurrentRequests int           `help:"how many concurrent requests are allowed, before uploads are rejected." default:"6"`
 	OrderLimitGracePeriod time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
 	RetainTimeBuffer      time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"1h0m0s"`
+	RetainStatus          RetainStatus  `help:"allows configuration to enable, disable, or test retain requests from the satellite" default:"disabled"`
 
 	Monitor monitor.Config
 	Sender  orders.SenderConfig
+}
+
+// RetainStatus is a type defining the enabled/disabled status of retain requests
+type RetainStatus int
+
+const (
+	// DISABLED means we do not do anything with retain requests
+	DISABLED RetainStatus = iota
+	// ENABLED means we fully enable retain requests and delete data not defined by bloom filter
+	ENABLED
+	// TESTING means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
+	TESTING
+)
+
+// Set implements pflag.Value
+func (v *RetainStatus) Set(s string) error {
+	switch s {
+	case "disabled":
+		*v = DISABLED
+	case "enabled":
+		*v = ENABLED
+	case "testing":
+		*v = TESTING
+	default:
+		return Error.New("invalid option %q", s)
+	}
+	return nil
+}
+
+// Type implements pflag.Value
+func (*RetainStatus) Type() string { return "storj.RetainStatus" }
+
+// String implements pflag.Value
+func (v *RetainStatus) String() string {
+	switch *v {
+	case DISABLED:
+		return "disabled"
+	case ENABLED:
+		return "enabled"
+	case TESTING:
+		return "testing"
+	default:
+		return "invalid"
+	}
 }
 
 // Endpoint implements uploading, downloading and deleting for a storage node.
@@ -542,6 +587,8 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO if gc is disabled, quit immediately
+
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, Error.Wrap(err).Error())
@@ -572,6 +619,8 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
+				// TODO if gc is set to debug, print out pieceid to delete
+				// TODO if gc is set to on, delete pieceid
 				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
 					endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
 					// continue because if we fail to delete from file system,
@@ -584,6 +633,8 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 				numDeleted++
 			}
 		}
+
+		// TODO print out number of deleted pieces
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
 		offset -= numDeleted
