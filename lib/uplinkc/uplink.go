@@ -24,7 +24,7 @@ type Uplink struct {
 //
 // Caller must call close_uplink to close associated resources.
 func new_uplink(cfg C.UplinkConfig, cerr **C.char) C.UplinkRef {
-	scope := rootScope("inmemory") // TODO: pass in as argument
+	scope := rootScope("") // TODO: pass in as argument
 
 	libcfg := &uplink.Config{} // TODO: figure out a better name
 	libcfg.Volatile.TLS.SkipPeerCAWhitelist = cfg.Volatile.tls.skip_peer_ca_whitelist == C.bool(true)
