@@ -7,7 +7,7 @@ RUN echo "deb http://apt.postgresql.org/pub/repos/apt/ stretch-pgdg main" | tee 
 
 RUN apt-get update
 RUN apt-get install -y -qq postgresql-11 unzip
-RUN apt-get install -y  libuv1-dev libjson-c-dev
+RUN apt-get install -y  libuv1-dev libjson-c-dev nettle-dev
 
 RUN rm /etc/postgresql/11/main/pg_hba.conf; \
 	echo 'local   all             all                                     trust' >> /etc/postgresql/11/main/pg_hba.conf; \
