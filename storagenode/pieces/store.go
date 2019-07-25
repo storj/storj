@@ -19,9 +19,7 @@ import (
 )
 
 const (
-	readBufferSize  = 256 * memory.KiB
-	writeBufferSize = 256 * memory.KiB
-	preallocSize    = 4 * memory.MiB
+	preallocSize = 4 * memory.MiB
 )
 
 var (
@@ -141,7 +139,7 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	writer, err := NewWriter(blob, writeBufferSize.Int(), storage.MaxStorageFormatVersionSupported)
+	writer, err := NewWriter(blob, storage.MaxStorageFormatVersionSupported)
 	return writer, Error.Wrap(err)
 }
 
@@ -159,7 +157,7 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 		return nil, Error.Wrap(err)
 	}
 
-	reader, err := NewReader(blob, readBufferSize.Int())
+	reader, err := NewReader(blob)
 	return reader, Error.Wrap(err)
 }
 

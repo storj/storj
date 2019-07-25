@@ -4,7 +4,6 @@
 package pieces
 
 import (
-	"bufio"
 	"context"
 	"hash"
 	"io"
@@ -33,7 +32,6 @@ const (
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
-	buf      bufio.Writer
 	hash     hash.Hash
 	blob     storage.BlobWriter
 	dataSize int64 // piece size only; i.e., not including piece header
@@ -42,7 +40,7 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blob storage.BlobWriter, bufferSize int, formatVersion storage.FormatVersion) (*Writer, error) {
+func NewWriter(blob storage.BlobWriter, formatVersion storage.FormatVersion) (*Writer, error) {
 	w := &Writer{}
 	if formatVersion < storage.FormatV1 {
 		return nil, Error.New("writing to storage format version 0 is not supported")
@@ -51,7 +49,6 @@ func NewWriter(blob storage.BlobWriter, bufferSize int, formatVersion storage.Fo
 	if _, err := blob.Seek(V1PieceHeaderSize, io.SeekStart); err != nil {
 		return nil, Error.Wrap(err)
 	}
-	w.buf = *bufio.NewWriterSize(blob, bufferSize)
 	w.blob = blob
 	w.hash = pkcrypto.NewHash()
 	return w, nil
@@ -59,9 +56,12 @@ func NewWriter(blob storage.BlobWriter, bufferSize int, formatVersion storage.Fo
 
 // Write writes data to the blob and calculates the hash.
 func (w *Writer) Write(data []byte) (int, error) {
-	n, err := w.buf.Write(data)
+	n, err := w.blob.Write(data)
 	w.dataSize += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
+	if err == io.EOF {
+		return n, err
+	}
 	return n, Error.Wrap(err)
 }
 
@@ -90,9 +90,6 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	}()
 
 	pieceHeader.FormatVersion = int32(w.blob.GetStorageFormatVersion())
-	if err := w.buf.Flush(); err != nil {
-		return err
-	}
 	headerBytes, err := proto.Marshal(pieceHeader)
 	if err != nil {
 		return err
@@ -123,7 +120,6 @@ func (w *Writer) Cancel(ctx context.Context) (err error) {
 		return nil
 	}
 	w.closed = true
-	w.buf.Reset(nil)
 	return Error.Wrap(w.blob.Cancel(ctx))
 }
 
@@ -131,14 +127,13 @@ func (w *Writer) Cancel(ctx context.Context) (err error) {
 type Reader struct {
 	formatVersion storage.FormatVersion
 
-	buf  bufio.Reader
 	blob storage.BlobReader
 	pos  int64 // relative to file start; i.e., it includes piece header
 	size int64 // piece size only; i.e., not including piece header
 }
 
 // NewReader creates a new reader for storage.BlobReader.
-func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
+func NewReader(blob storage.BlobReader) (*Reader, error) {
 	size, err := blob.Size()
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -150,7 +145,6 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 
 	reader := &Reader{
 		formatVersion: formatVersion,
-		buf:           *bufio.NewReaderSize(blob, bufferSize),
 		blob:          blob,
 		size:          size - V1PieceHeaderSize,
 	}
@@ -190,6 +184,9 @@ func (r *Reader) Read(data []byte) (int, error) {
 	}
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
+	if err == io.EOF {
+		return n, err
+	}
 	return n, Error.Wrap(err)
 }
 
@@ -201,11 +198,14 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 	if whence == io.SeekStart && r.pos == offset {
 		return r.pos, nil
 	}
-	r.buf.Reset(r.blob)
+
 	pos, err := r.blob.Seek(offset, whence)
 	r.pos = pos
 	if r.formatVersion >= storage.FormatV1 {
 		pos -= V1PieceHeaderSize
+	}
+	if err == io.EOF {
+		return pos, err
 	}
 	return pos, Error.Wrap(err)
 }
@@ -216,6 +216,9 @@ func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 		offset += V1PieceHeaderSize
 	}
 	n, err := r.blob.ReadAt(data, offset)
+	if err == io.EOF {
+		return n, err
+	}
 	return n, Error.Wrap(err)
 }
 
@@ -224,6 +227,5 @@ func (r *Reader) Size() int64 { return r.size }
 
 // Close closes the reader.
 func (r *Reader) Close() error {
-	r.buf.Reset(nil)
 	return Error.Wrap(r.blob.Close())
 }
