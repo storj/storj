@@ -112,7 +112,7 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), nil)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
 }
 
 func configureTLS(certFile, keyFile string) (*tls.Config, error) {

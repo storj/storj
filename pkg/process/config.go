@@ -15,9 +15,47 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// SaveConfigOption is a function that updates the options for SaveConfig.
+type SaveConfigOption func(*SaveConfigOptions)
+
+// SaveConfigOptions controls the behavior of SaveConfig.
+type SaveConfigOptions struct {
+	Overrides        map[string]interface{}
+	RemoveDeprecated bool
+}
+
+// SaveConfigWithOverrides sets the overrides to the provided map.
+func SaveConfigWithOverrides(overrides map[string]interface{}) SaveConfigOption {
+	return func(opts *SaveConfigOptions) {
+		opts.Overrides = overrides
+	}
+}
+
+// SaveConfigWithOverride adds a single override to SaveConfig.
+func SaveConfigWithOverride(name string, value interface{}) SaveConfigOption {
+	return func(opts *SaveConfigOptions) {
+		if opts.Overrides == nil {
+			opts.Overrides = make(map[string]interface{})
+		}
+		opts.Overrides[name] = value
+	}
+}
+
+// SaveConfigRemovingDeprecated tells SaveConfig to not store deprecated flags.
+func SaveConfigRemovingDeprecated() SaveConfigOption {
+	return func(opts *SaveConfigOptions) {
+		opts.RemoveDeprecated = true
+	}
+}
+
 // SaveConfig will save only the user-specific flags with default values to
 // outfile with specific values specified in 'overrides' overridden.
-func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interface{}) error {
+func SaveConfig(cmd *cobra.Command, outfile string, opts ...SaveConfigOption) error {
+	var options SaveConfigOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	flags := cmd.Flags()
 	vip, err := Viper(cmd)
 	if err != nil {
@@ -25,7 +63,7 @@ func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interfa
 	}
 
 	// merge in the overrides and grab the settings.
-	if err := vip.MergeConfigMap(overrides); err != nil {
+	if err := vip.MergeConfigMap(options.Overrides); err != nil {
 		return errs.Wrap(err)
 	}
 	settings := vip.AllSettings()
@@ -43,24 +81,32 @@ func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interfa
 			}
 
 			fullKey := base + key
-			_, overrideExists := overrides[fullKey]
-			changed, setup, hidden, user := false, false, false, false
+			_, overrideExists := options.Overrides[fullKey]
+			changed, setup, hidden, user, deprecated := false, false, false, false, false
 			if f := flags.Lookup(fullKey); f != nil {
 				changed = f.Changed
 				setup = readBoolAnnotation(f, "setup")
 				hidden = readBoolAnnotation(f, "hidden")
 				user = readBoolAnnotation(f, "user")
+				deprecated = readBoolAnnotation(f, "deprecated")
 			} else if f := flag.Lookup(fullKey); f != nil {
 				changed = f.Value.String() != f.DefValue
 			} else {
+				// by default we store config values we know nothing about
 				continue
 			}
 
 			// in any of these cases, don't store the key in the file
-			if setup || hidden || (!user && !changed && !overrideExists) {
-				delete(settings, key)
+			switch {
+			case setup:
+			case hidden:
+			case !user && !changed && !overrideExists:
+			case options.RemoveDeprecated && deprecated:
+
+			default:
 				continue
 			}
+			delete(settings, key)
 		}
 	}
 	filterSettings("", settings)

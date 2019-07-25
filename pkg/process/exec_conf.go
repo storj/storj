@@ -156,6 +156,7 @@ func cleanup(cmd *cobra.Command) {
 			brokenKeys  = map[string]struct{}{}
 			missingKeys = map[string]struct{}{}
 			usedKeys    = map[string]struct{}{}
+			allKeys     = map[string]struct{}{}
 			allSettings = vip.AllSettings()
 		)
 
@@ -174,36 +175,44 @@ func cleanup(cmd *cobra.Command) {
 			res := structs.Decode(allSettings, config)
 			for key := range res.Used {
 				usedKeys[key] = struct{}{}
+				allKeys[key] = struct{}{}
 			}
 			for key := range res.Missing {
 				missingKeys[key] = struct{}{}
+				allKeys[key] = struct{}{}
 			}
 			for key := range res.Broken {
 				brokenKeys[key] = struct{}{}
+				allKeys[key] = struct{}{}
 			}
 		}
 
-		for key := range missingKeys {
+		for key := range allKeys {
+			// Check if the key is a flag, and if so, propogate it.
+			if f := cmd.Flags().Lookup(key); f != nil {
+				val := vip.GetString(key)
+				err := f.Value.Set(val)
+				f.Changed = val != f.DefValue
+				if err != nil {
+					brokenKeys[key] = struct{}{}
+				} else {
+					usedKeys[key] = struct{}{}
+				}
+			} else if f := flag.Lookup(key); f != nil {
+				err := f.Value.Set(vip.GetString(key))
+				if err != nil {
+					brokenKeys[key] = struct{}{}
+				} else {
+					usedKeys[key] = struct{}{}
+				}
+			}
+
 			// A key is only missing if it was missing from every single config struct, so
 			// remove all of the used keys from it.
 			if _, ok := usedKeys[key]; ok {
 				delete(missingKeys, key)
 				continue
 			}
-
-			// Attempt to set through the flags any keys that were missing from all of the
-			// config structs.
-			flag := cmd.Flags().Lookup(key)
-			if flag == nil {
-				continue
-			}
-
-			changed := flag.Changed
-			if err := flag.Value.Set(vip.GetString(key)); err != nil {
-				brokenKeys[key] = struct{}{}
-			}
-			flag.Changed = changed
-			delete(missingKeys, key)
 		}
 
 		logger, err := newLogger()

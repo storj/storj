@@ -317,11 +317,11 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 	if err != nil {
 		return Error.Wrap(err)
 	}
-
-	// TODO(jeff): add a "deletes" as well, or make overrides handle it with multiple string types
 	overrides["scope"] = scopeData
 
-	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
+	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(overrides),
+		process.SaveConfigRemovingDeprecated())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -340,7 +340,20 @@ Some things to try next:
 
 // nonInteractive creates the configuration of the gateway non-interactively.
 func (flags GatewayFlags) nonInteractive(cmd *cobra.Command, setupDir string, overrides map[string]interface{}) error {
-	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides))
+	// ensure we're using the scope for the setup
+	scope, err := setupCfg.GetScope()
+	if err != nil {
+		return err
+	}
+	scopeData, err := scope.Serialize()
+	if err != nil {
+		return err
+	}
+	overrides["scope"] = scopeData
+
+	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(overrides),
+		process.SaveConfigRemovingDeprecated()))
 }
 
 func main() {

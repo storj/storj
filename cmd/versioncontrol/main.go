@@ -88,7 +88,8 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		overrides[serverAddress.Name] = defaultServerAddr
 	}
 
-	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), overrides)
+	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverrides(overrides))
 }
 
 func main() {

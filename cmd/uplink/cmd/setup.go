@@ -58,7 +58,30 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 
 // cmdSetupNonInteractive sets up uplink non-interactively.
 func cmdSetupNonInteractive(cmd *cobra.Command, setupDir string) error {
-	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename), nil))
+	// ensure we're using the scope for the setup
+	scope, err := setupCfg.GetScope()
+	if err != nil {
+		return err
+	}
+
+	// apply helpful default host and port to the address
+	vip, err := process.Viper(cmd)
+	if err != nil {
+		return err
+	}
+	scope.SatelliteAddr, err = ApplyDefaultHostAndPortToAddr(
+		scope.SatelliteAddr, vip.GetString("satellite-addr"))
+	if err != nil {
+		return err
+	}
+
+	scopeData, err := scope.Serialize()
+	if err != nil {
+		return err
+	}
+	return Error.Wrap(process.SaveConfig(cmd, filepath.Join(setupDir, process.DefaultCfgFilename),
+		process.SaveConfigWithOverride("scope", scopeData),
+		process.SaveConfigRemovingDeprecated()))
 }
 
 // cmdSetupInteractive sets up uplink interactively.
@@ -68,6 +91,17 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 	satelliteAddress, err := wizard.PromptForSatellite(cmd)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	// apply helpful default host and port to the address
+	vip, err := process.Viper(cmd)
+	if err != nil {
+		return err
+	}
+	satelliteAddress, err = ApplyDefaultHostAndPortToAddr(
+		satelliteAddress, vip.GetString("satellite-addr"))
+	if err != nil {
+		return err
 	}
 
 	apiKeyString, err := wizard.PromptForAPIKey()
@@ -111,10 +145,9 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 		return Error.Wrap(err)
 	}
 
-	// TODO(jeff): add a "deletes" as well, or make overrides handle it with multiple string types
-	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"), map[string]interface{}{
-		"scope": scopeData,
-	})
+	err = process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"),
+		process.SaveConfigWithOverride("scope", scopeData),
+		process.SaveConfigRemovingDeprecated())
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -131,27 +164,6 @@ Some things to try next:
 * See https://github.com/storj/docs/blob/master/Uplink-CLI.md#usage for some example commands`)
 
 	return nil
-}
-
-// ApplyDefaultHostAndPortToAddrFlag applies the default host and/or port if either is missing in the specified flag name.
-func ApplyDefaultHostAndPortToAddrFlag(cmd *cobra.Command, flagName string) error {
-	flag := cmd.Flags().Lookup(flagName)
-	if flag == nil {
-		// No flag found for us to handle.
-		return nil
-	}
-
-	address, err := ApplyDefaultHostAndPortToAddr(flag.Value.String(), flag.DefValue)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	if flag.Value.String() == address {
-		// Don't trip the flag set bit
-		return nil
-	}
-
-	return Error.Wrap(flag.Value.Set(address))
 }
 
 // ApplyDefaultHostAndPortToAddr applies the default host and/or port if either is missing in the specified address.
