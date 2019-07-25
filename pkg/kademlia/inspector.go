@@ -30,7 +30,7 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest)
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: this is definitely the wrong way to get this
-	kadNodes, err := srv.kademlia.FindNear(ctx, srv.identity.ID, 100000, 0)
+	kadNodes, _, err := srv.kademlia.FindNear(ctx, srv.identity.ID, 100000, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (srv *Inspector) FindNear(ctx context.Context, req *pb.FindNearRequest) (_ 
 	defer mon.Task()(&ctx)(&err)
 	start := req.Start
 	limit := req.Limit
-	nodes, err := srv.kademlia.FindNear(ctx, start, int(limit), 0)
+	nodes, _, err := srv.kademlia.FindNear(ctx, start, int(limit), 0)
 	if err != nil {
 		return &pb.FindNearResponse{}, err
 	}

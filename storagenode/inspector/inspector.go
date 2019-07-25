@@ -113,7 +113,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 	}
 
 	// TODO: querying all nodes is slow, find a more performant way to do this.
-	nodes, err := inspector.kademlia.FindNear(ctx, storj.NodeID{}, 10000000, 0)
+	nodes, _, err := inspector.kademlia.FindNear(ctx, storj.NodeID{}, 10000000, 0)
 	if err != nil {
 		return &pb.DashboardResponse{}, Error.Wrap(err)
 	}

@@ -111,17 +111,17 @@ func (k *Kademlia) Queried() {
 
 // FindNear returns a limited number of XOR closest nodes from the routing table
 // and the antechmaber respectively.
-func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, routingTableLimit int, antechamberLimit int) (_ []*pb.Node, err error) {
+func (k *Kademlia) FindNear(ctx context.Context, start storj.NodeID, routingTableLimit int, antechamberLimit int) (rtNodes, acNodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
-	acNodes, err := k.routingTable.antechamberFindNear(ctx, start, antechamberLimit)
+	acNodes, err = k.routingTable.antechamberFindNear(ctx, start, antechamberLimit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	rtNodes, err := k.routingTable.FindNear(ctx, start, routingTableLimit)
+	rtNodes, err = k.routingTable.FindNear(ctx, start, routingTableLimit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return append(rtNodes, acNodes...), nil
+	return rtNodes, acNodes, nil
 }
 
 // GetBucketIds returns a storage.Keys type of bucket ID's in the Kademlia instance

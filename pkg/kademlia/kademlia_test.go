@@ -284,20 +284,35 @@ func TestFindNear(t *testing.T) {
 		rtLimit      int
 		acLimit      int
 		restrictions []pb.Restriction
-		expected     []*pb.Node
+		expectedRT   []*pb.Node
+		expectedAC   []*pb.Node
 	}{
-		{testID: "three", target: nodeIDA.Id, rtLimit: 4, acLimit: 3, expected: append(nodes, acNodes...), restrictions: []pb.Restriction{}},
+		{testID: "three", target: nodeIDA.Id, rtLimit: 4, acLimit: 3, expectedRT: nodes, expectedAC: acNodes, restrictions: []pb.Restriction{}},
 	}
 	for _, c := range cases {
 		testCase := c
 		t.Run(testCase.testID, func(t *testing.T) {
 
-			ns, err := k.FindNear(ctx, testCase.target, testCase.rtLimit, testCase.acLimit)
+			rt, ac, err := k.FindNear(ctx, testCase.target, testCase.rtLimit, testCase.acLimit)
 			require.NoError(t, err)
-			assert.Equal(t, len(testCase.expected), len(ns))
-			for _, e := range testCase.expected {
+			assert.Len(t, rt, len(testCase.expectedRT))
+			assert.Len(t, ac, len(testCase.expectedAC))
+
+			// check rt nodes
+			for _, e := range testCase.expectedRT {
 				found := false
-				for _, n := range ns {
+				for _, n := range rt {
+					if e.Id == n.Id {
+						found = true
+					}
+				}
+				assert.True(t, found, e.String())
+			}
+
+			// check ac nodes
+			for _, e := range testCase.expectedAC {
+				found := false
+				for _, n := range ac {
 					if e.Id == n.Id {
 						found = true
 					}

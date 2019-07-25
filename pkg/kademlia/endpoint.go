@@ -51,12 +51,12 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *p
 		acLimit = endpoint.routingTable.bucketSize
 	}
 
-	nodes, err := endpoint.service.FindNear(ctx, req.Target.Id, rtLimit, acLimit)
+	rtNodes, acNodes, err := endpoint.service.FindNear(ctx, req.Target.Id, rtLimit, acLimit)
 	if err != nil {
 		return &pb.QueryResponse{}, EndpointError.New("could not find near endpoint: %v", err)
 	}
 
-	return &pb.QueryResponse{Sender: req.Sender, Response: nodes}, nil
+	return &pb.QueryResponse{Sender: req.Sender, Response: append(rtNodes, acNodes...)}, nil
 }
 
 // pingback implements pingback for queries
