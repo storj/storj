@@ -218,20 +218,23 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
-	// if partial repair, leave "unhealthy" pieces in the pointer that were not repaired
-	unhealthyPiecesToRemove := unhealthyPieces
-	if healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold {
-		for i, p := range unhealthyPiecesToRemove {
-			if !repairedMap[p.GetPieceNum()] {
-				// leave only repaired pieces in the slice, unrepaired
+	var toRemove []*pb.RemotePiece
+	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
+		// if full repair, remove all unhealthy pieces
+		toRemove = unhealthyPieces
+	} else {
+		// if partial repair, leave unrepaired unhealthy pieces in the pointer
+		for _, piece := range unhealthyPieces {
+			if repairedMap[piece.GetPieceNum()] {
+				// add only repaired pieces in the slice, unrepaired
 				// unhealthy pieces are not removed from the pointer
-				unhealthyPiecesToRemove = append(unhealthyPiecesToRemove[:i], unhealthyPiecesToRemove[i+1:]...)
+				toRemove = append(toRemove, piece)
 			}
 		}
 	}
 
 	// Update the segment pointer in the metainfo
-	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, unhealthyPiecesToRemove)
+	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
 	return err
 }
 
