@@ -672,7 +672,7 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest) (failed storj.NodeIDList, err error) {
+func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(updateRequests) == 0 {
 		return failed, nil
@@ -703,10 +703,8 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 
 	var errlist errs.Group
 	length := len(updateRequests)
-	// TODO: make configuration
-	limit := 100
-	for i := 0; i < length; i += limit {
-		end := i + limit
+	for i := 0; i < length; i += batchSize {
+		end := i + batchSize
 		if end > length {
 			end = length
 		}

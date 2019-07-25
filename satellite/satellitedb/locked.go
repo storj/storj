@@ -936,10 +936,10 @@ func (m *lockedOverlayCache) UpdateNodeInfo(ctx context.Context, node storj.Node
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction
-func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, request []*overlay.UpdateRequest) (failed storj.NodeIDList, err error) {
+func (m *lockedOverlayCache) BatchUpdateStats(ctx context.Context, request []*overlay.UpdateRequest, batchSize int) (failed storj.NodeIDList, err error) {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.BatchUpdateStats(ctx, request)
+	return m.db.BatchUpdateStats(ctx, request, batchSize)
 }
 
 // UpdateStats all parts of single storagenode's stats.
