@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/satellite/payments"
-
 	"github.com/skyrings/skyring-common/tools/uuid"
+
+	"storj.io/storj/satellite/payments"
 )
 
 // UserPayments is user payment infos store

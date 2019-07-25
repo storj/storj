@@ -7,7 +7,7 @@
             <ProjectSelectionArea class="header-container__left-area__project-selection"/>
         </div>
         <div class="header-container__right-area">
-            <AddPaymentMethodPopup/>
+            <SelectPaymentMethodPopup/>
             <AddStripeCardPopup/>
             <NewProjectArea class="header-container__right-area__new-project" />
             <AccountButton class="header-container__right-area__account-button" />
@@ -20,7 +20,7 @@
     import ProjectSelectionArea from '@/components/header/projectSelection/ProjectSelectionArea.vue';
     import NewProjectArea from '@/components/header/NewProjectArea.vue';
     import AccountButton from './AccountButton.vue';
-    import AddPaymentMethodPopup from '@/components/project/paymentMethods/SelectPaymentMethodPopup.vue';
+    import SelectPaymentMethodPopup from '@/components/project/paymentMethods/SelectPaymentMethodPopup.vue';
     import AddStripeCardPopup from '@/components/project/paymentMethods/AttachStripeCardPopup.vue';
 
     @Component({
@@ -28,7 +28,7 @@
             ProjectSelectionArea,
             NewProjectArea,
             AccountButton,
-            AddPaymentMethodPopup,
+            SelectPaymentMethodPopup,
             AddStripeCardPopup
         },
     })

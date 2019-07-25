@@ -183,11 +183,7 @@ export async function fetchUserPaymentMethods(): Promise<RequestResponse<Payment
 }
 
 export async function attachUserPaymentMethod(paymentMethodID: string, projectID: string): Promise<RequestResponse<null>> {
-    let result: RequestResponse<null> = {
-        errorMessage: '',
-        isSuccess: false,
-        data: null
-    };
+    let result: RequestResponse<null> = new RequestResponse();
 
     let response: any = await apollo.mutate(
         {
