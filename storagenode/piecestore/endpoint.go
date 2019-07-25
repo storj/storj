@@ -69,23 +69,23 @@ type Config struct {
 type RetainStatus int
 
 const (
-	// DISABLED means we do not do anything with retain requests
-	DISABLED RetainStatus = iota
-	// ENABLED means we fully enable retain requests and delete data not defined by bloom filter
-	ENABLED
-	// DEBUG means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
-	DEBUG
+	// RetainDisabled means we do not do anything with retain requests
+	RetainDisabled RetainStatus = iota
+	// RetainEnabled means we fully enable retain requests and delete data not defined by bloom filter
+	RetainEnabled
+	// RetainDebug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
+	RetainDebug
 )
 
 // Set implements pflag.Value
 func (v *RetainStatus) Set(s string) error {
 	switch s {
 	case "disabled":
-		*v = DISABLED
+		*v = RetainDisabled
 	case "enabled":
-		*v = ENABLED
+		*v = RetainEnabled
 	case "debug":
-		*v = DEBUG
+		*v = RetainDebug
 	default:
 		return Error.New("invalid option %q", s)
 	}
@@ -98,11 +98,11 @@ func (*RetainStatus) Type() string { return "storj.RetainStatus" }
 // String implements pflag.Value
 func (v *RetainStatus) String() string {
 	switch *v {
-	case DISABLED:
+	case RetainDisabled:
 		return "disabled"
-	case ENABLED:
+	case RetainEnabled:
 		return "enabled"
-	case DEBUG:
+	case RetainDebug:
 		return "debug"
 	default:
 		return "invalid"

@@ -122,7 +122,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 					MinimumBandwidth: 100 * memory.MB,
 					MinimumDiskSpace: 100 * memory.MB,
 				},
-				RetainStatus: piecestore.ENABLED,
+				RetainStatus: piecestore.RetainEnabled,
 			},
 			Vouchers: vouchers.Config{
 				Interval: time.Hour,
