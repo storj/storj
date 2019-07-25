@@ -175,6 +175,7 @@ func (s *Server) CreateOffer(w http.ResponseWriter, req *http.Request) {
 		offer.Type = rewards.FreeCredit
 	case "partner-offer":
 		offer.Type = rewards.Partner
+		offer.Name = offer.FormatPartnerName()
 	default:
 		err := errs.New("response status %d : invalid offer type", http.StatusBadRequest)
 		s.serveBadRequest(w, req, err)

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"storj.io/storj/internal/currency"
-	"storj.io/storj/satellite/partners"
 )
 
 // MaxRedemptionErr is the error message used when an offer has reached its redemption capacity
@@ -39,6 +38,19 @@ type NewOffer struct {
 
 	Status OfferStatus
 	Type   OfferType
+}
+
+// FormatPartnerName formats partner's name into combination of its partnerID and name
+func (o NewOffer) FormatPartnerName() string {
+	if o.Type != Partner {
+		return o.Name
+	}
+
+	partnerInfo := PartnerInfo{
+		ID:   LoadPartnerInfos()[o.Name].ID,
+		Name: o.Name,
+	}
+	return partnerInfo.FormattedName()
 }
 
 // UpdateOffer holds fields needed for update an offer
@@ -115,9 +127,7 @@ type OrganizedOffers struct {
 
 // OpenSourcePartner contains all data for an Open Source Partner.
 type OpenSourcePartner struct {
-	Name          string
-	ID            string
-	Offers        Offers
+	PartnerInfo
 	PartnerOffers OrganizedOffers
 }
 
@@ -170,45 +180,46 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
-	offerSet.PartnerTables = OrganizePartnerData(p)
+	offerSet.PartnerTables = organizePartnerData(p)
 	return offerSet
 }
 
-// CreatePartnerSet generates a PartnerSet from the config file.
-func CreatePartnerSet() PartnerSet {
-	partners := partners.LoadPartners()
+// createPartnerSet generates a PartnerSet from the config file.
+func createPartnerSet() PartnerSet {
+	partners := LoadPartnerInfos()
 	var ps PartnerSet
 	for _, partner := range partners {
 		ps = append(ps, OpenSourcePartner{
-			Name:   partner.Name,
-			ID:     partner.ID,
-			Offers: Offers{},
+			PartnerInfo: PartnerInfo{
+				Name: partner.Name,
+				ID:   partner.ID,
+			},
 		})
 	}
 	return ps
 }
 
-// MatchOffersToPartnerSet assigns offers to the partner they belong to.
-func MatchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
-	for _, o := range offers {
-		for index, p := range partnerSet {
-			if o.Name == p.ID+"-"+p.Name {
-				p.Offers = append(p.Offers, o)
-				partnerSet[index].Offers = append(partnerSet[index].Offers, o)
+// matchOffersToPartnerSet assigns offers to the partner they belong to.
+func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
+	for i := range partnerSet {
+		var partnerOffersByName Offers
+
+		for _, o := range offers {
+			if o.Name == partnerSet[i].PartnerInfo.FormattedName() {
+				partnerOffersByName = append(partnerOffersByName, o)
 			}
 		}
+
+		partnerSet[i].PartnerOffers = partnerOffersByName.OrganizeOffersByStatus()
 	}
 
-	for index, partner := range partnerSet {
-		partnerSet[index].PartnerOffers = partner.Offers.OrganizeOffersByStatus()
-	}
 	return partnerSet
 }
 
-// OrganizePartnerData returns a list of Open Source Partners
-// whos offers have been organized by status, type, and
+// organizePartnerData returns a list of Open Source Partners
+// whose offers have been organized by status, type, and
 // assigned to the correct partner.
-func OrganizePartnerData(offers Offers) PartnerSet {
-	partnerData := MatchOffersToPartnerSet(offers, CreatePartnerSet())
+func organizePartnerData(offers Offers) PartnerSet {
+	partnerData := matchOffersToPartnerSet(offers, createPartnerSet())
 	return partnerData
 }

@@ -16,8 +16,7 @@ See LICENSE for copying information. -->
                         <div class="form-row">
                         <div class="form-group col-md-4">
                             <label for="Name">Partner</label>
-                            {{$partnerID := printf "%v-%v" .ID .Name}}
-                            <input type="text" class="form-control" name="Name" id="Name" value="{{$partnerID}}" readonly>
+                            <input type="text" class="form-control" name="Name" id="Name" value="{{.Name}}" readonly>
                         </div>
                         <div class="form-group col-md-4">
                             <label for="InviteeCredit">Give Credit</label>

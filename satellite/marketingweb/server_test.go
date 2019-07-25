@@ -52,7 +52,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 			}, {
 				Path: "/create/partner-offer",
 				Values: url.Values{
-					"Name":                      {"Partner Credit"},
+					"Name":                      {"OSPP003-FileZilla"},
 					"Description":               {"desc"},
 					"ExpiresAt":                 {"2119-06-27"},
 					"InviteeCredit":             {"50"},
