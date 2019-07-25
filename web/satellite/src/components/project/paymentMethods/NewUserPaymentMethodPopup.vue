@@ -3,7 +3,6 @@
 
 <template>
     <div v-if="isPopupShown" class="add-stripe-card-popup-container-overflow">
-        <!--<div v-if="true" class="add-stripe-card-popup-container-overflow">-->
         <div class="add-stripe-card-popup-container">
             <div class="add-stripe-card-popup-container__title-container">
                 <svg width="113" height="90" viewBox="0 0 113 90" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -91,7 +90,7 @@
     })
 
     export default class NewUserPaymentMethodPopup extends Vue {
-        private makeDefault = false;
+        private makeDefault: boolean = false;
 
         public get isPopupShown(): boolean {
             return this.$store.state.appStateModule.appState.isAddUserPaymentMethodPopupShown;
@@ -178,9 +177,9 @@
         justify-content: flex-start;
         width: 100%;
 
-    svg {
-        margin-left: -21px;
-    }
+        svg {
+            margin-left: -21px;
+        }
     }
 
     .add-stripe-card-popup-container__input-container {
@@ -240,9 +239,8 @@
     .card-form-input {
         width: 100%;
 
-    form {
-        width: 100%;
-    }
-
+        form {
+            width: 100%;
+        }
     }
 </style>

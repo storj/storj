@@ -109,11 +109,11 @@
 
             this.fetchProjectMembers();
 
-            this.notifySuccess('Project created successfully!');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project created successfully!');
 
             this.isLoading = false;
 
-            if (this.userPaymentsCount > 0) {
+            if (this.userPaymentsCount) {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
 
                 return;

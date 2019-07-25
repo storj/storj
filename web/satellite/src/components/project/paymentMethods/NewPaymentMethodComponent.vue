@@ -51,7 +51,7 @@
     )
 
     export default class AddNewPaymentMethodPopup extends Vue {
-        private makeDefault = false;
+        private makeDefault: boolean = false;
 
         public mounted(): void {
             setupStripe(this, async result => {
@@ -82,9 +82,9 @@
         public get projectPaymentMethodsCount(): number {
             if (this.$store.state.projectPaymentsMethodsModule.paymentMethods) {
                 return this.$store.state.projectPaymentsMethodsModule.paymentMethods.length;
-            } else {
-                return 0;
             }
+
+            return 0;
         }
 
         public toggleMakeDefault(value: boolean): void {

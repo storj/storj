@@ -4,7 +4,7 @@
 <template>
     <div class="payment-methods-container">
         <div v-for="method in paymentMethods" class="payment-methods-container__card-container">
-            <CardComponent :editable="false" :paymentMethod="method"/>
+            <CardComponent :paymentMethod="method"/>
         </div>
         <Button
             class="payment-methods-container__add-button"

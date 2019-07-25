@@ -5,17 +5,17 @@
     <div>
         <div class="chosen-card-container">
             <Card
-                    isChosen
-                    :lastDigits="defaultCard.lastFour"
-                    expireLabel="Expires:"
-                    :expireDate="defaultCard.expMonth + '/' + defaultCard.expYear"/>
+                isChosen
+                :lastDigits="defaultCard.lastFour"
+                expireLabel="Expires:"
+                :expireDate="defaultCard.expMonth + '/' + defaultCard.expYear"/>
             <div class="chosen-card-container__button-area">
                 <Button
-                        label="Default"
-                        width="91px"
-                        height="36px"
-                        :onPress="stub"
-                        isDisabled="true"/>
+                    label="Default"
+                    width="91px"
+                    height="36px"
+                    :onPress="stub"
+                    isDisabled="true"/>
                 <div @click="onToggleSelectionModeClick" class="chosen-card-container__expand-container"
                      v-if="isPaymentSelectorEnabled">
                     <h3>{{dropdownTitle}} </h3>

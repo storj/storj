@@ -4,17 +4,17 @@
 <template>
     <div class="payment-method-item" >
         <Card
-                class="option"
-                :lastDigits="method.lastFour"
-                expireLabel="Expires:"
-                :expireDate="method.expMonth + '/' + method.expYear"/>
+            class="option"
+            :lastDigits="method.lastFour"
+            expireLabel="Expires:"
+            :expireDate="method.expMonth + '/' + method.expYear"/>
 
         <Button
-                label="Choose"
-                width="91px"
-                height="36px"
-                :isDisabled="isChosen"
-                :onPress="()=>setSelectedCard(method)"/>
+            label="Choose"
+            width="91px"
+            height="36px"
+            :isDisabled="isChosen"
+            :onPress="()=>setSelectedCard(method)"/>
 
     </div>
 
@@ -34,24 +34,20 @@
     })
 
     export default class UserPaymentMethodCardComponent extends Vue {
-
         @Prop()
         private readonly method: PaymentMethod;
 
         public get isChosen(): boolean {
-            return this.method.id == this.$store.state.userPaymentsMethodsModule.defaultPaymentMethod.id;
+            return this.method.id === this.$store.state.userPaymentsMethodsModule.defaultPaymentMethod.id;
         }
 
         public setSelectedCard(method: PaymentMethod): void {
             this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.SET_DEFAULT, method);
         }
-
     }
 </script>
 
 <style scoped lang="scss">
-
-
     .payment-method-item {
         display: flex;
         padding-right: 28px;
@@ -59,5 +55,4 @@
         justify-content: space-between;
         margin-top: 20px;
     }
-
 </style>

@@ -158,13 +158,13 @@
                  align-items: center;
                  cursor: pointer;
 
-                    &__label {
-                         margin-left: 20px;
-                         font-family: 'font_bold';
-                         font-size: 16px;
-                         line-height: 23px;
-                         color: #354049;
-                    }
+                 &__label {
+                     margin-left: 20px;
+                     font-family: 'font_bold';
+                     font-size: 16px;
+                     line-height: 23px;
+                     color: #354049;
+                }
             }
         }
     }
