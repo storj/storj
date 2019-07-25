@@ -156,6 +156,12 @@ void handle_project(ProjectRef project) {
         for (int i = 0; i < num_of_objects; i++) {
             delete_object(bucket, object_paths[i], err);
             require_noerror(*err);
+
+            // ensure object deletion
+            ObjectList objects_list = list_objects(bucket, NULL, err);
+            require_noerror(*err);
+            require(objects_list.items);
+            require(objects_list.length == num_of_objects - i - 1);
         }
     }
 
