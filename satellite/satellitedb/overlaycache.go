@@ -590,6 +590,41 @@ func (cache *overlaycache) PaginateQualified(ctx context.Context, offset int64, 
 	return infos, more, nil
 }
 
+// UpdateAddressAndUptime will update the address and uptime of a node in a
+// single db transaction.
+func (cache *overlaycache) UpdateAddressAndUptime(ctx context.Context, node *pb.Node, isUp bool, defaults overlay.NodeSelectionConfig) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if node == nil || node.Id.IsZero() {
+		return overlay.ErrEmptyNode
+	}
+
+	tx, err := cache.db.Open(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()))
+	// If `tx.Get_Node_By_Id` failed, add node to cache now.
+	if err != nil {
+		dbNode, err = addCreateNodeToTx(ctx, tx, node, defaults)
+		if err != nil {
+			return Error.Wrap(errs.Combine(err, tx.Rollback()))
+		}
+	}
+
+	var updateFields dbx.Node_Update_Fields
+	addUptimeUpdates(&updateFields, dbNode, isUp, defaults.UptimeReputationLambda, defaults.UptimeReputationWeight, defaults.UptimeReputationDQ)
+	addAddressUpdates(ctx, &updateFields, node)
+
+	_, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(node.Id.Bytes()), updateFields)
+	if err != nil {
+		return Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+
+	return Error.Wrap(tx.Commit())
+}
+
 // Update updates node address
 func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, defaults overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -612,50 +647,14 @@ func (cache *overlaycache) UpdateAddress(ctx context.Context, info *pb.Node, def
 
 	if err != nil {
 		// add the node to DB for first time
-		_, err = tx.Create_Node(
-			ctx,
-			dbx.Node_Id(info.Id.Bytes()),
-			dbx.Node_Address(address.Address),
-			dbx.Node_LastNet(info.LastIp),
-			dbx.Node_Protocol(int(address.Transport)),
-			dbx.Node_Type(int(pb.NodeType_INVALID)),
-			dbx.Node_Email(""),
-			dbx.Node_Wallet(""),
-			dbx.Node_FreeBandwidth(-1),
-			dbx.Node_FreeDisk(-1),
-			dbx.Node_Major(0),
-			dbx.Node_Minor(0),
-			dbx.Node_Patch(0),
-			dbx.Node_Hash(""),
-			dbx.Node_Timestamp(time.Time{}),
-			dbx.Node_Release(false),
-			dbx.Node_Latency90(0),
-			dbx.Node_AuditSuccessCount(0),
-			dbx.Node_TotalAuditCount(0),
-			dbx.Node_UptimeSuccessCount(0),
-			dbx.Node_TotalUptimeCount(0),
-			dbx.Node_LastContactSuccess(time.Now()),
-			dbx.Node_LastContactFailure(time.Time{}),
-			dbx.Node_Contained(false),
-			dbx.Node_AuditReputationAlpha(defaults.AuditReputationAlpha0),
-			dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
-			dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
-			dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
-			dbx.Node_Create_Fields{
-				Disqualified: dbx.Node_Disqualified_Null(),
-			},
-		)
+		_, err = addCreateNodeToTx(ctx, tx, info, defaults)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
 	} else {
-		update := dbx.Node_Update_Fields{
-			Address:  dbx.Node_Address(address.Address),
-			LastNet:  dbx.Node_LastNet(info.LastIp),
-			Protocol: dbx.Node_Protocol(int(address.Transport)),
-		}
-
-		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), update)
+		var updateFields dbx.Node_Update_Fields
+		addAddressUpdates(ctx, &updateFields, info)
+		_, err := tx.Update_Node_By_Id(ctx, dbx.Node_Id(info.Id.Bytes()), updateFields)
 		if err != nil {
 			return Error.Wrap(errs.Combine(err, tx.Rollback()))
 		}
@@ -818,6 +817,83 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 	}
 
 	updateFields := dbx.Node_Update_Fields{}
+	addUptimeUpdates(&updateFields, dbNode, isUp, lambda, weight, uptimeDQ)
+
+	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
+	}
+	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
+	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
+	// but for now we're adding a nil check to prevent a panic.
+	if dbNode == nil {
+		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
+	}
+
+	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
+}
+
+func addCreateNodeToTx(ctx context.Context, tx *dbx.Tx, info *pb.Node, defaults overlay.NodeSelectionConfig) (dbNode *dbx.Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	address := info.Address
+	if address == nil {
+		address = &pb.NodeAddress{}
+	}
+
+	return tx.Create_Node(
+		ctx,
+		dbx.Node_Id(info.Id.Bytes()),
+		dbx.Node_Address(address.Address),
+		dbx.Node_LastNet(info.LastIp),
+		dbx.Node_Protocol(int(address.Transport)),
+		dbx.Node_Type(int(pb.NodeType_INVALID)),
+		dbx.Node_Email(""),
+		dbx.Node_Wallet(""),
+		dbx.Node_FreeBandwidth(-1),
+		dbx.Node_FreeDisk(-1),
+		dbx.Node_Major(0),
+		dbx.Node_Minor(0),
+		dbx.Node_Patch(0),
+		dbx.Node_Hash(""),
+		dbx.Node_Timestamp(time.Time{}),
+		dbx.Node_Release(false),
+		dbx.Node_Latency90(0),
+		dbx.Node_AuditSuccessCount(0),
+		dbx.Node_TotalAuditCount(0),
+		dbx.Node_UptimeSuccessCount(0),
+		dbx.Node_TotalUptimeCount(0),
+		dbx.Node_LastContactSuccess(time.Now()),
+		dbx.Node_LastContactFailure(time.Time{}),
+		dbx.Node_Contained(false),
+		dbx.Node_AuditReputationAlpha(defaults.AuditReputationAlpha0),
+		dbx.Node_AuditReputationBeta(defaults.AuditReputationBeta0),
+		dbx.Node_UptimeReputationAlpha(defaults.UptimeReputationAlpha0),
+		dbx.Node_UptimeReputationBeta(defaults.UptimeReputationBeta0),
+		dbx.Node_Create_Fields{
+			Disqualified: dbx.Node_Disqualified_Null(),
+		},
+	)
+}
+
+func addAddressUpdates(ctx context.Context, updateFields *dbx.Node_Update_Fields, info *pb.Node) (err error) {
+	address := info.Address
+	if address == nil {
+		address = &pb.NodeAddress{}
+	}
+
+	updateFields.Address = dbx.Node_Address(address.Address)
+	updateFields.LastNet = dbx.Node_LastNet(info.LastIp)
+	updateFields.Protocol = dbx.Node_Protocol(int(address.Transport))
+	return nil
+}
+
+func addUptimeUpdates(updateFields *dbx.Node_Update_Fields, dbNode *dbx.Node, isUp bool, lambda, weight, uptimeDQ float64) {
+	// If node is nil, instantiate an empty one. The zero-values will work fine.
+	if dbNode == nil {
+		dbNode = &dbx.Node{}
+	}
+
 	uptimeAlpha, uptimeBeta, totalUptimeCount := updateReputation(
 		isUp,
 		dbNode.UptimeReputationAlpha,
@@ -867,19 +943,6 @@ func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID
 			mon.Meter("uptime_not_seen_week").Mark(1)
 		}
 	}
-
-	dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-	if err != nil {
-		return nil, Error.Wrap(errs.Combine(err, tx.Rollback()))
-	}
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.Wrap(errs.Combine(errs.New("unable to get node by ID: %v", nodeID), tx.Rollback()))
-	}
-
-	return getNodeStats(dbNode), Error.Wrap(tx.Commit())
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {

@@ -59,7 +59,9 @@ type DB interface {
 	PaginateQualified(ctx context.Context, offset int64, limit int) ([]*pb.Node, bool, error)
 	// IsVetted returns whether or not the node reaches reputable thresholds
 	IsVetted(ctx context.Context, id storj.NodeID, criteria *NodeCriteria) (bool, error)
-	// Update updates node address
+	// UpdateAddressAndUptime updates node address and uptime in one transaction, minimizing duplicate calls
+	UpdateAddressAndUptime(ctx context.Context, node *pb.Node, isUp bool, defaults NodeSelectionConfig) error
+	// UpdateAddress updates node address
 	UpdateAddress(ctx context.Context, value *pb.Node, defaults NodeSelectionConfig) error
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error)
@@ -306,11 +308,13 @@ func (cache *Cache) Put(ctx context.Context, nodeID storj.NodeID, value pb.Node)
 	if value.Address == nil {
 		return errors.New("node has no address")
 	}
+
 	// Resolve IP Address Network to ensure it is set
 	value.LastIp, err = GetNetwork(ctx, value.Address.Address)
 	if err != nil {
 		return OverlayError.Wrap(err)
 	}
+
 	return cache.db.UpdateAddress(ctx, &value, cache.preferences)
 }
 
@@ -381,16 +385,20 @@ func (cache *Cache) ConnSuccess(ctx context.Context, node *pb.Node) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	err = cache.Put(ctx, node.Id, *node)
-	if err != nil {
-		zap.L().Debug("error updating uptime for node", zap.Error(err))
+	if node.Address == nil {
+		err = errors.New("node has no address")
+		zap.L().Debug("error on ConnSuccess", zap.Error(err))
+		return
 	}
 
-	lambda := cache.preferences.UptimeReputationLambda
-	weight := cache.preferences.UptimeReputationWeight
-	uptimeDQ := cache.preferences.UptimeReputationDQ
+	// Resolve IP Address Network to ensure it is set
+	node.LastIp, err = GetNetwork(ctx, node.Address.Address)
+	if err != nil {
+		zap.L().Debug("error on ConnSuccess", zap.Error(err))
+		return
+	}
 
-	_, err = cache.db.UpdateUptime(ctx, node.Id, true, lambda, weight, uptimeDQ)
+	err = cache.db.UpdateAddressAndUptime(ctx, node, true, cache.preferences)
 	if err != nil {
 		zap.L().Debug("error updating node connection info", zap.Error(err))
 	}

@@ -246,7 +246,7 @@ func TestDistinctIPs(t *testing.T) {
 	})
 }
 
-func TestAddrtoNetwork_Conversion(t *testing.T) {
+func TestAddrtoNetworkConversion(t *testing.T) {
 	ctx := testcontext.New(t)
 
 	ip := "8.8.8.8:28967"

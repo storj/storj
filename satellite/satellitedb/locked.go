@@ -921,6 +921,12 @@ func (m *lockedOverlayCache) SelectStorageNodes(ctx context.Context, count int, 
 	return m.db.SelectStorageNodes(ctx, count, criteria)
 }
 
+func (m *lockedOverlayCache) UpdateAddressAndUptime(ctx context.Context, node *pb.Node, isUp bool, defaults overlay.NodeSelectionConfig) (err error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.UpdateAddressAndUptime(ctx, node, isUp, defaults)
+}
+
 // Update updates node address
 func (m *lockedOverlayCache) UpdateAddress(ctx context.Context, value *pb.Node, defaults overlay.NodeSelectionConfig) error {
 	m.Lock()
