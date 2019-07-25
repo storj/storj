@@ -93,12 +93,36 @@ func Ctx(cmd *cobra.Command) context.Context {
 	return ctx
 }
 
-// Viper returns the appropriate *viper.Viper for the command.
-func Viper(cmd *cobra.Command) *viper.Viper {
+// Viper returns the appropriate *viper.Viper for the command, creating if necessary.
+func Viper(cmd *cobra.Command) (*viper.Viper, error) {
 	commandMtx.Lock()
 	defer commandMtx.Unlock()
 
-	return vipers[cmd]
+	if vip := vipers[cmd]; vip != nil {
+		return vip, nil
+	}
+
+	vip := viper.New()
+	if err := vip.BindPFlags(cmd.Flags()); err != nil {
+		return nil, err
+	}
+	vip.SetEnvPrefix("storj")
+	vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	vip.AutomaticEnv()
+
+	cfgFlag := cmd.Flags().Lookup("config-dir")
+	if cfgFlag != nil && cfgFlag.Value.String() != "" {
+		path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
+		if cmd.Annotations["type"] != "setup" || fileExists(path) {
+			vip.SetConfigFile(path)
+			if err := vip.ReadInConfig(); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	vipers[cmd] = vip
+	return vip, nil
 }
 
 var traceOut = flag.String("debug.trace-out", "", "If set, a path to write a process trace SVG to")
@@ -119,30 +143,13 @@ func cleanup(cmd *cobra.Command) {
 		ctx := context.Background()
 		defer mon.TaskNamed("root")(&ctx)(&err)
 
-		vip := viper.New()
-		err = vip.BindPFlags(cmd.Flags())
+		vip, err := Viper(cmd)
 		if err != nil {
 			return err
-		}
-		vip.SetEnvPrefix("storj")
-		vip.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
-		vip.AutomaticEnv()
-
-		cfgFlag := cmd.Flags().Lookup("config-dir")
-		if cfgFlag != nil && cfgFlag.Value.String() != "" {
-			path := filepath.Join(os.ExpandEnv(cfgFlag.Value.String()), DefaultCfgFilename)
-			if cmd.Annotations["type"] != "setup" || fileExists(path) {
-				vip.SetConfigFile(path)
-				err = vip.ReadInConfig()
-				if err != nil {
-					return err
-				}
-			}
 		}
 
 		commandMtx.Lock()
 		configValues := configs[cmd]
-		vipers[cmd] = vip
 		commandMtx.Unlock()
 
 		var (

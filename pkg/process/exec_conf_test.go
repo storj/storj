@@ -72,11 +72,5 @@ func TestHidden(t *testing.T) {
 
 	actualConfigFile, err := ioutil.ReadFile(testConfigFile)
 	require.NoError(t, err)
-
-	expectedConfigW := "# w: 0"
-	expectedConfigZ := "# z: 1"
-	require.Contains(t, string(actualConfigFile), expectedConfigW)
-	require.Contains(t, string(actualConfigFile), expectedConfigZ)
-	require.NotContains(t, string(actualConfigFile), "# y: ")
-	require.NotContains(t, string(actualConfigFile), "# x: ")
+	require.Equal(t, "", string(actualConfigFile))
 }

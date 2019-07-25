@@ -20,9 +20,9 @@ import (
 // outfile with specific values specified in 'overrides' overridden.
 func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interface{}) error {
 	flags := cmd.Flags()
-	vip := Viper(cmd)
-	if vip == nil {
-		return errs.New("no viper for command")
+	vip, err := Viper(cmd)
+	if err != nil {
+		return errs.Wrap(err)
 	}
 
 	// merge in the overrides and grab the settings.
@@ -69,10 +69,12 @@ func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interfa
 	}
 	filterSettings("", settings)
 
-	// marshal in yaml and write the file
-	data, err := yaml.Marshal(settings)
-	if err != nil {
-		return errs.Wrap(err)
+	var data []byte
+	if len(settings) > 0 {
+		data, err = yaml.Marshal(settings)
+		if err != nil {
+			return errs.Wrap(err)
+		}
 	}
 	return errs.Wrap(atomicWrite(outfile, 0600, data))
 }
