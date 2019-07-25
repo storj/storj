@@ -123,7 +123,7 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
 	for _, piece := range pieces {
 		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
-		if _, ok := lostPiecesSet[piece.GetPieceNum()]; !ok {
+		if !lostPiecesSet[piece.GetPieceNum()] {
 			healthyPieces = append(healthyPieces, piece)
 			healthyMap[piece.GetPieceNum()] = true
 		} else {
@@ -186,24 +186,27 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 		return Error.Wrap(err)
 	}
 
-	// Add the successfully uploaded pieces to the healthyPieces
+	// Add the successfully uploaded pieces to repairedPieces
+	var repairedPieces []*pb.RemotePiece
+	repairedMap := make(map[int32]bool)
 	for i, node := range successfulNodes {
 		if node == nil {
 			continue
 		}
-		healthyPieces = append(healthyPieces, &pb.RemotePiece{
+		piece := pb.RemotePiece{
 			PieceNum: int32(i),
 			NodeId:   node.Id,
 			Hash:     hashes[i],
-		})
-		healthyMap[int32(i)] = true
+		}
+		repairedPieces = append(repairedPieces, &piece)
+		repairedMap[int32(i)] = true
 	}
 
-	healthyLength := int32(len(healthyPieces))
+	healthyAfterRepair := int32(len(healthyPieces) + len(repairedPieces))
 	switch {
-	case healthyLength <= pointer.Remote.Redundancy.RepairThreshold:
+	case healthyAfterRepair <= pointer.Remote.Redundancy.RepairThreshold:
 		mon.Meter("repair_failed").Mark(1)
-	case healthyLength < pointer.Remote.Redundancy.SuccessThreshold:
+	case healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold:
 		mon.Meter("repair_partial").Mark(1)
 	default:
 		mon.Meter("repair_success").Mark(1)
@@ -211,32 +214,35 @@ func (repairer *Repairer) Repair(ctx context.Context, path storj.Path) (err erro
 
 	healthyRatioAfterRepair := 0.0
 	if pointer.Remote.Redundancy.Total != 0 {
-		healthyRatioAfterRepair = float64(healthyLength) / float64(pointer.Remote.Redundancy.Total)
+		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(pointer.Remote.Redundancy.Total)
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair)
 
-	// if partial repair, include "unhealthy" pieces that are not duplicates
-	revisedPointerPieces := healthyPieces
-	if healthyLength < pointer.Remote.Redundancy.SuccessThreshold {
-		for _, p := range unhealthyPieces {
-			if _, ok := healthyMap[p.GetPieceNum()]; !ok {
-				revisedPointerPieces = append(revisedPointerPieces, p)
+	var toRemove []*pb.RemotePiece
+	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
+		// if full repair, remove all unhealthy pieces
+		toRemove = unhealthyPieces
+	} else {
+		// if partial repair, leave unrepaired unhealthy pieces in the pointer
+		for _, piece := range unhealthyPieces {
+			if repairedMap[piece.GetPieceNum()] {
+				// add only repaired pieces in the slice, unrepaired
+				// unhealthy pieces are not removed from the pointer
+				toRemove = append(toRemove, piece)
 			}
 		}
 	}
 
-	// Update the remote pieces in the pointer
-	pointer.GetRemote().RemotePieces = revisedPointerPieces
-
 	// Update the segment pointer in the metainfo
-	return Error.Wrap(repairer.metainfo.Put(ctx, path, pointer))
+	_, err = repairer.metainfo.UpdatePieces(ctx, path, pointer, repairedPieces, toRemove)
+	return err
 }
 
 // sliceToSet converts the given slice to a set
-func sliceToSet(slice []int32) map[int32]struct{} {
-	set := make(map[int32]struct{}, len(slice))
+func sliceToSet(slice []int32) map[int32]bool {
+	set := make(map[int32]bool, len(slice))
 	for _, value := range slice {
-		set[value] = struct{}{}
+		set[value] = true
 	}
 	return set
 }

@@ -136,7 +136,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 
-		// make the  pointer repairable
+		// make the pointer repairable
 		pointer = &pb.Pointer{
 			CreationDate: time.Now(),
 			Remote: &pb.RemoteSegment{
@@ -150,8 +150,9 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 				RemotePieces: pieces,
 			},
 		}
-		// put test pointer to db
-		metainfo = planet.Satellites[0].Metainfo.Service
+		// update test pointer in db
+		err = metainfo.Delete(ctx, "fake-piece-id")
+		require.NoError(t, err)
 		err = metainfo.Put(ctx, "fake-piece-id", pointer)
 		require.NoError(t, err)
 
