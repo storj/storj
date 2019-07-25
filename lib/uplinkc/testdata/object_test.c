@@ -162,6 +162,8 @@ void handle_project(ProjectRef project) {
             require_noerror(*err);
             require(objects_list.items);
             require(objects_list.length == num_of_objects - i - 1);
+
+            free_list_objects(&objects_list);
         }
     }
 
