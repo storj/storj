@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/internal/memory"
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
@@ -24,10 +25,10 @@ func BenchmarkReadWrite(b *testing.B) {
 
 	dir, err := filestore.NewDir(ctx.Dir("pieces"))
 	require.NoError(b, err)
-	blobs := filestore.New(dir)
+	blobs := filestore.New(dir, zap.NewNop())
 	defer ctx.Check(blobs.Close)
 
-	store := pieces.NewStore(zap.NewNop(), blobs)
+	store := pieces.NewStore(zap.NewNop(), blobs, nil, nil)
 
 	// setup test parameters
 	const blockSize = int(256 * memory.KiB)
@@ -51,7 +52,7 @@ func BenchmarkReadWrite(b *testing.B) {
 				data = data[n:]
 			}
 
-			require.NoError(b, writer.Commit(ctx))
+			require.NoError(b, writer.Commit(ctx, &pb.PieceHeader{}))
 		}
 	})
 
@@ -61,7 +62,7 @@ func BenchmarkReadWrite(b *testing.B) {
 		require.NoError(b, err)
 		_, err = writer.Write(source)
 		require.NoError(b, err)
-		require.NoError(b, writer.Commit(ctx))
+		require.NoError(b, writer.Commit(ctx, &pb.PieceHeader{}))
 	}
 
 	b.Run("Read", func(b *testing.B) {

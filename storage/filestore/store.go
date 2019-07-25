@@ -115,26 +115,26 @@ func (store *Store) Create(ctx context.Context, ref storage.BlobRef, size int64)
 	return newBlobWriter(ref, store, file), nil
 }
 
-// SpaceUsed adds up the space used in all namespaces
+// SpaceUsed adds up the space used in all namespaces for blob storage
 func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var totalSpaceUsed int64
 	namespaces, err := store.GetAllNamespaces(ctx)
 	if err != nil {
-		return 0, err
+		return 0, Error.New("failed to enumerate namespaces: %v", err)
 	}
 	for _, namespace := range namespaces {
 		used, err := store.SpaceUsedInNamespace(ctx, namespace)
 		if err != nil {
-			return 0, err
+			return 0, Error.New("failed to sum space used: %v", err)
 		}
 		totalSpaceUsed += used
 	}
 	return totalSpaceUsed, nil
 }
 
-// SpaceUsedInNamespace adds up how much is used in the given namespace
+// SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
 func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
 	err := store.ForAllV1KeysInNamespace(ctx, namespace, time.Now(), func(access storage.StoredBlobAccess) error {

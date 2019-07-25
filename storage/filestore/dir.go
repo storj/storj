@@ -350,8 +350,11 @@ func (dir *Dir) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) 
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
 	for {
 		dirNames, err := openDir.Readdirnames(nameBatchSize)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return nil, err
+		}
+		if len(dirNames) == 0 {
+			return ids, nil
 		}
 		for _, name := range dirNames {
 			namespace, err := pathEncoding.DecodeString(name)
@@ -361,9 +364,6 @@ func (dir *Dir) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) 
 				continue
 			}
 			ids = append(ids, namespace)
-		}
-		if err == io.EOF || len(dirNames) == 0 {
-			return ids, nil
 		}
 	}
 }
@@ -382,8 +382,11 @@ func (dir *Dir) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, c
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
 	for {
 		subdirNames, err := openDir.Readdirnames(nameBatchSize)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return err
+		}
+		if len(subdirNames) == 0 {
+			return nil
 		}
 		for _, keyPrefix := range subdirNames {
 			if len(keyPrefix) != 2 {
@@ -395,9 +398,6 @@ func (dir *Dir) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, c
 			if err != nil {
 				return err
 			}
-		}
-		if err == io.EOF || len(subdirNames) == 0 {
-			return nil
 		}
 	}
 }
@@ -411,8 +411,11 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 	defer func() { err = errs.Combine(err, openDir.Close()) }()
 	for {
 		keyInfos, err := openDir.Readdir(nameBatchSize)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return err
+		}
+		if len(keyInfos) == 0 {
+			return nil
 		}
 		for _, keyInfo := range keyInfos {
 			if keyInfo.Mode().IsDir() {
@@ -437,9 +440,6 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 			if err != nil {
 				return err
 			}
-		}
-		if err == io.EOF || len(keyInfos) == 0 {
-			return nil
 		}
 	}
 }

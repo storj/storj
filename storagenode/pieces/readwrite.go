@@ -27,7 +27,7 @@ const (
 	//    size before writing)
 	//
 	// If more space than this is needed, we will need to use a new storage format version.
-	V1PieceHeaderSize = 128
+	V1PieceHeaderSize = 512
 )
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.

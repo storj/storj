@@ -4,6 +4,7 @@
 package gc_test
 
 import (
+	"storj.io/storj/storage"
 	"testing"
 	"time"
 
@@ -76,9 +77,12 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
-		pieceInfo, err := targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
+		pieceAccess, err := targetNode.DB.Pieces().Lookup(ctx, storage.BlobRef{
+			Namespace: satellite.ID().Bytes(),
+			Key:       deletedPieceID.Bytes(),
+		})
 		require.NoError(t, err)
-		require.NotNil(t, pieceInfo)
+		require.NotNil(t, pieceAccess)
 
 		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
 		// to datetime in sql. This chops off all precision beyond seconds.
@@ -91,14 +95,20 @@ func TestGarbageCollection(t *testing.T) {
 		gcService.Loop.TriggerWait()
 
 		// Check that piece of the deleted object is not on the storagenode
-		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), deletedPieceID)
+		pieceAccess, err = targetNode.DB.Pieces().Lookup(ctx, storage.BlobRef{
+			Namespace: satellite.ID().Bytes(),
+			Key:       deletedPieceID.Bytes(),
+		})
 		require.Error(t, err)
-		require.Nil(t, pieceInfo)
+		require.Nil(t, pieceAccess)
 
 		// Check that piece of the kept object is on the storagenode
-		pieceInfo, err = targetNode.DB.PieceInfo().Get(ctx, satellite.ID(), keptPieceID)
+		pieceAccess, err = targetNode.DB.Pieces().Lookup(ctx, storage.BlobRef{
+			Namespace: satellite.ID().Bytes(),
+			Key:       keptPieceID.Bytes(),
+		})
 		require.NoError(t, err)
-		require.NotNil(t, pieceInfo)
+		require.NotNil(t, pieceAccess)
 	})
 }
 

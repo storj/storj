@@ -63,9 +63,9 @@ type PieceExpirationDB interface {
 	DeleteFailed(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID, failedAt time.Time) error
 }
 
-// V0PieceInfoDB stores meta information about pieces stored with storage format V0 pieces.
-// Meta information about other pieces, as well as the actual pieces, are stored behind
-// something providing the storage.Blobs interface.
+// V0PieceInfoDB stores meta information about pieces stored with storage format V0 (where
+// metadata goes in the "pieceinfo" table in the storagenodedb). The actual pieces are stored
+// behind something providing the storage.Blobs interface.
 type V0PieceInfoDB interface {
 	// Get returns Info about a piece.
 	Get(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (*Info, error)
@@ -173,7 +173,7 @@ func (store *Store) readerLocated(ctx context.Context, pieceAccess StoredPieceAc
 		return nil, Error.Wrap(err)
 	}
 
-	reader, err := NewReader(blob, readBufferSize.Int())
+	reader, err := NewReader(blob)
 	return reader, Error.Wrap(err)
 }
 
@@ -263,10 +263,26 @@ func (store *Store) SpaceUsed(ctx context.Context) (int64, error) {
 	return store.blobs.SpaceUsed(ctx)
 }
 
-// SpaceUsedBySatellite calculates disk space used by all local pieces in the given
-// satellite's namespace
+// SpaceUsedBySatellite calculates disk space used for local piece storage in the given
+// satellite's namespace. Important note: this metric does not include space used by
+// piece headers, whereas storj/filestore/store.(*Store).SpaceUsedInNamespace() does
+// include all space used by the blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
-	return store.blobs.SpaceUsedInNamespace(ctx, satelliteID.Bytes())
+	var totalUsed int64
+	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, time.Now(), func(access StoredPieceAccess) error {
+		contentSize, statErr := access.ContentSize(ctx)
+		if statErr != nil {
+			store.log.Sugar().Errorf("failed to stat: %v", statErr)
+			// keep iterating; we want a best effort total here.
+			return nil
+		}
+		totalUsed += contentSize
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+	return totalUsed, nil
 }
 
 // StorageStatus contains information about the disk store is using.
@@ -329,8 +345,8 @@ func (access storedPieceAccess) ContentSize(ctx context.Context) (int64, error) 
 	return size, nil
 }
 
-// CreationTime returns the piece creation time as given in the original order (which is not
-// necessarily the same as the file mtime).
+// CreationTime returns the piece creation time as given in the original PieceHash from
+// the uplink (which is not necessarily the same as the file mtime).
 func (access storedPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
 	reader, err := access.store.readerLocated(ctx, access)
 	if err != nil {
