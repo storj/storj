@@ -202,9 +202,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 			return nil, err
 		}
 		customerID = cus.ID
-	}
-
-	if userPayments != nil {
+	} else {
 		customerID = userPayments.CustomerID
 	}
 
@@ -281,9 +279,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 			return nil, err
 		}
 		customerID = cus.ID
-	}
-
-	if userPayments != nil {
+	} else {
 		customerID = userPayments.CustomerID
 	}
 
