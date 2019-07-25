@@ -3,6 +3,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "require.h"
 #include "uplink.h"
@@ -48,9 +49,7 @@ void handle_project(ProjectRef project) {
 
 
     for(int i = 0; i < num_of_objects; i++) {
-//        size_t data_len = 1024 * (i + 1) * (i + 1);
-        size_t data_len = 800 * 1024;
-//        size_t data_len = 1024 * 1024;
+        size_t data_len = pow(10, (double)i) * 1024 * 5;
         uint8_t *data = malloc(data_len);
         fill_random_data(data, data_len);
 

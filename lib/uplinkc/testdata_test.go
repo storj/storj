@@ -47,7 +47,7 @@ func TestC(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -67,9 +67,13 @@ func TestC(t *testing.T) {
 				t.Parallel()
 
 				testexe := ctx.CompileC(t, testcontext.CompileCOptions{
-					Dest:     testName,
-					Sources:  []string{ctest},
-					Includes: []testcontext.Include{libuplink, definition},
+					Dest:    testName,
+					Sources: []string{ctest},
+					Includes: []testcontext.Include{
+						libuplink_include,
+						definition,
+						testcontext.CLibMath,
+					},
 				})
 
 				RunPlanet(t, func(ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -97,7 +101,7 @@ func TestLibstorj(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
 
-	libuplink_include := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
+	libuplinkInclude := ctx.CompileShared(t, "uplink", "storj.io/storj/lib/uplinkc")
 
 	currentdir, err := os.Getwd()
 	require.NoError(t, err)
@@ -106,29 +110,30 @@ func TestLibstorj(t *testing.T) {
 		Header: filepath.Join(currentdir, "uplink_definitions.h"),
 	}
 
-	var libstorjIncludes []testcontext.Include
-
 	srcFiles := []string{
-		"downloader.c",
 		"storj.c",
+		"downloader.c",
 		"uploader.c",
+		"crypto.c",
+		"utils.c",
 	}
 	for i, base := range srcFiles {
 		srcFiles[i] = filepath.Join(currentdir, "..", "libstorj", "src", base)
 	}
 
-	testFile := filepath.Join(currentdir, "..", "libstorj", "test", "tests.c")
-
-	includes := append([]testcontext.Include{
-		libuplink_include,
+	includes := []testcontext.Include{
+		libuplinkInclude,
 		definition,
 		testcontext.CLibJSON,
 		testcontext.CLibUV,
-	}, libstorjIncludes...)
+		testcontext.CLibNettle,
+		testcontext.CLibMath,
+	}
 
+	testSrc := filepath.Join(currentdir, "..", "libstorj", "test", "tests.c")
 	testexe := ctx.CompileC(t, testcontext.CompileCOptions{
 		Dest:     "libstorj",
-		Sources:  append(srcFiles, testFile),
+		Sources:  append(srcFiles, testSrc),
 		Includes: includes,
 		NoWarn:   true,
 	})
@@ -142,7 +147,7 @@ func TestLibstorj(t *testing.T) {
 		cmd.Env = append(os.Environ(),
 			"SATELLITE_0_ADDR="+planet.Satellites[0].Addr(),
 			"GATEWAY_0_API_KEY="+planet.Uplinks[0].APIKey[planet.Satellites[0].ID()],
-			"TMPDIR="+filepath.Dir(libuplink_include.Library),
+			"TMPDIR="+filepath.Dir(libuplinkInclude.Library),
 		)
 
 		out, err := cmd.CombinedOutput()
