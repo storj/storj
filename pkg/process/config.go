@@ -5,7 +5,6 @@ package process
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -54,17 +53,14 @@ func SaveConfig(cmd *cobra.Command, outfile string, overrides map[string]interfa
 			} else if f := flag.Lookup(fullKey); f != nil {
 				changed = f.Value.String() != f.DefValue
 			} else {
-				fmt.Println("+", fullKey, "skipped")
 				continue
 			}
 
 			// in any of these cases, don't store the key in the file
 			if setup || hidden || (!user && !changed && !overrideExists) {
-				fmt.Println("-", fullKey, setup, hidden, user, changed, overrideExists)
 				delete(settings, key)
 				continue
 			}
-			fmt.Println("+", fullKey, "valid")
 		}
 	}
 	filterSettings("", settings)
