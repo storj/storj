@@ -51,4 +51,116 @@
             margin-top: 20px;
         }
     }
+
+    @media screen and (max-height: 1280px) {
+        .payment-methods-container {
+            height: 1000px;
+            overflow-y: scroll;
+
+            &::-webkit-scrollbar,
+            &::-webkit-scrollbar-track,
+            &::-webkit-scrollbar-thumb {
+                 visibility: hidden;
+            }
+        }
+    }
+
+    @media screen and (max-height: 1240px) {
+        .payment-methods-container {
+            height: 960px;
+            overflow-y: scroll;
+        }
+    }
+
+
+    @media screen and (max-height: 1200px) {
+        .payment-methods-container {
+            height: 920px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 1160px) {
+        .payment-methods-container {
+            height: 880px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 1120px) {
+        .payment-methods-container {
+            height: 840px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 1080px) {
+        .payment-methods-container {
+            height: 800px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 1040px) {
+        .payment-methods-container {
+            height: 740px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 1000px) {
+        .payment-methods-container {
+            height: 700px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 960px) {
+        .payment-methods-container {
+            height: 660px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 920px) {
+        .payment-methods-container {
+            height: 620px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 880px) {
+        .payment-methods-container {
+            height: 580px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 840px) {
+        .payment-methods-container {
+            height: 540px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 800px) {
+        .payment-methods-container {
+            height: 500px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 760px) {
+        .payment-methods-container {
+            height: 460px;
+            overflow-y: scroll;
+        }
+    }
+
+    @media screen and (max-height: 720px) {
+        .payment-methods-container {
+            height: 420px;
+            overflow-y: scroll;
+        }
+    }
 </style>

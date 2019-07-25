@@ -216,7 +216,7 @@
             fill: #2683FF;
         }
     }
-    
+
     .StripeElement {
         box-sizing: border-box;
 
