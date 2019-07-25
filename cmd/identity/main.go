@@ -148,7 +148,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
