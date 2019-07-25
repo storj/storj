@@ -189,7 +189,7 @@ export async function attachUserPaymentMethod(paymentMethodID: string, projectID
         {
             mutation: gql(`
                 mutation {
-                    setDefaultPaymentMethod(
+                    attachPaymentMethod(
                         projectID: "${projectID}",
                         id: "${paymentMethodID}"
                     )

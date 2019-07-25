@@ -4,7 +4,6 @@
 package consoleql
 
 import (
-	"encoding/base64"
 	"time"
 
 	"github.com/graphql-go/graphql"
@@ -577,17 +576,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					fieldProjectID, _ := p.Args[FieldProjectID].(string)
 					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
 
-					decodedPaymentID, err := base64.URLEncoding.DecodeString(fieldProjectPaymentID)
-					if err != nil {
-						return false, err
-					}
-
 					projectID, err := uuid.Parse(fieldProjectID)
 					if err != nil {
 						return false, err
 					}
 
-					err = service.AttachPaymentMethodToProject(p.Context, decodedPaymentID, *projectID)
+					err = service.AttachPaymentMethodToProject(p.Context, []byte(fieldProjectPaymentID), *projectID)
 
 					return err == nil, err
 				},
