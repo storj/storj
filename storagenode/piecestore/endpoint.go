@@ -73,8 +73,8 @@ const (
 	DISABLED RetainStatus = iota
 	// ENABLED means we fully enable retain requests and delete data not defined by bloom filter
 	ENABLED
-	// TESTING means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
-	TESTING
+	// DEBUG means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
+	DEBUG
 )
 
 // Set implements pflag.Value
@@ -84,8 +84,8 @@ func (v *RetainStatus) Set(s string) error {
 		*v = DISABLED
 	case "enabled":
 		*v = ENABLED
-	case "testing":
-		*v = TESTING
+	case "debug":
+		*v = DEBUG
 	default:
 		return Error.New("invalid option %q", s)
 	}
@@ -102,8 +102,8 @@ func (v *RetainStatus) String() string {
 		return "disabled"
 	case ENABLED:
 		return "enabled"
-	case TESTING:
-		return "testing"
+	case DEBUG:
+		return "debug"
 	default:
 		return "invalid"
 	}
@@ -587,7 +587,10 @@ func (endpoint *Endpoint) SaveOrder(ctx context.Context, limit *pb.OrderLimit, o
 func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainRequest) (res *pb.RetainResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO if gc is disabled, quit immediately
+	// if retain status is disabled, quit immediately
+	if endpoint.config.RetainStatus == DISABLED {
+		return &pb.RetainResponse{}, nil
+	}
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -619,22 +622,25 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		}
 		for _, pieceID := range pieceIDs {
 			if !filter.Contains(pieceID) {
-				// TODO if gc is set to debug, print out pieceid to delete
-				// TODO if gc is set to on, delete pieceid
-				if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
-					// continue because if we fail to delete from file system,
-					// we need to keep the pieceinfo so we can delete next time
-					continue
+				endpoint.log.Sugar().Debugf("About to delete piece id (%s) from satellite (%s). RetainStatus: %s", pieceID.String(), peer.ID.String(), endpoint.config.RetainStatus.String())
+
+				// if retain status is enabled, delete pieceid
+				if endpoint.config.RetainStatus == ENABLED {
+					if err = endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
+						endpoint.log.Error("failed to delete a piece", zap.Error(Error.Wrap(err)))
+						// continue because if we fail to delete from file system,
+						// we need to keep the pieceinfo so we can delete next time
+						continue
+					}
+					if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
+						endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
+					}
 				}
-				if err = endpoint.pieceinfo.Delete(ctx, peer.ID, pieceID); err != nil {
-					endpoint.log.Error("failed to delete piece info", zap.Error(Error.Wrap(err)))
-				}
+
 				numDeleted++
 			}
 		}
 
-		// TODO print out number of deleted pieces
 		hasMorePieces = (len(pieceIDs) == limit)
 		offset += len(pieceIDs)
 		offset -= numDeleted
@@ -642,6 +648,9 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		// so other goroutines can continue serving requests.
 		runtime.Gosched()
 	}
+
+	endpoint.log.Sugar().Debugf("Deleted %d pieces during retain. RetainStatus: %s", numDeleted, endpoint.config.RetainStatus.String())
+
 	return &pb.RetainResponse{}, nil
 }
 
