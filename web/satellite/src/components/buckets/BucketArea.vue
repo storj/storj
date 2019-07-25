@@ -3,12 +3,13 @@
 
 <template>
     <div>
-        <div class="buckets-overflow" v-if="pages !== 0">
+        <NoBucketArea v-if="!totalCountOfBuckets && !search" />
+        <div class="buckets-overflow" v-else>
             <div class="buckets-header">
                 <p>Buckets</p>
                 <SearchArea/>
             </div>
-            <div v-if="buckets.length > 0" class="buckets-container">
+            <div v-if="buckets.length" class="buckets-container">
                 <table>
                     <SortingHeader />
                     <BucketItem v-for="(bucket, index) in buckets" v-bind:bucket="bucket" v-bind:key="index" />
@@ -17,56 +18,57 @@
             </div>
             <EmptyState
                 class="empty-container"
-                v-if="pages === 0 && search && search.length > 0"
+                v-if="!pages && search"
                 mainTitle="Nothing found :("
                 :imageSource="emptyImage" />
         </div>
-        <NoBucketArea v-if="pages === 0 && !search" />
     </div>
 </template>
 
 <script lang="ts">
-	import { Component, Vue } from 'vue-property-decorator';
-	import EmptyState from '@/components/common/EmptyStateArea.vue';
-	import SearchArea from '@/components/buckets/SearchArea.vue';
-	import BucketItem from '@/components/buckets/BucketItem.vue';
-	import PaginationArea from '@/components/buckets/PaginationArea.vue';
-	import SortingHeader from '@/components/buckets/SortingHeader.vue';
-	import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
-	import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
+    import { Component, Vue } from 'vue-property-decorator';
+    import EmptyState from '@/components/common/EmptyStateArea.vue';
+    import SearchArea from '@/components/buckets/SearchArea.vue';
+    import BucketItem from '@/components/buckets/BucketItem.vue';
+    import PaginationArea from '@/components/buckets/PaginationArea.vue';
+    import SortingHeader from '@/components/buckets/SortingHeader.vue';
+    import NoBucketArea from '@/components/buckets/NoBucketsArea.vue';
+    import { EMPTY_STATE_IMAGES } from '@/utils/constants/emptyStatesImages';
     import { BUCKET_USAGE_ACTIONS } from '@/utils/constants/actionNames';
 
-	@Component({
-        mounted: function() {
-            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1)
-        },
-		data: function () {
-			return {
-				emptyImage: EMPTY_STATE_IMAGES.API_KEY
-			};
-		},
-		components: {
-			EmptyState,
-			SearchArea,
-			SortingHeader,
-			BucketItem,
-			PaginationArea,
-			NoBucketArea,
-		},
-		computed: {
-			buckets: function (): BucketUsage[] {
-				return this.$store.state.bucketUsageModule.page.bucketUsages;
-			},
-			pages: function (): number {
-				return this.$store.state.bucketUsageModule.page.pageCount;
-			},
-			search: function (): string {
-				return this.$store.state.bucketUsageModule.cursor.search;
-			}
-		}
-	})
+    @Component({
+        components: {
+            EmptyState,
+            SearchArea,
+            SortingHeader,
+            BucketItem,
+            PaginationArea,
+            NoBucketArea,
+        }
+    })
+    export default class BucketArea extends Vue {
+        public emptyImage: string = EMPTY_STATE_IMAGES.API_KEY;
 
-	export default class BucketArea extends Vue {}
+        public mounted(): void {
+            this.$store.dispatch(BUCKET_USAGE_ACTIONS.FETCH, 1);
+        }
+
+        public get totalCountOfBuckets(): number {
+            return this.$store.state.bucketUsageModule.totalCount;
+        }
+
+        public get buckets(): BucketUsage[] {
+            return this.$store.state.bucketUsageModule.page.bucketUsages;
+        }
+        
+        public get pages(): number {
+            return this.$store.state.bucketUsageModule.page.pageCount;
+        }
+        
+        public get search(): string {
+            return this.$store.state.bucketUsageModule.cursor.search;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

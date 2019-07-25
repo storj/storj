@@ -3,7 +3,7 @@
 
 <template>
     <div id="notificationArea" class="notification-container" v-if="currentNotification" >
-        <Notification :type="currentNotification.type" :message="currentNotification.message" />
+        <Notification :notification="currentNotification" />
     </div>
 </template>
 
@@ -12,18 +12,15 @@
     import Notification from '@/components/notifications/Notification.vue';
 
     @Component({
-        computed: {
-            // Computed value for current notification depends on store.state value
-            currentNotification: function (): Notification {
-                return this.$store.getters.currentNotification;
-            }
-        },
         components: {
             Notification,
         }
     })
-
-    export default class NotificationArea extends Vue {}
+    export default class NotificationArea extends Vue {
+        public get currentNotification(): Notification {
+            return this.$store.getters.currentNotification;
+        }
+    }
 </script>
 
 <style scoped lang="scss">

@@ -51,7 +51,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		}
 
 		var db storagenode.DB
-		db, err = storagenodedb.NewInMemory(log.Named("db"), storageDir)
+		db, err = storagenodedb.NewTest(log.Named("db"), storageDir)
 		if err != nil {
 			return nil, err
 		}

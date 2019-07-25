@@ -28,6 +28,14 @@ func (db *DB) Buckets() metainfo.BucketsDB {
 // CreateBucket creates a new bucket
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	partnerID := dbx.BucketMetainfo_Create_Fields{}
+	if !bucket.PartnerID.IsZero() {
+		partnerID = dbx.BucketMetainfo_Create_Fields{
+			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
+		}
+	}
+
 	row, err := db.db.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
 		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
@@ -42,9 +50,7 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ s
 		dbx.BucketMetainfo_DefaultRedundancyRepairShares(int(bucket.DefaultRedundancyScheme.RepairShares)),
 		dbx.BucketMetainfo_DefaultRedundancyOptimalShares(int(bucket.DefaultRedundancyScheme.OptimalShares)),
 		dbx.BucketMetainfo_DefaultRedundancyTotalShares(int(bucket.DefaultRedundancyScheme.TotalShares)),
-		dbx.BucketMetainfo_Create_Fields{
-			PartnerId: dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:]),
-		},
+		partnerID,
 	)
 	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
@@ -68,6 +74,24 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 		if err == sql.ErrNoRows {
 			return storj.Bucket{}, storj.ErrBucketNotFound.Wrap(err)
 		}
+		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
+	}
+	return convertDBXtoBucket(dbxBucket)
+}
+
+// UpdateBucket upates a bucket
+func (db *bucketsDB) UpdateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if bucket.PartnerID.IsZero() {
+		return storj.Bucket{}, Error.New("partnerId is zero")
+	}
+
+	var updateFields dbx.BucketMetainfo_Update_Fields
+	updateFields.PartnerId = dbx.BucketMetainfo_PartnerId(bucket.PartnerID[:])
+
+	dbxBucket, err := db.db.Update_BucketMetainfo_By_ProjectId_And_Name(ctx, dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]), dbx.BucketMetainfo_Name([]byte(bucket.Name)), updateFields)
+	if err != nil {
 		return storj.Bucket{}, storj.ErrBucket.Wrap(err)
 	}
 	return convertDBXtoBucket(dbxBucket)
@@ -166,13 +190,14 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err error) {
 	id, err := bytesToUUID(dbxBucket.Id)
 	if err != nil {
-		return bucket, err
+		return bucket, storj.ErrBucket.Wrap(err)
 	}
 	project, err := bytesToUUID(dbxBucket.ProjectId)
 	if err != nil {
-		return bucket, err
+		return bucket, storj.ErrBucket.Wrap(err)
 	}
-	return storj.Bucket{
+
+	bucket = storj.Bucket{
 		ID:                  id,
 		Name:                string(dbxBucket.Name),
 		ProjectID:           project,
@@ -191,5 +216,15 @@ func convertDBXtoBucket(dbxBucket *dbx.BucketMetainfo) (bucket storj.Bucket, err
 			CipherSuite: storj.CipherSuite(dbxBucket.DefaultEncryptionCipherSuite),
 			BlockSize:   int32(dbxBucket.DefaultEncryptionBlockSize),
 		},
-	}, nil
+	}
+
+	if dbxBucket.PartnerId != nil {
+		partnerID, err := bytesToUUID(dbxBucket.PartnerId)
+		if err != nil {
+			return bucket, storj.ErrBucket.Wrap(err)
+		}
+		bucket.PartnerID = partnerID
+	}
+
+	return bucket, nil
 }

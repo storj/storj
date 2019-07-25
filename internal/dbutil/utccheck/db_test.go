@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenodedb
+package utccheck_test
 
 import (
 	"context"
@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/internal/dbutil/utccheck"
 )
 
 func TestUTCDB(t *testing.T) {
 	notUTC := time.FixedZone("not utc", -1)
-	db := utcDB{sql.OpenDB(emptyConnector{})}
+	db := utccheck.New(sql.OpenDB(emptyConnector{}))
 
 	{ // time.Time not in UTC
 		_, err := db.Exec("", time.Now().In(notUTC))

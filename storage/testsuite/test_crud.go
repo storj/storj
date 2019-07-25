@@ -70,9 +70,9 @@ func testCRUD(t *testing.T, store storage.KeyValueStore) {
 	t.Run("Update", func(t *testing.T) {
 		for i, item := range items {
 			next := items[(i+1)%len(items)]
-			err := store.Put(ctx, item.Key, next.Value)
+			err := store.CompareAndSwap(ctx, item.Key, item.Value, next.Value)
 			if err != nil {
-				t.Fatalf("failed to update %q = %v: %v", item.Key, next.Value, err)
+				t.Fatalf("failed to update %q: %v -> %v: %v", item.Key, item.Value, next.Value, err)
 			}
 		}
 

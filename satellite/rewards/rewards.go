@@ -58,7 +58,7 @@ const (
 	FreeCredit = OfferType(1)
 	// Referral is a type of offers used for Referral Program
 	Referral = OfferType(2)
-	// Partner is an OfferType used be the Open Source Partner Program
+	// Partner is a type of offers used for Open Source Partner Program
 	Partner = OfferType(3)
 )
 

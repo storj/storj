@@ -2,76 +2,46 @@
 // See LICENSE for copying information.
 
 <template>
-    <div :style="configuration.style" class="notification-wrap" @mouseover="onMouseOver" @mouseleave="onMouseLeave" >
+    <div :style="notification.style" class="notification-wrap" @mouseover="onMouseOver" @mouseleave="onMouseLeave" >
         <div class="notification-wrap__text">
-            <div v-html="configuration.imageSource"></div>
-            <p>{{message}}</p>
+            <div v-html="notification.imgSource"></div>
+            <p>{{notification.message}}</p>
         </div>
         <div class="notification-wrap__buttons-group" v-on:click="onCloseClick">
-            <span class="notification-wrap__buttons-group__close" v-html="configuration.closeImage"></span>
+            <span class="notification-wrap__buttons-group__close">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M23.7071 9.70711C24.0976 9.31658 24.0976 8.68342 23.7071 8.29289C23.3166 7.90237 22.6834 7.90237 22.2929 8.29289L23.7071 9.70711ZM8.29289 22.2929C7.90237 22.6834 7.90237 23.3166 8.29289 23.7071C8.68342 24.0976 9.31658 24.0976 9.70711 23.7071L8.29289 22.2929ZM9.70711 8.29289C9.31658 7.90237 8.68342 7.90237 8.29289 8.29289C7.90237 8.68342 7.90237 9.31658 8.29289 9.70711L9.70711 8.29289ZM22.2929 23.7071C22.6834 24.0976 23.3166 24.0976 23.7071 23.7071C24.0976 23.3166 24.0976 22.6834 23.7071 22.2929L22.2929 23.7071ZM22.2929 8.29289L8.29289 22.2929L9.70711 23.7071L23.7071 9.70711L22.2929 8.29289ZM8.29289 9.70711L22.2929 23.7071L23.7071 22.2929L9.70711 8.29289L8.29289 9.70711Z" fill="#354049"/>
+                </svg>
+            </span>
         </div>
     </div>
 </template>
 
 <script lang="ts">
-    import { Component, Vue } from 'vue-property-decorator';
-    import { NOTIFICATION_IMAGES, NOTIFICATION_TYPES } from '@/utils/constants/notification';
+    import { Component, Prop, Vue } from 'vue-property-decorator';
     import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
+    import { DelayedNotification } from '../../types/DelayedNotification';
 
-    @Component({
-        props: {
-            type: String,
-            message: String,
-        },
-        methods: {
-            // Force delete notification
-            onCloseClick: function (): void {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE);
-            },
-            // Force notification to stay on page on mouse over it
-            onMouseOver: function (): void {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE);
-            },
-            // Resume notification flow when mouse leaves notification
-            onMouseLeave: function (): void {
-                this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME);
-            },
-        },
-        computed: {
-            configuration: function () {
-                let backgroundColor;
-                let imageSource;
+    @Component({})
+    export default class Notification extends Vue {
+        @Prop({default: {}})
+        private notification: DelayedNotification;
 
-                // Switch for choosing notification style depends on notification type
-                switch (this.$props.type) {
-                    case NOTIFICATION_TYPES.SUCCESS:
-                        backgroundColor = 'rgba(214, 235, 208, 0.4)';
-                        imageSource = NOTIFICATION_IMAGES.SUCCESS;
-                        break;
-
-                    case NOTIFICATION_TYPES.ERROR:
-                        backgroundColor = 'rgba(246, 205, 204, 0.4)';
-                        imageSource = NOTIFICATION_IMAGES.ERROR;
-                        break;
-                    case NOTIFICATION_TYPES.NOTIFICATION:
-                    default:
-                        backgroundColor = 'rgba(219, 225, 232, 0.4)';
-                        imageSource = NOTIFICATION_IMAGES.NOTIFICATION;
-                        break;
-                }
-
-                return {
-                    style: {
-                        backgroundColor
-                    },
-                    imageSource,
-                    closeImage: NOTIFICATION_IMAGES.CLOSE
-                };
-            },
+        // Force delete notification
+        public onCloseClick(): void {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.DELETE);
         }
-    })
 
-    export default class Notification extends Vue {}
+        // Force notification to stay on page on mouse over it
+        public onMouseOver(): void {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.PAUSE);
+        }
+
+        // Resume notification flow when mouse leaves notification
+        public onMouseLeave(): void {
+            this.$store.dispatch(NOTIFICATION_ACTIONS.RESUME);
+        }
+    }
 </script>
 
 <style scoped lang="scss">

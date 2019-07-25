@@ -148,7 +148,7 @@ func cmdNewService(cmd *cobra.Command, args []string) error {
 func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	ctx := process.Ctx(cmd)
 
-	err := version.CheckProcessVersion(ctx, version.Config{}, version.Build, "Identity")
+	err := version.CheckProcessVersion(ctx, config.Version, version.Build, "Identity")
 	if err != nil {
 		return err
 	}
@@ -180,6 +180,9 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 	if config.Signer.Address == "" {
 		config.Signer.Address = defaultSignerAddress
 	}
+
+	// Ensure we dont enforce a signed Peer Identity
+	config.Signer.TLS.UsePeerCAWhitelist = false
 
 	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
 	if err != nil {

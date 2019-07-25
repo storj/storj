@@ -101,3 +101,27 @@ func TestUsedSerials(t *testing.T) {
 		}, listedAfterDelete))
 	})
 }
+
+func TestUsedSerials_Trivial(t *testing.T) {
+	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		satelliteID, serial := testrand.NodeID(), testrand.SerialNumber()
+
+		{ // Ensure Add works at all
+			err := db.UsedSerials().Add(ctx, satelliteID, serial, time.Now())
+			require.NoError(t, err)
+		}
+
+		{ // Ensure IterateAll works at all
+			err := db.UsedSerials().IterateAll(ctx, func(storj.NodeID, storj.SerialNumber, time.Time) {})
+			require.NoError(t, err)
+		}
+
+		{ // Ensure DeleteExpired works at all
+			err := db.UsedSerials().DeleteExpired(ctx, time.Now())
+			require.NoError(t, err)
+		}
+	})
+}
