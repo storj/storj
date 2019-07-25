@@ -16,9 +16,8 @@ import (
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
 	"storj.io/storj/pkg/audit"
-	"storj.io/storj/pkg/encryption"
 	"storj.io/storj/pkg/overlay"
-	"storj.io/storj/pkg/paths"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -124,29 +123,28 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err := satellitePeer.Audit.Service.Close()
 		require.NoError(t, err)
 
+		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
+		require.NoError(t, err)
+		require.Len(t, projects, 1)
+
 		testData := testrand.Bytes(8 * memory.KiB)
 
 		err = uplinkPeer.Upload(ctx, planet.Satellites[0], "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		projects, err := satellitePeer.DB.Console().Projects().GetAll(ctx)
+		prefix := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket")
+		list, _, err := satellitePeer.Metainfo.Service.List(ctx, prefix, "", "", true, 0, meta.None)
 		require.NoError(t, err)
-		require.Len(t, projects, 1)
+		require.Len(t, list, 1)
 
-		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
-
-		encParameters := uplinkPeer.GetConfig(satellitePeer).GetEncryptionParameters()
-		cipherSuite := encParameters.CipherSuite
-		store := encryption.NewStore()
-		store.SetDefaultKey(new(storj.Key))
-		encryptedPath, err := encryption.EncryptPath("testbucket", paths.NewUnencrypted("test/path"), cipherSuite, store)
-		require.NoError(t, err)
-		lastSegPath := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket", encryptedPath.Raw())
+		lastSegPath := storj.JoinPaths(prefix, list[0].GetPath())
 		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, lastSegPath)
 		require.NoError(t, err)
 
 		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		disqualifyNode(t, ctx, satellitePeer, disqualifiedNode)
+
+		bucketID := []byte(storj.JoinPaths(projects[0].ID.String(), "testbucket"))
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucketID, pointer)
 		require.NoError(t, err)

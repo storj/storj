@@ -101,7 +101,12 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	project, err := cfg.GetProject(ctx)
+	if err != nil {
+		return err
+	}
+
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc, project)
 	if err != nil {
 		return err
 	}

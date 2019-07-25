@@ -375,7 +375,7 @@ func (client *Uplink) GetProjectAndBucket(ctx context.Context, satellite *satell
 		}
 	}()
 
-	access, err := setup.LoadEncryptionAccess(ctx, clientCfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, clientCfg.Enc, project)
 	if err != nil {
 		return nil, nil, err
 	}

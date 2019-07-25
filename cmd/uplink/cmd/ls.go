@@ -43,7 +43,7 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc, project)
 	if err != nil {
 		return err
 	}

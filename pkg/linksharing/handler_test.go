@@ -16,8 +16,7 @@ import (
 
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/storj"
+	libuplink "storj.io/storj/lib/uplink"
 )
 
 func TestNewHandler(t *testing.T) {
@@ -122,13 +121,24 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/foo", []byte("FOO"))
 	require.NoError(t, err)
 
-	apiKey, err := uplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
+	satelliteAddr := planet.Satellites[0].Local().Address.Address
+	apiKey, err := libuplink.ParseAPIKey(planet.Uplinks[0].APIKey[planet.Satellites[0].ID()])
 	require.NoError(t, err)
 
-	scope, err := (&uplink.Scope{
+	uplink := newUplink(ctx, t)
+	defer ctx.Check(uplink.Close)
+
+	project, err := uplink.OpenProject(ctx, satelliteAddr, apiKey)
+	require.NoError(t, err)
+	defer ctx.Check(project.Close)
+
+	key, err := project.SaltedKeyFromPassphrase(ctx, "")
+	require.NoError(t, err)
+
+	scope, err := (&libuplink.Scope{
 		SatelliteAddr:    planet.Satellites[0].Addr(),
 		APIKey:           apiKey,
-		EncryptionAccess: uplink.NewEncryptionAccessWithDefaultKey(storj.Key{}),
+		EncryptionAccess: libuplink.NewEncryptionAccessWithDefaultKey(*key),
 	}).Serialize()
 	require.NoError(t, err)
 
@@ -250,9 +260,6 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			uplink := newUplink(ctx, t)
-			defer ctx.Check(uplink.Close)
-
 			handler, err := NewHandler(HandlerConfig{
 				Log:     zaptest.NewLogger(t),
 				Uplink:  uplink,
@@ -275,10 +282,10 @@ func testHandlerRequests(t *testing.T, ctx *testcontext.Context, planet *testpla
 	}
 }
 
-func newUplink(ctx context.Context, tb testing.TB) *uplink.Uplink {
-	cfg := new(uplink.Config)
+func newUplink(ctx context.Context, tb testing.TB) *libuplink.Uplink {
+	cfg := new(libuplink.Config)
 	cfg.Volatile.TLS.SkipPeerCAWhitelist = true
-	up, err := uplink.NewUplink(ctx, cfg)
+	up, err := libuplink.NewUplink(ctx, cfg)
 	require.NoError(tb, err)
 	return up
 }

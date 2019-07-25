@@ -14,9 +14,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testplanet"
 	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/encryption"
-	"storj.io/storj/pkg/paths"
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/pkg/storage/meta"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/satellite"
 )
@@ -43,13 +41,24 @@ func TestGarbageCollection(t *testing.T) {
 		targetNode := planet.StorageNodes[0]
 		gcService := satellite.GarbageCollection.Service
 
-		// Upload two objects
-		testData1 := testrand.Bytes(8 * memory.KiB)
-		testData2 := testrand.Bytes(8 * memory.KiB)
-
-		err := upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
+		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
-		deletedEncPath, pointerToDelete := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/1")
+		require.Len(t, projects, 1)
+
+		// Upload two objects
+		err = upl.Upload(ctx, satellite, "testbucket", "test/path/1", testrand.Bytes(8*memory.KiB))
+		require.NoError(t, err)
+		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testrand.Bytes(8*memory.KiB))
+		require.NoError(t, err)
+
+		prefix := storj.JoinPaths(projects[0].ID.String(), "l", "testbucket")
+		list, _, err := satellite.Metainfo.Service.List(ctx, prefix, "", "", true, 0, meta.None)
+		require.NoError(t, err)
+		require.Len(t, list, 2)
+
+		encPathToDelete := storj.JoinPaths(prefix, list[0].GetPath())
+		pointerToDelete, err := satellite.Metainfo.Service.Get(ctx, encPathToDelete)
+		require.NoError(t, err)
 		var deletedPieceID storj.PieceID
 		for _, p := range pointerToDelete.GetRemote().GetRemotePieces() {
 			if p.NodeId == targetNode.ID() {
@@ -59,9 +68,8 @@ func TestGarbageCollection(t *testing.T) {
 		}
 		require.NotZero(t, deletedPieceID)
 
-		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
-		require.NoError(t, err)
-		_, pointerToKeep := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/2")
+		encPathToKeep := storj.JoinPaths(prefix, list[1].GetPath())
+		pointerToKeep, err := satellite.Metainfo.Service.Get(ctx, encPathToKeep)
 		var keptPieceID storj.PieceID
 		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
 			if p.NodeId == targetNode.ID() {
@@ -72,7 +80,7 @@ func TestGarbageCollection(t *testing.T) {
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		err = satellite.Metainfo.Service.Delete(ctx, deletedEncPath)
+		err = satellite.Metainfo.Service.Delete(ctx, encPathToDelete)
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
@@ -100,23 +108,4 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pieceInfo)
 	})
-}
-
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *satellite.Peer, upl *testplanet.Uplink, bucket, path string) (lastSegPath string, pointer *pb.Pointer) {
-	projects, err := satellite.DB.Console().Projects().GetAll(ctx)
-	require.NoError(t, err)
-	require.Len(t, projects, 1)
-
-	encParameters := upl.GetConfig(satellite).GetEncryptionParameters()
-	cipherSuite := encParameters.CipherSuite
-	store := encryption.NewStore()
-	store.SetDefaultKey(new(storj.Key))
-	encryptedPath, err := encryption.EncryptPath(bucket, paths.NewUnencrypted(path), cipherSuite, store)
-	require.NoError(t, err)
-
-	lastSegPath = storj.JoinPaths(projects[0].ID.String(), "l", bucket, encryptedPath.Raw())
-	pointer, err = satellite.Metainfo.Service.Get(ctx, lastSegPath)
-	require.NoError(t, err)
-
-	return lastSegPath, pointer
 }

@@ -233,12 +233,12 @@ func (flags GatewayFlags) action(ctx context.Context, cliCtx *cli.Context) (err 
 
 // NewGateway creates a new minio Gateway
 func (flags GatewayFlags) NewGateway(ctx context.Context) (gw minio.Gateway, err error) {
-	access, err := setup.LoadEncryptionAccess(ctx, flags.Enc)
+	project, err := flags.openProject(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	project, err := flags.openProject(ctx)
+	access, err := setup.LoadEncryptionAccess(ctx, flags.Enc, project)
 	if err != nil {
 		return nil, err
 	}
