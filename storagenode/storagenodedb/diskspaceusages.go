@@ -28,7 +28,7 @@ func (db *diskSpaceUsage) Store(ctx context.Context, stamps []console.DiskSpaceU
 		return nil
 	}
 
-	stmt := `INSERT OR REPLACE INTO rollup_disk_storage_usages(satellite_id, at_rest_total, timestamp) 
+	stmt := `INSERT OR REPLACE INTO disk_storage_usages(satellite_id, at_rest_total, timestamp) 
 			VALUES(?,?,?)`
 
 	cb := func(tx *sql.Tx) error {
@@ -61,10 +61,10 @@ func (db *diskSpaceUsage) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT *
-				FROM rollup_disk_storage_usages
+				FROM disk_storage_usages
 				WHERE timestamp IN (
 					SELECT MAX(timestamp) 
-					FROM rollup_disk_storage_usages
+					FROM disk_storage_usages
 					WHERE satellite_id = ?
 					AND ? <= timestamp AND timestamp <= ?
 					GROUP BY DATE(timestamp)
@@ -106,10 +106,10 @@ func (db *diskSpaceUsage) GetDailyTotal(ctx context.Context, from, to time.Time)
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT SUM(at_rest_total), timestamp 
-				FROM rollup_disk_storage_usages
+				FROM disk_storage_usages
 				WHERE timestamp IN (
 					SELECT MAX(timestamp)
-					FROM rollup_disk_storage_usages
+					FROM disk_storage_usages
 					WHERE ? <= timestamp AND timestamp <= ?
 					GROUP BY DATE(timestamp), satellite_id
 				) GROUP BY DATE(timestamp)`
