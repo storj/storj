@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/internal/testcontext"
 	"storj.io/storj/internal/testidentity"
 	"storj.io/storj/internal/testrand"
+	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storage/filestore"
@@ -53,7 +54,7 @@ func TestPieces(t *testing.T) {
 		assert.Equal(t, hash.Sum(nil), writer.Hash())
 
 		// commit
-		require.NoError(t, writer.Commit(ctx, &pieces.PieceHeader{}))
+		require.NoError(t, writer.Commit(ctx, &pb.PieceHeader{}))
 		// after commit we should be able to call cancel without an error
 		require.NoError(t, writer.Cancel(ctx))
 	}
@@ -102,7 +103,7 @@ func TestPieces(t *testing.T) {
 		// cancel writing
 		require.NoError(t, writer.Cancel(ctx))
 		// commit should not fail
-		require.Error(t, writer.Commit(ctx, &pieces.PieceHeader{}))
+		require.Error(t, writer.Commit(ctx, &pb.PieceHeader{}))
 
 		// read should fail
 		_, err = store.Reader(ctx, satelliteID, cancelledPieceID)

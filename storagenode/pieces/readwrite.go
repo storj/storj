@@ -6,12 +6,10 @@ package pieces
 import (
 	"bufio"
 	"context"
-	"hash"
-	"io"
-	"time"
-
 	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"hash"
+	"io"
 
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/pkcrypto"
@@ -32,59 +30,12 @@ const (
 	V1PieceHeaderSize = 128
 )
 
-// PieceHeader is essentially the same as pb.PieceHeader, but does not depend on the pb modules.
-type PieceHeader struct {
-	// Hash gives the content hash of the piece (on which the uplink and storagenode agree).
-	Hash []byte
-	// CreationTime is the creation time as supplied by the uplink. The exact value is required
-	// in order to reconstruct the original PieceHashSigning and verify the uplink signature.
-	CreationTime time.Time
-	// Signature gives the signature from the uplink's PieceHash order. The corresponding
-	// PieceHashSigning may be reconstructed using the piece id and size from the piecestore
-	// and the hash and upload_time from above.
-	Signature []byte
-	// ExpirationTime is the time at which this storage node may delete this piece without
-	// consequence, as specified by the satellite in the OrderLimit.
-	ExpirationTime *time.Time
-}
-
-func pieceHeaderFromProtobuf(pbHeader *pb.PieceHeader) *PieceHeader {
-	if pbHeader == nil {
-		return nil
-	}
-	// TODO: can we just take a new reference to these slices instead of copying them? does the
-	// proto machinery guarantee that it won't reuse the underlying byte array or anything?
-	hashCopy := make([]byte, len(pbHeader.Hash))
-	sigCopy := make([]byte, len(pbHeader.Signature))
-	copy(hashCopy, pbHeader.Hash)
-	copy(sigCopy, pbHeader.Signature)
-
-	return &PieceHeader{
-		Hash:           hashCopy,
-		CreationTime:   pbHeader.CreationTime,
-		Signature:      sigCopy,
-		ExpirationTime: pbHeader.ExpirationTime,
-	}
-}
-
-func pieceHeaderToProtobuf(header *PieceHeader) *pb.PieceHeader {
-	if header == nil {
-		return nil
-	}
-	return &pb.PieceHeader{
-		Hash:           header.Hash,
-		CreationTime:   header.CreationTime,
-		Signature:      header.Signature,
-		ExpirationTime: header.ExpirationTime,
-	}
-}
-
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
-	buf  bufio.Writer
-	hash hash.Hash
-	blob storage.BlobWriter
-	size int64 // piece size only; i.e., not including piece header
+	buf      bufio.Writer
+	hash     hash.Hash
+	blob     storage.BlobWriter
+	dataSize int64 // piece size only; i.e., not including piece header
 
 	closed bool
 }
@@ -108,20 +59,20 @@ func NewWriter(blob storage.BlobWriter, bufferSize int, formatVersion storage.Fo
 // Write writes data to the blob and calculates the hash.
 func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.buf.Write(data)
-	w.size += int64(n)
+	w.dataSize += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
 	return n, Error.Wrap(err)
 }
 
 // Size returns the amount of data written to the piece so far, not including the size of
 // the piece header.
-func (w *Writer) Size() int64 { return w.size }
+func (w *Writer) Size() int64 { return w.dataSize }
 
 // Hash returns the hash of data written so far.
 func (w *Writer) Hash() []byte { return w.hash.Sum(nil) }
 
 // Commit commits piece to permanent storage.
-func (w *Writer) Commit(ctx context.Context, pieceHeader *PieceHeader) (err error) {
+func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if w.closed {
 		return Error.New("already closed")
@@ -137,10 +88,11 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *PieceHeader) (err erro
 		}
 	}()
 
+	pieceHeader.FormatVersion = int32(w.blob.GetStorageFormatVersion())
 	if err := w.buf.Flush(); err != nil {
 		return err
 	}
-	headerBytes, err := proto.Marshal(pieceHeaderToProtobuf(pieceHeader))
+	headerBytes, err := proto.Marshal(pieceHeader)
 	if err != nil {
 		return err
 	}
@@ -207,7 +159,7 @@ func NewReader(blob storage.BlobReader, bufferSize int) (*Reader, error) {
 // GetPieceHeader reads, unmarshals, and returns the piece header. It may only be called
 // before any Read() calls. (Retrieving the header at any time could be supported, but for
 // the sake of performance we need to understand why and how often that would happen.)
-func (r *Reader) GetPieceHeader() (*PieceHeader, error) {
+func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	if r.formatVersion < storage.FormatV1 {
 		return nil, Error.New("Can't get piece header from storage format V0 reader")
 	}
@@ -224,7 +176,7 @@ func (r *Reader) GetPieceHeader() (*PieceHeader, error) {
 	if err := proto.Unmarshal(headerBytes[:], header); err != nil {
 		return nil, Error.New("piece header: %v", err)
 	}
-	return pieceHeaderFromProtobuf(header), nil
+	return header, nil
 }
 
 // Read reads data from the underlying blob, buffering as necessary.

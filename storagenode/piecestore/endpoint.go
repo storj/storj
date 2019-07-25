@@ -286,11 +286,12 @@ func (endpoint *Endpoint) Upload(stream pb.Piecestore_UploadServer) (err error) 
 				if !limit.PieceExpiration.IsZero() {
 					expTime = &limit.PieceExpiration
 				}
-				info := &pieces.PieceHeader{
+				info := &pb.PieceHeader{
 					Hash:           calculatedHash,
-					CreationTime:   limit.OrderCreation,
+					CreationTime:   message.Done.Timestamp,
 					ExpirationTime: expTime,
 					Signature:      message.Done.GetSignature(),
+					OrderLimit:     *limit,
 				}
 				if err := pieceWriter.Commit(ctx, info); err != nil {
 					return ErrInternal.Wrap(err) // TODO: report grpc status internal server error
