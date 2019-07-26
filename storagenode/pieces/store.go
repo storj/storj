@@ -189,10 +189,13 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 	}
 	// delete records in both the piece_expirations and pieceinfo DBs, wherever we find it.
 	// both of these calls should return no error if the requested record is not found.
-	if _, err := store.expirationInfo.DeleteExpiration(ctx, satellite, pieceID); err != nil {
-		return Error.Wrap(err)
+	if store.expirationInfo != nil {
+		_, err = store.expirationInfo.DeleteExpiration(ctx, satellite, pieceID)
 	}
-	return Error.Wrap(store.v0PieceInfo.Delete(ctx, satellite, pieceID))
+	if store.v0PieceInfo != nil {
+		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
+	}
+	return Error.Wrap(err)
 }
 
 // GetV0PieceInfoDB returns this piece-store's reference to the V0 piece info DB (or nil,
