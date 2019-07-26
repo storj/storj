@@ -70,7 +70,7 @@ type RetainStatus uint32
 
 const (
 	// RetainDisabled means we do not do anything with retain requests
-	RetainDisabled RetainStatus = iota
+	RetainDisabled RetainStatus = iota + 1
 	// RetainEnabled means we fully enable retain requests and delete data not defined by bloom filter
 	RetainEnabled
 	// RetainDebug means we partially enable retain requests, and print out pieces we should delete, without actually deleting them
