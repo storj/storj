@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"storj.io/storj/storagenode/trust"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -30,6 +32,7 @@ type Cache struct {
 	log *zap.Logger
 
 	service      *Service
+	trust        *trust.Pool
 	consoleDB    console.DB
 	reputationDB reputation.DB
 
@@ -38,10 +41,11 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance
-func NewCache(log *zap.Logger, service *Service, consoleDB console.DB, reputationDB reputation.DB) *Cache {
+func NewCache(log *zap.Logger, service *Service, trust *trust.Pool, consoleDB console.DB, reputationDB reputation.DB) *Cache {
 	return &Cache{
 		log:          log,
 		service:      service,
+		trust:        trust,
 		consoleDB:    consoleDB,
 		reputationDB: reputationDB,
 	}
@@ -76,13 +80,8 @@ func (cache *Cache) Run(ctx context.Context) error {
 func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellites, err := cache.consoleDB.Satellites().GetIDs(ctx)
-	if err != nil {
-		return NodeStatsCacheErr.Wrap(err)
-	}
-
 	var cacheStatsErr errs.Group
-	for _, satellite := range satellites {
+	for _, satellite := range cache.trust.GetSatellites(ctx) {
 		stats, err := cache.service.GetReputationStats(ctx, satellite)
 		if err != nil {
 			cacheStatsErr.Add(NodeStatsCacheErr.Wrap(err))
@@ -103,16 +102,11 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellites, err := cache.consoleDB.Satellites().GetIDs(ctx)
-	if err != nil {
-		return NodeStatsCacheErr.Wrap(err)
-	}
-
 	// get current month edges
 	startDate, endDate := date.MonthBoundary(time.Now().UTC())
 
 	var cacheSpaceErr errs.Group
-	for _, satellite := range satellites {
+	for _, satellite := range cache.trust.GetSatellites(ctx) {
 		spaceUsages, err := cache.service.GetDailyStorageUsage(ctx, satellite, startDate, endDate)
 		if err != nil {
 			cacheSpaceErr.Add(NodeStatsCacheErr.Wrap(err))

@@ -277,6 +277,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 		peer.NodeStats.Loop = nodestats.NewCache(
 			peer.Log.Named("nodestats:loop"),
 			peer.NodeStats.Service,
+			peer.Storage2.Trust,
 			db.Console(),
 			db.Reputation())
 	}
