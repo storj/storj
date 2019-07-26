@@ -23,8 +23,11 @@ type projectPayments struct {
 }
 
 // Delete deletes payment method record from database
-func (pp *projectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
-	_, err := pp.methods.Delete_ProjectPayment_By_Id(ctx, dbx.ProjectPayment_Id(projectPaymentID[:]))
+func (pp *projectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) error {
+	_, err := pp.methods.Delete_ProjectPayment_By_Id_And_ProjectId(
+		ctx,
+		dbx.ProjectPayment_Id(projectPaymentID[:]),
+		dbx.ProjectPayment_ProjectId(projectID[:]))
 	return err
 }
 

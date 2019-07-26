@@ -18,9 +18,8 @@ import (
 
 	"github.com/lib/pq"
 
-	"math/rand"
-
 	"github.com/mattn/go-sqlite3"
+	"math/rand"
 )
 
 // Prevent conditional imports from causing build failures
@@ -8695,14 +8694,15 @@ func (obj *postgresImpl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *postgresImpl) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
+func (obj *postgresImpl) Delete_ProjectPayment_By_Id_And_ProjectId(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ? AND project_payments.project_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
+	__values = append(__values, project_payment_id.value(), project_payment_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -12644,14 +12644,15 @@ func (obj *sqlite3Impl) Delete_Project_By_Id(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
+func (obj *sqlite3Impl) Delete_ProjectPayment_By_Id_And_ProjectId(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	deleted bool, err error) {
 
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_payments WHERE project_payments.id = ? AND project_payments.project_id = ?")
 
 	var __values []interface{}
-	__values = append(__values, project_payment_id.value())
+	__values = append(__values, project_payment_id.value(), project_payment_project_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -14295,14 +14296,15 @@ func (rx *Rx) Delete_ProjectMember_By_MemberId_And_ProjectId(ctx context.Context
 	return tx.Delete_ProjectMember_By_MemberId_And_ProjectId(ctx, project_member_member_id, project_member_project_id)
 }
 
-func (rx *Rx) Delete_ProjectPayment_By_Id(ctx context.Context,
-	project_payment_id ProjectPayment_Id_Field) (
+func (rx *Rx) Delete_ProjectPayment_By_Id_And_ProjectId(ctx context.Context,
+	project_payment_id ProjectPayment_Id_Field,
+	project_payment_project_id ProjectPayment_ProjectId_Field) (
 	deleted bool, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Delete_ProjectPayment_By_Id(ctx, project_payment_id)
+	return tx.Delete_ProjectPayment_By_Id_And_ProjectId(ctx, project_payment_id, project_payment_project_id)
 }
 
 func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
@@ -15207,8 +15209,9 @@ type Methods interface {
 		project_member_project_id ProjectMember_ProjectId_Field) (
 		deleted bool, err error)
 
-	Delete_ProjectPayment_By_Id(ctx context.Context,
-		project_payment_id ProjectPayment_Id_Field) (
+	Delete_ProjectPayment_By_Id_And_ProjectId(ctx context.Context,
+		project_payment_id ProjectPayment_Id_Field,
+		project_payment_project_id ProjectPayment_ProjectId_Field) (
 		deleted bool, err error)
 
 	Delete_Project_By_Id(ctx context.Context,

@@ -60,7 +60,7 @@ export async function setDefaultPaymentMethodRequest(projectID: string, paymentI
     return result;
 }
 
-export async function deletePaymentMethodRequest(paymentID: string): Promise<RequestResponse<null>> {
+export async function deletePaymentMethodRequest(paymentID: string, projectID: string): Promise<RequestResponse<null>> {
     let result: RequestResponse<null> = new RequestResponse<null>();
 
     let response: any = await apollo.mutate(
@@ -69,6 +69,7 @@ export async function deletePaymentMethodRequest(paymentID: string): Promise<Req
                 mutation {
                     deletePaymentMethod(
                         id: "${paymentID}"
+                        projectID: "${projectID}",
                     )
                 }
            `),

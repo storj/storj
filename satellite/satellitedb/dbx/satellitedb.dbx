@@ -302,7 +302,10 @@ model project_payment (
 
 create project_payment ( )
 update project_payment ( where project_payment.id = ? )
-delete project_payment ( where project_payment.id = ? )
+delete project_payment (
+    where project_payment.id = ?
+    where project_payment.project_id = ?
+)
 
 read one (
     select project_payment

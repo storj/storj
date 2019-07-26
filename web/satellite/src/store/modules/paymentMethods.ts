@@ -53,8 +53,10 @@ export const projectPaymentsMethodsModule = {
 
             return await setDefaultPaymentMethodRequest(projectID, projectPaymentID);
         },
-        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({}, projectPaymentID: string) {
-            return await deletePaymentMethodRequest(projectPaymentID);
+        [PROJECT_PAYMENT_METHODS_ACTIONS.DELETE]: async function ({rootGetters}, projectPaymentID: string) {
+            const projectID = rootGetters.selectedProject.id;
+
+            return await deletePaymentMethodRequest(projectPaymentID, projectID);
         },
         [PROJECT_PAYMENT_METHODS_ACTIONS.ATTACH]: async function ({rootGetters}, paymentMethodID: string) {
             const projectID = rootGetters.selectedProject.id;

@@ -395,14 +395,14 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 }
 
 // DeleteProjectPaymentMethod deletes selected payment method
-func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID) (err error) {
+func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = GetAuth(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = s.store.ProjectPayments().Delete(ctx, projectPaymentID)
+	err = s.store.ProjectPayments().Delete(ctx, projectPaymentID, projectID)
 	if err != nil {
 		return errs.New(internalErrMsg)
 	}

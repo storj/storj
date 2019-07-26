@@ -513,16 +513,25 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
+					FieldProjectID: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(graphql.String),
+					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
 					fieldProjectPaymentID, _ := p.Args[FieldID].(string)
+					fieldProjectID, _ := p.Args[FieldProjectID].(string)
 
 					paymentID, err := uuid.Parse(fieldProjectPaymentID)
 					if err != nil {
 						return false, err
 					}
 
-					err = service.DeleteProjectPaymentMethod(p.Context, *paymentID)
+					projectID, err := uuid.Parse(fieldProjectID)
+					if err != nil {
+						return false, err
+					}
+
+					err = service.DeleteProjectPaymentMethod(p.Context, *paymentID, *projectID)
 					if err != nil {
 						return false, err
 					}

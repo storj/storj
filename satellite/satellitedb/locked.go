@@ -354,10 +354,10 @@ func (m *lockedProjectPayments) Create(ctx context.Context, info console.Project
 	return m.db.Create(ctx, info)
 }
 
-func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID) error {
+func (m *lockedProjectPayments) Delete(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) error {
 	m.Lock()
 	defer m.Unlock()
-	return m.db.Delete(ctx, projectPaymentID)
+	return m.db.Delete(ctx, projectPaymentID, projectID)
 }
 
 func (m *lockedProjectPayments) GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*console.ProjectPayment, error) {

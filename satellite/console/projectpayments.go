@@ -14,7 +14,7 @@ import (
 type ProjectPayments interface {
 	Create(ctx context.Context, info ProjectPayment) (*ProjectPayment, error)
 	Update(ctx context.Context, info ProjectPayment) error
-	Delete(ctx context.Context, projectPaymentID uuid.UUID) error
+	Delete(ctx context.Context, projectPaymentID uuid.UUID, projectID uuid.UUID) error
 	GetByProjectID(ctx context.Context, projectID uuid.UUID) ([]*ProjectPayment, error)
 	GetByID(ctx context.Context, projectPaymentID uuid.UUID) (*ProjectPayment, error)
 	GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*ProjectPayment, error)
