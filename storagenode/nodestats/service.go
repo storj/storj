@@ -14,13 +14,13 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/dateutil"
+	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -43,25 +43,25 @@ func (c *Client) Close() error {
 
 // Service retrieves info from satellites using GRPC client
 type Service struct {
-	log *zap.Logger
+	log       *zap.Logger
+	consoleDB console.DB
 
 	statsLoop *sync2.Cycle
 	spaceLoop *sync2.Cycle
 
 	transport transport.Client
-	consoleDB console.DB
-	kademlia  *kademlia.Kademlia
+	trust     *trust.Pool
 }
 
 // NewService creates new instance of service
-func NewService(log *zap.Logger, transport transport.Client, consoleDB console.DB, kademlia *kademlia.Kademlia) *Service {
+func NewService(log *zap.Logger, transport transport.Client, consoleDB console.DB, trust *trust.Pool) *Service {
 	return &Service{
 		log:       log,
+		consoleDB: consoleDB,
 		statsLoop: sync2.NewCycle(time.Hour * 4),
 		spaceLoop: sync2.NewCycle(time.Hour * 12),
 		transport: transport,
-		consoleDB: consoleDB,
-		kademlia:  kademlia,
+		trust:     trust,
 	}
 }
 
@@ -139,7 +139,7 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 	}
 
 	// get current month edges
-	startDate, endDate := dateutil.MonthBoundary(time.Now().UTC())
+	startDate, endDate := date.MonthBoundary(time.Now().UTC())
 
 	var cacheSpaceErr errs.Group
 	for _, satellite := range satellites {
@@ -163,7 +163,7 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.NodeID) (_ *console.NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.DialNodeStats(ctx, satelliteID)
+	client, err := s.dialNodeStats(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -205,7 +205,7 @@ func (s *Service) GetStatsFromSatellite(ctx context.Context, satelliteID storj.N
 func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.DiskSpaceUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	client, err := s.DialNodeStats(ctx, satelliteID)
+	client, err := s.dialNodeStats(ctx, satelliteID)
 	if err != nil {
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
@@ -224,13 +224,29 @@ func (s *Service) GetDailyStorageUsedForSatellite(ctx context.Context, satellite
 	return fromSpaceUsageResponse(resp, satelliteID), nil
 }
 
-// DialNodeStats dials GRPC NodeStats client for the satellite by id
-func (s *Service) DialNodeStats(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
+// Close closes underlying cycles
+func (s *Service) Close() error {
+	defer mon.Task()(nil)(nil)
+	s.statsLoop.Close()
+	s.spaceLoop.Close()
+	return nil
+}
+
+// dialNodeStats dials GRPC NodeStats client for the satellite by id
+func (s *Service) dialNodeStats(ctx context.Context, satelliteID storj.NodeID) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satellite, err := s.kademlia.FindNode(ctx, satelliteID)
+	address, err := s.trust.GetAddress(ctx, satelliteID)
 	if err != nil {
 		return nil, errs.New("unable to find satellite %s: %v", satelliteID, err)
+	}
+
+	satellite := pb.Node{
+		Id: satelliteID,
+		Address: &pb.NodeAddress{
+			Transport: pb.NodeTransport_TCP_TLS_GRPC,
+			Address:   address,
+		},
 	}
 
 	conn, err := s.transport.DialNode(ctx, &satellite)
@@ -257,12 +273,4 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 	}
 
 	return stamps
-}
-
-// Close closes underlying cycles
-func (s *Service) Close() error {
-	defer mon.Task()(nil)(nil)
-	s.statsLoop.Close()
-	s.spaceLoop.Close()
-	return nil
 }

@@ -267,7 +267,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Named("nodestats"),
 			peer.Transport,
 			db.Console(),
-			peer.Kademlia.Service)
+			peer.Storage2.Trust)
 	}
 
 	{ // setup vouchers
