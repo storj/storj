@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/dateutil"
 	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
@@ -138,7 +139,7 @@ func (s *Service) CacheSpaceUsageFromSatellites(ctx context.Context) (err error)
 	}
 
 	// get current month edges
-	startDate, endDate := getMonthEdges(time.Now().UTC())
+	startDate, endDate := dateutil.MonthBoundary(time.Now().UTC())
 
 	var cacheSpaceErr errs.Group
 	for _, satellite := range satellites {
@@ -264,11 +265,4 @@ func (s *Service) Close() error {
 	s.statsLoop.Close()
 	s.spaceLoop.Close()
 	return nil
-}
-
-// getMonthEdges extract month from the provided date and returns its edges
-func getMonthEdges(t time.Time) (time.Time, time.Time) {
-	startDate := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
-	endDate := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, -1, t.Location())
-	return startDate, endDate
 }

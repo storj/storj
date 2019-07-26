@@ -11,12 +11,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"storj.io/storj/internal/dateutil"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
@@ -253,7 +254,7 @@ func (server *Server) getBandwidth(ctx context.Context, satelliteID *storj.NodeI
 }
 
 func (server *Server) getBandwidthChartData(ctx context.Context, satelliteID *storj.NodeID) (_ []console.BandwidthUsed, err error) {
-	from, to := date.MonthBoundary()
+	from, to := dateutil.MonthBoundary(time.Now().UTC())
 
 	if satelliteID != nil {
 		return server.service.GetDailyBandwidthUsed(ctx, *satelliteID, from, to)
