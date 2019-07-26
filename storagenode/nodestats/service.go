@@ -6,18 +6,15 @@ package nodestats
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
-
-	"golang.org/x/sync/errgroup"
-
-	"storj.io/storj/internal/sync2"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
+	"storj.io/storj/internal/sync2"
 	"storj.io/storj/pkg/kademlia"
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
@@ -74,7 +71,7 @@ func (s *Service) Run(ctx context.Context) error {
 	s.statsLoop.Start(ctx, &group, func(ctx context.Context) error {
 		err := s.CacheStatsFromSatellites(ctx)
 		if err != nil {
-			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
+			s.log.Error("Get stats query failed", zap.Error(err))
 		}
 
 		return nil
@@ -82,7 +79,7 @@ func (s *Service) Run(ctx context.Context) error {
 	s.spaceLoop.Start(ctx, &group, func(ctx context.Context) error {
 		err := s.CacheSpaceUsageFromSatellites(ctx)
 		if err != nil {
-			s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
+			s.log.Error("Get disk space usage query failed", zap.Error(err))
 		}
 
 		return nil
