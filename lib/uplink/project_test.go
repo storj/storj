@@ -76,7 +76,6 @@ func TestProjectListBuckets(t *testing.T) {
 			}
 			access, err := setup.LoadEncryptionAccess(ctx,
 				planet.Uplinks[0].GetConfig(planet.Satellites[0]).Enc,
-				p,
 			)
 			require.NoError(t, err)
 			key, access, err = access.Restrict(key, restriction)

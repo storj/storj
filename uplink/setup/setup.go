@@ -12,6 +12,7 @@ import (
 	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	libuplink "storj.io/storj/lib/uplink"
+	"storj.io/storj/pkg/storj"
 	"storj.io/storj/uplink"
 )
 
@@ -23,7 +24,7 @@ var (
 )
 
 // LoadEncryptionAccess loads an EncryptionAccess from the values specified in the encryption config.
-func LoadEncryptionAccess(ctx context.Context, cfg uplink.EncryptionConfig, project *libuplink.Project) (_ *libuplink.EncryptionAccess, err error) {
+func LoadEncryptionAccess(ctx context.Context, cfg uplink.EncryptionConfig) (_ *libuplink.EncryptionAccess, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if cfg.EncAccessFilepath != "" {
@@ -34,19 +35,17 @@ func LoadEncryptionAccess(ctx context.Context, cfg uplink.EncryptionConfig, proj
 		return libuplink.ParseEncryptionAccess(strings.TrimSpace(string(data)))
 	}
 
-	passphrase := cfg.EncryptionKey
+	data := []byte(cfg.EncryptionKey)
 	if cfg.KeyFilepath != "" {
-		data, err := ioutil.ReadFile(cfg.KeyFilepath)
+		data, err = ioutil.ReadFile(cfg.KeyFilepath)
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
-		passphrase = string(data)
 	}
 
-	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
+	key, err := storj.NewKey(data)
 	if err != nil {
-		return nil, err
+		return nil, errs.Wrap(err)
 	}
-
 	return libuplink.NewEncryptionAccessWithDefaultKey(*key), nil
 }

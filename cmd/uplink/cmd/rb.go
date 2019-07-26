@@ -42,17 +42,12 @@ func deleteBucket(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
 	}
 
-	project, err := cfg.GetProject(ctx)
-	if err != nil {
-		return convertError(err, dst)
-	}
-
-	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc, project)
+	access, err := setup.LoadEncryptionAccess(ctx, cfg.Enc)
 	if err != nil {
 		return err
 	}
 
-	bucket, err := project.OpenBucket(ctx, dst.Bucket(), access)
+	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket(), access)
 	if err != nil {
 		return convertError(err, dst)
 	}
