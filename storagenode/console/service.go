@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/storagenode/trust"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"gopkg.in/spacemonkeygo/monkit.v2"
@@ -21,6 +19,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
