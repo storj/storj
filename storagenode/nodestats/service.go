@@ -9,6 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
+	"storj.io/storj/internal/sync2"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -43,8 +47,8 @@ func (c *Client) Close() error {
 type Service struct {
 	log *zap.Logger
 
-	statsTicker *time.Ticker
-	spaceTicker *time.Ticker
+	statsLoop *sync2.Cycle
+	spaceLoop *sync2.Cycle
 
 	transport transport.Client
 	consoleDB console.DB
@@ -54,46 +58,37 @@ type Service struct {
 // NewService creates new instance of service
 func NewService(log *zap.Logger, transport transport.Client, consoleDB console.DB, kademlia *kademlia.Kademlia) *Service {
 	return &Service{
-		log:         log,
-		statsTicker: time.NewTicker(time.Hour * 4),
-		spaceTicker: time.NewTicker(time.Hour * 12),
-		transport:   transport,
-		consoleDB:   consoleDB,
-		kademlia:    kademlia,
+		log:       log,
+		statsLoop: sync2.NewCycle(time.Hour * 4),
+		spaceLoop: sync2.NewCycle(time.Hour * 12),
+		transport: transport,
+		consoleDB: consoleDB,
+		kademlia:  kademlia,
 	}
 }
 
 // Run runs loop
-func (s *Service) Run(ctx context.Context) (err error) {
-	err = s.CacheStatsFromSatellites(ctx)
-	if err != nil {
-		s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
-	}
+func (s *Service) Run(ctx context.Context) error {
+	var group errgroup.Group
 
-	err = s.CacheSpaceUsageFromSatellites(ctx)
-	if err != nil {
-		s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
-	}
-
-	for {
-		select {
-		// handle cancellation signal first
-		case <-ctx.Done():
-			return ctx.Err()
-		// wait for the next stats interval to happen
-		case <-s.statsTicker.C:
-			err = s.CacheStatsFromSatellites(ctx)
-			if err != nil {
-				s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
-			}
-		// wait for the next space interval to happen
-		case <-s.spaceTicker.C:
-			err = s.CacheSpaceUsageFromSatellites(ctx)
-			if err != nil {
-				s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
-			}
+	s.statsLoop.Start(ctx, &group, func(ctx context.Context) error {
+		err := s.CacheStatsFromSatellites(ctx)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("Get stats query failed: %v", err))
 		}
-	}
+
+		return nil
+	})
+	s.spaceLoop.Start(ctx, &group, func(ctx context.Context) error {
+		err := s.CacheSpaceUsageFromSatellites(ctx)
+		if err != nil {
+			s.log.Error(fmt.Sprintf("Get disk space usage query failed: %v", err))
+		}
+
+		return nil
+	})
+
+	return group.Wait()
 }
 
 // CacheStatsFromSatellites queries node stats from all the satellites
@@ -266,11 +261,11 @@ func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID stor
 	return stamps
 }
 
-// Close clear time.Tickers
+// Close closes underlying cycles
 func (s *Service) Close() error {
 	defer mon.Task()(nil)(nil)
-	s.statsTicker.Stop()
-	s.spaceTicker.Stop()
+	s.statsLoop.Close()
+	s.spaceLoop.Close()
 	return nil
 }
 
