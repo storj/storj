@@ -72,7 +72,7 @@
         top: 40px;
 
         height: 240px;
-        width: 351px;
+        width: 361px;
 
     }
 

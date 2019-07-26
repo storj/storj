@@ -66,7 +66,7 @@
 
         position: absolute;
         top: 40px;
-        right: -38px;
+        right: -168px;
 
         height: 223px;
         width: 351px;
@@ -101,23 +101,15 @@
 
     .delete-button {
         margin-left: 11px;
-
-        /*&:hover {*/
-        /*&.container {*/
-        /*box-shadow: none;*/
-        /*background-color: #d24949;*/
-        /*}*/
-        /*}*/
-
     }
+
     .delete-button.container {
         background-color: #EB5757;
-    &:hover {
 
-         box-shadow: none;
-         background-color: #d24949;
-
-     }
+        &:hover {
+             box-shadow: none;
+             background-color: #d24949;
+        }
     }
 
     .delete-button.label {

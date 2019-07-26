@@ -5,7 +5,7 @@
     <div class="payment-methods-container">
         <p class="payment-methods-container__title">Credit or Debit Cards</p>
         <div class="scroll-container">
-            <NewPaymentMethodPopup/>
+            <NewProjectPaymentMethodComponent/>
             <div v-for="method in paymentMethods" class="payment-methods-container__card-container">
                 <CardComponent :editable="true" :paymentMethod="method"/>
             </div>
@@ -16,11 +16,11 @@
 <script lang="ts">
     import { Component, Vue } from 'vue-property-decorator';
     import CardComponent from '@/components/project/paymentMethods/CardComponent.vue';
-    import NewPaymentMethodPopup from '@/components/project/paymentMethods/NewPaymentMethodComponent.vue';
+    import NewProjectPaymentMethodComponent from '@/components/project/paymentMethods/NewProjectPaymentMethodComponent.vue';
 
     @Component({
         components: {
-            NewPaymentMethodPopup,
+            NewProjectPaymentMethodComponent,
             CardComponent,
         }
     })

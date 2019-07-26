@@ -50,8 +50,9 @@
         }
     )
 
-    export default class AddNewPaymentMethodPopup extends Vue {
+    export default class NewProjectPaymentMethodComponent extends Vue {
         private makeDefault: boolean = false;
+        private isSaveButtonEnabled: boolean = true;
 
         public mounted(): void {
             setupStripe(this, async result => {
@@ -60,6 +61,7 @@
                     makeDefault: this.makeDefault} as AddPaymentMethodInput;
 
                 const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
+                this.isSaveButtonEnabled = true;
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
@@ -92,9 +94,15 @@
         }
 
         public onSaveClick(): void {
+            if (!this.isSaveButtonEnabled) {
+                return;
+            }
+
             const form = document.getElementById('payment-form') as HTMLElement;
             const saveEvent = new CustomEvent('submit', {'bubbles': true});
             form.dispatchEvent(saveEvent);
+
+            this.isSaveButtonEnabled = false;
         }
     }
 </script>

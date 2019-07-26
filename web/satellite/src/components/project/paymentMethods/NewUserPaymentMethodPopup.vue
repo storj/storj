@@ -91,6 +91,7 @@
 
     export default class NewUserPaymentMethodPopup extends Vue {
         private makeDefault: boolean = false;
+        private isSaveButtonEnabled: boolean = true;
 
         public get isPopupShown(): boolean {
             return this.$store.state.appStateModule.appState.isAddUserPaymentMethodPopupShown;
@@ -103,6 +104,7 @@
         public updated(): void {
             setupStripe(this, async result => {
                 const response = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
+                this.isSaveButtonEnabled = true;
                 if (!response.isSuccess) {
                     this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
@@ -125,9 +127,14 @@
         }
 
         public onSaveCardClick(): void {
+            if (!this.isSaveButtonEnabled) {
+                return;
+            }
+
             const form = document.getElementById('payment-form') as HTMLElement;
             const saveEvent = new CustomEvent('submit', {'bubbles': true});
             form.dispatchEvent(saveEvent);
+            this.isSaveButtonEnabled = false;
         }
     }
 </script>
