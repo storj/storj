@@ -8,6 +8,8 @@ import (
 	"net"
 	"time"
 
+	"storj.io/storj/storagenode/reputation"
+
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -58,6 +60,7 @@ type DB interface {
 	UsedSerials() piecestore.UsedSerials
 	Vouchers() vouchers.DB
 	Console() console.DB
+	Reputation() reputation.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
@@ -123,7 +126,10 @@ type Peer struct {
 
 	Collector *collector.Service
 
-	NodeStats *nodestats.Service
+	NodeStats struct {
+		Service *nodestats.Service
+		Loop    *nodestats.Cache
+	}
 
 	// Web server with web UI
 	Console struct {
@@ -263,11 +269,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 	}
 
 	{ // setup node stats service
-		peer.NodeStats = nodestats.NewService(
-			peer.Log.Named("nodestats"),
+		peer.NodeStats.Service = nodestats.NewService(
+			peer.Log.Named("nodestats:service"),
 			peer.Transport,
-			db.Console(),
 			peer.Storage2.Trust)
+
+		peer.NodeStats.Loop = nodestats.NewCache(
+			peer.Log.Named("nodestats:loop"),
+			peer.NodeStats.Service,
+			db.Console(),
+			db.Reputation())
 	}
 
 	{ // setup vouchers
@@ -368,7 +379,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	})
 
 	group.Go(func() error {
-		return errs2.IgnoreCanceled(peer.NodeStats.Run(ctx))
+		return errs2.IgnoreCanceled(peer.NodeStats.Loop.Run(ctx))
 	})
 	group.Go(func() error {
 		return errs2.IgnoreCanceled(peer.Console.Endpoint.Run(ctx))
@@ -418,8 +429,8 @@ func (peer *Peer) Close() error {
 		errlist.Add(peer.Console.Listener.Close())
 	}
 
-	if peer.NodeStats != nil {
-		errlist.Add(peer.NodeStats.Close())
+	if peer.NodeStats.Loop != nil {
+		errlist.Add(peer.NodeStats.Loop.Close())
 	}
 
 	return errlist.Err()
