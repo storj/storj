@@ -32,6 +32,7 @@ type UserPaymentMethod struct {
 	PaymentMethod payments.PaymentMethod
 }
 
+// UserPaymentMethodCombined represents partial information about User Payment Method
 type UserPaymentMethodCombined struct {
 	ID         string
 	ExpYear    int64
