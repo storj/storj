@@ -8,8 +8,6 @@ import (
 	"net"
 	"time"
 
-	"storj.io/storj/storagenode/reputation"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -37,6 +35,8 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 	"storj.io/storj/storagenode/vouchers"
 )
@@ -61,6 +61,7 @@ type DB interface {
 	Vouchers() vouchers.DB
 	Console() console.DB
 	Reputation() reputation.DB
+	StorageUsage() storageusage.DB
 
 	// TODO: use better interfaces
 	RoutingTable() (kdb, ndb, adb storage.KeyValueStore)
@@ -278,8 +279,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, config Config, ver
 			peer.Log.Named("nodestats:loop"),
 			peer.NodeStats.Service,
 			peer.Storage2.Trust,
-			db.Console(),
-			db.Reputation())
+			db.Reputation(),
+			db.StorageUsage())
 	}
 
 	{ // setup vouchers

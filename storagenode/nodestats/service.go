@@ -15,8 +15,8 @@ import (
 	"storj.io/storj/pkg/pb"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/pkg/transport"
-	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -99,7 +99,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 }
 
 // GetDailyStorageUsage returns daily storage usage over a period of time for a particular satellite
-func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []console.DiskSpaceUsage, err error) {
+func (s *Service) GetDailyStorageUsage(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	client, err := s.dial(ctx, satelliteID)
@@ -147,4 +147,19 @@ func (s *Service) dial(ctx context.Context, satelliteID storj.NodeID) (_ *Client
 		conn:            conn,
 		NodeStatsClient: pb.NewNodeStatsClient(conn),
 	}, nil
+}
+
+// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse
+func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []storageusage.Stamp {
+	var stamps []storageusage.Stamp
+
+	for _, pbUsage := range resp.GetDailyStorageUsage() {
+		stamps = append(stamps, storageusage.Stamp{
+			SatelliteID: satelliteID,
+			AtRestTotal: pbUsage.AtRestTotal,
+			Timestamp:   pbUsage.Timestamp,
+		})
+	}
+
+	return stamps
 }

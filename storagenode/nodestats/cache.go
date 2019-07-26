@@ -7,18 +7,15 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/storagenode/trust"
-
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/storj/internal/date"
 	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
+	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -31,23 +28,23 @@ var (
 type Cache struct {
 	log *zap.Logger
 
-	service      *Service
-	trust        *trust.Pool
-	consoleDB    console.DB
-	reputationDB reputation.DB
+	service        *Service
+	trust          *trust.Pool
+	reputationDB   reputation.DB
+	storageusageDB storageusage.DB
 
 	statsCycle *sync2.Cycle
 	spaceCycle *sync2.Cycle
 }
 
 // NewCache creates new caching service instance
-func NewCache(log *zap.Logger, service *Service, trust *trust.Pool, consoleDB console.DB, reputationDB reputation.DB) *Cache {
+func NewCache(log *zap.Logger, service *Service, trust *trust.Pool, reputationDB reputation.DB, storageusageDB storageusage.DB) *Cache {
 	return &Cache{
-		log:          log,
-		service:      service,
-		trust:        trust,
-		consoleDB:    consoleDB,
-		reputationDB: reputationDB,
+		log:            log,
+		service:        service,
+		trust:          trust,
+		reputationDB:   reputationDB,
+		storageusageDB: storageusageDB,
 	}
 }
 
@@ -113,7 +110,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 			continue
 		}
 
-		err = cache.consoleDB.DiskSpaceUsages().Store(ctx, spaceUsages)
+		err = cache.storageusageDB.Store(ctx, spaceUsages)
 		if err != nil {
 			cacheSpaceErr.Add(NodeStatsCacheErr.Wrap(err))
 			continue
@@ -121,21 +118,6 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	}
 
 	return cacheSpaceErr.Err()
-}
-
-// fromSpaceUsageResponse get DiskSpaceUsage slice from pb.SpaceUsageResponse
-func fromSpaceUsageResponse(resp *pb.DailyStorageUsageResponse, satelliteID storj.NodeID) []console.DiskSpaceUsage {
-	var stamps []console.DiskSpaceUsage
-
-	for _, pbUsage := range resp.GetDailyStorageUsage() {
-		stamps = append(stamps, console.DiskSpaceUsage{
-			SatelliteID: satelliteID,
-			AtRestTotal: pbUsage.AtRestTotal,
-			Timestamp:   pbUsage.Timestamp,
-		})
-	}
-
-	return stamps
 }
 
 // Close closes underlying cycles

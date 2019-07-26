@@ -16,7 +16,7 @@ func (db *InfoDB) Reputation() reputation.DB { return &reputationDB{db} }
 // Reputation returns reputation.DB
 func (db *DB) Reputation() reputation.DB { return db.info.Reputation() }
 
-// reputation works with node reputation db
+// reputation works with node reputation DB
 type reputationDB struct {
 	*InfoDB
 }
