@@ -49,7 +49,6 @@ const (
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
-	noPaymentMethodAttachedErrMsg 		 = "You need to have at least one payment method attached to your project"
 
 	// TODO: remove after vanguard release
 	usedRegTokenVanguardErrMsg = "This registration token has already been used"
@@ -1037,11 +1036,6 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 	auth, err := GetAuth(ctx)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	projectPayments, err := s.GetProjectPaymentMethods(ctx, projectID)
-	if err != nil || len(projectPayments) == 0{
-		return nil, nil, errs.New(noPaymentMethodAttachedErrMsg)
 	}
 
 	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
