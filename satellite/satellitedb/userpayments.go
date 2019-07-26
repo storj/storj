@@ -6,11 +6,11 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"storj.io/storj/satellite/payments"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/payments"
 	dbx "storj.io/storj/satellite/satellitedb/dbx"
 )
 
