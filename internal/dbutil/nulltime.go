@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+const (
+	sqliteTimeLayout = "2006-01-02 15:04:05-07:00"
+)
+
 // NullTime time helps convert nil to time.Time
 type NullTime struct {
 	time.Time
@@ -16,7 +20,17 @@ type NullTime struct {
 
 // Scan implements the Scanner interface.
 func (nt *NullTime) Scan(value interface{}) error {
-	nt.Time, nt.Valid = value.(time.Time)
+	date, ok := value.([]byte)
+	if !ok {
+		return nil
+	}
+
+	times, err := time.Parse(sqliteTimeLayout, string(date))
+	if err != nil {
+		return nil
+	}
+
+	nt.Time, nt.Valid = times, true
 	return nil
 }
 

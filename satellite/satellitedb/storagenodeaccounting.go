@@ -201,8 +201,8 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT at_rest_total, start_time, 
-		LAG(at_rest_total) OVER win as prev_at_rest, 
-		LAG(start_time) OVER win as prev_start_time
+		LAG(at_rest_total) OVER win AS prev_at_rest, 
+		LAG(start_time) OVER win AS prev_start_time
 		FROM accounting_rollups
 		WHERE id IN (
 			SELECT MAX(id)
@@ -212,7 +212,7 @@ func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, node
 			GROUP BY start_time
 			ORDER BY start_time ASC
 		)
-		WINDOW win AS (ORDER BY ID)`
+		WINDOW win AS (ORDER BY start_time)`
 
 	rows, err := db.db.QueryContext(ctx, db.db.Rebind(query), nodeID, start.UTC(), end.UTC())
 	if err != nil {
