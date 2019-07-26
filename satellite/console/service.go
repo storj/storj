@@ -58,10 +58,10 @@ const (
 type Service struct {
 	Signer
 
-	log     *zap.Logger
-	pm      payments.Service
-	store   DB
-	rewards rewards.DB
+	log            *zap.Logger
+	paymentMethods payments.Service
+	store          DB
+	rewards        rewards.DB
 
 	passwordCost int
 }
@@ -82,12 +82,12 @@ func NewService(log *zap.Logger, signer Signer, store DB, rewards rewards.DB, pm
 	}
 
 	return &Service{
-		log:          log,
-		Signer:       signer,
-		store:        store,
-		rewards:      rewards,
-		pm:           pm,
-		passwordCost: passwordCost,
+		log:            log,
+		Signer:         signer,
+		store:          store,
+		rewards:        rewards,
+		paymentMethods: pm,
+		passwordCost:   passwordCost,
 	}, nil
 }
 
@@ -154,7 +154,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			return errs.New(internalErrMsg)
 		}
 
-		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+		cus, err := s.paymentMethods.CreateCustomer(ctx, payments.CreateCustomerParams{
 			Email: email,
 			Name:  user.FullName,
 		})
@@ -193,7 +193,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 			return nil, errs.New(internalErrMsg)
 		}
 
-		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+		cus, err := s.paymentMethods.CreateCustomer(ctx, payments.CreateCustomerParams{
 			Email: authorization.User.Email,
 			Name:  authorization.User.FullName,
 		})
@@ -210,7 +210,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 		CustomerID: string(customerID),
 	}
 
-	method, err := s.pm.AddPaymentMethod(ctx, params)
+	method, err := s.paymentMethods.AddPaymentMethod(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 			return nil, errs.New(internalErrMsg)
 		}
 
-		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
+		cus, err := s.paymentMethods.CreateCustomer(ctx, payments.CreateCustomerParams{
 			Email: authorization.User.Email,
 			Name:  authorization.User.FullName,
 		})
@@ -287,7 +287,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 		customerID = userPayments.CustomerID
 	}
 
-	customer, err := s.pm.GetCustomer(ctx, customerID)
+	customer, err := s.paymentMethods.GetCustomer(ctx, customerID)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +297,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 		Token:      paymentMethodToken,
 	}
 
-	pm, err := s.pm.AddPaymentMethod(ctx, pp)
+	pm, err := s.paymentMethods.AddPaymentMethod(ctx, pp)
 	if err != nil {
 		return nil, err
 	}
@@ -428,7 +428,7 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 	}
 
 	for _, payment := range projectPaymentInfos {
-		pm, err := s.pm.GetPaymentMethod(ctx, payment.PaymentMethodID)
+		pm, err := s.paymentMethods.GetPaymentMethod(ctx, payment.PaymentMethodID)
 		if err != nil {
 			return nil, err
 		}
@@ -469,7 +469,7 @@ func (s *Service) GetUserPaymentMethods(ctx context.Context) (_ []payments.Payme
 		return nil, errs.New(internalErrMsg)
 	}
 
-	return s.pm.GetCustomerPaymentsMethods(ctx, userPayments.CustomerID)
+	return s.paymentMethods.GetCustomerPaymentsMethods(ctx, userPayments.CustomerID)
 }
 
 // GenerateActivationToken - is a method for generating activation token
@@ -1280,7 +1280,7 @@ func (s *Service) CreateMonthlyProjectInvoices(ctx context.Context, date time.Ti
 			continue
 		}
 
-		inv, err := s.pm.CreateProjectInvoice(ctx,
+		inv, err := s.paymentMethods.CreateProjectInvoice(ctx,
 			payments.CreateProjectInvoiceParams{
 				ProjectName:     proj.Name,
 				CustomerID:      payerInfo.CustomerID,
