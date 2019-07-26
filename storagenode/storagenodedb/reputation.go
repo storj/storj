@@ -25,7 +25,7 @@ type reputationDB struct {
 func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := `INSERT OR REPLACE INTO node_stats (
+	stmt := `INSERT OR REPLACE INTO reputation (
 				satellite_id, 
 				uptime_success_count,
 				uptime_total_count,
@@ -65,7 +65,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 	stats := reputation.Stats{}
 
 	row := db.db.QueryRowContext(ctx,
-		`SELECT * FROM node_stats WHERE satellite_id = ?`,
+		`SELECT * FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
 

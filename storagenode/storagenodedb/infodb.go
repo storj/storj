@@ -406,10 +406,10 @@ func (db *InfoDB) Migration() *migrate.Migration {
 				}),
 			},
 			{
-				Description: "Add stats and space usage cache tables",
+				Description: "Add reputation and storage usage cache tables",
 				Version:     15,
 				Action: migrate.SQL{
-					`CREATE TABLE node_stats (
+					`CREATE TABLE reputation (
 						satellite_id BLOB NOT NULL,
 						uptime_success_count INTEGER NOT NULL,
 						uptime_total_count INTEGER NOT NULL,
@@ -424,7 +424,7 @@ func (db *InfoDB) Migration() *migrate.Migration {
 						updated_at TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id)
 					)`,
-					`CREATE TABLE disk_storage_usages (
+					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
 						at_rest_total REAL NOT NUll,
 						timestamp TIMESTAMP NOT NULL,

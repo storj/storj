@@ -33,7 +33,7 @@ func (db *storageusageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 		return nil
 	}
 
-	query := `INSERT OR REPLACE INTO disk_storage_usages(satellite_id, at_rest_total, timestamp) 
+	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, timestamp) 
 			VALUES(?,?,?)`
 
 	cb := func(tx *sql.Tx) error {
@@ -57,10 +57,10 @@ func (db *storageusageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT *
-				FROM disk_storage_usages
+				FROM storage_usage
 				WHERE timestamp IN (
 					SELECT MAX(timestamp) 
-					FROM disk_storage_usages
+					FROM storage_usage
 					WHERE satellite_id = ?
 					AND ? <= timestamp AND timestamp <= ?
 					GROUP BY DATE(timestamp)
@@ -102,10 +102,10 @@ func (db *storageusageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT SUM(at_rest_total), timestamp 
-				FROM disk_storage_usages
+				FROM storage_usage
 				WHERE timestamp IN (
 					SELECT MAX(timestamp)
-					FROM disk_storage_usages
+					FROM storage_usage
 					WHERE ? <= timestamp AND timestamp <= ?
 					GROUP BY DATE(timestamp), satellite_id
 				) GROUP BY DATE(timestamp)`

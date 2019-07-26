@@ -91,7 +91,7 @@ CREATE TABLE bandwidth_usage_rollups (
     PRIMARY KEY ( interval_start, satellite_id, action )
 );
 
-CREATE TABLE node_stats (
+CREATE TABLE reputation (
     satellite_id BLOB NOT NULL,
     uptime_success_count INTEGER NOT NULL,
     uptime_total_count INTEGER NOT NULL,
@@ -107,7 +107,7 @@ CREATE TABLE node_stats (
     PRIMARY KEY (satellite_id)
 );
 
-CREATE TABLE disk_storage_usages (
+CREATE TABLE storage_usage (
     satellite_id BLOB NOT NULL,
     at_rest_total REAL NOT NUll,
     timestamp TIMESTAMP NOT NULL,
@@ -161,6 +161,6 @@ INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 18:00:00+00:00',X'0ed28ab
 INSERT INTO bandwidth_usage_rollups VALUES('2019-07-12 20:00:00+00:00',X'2b3a5863a41f25408a8f5348839d7a1361dbd886d75786bb139a8ca0bdf41000',6,6);
 
 -- NEW DATA --
-insert INTO node_stats VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00');
+insert INTO reputation VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',1,1,1.0,1.0,1.0,1,1,1.0,1.0,1.0,'2019-07-19 20:00:00+00:00');
 
-insert INTO disk_storage_usages VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',5.0,'2019-07-19 20:00:00+00:00');
+insert INTO storage_usage VALUES(X'0ed28abb2813e184a1e98b0f6605c4911ea468c7e8433eb583e0fca7ceac3000',5.0,'2019-07-19 20:00:00+00:00');
