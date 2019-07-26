@@ -28,8 +28,10 @@ type CreateCustomerParams struct {
 	Name  string
 }
 
+// ErrPaymentMissing Payment related error class
 var ErrPaymentMissing = errs.Class("payment missing error")
 
+// ErrCustomerMissing Customer related error class
 var ErrCustomerMissing = errs.Class("Customer missing error")
 
 // AddPaymentMethodParams contains info needed to create new payment method
