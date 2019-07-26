@@ -6,6 +6,7 @@ package consoleql
 import (
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"time"
 
 	"storj.io/storj/satellite/console"
 )
@@ -140,4 +141,15 @@ func fillUserInfo(user *console.User, args map[string]interface{}) console.UserI
 	}
 
 	return info
+}
+
+// UserPaymentMethodCombined represents partial information about User Payment Method
+type UserPaymentMethodCombined struct {
+	ID         string
+	ExpYear    int64
+	ExpMonth   int64
+	CardBrand  string
+	LastFour   string
+	HolderName string
+	AddedAt    time.Time
 }

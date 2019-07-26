@@ -226,9 +226,9 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						return nil, err
 					}
 
-					var userPayments []console.UserPaymentMethodCombined
+					var userPayments []UserPaymentMethodCombined
 					for _, method := range methods {
-						userPayments = append(userPayments, console.UserPaymentMethodCombined{
+						userPayments = append(userPayments, UserPaymentMethodCombined{
 							ID:         string(method.ID),
 							ExpMonth:   method.Card.ExpMonth,
 							ExpYear:    method.Card.ExpYear,

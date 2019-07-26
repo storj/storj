@@ -3,6 +3,7 @@
 
 package console
 
+// NoRowsError is a representation of specific error from database layer
 type NoRowsError struct {
 	message string
 }
