@@ -52,7 +52,7 @@ type Service struct {
 	sender Sender
 
 	html *htmltemplate.Template
-	// TODO(yar): prepare plain text version
+	// TODO(yar): newCardInput plain text version
 	//text *texttemplate.Template
 
 	sending sync.WaitGroup
@@ -63,7 +63,7 @@ func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) 
 	var err error
 	service := &Service{log: log, sender: sender}
 
-	// TODO(yar): prepare plain text version
+	// TODO(yar): newCardInput plain text version
 	//service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
 	//if err != nil {
 	//	return nil, err
@@ -106,7 +106,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	var htmlBuffer bytes.Buffer
 	var textBuffer bytes.Buffer
 
-	// TODO(yar): prepare plain text version
+	// TODO(yar): newCardInput plain text version
 	//if err = service.text.ExecuteTemplate(&textBuffer, msg.Template() + ".txt", msg); err != nil {
 	//	return
 	//}

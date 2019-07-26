@@ -81,7 +81,7 @@
         PROJECT_PAYMENT_METHODS_ACTIONS,
         USER_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
-    import { setupStripe } from '@/utils/stripeHelper';
+    import Stripe from '@/utils/stripe';
 
     @Component({
         components: {
@@ -98,33 +98,39 @@
         }
 
         public updated(): void {
-            setupStripe(this,  async result => {
+            const stripe: Stripe = new Stripe();
+            try {
+                stripe.newCardInput(this.onStripeResponse);
+            } catch (e) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.toString());
+            }
+        }
 
-                const input = {
-                    token: result.token.id,
-                    makeDefault: this.makeDefault} as AddPaymentMethodInput;
+        private async onStripeResponse(result: any) {
+            const input = {
+                token: result.token.id,
+                makeDefault: this.makeDefault} as AddPaymentMethodInput;
 
-                const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+            const response = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.ADD, input);
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
-                    return;
-                }
+                return;
+            }
 
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
 
-                const projectPaymentsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
-                if (!projectPaymentsResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
-                }
+            const projectPaymentsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!projectPaymentsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + projectPaymentsResponse.errorMessage);
+            }
 
-                const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
-                if (!userPaymentMethodResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
-                }
+            const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!userPaymentMethodResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+            }
 
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
-            });
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ATTACH_STRIPE_CARD_POPUP);
         }
 
         public toggleMakeDefault(value: boolean): void {

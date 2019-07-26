@@ -80,7 +80,7 @@
         NOTIFICATION_ACTIONS,
         USER_PAYMENT_METHODS_ACTIONS
     } from '@/utils/constants/actionNames';
-    import { setupStripe } from '@/utils/stripeHelper';
+    import Stripe from '@/utils/stripe';
 
     @Component({
         components: {
@@ -102,24 +102,31 @@
         }
 
         public updated(): void {
-            setupStripe(this, async result => {
-                const response = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
-                this.isSaveButtonEnabled = true;
-                if (!response.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
+            const stripe: Stripe = new Stripe();
+            try {
+                stripe.newCardInput(this.onStripeResponse);
+            } catch (e) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, e.toString());
+            }
+        }
 
-                    return;
-                }
+        private async onStripeResponse(result:any) {
+            const response = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.ADD, result.token.id);
+            this.isSaveButtonEnabled = true;
+            if (!response.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, response.errorMessage);
 
-                this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
+                return;
+            }
 
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_USER_PAYMENT_POPUP);
+            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
 
-                const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
-                if (!userPaymentMethodResponse.isSuccess) {
-                    this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
-                }
-            });
+            this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_ADD_USER_PAYMENT_POPUP);
+
+            const userPaymentMethodResponse = await this.$store.dispatch(USER_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!userPaymentMethodResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch user payment methods: ' + userPaymentMethodResponse.errorMessage);
+            }
         }
 
         public toggleMakeDefault(value: boolean): void {
