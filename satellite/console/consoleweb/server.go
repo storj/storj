@@ -129,8 +129,6 @@ func (s *Server) appHandler(w http.ResponseWriter, req *http.Request) {
 	header.Set("Content-Type", "text/html; charset=UTF-8")
 	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 
-	w.WriteHeader(200)
-
 	http.ServeFile(w, req, filepath.Join(s.config.StaticDir, "dist", "index.html"))
 }
 
