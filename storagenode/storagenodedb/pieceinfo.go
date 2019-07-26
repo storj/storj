@@ -60,15 +60,15 @@ func (db *v0PieceInfo) Add(ctx context.Context, info *pieces.Info) (err error) {
 // storage format V0 in the namespace of the given satellite, if that piece was created before
 // the specified time. If doForEach returns a non-nil error, ForAllV0PieceIDsOwnedBySatellite will
 // stop iterating and return the error immediately.
-func (db *v0PieceInfo) ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, satelliteID storj.NodeID, createdBefore time.Time, doForEach func(storj.PieceID) error) (err error) {
+func (db *v0PieceInfo) ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, satelliteID storj.NodeID, doForEach func(storj.PieceID) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.db.QueryContext(ctx, db.Rebind(`
 		SELECT piece_id, piece_size, piece_creation, piece_expiration, order_limit, uplink_piece_hash
 		FROM pieceinfo_
-		WHERE satellite_id = ? AND datetime(piece_creation) < datetime(?)
+		WHERE satellite_id = ?
 		ORDER BY piece_id
-	`), satelliteID, createdBefore.UTC())
+	`), satelliteID)
 	if err != nil {
 		return ErrInfo.Wrap(err)
 	}

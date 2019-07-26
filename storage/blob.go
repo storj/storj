@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"time"
 
 	"github.com/zeebo/errs"
 )
@@ -111,10 +110,9 @@ type Blobs interface {
 	// may only be useful for test scenarios.
 	ReserveSpace(amount int64)
 	// ForAllV1KeysInNamespace executes doForEach for each locally stored blob, stored with
-	// storage format V1 or greater, in the given namespace, if that blob was created before
-	// the specified time. If doForEach returns a non-nil error, ForAllV1KeysInNamespace
-	// will stop iterating and return the error immediately.
-	ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, createdBefore time.Time, doForEach func(StoredBlobAccess) error) error
+	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
+	// error, ForAllV1KeysInNamespace will stop iterating and return the error immediately.
+	ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, doForEach func(StoredBlobAccess) error) error
 }
 
 // StoredBlobAccess allows inspection of a blob and its underlying file during iteration with

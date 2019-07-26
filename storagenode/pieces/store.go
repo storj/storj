@@ -77,10 +77,10 @@ type V0PieceInfoDB interface {
 	// before the given time
 	GetExpired(ctx context.Context, expiredAt time.Time, limit int64) ([]ExpiredInfo, error)
 	// ForAllV0PieceIDsOwnedBySatellite executes doForEach for each locally stored piece, stored
-	// with storage format V0 in the namespace of the given satellite, if that piece was created
-	// before the specified time. If doForEach returns a non-nil error,
-	// ForAllV0PieceIDsOwnedBySatellite will stop iterating and return the error immediately.
-	ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, createdBefore time.Time, doForEach func(storj.PieceID) error) error
+	// with storage format V0 in the namespace of the given satellite. If doForEach returns a
+	// non-nil error, ForAllV0PieceIDsOwnedBySatellite will stop iterating and return the error
+	// immediately.
+	ForAllV0PieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(storj.PieceID) error) error
 }
 
 // V0PieceInfoDBForTest is like V0PieceInfoDB, but adds on the Add() method so
@@ -210,10 +210,10 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 // error, ForAllPieceIDsInNamespace will stop iterating and return the error immediately.
 //
 // Note that this method includes all locally stored pieces, both V0 and higher.
-func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, createdBefore time.Time, doForEach func(StoredPieceAccess) error) (err error) {
+func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// first iterate over all in V1 storage, then all in V0
-	err = store.blobs.ForAllV1KeysInNamespace(ctx, satellite.Bytes(), createdBefore, func(blobAccess storage.StoredBlobAccess) error {
+	err = store.blobs.ForAllV1KeysInNamespace(ctx, satellite.Bytes(), func(blobAccess storage.StoredBlobAccess) error {
 		pieceAccess, err := newStoredPieceAccess(store, blobAccess)
 		if err != nil {
 			// something is wrong with internals; blob storage thinks this key was stored, but
@@ -223,7 +223,7 @@ func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellit
 		return doForEach(pieceAccess)
 	})
 	if err == nil && store.v0PieceInfo != nil {
-		err = store.v0PieceInfo.ForAllV0PieceIDsOwnedBySatellite(ctx, satellite, createdBefore, func(pieceID storj.PieceID) error {
+		err = store.v0PieceInfo.ForAllV0PieceIDsOwnedBySatellite(ctx, satellite, func(pieceID storj.PieceID) error {
 			pieceAccess := newV0StoredPieceAccess(store, satellite, pieceID)
 			return doForEach(pieceAccess)
 		})
@@ -272,7 +272,7 @@ func (store *Store) SpaceUsed(ctx context.Context) (int64, error) {
 // include all space used by the blobs.
 func (store *Store) SpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (int64, error) {
 	var totalUsed int64
-	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, time.Now(), func(access StoredPieceAccess) error {
+	err := store.ForAllPieceIDsOwnedBySatellite(ctx, satelliteID, func(access StoredPieceAccess) error {
 		contentSize, statErr := access.ContentSize(ctx)
 		if statErr != nil {
 			store.log.Sugar().Errorf("failed to stat: %v", statErr)

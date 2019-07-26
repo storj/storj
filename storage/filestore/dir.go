@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/zeebo/errs"
 
@@ -372,7 +371,7 @@ func (dir *Dir) GetAllNamespaces(ctx context.Context) (ids [][]byte, err error) 
 // storage format V1 or greater, in the given namespace, if that blob was created before the
 // specified time. If doForEach returns a non-nil error, ForAllKeysInNamespace will stop
 // iterating and return the error immediately.
-func (dir *Dir) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, createdBefore time.Time, doForEach func(storage.StoredBlobAccess) error) (err error) {
+func (dir *Dir) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
 	namespaceDir := pathEncoding.EncodeToString(namespace)
 	nsDir := filepath.Join(dir.blobsdir(), namespaceDir)
 	openDir, err := os.Open(nsDir)
@@ -394,7 +393,7 @@ func (dir *Dir) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, c
 				// don't need to pass on this error
 				continue
 			}
-			err := dir.forAllKeysInNamespaceWithPrefix(ctx, namespace, createdBefore, nsDir, keyPrefix, doForEach)
+			err := dir.forAllKeysInNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, doForEach)
 			if err != nil {
 				return err
 			}
@@ -402,7 +401,7 @@ func (dir *Dir) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, c
 	}
 }
 
-func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace []byte, createdBefore time.Time, nsDir, keyPrefix string, doForEach func(storage.StoredBlobAccess) error) (err error) {
+func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace []byte, nsDir, keyPrefix string, doForEach func(storage.StoredBlobAccess) error) (err error) {
 	keyDir := filepath.Join(nsDir, keyPrefix)
 	openDir, err := os.Open(keyDir)
 	if err != nil {

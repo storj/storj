@@ -559,7 +559,19 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 		zap.Int64("filterSize", filter.Size()),
 		zap.String("satellite", peer.ID.String()))
 
-	err = endpoint.store.ForAllPieceIDsOwnedBySatellite(ctx, peer.ID, createdBefore, func(access pieces.StoredPieceAccess) error {
+	err = endpoint.store.ForAllPieceIDsOwnedBySatellite(ctx, peer.ID, func(access pieces.StoredPieceAccess) error {
+		// We call Gosched() when done because the GC process is expected to be long and we want to keep it at low priority,
+		// so other goroutines can continue serving requests.
+		defer runtime.Gosched()
+		stat, err := access.Stat(ctx)
+		if err != nil {
+			endpoint.log.Error("failed to determine mtime of blob", zap.Error(err))
+			// but continue iterating.
+			return nil
+		}
+		if stat.ModTime().After(createdBefore) {
+			return nil
+		}
 		pieceID := access.PieceID()
 		if !filter.Contains(pieceID) {
 			if err := endpoint.store.Delete(ctx, peer.ID, pieceID); err != nil {
@@ -567,9 +579,6 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 			}
 			numDeleted++
 		}
-		// We call Gosched() here because the GC process is expected to be long and we want to keep it at low priority,
-		// so other goroutines can continue serving requests.
-		runtime.Gosched()
 		return nil
 	})
 	if err != nil {
