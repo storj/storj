@@ -107,8 +107,7 @@ CREATE TABLE node_stats (
     PRIMARY KEY (satellite_id)
 );
 
-CREATE TABLE rollup_disk_storage_usages (
-    rollup_id INTEGER NOT NULL,
+CREATE TABLE disk_storage_usages (
     satellite_id BLOB NOT NULL,
     at_rest_total REAL NOT NUll,
     timestamp TIMESTAMP NOT NULL,
