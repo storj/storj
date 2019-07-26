@@ -33,18 +33,20 @@ type Cache struct {
 	reputationDB   reputation.DB
 	storageusageDB storageusage.DB
 
-	statsCycle *sync2.Cycle
-	spaceCycle *sync2.Cycle
+	reputationCycle *sync2.Cycle
+	storageCycle    *sync2.Cycle
 }
 
 // NewCache creates new caching service instance
 func NewCache(log *zap.Logger, service *Service, trust *trust.Pool, reputationDB reputation.DB, storageusageDB storageusage.DB) *Cache {
 	return &Cache{
-		log:            log,
-		service:        service,
-		trust:          trust,
-		reputationDB:   reputationDB,
-		storageusageDB: storageusageDB,
+		log:             log,
+		service:         service,
+		trust:           trust,
+		reputationDB:    reputationDB,
+		storageusageDB:  storageusageDB,
+		reputationCycle: sync2.NewCycle(time.Hour * 4),
+		storageCycle:    sync2.NewCycle(time.Hour * 12),
 	}
 }
 
@@ -52,7 +54,7 @@ func NewCache(log *zap.Logger, service *Service, trust *trust.Pool, reputationDB
 func (cache *Cache) Run(ctx context.Context) error {
 	var group errgroup.Group
 
-	cache.statsCycle.Start(ctx, &group, func(ctx context.Context) error {
+	cache.reputationCycle.Start(ctx, &group, func(ctx context.Context) error {
 		err := cache.CacheReputationStats(ctx)
 		if err != nil {
 			cache.log.Error("Get stats query failed", zap.Error(err))
@@ -60,7 +62,7 @@ func (cache *Cache) Run(ctx context.Context) error {
 
 		return nil
 	})
-	cache.spaceCycle.Start(ctx, &group, func(ctx context.Context) error {
+	cache.storageCycle.Start(ctx, &group, func(ctx context.Context) error {
 		err := cache.CacheSpaceUsage(ctx)
 		if err != nil {
 			cache.log.Error("Get disk space usage query failed", zap.Error(err))
@@ -123,7 +125,7 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 // Close closes underlying cycles
 func (cache *Cache) Close() error {
 	defer mon.Task()(nil)(nil)
-	cache.statsCycle.Close()
-	cache.spaceCycle.Close()
+	cache.reputationCycle.Close()
+	cache.storageCycle.Close()
 	return nil
 }
