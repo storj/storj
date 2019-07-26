@@ -49,6 +49,7 @@ void handle_project(ProjectRef project) {
 
 
     for(int i = 0; i < num_of_objects; i++) {
+        // NB: 5KB, 50KB, 500KB, 5000KB
         size_t data_len = pow(10, (double)i) * 1024 * 5;
         uint8_t *data = malloc(data_len);
         fill_random_data(data, data_len);
