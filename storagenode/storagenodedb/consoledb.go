@@ -5,7 +5,6 @@ package storagenodedb
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -26,57 +25,9 @@ func (db *InfoDB) Console() console.DB { return &consoledb{db} }
 // Console returns console.DB
 func (db *DB) Console() console.DB { return db.info.Console() }
 
-// Satellites returns consoledb as console.Satellites
-func (db *consoledb) Satellites() console.Satellites {
-	return db
-}
-
 // Bandwidth returns consoledb as console.Bandwidth
 func (db *consoledb) Bandwidth() console.Bandwidth {
 	return db
-}
-
-// DiskSpaceUsages returns consoledb as console.DiskSpaceUsages
-func (db *consoledb) DiskSpaceUsages() console.DiskSpaceUsages {
-	return &diskSpaceUsage{InfoDB: db.InfoDB}
-}
-
-// Stats returns nodeStats as console.Stats
-func (db *consoledb) Stats() console.Stats {
-	return &nodeStats{InfoDB: db.InfoDB}
-}
-
-// GetIDs returns list of satelliteIDs that storagenode has interacted with
-// at least once
-func (db *consoledb) GetIDs(ctx context.Context) (_ storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var satellites storj.NodeIDList
-
-	rows, err := db.db.QueryContext(ctx,
-		`SELECT DISTINCT satellite_id
-		FROM bandwidth_usage`)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return satellites, nil
-		}
-		return nil, err
-	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		var satelliteID storj.NodeID
-		if err = rows.Scan(&satelliteID); err != nil {
-			return nil, err
-		}
-
-		satellites = append(satellites, satelliteID)
-	}
-
-	return satellites, nil
 }
 
 // GetDaily returns slice of daily bandwidth usage for provided time range,

@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/internal/version"
 	"storj.io/storj/pkg/storj"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/storageusage"
 )
 
 const (
@@ -48,18 +50,18 @@ type DashboardResponse struct {
 
 // DashboardData stores all needed information about storagenode
 type DashboardData struct {
-	Bandwidth          console.BandwidthInfo    `json:"bandwidth"`
-	DiskSpace          console.DiskSpaceInfo    `json:"diskSpace"`
-	WalletAddress      string                   `json:"walletAddress"`
-	VersionInfo        version.Info             `json:"versionInfo"`
-	IsLastVersion      bool                     `json:"isLastVersion"`
-	Uptime             time.Duration            `json:"uptime"`
-	NodeID             string                   `json:"nodeId"`
-	Satellites         storj.NodeIDList         `json:"satellites"`
-	UptimeCheck        console.ReputationStats  `json:"uptimeCheck"`
-	AuditCheck         console.ReputationStats  `json:"auditCheck"`
-	BandwidthChartData []console.BandwidthUsed  `json:"bandwidthChartData"`
-	DiskSpaceChartData []console.DiskSpaceUsage `json:"diskSpaceChartData"`
+	Bandwidth          console.BandwidthInfo   `json:"bandwidth"`
+	DiskSpace          console.DiskSpaceInfo   `json:"diskSpace"`
+	WalletAddress      string                  `json:"walletAddress"`
+	VersionInfo        version.Info            `json:"versionInfo"`
+	IsLastVersion      bool                    `json:"isLastVersion"`
+	Uptime             time.Duration           `json:"uptime"`
+	NodeID             string                  `json:"nodeId"`
+	Satellites         storj.NodeIDList        `json:"satellites"`
+	UptimeCheck        reputation.Metric       `json:"uptimeCheck"`
+	AuditCheck         reputation.Metric       `json:"auditCheck"`
+	BandwidthChartData []console.BandwidthUsed `json:"bandwidthChartData"`
+	DiskSpaceChartData []storageusage.Stamp    `json:"diskSpaceChartData"`
 }
 
 // Server represents storagenode console web server
@@ -174,14 +176,11 @@ func (server *Server) dashboardHandler(writer http.ResponseWriter, request *http
 func (server *Server) getDashboardData(ctx context.Context, satelliteID *storj.NodeID) (DashboardData, error) {
 	var response = DashboardData{}
 
-	satellites, err := server.service.GetSatellites(ctx)
-	if err != nil {
-		return response, err
-	}
+	satellites := server.service.GetSatellites(ctx)
 
 	// checks if current satellite id is related to current storage node
 	if satelliteID != nil {
-		if err = server.checkSatelliteID(satellites, *satelliteID); err != nil {
+		if err := server.checkSatelliteID(satellites, *satelliteID); err != nil {
 			return response, err
 		}
 	}
