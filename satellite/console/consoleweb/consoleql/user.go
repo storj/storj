@@ -4,9 +4,10 @@
 package consoleql
 
 import (
+	"time"
+
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"time"
 
 	"storj.io/storj/satellite/console"
 )
