@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/storj/internal/fpath"
@@ -123,13 +124,13 @@ func cmdSetupInteractive(cmd *cobra.Command, setupDir string) error {
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer uplink.Close()
+	defer func() { err = errs.Combine(err, uplink.Close()) }()
 
 	project, err := uplink.OpenProject(ctx, satelliteAddress, apiKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer project.Close()
+	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
 	if err != nil {

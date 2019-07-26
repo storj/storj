@@ -55,6 +55,7 @@ type Config struct {
 	TLS    tlsopts.Config
 }
 
+// ScopeConfig holds information about which scopes exist and are selected.
 type ScopeConfig struct {
 	Scopes map[string]string `internal:"true"`
 	Scope  string            `help:"the serialized scope, or name of the scope to use" default:""`

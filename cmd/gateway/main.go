@@ -296,13 +296,13 @@ func (flags GatewayFlags) interactive(cmd *cobra.Command, setupDir string, overr
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer uplink.Close()
+	defer func() { err = errs.Combine(err, uplink.Close()) }()
 
 	project, err := uplink.OpenProject(ctx, satelliteAddress, apiKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer project.Close()
+	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
 	if err != nil {

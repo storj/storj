@@ -188,7 +188,7 @@ func cleanup(cmd *cobra.Command) {
 		}
 
 		for key := range allKeys {
-			// Check if the key is a flag, and if so, propogate it.
+			// Check if the key is a flag, and if so, propagate it.
 			if f := cmd.Flags().Lookup(key); f != nil {
 				val := vip.GetString(key)
 				err := f.Value.Set(val)
