@@ -5,6 +5,7 @@ package payments
 
 import (
 	"context"
+	"github.com/zeebo/errs"
 	"time"
 )
 
@@ -25,6 +26,10 @@ type CreateCustomerParams struct {
 	Email string
 	Name  string
 }
+
+var ErrPaymentMissing = errs.Class("payment missing error")
+
+var ErrCustomerMissing = errs.Class("Customer missing error")
 
 // AddPaymentMethodParams contains info needed to create new payment method
 type AddPaymentMethodParams struct {

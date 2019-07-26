@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"storj.io/storj/satellite/payments"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
@@ -51,7 +52,7 @@ func (pp *projectPayments) GetDefaultByProjectID(ctx context.Context, projectID 
 	dbxInfo, err := pp.methods.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &console.NoRowsError{}
+			return nil, payments.ErrPaymentMissing.Wrap(err)
 		}
 
 		return nil, err

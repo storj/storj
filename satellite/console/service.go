@@ -188,8 +188,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 	var customerID []byte
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
-		_, ok := err.(NoRowsError)
-		if !ok {
+		if !payments.ErrCustomerMissing.Has(err) {
 			return nil, errs.New(internalErrMsg)
 		}
 
@@ -225,8 +224,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 		if isDefault {
 			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
 			if err != nil {
-				_, ok := err.(NoRowsError)
-				if !ok {
+				if !payments.ErrPaymentMissing.Has(err) {
 					return errs.New(internalErrMsg)
 				}
 			}
@@ -270,8 +268,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 	var customerID []byte
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
-		_, ok := err.(NoRowsError)
-		if !ok {
+		if !payments.ErrCustomerMissing.Has(err) {
 			return nil, errs.New(internalErrMsg)
 		}
 
@@ -323,8 +320,7 @@ func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMetho
 
 	err = withTx(tx, func(tx DBTx) error {
 		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-		_, ok := err.(NoRowsError)
-		if !ok {
+		if !payments.ErrPaymentMissing.Has(err) {
 			return errs.New(internalErrMsg)
 		}
 
