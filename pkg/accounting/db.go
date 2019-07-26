@@ -69,8 +69,8 @@ type StoragenodeAccounting interface {
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*CSVRow, error)
-	// QueryNodeStorageUsage returns slice of NodeStorageUsage for given period
-	QueryNodeStorageUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]NodeStorageUsage, error)
+	// QueryStorageNodeUsage returns slice of NodeStorageUsage for given period
+	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]NodeStorageUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
 }

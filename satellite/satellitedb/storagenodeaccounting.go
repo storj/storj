@@ -196,8 +196,8 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 	return csv, nil
 }
 
-// QueryNodeStorageUsage returns slice of NodeStorageUsage for given period
-func (db *StoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeStorageUsage, err error) {
+// QueryStorageNodeUsage returns slice of NodeStorageUsage for given period
+func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (_ []accounting.NodeStorageUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT at_rest_total, start_time, 

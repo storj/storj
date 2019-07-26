@@ -69,7 +69,7 @@ func TestNodeStorageUsage(t *testing.T) {
 		err = db.StoragenodeAccounting().SaveRollup(ctx, time.Now(), rollups)
 		require.NoError(t, err)
 
-		nodeStorageUsages, err := db.StoragenodeAccounting().QueryNodeStorageUsage(ctx, nodeID, time.Time{}, time.Now())
+		nodeStorageUsages, err := db.StoragenodeAccounting().QueryStorageNodeUsage(ctx, nodeID, time.Time{}, time.Now())
 		require.NoError(t, err)
 		assert.NotNil(t, nodeStorageUsages)
 		assert.Equal(t, rollupsCount-1, len(nodeStorageUsages))

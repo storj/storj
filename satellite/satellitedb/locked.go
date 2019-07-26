@@ -1123,18 +1123,18 @@ func (m *lockedStoragenodeAccounting) LastTimestamp(ctx context.Context, timesta
 	return m.db.LastTimestamp(ctx, timestampType)
 }
 
-// QueryNodeStorageUsage returns slice of NodeStorageUsage for given period
-func (m *lockedStoragenodeAccounting) QueryNodeStorageUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeStorageUsage, error) {
-	m.Lock()
-	defer m.Unlock()
-	return m.db.QueryNodeStorageUsage(ctx, nodeID, start, end)
-}
-
 // QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID
 func (m *lockedStoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]*accounting.CSVRow, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryPaymentInfo(ctx, start, end)
+}
+
+// QueryStorageNodeUsage returns slice of NodeStorageUsage for given period
+func (m *lockedStoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeStorageUsage, error) {
+	m.Lock()
+	defer m.Unlock()
+	return m.db.QueryStorageNodeUsage(ctx, nodeID, start, end)
 }
 
 // SaveRollup records tally and bandwidth rollup aggregations to the database

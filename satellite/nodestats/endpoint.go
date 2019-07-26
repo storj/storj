@@ -93,7 +93,7 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
 
-	nodeSpaceUsages, err := e.accounting.QueryNodeStorageUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
+	nodeSpaceUsages, err := e.accounting.QueryStorageNodeUsage(ctx, node.Id, req.GetFrom(), req.GetTo())
 	if err != nil {
 		return nil, NodeStatsEndpointErr.Wrap(err)
 	}
