@@ -87,7 +87,7 @@ func (v *RetainStatus) Set(s string) error {
 	case "debug":
 		*v = RetainDebug
 	default:
-		return Error.New("invalid option %q", s)
+		return Error.New("invalid RetainStatus %q", s)
 	}
 	return nil
 }
