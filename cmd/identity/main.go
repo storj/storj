@@ -181,6 +181,9 @@ func cmdAuthorize(cmd *cobra.Command, args []string) error {
 		config.Signer.Address = defaultSignerAddress
 	}
 
+	// Ensure we dont enforce a signed Peer Identity
+	config.Signer.TLS.UsePeerCAWhitelist = false
+
 	signedChainBytes, err := config.Signer.Sign(ctx, ident, authToken)
 	if err != nil {
 		return errs.New("error occurred while signing certificate: %s\n(identity files were still generated and saved, if you try again existing files will be loaded)", err)

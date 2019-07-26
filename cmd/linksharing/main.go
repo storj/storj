@@ -92,6 +92,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		TLSConfig:       tlsConfig,
 		ShutdownTimeout: -1,
 	})
+	if err != nil {
+		return err
+	}
 
 	return server.Run(ctx)
 }

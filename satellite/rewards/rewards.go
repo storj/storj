@@ -40,6 +40,19 @@ type NewOffer struct {
 	Type   OfferType
 }
 
+// FormatPartnerName formats partner's name into combination of its partnerID and name
+func (o NewOffer) FormatPartnerName() string {
+	if o.Type != Partner {
+		return o.Name
+	}
+
+	partnerInfo := PartnerInfo{
+		ID:   LoadPartnerInfos()[o.Name].ID,
+		Name: o.Name,
+	}
+	return partnerInfo.FormattedName()
+}
+
 // UpdateOffer holds fields needed for update an offer
 type UpdateOffer struct {
 	ID        int
@@ -112,10 +125,20 @@ type OrganizedOffers struct {
 	Done    Offers
 }
 
+// OpenSourcePartner contains all data for an Open Source Partner.
+type OpenSourcePartner struct {
+	PartnerInfo
+	PartnerOffers OrganizedOffers
+}
+
+// PartnerSet contains a list of Open Source Partners.
+type PartnerSet []OpenSourcePartner
+
 // OfferSet provides a separation of marketing offers by type.
 type OfferSet struct {
 	ReferralOffers OrganizedOffers
 	FreeCredits    OrganizedOffers
+	PartnerTables  PartnerSet
 }
 
 // OrganizeOffersByStatus organizes offers by OfferStatus.
@@ -138,8 +161,8 @@ func (offers Offers) OrganizeOffersByStatus() OrganizedOffers {
 // OrganizeOffersByType organizes offers by OfferType.
 func (offers Offers) OrganizeOffersByType() OfferSet {
 	var (
-		fc, ro   Offers
-		offerSet OfferSet
+		fc, ro, p Offers
+		offerSet  OfferSet
 	)
 
 	for _, offer := range offers {
@@ -148,6 +171,8 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 			fc = append(fc, offer)
 		case Referral:
 			ro = append(ro, offer)
+		case Partner:
+			p = append(p, offer)
 		default:
 			continue
 		}
@@ -155,5 +180,46 @@ func (offers Offers) OrganizeOffersByType() OfferSet {
 
 	offerSet.FreeCredits = fc.OrganizeOffersByStatus()
 	offerSet.ReferralOffers = ro.OrganizeOffersByStatus()
+	offerSet.PartnerTables = organizePartnerData(p)
 	return offerSet
+}
+
+// createPartnerSet generates a PartnerSet from the config file.
+func createPartnerSet() PartnerSet {
+	partners := LoadPartnerInfos()
+	var ps PartnerSet
+	for _, partner := range partners {
+		ps = append(ps, OpenSourcePartner{
+			PartnerInfo: PartnerInfo{
+				Name: partner.Name,
+				ID:   partner.ID,
+			},
+		})
+	}
+	return ps
+}
+
+// matchOffersToPartnerSet assigns offers to the partner they belong to.
+func matchOffersToPartnerSet(offers Offers, partnerSet PartnerSet) PartnerSet {
+	for i := range partnerSet {
+		var partnerOffersByName Offers
+
+		for _, o := range offers {
+			if o.Name == partnerSet[i].PartnerInfo.FormattedName() {
+				partnerOffersByName = append(partnerOffersByName, o)
+			}
+		}
+
+		partnerSet[i].PartnerOffers = partnerOffersByName.OrganizeOffersByStatus()
+	}
+
+	return partnerSet
+}
+
+// organizePartnerData returns a list of Open Source Partners
+// whose offers have been organized by status, type, and
+// assigned to the correct partner.
+func organizePartnerData(offers Offers) PartnerSet {
+	partnerData := matchOffersToPartnerSet(offers, createPartnerSet())
+	return partnerData
 }
