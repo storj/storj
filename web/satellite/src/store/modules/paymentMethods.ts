@@ -76,7 +76,11 @@ export const userPaymentsMethodsModule = {
         [USER_PAYMENT_METHODS_MUTATIONS.SET_DEFAULT](state: any, paymentMethod: PaymentMethod) {
             state.defaultPaymentMethod = paymentMethod;
             state.defaultPaymentMethod.isDefault = true;
-        }
+        },
+        [USER_PAYMENT_METHODS_MUTATIONS.CLEAR](state: any) {
+            state.userPaymentMethods = [];
+            state.defaultPaymentMethod = {};
+        },
     },
     actions: {
         [USER_PAYMENT_METHODS_ACTIONS.FETCH]: async function ({commit}): Promise<RequestResponse<PaymentMethod[]>> {
@@ -87,6 +91,8 @@ export const userPaymentsMethodsModule = {
                 if (result.data.length > 0) {
                     commit(USER_PAYMENT_METHODS_MUTATIONS.SET_DEFAULT, result.data[0]);
                 }
+            } else {
+                commit(USER_PAYMENT_METHODS_MUTATIONS.CLEAR);
             }
 
             return result;
