@@ -48,7 +48,12 @@
     import HeaderedInput from '@/components/common/HeaderedInput.vue';
     import Checkbox from '@/components/common/Checkbox.vue';
     import Button from '@/components/common/Button.vue';
-    import { APP_STATE_ACTIONS, NOTIFICATION_ACTIONS, PROJETS_ACTIONS } from '@/utils/constants/actionNames';
+    import {
+        APP_STATE_ACTIONS,
+        NOTIFICATION_ACTIONS,
+        PROJECT_PAYMENT_METHODS_ACTIONS,
+        PROJETS_ACTIONS
+    } from '@/utils/constants/actionNames';
     import { PM_ACTIONS } from '@/utils/constants/actionNames';
     import { TeamMember } from '@/types/teamMembers';
     import { RequestResponse } from '@/types/response';
@@ -112,6 +117,11 @@
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Project created successfully!');
 
             this.isLoading = false;
+
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+            }
 
             if (this.userPaymentsCount) {
                 this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);

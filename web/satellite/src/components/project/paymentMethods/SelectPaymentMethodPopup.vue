@@ -72,6 +72,11 @@
 
             this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Card successfully added');
 
+            const paymentMethodsResponse = await this.$store.dispatch(PROJECT_PAYMENT_METHODS_ACTIONS.FETCH);
+            if (!paymentMethodsResponse.isSuccess) {
+                this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, 'Unable to fetch payment methods: ' + paymentMethodsResponse.errorMessage);
+            }
+
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SELECT_PAYMENT_METHOD_POPUP);
         }
 
