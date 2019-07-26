@@ -1130,8 +1130,8 @@ func (m *lockedStoragenodeAccounting) QueryPaymentInfo(ctx context.Context, star
 	return m.db.QueryPaymentInfo(ctx, start, end)
 }
 
-// QueryStorageNodeUsage returns slice of NodeStorageUsage for given period
-func (m *lockedStoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.NodeStorageUsage, error) {
+// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
+func (m *lockedStoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]accounting.StorageNodeUsage, error) {
 	m.Lock()
 	defer m.Unlock()
 	return m.db.QueryStorageNodeUsage(ctx, nodeID, start, end)
