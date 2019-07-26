@@ -6,7 +6,6 @@ package console
 import (
 	"context"
 	"crypto/subtle"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -14,7 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"gopkg.in/spacemonkeygo/monkit.v2"
 
 	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/macaroon"
@@ -189,7 +188,8 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 	var customerID []byte
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		_, ok := err.(NoRowsError)
+		if !ok {
 			return nil, errs.New(internalErrMsg)
 		}
 
@@ -225,7 +225,8 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 		if isDefault {
 			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
 			if err != nil {
-				if err != sql.ErrNoRows {
+				_, ok := err.(NoRowsError)
+				if !ok {
 					return errs.New(internalErrMsg)
 				}
 			}
@@ -269,7 +270,8 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 	var customerID []byte
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
-		if err != sql.ErrNoRows {
+		_, ok := err.(NoRowsError)
+		if !ok {
 			return nil, errs.New(internalErrMsg)
 		}
 
@@ -321,7 +323,8 @@ func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMetho
 
 	err = withTx(tx, func(tx DBTx) error {
 		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
-		if err != nil && err != sql.ErrNoRows {
+		_, ok := err.(NoRowsError)
+		if !ok {
 			return errs.New(internalErrMsg)
 		}
 

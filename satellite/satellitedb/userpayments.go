@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/skyrings/skyring-common/tools/uuid"
 
@@ -35,6 +36,10 @@ func (infos *userpayments) Create(ctx context.Context, info console.UserPayment)
 func (infos *userpayments) Get(ctx context.Context, userID uuid.UUID) (*console.UserPayment, error) {
 	dbxInfo, err := infos.db.Get_UserPayment_By_UserId(ctx, dbx.UserPayment_UserId(userID[:]))
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &console.NoRowsError{}
+		}
+
 		return nil, err
 	}
 

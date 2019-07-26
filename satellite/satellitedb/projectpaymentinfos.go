@@ -5,7 +5,7 @@ package satellitedb
 
 import (
 	"context"
-
+	"database/sql"
 	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
@@ -49,6 +49,10 @@ func (pp *projectPayments) Update(ctx context.Context, info console.ProjectPayme
 func (pp *projectPayments) GetDefaultByProjectID(ctx context.Context, projectID uuid.UUID) (*console.ProjectPayment, error) {
 	dbxInfo, err := pp.methods.Get_ProjectPayment_By_ProjectId_And_IsDefault_Equal_True(ctx, dbx.ProjectPayment_ProjectId(projectID[:]))
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &console.NoRowsError{}
+		}
+
 		return nil, err
 	}
 
