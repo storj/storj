@@ -535,9 +535,11 @@ func TestRetain(t *testing.T) {
 		endpointEnabled, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{
 			RetainStatus: ps.RetainEnabled,
 		})
+		require.NoError(t, err)
 		endpointDisabled, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{
 			RetainStatus: ps.RetainDisabled,
 		})
+		require.NoError(t, err)
 		endpointDebug, err := ps.NewEndpoint(zaptest.NewLogger(t), nil, trusted, nil, store, pieceInfos, nil, nil, nil, ps.Config{
 			RetainStatus: ps.RetainDebug,
 		})
