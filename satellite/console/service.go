@@ -190,7 +190,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			return nil, err
+			return nil, errs.New(internalErrMsg)
 		}
 
 		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
@@ -217,7 +217,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	var pp *ProjectPayment
@@ -226,7 +226,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 			projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
 			if err != nil {
 				if err != sql.ErrNoRows {
-					return err
+					return errs.New(internalErrMsg)
 				}
 			}
 			if projectPayment != nil {
@@ -234,7 +234,7 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 
 				err = tx.ProjectPayments().Update(ctx, *projectPayment)
 				if err != nil {
-					return err
+					return errs.New(internalErrMsg)
 				}
 			}
 		}
@@ -248,7 +248,11 @@ func (s *Service) AddNewProjectPaymentMethod(ctx context.Context, paymentMethodT
 		}
 
 		pp, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
-		return err
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		return nil
 	})
 
 	return pp, nil
@@ -266,7 +270,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			return nil, err
+			return nil, errs.New(internalErrMsg)
 		}
 
 		cus, err := s.pm.CreateCustomer(ctx, payments.CreateCustomerParams{
@@ -312,13 +316,13 @@ func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMetho
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
 		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
 		if err != nil && err != sql.ErrNoRows {
-			return err
+			return errs.New(internalErrMsg)
 		}
 
 		if projectPayment != nil {
@@ -326,7 +330,7 @@ func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMetho
 
 			err = tx.ProjectPayments().Update(ctx, *projectPayment)
 			if err != nil {
-				return err
+				return errs.New(internalErrMsg)
 			}
 		}
 
@@ -339,7 +343,11 @@ func (s *Service) AttachPaymentMethodToProject(ctx context.Context, paymentMetho
 		}
 
 		_, err = tx.ProjectPayments().Create(ctx, projectPaymentInfo)
-		return err
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		return nil
 	})
 
 	return err
@@ -355,28 +363,33 @@ func (s *Service) SetDefaultPaymentMethod(ctx context.Context, projectPaymentID 
 
 	tx, err := s.store.BeginTx(ctx)
 	if err != nil {
-		return err
+		return errs.New(internalErrMsg)
 	}
 
 	err = withTx(tx, func(tx DBTx) error {
 		projectPayment, err := tx.ProjectPayments().GetDefaultByProjectID(ctx, projectID)
 		if err != nil {
-			return err
+			return errs.New(internalErrMsg)
 		}
 		projectPayment.IsDefault = false
 
 		err = tx.ProjectPayments().Update(ctx, *projectPayment)
 		if err != nil {
-			return err
+			return errs.New(internalErrMsg)
 		}
 
 		projectPayment, err = tx.ProjectPayments().GetByID(ctx, projectPaymentID)
 		if err != nil {
-			return err
+			return errs.New(internalErrMsg)
 		}
 		projectPayment.IsDefault = true
 
-		return tx.ProjectPayments().Update(ctx, *projectPayment)
+		err = tx.ProjectPayments().Update(ctx, *projectPayment)
+		if err != nil {
+			return errs.New(internalErrMsg)
+		}
+
+		return nil
 	})
 
 	return err
@@ -390,7 +403,12 @@ func (s *Service) DeleteProjectPaymentMethod(ctx context.Context, projectPayment
 		return err
 	}
 
-	return s.store.ProjectPayments().Delete(ctx, projectPaymentID)
+	err = s.store.ProjectPayments().Delete(ctx, projectPaymentID)
+	if err != nil {
+		return errs.New(internalErrMsg)
+	}
+
+	return nil
 }
 
 // GetProjectPaymentMethods retrieves project payment methods
@@ -403,7 +421,7 @@ func (s *Service) GetProjectPaymentMethods(ctx context.Context, projectID uuid.U
 
 	projectPaymentInfos, err := s.store.ProjectPayments().GetByProjectID(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	for _, payment := range projectPaymentInfos {
@@ -445,7 +463,7 @@ func (s *Service) GetUserPaymentMethods(ctx context.Context) (_ []payments.Payme
 
 	userPayments, err := s.store.UserPayments().Get(ctx, authorization.User.ID)
 	if err != nil {
-		return nil, err
+		return nil, errs.New(internalErrMsg)
 	}
 
 	return s.pm.GetCustomerPaymentsMethods(ctx, userPayments.CustomerID)
