@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -688,7 +690,6 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 		}
 
 		var allSQL string
-		var allValues []interface{}
 		for _, updateReq := range updateSlice {
 			dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(updateReq.NodeID.Bytes()))
 			if err != nil {
@@ -702,13 +703,12 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 			}
 
 			updateNodeStats := populateUpdateNodeStats(dbNode, updateReq)
-			sql, values := buildUpdateStatement(updateNodeStats)
+			sql := buildUpdateStatement(cache.db, updateNodeStats)
 
 			allSQL += sql
-			allValues = append(allValues, values...)
 		}
 
-		results, err := tx.Tx.Exec(allSQL, allValues...)
+		results, err := tx.Tx.Exec(allSQL)
 		if err != nil {
 			appendAll()
 			return duf, errs.Combine(err, tx.Rollback())
@@ -1001,102 +1001,110 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(update updateNodeStats) (string, []interface{}) {
+func buildUpdateStatement(db *dbx.DB, update updateNodeStats) string {
 	if update.NodeID.IsZero() {
-		return "", nil
+		return ""
 	}
-	var values []interface{}
+	atLeastOne := false
 	sql := "UPDATE nodes SET "
 	if update.TotalAuditCount.set {
-		values = append(values, update.TotalAuditCount.value)
-		sql += "total_audit_count = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("total_audit_count = %v", update.TotalAuditCount.value)
 	}
 	if update.TotalUptimeCount.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.TotalUptimeCount.value)
-		sql += "total_uptime_count = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("total_uptime_count = %v", update.TotalUptimeCount.value)
 	}
 	if update.AuditReputationAlpha.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.AuditReputationAlpha.value)
-		sql += "audit_reputation_alpha = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("audit_reputation_alpha = %v", update.AuditReputationAlpha.value)
 	}
 	if update.AuditReputationBeta.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.AuditReputationBeta.value)
-		sql += "audit_reputation_beta = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("audit_reputation_beta = %v", update.AuditReputationBeta.value)
 	}
 	if update.UptimeReputationAlpha.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.UptimeReputationAlpha.value)
-		sql += "uptime_reputation_alpha = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("uptime_reputation_alpha = %v", update.UptimeReputationAlpha.value)
 	}
 	if update.UptimeReputationBeta.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.UptimeReputationBeta.value)
-		sql += "uptime_reputation_beta = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("uptime_reputation_beta = %v", update.UptimeReputationBeta.value)
 	}
 	if update.Disqualified.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.Disqualified.value)
-		sql += "disqualified = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("disqualified = '%v'", update.Disqualified.value.Format(time.RFC3339Nano))
 	}
 	if update.UptimeSuccessCount.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.UptimeSuccessCount.value)
-		sql += "uptime_success_count = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("uptime_success_count = %v", update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.LastContactSuccess.value)
-		sql += "last_contact_success = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("last_contact_success = '%v'", update.LastContactSuccess.value.Format(time.RFC3339Nano))
 	}
 	if update.LastContactFailure.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.LastContactFailure.value)
-		sql += "last_contact_failure = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("last_contact_failure = '%v'", update.LastContactFailure.value.Format(time.RFC3339Nano))
 	}
 	if update.AuditSuccessCount.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.AuditSuccessCount.value)
-		sql += "audit_success_count = ?"
+		atLeastOne = true
+		sql += fmt.Sprintf("audit_success_count = %v", update.AuditSuccessCount.value)
 	}
 	if update.Contained.set {
-		if len(values) > 0 {
+		if atLeastOne {
 			sql += ","
 		}
-		values = append(values, update.Contained.value)
-		sql += "contained = ?"
+
+		atLeastOne = true
+		sql += fmt.Sprintf("contained = %v", update.Contained.value)
 	}
-	if len(values) == 0 {
-		return "", nil
+	if !atLeastOne {
+		return ""
+	}
+	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
+	switch db.DB.Driver().(type) {
+	case *sqlite3.SQLiteDriver:
+		sql += fmt.Sprintf(" WHERE nodes.id = X'%v';\n", hexNodeID)
+		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = X'%v';\n", hexNodeID)
+	case *pq.Driver:
+		sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
+		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = X'%v', 'hex');\n", hexNodeID)
+	default:
+		return ""
 	}
 
-	sql += " WHERE nodes.id = ?;\n"
-	sql += "DELETE FROM pending_audits WHERE pending_audits.node_id = ?;\n"
-	values = append(values, update.NodeID.Bytes(), update.NodeID.Bytes())
-
-	return sql, values
+	return sql
 }
 
 type int64Field struct {
