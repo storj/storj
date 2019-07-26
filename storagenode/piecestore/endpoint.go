@@ -554,6 +554,11 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	// subtract some time to leave room for clock difference between the satellite and storage node
 	createdBefore := retainReq.GetCreationDate().Add(-endpoint.config.RetainTimeBuffer)
 
+	endpoint.log.Info("Prepared to run a Retain request.",
+		zap.Time("createdBefore", createdBefore),
+		zap.Int64("filterSize", filter.Size()),
+		zap.String("satellite", peer.ID.String()))
+
 	err = endpoint.store.ForAllPieceIDsOwnedBySatellite(ctx, peer.ID, createdBefore, func(access pieces.StoredPieceAccess) error {
 		pieceID := access.PieceID()
 		if !filter.Contains(pieceID) {

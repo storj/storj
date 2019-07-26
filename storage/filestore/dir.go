@@ -423,6 +423,11 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 			}
 			blobFileName := keyInfo.Name()
 			encodedKey := keyPrefix + blobFileName
+			formatVer := storage.FormatV0
+			if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
+				formatVer = storage.FormatV1
+				encodedKey = encodedKey[0 : len(encodedKey)-len(v1PieceFileSuffix)]
+			}
 			key, err := pathEncoding.DecodeString(encodedKey)
 			if err != nil {
 				continue
@@ -432,10 +437,6 @@ func (dir *Dir) forAllKeysInNamespaceWithPrefix(ctx context.Context, namespace [
 				Key:       key,
 			}
 			fullPath := filepath.Join(keyDir, blobFileName)
-			formatVer := storage.FormatV0
-			if strings.HasSuffix(blobFileName, v1PieceFileSuffix) {
-				formatVer = storage.FormatV1
-			}
 			err = doForEach(newStoredBlobAccess(ref, fullPath, keyInfo, formatVer))
 			if err != nil {
 				return err
