@@ -6,7 +6,6 @@ package consoleql
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/graphql-go/graphql"
 	"github.com/skyrings/skyring-common/tools/uuid"
@@ -227,25 +226,9 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 						return nil, err
 					}
 
-					var userPayments []struct {
-						ID         string
-						ExpYear    int64
-						ExpMonth   int64
-						CardBrand  string
-						LastFour   string
-						HolderName string
-						AddedAt    time.Time
-					}
+					var userPayments []console.UserPaymentMethodCombined
 					for _, method := range methods {
-						userPayments = append(userPayments, struct {
-							ID         string
-							ExpYear    int64
-							ExpMonth   int64
-							CardBrand  string
-							LastFour   string
-							HolderName string
-							AddedAt    time.Time
-						}{
+						userPayments = append(userPayments, console.UserPaymentMethodCombined{
 							ID:         string(method.ID),
 							ExpMonth:   method.Card.ExpMonth,
 							ExpYear:    method.Card.ExpYear,

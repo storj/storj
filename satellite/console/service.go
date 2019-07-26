@@ -302,7 +302,7 @@ func (s *Service) AddNewUserPaymentMethod(ctx context.Context, paymentMethodToke
 
 	return &UserPaymentMethod{
 		UserID:        authorization.User.ID,
-		paymentMethod: *pm,
+		PaymentMethod: *pm,
 	}, nil
 }
 

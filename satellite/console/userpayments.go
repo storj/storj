@@ -29,5 +29,15 @@ type UserPayment struct {
 // UserPaymentMethod represents user payment information
 type UserPaymentMethod struct {
 	UserID        uuid.UUID
-	paymentMethod payments.PaymentMethod
+	PaymentMethod payments.PaymentMethod
+}
+
+type UserPaymentMethodCombined struct {
+	ID         string
+	ExpYear    int64
+	ExpMonth   int64
+	CardBrand  string
+	LastFour   string
+	HolderName string
+	AddedAt    time.Time
 }
