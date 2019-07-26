@@ -124,6 +124,12 @@ test-all-in-one: ## Test docker images locally
 	&& $(MAKE) satellite-image storagenode-image gateway-image \
 	&& ./scripts/test-aio.sh
 
+.PHONY: test-sim-backwards-compatible
+test-sim: ## Test uploading a file with last release (jenkins)
+	@echo "Running ${@}"
+	@echo "Two releases - ${OLD_RELEASE} ${NEW_RELEASE}"
+	@./scripts/test-releases.sh v0.12.0-415-ga9e562a0 v0.15.4
+
 ##@ Build
 
 .PHONY: images

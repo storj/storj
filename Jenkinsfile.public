@@ -90,6 +90,25 @@ pipeline {
                         sh 'make test-sim'
                     }
                 }
+
+                stage('Backward Compatible') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.2'
+                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+                    }
+
+                    steps {
+                        bash '''#!/bin/bash
+                            latestReleaseTags="echo $(git describe --tags `git rev-list --tags --max-count=2`)"
+                            newReleaseTag="$($latestReleaseTags | awk '{ print $1 }')"
+                            oldReleaseTag="$($latestReleaseTags | awk '{ print $2 }')"
+                            export NEW_RELEASE=$newReleaseTag
+                            export OLD_RELEASE=$oldReleaseTag
+                        '''
+                        sh 'make test-sim-backwards-compatible'
+                    }
+                }
             }
         }
     }
