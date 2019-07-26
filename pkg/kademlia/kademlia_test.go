@@ -424,7 +424,7 @@ type mockNodesServer struct {
 
 func (mn *mockNodesServer) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	atomic.AddInt32(&mn.queryCalled, 1)
-	return &pb.QueryResponse{Response: mn.returnValue}, nil
+	return &pb.QueryResponse{Vetted: mn.returnValue}, nil
 }
 
 func (mn *mockNodesServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {

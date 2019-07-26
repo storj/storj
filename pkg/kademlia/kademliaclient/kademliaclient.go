@@ -52,10 +52,10 @@ func (dialer *Dialer) Close() error {
 
 // Lookup queries ask about find with a limited number of routing table and antechamber nodes to be returned,
 // and also sends information about self. If self is nil, pingback will be false.
-func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, find storj.NodeID, rtLimit, acLimit int) (_ []*pb.Node, err error) {
+func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, find storj.NodeID, rtLimit, acLimit int) (_, _ []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !dialer.limit.Lock() {
-		return nil, context.Canceled
+		return nil, nil, context.Canceled
 	}
 	defer dialer.limit.Unlock()
 
@@ -71,7 +71,7 @@ func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, fi
 
 	conn, err := dialer.dialNode(ctx, ask)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() {
 		err = errs.Combine(err, conn.disconnect())
@@ -79,10 +79,10 @@ func (dialer *Dialer) Lookup(ctx context.Context, self *pb.Node, ask pb.Node, fi
 
 	resp, err := conn.client.Query(ctx, &req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return resp.Response, nil
+	return resp.Vetted, resp.Unvetted, nil
 }
 
 // PingNode pings target.

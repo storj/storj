@@ -56,7 +56,7 @@ func (endpoint *Endpoint) Query(ctx context.Context, req *pb.QueryRequest) (_ *p
 		return &pb.QueryResponse{}, EndpointError.New("could not find near endpoint: %v", err)
 	}
 
-	return &pb.QueryResponse{Sender: req.Sender, Response: append(rtNodes, acNodes...)}, nil
+	return &pb.QueryResponse{Sender: req.Sender, Vetted: rtNodes, Unvetted: acNodes}, nil
 }
 
 // pingback implements pingback for queries
