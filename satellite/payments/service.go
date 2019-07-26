@@ -5,8 +5,9 @@ package payments
 
 import (
 	"context"
-	"github.com/zeebo/errs"
 	"time"
+
+	"github.com/zeebo/errs"
 )
 
 // Service is interfaces that defines behavior for working with payments
