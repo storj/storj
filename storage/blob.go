@@ -109,10 +109,10 @@ type Blobs interface {
 	// invalidate earlier calls, so ReserveSpace(0) undoes all space reservation. This
 	// may only be useful for test scenarios.
 	ReserveSpace(amount int64)
-	// ForAllV1KeysInNamespace executes doForEach for each locally stored blob, stored with
+	// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
 	// storage format V1 or greater, in the given namespace. If doForEach returns a non-nil
-	// error, ForAllV1KeysInNamespace will stop iterating and return the error immediately.
-	ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, doForEach func(StoredBlobAccess) error) error
+	// error, ForAllKeysInNamespace will stop iterating and return the error immediately.
+	ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(StoredBlobAccess) error) error
 }
 
 // StoredBlobAccess allows inspection of a blob and its underlying file during iteration with

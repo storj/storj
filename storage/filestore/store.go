@@ -136,7 +136,7 @@ func (store *Store) SpaceUsed(ctx context.Context) (space int64, err error) {
 // SpaceUsedInNamespace adds up how much is used in the given namespace for blob storage
 func (store *Store) SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error) {
 	var totalUsed int64
-	err := store.ForAllV1KeysInNamespace(ctx, namespace, func(access storage.StoredBlobAccess) error {
+	err := store.ForAllKeysInNamespace(ctx, namespace, func(access storage.StoredBlobAccess) error {
 		statInfo, statErr := access.Stat(ctx)
 		if statErr != nil {
 			store.log.Sugar().Errorf("failed to stat: %v", statErr)
@@ -173,10 +173,10 @@ func (store *Store) GetAllNamespaces(ctx context.Context) (ids [][]byte, err err
 	return store.dir.GetAllNamespaces(ctx)
 }
 
-// ForAllV1KeysInNamespace executes doForEach for each locally stored blob, stored with
+// ForAllKeysInNamespace executes doForEach for each locally stored blob, stored with
 // storage format V1 or greater, in the given namespace, if that blob was created before the
 // specified time. If doForEach returns a non-nil error, ForAllKeysInNamespace will stop
 // iterating and return the error immediately.
-func (store *Store) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
-	return store.dir.ForAllV1KeysInNamespace(ctx, namespace, doForEach)
+func (store *Store) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) (err error) {
+	return store.dir.ForAllKeysInNamespace(ctx, namespace, doForEach)
 }

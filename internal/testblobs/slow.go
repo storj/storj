@@ -98,12 +98,12 @@ func (slow *SlowBlobs) LookupSpecific(ctx context.Context, ref storage.BlobRef, 
 	return slow.blobs.LookupSpecific(ctx, ref, formatVer)
 }
 
-// ForAllV1KeysInNamespace executes doForEach for each locally stored blob in the given namespace.
-// If doForEach returns a non-nil error, ForAllV1KeysInNamespace will stop iterating and return the
+// ForAllKeysInNamespace executes doForEach for each locally stored blob in the given namespace.
+// If doForEach returns a non-nil error, ForAllKeysInNamespace will stop iterating and return the
 // error immediately.
-func (slow *SlowBlobs) ForAllV1KeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) error {
+func (slow *SlowBlobs) ForAllKeysInNamespace(ctx context.Context, namespace []byte, doForEach func(storage.StoredBlobAccess) error) error {
 	slow.sleep()
-	return slow.blobs.ForAllV1KeysInNamespace(ctx, namespace, doForEach)
+	return slow.blobs.ForAllKeysInNamespace(ctx, namespace, doForEach)
 }
 
 // FreeSpace return how much free space left for writing.

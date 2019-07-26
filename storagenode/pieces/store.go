@@ -213,7 +213,11 @@ func (store *Store) GetV0PieceInfoDB() V0PieceInfoDB {
 func (store *Store) ForAllPieceIDsOwnedBySatellite(ctx context.Context, satellite storj.NodeID, doForEach func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// first iterate over all in V1 storage, then all in V0
-	err = store.blobs.ForAllV1KeysInNamespace(ctx, satellite.Bytes(), func(blobAccess storage.StoredBlobAccess) error {
+	err = store.blobs.ForAllKeysInNamespace(ctx, satellite.Bytes(), func(blobAccess storage.StoredBlobAccess) error {
+		if blobAccess.StorageFormatVersion() < storage.FormatV1 {
+			// we'll address this piece while iterating over the V0 pieces below.
+			return nil
+		}
 		pieceAccess, err := newStoredPieceAccess(store, blobAccess)
 		if err != nil {
 			// something is wrong with internals; blob storage thinks this key was stored, but
