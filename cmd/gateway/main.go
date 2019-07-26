@@ -311,13 +311,13 @@ func (flags GatewayFlags) interactive(
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer uplk.Close()
+	defer func() { err = errs.Combine(err, uplk.Close()) }()
 
 	project, err := uplk.OpenProject(ctx, satelliteAddress, apiKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	defer project.Close()
+	defer func() { err = errs.Combine(err, project.Close()) }()
 
 	key, err := project.SaltedKeyFromPassphrase(ctx, passphrase)
 	if err != nil {
